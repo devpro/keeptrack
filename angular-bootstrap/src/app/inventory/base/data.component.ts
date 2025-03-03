@@ -8,7 +8,7 @@ import { BackendData } from 'src/app/backend/types/backend-data';
 @Directive()
 export abstract class DataComponent<T extends BackendData> implements OnInit, OnDestroy {
   userEventsSubscription: Subscription | undefined;
-  items: Array<T> = [];
+  items: Array<T> | undefined;
   currentPage = 1;
   pageSize = 50;
 
@@ -44,7 +44,7 @@ export abstract class DataComponent<T extends BackendData> implements OnInit, On
 
   create(item: T) {
     this.dataService.create(item).subscribe(created => {
-      this.items.push(created);
+      this.items?.push(created);
       this.resetInputFields();
     });
   }
@@ -74,6 +74,10 @@ export abstract class DataComponent<T extends BackendData> implements OnInit, On
 
   delete(item: T) {
     this.dataService.delete(item)
-      .subscribe(() => this.items.splice(this.items.findIndex(x => x.id === item.id), 1));
+      .subscribe(() => {
+        if (this.items) {
+          this.items.splice(this.items.findIndex(x => x.id === item.id), 1);
+        }
+      });
   }
 }

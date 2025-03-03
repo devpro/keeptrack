@@ -1,26 +1,17 @@
-﻿using System;
-using System.Security.Claims;
-using System.Threading.Tasks;
+﻿using System.Security.Claims;
 using Blazored.LocalStorage;
 using KeepTrack.BlazorWebAssemblyApp.Models;
 using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.Extensions.Logging;
 
 namespace KeepTrack.BlazorWebAssemblyApp.Authorization
 {
-    public class ExternalAuthStateProvider : AuthenticationStateProvider
+    public class ExternalAuthStateProvider(ILogger<ExternalAuthStateProvider> logger, ILocalStorageService localStorage) : AuthenticationStateProvider
     {
-        private readonly ILogger<ExternalAuthStateProvider> _logger;
+        private readonly ILogger<ExternalAuthStateProvider> _logger = logger;
 
-        private readonly ILocalStorageService _localStorage;
+        private readonly ILocalStorageService _localStorage = localStorage;
 
-        private UserModel _userModel;
-
-        public ExternalAuthStateProvider(ILogger<ExternalAuthStateProvider> logger, ILocalStorageService localStorage)
-        {
-            _logger = logger;
-            _localStorage = localStorage;
-        }
+        private UserModel? _userModel;
 
         public async Task UpdateAuthentitationStateAsync(string displayName, string emailAddress, string token)
         {
@@ -42,12 +33,11 @@ namespace KeepTrack.BlazorWebAssemblyApp.Authorization
             }
 
             var identity = new ClaimsIdentity(
-                new[]
-                {
+                [
                     new Claim(ClaimTypes.Name, _userModel.DisplayName),
                     new Claim(ClaimTypes.Email, _userModel.EmailAddress),
                     new Claim("Token", _userModel.Token)
-                },
+                ],
                 "Federated authentication");
 
             _logger.LogInformation($"{nameof(GetAuthenticationStateAsync)} called at {DateTime.Now.ToLongTimeString()}");
