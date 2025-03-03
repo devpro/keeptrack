@@ -44,7 +44,7 @@ namespace KeepTrack.Api.IntegrationTests.Deployed
                 updated.Should().BeEquivalentTo(created);
 
                 var finalItems = await GetAsync<List<MovieDto>>($"/{ResourceEndpoint}");
-                finalItems.Count.Should().BeGreaterOrEqualTo(1);
+                finalItems.Count.Should().BeGreaterThanOrEqualTo(1);
                 var firstItem = finalItems.FirstOrDefault(x => x.Id == updated.Id);
                 firstItem.Should().NotBeNull();
                 firstItem.Title.Should().Be(updated.Title);

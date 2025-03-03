@@ -1,4 +1,4 @@
-﻿# Keep track .NET solution
+﻿# Keeptrack .NET solution
 
 [![Build Status](https://dev.azure.com/devprofr/open-source/_apis/build/status/keeptrack-ci?branchName=master)](https://dev.azure.com/devprofr/open-source/_build/latest?definitionId=26&branchName=master)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=devpro.keep-track&metric=alert_status)](https://sonarcloud.io/dashboard?id=devpro.keep-track)
@@ -14,12 +14,12 @@ NuGet Packages:
 
 ## Requirements
 
-- [.NET 7.0 SDK](dot.net)
-- MongoDB 7.0 database
+- [.NET 9.0 SDK](dot.net)
+- MongoDB 8.0 database
   - Local server
 
   ```bash
-  cd D:/Programs/mongodb-7.0/bin
+  cd D:/Programs/mongodb-8.0/bin
   md log
   md data
   mongod --logpath log/mongod.log --dbpath data --port 27017
@@ -28,7 +28,7 @@ NuGet Packages:
   - [Docker](https://hub.docker.com/_/mongo/)
 
   ```bash
-  docker run --name mongodb70 -d -p 27017:27017 mongo:7.0
+  docker run --name mongodb80 -d -p 27017:27017 mongo:8.0
   ```
 
   - [MongoDB Atlas](https://cloud.mongodb.com/) cluster
@@ -36,7 +36,7 @@ NuGet Packages:
   - Database indexes
 
   ```bash
-  docker run --rm --link mongodb -v "$(pwd)/scripts":/home/scripts mongo:7.0 bash -c "mongo mongodb://mongodb:27017/keeptrack /home/scripts/mongo-create-index.js"
+  docker run --rm --link mongodb -v "$(pwd)/scripts":/home/scripts mongo:8.0 bash -c "mongo mongodb://mongodb:27017/keeptrack /home/scripts/mongo-create-index.js"
   ```
 
 ## How to configure
@@ -156,11 +156,11 @@ dotnet test --settings Local.runsettings
 - Backup MongoDB database
 
 ```bash
-docker run --rm -it --workdir=/data --volume $(pwd):/data mongo:6.0 /bin/sh -c "mongodump --uri mongodb+srv://<USER>:<PASSWORD>@<CLUSTER>.<PROJECT>.mongodb.net/test"
+docker run --rm -it --workdir=/data --volume $(pwd):/data mongo:8.0 /bin/sh -c "mongodump --uri mongodb+srv://<USER>:<PASSWORD>@<CLUSTER>.<PROJECT>.mongodb.net/test"
 ```
 
 - Restore MongoDB database
 
 ```bash
-docker run --rm -it --workdir=/data --volume $(pwd):/data mongo:6.0 /bin/sh -c "mongorestore --uri mongodb+srv://<USER>:<PASSWORD>@<CLUSTER>.<PROJECT>.mongodb.net"
+docker run --rm -it --workdir=/data --volume $(pwd):/data mongo:8.0 /bin/sh -c "mongorestore --uri mongodb+srv://<USER>:<PASSWORD>@<CLUSTER>.<PROJECT>.mongodb.net"
 ```

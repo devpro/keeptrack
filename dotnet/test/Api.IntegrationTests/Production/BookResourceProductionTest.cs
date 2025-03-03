@@ -44,7 +44,7 @@ namespace KeepTrack.Api.IntegrationTests.Deployed
                 updated.Should().BeEquivalentTo(created, x => x.Excluding(item => item.FinishedAt)); // issue with DateTime and MongoDB
 
                 var finalItems = await GetAsync<List<BookDto>>($"/{ResourceEndpoint}");
-                finalItems.Count.Should().BeGreaterOrEqualTo(1);
+                finalItems.Count.Should().BeGreaterThanOrEqualTo(1);
                 var firstItem = finalItems.FirstOrDefault(x => x.Id == updated.Id);
                 firstItem.Should().NotBeNull();
                 firstItem.Title.Should().Be(updated.Title);

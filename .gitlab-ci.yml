@@ -1,0 +1,37 @@
+stages:
+  - build
+  # - test # TODO
+  # - package # TODO
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "web"
+ 
+variables:
+  DOTNET_VERSION: "9.0"
+  NODEJS_VERSION: "22"
+
+.base-dotnet:
+  image: mcr.microsoft.com/dotnet/sdk:$DOTNET_VERSION
+  before_script:
+    - cd dotnet
+
+.base-angular:
+  image: node:$NODEJS_VERSION
+  before_script:
+    - cd angular-bootstrap  
+
+build-dotnet:
+  extends: .base-dotnet
+  stage: build
+  script:
+    - dotnet restore
+    - dotnet build --no-restore --configuration Debug
+
+build-angular:
+  extends: .base-angular
+  stage: build
+  script:
+    - npm install

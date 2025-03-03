@@ -4,7 +4,7 @@ import { Subscription } from 'rxjs';
 
 import { JwtInterceptorService } from './jwt-interceptor.service';
 
-// see https://github.com/angular/angularfire/blob/master/docs/auth/getting-started.md
+// see https://github.com/angular/angularfire/blob/main/docs/auth.md
 @Injectable({
   providedIn: 'root'
 })

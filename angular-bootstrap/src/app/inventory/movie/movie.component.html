@@ -55,7 +55,7 @@
   </table>
 </div>
 
-<nav aria-label="Table navigation">
+<nav aria-label="Table navigation" *ngIf="items">
   <ul class="pagination justify-content-center">
     <li class="page-item" [ngClass]="{ 'disabled': currentPage === 1 }"><a class="page-link" href="#" (click)="updateCurrentPage($event, currentPage - 1, searchInput.value)">&laquo;</a></li>
     <li class="page-item active" aria-current="page"><a class="page-link">{{ currentPage }}</a></li>
@@ -63,7 +63,7 @@
   </ul>
 </nav>
 
-<div class="card-group mb-1 text-center mx-auto" style="width: 70%;">
+<div class="card-group mb-1 text-center mx-auto" style="width: 70%;" *ngIf="items">
   <div class="card mb-1 box-shadow">
     <div class="card-header">
       <h4 class="my-0 font-weight-normal">Add</h4>
