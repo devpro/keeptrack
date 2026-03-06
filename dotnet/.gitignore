@@ -12,3 +12,4 @@ dist/
 
 # Jetbrains IDE local files
 .idea/
+*.DotSettings.user
