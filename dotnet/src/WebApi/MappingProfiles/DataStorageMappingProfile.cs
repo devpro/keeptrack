@@ -1,13 +1,13 @@
 ﻿namespace KeepTrack.WebApi.MappingProfiles;
 
-public class InventoryMappingProfile : Profile
+public class DataStorageMappingProfile : Profile
 {
     public override string ProfileName
     {
-        get { return "KeepTrackInventoryInfrastructureMongoDbMappingProfile"; }
+        get { return "KeepTrackDataStorageMappingProfile"; }
     }
 
-    public InventoryMappingProfile()
+    public DataStorageMappingProfile()
     {
         CreateMap<Dal.MongoDb.Entities.Book, Domain.Models.BookModel>();
         CreateMap<Domain.Models.BookModel, Dal.MongoDb.Entities.Book>();

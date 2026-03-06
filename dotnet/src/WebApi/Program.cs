@@ -1,7 +1,4 @@
 ﻿// creates the web application builder and adds services to the container
-
-using Withywoods.AutoMapper.MongoDb;
-
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers(opts => { opts.Filters.Add<CustomExceptionFilterAttribute>(); });

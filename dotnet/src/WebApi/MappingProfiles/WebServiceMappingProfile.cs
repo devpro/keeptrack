@@ -1,13 +1,13 @@
 ﻿namespace KeepTrack.WebApi.MappingProfiles;
 
-public class GenericMappingProfile : Profile
+public class WebServiceMappingProfile : Profile
 {
     public override string ProfileName
     {
-        get { return "KeepTrackApiGenericMappingProfile"; }
+        get { return "KeepTrackWebServiceMappingProfile"; }
     }
 
-    public GenericMappingProfile()
+    public WebServiceMappingProfile()
     {
         CreateMap<MovieDto, Domain.Models.MovieModel>()
             .ForMember(x => x.OwnerId, opt => opt.Ignore());
