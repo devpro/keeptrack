@@ -1,18 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>KeepTrack.BlazorWebAssemblyApp</AssemblyName>
     <RootNamespace>KeepTrack.BlazorWebAssemblyApp</RootNamespace>
-    <ProjectGuid>{AB9965A5-CC64-46F4-9ABF-C5FFD1570F7C}</ProjectGuid>
     <TypeScriptCompileBlocked>true</TypeScriptCompileBlocked>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <DebugType>full</DebugType>
-    <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
 
   <ItemGroup>
@@ -30,7 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Api.Dto\Api.Dto.csproj" />
+    <ProjectReference Include="..\WebApi.Dto\WebApi.Dto.csproj" />
   </ItemGroup>
 
 </Project>

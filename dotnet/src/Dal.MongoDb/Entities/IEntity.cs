@@ -1,11 +1,8 @@
-﻿using MongoDB.Bson;
+﻿namespace KeepTrack.Dal.MongoDb.Entities;
 
-namespace KeepTrack.Dal.MongoDb.Entities
+public interface IEntity
 {
-    public interface IEntity
-    {
-        ObjectId Id { get; set; }
+    public string Id { get; set; }
 
-        string OwnerId { get; set; }
-    }
+    string OwnerId { get; set; }
 }

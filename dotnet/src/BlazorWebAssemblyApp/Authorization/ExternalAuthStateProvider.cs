@@ -1,7 +1,5 @@
 ﻿using System.Security.Claims;
-using Blazored.LocalStorage;
 using KeepTrack.BlazorWebAssemblyApp.Models;
-using Microsoft.AspNetCore.Components.Authorization;
 
 namespace KeepTrack.BlazorWebAssemblyApp.Authorization
 {

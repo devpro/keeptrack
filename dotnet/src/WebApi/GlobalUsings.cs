@@ -1,0 +1,14 @@
+﻿global using System;
+global using AutoMapper;
+global using KeepTrack.WebApi;
+global using KeepTrack.WebApi.DependencyInjection;
+global using KeepTrack.WebApi.Dto;
+global using KeepTrack.WebApi.Filters;
+global using Microsoft.AspNetCore.Authentication.JwtBearer;
+global using Microsoft.AspNetCore.Builder;
+global using Microsoft.Extensions.Configuration;
+global using Microsoft.Extensions.DependencyInjection;
+global using Microsoft.IdentityModel.Tokens;
+global using Microsoft.OpenApi;
+global using MongoDB.Bson;
+global using Scalar.AspNetCore;

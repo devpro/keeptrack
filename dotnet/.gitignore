@@ -9,3 +9,6 @@ Local.runsettings
 firebase.config.js
 node_modules
 dist/
+
+# Jetbrains IDE local files
+.idea/

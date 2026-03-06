@@ -1,0 +1,24 @@
+﻿<Project>
+  <PropertyGroup>
+    <MsBuildAllProjects>$(MsBuildAllProjects);$(MsBuildThisFileFullPath)</MsBuildAllProjects>
+  </PropertyGroup>
+ 
+  <PropertyGroup>
+    <!-- edit this value to change the current MAJOR.MINOR.PATCH version -->
+    <VersionPrefix>1.1.0</VersionPrefix>
+  </PropertyGroup>
+ 
+  <Choose>
+    <When Condition=" '$(BUILD_SOURCEBRANCHNAME)' != 'main' ">
+      <PropertyGroup>
+        <!-- Alpha version numbers are MAJOR.MINOR.PATCH-alpha-###### -->
+        <VersionSuffix>alpha-$(BUILD_BUILDID.PadLeft(6, '0'))</VersionSuffix>
+      </PropertyGroup>
+    </When>
+    <Otherwise>
+      <PropertyGroup>
+        <VersionSuffix>$(VersionSuffix)</VersionSuffix>
+      </PropertyGroup>
+    </Otherwise>
+  </Choose>
+</Project>

@@ -1,9 +1,8 @@
-﻿namespace KeepTrack.Domain.Models
-{
-    public interface IDataModel
-    {
-        public string Id { get; set; }
+﻿namespace KeepTrack.Domain.Models;
 
-        public string OwnerId { get; set; }
-    }
+public interface IDataModel
+{
+    public string Id { get; set; }
+
+    public string OwnerId { get; set; }
 }

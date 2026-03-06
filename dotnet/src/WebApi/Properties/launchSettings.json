@@ -1,0 +1,32 @@
+﻿{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "launchUrl": "scalar",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "AllowedOrigins__0": "http://localhost:4200",
+        "AllowedOrigins__1": "https://localhost:5021",
+        "Features__IsScalarEnabled": "true",
+        "Features__IsHttpsRedirectionEnabled": "false"
+      },
+      "dotnetRunMessages": true,
+      "applicationUrl": "http://localhost:5057"
+    },
+    "https": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "launchUrl": "scalar",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "AllowedOrigins__0": "http://localhost:4200",
+        "AllowedOrigins__1": "https://localhost:5021",
+        "Features__IsScalarEnabled": "true"
+      },
+      "dotnetRunMessages": true,
+      "applicationUrl": "https://localhost:5011;http://localhost:5010"
+    }
+  }
+}

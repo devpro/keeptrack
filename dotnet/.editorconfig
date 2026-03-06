@@ -3,22 +3,22 @@
 root = true
 
 [*]
-charset = utf-8-bom
 end_of_line = lf
-indent_style = space
 insert_final_newline = true
+indent_style = space
+max_line_length = 140
 
-[*.{config,csproj,html,js,json,md,runsettings,sh,yml,yaml}]
+[*.{cs,razor,sln}]
+indent_size = 4
+trim_trailing_whitespace = true
+
+[*.{config,csproj,css,feature,html,js,json,props,runsettings,sh,xml,yml,yaml}]
 indent_size = 2
 trim_trailing_whitespace = true
 
 [*.md]
 indent_size = 2
 trim_trailing_whitespace = false
-
-[*.{cs,razor,sln}]
-indent_size = 4
-trim_trailing_whitespace = true
 
 [*.cs]
 dotnet_sort_system_directives_first = true
@@ -133,7 +133,7 @@ csharp_space_after_dot = false
 csharp_space_after_keywords_in_control_flow_statements = true
 csharp_space_after_semicolon_in_for_statement = true
 csharp_space_around_binary_operators = before_and_after
-csharp_space_around_declaration_statements = do_not_ignore
+csharp_space_around_declaration_statements = unset
 csharp_space_before_colon_in_inheritance_clause = true
 csharp_space_before_comma = false
 csharp_space_before_dot = false
