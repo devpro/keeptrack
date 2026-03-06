@@ -1,5 +1,8 @@
-﻿using KeepTrack.BlazorWebAssemblyApp;
+﻿using Blazored.LocalStorage;
+using KeepTrack.BlazorWebAssemblyApp;
 using KeepTrack.BlazorWebAssemblyApp.Authorization;
+using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");

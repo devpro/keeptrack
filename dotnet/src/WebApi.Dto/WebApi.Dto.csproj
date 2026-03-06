@@ -5,6 +5,8 @@
     <AssemblyName>KeepTrack.WebApi.Dto</AssemblyName>
     <RootNamespace>KeepTrack.WebApi.Dto</RootNamespace>
     <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
 
 </Project>

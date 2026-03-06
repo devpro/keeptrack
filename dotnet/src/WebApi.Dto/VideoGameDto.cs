@@ -10,17 +10,17 @@ public class VideoGameDto
     /// <summary>
     /// Video Game ID.
     /// </summary>
-    public string Id { get; set; }
+    public string? Id { get; set; }
 
     /// <summary>
     /// Video Game title.
     /// </summary>
-    public string Title { get; set; }
+    public string? Title { get; set; }
 
     /// <summary>
     /// Latest plaform the game has been played on.
     /// </summary>
-    public string Platform { get; set; }
+    public string? Platform { get; set; }
 
     /// <summary>
     /// Released date.
@@ -30,7 +30,7 @@ public class VideoGameDto
     /// <summary>
     /// Current payling state.
     /// </summary>
-    public string State { get; set; }
+    public string? State { get; set; }
 
     /// <summary>
     /// Finished date.

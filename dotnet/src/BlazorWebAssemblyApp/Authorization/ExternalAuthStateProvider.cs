@@ -1,9 +1,12 @@
 ﻿using System.Security.Claims;
+using Blazored.LocalStorage;
 using KeepTrack.BlazorWebAssemblyApp.Models;
+using Microsoft.AspNetCore.Components.Authorization;
 
 namespace KeepTrack.BlazorWebAssemblyApp.Authorization
 {
-    public class ExternalAuthStateProvider(ILogger<ExternalAuthStateProvider> logger, ILocalStorageService localStorage) : AuthenticationStateProvider
+    public class ExternalAuthStateProvider(ILogger<ExternalAuthStateProvider> logger, ILocalStorageService localStorage)
+        : AuthenticationStateProvider
     {
         private readonly ILogger<ExternalAuthStateProvider> _logger = logger;
 

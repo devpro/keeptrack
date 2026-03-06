@@ -1,4 +1,4 @@
-﻿namespace KeepTrack.Api.Dto.Queries;
+﻿namespace KeepTrack.WebApi.Dto.Queries;
 
 /// <summary>
 /// Data query object.

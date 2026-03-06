@@ -10,22 +10,25 @@ public class BookDto
     /// <summary>
     /// Book ID.
     /// </summary>
-    public string Id { get; set; }
+    public string? Id { get; set; }
 
     /// <summary>
     /// Book title.
     /// </summary>
-    public string Title { get; set; }
+    /// <example>The Hobbit</example>
+    public string? Title { get; set; }
 
     /// <summary>
     /// Book author.
     /// </summary>
-    public string Author { get; set; }
+    /// <example>J.R.R. Tolkien</example>
+    public string? Author { get; set; }
 
     /// <summary>
     /// Book series.
     /// </summary>
-    public string Series { get; set; }
+    /// <example>Middle-earth Universe</example>
+    public string? Series { get; set; }
 
     /// <summary>
     /// Book finished reading date.

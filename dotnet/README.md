@@ -136,6 +136,14 @@ For integration tests, to manage the configuration (secrets) you can create a fi
 </RunSettings>
 ```
 
+Or in Rider, in "File | Settings | Build, Execution, Deployment | Unit Testing | Test Runner"
+
+- FIREBASE_APIKEY
+- FIREBASE_USERNAME
+- FIREBASE_PASSWORD
+
+Set KESTREL_WEBAPP_URL to target a specific instance (not use web app test instance).
+
 And execute all tests (unit and integration ones):
 
 ```bash

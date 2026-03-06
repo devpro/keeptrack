@@ -1,5 +1,5 @@
-﻿using KeepTrack.Api.Dto.Queries;
-using KeepTrack.Domain.Repositories;
+﻿using KeepTrack.Domain.Repositories;
+using KeepTrack.WebApi.Dto.Queries;
 using Microsoft.AspNetCore.Mvc;
 
 namespace KeepTrack.WebApi.Controllers;
@@ -45,6 +45,8 @@ public abstract class DataCrudControllerBase<T, U>(IMapper mapper, IDataReposito
     }
 
     [HttpPost]
+    [Consumes("application/json", "text/json")]
+    [Produces("application/json")]
     [ProducesResponseType(201)]
     public async Task<IActionResult> Post([FromBody] T dto)
     {

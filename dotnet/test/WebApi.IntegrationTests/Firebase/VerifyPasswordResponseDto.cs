@@ -2,12 +2,19 @@
 
 public class VerifyPasswordResponseDto
 {
-    public string Kind { get; set; }
-    public string LocalId { get; set; }
-    public string Email { get; set; }
-    public string DisplayName { get; set; }
-    public string IdToken { get; set; }
-    public bool Registered { get; set; }
-    public string RefreshToken { get; set; }
-    public string ExpiresIn { get; set; }
+    public required string Kind { get; init; }
+
+    public required string LocalId { get; init; }
+
+    public required string Email { get; init; }
+
+    public string? DisplayName { get; init; }
+
+    public required string IdToken { get; init; }
+
+    public bool Registered { get; init; }
+
+    public required string RefreshToken { get; init; }
+
+    public required string ExpiresIn { get; init; }
 }

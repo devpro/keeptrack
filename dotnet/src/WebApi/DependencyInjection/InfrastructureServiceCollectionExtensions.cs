@@ -25,10 +25,10 @@ internal static class InfrastructureServiceCollectionExtensions
             sp.GetRequiredService<IMongoClient>().GetDatabase(configuration.DatabaseName));
 
         services.TryAddScoped<Domain.Repositories.IBookRepository, Dal.MongoDb.Repositories.BookRepository>();
-        services.TryAddScoped<Domain.Repositories.ITvShowRepository, Dal.MongoDb.Repositories.TvShowRepository>();
-        services.TryAddScoped<Domain.Repositories.IVideoGameRepository, Dal.MongoDb.Repositories.VideoGameRepository>();
-        services.TryAddScoped<Domain.Repositories.IMovieRepository, Dal.MongoDb.Repositories.MovieRepository>();
         services.TryAddScoped<Domain.Repositories.ICarRepository, Dal.MongoDb.Repositories.CarRepository>();
         services.TryAddScoped<Domain.Repositories.ICarHistoryRepository, Dal.MongoDb.Repositories.CarHistoryRepository>();
+        services.TryAddScoped<Domain.Repositories.IMovieRepository, Dal.MongoDb.Repositories.MovieRepository>();
+        services.TryAddScoped<Domain.Repositories.ITvShowRepository, Dal.MongoDb.Repositories.TvShowRepository>();
+        services.TryAddScoped<Domain.Repositories.IVideoGameRepository, Dal.MongoDb.Repositories.VideoGameRepository>();
     }
 }

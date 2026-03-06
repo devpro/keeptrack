@@ -8,12 +8,12 @@ public class MovieDto
     /// <summary>
     /// Movie ID.
     /// </summary>
-    public string Id { get; set; }
+    public string? Id { get; set; }
 
     /// <summary>
     /// Title.
     /// </summary>
-    public string Title { get; set; }
+    public string? Title { get; set; }
 
     /// <summary>
     /// Year.
@@ -23,10 +23,10 @@ public class MovieDto
     /// <summary>
     /// IMDB ID.
     /// </summary>
-    public string ImdbPageId { get; set; }
+    public string? ImdbPageId { get; set; }
 
     /// <summary>
     /// Allocine ID.
     /// </summary>
-    public string AllocineId { get; set; }
+    public string? AllocineId { get; set; }
 }

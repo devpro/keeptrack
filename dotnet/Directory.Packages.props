@@ -32,5 +32,11 @@
     <PackageVersion Include="Withywoods.AutoMapper.MongoDb" Version="2.0.1" />
     <PackageVersion Include="Withywoods.Configuration" Version="2.0.1" />
     <PackageVersion Include="xunit.v3.mtp-v2" Version="3.2.2" />
+    <!--TODO-->
+    <PackageVersion Include="Blazored.LocalStorage" Version="4.5.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.3" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.3" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.Authentication" Version="10.0.3" />
+    <PackageVersion Include="System.Net.Http.Json" Version="10.0.3" />
   </ItemGroup>
 </Project>

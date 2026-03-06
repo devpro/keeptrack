@@ -8,10 +8,10 @@ public class TvShowDto
     /// <summary>
     /// TV Show ID.
     /// </summary>
-    public string Id { get; set; }
+    public string? Id { get; set; }
 
     /// <summary>
     /// TV Show title.
     /// </summary>
-    public string Title { get; set; }
+    public string? Title { get; set; }
 }

@@ -1,47 +1,47 @@
 ﻿using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
+using AwesomeAssertions;
 
 namespace KeepTrack.WebApi.IntegrationTests.Firebase;
 
 /// <summary>
 /// Firebase account repository, uses Firebase API client.
 /// </summary>
-public class AccountRepository
+public static class AccountRepository
 {
-    private readonly FirebaseConfiguration _firebaseConfiguration;
-
     /// <summary>
-    /// Create a new instance of <see cref="AccountRepository"/>.
+    /// Authenticate.
     /// </summary>
-    /// <param name="firebaseConfiguration"></param>
-    public AccountRepository(FirebaseConfiguration firebaseConfiguration)
-    {
-        _firebaseConfiguration = firebaseConfiguration;
-    }
-
-    /// <summary>
-    /// Authenticate with username/password.
-    /// </summary>
+    /// <param name="username"></param>
+    /// <param name="password"></param>
+    /// <param name="applicationKey"></param>
     /// <remarks>https://cloud.google.com/identity-platform/docs/reference/rest/v1/accounts/signInWithPassword</remarks>
     /// <returns>Received token</returns>
-    public async Task<string> Authenticate()
+    public static async Task<string?> AuthenticateAsync(string username, string password, string applicationKey)
     {
         using var httpClient = new HttpClient();
 
         var input = new
         {
-            email = FirebaseConfiguration.Username,
-            password = FirebaseConfiguration.Password,
+            email = username,
+            password,
             returnSecureToken = true
         };
-        var url = $"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FirebaseConfiguration.ApplicationKey}";
-        var response = await httpClient.PostAsync(url, new StringContent(input.ToJson(), Encoding.UTF8, "application/json"));
+        var url = $"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={applicationKey}";
+        var response = await httpClient.PostAsync(url, new StringContent(JsonSerializer.Serialize(input, JsonSerializerOptions.Web), Encoding.UTF8, "application/json"));
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var stringResponse = await response.Content.ReadAsStringAsync();
-        var output = stringResponse.FromJson<VerifyPasswordResponseDto>();
+        stringResponse.Should().NotBeNullOrEmpty();
+        var output = JsonSerializer.Deserialize<VerifyPasswordResponseDto>(stringResponse, JsonSerializerOptions.Web);
+        output.Should().NotBeNull();
+        output.Kind.Should().Be("identitytoolkit#VerifyPasswordResponse");
+        output.Email.Should().Be(username);
+        output.IdToken.Should().NotBeNullOrEmpty();
+        output.ExpiresIn.Should().Be("3600");
         return output.IdToken;
     }
 }
