@@ -14,12 +14,12 @@ NuGet Packages:
 
 ## Requirements
 
-- [.NET 9.0 SDK](dot.net)
-- MongoDB 8.0 database
+- [.NET 10.0 SDK](https://dotnet.microsoft.com/download)
+- MongoDB 8.2 database
   - Local server
 
   ```bash
-  cd D:/Programs/mongodb-8.0/bin
+  cd D:/Programs/mongodb-8.2/bin
   md log
   md data
   mongod --logpath log/mongod.log --dbpath data --port 27017
@@ -28,7 +28,7 @@ NuGet Packages:
   - [Docker](https://hub.docker.com/_/mongo/)
 
   ```bash
-  docker run --name mongodb80 -d -p 27017:27017 mongo:8.0
+  docker run --name mongodb -d -p 27017:27017 mongo:8.2
   ```
 
   - [MongoDB Atlas](https://cloud.mongodb.com/) cluster
@@ -36,17 +36,17 @@ NuGet Packages:
   - Database indexes
 
   ```bash
-  docker run --rm --link mongodb -v "$(pwd)/scripts":/home/scripts mongo:8.0 bash -c "mongo mongodb://mongodb:27017/keeptrack /home/scripts/mongo-create-index.js"
+  docker run --rm --link mongodb -v "$(pwd)/scripts":/home/scripts mongo:8.2 bash -c "mongo mongodb://mongodb:27017/keeptrack /home/scripts/mongo-create-index.js"
   ```
 
 ## How to configure
 
 ### API
 
-Key                                       | Description               | Default value
------------------------------------------ | ------------------------- | -------------
-`Infrastructure:MongoDB:ConnectionString` | MongoDB connection string |
-`Infrastructure:MongoDB:DatabaseName`     | MongoDB connection string | inventory
+Key                                       | Description              
+------------------------------------------|--------------------------
+`Infrastructure:MongoDB:ConnectionString` | MongoDB connection string
+`Infrastructure:MongoDB:DatabaseName`     | MongoDB database name 
 
 This values can be easily provided as environment variables (replace ":" by "__") or by configuration (json).
 
@@ -106,10 +106,10 @@ dotnet build
 
 ```bash
 # run the API (https://localhost:5011/)
-dotnet run --project src\Api
+dotnet run --project src/WebApi
 
 # run the Blazor WebAssembly web app (https://localhost:5021)
-dotnet watch run --project src\BlazorWebAssemblyApp
+dotnet watch run --project src/BlazorWebAssemblyApp
 ```
 
 ## How to test
@@ -127,10 +127,10 @@ For integration tests, to manage the configuration (secrets) you can create a fi
       <Authentication__JwtBearer__Authority></Authentication__JwtBearer__Authority>
       <Authentication__JwtBearer__TokenValidation__Issuer></Authentication__JwtBearer__TokenValidation__Issuer>
       <Authentication__JwtBearer__TokenValidation__Audience></Authentication__JwtBearer__TokenValidation__Audience>
-      <Keeptrack__Production__Url>xxxx</Keeptrack__Production__Url>
-      <Firebase__Application__Key>xxxx</Firebase__Application__Key>
-      <Firebase__Username>xxxx</Firebase__Username>
-      <Firebase__Password>xxxx</Firebase__Password>
+      <!-- <KESTREL_WEBAPP_URL>xxxx</KESTREL_WEBAPP_URL> -->
+      <FIREBASE_APIKEY>xxxx</FIREBASE_APIKEY>
+      <FIREBASE_USERNAME>xxxx</FIREBASE_USERNAME>
+      <FIREBASE_PASSWORD>xxxx</FIREBASE_PASSWORD>
     </EnvironmentVariables>
   </RunConfiguration>
 </RunSettings>
@@ -152,23 +152,23 @@ dotnet test --settings Local.runsettings
 
 ## How to deploy
 
-- Add the outbout IP to the MongoDB Atlas cluster
+- Add the outbound IP to the MongoDB Atlas cluster
 - Add the application url to Firebase domains
 - Create web project in Firebase and grab ids to be set to environment.ts file
 - Create a GitHub OAuth application ([firebase.google.com](https://firebase.google.com/docs/auth/web/github-auth),
 [github.com](https://github.com/settings/applications/new))
-- Add urls in Azure web app CORS page
+- Add URLs in Azure web app CORS page
 
 ## How to operate
 
 - Backup MongoDB database
 
 ```bash
-docker run --rm -it --workdir=/data --volume $(pwd):/data mongo:8.0 /bin/sh -c "mongodump --uri mongodb+srv://<USER>:<PASSWORD>@<CLUSTER>.<PROJECT>.mongodb.net/test"
+docker run --rm -it --workdir=/data --volume $(pwd):/data mongo:8.2 /bin/sh -c "mongodump --uri mongodb+srv://<USER>:<PASSWORD>@<CLUSTER>.<PROJECT>.mongodb.net/test"
 ```
 
 - Restore MongoDB database
 
 ```bash
-docker run --rm -it --workdir=/data --volume $(pwd):/data mongo:8.0 /bin/sh -c "mongorestore --uri mongodb+srv://<USER>:<PASSWORD>@<CLUSTER>.<PROJECT>.mongodb.net"
+docker run --rm -it --workdir=/data --volume $(pwd):/data mongo:8.2 /bin/sh -c "mongorestore --uri mongodb+srv://<USER>:<PASSWORD>@<CLUSTER>.<PROJECT>.mongodb.net"
 ```

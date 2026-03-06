@@ -4,14 +4,16 @@
     <File Path=".gitignore" />
     <File Path="Directory.Build.props" />
     <File Path="Directory.Packages.props" />
-    <File Path="Local.runsettings" />
     <File Path="README.md" />
   </Folder>
-  <Folder Name="/Solution Items/pipelines/">
-    <File Path="../.azure/pipelines/cd.json" />
+  <Folder Name="/Solution Items/azure-devops/">
     <File Path="../.azure/pipelines/ci.yml" />
     <File Path="../.azure/pipelines/nightly.yml" />
     <File Path="../.azure/pipelines/pkg.yml" />
+  </Folder>
+  <Folder Name="/Solution Items/github/" />
+  <Folder Name="/Solution Items/gitlab/">
+    <File Path="../.gitlab-ci.yml" />
   </Folder>
   <Folder Name="/Solution Items/scripts/">
     <File Path="../scripts/mongo-create-index.js" />
