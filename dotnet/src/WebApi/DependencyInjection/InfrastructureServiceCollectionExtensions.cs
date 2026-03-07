@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection.Extensions;
+﻿using KeepTrack.Infrastructure.MongoDb.Repositories;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using MongoDB.Bson.Serialization.Conventions;
 using MongoDB.Driver;
 
@@ -24,11 +25,11 @@ internal static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IMongoDatabase>(sp =>
             sp.GetRequiredService<IMongoClient>().GetDatabase(configuration.DatabaseName));
 
-        services.TryAddScoped<Domain.Repositories.IBookRepository, Dal.MongoDb.Repositories.BookRepository>();
-        services.TryAddScoped<Domain.Repositories.ICarRepository, Dal.MongoDb.Repositories.CarRepository>();
-        services.TryAddScoped<Domain.Repositories.ICarHistoryRepository, Dal.MongoDb.Repositories.CarHistoryRepository>();
-        services.TryAddScoped<Domain.Repositories.IMovieRepository, Dal.MongoDb.Repositories.MovieRepository>();
-        services.TryAddScoped<Domain.Repositories.ITvShowRepository, Dal.MongoDb.Repositories.TvShowRepository>();
-        services.TryAddScoped<Domain.Repositories.IVideoGameRepository, Dal.MongoDb.Repositories.VideoGameRepository>();
+        services.TryAddScoped<Domain.Repositories.IBookRepository, BookRepository>();
+        services.TryAddScoped<Domain.Repositories.ICarRepository, CarRepository>();
+        services.TryAddScoped<Domain.Repositories.ICarHistoryRepository, CarHistoryRepository>();
+        services.TryAddScoped<Domain.Repositories.IMovieRepository, MovieRepository>();
+        services.TryAddScoped<Domain.Repositories.ITvShowRepository, TvShowRepository>();
+        services.TryAddScoped<Domain.Repositories.IVideoGameRepository, VideoGameRepository>();
     }
 }

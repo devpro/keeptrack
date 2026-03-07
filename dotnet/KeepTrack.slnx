@@ -22,8 +22,8 @@
     <File Path="../scripts/write_testrunsettings.sh" />
   </Folder>
   <Project Path="src/BlazorWebAssemblyApp/BlazorWebAssemblyApp.csproj" />
-  <Project Path="src/Dal.MongoDb/Dal.MongoDb.csproj" />
   <Project Path="src/Domain/Domain.csproj" />
+  <Project Path="src/Infrastructure.MongoDb/Infrastructure.MongoDb.csproj" />
   <Project Path="src/WebApi.Dto/WebApi.Dto.csproj" />
   <Project Path="src/WebApi/WebApi.csproj" />
   <Project Path="test/WebApi.IntegrationTests/WebApi.IntegrationTests.csproj" />

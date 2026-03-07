@@ -1,11 +1,11 @@
 ﻿using AutoMapper;
-using KeepTrack.Dal.MongoDb.Entities;
 using KeepTrack.Domain.Models;
 using KeepTrack.Domain.Repositories;
+using KeepTrack.Infrastructure.MongoDb.Entities;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 
-namespace KeepTrack.Dal.MongoDb.Repositories;
+namespace KeepTrack.Infrastructure.MongoDb.Repositories;
 
 public class BookRepository(IMongoDatabase mongoDatabase, ILogger<RepositoryBase<BookModel, Book>> logger, IMapper mapper)
     : RepositoryBase<BookModel, Book>(mongoDatabase, logger, mapper), IBookRepository
@@ -20,8 +20,9 @@ public class BookRepository(IMongoDatabase mongoDatabase, ILogger<RepositoryBase
         }
 
         var builder = Builders<Book>.Filter;
-        return builder.Eq(f => f.OwnerId, ownerId) & builder.Where(f => f.Title.ToLower().Contains(search.ToLower())
-                                                                        || f.Series.ToLower().Contains(search.ToLower())
-                                                                        || f.Author.ToLower().Contains(search.ToLower()));
+        return builder.Eq(f => f.OwnerId, ownerId)
+               & builder.Where(f => f.Title.ToLower().Contains(search.ToLower())
+                                    || (f.Series == null || f.Series.ToLower().Contains(search.ToLower()))
+                                    || f.Author.ToLower().Contains(search.ToLower()));
     }
 }

@@ -9,13 +9,13 @@ public class DataStorageMappingProfile : Profile
 
     public DataStorageMappingProfile()
     {
-        CreateMap<Dal.MongoDb.Entities.Book, Domain.Models.BookModel>();
-        CreateMap<Domain.Models.BookModel, Dal.MongoDb.Entities.Book>();
+        CreateMap<Infrastructure.MongoDb.Entities.Book, Domain.Models.BookModel>();
+        CreateMap<Domain.Models.BookModel, Infrastructure.MongoDb.Entities.Book>();
 
-        CreateMap<Dal.MongoDb.Entities.TvShow, Domain.Models.TvShowModel>();
-        CreateMap<Domain.Models.TvShowModel, Dal.MongoDb.Entities.TvShow>();
+        CreateMap<Infrastructure.MongoDb.Entities.TvShow, Domain.Models.TvShowModel>();
+        CreateMap<Domain.Models.TvShowModel, Infrastructure.MongoDb.Entities.TvShow>();
 
-        CreateMap<Dal.MongoDb.Entities.VideoGame, Domain.Models.VideoGameModel>();
-        CreateMap<Domain.Models.VideoGameModel, Dal.MongoDb.Entities.VideoGame>();
+        CreateMap<Infrastructure.MongoDb.Entities.VideoGame, Domain.Models.VideoGameModel>();
+        CreateMap<Domain.Models.VideoGameModel, Infrastructure.MongoDb.Entities.VideoGame>();
     }
 }

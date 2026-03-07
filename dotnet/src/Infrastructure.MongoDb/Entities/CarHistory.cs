@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace KeepTrack.Dal.MongoDb.Entities;
+namespace KeepTrack.Infrastructure.MongoDb.Entities;
 
 public partial class CarHistory : IEntity
 {
@@ -12,17 +12,17 @@ public partial class CarHistory : IEntity
     public string Id { get; set; } = null!;
 
     [BsonElement("owner_id")]
-    public string OwnerId { get; set; }
+    public required string OwnerId { get; set; }
 
     [BsonElement("car_id")]
-    public string CarId { get; set; }
+    public required string CarId { get; set; }
 
     [BsonElement("history_date")]
     public DateTime HistoryDate { get; set; }
 
-    public double Mileage { get; set; }
+    public double? Mileage { get; set; }
 
-    public string Action { get; set; }
+    public required string Action { get; set; }
 
     public CarHistoryLocation? Location { get; set; }
 

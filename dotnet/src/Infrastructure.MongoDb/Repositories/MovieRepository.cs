@@ -1,11 +1,11 @@
 ﻿using AutoMapper;
-using KeepTrack.Dal.MongoDb.Entities;
 using KeepTrack.Domain.Models;
 using KeepTrack.Domain.Repositories;
+using KeepTrack.Infrastructure.MongoDb.Entities;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 
-namespace KeepTrack.Dal.MongoDb.Repositories
+namespace KeepTrack.Infrastructure.MongoDb.Repositories
 {
     public class MovieRepository(IMongoDatabase mongoDatabase, ILogger<RepositoryBase<MovieModel, Movie>> logger, IMapper mapper)
         : RepositoryBase<MovieModel, Movie>(mongoDatabase, logger, mapper), IMovieRepository

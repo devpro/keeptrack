@@ -1,9 +1,9 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace KeepTrack.Dal.MongoDb.Entities;
+namespace KeepTrack.Infrastructure.MongoDb.Entities;
 
-public class Movie : IEntity
+public class Car : IEntity
 {
     [BsonId]
     [BsonRepresentation(BsonType.ObjectId)]
@@ -12,11 +12,6 @@ public class Movie : IEntity
     [BsonElement("owner_id")]
     public required string OwnerId { get; set; }
 
-    public required string Title { get; set; }
-
-    public int? Year { get; set; }
-
-    public Imdb? Imdb { get; set; }
-
-    public Allocine? Allocine { get; set; }
+    [BsonElement("commercial_name")]
+    public required string Name { get; set; }
 }

@@ -22,7 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Dal.MongoDb\Dal.MongoDb.csproj" />
+    <ProjectReference Include="..\Infrastructure.MongoDb\Infrastructure.MongoDb.csproj" />
     <ProjectReference Include="..\Domain\Domain.csproj" />
     <ProjectReference Include="..\WebApi.Dto\WebApi.Dto.csproj" />
   </ItemGroup>

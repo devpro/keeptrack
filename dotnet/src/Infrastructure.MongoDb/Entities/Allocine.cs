@@ -1,7 +1,7 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace KeepTrack.Dal.MongoDb.Entities;
+namespace KeepTrack.Infrastructure.MongoDb.Entities;
 
 public class Allocine
 {

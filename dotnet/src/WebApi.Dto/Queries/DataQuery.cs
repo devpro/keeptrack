@@ -21,5 +21,5 @@ public class DataQuery
     /// <summary>
     /// Search text.
     /// </summary>
-    public string? Search { get; set; }
+    public required string Search { get; set; }
 }

@@ -1,11 +1,11 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace KeepTrack.Dal.MongoDb.Entities;
+namespace KeepTrack.Infrastructure.MongoDb.Entities;
 
 public class CarHistoryFuel
 {
-    public string Category { get; set; }
+    public required string Category { get; set; }
 
     public double? Volume { get; set; }
 

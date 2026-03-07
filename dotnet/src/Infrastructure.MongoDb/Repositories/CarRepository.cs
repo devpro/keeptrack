@@ -1,20 +1,20 @@
 ﻿using System;
 using System.Threading.Tasks;
 using AutoMapper;
-using KeepTrack.Dal.MongoDb.Entities;
 using KeepTrack.Domain.Models;
 using KeepTrack.Domain.Repositories;
+using KeepTrack.Infrastructure.MongoDb.Entities;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 
-namespace KeepTrack.Dal.MongoDb.Repositories;
+namespace KeepTrack.Infrastructure.MongoDb.Repositories;
 
 public class CarRepository(IMongoDatabase mongoDatabase, ILogger<RepositoryBase<CarModel, Car>> logger, IMapper mapper)
     : RepositoryBase<CarModel, Car>(mongoDatabase, logger, mapper), ICarRepository
 {
     protected override string CollectionName => "car";
 
-    public async Task<CarModel> FindOneAsync(string id)
+    public async Task<CarModel?> FindOneAsync(string id)
     {
         if (string.IsNullOrEmpty(id))
         {
