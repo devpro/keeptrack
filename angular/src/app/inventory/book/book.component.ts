@@ -1,4 +1,6 @@
 import { Component, OnInit, OnDestroy, ElementRef, ViewChild } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 
 import { BookService } from 'src/app/backend/services/book.service';
 import { Book } from 'src/app/backend/types/book';
@@ -7,8 +9,9 @@ import { DataComponent } from '../base/data.component';
 
 @Component({
   selector: 'app-book',
-  templateUrl: './book.component.html',
-  styleUrls: ['./book.component.css']
+  standalone: true,
+  imports: [ CommonModule, FormsModule ],
+  templateUrl: './book.component.html'
 })
 export class BookComponent extends DataComponent<Book> implements OnInit, OnDestroy {
   @ViewChild('titleInput') titleInput = {} as ElementRef;

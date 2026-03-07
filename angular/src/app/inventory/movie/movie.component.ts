@@ -1,4 +1,6 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
+import { CommonModule } from "@angular/common";
+import { FormsModule } from "@angular/forms";
 
 import { MovieService } from 'src/app/backend/services/movie.service';
 import { Movie } from 'src/app/backend/types/movie';
@@ -7,8 +9,9 @@ import { DataComponent } from '../base/data.component';
 
 @Component({
   selector: 'app-movie',
-  templateUrl: './movie.component.html',
-  styleUrls: ['./movie.component.css']
+  standalone: true,
+  imports: [ CommonModule, FormsModule ],
+  templateUrl: './movie.component.html'
 })
 export class MovieComponent extends DataComponent<Movie> implements OnInit, OnDestroy {
   @ViewChild('titleInput') titleInput= {} as ElementRef;

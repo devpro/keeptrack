@@ -12,7 +12,7 @@ export abstract class DataComponent<T extends BackendData> implements OnInit, On
   currentPage = 1;
   pageSize = 50;
 
-  constructor(private dataService: DataService<T>, private authenticateService: AuthenticateService) {
+  protected constructor(private dataService: DataService<T>, private authenticateService: AuthenticateService) {
   }
 
   ngOnInit() {

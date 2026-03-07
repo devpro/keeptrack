@@ -90,21 +90,21 @@
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "options": {
-            "browserTarget": "AngularWebApp:build"
+            "buildTarget": "AngularWebApp:build"
           },
           "configurations": {
             "dev": {
-              "browserTarget": "AngularWebApp:build:dev"
+              "buildTarget": "AngularWebApp:build:dev"
             },
             "production": {
-              "browserTarget": "AngularWebApp:build:production"
+              "buildTarget": "AngularWebApp:build:production"
             }
           }
         },
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
           "options": {
-            "browserTarget": "AngularWebApp:build"
+            "buildTarget": "AngularWebApp:build"
           }
         },
         "test": {

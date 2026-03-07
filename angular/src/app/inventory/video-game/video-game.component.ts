@@ -1,4 +1,6 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { CommonModule } from "@angular/common";
+import { FormsModule } from "@angular/forms";
 
 import { VideoGameService } from 'src/app/backend/services/video-game.service';
 import { VideoGame } from 'src/app/backend/types/video-game';
@@ -7,8 +9,9 @@ import { DataComponent } from '../base/data.component';
 
 @Component({
   selector: 'app-video-game',
-  templateUrl: './video-game.component.html',
-  styleUrls: ['./video-game.component.css']
+  standalone: true,
+  imports: [ CommonModule, FormsModule ],
+  templateUrl: './video-game.component.html'
 })
 export class VideoGameComponent extends DataComponent<VideoGame> implements OnInit, OnDestroy {
   @ViewChild('titleInput') titleInput = {} as ElementRef;

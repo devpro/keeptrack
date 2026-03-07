@@ -1,5 +1,4 @@
 import { TestBed } from '@angular/core/testing';
-import { AppModule } from '../../app.module';
 import { LoginComponent } from './login.component';
 import { AuthenticateService } from '../services/authenticate.service';
 
@@ -8,7 +7,7 @@ describe('LoginComponent', () => {
   const fakeAuthenticateService = jasmine.createSpyObj('AuthenticateService', ['signInWithGitHub']);
 
   beforeEach(() => TestBed.configureTestingModule({
-    imports: [AppModule],
+    imports: [],
     providers: [
       { provide: AuthenticateService, useValue: fakeAuthenticateService }
     ]

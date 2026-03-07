@@ -2,7 +2,6 @@ import { TestBed, waitForAsync } from '@angular/core/testing';
 import { User } from '@angular/fire/auth';
 import { Observable } from 'rxjs';
 
-import { AppModule } from 'src/app/app.module';
 import { AuthenticateService } from 'src/app/user/services/authenticate.service';
 import { VideoGameComponent } from './video-game.component';
 import { VideoGameService } from 'src/app/backend/services/video-game.service';
@@ -17,7 +16,7 @@ describe('VideoGameComponent', () => {
     fakeAuthenticateService = jasmine.createSpyObj('AuthenticateService', [], { 'authState$': emptyUser });
 
     TestBed.configureTestingModule({
-      imports: [AppModule],
+      imports: [],
       providers: [
         { provide: VideoGameService, useValue: fakeVideoGameService },
         { provide: AuthenticateService, useValue: fakeAuthenticateService }

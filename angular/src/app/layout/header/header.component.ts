@@ -1,12 +1,18 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { User } from '@angular/fire/auth';
-import { Router } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { Subscription } from 'rxjs';
 
 import { AuthenticateService } from 'src/app/user/services/authenticate.service';
+import {CommonModule} from "@angular/common";
 
 @Component({
   selector: 'app-header',
+  standalone: true,imports: [
+    CommonModule,
+    RouterLink,
+    RouterLinkActive
+  ],
   templateUrl: './header.component.html',
   styleUrls: ['./header.component.css']
 })
