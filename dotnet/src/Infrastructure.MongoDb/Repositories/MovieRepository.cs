@@ -12,7 +12,7 @@ namespace KeepTrack.Infrastructure.MongoDb.Repositories
     {
         protected override string CollectionName => "movie";
 
-        protected override FilterDefinition<Movie> GetFilter(string ownerId, string search, MovieModel input)
+        protected override FilterDefinition<Movie> GetFilter(string ownerId, string? search, MovieModel input)
         {
             if (string.IsNullOrEmpty(search))
             {

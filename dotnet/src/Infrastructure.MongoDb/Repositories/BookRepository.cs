@@ -12,7 +12,7 @@ public class BookRepository(IMongoDatabase mongoDatabase, ILogger<RepositoryBase
 {
     protected override string CollectionName => "book";
 
-    protected override FilterDefinition<Book> GetFilter(string ownerId, string search, BookModel input)
+    protected override FilterDefinition<Book> GetFilter(string ownerId, string? search, BookModel input)
     {
         if (string.IsNullOrEmpty(search))
         {

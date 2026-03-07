@@ -12,7 +12,7 @@ public class TvShowRepository(IMongoDatabase mongoDatabase, ILogger<RepositoryBa
 {
     protected override string CollectionName => "tvshow";
 
-    protected override FilterDefinition<TvShow> GetFilter(string ownerId, string search, TvShowModel input)
+    protected override FilterDefinition<TvShow> GetFilter(string ownerId, string? search, TvShowModel input)
     {
         if (string.IsNullOrEmpty(search))
         {

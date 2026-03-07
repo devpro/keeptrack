@@ -33,7 +33,7 @@ public abstract class RepositoryBase<T, U>(IMongoDatabase mongoDatabase, ILogger
         return Mapper.Map<T>(dbEntries.FirstOrDefault());
     }
 
-    public async Task<List<T>> FindAllAsync(string ownerId, int page, int pageSize, string search, T input)
+    public async Task<List<T>> FindAllAsync(string ownerId, int page, int pageSize, string? search, T input)
     {
         var collection = GetCollection();
         var dbEntries = await collection
@@ -67,7 +67,7 @@ public abstract class RepositoryBase<T, U>(IMongoDatabase mongoDatabase, ILogger
         return result.DeletedCount;
     }
 
-    protected virtual FilterDefinition<U> GetFilter(string ownerId, string search, T input)
+    protected virtual FilterDefinition<U> GetFilter(string ownerId, string? search, T input)
     {
         var builder = Builders<U>.Filter;
         if (string.IsNullOrEmpty(search))

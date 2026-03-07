@@ -2,11 +2,11 @@
 
 public class CarModel
 {
-    public string Id { get; set; }
+    public string Id { get; set; } = null!;
 
-    public string OwnerId { get; set; }
+    public required string OwnerId { get; set; }
 
-    public string Name { get; set; }
+    public required string Name { get; set; }
 
     public override string ToString()
     {

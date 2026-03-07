@@ -4,25 +4,25 @@ namespace KeepTrack.Domain.Models;
 
 public class CarHistoryModel
 {
-    public string Id { get; set; }
+    public string Id { get; set; } = null!;
 
-    public string OwnerId { get; set; }
+    public required string OwnerId { get; set; }
 
-    public string CarId { get; set; }
+    public required string CarId { get; set; }
 
     public DateTime HistoryDate { get; set; }
 
-    public int Mileage { get; set; }
+    public int? Mileage { get; set; }
 
-    public string Action { get; set; }
+    public required string Action { get; set; }
 
-    public string City { get; set; }
+    public string? City { get; set; }
 
     public double? Longitude { get; set; }
 
     public double? Latitude { get; set; }
 
-    public string FuelCategory { get; set; }
+    public string? FuelCategory { get; set; }
 
     public double? FuelVolume { get; set; }
 
@@ -34,7 +34,7 @@ public class CarHistoryModel
 
     public double? DeltaMileage { get; set; }
 
-    public string LastRefuelHistoryId { get; set; }
+    public string? LastRefuelHistoryId { get; set; }
 
-    public string StationBrandName { get; set; }
+    public string? StationBrandName { get; set; }
 }

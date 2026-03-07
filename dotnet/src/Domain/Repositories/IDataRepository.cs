@@ -8,7 +8,7 @@ public interface IDataRepository<T> where T : IDataModel
 {
     Task<T?> FindOneAsync(string id, string ownerId);
 
-    Task<List<T>> FindAllAsync(string ownerId, int page, int pageSize, string search, T input);
+    Task<List<T>> FindAllAsync(string ownerId, int page, int pageSize, string? search, T input);
 
     Task<T> CreateAsync(T model);
 

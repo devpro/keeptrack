@@ -12,7 +12,7 @@ public class VideoGameRepository(IMongoDatabase mongoDatabase, ILogger<Repositor
 {
     protected override string CollectionName => "videogame";
 
-    protected override FilterDefinition<VideoGame> GetFilter(string ownerId, string search, VideoGameModel input)
+    protected override FilterDefinition<VideoGame> GetFilter(string ownerId, string? search, VideoGameModel input)
     {
         if (string.IsNullOrEmpty(search) && string.IsNullOrEmpty(input.State) && string.IsNullOrEmpty(input.Platform))
         {
@@ -20,12 +20,6 @@ public class VideoGameRepository(IMongoDatabase mongoDatabase, ILogger<Repositor
         }
 
         var builder = Builders<VideoGame>.Filter;
-
-        if (string.IsNullOrEmpty(input.State) && string.IsNullOrEmpty(input.Platform))
-        {
-            return builder.Eq(f => f.OwnerId, ownerId)
-                   & builder.Where(f => f.Title.ToLower().Contains(search.ToLower()));
-        }
 
         var filter = builder.Eq(f => f.OwnerId, ownerId);
         if (!string.IsNullOrEmpty(search))
