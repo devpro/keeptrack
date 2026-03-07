@@ -38,9 +38,6 @@
       <li class="page-item" [ngClass]="{ 'disabled': items.length !== pageSize }"><a class="page-link" href="#" (click)="updateCurrentPage($event, currentPage + 1, searchInput.value)">&raquo;</a></li>
     </ul>
   </nav>
-}
-
-@if (items) {
   <div class="card mb-1 box-shadow text-center mx-auto" style="width: 70%;">
     <div class="card-header">
       <h4 class="my-0 font-weight-normal">Add</h4>

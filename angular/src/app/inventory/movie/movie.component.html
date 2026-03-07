@@ -28,7 +28,7 @@
               @if (!movie.isEditable ) {
                 {{ movie.title }}
               }
-              @if (movie.isEditable) {
+              @else {
                 <div>
                   <input class="form-control" type="text" [(ngModel)]="movie.title" />
                 </div>
@@ -38,7 +38,7 @@
               @if (!movie.isEditable ) {
                 {{ movie.year }}
               }
-              @if (movie.isEditable) {
+              @else {
                 <div>
                   <input class="form-control" type="number" [(ngModel)]="movie.year" />
                 </div>
@@ -49,20 +49,16 @@
                 <button class="btn btn-action" (click)="startEditing(movie)">
                   <span class="fa fa-pencil-square-o"></span>
                 </button>
+                <button class="btn btn-action" (click)="delete(movie)">
+                  <span class="fa fa-trash"></span>
+                </button>
               }
-              @if (movie.isEditable) {
+              @else {
                 <button class="btn btn-action" (click)="update(movie)">
                   <span class="fa fa-floppy-o"></span>
                 </button>
-              }
-              @if (movie.isEditable) {
                 <button class="btn btn-action" (click)="cancel(movie)">
                   <span class="fa fa-ban"></span>
-                </button>
-              }
-              @if (!movie.isEditable) {
-                <button class="btn btn-action" (click)="delete(movie)">
-                  <span class="fa fa-trash"></span>
                 </button>
               }
             </td>
@@ -81,9 +77,6 @@
       <li class="page-item" [ngClass]="{ 'disabled': items.length !== pageSize }"><a class="page-link" href="#" (click)="updateCurrentPage($event, currentPage + 1, searchInput.value)">&raquo;</a></li>
     </ul>
   </nav>
-}
-
-@if (items) {
   <div class="card-group mb-1 text-center mx-auto" style="width: 70%;">
     <div class="card mb-1 box-shadow">
       <div class="card-header">

@@ -54,7 +54,7 @@
               @if (!videoGame.isEditable ) {
                 {{ videoGame.title }}
               }
-              @if (videoGame.isEditable) {
+              @else {
                 <div>
                   <input class="form-control" type="text" [(ngModel)]="videoGame.title" />
                 </div>
@@ -64,7 +64,7 @@
               @if (!videoGame.isEditable ) {
                 {{ videoGame.platform }}
               }
-              @if (videoGame.isEditable) {
+              @else {
                 <div>
                   <input class="form-control" type="text" [(ngModel)]="videoGame.platform" />
                 </div>
@@ -74,7 +74,7 @@
               @if (!videoGame.isEditable ) {
                 {{ videoGame.state }}
               }
-              @if (videoGame.isEditable) {
+              @else {
                 <div>
                   <input class="form-control" type="text" [(ngModel)]="videoGame.state" />
                 </div>
@@ -84,7 +84,7 @@
               @if (!videoGame.isEditable ) {
                 {{ videoGame.finishedAt | date: 'yyyy-MM-dd' }}
               }
-              @if (videoGame.isEditable) {
+              @else {
                 <div>
                   <input class="form-control" type="text" [(ngModel)]="videoGame.finishedAt" />
                 </div>
@@ -95,20 +95,16 @@
                 <button class="btn btn-action" (click)="startEditing(videoGame)">
                   <span class="fa fa-pencil-square-o"></span>
                 </button>
+                <button class="btn btn-action" (click)="delete(videoGame)">
+                  <span class="fa fa-trash"></span>
+                </button>
               }
-              @if (videoGame.isEditable) {
+              @else {
                 <button class="btn btn-action" (click)="update(videoGame)">
                   <span class="fa fa-floppy-o"></span>
                 </button>
-              }
-              @if (videoGame.isEditable) {
                 <button class="btn btn-action" (click)="cancel(videoGame)">
                   <span class="fa fa-ban"></span>
-                </button>
-              }
-              @if (!videoGame.isEditable) {
-                <button class="btn btn-action" (click)="delete(videoGame)">
-                  <span class="fa fa-trash"></span>
                 </button>
               }
             </td>

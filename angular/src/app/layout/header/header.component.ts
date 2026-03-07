@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { User } from '@angular/fire/auth';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { CommonModule } from "@angular/common";
@@ -16,12 +16,13 @@ import { AuthenticateService } from 'src/app/user/services/authenticate.service'
   styleUrls: ['./header.component.css']
 })
 export class HeaderComponent implements OnInit, OnDestroy {
+  private authenticateService = inject(AuthenticateService);
+  private router = inject(Router);
+
   isExpanded = false;
 
   user = null as User | null;
   userEventsSubscription: Subscription | undefined;
-
-  constructor(private authenticateService: AuthenticateService, private router: Router) { }
 
   ngOnInit() {
     this.userEventsSubscription = this.authenticateService.authState$.subscribe({

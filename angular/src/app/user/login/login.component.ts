@@ -1,15 +1,14 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthenticateService } from '../services/authenticate.service';
 
 @Component({
   selector: 'app-login',
-  templateUrl: './login.component.html',
-  standalone: false
+  templateUrl: './login.component.html'
 })
 export class LoginComponent {
-  constructor(private authenticateService: AuthenticateService, private router: Router) {
-  }
+  private authenticateService = inject(AuthenticateService);
+  private router = inject(Router);
 
   async signInWithGitHub() {
     await this.authenticateService.signInWithGitHub();

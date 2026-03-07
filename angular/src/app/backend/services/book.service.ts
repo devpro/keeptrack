@@ -1,7 +1,6 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-
 import { environment } from 'src/environments/environment';
 import { Book } from '../types/book';
 import { DataService } from './data.interface';
@@ -10,8 +9,7 @@ import { DataService } from './data.interface';
   providedIn: 'root'
 })
 export class BookService implements DataService<Book> {
-  constructor(private httpClient: HttpClient) {
-  }
+  private httpClient = inject(HttpClient);
 
   get(id: string): Observable<Book> {
     return this.httpClient.get<Book>(`${environment.keepTrackApiUrl}/api/books/${id}`);

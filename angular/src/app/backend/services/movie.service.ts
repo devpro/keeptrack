@@ -1,7 +1,6 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-
 import { environment } from 'src/environments/environment';
 import { DataService } from './data.interface';
 import { Movie } from '../types/movie';
@@ -10,8 +9,7 @@ import { Movie } from '../types/movie';
   providedIn: 'root'
 })
 export class MovieService implements DataService<Movie> {
-  constructor(private httpClient: HttpClient) {
-  }
+  private httpClient = inject(HttpClient);
 
   get(id: string): Observable<Movie> {
     return this.httpClient.get<Movie>(`${environment.keepTrackApiUrl}/api/movies/${id}`);

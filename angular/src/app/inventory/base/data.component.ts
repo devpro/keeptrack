@@ -1,19 +1,17 @@
-import { Directive, OnDestroy, OnInit } from '@angular/core';
+import {Directive, inject, OnDestroy, OnInit} from '@angular/core';
 import { Subscription } from 'rxjs';
-
 import { AuthenticateService } from 'src/app/user/services/authenticate.service';
 import { DataService } from 'src/app/backend/services/data.interface';
 import { BackendData } from 'src/app/backend/types/backend-data';
 
 @Directive()
 export abstract class DataComponent<T extends BackendData> implements OnInit, OnDestroy {
+  protected abstract readonly dataService: DataService<T>;
+  private authenticateService = inject(AuthenticateService);
   userEventsSubscription: Subscription | undefined;
   items: Array<T> | undefined;
   currentPage = 1;
   pageSize = 50;
-
-  protected constructor(private dataService: DataService<T>, private authenticateService: AuthenticateService) {
-  }
 
   ngOnInit() {
     this.userEventsSubscription = this.authenticateService.authState$.subscribe(() => {

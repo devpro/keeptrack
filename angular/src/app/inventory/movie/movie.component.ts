@@ -1,10 +1,8 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, inject } from '@angular/core';
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
-
 import { MovieService } from 'src/app/backend/services/movie.service';
 import { Movie } from 'src/app/backend/types/movie';
-import { AuthenticateService } from 'src/app/user/services/authenticate.service';
 import { DataComponent } from '../base/data.component';
 
 @Component({
@@ -13,12 +11,10 @@ import { DataComponent } from '../base/data.component';
   templateUrl: './movie.component.html'
 })
 export class MovieComponent extends DataComponent<Movie> implements OnInit, OnDestroy {
+  protected override readonly dataService = inject(MovieService);
+
   @ViewChild('titleInput') titleInput= {} as ElementRef;
   @ViewChild('yearInput') yearInput= {} as ElementRef;
-
-  constructor(movieService: MovieService, authenticateService: AuthenticateService) {
-    super(movieService, authenticateService);
-  }
 
   resetInputFields() {
     this.titleInput.nativeElement.value = '';

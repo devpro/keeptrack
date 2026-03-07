@@ -1,7 +1,6 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-
 import { environment } from 'src/environments/environment';
 import { VideoGame } from '../types/video-game';
 import { DataService } from './data.interface';
@@ -10,8 +9,7 @@ import { DataService } from './data.interface';
   providedIn: 'root'
 })
 export class VideoGameService implements DataService<VideoGame> {
-  constructor(private httpClient: HttpClient) {
-  }
+  private httpClient = inject(HttpClient);
 
   get(id: string): Observable<VideoGame> {
     return this.httpClient.get<VideoGame>(`${environment.keepTrackApiUrl}/api/video-games/${id}`);

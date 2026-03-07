@@ -15,42 +15,29 @@
             <li class="nav-item">
               <a class="nav-link" [routerLink]="['/books']" [routerLinkActive]="['active']">Books</a>
             </li>
+            <li class="nav-item">
+              <a class="nav-link" [routerLink]="['/movies']" [routerLinkActive]="['active']">Movies</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" [routerLink]="['/tv-shows']" [routerLinkActive]="['active']">TV Shows</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" [routerLink]="['/video-games']" [routerLinkActive]="['active']">Video Games</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link">{{ user.email }}</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" (click)="logout($event)" href="#">
+                <span class="fa fa-power-off"></span>
+              </a>
+            </li>
           }
-          <!-- <li class="nav-item" [routerLinkActive]="['active']" *ngIf="user">
-          <a class="nav-link" [routerLink]="['/cars']">Cars</a>
-        </li> -->
-        @if (user) {
-          <li class="nav-item">
-            <a class="nav-link" [routerLink]="['/movies']" [routerLinkActive]="['active']">Movies</a>
-          </li>
-        }
-        @if (user) {
-          <li class="nav-item">
-            <a class="nav-link" [routerLink]="['/tv-shows']" [routerLinkActive]="['active']">TV Shows</a>
-          </li>
-        }
-        @if (user) {
-          <li class="nav-item">
-            <a class="nav-link" [routerLink]="['/video-games']" [routerLinkActive]="['active']">Video Games</a>
-          </li>
-        }
-        @if (!user) {
-          <li class="nav-item">
-            <a class="nav-link" [routerLink]="['/login']" [routerLinkActive]="['active']">Login</a>
-          </li>
-        }
-        @if (user) {
-          <li class="nav-item">
-            <a class="nav-link">{{ user.email }}</a>
-          </li>
-        }
-        @if (user) {
-          <li class="nav-item">
-            <a class="nav-link" (click)="logout($event)" href="#">
-              <span class="fa fa-power-off"></span>
-            </a>
-          </li>
-        }
+          @else {
+            <li class="nav-item">
+              <a class="nav-link" [routerLink]="['/login']" [routerLinkActive]="['active']">Login</a>
+            </li>
+          }
       </ul>
     </div>
   </div>
