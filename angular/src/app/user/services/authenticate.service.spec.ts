@@ -1,10 +1,10 @@
 import { TestBed } from '@angular/core/testing';
-import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { AngularFireModule } from '@angular/fire/compat';
 import { AngularFireAuthModule } from '@angular/fire/compat/auth';
 import { AuthenticateService } from './authenticate.service';
 import { environment } from 'src/environments/environment.dev';
-import { AppModule } from 'src/app/app.module';
+import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 
 describe('AuthenticateService', () => {
   let authenticateService: AuthenticateService;
@@ -12,12 +12,10 @@ describe('AuthenticateService', () => {
 
   beforeEach(() => TestBed.configureTestingModule({
     imports: [
-      HttpClientTestingModule,
       AngularFireModule.initializeApp(environment.firebase),
-      AngularFireAuthModule,
-      AppModule
-    ]
-  }));
+      AngularFireAuthModule],
+    providers: [provideHttpClient(withInterceptorsFromDi()), provideHttpClientTesting()]
+}));
 
   beforeEach(() => {
     http = TestBed.inject(HttpTestingController);

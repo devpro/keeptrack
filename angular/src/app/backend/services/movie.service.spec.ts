@@ -1,19 +1,19 @@
 import { TestBed } from '@angular/core/testing';
-import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
 import { environment } from 'src/environments/environment.dev';
 import { MovieService } from './movie.service';
 import { Movie } from '../types/movie';
+import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 
 describe('MovieService', () => {
   let movieService: MovieService;
   let http: HttpTestingController;
 
   beforeEach(() => TestBed.configureTestingModule({
-    imports: [
-      HttpClientTestingModule
-    ]
-  }));
+    imports: [],
+    providers: [provideHttpClient(withInterceptorsFromDi()), provideHttpClientTesting()]
+}));
 
   beforeEach(() => {
     http = TestBed.inject(HttpTestingController);

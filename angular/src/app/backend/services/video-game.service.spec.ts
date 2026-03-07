@@ -1,8 +1,9 @@
 import { TestBed } from '@angular/core/testing';
-import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { VideoGameService } from './video-game.service';
 import { VideoGame } from '../types/video-game';
 import { environment } from 'src/environments/environment.dev';
+import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 
 describe('VideoGameService', () => {
   let service: VideoGameService;
@@ -10,10 +11,9 @@ describe('VideoGameService', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [
-        HttpClientTestingModule
-      ]
-    });
+    imports: [],
+    providers: [provideHttpClient(withInterceptorsFromDi()), provideHttpClientTesting()]
+});
     http = TestBed.inject(HttpTestingController);
     service = TestBed.inject(VideoGameService);
   });
