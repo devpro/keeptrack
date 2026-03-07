@@ -9,8 +9,7 @@ import { DataComponent } from '../base/data.component';
 
 @Component({
   selector: 'app-tv-show',
-  standalone: true,
-  imports: [ CommonModule, FormsModule ],
+  imports: [CommonModule, FormsModule],
   templateUrl: './tv-show.component.html'
 })
 export class TvShowComponent extends DataComponent<TvShow> implements OnInit, OnDestroy {

@@ -4,8 +4,7 @@ import { FormsModule } from "@angular/forms";
 
 @Component({
   selector: 'app-car',
-  standalone: true,
-  imports: [ CommonModule, FormsModule ],
+  imports: [CommonModule, FormsModule],
   templateUrl: './car.component.html'
 })
 export class CarComponent {

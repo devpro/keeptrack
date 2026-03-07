@@ -9,8 +9,7 @@ import { DataComponent } from '../base/data.component';
 
 @Component({
   selector: 'app-video-game',
-  standalone: true,
-  imports: [ CommonModule, FormsModule ],
+  imports: [CommonModule, FormsModule],
   templateUrl: './video-game.component.html'
 })
 export class VideoGameComponent extends DataComponent<VideoGame> implements OnInit, OnDestroy {

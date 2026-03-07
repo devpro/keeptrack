@@ -9,8 +9,7 @@ import { DataComponent } from '../base/data.component';
 
 @Component({
   selector: 'app-movie',
-  standalone: true,
-  imports: [ CommonModule, FormsModule ],
+  imports: [CommonModule, FormsModule],
   templateUrl: './movie.component.html'
 })
 export class MovieComponent extends DataComponent<Movie> implements OnInit, OnDestroy {

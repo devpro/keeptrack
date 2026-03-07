@@ -4,16 +4,15 @@ import { AuthenticateService } from '../services/authenticate.service';
 
 @Component({
   selector: 'app-login',
-  templateUrl: './login.component.html'
+  templateUrl: './login.component.html',
+  standalone: false
 })
 export class LoginComponent {
-
   constructor(private authenticateService: AuthenticateService, private router: Router) {
   }
 
-  signInWithGitHub() {
-    this.authenticateService.signInWithGitHub();
-    this.router.navigate(['/']);
+  async signInWithGitHub() {
+    await this.authenticateService.signInWithGitHub();
+    await this.router.navigate(['/']);
   }
-
 }

@@ -9,8 +9,7 @@ import { DataComponent } from '../base/data.component';
 
 @Component({
   selector: 'app-book',
-  standalone: true,
-  imports: [ CommonModule, FormsModule ],
+  imports: [CommonModule, FormsModule],
   templateUrl: './book.component.html'
 })
 export class BookComponent extends DataComponent<Book> implements OnInit, OnDestroy {
