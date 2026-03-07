@@ -36,10 +36,10 @@ export class HeaderComponent implements OnInit, OnDestroy {
     }
   }
 
-  logout(event: Event) {
+  async logout(event: Event) {
     event.preventDefault();
-    this.authenticateService.logout();
-    this.router.navigate(['/login']);
+    await this.authenticateService.logout();
+    await this.router.navigate(['/login']);
   }
 
   collapse() {

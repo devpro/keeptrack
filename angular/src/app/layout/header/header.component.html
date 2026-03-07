@@ -11,34 +11,48 @@
           <li class="nav-item">
             <a class="nav-link" [routerLink]="['/']" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">Home</a>
           </li>
-          <li class="nav-item" *ngIf="user">
-            <a class="nav-link" [routerLink]="['/books']" [routerLinkActive]="['active']">Books</a>
-          </li>
+          @if (user) {
+            <li class="nav-item">
+              <a class="nav-link" [routerLink]="['/books']" [routerLinkActive]="['active']">Books</a>
+            </li>
+          }
           <!-- <li class="nav-item" [routerLinkActive]="['active']" *ngIf="user">
-            <a class="nav-link" [routerLink]="['/cars']">Cars</a>
-          </li> -->
-          <li class="nav-item" *ngIf="user">
+          <a class="nav-link" [routerLink]="['/cars']">Cars</a>
+        </li> -->
+        @if (user) {
+          <li class="nav-item">
             <a class="nav-link" [routerLink]="['/movies']" [routerLinkActive]="['active']">Movies</a>
           </li>
-          <li class="nav-item" *ngIf="user">
+        }
+        @if (user) {
+          <li class="nav-item">
             <a class="nav-link" [routerLink]="['/tv-shows']" [routerLinkActive]="['active']">TV Shows</a>
           </li>
-          <li class="nav-item" *ngIf="user">
+        }
+        @if (user) {
+          <li class="nav-item">
             <a class="nav-link" [routerLink]="['/video-games']" [routerLinkActive]="['active']">Video Games</a>
           </li>
-          <li class="nav-item" *ngIf="!user">
+        }
+        @if (!user) {
+          <li class="nav-item">
             <a class="nav-link" [routerLink]="['/login']" [routerLinkActive]="['active']">Login</a>
           </li>
-          <li class="nav-item" *ngIf="user">
+        }
+        @if (user) {
+          <li class="nav-item">
             <a class="nav-link">{{ user.email }}</a>
           </li>
-          <li class="nav-item" *ngIf="user">
+        }
+        @if (user) {
+          <li class="nav-item">
             <a class="nav-link" (click)="logout($event)" href="#">
               <span class="fa fa-power-off"></span>
             </a>
           </li>
-        </ul>
-      </div>
+        }
+      </ul>
     </div>
-  </nav>
+  </div>
+</nav>
 </header>

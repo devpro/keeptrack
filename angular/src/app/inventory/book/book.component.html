@@ -1,6 +1,8 @@
 <h1 id="tableLabel">Books</h1>
 
-<p *ngIf="!items"><em>Loading...</em></p>
+@if (!items) {
+  <p><em>Loading...</em></p>
+}
 
 <div class="form-group row">
   <label class="col-sm-1 col-form-label">Filter:</label>
@@ -10,94 +12,118 @@
 </div>
 
 <div class="table-responsive">
-  <table class='table table-striped table-sm' aria-labelledby="tableLabel" *ngIf="items">
-    <thead>
-      <tr>
-        <th class="col-md-3">Title</th>
-        <th class="col-md-2">Author(s)</th>
-        <th class="col-md-2">Series</th>
-        <th class="col-md-2">Finished date</th>
-        <th class="col-md-1">Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let book of items; let i = index">
-        <td>
-          <ng-container *ngIf="!book.isEditable ">
-            {{ book.title }}
-          </ng-container>
-          <div *ngIf="book.isEditable">
-            <input class="form-control" type="text" [(ngModel)]="book.title"/>
-          </div>
-        </td>
-        <td>
-          <ng-container *ngIf="!book.isEditable ">
-            {{ book.author }}
-          </ng-container>
-          <div *ngIf="book.isEditable">
-            <input class="form-control" type="text" [(ngModel)]="book.author"/>
-          </div>
-        </td>
-        <td>
-          <ng-container *ngIf="!book.isEditable ">
-            {{ book.series }}
-          </ng-container>
-          <div *ngIf="book.isEditable">
-            <input class="form-control" type="text" [(ngModel)]="book.series"/>
-          </div>
-        </td>
-        <td>
-          <ng-container *ngIf="!book.isEditable ">
-            {{ book.finishedAt | date: 'yyyy-MM-dd' }}
-          </ng-container>
-          <div *ngIf="book.isEditable">
-            <input class="form-control" type="text" [(ngModel)]="book.finishedAt"/>
-          </div>
-        </td>
-        <td>
-          <button class="btn btn-action" *ngIf="!book.isEditable" (click)="startEditing(book)"><span class="fa fa-pencil-square-o"></span></button>
-          <button class="btn btn-action" *ngIf="book.isEditable" (click)="update(book)"><span class="fa fa-floppy-o"></span></button>
-          <button class="btn btn-action" *ngIf="book.isEditable" (click)="cancel(book)"><span class="fa fa-ban"></span></button>
-          <button class="btn btn-action" *ngIf="!book.isEditable" (click)="delete(book)"><span class="fa fa-trash"></span></button>
-        </td>
-      </tr>
-    </tbody>
-  </table>
+  @if (items) {
+    <table class='table table-striped table-sm' aria-labelledby="tableLabel">
+      <thead>
+        <tr>
+          <th class="col-md-3">Title</th>
+          <th class="col-md-2">Author(s)</th>
+          <th class="col-md-2">Series</th>
+          <th class="col-md-2">Finished date</th>
+          <th class="col-md-1">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (book of items; track book; let i = $index) {
+          <tr>
+            <td>
+              @if (!book.isEditable ) {
+                {{ book.title }}
+              }
+              @if (book.isEditable) {
+                <div>
+                  <input class="form-control" type="text" [(ngModel)]="book.title"/>
+                </div>
+              }
+            </td>
+            <td>
+              @if (!book.isEditable ) {
+                {{ book.author }}
+              }
+              @if (book.isEditable) {
+                <div>
+                  <input class="form-control" type="text" [(ngModel)]="book.author"/>
+                </div>
+              }
+            </td>
+            <td>
+              @if (!book.isEditable ) {
+                {{ book.series }}
+              }
+              @if (book.isEditable) {
+                <div>
+                  <input class="form-control" type="text" [(ngModel)]="book.series"/>
+                </div>
+              }
+            </td>
+            <td>
+              @if (!book.isEditable ) {
+                {{ book.finishedAt | date: 'yyyy-MM-dd' }}
+              }
+              @if (book.isEditable) {
+                <div>
+                  <input class="form-control" type="text" [(ngModel)]="book.finishedAt"/>
+                </div>
+              }
+            </td>
+            <td>
+              @if (!book.isEditable) {
+                <button class="btn btn-action" (click)="startEditing(book)"><span class="fa fa-pencil-square-o"></span></button>
+              }
+              @if (book.isEditable) {
+                <button class="btn btn-action" (click)="update(book)"><span class="fa fa-floppy-o"></span></button>
+              }
+              @if (book.isEditable) {
+                <button class="btn btn-action" (click)="cancel(book)"><span class="fa fa-ban"></span></button>
+              }
+              @if (!book.isEditable) {
+                <button class="btn btn-action" (click)="delete(book)"><span class="fa fa-trash"></span></button>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
 </div>
 
-<nav aria-label="Table navigation" *ngIf="items">
-  <ul class="pagination justify-content-center">
-    <li class="page-item" [ngClass]="{ 'disabled': currentPage === 1 }"><a class="page-link" href="#" (click)="updateCurrentPage($event, currentPage - 1, searchInput.value)">&laquo;</a></li>
-    <li class="page-item active" aria-current="page"><a class="page-link">{{ currentPage }}</a></li>
-    <li class="page-item" [ngClass]="{ 'disabled': items.length !== pageSize }"><a class="page-link" href="#" (click)="updateCurrentPage($event, currentPage + 1, searchInput.value)">&raquo;</a></li>
-  </ul>
-</nav>
+@if (items) {
+  <nav aria-label="Table navigation">
+    <ul class="pagination justify-content-center">
+      <li class="page-item" [ngClass]="{ 'disabled': currentPage === 1 }"><a class="page-link" href="#" (click)="updateCurrentPage($event, currentPage - 1, searchInput.value)">&laquo;</a></li>
+      <li class="page-item active" aria-current="page"><a class="page-link">{{ currentPage }}</a></li>
+      <li class="page-item" [ngClass]="{ 'disabled': items.length !== pageSize }"><a class="page-link" href="#" (click)="updateCurrentPage($event, currentPage + 1, searchInput.value)">&raquo;</a></li>
+    </ul>
+  </nav>
+}
 
-<div class="card-group mb-1 text-center mx-auto" style="width: 70%;" *ngIf="items">
-  <div class="card mb-1 box-shadow">
-    <div class="card-header">
-      <h4 class="my-0 font-weight-normal">Add</h4>
-    </div>
-    <div class="card-body">
-      <div class="row g-4">
-        <div class="col-md-4">
-          <label for="inputTitle">Title</label>
-          <input id="inputTitle" class="form-control" #titleInput type="text" name="title" (keydown.enter)="create({ title: titleInput.value, author: authorInput.value, series: seriesInput.value })" />
-        </div>
-        <div class="col-md-3">
-          <label for="inputAuthor">Author</label>
-          <input id="inputAuthor" class="form-control" #authorInput type="text" name="state" />
-        </div>
-        <div class="col-md-3">
-          <label for="inputSeries">Series</label>
-          <input id="inputSeries" class="form-control" #seriesInput type="text" name="series" />
-        </div>
-        <div class="col-md-1">
-          <label>Action</label>
-          <br />
-          <button class="btn btn-primary" type="submit" (click)="create({ title: titleInput.value, author: authorInput.value, series: seriesInput.value })">Validate</button>
+@if (items) {
+  <div class="card-group mb-1 text-center mx-auto" style="width: 70%;">
+    <div class="card mb-1 box-shadow">
+      <div class="card-header">
+        <h4 class="my-0 font-weight-normal">Add</h4>
+      </div>
+      <div class="card-body">
+        <div class="row g-4">
+          <div class="col-md-4">
+            <label for="inputTitle">Title</label>
+            <input id="inputTitle" class="form-control" #titleInput type="text" name="title" (keydown.enter)="create({ title: titleInput.value, author: authorInput.value, series: seriesInput.value })" />
+          </div>
+          <div class="col-md-3">
+            <label for="inputAuthor">Author</label>
+            <input id="inputAuthor" class="form-control" #authorInput type="text" name="state" />
+          </div>
+          <div class="col-md-3">
+            <label for="inputSeries">Series</label>
+            <input id="inputSeries" class="form-control" #seriesInput type="text" name="series" />
+          </div>
+          <div class="col-md-1">
+            <label>Action</label>
+            <br />
+            <button class="btn btn-primary" type="submit" (click)="create({ title: titleInput.value, author: authorInput.value, series: seriesInput.value })">Validate</button>
+          </div>
         </div>
       </div>
     </div>
   </div>
-</div>
+}

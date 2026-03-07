@@ -18,7 +18,7 @@ export class AuthenticateService {
     }
   }
 
-  logout() {
-    this.auth.signOut();
+  async logout() {
+    await this.auth.signOut();
   }
 }
