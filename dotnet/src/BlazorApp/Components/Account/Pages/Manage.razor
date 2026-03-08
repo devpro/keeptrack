@@ -1,0 +1,12 @@
+﻿@page "/Account/Manage"
+@attribute [Authorize]
+
+<h1>Manage</h1>
+<AuthorizeView>
+    <Authorized>
+        <h3>Hello, @context.User.Identity!.Name! 👋</h3>
+        <p class="lead">
+            Signed in as <strong>@context.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value</strong>
+        </p>
+    </Authorized>
+</AuthorizeView>

@@ -1,20 +1,23 @@
 ﻿@page "/"
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Keeptrack</PageTitle>
 
-<div class="container mt-5">
-    <AuthorizeView>
-        <Authorized>
-            <h1>Hello, @context.User.Identity!.Name! 👋</h1>
-            <p class="lead">
-                Signed in as <strong>@context.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value</strong>
-            </p>
-            <a class="btn btn-outline-secondary" href="/auth/logout">Log out</a>
-        </Authorized>
-        <NotAuthorized>
-            <h1>Welcome</h1>
-            <p class="lead">You are not signed in.</p>
-            <a class="btn btn-primary" href="/Account/Login" data-enhance-nav="false">Log in</a>
-        </NotAuthorized>
-    </AuthorizeView>
+<div class="kt-home">
+    <div class="kt-home-eyebrow">Your personal cinema</div>
+    <h1>Every film you've<br /><em>ever loved</em>, remembered.</h1>
+    <p class="kt-home-sub">
+
+        Keeptrack is a quiet place to log the movies you've seen,
+        rate them honestly, and never forget what you thought.
+    </p>
+    <div class="kt-home-cta">
+        <AuthorizeView>
+            <Authorized>
+                <a class="btn btn-primary" href="/Movies">View my collection</a>
+            </Authorized>
+            <NotAuthorized>
+                <a class="btn btn-primary" href="/Account/Login" data-enhance-nav="false">Get started</a>
+            </NotAuthorized>
+        </AuthorizeView>
+    </div>
 </div>
