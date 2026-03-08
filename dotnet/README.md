@@ -43,10 +43,10 @@ NuGet Packages:
 
 ### API
 
-Key                                       | Description              
+Key                                       | Description
 ------------------------------------------|--------------------------
 `Infrastructure:MongoDB:ConnectionString` | MongoDB connection string
-`Infrastructure:MongoDB:DatabaseName`     | MongoDB database name 
+`Infrastructure:MongoDB:DatabaseName`     | MongoDB database name
 
 This values can be easily provided as environment variables (replace ":" by "__") or by configuration (json).
 

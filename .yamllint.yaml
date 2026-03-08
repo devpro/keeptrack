@@ -1,0 +1,12 @@
+﻿extends: default
+# ref. https://yamllint.readthedocs.io/en/stable/configuration.html
+ignore-from-file:
+  - .gitignore
+rules:
+  document-start: disable
+  line-length:
+    level: warning
+    max: 170
+  truthy: disable
+  brackets:
+    max-spaces-inside: 1

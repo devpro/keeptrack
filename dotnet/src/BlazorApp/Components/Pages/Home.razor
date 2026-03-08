@@ -1,0 +1,20 @@
+﻿@page "/"
+
+<PageTitle>Home</PageTitle>
+
+<div class="container mt-5">
+    <AuthorizeView>
+        <Authorized>
+            <h1>Hello, @context.User.Identity!.Name! 👋</h1>
+            <p class="lead">
+                Signed in as <strong>@context.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value</strong>
+            </p>
+            <a class="btn btn-outline-secondary" href="/auth/logout">Log out</a>
+        </Authorized>
+        <NotAuthorized>
+            <h1>Welcome</h1>
+            <p class="lead">You are not signed in.</p>
+            <a class="btn btn-primary" href="/Account/Login" data-enhance-nav="false">Log in</a>
+        </NotAuthorized>
+    </AuthorizeView>
+</div>

@@ -1,0 +1,7 @@
+﻿gitignore: true
+ignores:
+  - "**/node_modules/**"
+config:
+  default: true
+  MD013:
+    line_length: 240
