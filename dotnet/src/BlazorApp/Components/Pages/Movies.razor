@@ -1,0 +1,203 @@
+﻿@page "/Movies"
+@using KeepTrack.WebApi.Dto
+@inject MoviesApiClient Api
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+<PageTitle>My Movies</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>My Movies</h1>
+        <button class="btn btn-primary" @onclick="ShowAddForm">+ Add Movie</button>
+    </div>
+
+    @if (_error is not null)
+    {
+        <div class="alert alert-danger">@_error</div>
+    }
+
+    @if (_loading)
+    {
+        <p>Loading...</p>
+    }
+    else
+    {
+        @if (_showForm)
+        {
+            <div class="card mb-4 p-3">
+                <h5>@(_editing is null ? "Add Movie" : "Edit Movie")</h5>
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <input class="form-control" placeholder="Title"
+                               @bind="_form.Title"/>
+                    </div>
+                    <div class="col-md-2">
+                        <input class="form-control" placeholder="Year" type="number"
+                               @bind="_form.Year"/>
+                    </div>
+                    @* <div class="col-md-2">
+                        <input class="form-control" placeholder="Genre"
+                               @bind="_form.Genre" />
+                    </div>
+                    <div class="col-md-2">
+                        <select class="form-select" @bind="_form.Rating">
+                            @for (var i = 1; i <= 5; i++)
+                            {
+                                <option value="@i">@i ★</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <input class="form-control" placeholder="Notes"
+                               @bind="_form.Notes" />
+                    </div> *@
+                    <div class="col-12">
+                        <button class="btn btn-success me-2" @onclick="SaveAsync">Save</button>
+                        <button class="btn btn-secondary" @onclick="CancelForm">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <table class="table table-hover">
+            <thead>
+            <tr>
+                <th>Title</th>
+                <th>Year</th>
+                <th>Genre</th>
+                <th>Rating</th>
+                <th>Notes</th>
+                <th></th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var movie in _movies)
+            {
+                <tr>
+                    <td>@movie.Title</td>
+                    <td>@movie.Year</td>
+                    @* <td>@movie.Genre</td>
+                        <td>@Stars(movie.Rating)</td>
+                        <td>@movie.Notes</td> *@
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary me-1"
+                                @onclick="() => ShowEditForm(movie)">Edit
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger"
+                                @onclick="() => DeleteAsync(movie.Id!)">Delete
+                        </button>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+
+        @if (_movies.Count == 0)
+        {
+            <p class="text-muted">No movies yet. Add your first one!</p>
+        }
+    }
+</div>
+
+@code {
+    private List<MovieDto> _movies = [];
+    private MovieDto _form = new();
+    private MovieDto? _editing;
+    private bool _showForm;
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _loading = true;
+            _movies = await Api.GetMoviesAsync();
+        }
+        catch (TokenExpiredException)
+        {
+            Nav.NavigateTo("/auth/login", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void ShowAddForm()
+    {
+        _editing = null;
+        _form = new MovieDto();
+        _showForm = true;
+    }
+
+    private void ShowEditForm(MovieDto movie)
+    {
+        _editing = movie;
+        _form = new MovieDto()
+        {
+            Id = movie.Id,
+            Title = movie.Title,
+            Year = movie.Year
+            // Genre  = movie.Genre,
+            // Rating = movie.Rating,
+            // Notes  = movie.Notes
+        };
+        _showForm = true;
+    }
+
+    private void CancelForm()
+    {
+        _showForm = false;
+        _error = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        try
+        {
+            if (_editing is null)
+                await Api.AddMovieAsync(_form);
+            else
+                await Api.UpdateMovieAsync(_form);
+
+            _showForm = false;
+            await LoadAsync();
+        }
+        catch (TokenExpiredException)
+        {
+            Nav.NavigateTo("/Account/Login", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task DeleteAsync(string id)
+    {
+        try
+        {
+            await Api.DeleteMovieAsync(id);
+            await LoadAsync();
+        }
+        catch (TokenExpiredException)
+        {
+            Nav.NavigateTo("/Account/Login", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    // private static string Stars(int rating) => new string('★', rating) + new string('☆', 5 - rating);
+}

@@ -14,13 +14,19 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.SlidingExpiration = true;
     });
 builder.Services.AddAuthorization();
-builder.Services.AddSingleton(builder.Configuration.GetSection("Firebase:WebAppConfiguration").Get<FirebaseClientSettings>()!);
+builder.Services.AddSingleton(builder.Configuration.TryGetSection<FirebaseClientSettings>("Firebase:WebAppConfiguration"));
 if (FirebaseApp.DefaultInstance is null)
 {
-    var firebaseJson = builder.Configuration.GetSection("Firebase:ServiceAccount").Get<string>()!;
+    var firebaseJson = builder.Configuration.TryGetSection<string>("Firebase:ServiceAccount");
     var googleCredential = GoogleCredential.FromJson(firebaseJson);
     FirebaseApp.Create(new AppOptions { Credential = googleCredential });
 }
+
+builder.Services.AddSingleton<ITokenStore, InMemoryTokenStore>();
+builder.Services.AddHttpClient<MoviesApiClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration.TryGetSection<string>("WebApi:BaseUrl"));
+});
 
 var app = builder.Build();
 

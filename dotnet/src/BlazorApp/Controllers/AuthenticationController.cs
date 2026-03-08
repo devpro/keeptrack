@@ -1,5 +1,6 @@
 ﻿using System.Security.Claims;
 using FirebaseAdmin.Auth;
+using KeepTrack.BlazorApp.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,7 +14,7 @@ public class AuthenticationController : Controller
 {
     [HttpPost("callback")]
     [IgnoreAntiforgeryToken]
-    public async Task<IActionResult> Callback([FromBody] TokenRequest request)
+    public async Task<IActionResult> Callback([FromBody] TokenRequest request, ITokenStore tokenStore)
     {
         if (string.IsNullOrWhiteSpace(request?.IdToken))
         {
@@ -30,6 +31,8 @@ public class AuthenticationController : Controller
             return Unauthorized();
         }
 
+        tokenStore.Store(decoded.Uid, request.IdToken, DateTimeOffset.FromUnixTimeSeconds(decoded.ExpirationTimeSeconds));
+
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, decoded.Uid),
@@ -37,8 +40,7 @@ public class AuthenticationController : Controller
             new(ClaimTypes.Email, decoded.Claims.TryGetValue("email", out var e) ? e.ToString()! : ""),
         };
 
-        var principal = new ClaimsPrincipal(
-            new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme));
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme));
 
         await HttpContext.SignInAsync(
             CookieAuthenticationDefaults.AuthenticationScheme,
@@ -49,8 +51,11 @@ public class AuthenticationController : Controller
     }
 
     [HttpGet("logout")]
-    public async Task<IActionResult> Logout()
+    public async Task<IActionResult> Logout(ITokenStore tokenStore)
     {
+        var uid = HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (uid is not null) tokenStore.Remove(uid);
+
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         return Redirect("/");
     }

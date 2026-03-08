@@ -11,6 +11,11 @@
 
   <ItemGroup>
     <PackageReference Include="FirebaseAdmin" />
+    <PackageReference Include="Withywoods.Configuration" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WebApi.Dto\WebApi.Dto.csproj" />
   </ItemGroup>
 
   <ItemGroup>

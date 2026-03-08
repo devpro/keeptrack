@@ -10,12 +10,12 @@ public class CarHistoryDto
     /// <summary>
     /// History ID.
     /// </summary>
-    public string Id { get; set; }
+    public string? Id { get; set; }
 
     /// <summary>
     /// Car ID.
     /// </summary>
-    public string CarId { get; set; }
+    public required string CarId { get; set; }
 
     /// <summary>
     /// History date.
@@ -25,17 +25,17 @@ public class CarHistoryDto
     /// <summary>
     /// Mileage indicated on the car.
     /// </summary>
-    public int Mileage { get; set; }
+    public int? Mileage { get; set; }
 
     /// <summary>
     /// Action made on the car.
     /// </summary>
-    public string Action { get; set; }
+    public required string Action { get; set; }
 
     /// <summary>
     /// City.
     /// </summary>
-    public string City { get; set; }
+    public string? City { get; set; }
 
     /// <summary>
     /// Longitude.
@@ -50,7 +50,7 @@ public class CarHistoryDto
     /// <summary>
     /// Fuel category.
     /// </summary>
-    public string FuelCategory { get; set; }
+    public string? FuelCategory { get; set; }
 
     /// <summary>
     /// Fuel volme (L).
@@ -80,10 +80,10 @@ public class CarHistoryDto
     /// <summary>
     /// Last refuel history id.
     /// </summary>
-    public string LastRefuelHistoryId { get; set; }
+    public string? LastRefuelHistoryId { get; set; }
 
     /// <summary>
     /// Station brand name.
     /// </summary>
-    public string StationBrandName { get; set; }
+    public string? StationBrandName { get; set; }
 }
