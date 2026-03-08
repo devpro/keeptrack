@@ -1,4 +1,4 @@
-﻿@page "/Movies"
+@page "/Movies"
 @using KeepTrack.WebApi.Dto
 @inject MoviesApiClient Api
 @inject NavigationManager Nav
@@ -6,7 +6,6 @@
 @attribute [Authorize]
 
 <PageTitle>My Movies</PageTitle>
-
 
 @if (_error is not null)
 {
@@ -26,7 +25,7 @@
                 <label class="form-label">Year</label>
                 <input class="form-control" placeholder="2001" type="number" @bind="_form.Year" />
             </div>
-            @* <div class="col-md-3">
+            <div class="col-md-3">
                 <label class="form-label">Genre</label>
                 <input class="form-control" placeholder="e.g. Mystery" @bind="_form.Genre" />
             </div>
@@ -43,7 +42,7 @@
             <div class="col-12">
                 <label class="form-label">Notes</label>
                 <input class="form-control" placeholder="What did you think?" @bind="_form.Notes" />
-            </div> *@
+            </div>
             <div class="col-12 d-flex gap-2 pt-1">
                 <button class="btn btn-success" @onclick="SaveAsync">Save</button>
                 <button class="btn btn-secondary" @onclick="CancelForm">Cancel</button>
@@ -61,9 +60,15 @@
 }
 else if (_movies.Count == 0 && !_showForm)
 {
-    <div class="kt-empty">
-        <div class="kt-empty-icon">◈</div>
-        <p>Your collection is empty.<br />Add the first film you remember loving.</p>
+    <div class="kt-table-wrap">
+        <div class="kt-table-header">
+            <h1 class="kt-table-title">My <span>Movies</span></h1>
+            <button class="btn btn-primary" @onclick="ShowAddForm">+ Add movie</button>
+        </div>
+        <div class="kt-empty">
+            <div class="kt-empty-icon">◈</div>
+            <p>Your collection is empty.<br/>Add the first film you remember loving.</p>
+        </div>
     </div>
 }
 else if (_movies.Count > 0)
@@ -76,74 +81,107 @@ else if (_movies.Count > 0)
                 <button class="btn btn-primary" @onclick="ShowAddForm">+ Add movie</button>
             }
         </div>
+        <div class="kt-search-bar">
+            <div class="kt-search-input-wrap">
+                <input class="form-control"
+                       type="search"
+                       placeholder="Search by title, genre…"
+                       @bind="_search"
+                       @bind:event="oninput"
+                       @onkeyup="OnSearchKeyUp" />
+                <span class="kt-search-icon">&#128269;</span>
+            </div>
+            @if (!string.IsNullOrEmpty(_search))
+            {
+                <button class="btn btn-secondary btn-sm" @onclick="ClearSearch">Clear</button>
+            }
+        </div>
         <table class="table">
             <thead>
-                <tr>
-                    <th>Title</th>
-                    <th>Year</th>
-                    @* <th>Genre</th>
-                    <th>Rating</th>
-                    <th>Notes</th> *@
-                    <th style="width:120px"></th>
-                </tr>
+            <tr>
+                <th>Title</th>
+                <th>Year</th>
+                <th>Genre</th>
+                <th>Rating</th>
+                <th>Notes</th>
+                <th style="width:120px"></th>
+            </tr>
             </thead>
             <tbody>
-                @foreach (var movie in _movies)
-                {
+            @foreach (var movie in _movies)
+            {
                     @if (_editingInline?.Id == movie.Id)
                     {
                         <tr class="kt-editing">
                             <td><input class="form-control form-control-sm" @bind="_inlineForm.Title" /></td>
                             <td><input class="form-control form-control-sm" type="number" @bind="_inlineForm.Year" style="width:80px" /></td>
-                            @* <td><input class="form-control form-control-sm" @bind="_inlineForm.Genre" /></td>
+                            <td><input class="form-control form-control-sm" @bind="_inlineForm.Genre" /></td>
                             <td>
                                 <select class="form-select form-select-sm" @bind="_inlineForm.Rating" style="width:80px">
                                     <option value="0">—</option>
-                                    @for (var i = 1; i <= 5; i++)
-                                    {
-                                        <option value="@i">@(new string('★', i))</option>
+                                @for (var i = 1; i <= 5; i++)
+                                {
+                                    <option value="@i">@(new string('★', i))</option>
                                     }
                                 </select>
                             </td>
-                            <td><input class="form-control form-control-sm" @bind="_inlineForm.Notes" /></td> *@
+                            <td><input class="form-control form-control-sm" @bind="_inlineForm.Notes" /></td>
                             <td>
                                 <div class="d-flex gap-1">
                                     <button class="btn btn-sm btn-success" @onclick="SaveInlineAsync">Save</button>
-                                    <button class="btn btn-sm btn-secondary" @onclick="CancelInline">✕</button>
-                                </div>
-                            </td>
-                        </tr>
-                    }
-                    else
-                    {
-                        <tr>
-                            <td style="font-weight:500">@movie.Title</td>
-                            <td style="color:var(--kt-text-muted)">@(movie.Year > 0 ? movie.Year : "—")</td>
-                            @* <td style="color:var(--kt-text-muted)">@(string.IsNullOrEmpty(movie.Genre) ? "—" : movie.Genre)</td>
-                            <td>
+                                <button class="btn btn-sm btn-secondary" @onclick="CancelInline">✕</button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    <tr>
+                        <td style="font-weight:500">@movie.Title</td>
+                        <td style="color:var(--kt-text-muted)">@(movie.Year > 0 ? movie.Year : "—")</td>
+                        <td style="color:var(--kt-text-muted)">@(string.IsNullOrEmpty(movie.Genre) ? "—" : movie.Genre)</td>
+                        <td>
                                 @if (movie.Rating > 0)
                                 {
                                     <span class="kt-stars">
-                                        @(new string('★', movie.Rating))<span class="empty">@(new string('★', 5 - movie.Rating))</span>
+                                        @(new string('★', movie.Rating ?? 0))<span class="empty">@(new string('★', 5 - (movie.Rating ?? 0)))</span>
                                     </span>
                                 }
                                 else
-                                {
-                                    <span style="color:var(--kt-text-subtle)">—</span>
-                                }
-                            </td>
-                            <td style="color:var(--kt-text-muted); font-size:0.85rem">@(string.IsNullOrEmpty(movie.Notes) ? "—" : movie.Notes)</td> *@
-                            <td>
-                                <div class="d-flex gap-1">
-                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => StartInlineEdit(movie)">Edit</button>
-                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(movie.Id!)">Del</button>
-                                </div>
-                            </td>
-                        </tr>
-                    }
+                            {
+                                <span style="color:var(--kt-text-subtle)">—</span>
+                            }
+                        </td>
+                        <td style="color:var(--kt-text-muted); font-size:0.85rem">@(string.IsNullOrEmpty(movie.Notes) ? "—" : movie.Notes)</td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-sm btn-outline-primary" @onclick="() => StartInlineEdit(movie)">Edit</button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(movie.Id!)">Del</button>
+                            </div>
+                        </td>
+                    </tr>
                 }
+            }
             </tbody>
         </table>
+
+        @if (TotalPages > 1)
+        {
+            <div class="kt-pagination">
+                <button class="kt-page-btn" disabled="@(_page == 1)" @onclick="() => GoToPage(_page - 1)">&#8592;</button>
+
+                @for (var p = 1; p <= TotalPages; p++)
+                {
+                    var pageNum = p;
+                    <button class="kt-page-btn @(pageNum == _page ? "active" : "")"
+                            @onclick="() => GoToPage(pageNum)">@pageNum</button>
+                }
+
+                <button class="kt-page-btn" disabled="@(_page == TotalPages)" @onclick="() => GoToPage(_page + 1)">&#8594;</button>
+
+                <span class="kt-page-info">@_totalCount results</span>
+            </div>
+        }
     </div>
 }
 
@@ -156,6 +194,11 @@ else if (_movies.Count > 0)
     private bool _showForm;
     private bool _loading = true;
     private string? _error;
+    private string _search = "";
+    private int _page = 0;
+    private readonly int _pageSize = 20;
+    private int _totalCount = 0;
+    private int TotalPages => (int)Math.Ceiling(_totalCount / (double)_pageSize);
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -164,7 +207,12 @@ else if (_movies.Count > 0)
         try
         {
             _loading = true;
-            _movies = await Api.GetMoviesAsync();
+            // var result   = await Api.GetMoviesAsync(_search, _page, _pageSize);
+            // _movies      = result.Items;
+            // _totalCount  = result.TotalCount;
+            _movies = await Api.GetMoviesAsync(_search, _page, _pageSize);
+            // TODO: just for dev
+            _totalCount = _movies.Count + _pageSize;
         }
         catch (TokenExpiredException)
         {
@@ -178,6 +226,31 @@ else if (_movies.Count > 0)
         {
             _loading = false;
         }
+    }
+
+    private async Task OnSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await SearchAsync();
+    }
+
+    private async Task SearchAsync()
+    {
+        _page = 0;
+        await LoadAsync();
+    }
+
+    private async Task ClearSearch()
+    {
+        _search = "";
+        _page = 0;
+        await LoadAsync();
+    }
+
+    private async Task GoToPage(int page)
+    {
+        _page = page;
+        await LoadAsync();
     }
 
     private void ShowAddForm()
@@ -268,5 +341,4 @@ else if (_movies.Count > 0)
             _error = ex.Message;
         }
     }
-
 }
