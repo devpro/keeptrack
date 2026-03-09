@@ -1,4 +1,5 @@
 @page "/Movies"
+@using KeepTrack.BlazorApp.Components.Inventory.Clients
 @inject MoviesApiClient Api
 @inject NavigationManager Nav
 @rendermode InteractiveServer
@@ -206,7 +207,7 @@ else if (_movies.Count > 0)
         try
         {
             _loading = true;
-             var result   = await Api.GetMoviesAsync(_search, _page, PageSize);
+             var result   = await Api.GetAsync(_search, _page, PageSize);
             _movies      = result.Items;
             _totalCount  = result.TotalCount;
         }
@@ -266,8 +267,8 @@ else if (_movies.Count > 0)
     {
         try
         {
-            if (_editing is null) await Api.AddMovieAsync(_form);
-            else await Api.UpdateMovieAsync(_form);
+            if (_editing is null) await Api.AddAsync(_form);
+            else await Api.UpdateAsync(_form);
             _showForm = false;
             await LoadAsync();
         }
@@ -306,7 +307,7 @@ else if (_movies.Count > 0)
     {
         try
         {
-            await Api.UpdateMovieAsync(_inlineForm);
+            await Api.UpdateAsync(_inlineForm);
             _editingInline = null;
             await LoadAsync();
         }
@@ -324,7 +325,7 @@ else if (_movies.Count > 0)
     {
         try
         {
-            await Api.DeleteMovieAsync(id);
+            await Api.DeleteAsync(id);
             await LoadAsync();
         }
         catch (TokenExpiredException)

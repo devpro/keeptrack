@@ -4,15 +4,16 @@ using KeepTrack.Domain.Models;
 
 namespace KeepTrack.Domain.Repositories;
 
-public interface IDataRepository<T> where T : IDataModel
+public interface IDataRepository<TModel>
+    where TModel : IDataModel
 {
-    Task<T?> FindOneAsync(string id, string ownerId);
+    Task<TModel?> FindOneAsync(string id, string ownerId);
 
-    Task<PagedResult<T>> FindAllAsync(string ownerId, int page, int pageSize, string? search, T input);
+    Task<PagedResult<TModel>> FindAllAsync(string ownerId, int page, int pageSize, string? search, TModel input);
 
-    Task<T> CreateAsync(T model);
+    Task<TModel> CreateAsync(TModel model);
 
-    Task<long> UpdateAsync(string id, T model, string ownerId);
+    Task<long> UpdateAsync(string id, TModel model, string ownerId);
 
     Task<long> DeleteAsync(string id, string ownerId);
 }

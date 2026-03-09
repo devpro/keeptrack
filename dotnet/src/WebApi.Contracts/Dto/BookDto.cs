@@ -1,11 +1,12 @@
 ﻿using System;
+using KeepTrack.Common.Collections.Generic;
 
 namespace KeepTrack.WebApi.Contracts.Dto;
 
 /// <summary>
 /// Book data transfer object.
 /// </summary>
-public class BookDto
+public class BookDto : IHasId
 {
     /// <summary>
     /// Book ID.

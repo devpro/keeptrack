@@ -13,12 +13,15 @@ namespace KeepTrack.Infrastructure.MongoDb.Repositories;
 /// </summary>
 /// <typeparam name="TModel">Data Model class</typeparam>
 /// <typeparam name="TEntity">Business class</typeparam>
-public abstract class RepositoryBase<TModel, TEntity>(IMongoDatabase mongoDatabase, ILogger<RepositoryBase<TModel, TEntity>> logger, IMapper mapper)
+public abstract class MongoDbRepositoryBase<TModel, TEntity>(
+    IMongoDatabase mongoDatabase,
+    ILogger<MongoDbRepositoryBase<TModel, TEntity>> logger,
+    IMapper mapper)
     where TEntity : IEntity
 {
     protected abstract string CollectionName { get; }
 
-    protected ILogger<RepositoryBase<TModel, TEntity>> Logger { get; } = logger;
+    protected ILogger<MongoDbRepositoryBase<TModel, TEntity>> Logger { get; } = logger;
 
     protected IMapper Mapper { get; } = mapper;
 

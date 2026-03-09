@@ -1,6 +1,8 @@
-﻿namespace KeepTrack.WebApi.Contracts.Dto;
+﻿using KeepTrack.Common.Collections.Generic;
 
-public class MovieDto
+namespace KeepTrack.WebApi.Contracts.Dto;
+
+public class MovieDto: IHasId
 {
     public string? Id { get; set; }
 

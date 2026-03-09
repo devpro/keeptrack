@@ -1,4 +1,5 @@
 using KeepTrack.BlazorApp.Components.Account;
+using KeepTrack.BlazorApp.Components.Inventory.Clients;
 
 var builder = WebApplication.CreateBuilder(args);
 

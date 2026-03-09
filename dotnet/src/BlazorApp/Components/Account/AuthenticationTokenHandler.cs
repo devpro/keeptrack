@@ -12,7 +12,7 @@ public class AuthenticationTokenHandler(IHttpContextAccessor httpContextAccessor
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        var httpContext = httpContextAccessor.HttpContext ?? throw new Exception("HttpContext not available");
+        var httpContext = httpContextAccessor.HttpContext ?? throw new InvalidOperationException("HttpContext is not available");
 
         var token = await httpContext.GetTokenAsync(FirebaseTokenName);
         if (token is null) throw new TokenExpiredException();

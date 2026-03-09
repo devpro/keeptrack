@@ -7,8 +7,8 @@ using MongoDB.Driver;
 
 namespace KeepTrack.Infrastructure.MongoDb.Repositories;
 
-public class TvShowRepository(IMongoDatabase mongoDatabase, ILogger<RepositoryBase<TvShowModel, TvShow>> logger, IMapper mapper)
-    : RepositoryBase<TvShowModel, TvShow>(mongoDatabase, logger, mapper), ITvShowRepository
+public class TvShowMongoDbRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepositoryBase<TvShowModel, TvShow>> logger, IMapper mapper)
+    : MongoDbRepositoryBase<TvShowModel, TvShow>(mongoDatabase, logger, mapper), ITvShowRepository
 {
     protected override string CollectionName => "tvshow";
 

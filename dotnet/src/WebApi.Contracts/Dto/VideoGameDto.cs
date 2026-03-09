@@ -1,11 +1,12 @@
 ﻿using System;
+using KeepTrack.Common.Collections.Generic;
 
 namespace KeepTrack.WebApi.Contracts.Dto;
 
 /// <summary>
 /// Video Game data transfer object.
 /// </summary>
-public class VideoGameDto
+public class VideoGameDto: IHasId
 {
     /// <summary>
     /// Video Game ID.

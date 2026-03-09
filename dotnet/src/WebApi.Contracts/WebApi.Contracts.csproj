@@ -9,4 +9,8 @@
     <NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Common.Collections.Generic\Common.Collections.Generic.csproj" />
+  </ItemGroup>
+
 </Project>

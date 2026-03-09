@@ -1,11 +1,12 @@
 ﻿using System;
+using KeepTrack.Common.Collections.Generic;
 
 namespace KeepTrack.WebApi.Contracts.Dto;
 
 /// <summary>
 /// Car history data transfer object.
 /// </summary>
-public class CarHistoryDto
+public class CarHistoryDto : IHasId
 {
     /// <summary>
     /// History ID.

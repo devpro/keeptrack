@@ -7,8 +7,8 @@ using MongoDB.Driver;
 
 namespace KeepTrack.Infrastructure.MongoDb.Repositories;
 
-public class BookRepository(IMongoDatabase mongoDatabase, ILogger<RepositoryBase<BookModel, Book>> logger, IMapper mapper)
-    : RepositoryBase<BookModel, Book>(mongoDatabase, logger, mapper), IBookRepository
+public class BookMongoDbRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepositoryBase<BookModel, Book>> logger, IMapper mapper)
+    : MongoDbRepositoryBase<BookModel, Book>(mongoDatabase, logger, mapper), IBookRepository
 {
     protected override string CollectionName => "book";
 
