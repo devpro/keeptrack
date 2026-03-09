@@ -15,7 +15,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\WebApi.Dto\WebApi.Dto.csproj" />
+    <ProjectReference Include="..\Common.Collections.Generic\Common.Collections.Generic.csproj" />
+    <ProjectReference Include="..\WebApi.Contracts\WebApi.Contracts.csproj" />
   </ItemGroup>
 
   <ItemGroup>

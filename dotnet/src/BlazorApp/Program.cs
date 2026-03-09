@@ -1,3 +1,5 @@
+using KeepTrack.BlazorApp.Components.Account;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // adds services to the container
@@ -21,12 +23,12 @@ if (FirebaseApp.DefaultInstance is null)
     var googleCredential = GoogleCredential.FromJson(firebaseJson);
     FirebaseApp.Create(new AppOptions { Credential = googleCredential });
 }
-
-builder.Services.AddSingleton<ITokenStore, InMemoryTokenStore>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<AuthenticationTokenHandler>();
 builder.Services.AddHttpClient<MoviesApiClient>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration.TryGetSection<string>("WebApi:BaseUrl"));
-});
+}).AddHttpMessageHandler<AuthenticationTokenHandler>();
 
 var app = builder.Build();
 

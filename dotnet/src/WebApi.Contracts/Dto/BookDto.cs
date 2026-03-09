@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace KeepTrack.WebApi.Dto;
+namespace KeepTrack.WebApi.Contracts.Dto;
 
 /// <summary>
 /// Book data transfer object.

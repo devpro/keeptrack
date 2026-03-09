@@ -1,10 +1,10 @@
-﻿using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using AwesomeAssertions;
 using Bogus;
-using KeepTrack.WebApi.Dto;
+using KeepTrack.Common.Collections.Generic;
+using KeepTrack.WebApi.Contracts.Dto;
 using KeepTrack.WebApi.IntegrationTests.Hosting;
 using Xunit;
 
@@ -22,7 +22,7 @@ public class MovieResourceTest(KestrelWebAppFactory<Program> factory)
 
         await Authenticate();
 
-        var initialItems = await GetAsync<List<MovieDto>>($"/{ResourceEndpoint}");
+        var initialItems = await GetAsync<PagedResult<MovieDto>>($"/{ResourceEndpoint}");
 
         var input = new Faker<MovieDto>()
             .Rules((f, o) => { o.Title = f.Random.AlphaNumeric(14); })
@@ -38,10 +38,9 @@ public class MovieResourceTest(KestrelWebAppFactory<Program> factory)
             var updated = await GetAsync<MovieDto>($"/{ResourceEndpoint}/{created.Id}");
             updated.Should().BeEquivalentTo(created);
 
-            var finalItems = await GetAsync<List<MovieDto>>($"/{ResourceEndpoint}");
-            finalItems.Count.Should().BeGreaterThan(initialItems.Count);
-            finalItems[0].Id.Should().Be(updated.Id);
-            var firstItem = finalItems.FirstOrDefault(x => x.Id == updated.Id);
+            var finalItems = await GetAsync<PagedResult<MovieDto>>($"/{ResourceEndpoint}");
+            finalItems.TotalCount.Should().BeGreaterThan(initialItems.TotalCount);
+            var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
             firstItem.Should().NotBeNull();
             firstItem.Title.Should().Be(updated.Title);
         }

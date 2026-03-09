@@ -1,4 +1,4 @@
-﻿namespace KeepTrack.WebApi.Dto;
+﻿namespace KeepTrack.WebApi.Contracts.Dto;
 
 /// <summary>
 /// TV Show history transfer object.

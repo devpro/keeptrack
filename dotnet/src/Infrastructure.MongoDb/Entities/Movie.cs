@@ -16,6 +16,12 @@ public class Movie : IEntity
 
     public int? Year { get; set; }
 
+    public int? Rating { get; set; }
+
+    public string? Genre { get; set; }
+
+    public string? Notes { get; set; }
+
     public Imdb? Imdb { get; set; }
 
     public Allocine? Allocine { get; set; }

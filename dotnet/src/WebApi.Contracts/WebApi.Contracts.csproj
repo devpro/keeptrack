@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <AssemblyName>KeepTrack.WebApi.Dto</AssemblyName>
-    <RootNamespace>KeepTrack.WebApi.Dto</RootNamespace>
+    <AssemblyName>KeepTrack.WebApi.Contracts</AssemblyName>
+    <RootNamespace>KeepTrack.WebApi.Contracts</RootNamespace>
     <Nullable>enable</Nullable>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);1591</NoWarn>

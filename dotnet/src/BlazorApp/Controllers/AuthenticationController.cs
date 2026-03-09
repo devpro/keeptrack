@@ -1,6 +1,6 @@
 ﻿using System.Security.Claims;
 using FirebaseAdmin.Auth;
-using KeepTrack.BlazorApp.Services;
+using KeepTrack.BlazorApp.Components.Account;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,7 +14,7 @@ public class AuthenticationController : Controller
 {
     [HttpPost("callback")]
     [IgnoreAntiforgeryToken]
-    public async Task<IActionResult> Callback([FromBody] TokenRequest request, ITokenStore tokenStore)
+    public async Task<IActionResult> Callback([FromBody] TokenRequest request)
     {
         if (string.IsNullOrWhiteSpace(request?.IdToken))
         {
@@ -31,8 +31,6 @@ public class AuthenticationController : Controller
             return Unauthorized();
         }
 
-        tokenStore.Store(decoded.Uid, request.IdToken, DateTimeOffset.FromUnixTimeSeconds(decoded.ExpirationTimeSeconds));
-
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, decoded.Uid),
@@ -42,20 +40,22 @@ public class AuthenticationController : Controller
 
         var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme));
 
+        var props = new AuthenticationProperties { IsPersistent = true };
+        props.StoreTokens([
+            new AuthenticationToken { Name = AuthenticationTokenHandler.FirebaseTokenName, Value = request.IdToken }
+        ]);
+
         await HttpContext.SignInAsync(
             CookieAuthenticationDefaults.AuthenticationScheme,
             principal,
-            new AuthenticationProperties { IsPersistent = true });
+            props);
 
         return Ok(new { redirect = "/" });
     }
 
     [HttpGet("logout")]
-    public async Task<IActionResult> Logout(ITokenStore tokenStore)
+    public async Task<IActionResult> Logout()
     {
-        var uid = HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (uid is not null) tokenStore.Remove(uid);
-
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         return Redirect("/");
     }

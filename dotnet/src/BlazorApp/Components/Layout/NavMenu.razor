@@ -7,14 +7,12 @@
 
 <div class="nav-scrollable">
     <nav class="nav flex-column">
-
         <div class="nav-item">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
                 <span class="nav-icon">&#8962;</span>
                 Home
             </NavLink>
         </div>
-
         <AuthorizeView>
             <Authorized>
                 <div class="nav-item">
@@ -23,16 +21,13 @@
                         Movies
                     </NavLink>
                 </div>
-
                 <div class="nav-divider"></div>
-
                 <div class="nav-item">
                     <a class="nav-link nav-link-user" href="/Account/Manage">
                         <span class="nav-icon">&#9679;</span>
                         <span class="nav-username">@context.User.Identity?.Name</span>
                     </a>
                 </div>
-
                 <div class="nav-item">
                     <a class="nav-link nav-link-logout" href="/auth/logout">
                         <span class="nav-icon">&#8594;</span>
@@ -49,6 +44,5 @@
                 </div>
             </NotAuthorized>
         </AuthorizeView>
-
     </nav>
 </div>

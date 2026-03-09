@@ -1,5 +1,4 @@
 @page "/Movies"
-@using KeepTrack.WebApi.Dto
 @inject MoviesApiClient Api
 @inject NavigationManager Nav
 @rendermode InteractiveServer
@@ -19,7 +18,7 @@
         <div class="row g-3">
             <div class="col-md-5">
                 <label class="form-label">Title</label>
-                <input class="form-control" placeholder="e.g. Mulholland Drive" @bind="_form.Title" />
+                <input class="form-control" placeholder="e.g. Terminator" @bind="_form.Title" />
             </div>
             <div class="col-md-2">
                 <label class="form-label">Year</label>
@@ -186,6 +185,7 @@ else if (_movies.Count > 0)
 }
 
 @code {
+    private const int PageSize = 20;
     private List<MovieDto> _movies = [];
     private MovieDto _form = new();
     private MovieDto? _editing;
@@ -195,10 +195,9 @@ else if (_movies.Count > 0)
     private bool _loading = true;
     private string? _error;
     private string _search = "";
-    private int _page = 0;
-    private readonly int _pageSize = 20;
-    private int _totalCount = 0;
-    private int TotalPages => (int)Math.Ceiling(_totalCount / (double)_pageSize);
+    private int _page = 1;
+    private long _totalCount = 0;
+    private int TotalPages => (int)Math.Ceiling(_totalCount / (double)PageSize);
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -207,12 +206,9 @@ else if (_movies.Count > 0)
         try
         {
             _loading = true;
-            // var result   = await Api.GetMoviesAsync(_search, _page, _pageSize);
-            // _movies      = result.Items;
-            // _totalCount  = result.TotalCount;
-            _movies = await Api.GetMoviesAsync(_search, _page, _pageSize);
-            // TODO: just for dev
-            _totalCount = _movies.Count + _pageSize;
+             var result   = await Api.GetMoviesAsync(_search, _page, PageSize);
+            _movies      = result.Items;
+            _totalCount  = result.TotalCount;
         }
         catch (TokenExpiredException)
         {
@@ -230,20 +226,19 @@ else if (_movies.Count > 0)
 
     private async Task OnSearchKeyUp(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter")
-            await SearchAsync();
+        if (e.Key == "Enter") await SearchAsync();
     }
 
     private async Task SearchAsync()
     {
-        _page = 0;
+        _page = 1;
         await LoadAsync();
     }
 
     private async Task ClearSearch()
     {
         _search = "";
-        _page = 0;
+        _page = 1;
         await LoadAsync();
     }
 
@@ -294,10 +289,10 @@ else if (_movies.Count > 0)
         {
             Id = movie.Id,
             Title = movie.Title,
-            Year = movie.Year
-            // Genre = movie.Genre,
-            // Rating = movie.Rating,
-            // Notes = movie.Notes
+            Year = movie.Year,
+            Genre = movie.Genre,
+            Rating = movie.Rating,
+            Notes = movie.Notes
         };
     }
 

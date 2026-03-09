@@ -1,20 +1,18 @@
-﻿// creates the web application builder and adds services to the container
+﻿// creates the web application builder
 var builder = WebApplication.CreateBuilder(args);
-
-builder.Services.AddControllers(opts => { opts.Filters.Add<CustomExceptionFilterAttribute>(); });
-builder.Services.AddOpenApi();
-builder.Services.AddAutoMapper(config =>
-    {
-        // config.CreateMap<ObjectId, string>().ConvertUsing<ObjectIdToStringConverter>();
-        // config.CreateMap<string, ObjectId>().ConvertUsing<StringToObjectIdConverter>();
-        config.AllowNullDestinationValues = false;
-    },
-    typeof(Program).Assembly);
-builder.Services.AddHealthChecks();
 
 // reads the application configuration and configures additional services
 var configuration = new AppConfiguration(builder.Configuration);
 
+// adds services to the container
+builder.Services.AddControllers(opts => { opts.Filters.Add<CustomExceptionFilterAttribute>(); });
+builder.Services.AddOpenApi();
+builder.Services.AddAutoMapper(config =>
+    {
+        config.AllowNullDestinationValues = false;
+    },
+    typeof(Program).Assembly);
+builder.Services.AddHealthChecks();
 builder.Services.AddMongoDbInfrastructure(configuration);
 builder.Services.AddOpenApiWithBearerAuth(configuration);
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -30,7 +28,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateLifetime = true
         };
     });
-
 if (configuration.CorsAllowedOrigin.Count != 0)
 {
     builder.Services.AddCors(options =>
@@ -47,9 +44,10 @@ if (configuration.CorsAllowedOrigin.Count != 0)
     });
 }
 
-// creates the application and configures the HTTP request pipeline
+// creates the application
 var app = builder.Build();
 
+// configures the HTTP request pipeline
 if (configuration.IsScalarEnabled)
 {
     app.MapOpenApi();
@@ -62,16 +60,13 @@ if (configuration.IsScalarEnabled)
         options.AddPreferredSecuritySchemes("Bearer");
     });
 }
-
 if (configuration.IsHttpsRedirectionEnabled)
 {
     app.UseHttpsRedirection();
 }
-
 app.UseCors(AppConfiguration.CorsPolicyName);
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers()
     .RequireCors(AppConfiguration.CorsPolicyName);
 app.MapHealthChecks(AppConfiguration.HealthCheckEndpoint);

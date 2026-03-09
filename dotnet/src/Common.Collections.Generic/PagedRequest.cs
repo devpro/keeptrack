@@ -1,4 +1,4 @@
-﻿namespace KeepTrack.WebApi.Dto.Queries;
+﻿namespace KeepTrack.Common.Collections.Generic;
 
 /// <summary>
 /// Data query object.
@@ -6,17 +6,22 @@
 /// <remarks>
 /// See https://learn.microsoft.com/en-us/azure/architecture/patterns/cqrs
 /// </remarks>
-public class DataQuery
+public class PagedRequest
 {
     /// <summary>
-    /// Page number to return (starts with 0).
+    /// Page number to return (starts with 1).
     /// </summary>
-    public int Page { get; set; } = 0;
+    public int Page { get; set; } = 1;
 
     /// <summary>
     /// Number of elements to return per page.
     /// </summary>
     public int PageSize { get; set; } = 20;
+
+    /// <summary>
+    /// Elements to skip.
+    /// </summary>
+    public int Skip => (Page - 1) * PageSize;
 
     /// <summary>
     /// Search text.

@@ -1,5 +1,5 @@
-﻿using KeepTrack.Domain.Repositories;
-using KeepTrack.WebApi.Dto.Queries;
+﻿using KeepTrack.Common.Collections.Generic;
+using KeepTrack.Domain.Repositories;
 using Microsoft.AspNetCore.Mvc;
 
 namespace KeepTrack.WebApi.Controllers;
@@ -7,20 +7,24 @@ namespace KeepTrack.WebApi.Controllers;
 /// <summary>
 /// Data CRUD (Create, Request, Update, Delete) Controller abstract class.
 /// </summary>
-/// <typeparam name="T">Data Transfer Object</typeparam>
-/// <typeparam name="U">Domain Model</typeparam>
-public abstract class DataCrudControllerBase<T, U>(IMapper mapper, IDataRepository<U> dataRepository)
+/// <typeparam name="TDto">Data Transfer Object</typeparam>
+/// <typeparam name="TModel">Domain Model</typeparam>
+public abstract class DataCrudControllerBase<TDto, TModel>(IMapper mapper, IDataRepository<TModel> dataRepository)
     : ControllerBase
-    where U : Domain.Models.IDataModel
+    where TModel : Domain.Models.IDataModel
 {
     [HttpGet]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     [ProducesResponseType(500)]
-    public async Task<ActionResult<List<T>>> Get([FromQuery] DataQuery dataQuery, [FromQuery] T input)
+    public async Task<ActionResult<PagedResult<TDto>>> Get([FromQuery] PagedRequest pagedRequest, [FromQuery] TDto input)
     {
-        var models = await dataRepository.FindAllAsync(GetUserId(), dataQuery.Page, dataQuery.PageSize, dataQuery.Search, mapper.Map<U>(input));
-        return Ok(mapper.Map<List<T>>(models));
+        var models = await dataRepository.FindAllAsync(GetUserId(),
+            pagedRequest.Page,
+            pagedRequest.PageSize,
+            pagedRequest.Search,
+            mapper.Map<TModel>(input));
+        return Ok(models.Map(model => mapper.Map<TDto>(model)));
     }
 
     [HttpGet("{id}")]
@@ -28,7 +32,7 @@ public abstract class DataCrudControllerBase<T, U>(IMapper mapper, IDataReposito
     [ProducesResponseType(400)]
     [ProducesResponseType(404)]
     [ProducesResponseType(500)]
-    public async Task<ActionResult<T>> GetById(string id)
+    public async Task<ActionResult<TDto>> GetById(string id)
     {
         if (string.IsNullOrEmpty(id))
         {
@@ -41,33 +45,33 @@ public abstract class DataCrudControllerBase<T, U>(IMapper mapper, IDataReposito
             return NotFound();
         }
 
-        return Ok(mapper.Map<T>(model));
+        return Ok(mapper.Map<TDto>(model));
     }
 
     [HttpPost]
     [Consumes("application/json", "text/json")]
     [Produces("application/json")]
     [ProducesResponseType(201)]
-    public async Task<IActionResult> Post([FromBody] T dto)
+    public async Task<IActionResult> Post([FromBody] TDto dto)
     {
-        var input = mapper.Map<U>(dto);
+        var input = mapper.Map<TModel>(dto);
         input.OwnerId = GetUserId();
         var model = await dataRepository.CreateAsync(input);
-        return CreatedAtAction(nameof(GetById), new { id = model.Id }, mapper.Map<T>(model));
+        return CreatedAtAction(nameof(GetById), new { id = model.Id }, mapper.Map<TDto>(model));
     }
 
     [HttpPut("{id}")]
     [ProducesResponseType(204)]
     [ProducesResponseType(400)]
     [ProducesResponseType(500)]
-    public async Task<IActionResult> Put(string id, [FromBody] T dto)
+    public async Task<IActionResult> Put(string id, [FromBody] TDto dto)
     {
         if (string.IsNullOrEmpty(id))
         {
             return BadRequest();
         }
 
-        var input = mapper.Map<U>(dto);
+        var input = mapper.Map<TModel>(dto);
         input.OwnerId = GetUserId();
         await dataRepository.UpdateAsync(id, input, GetUserId());
         return NoContent();
