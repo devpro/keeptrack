@@ -78,15 +78,21 @@ jobs:
       contents: read
       pull-requests: write
 
-  # TODO: loop on both apps (web api + blazor)
   image-scan:
-    name: Image
+    name: "Image ${{ matrix.image-name }}"
     needs: git-check
     if: needs.git-check.outputs.app_changed == 'true' || (github.event_name == 'workflow_dispatch' && inputs.run-image-scan)
+    strategy:
+      matrix:
+        include:
+          - image-name: "keeptrack-webapi"
+            image-definition: "src/WebApi/Dockerfile"
+          - image-name: "keeptrack-blazorapp"
+            image-definition: "src/BlazorApp/Dockerfile"
     uses: devpro/github-workflow-parts/.github/workflows/reusable-container-scan.yml@79ef8b68e376c0cb3df0fc82e25961cc649023db
     with:
-      image-definition: "src/WebApi/Dockerfile"
-      image-name: ${{ vars.CONTAINER_IMAGE_NAME }}
+      image-definition: ${{ matrix.image-definition }}
+      image-name: ${{ matrix.image-name }}
       image-path: ${{ vars.CONTAINER_REGISTRY_PATH }}
       image-tag: "${{ needs.git-check.outputs.version_major_minor }}.${{ github.run_id }}"
       max-high-cves: 0
