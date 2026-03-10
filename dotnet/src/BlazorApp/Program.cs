@@ -1,6 +1,3 @@
-using KeepTrack.BlazorApp.Components.Account;
-using KeepTrack.BlazorApp.Components.Inventory.Clients;
-
 var builder = WebApplication.CreateBuilder(args);
 
 // adds services to the container
@@ -26,10 +23,7 @@ if (FirebaseApp.DefaultInstance is null)
 }
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<AuthenticationTokenHandler>();
-builder.Services.AddHttpClient<MoviesApiClient>(client =>
-{
-    client.BaseAddress = new Uri(builder.Configuration.TryGetSection<string>("WebApi:BaseUrl"));
-}).AddHttpMessageHandler<AuthenticationTokenHandler>();
+builder.Services.AddWebApiHttpClient(builder.Configuration.TryGetSection<string>("WebApi:BaseUrl"));
 
 var app = builder.Build();
 

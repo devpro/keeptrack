@@ -18,7 +18,7 @@ public class BookRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbReposit
         if (string.IsNullOrEmpty(search)) return builder.Eq(f => f.OwnerId, ownerId);
         return builder.Eq(f => f.OwnerId, ownerId)
                & builder.Where(f => f.Title.Contains(search, System.StringComparison.CurrentCultureIgnoreCase)
-                                    || (f.Series == null || f.Series.Contains(search, System.StringComparison.CurrentCultureIgnoreCase))
+                                    || (f.Series != null && f.Series.Contains(search, System.StringComparison.CurrentCultureIgnoreCase))
                                     || f.Author.Contains(search, System.StringComparison.CurrentCultureIgnoreCase));
     }
 }
