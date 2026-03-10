@@ -65,6 +65,15 @@ jobs:
         export MONGODB_URI="mongodb://localhost:27017/keeptrack_dev"
         echo "TODO (./scripts/...)"
       dotnet-test-args: "--report-xunit-trx --coverage --coverage-output-format cobertura"
+      extra-vars: |
+        AllowedOrigins__0="5207"
+        Authentication__JwtBearer__Authority="https://securetoken.google.com/${{ secrets.FIREBASE_PROJECTID }}"
+        Authentication__JwtBearer__TokenValidation__Issuer="https://securetoken.google.com/${{ secrets.FIREBASE_PROJECTID }}"
+        Authentication__JwtBearer__TokenValidation__Audience="${{ secrets.FIREBASE_PROJECTID }}"
+        Features__IsScalarEnabled="true"
+        Features__IsHttpsRedirectionEnabled="false"
+        Infrastructure__MongoDB__ConnectionString="mongodb://localhost:27017"
+        Infrastructure__MongoDB__DatabaseName="keeptrack_ci"
       fossa-enabled: true
       sonar-enabled: true
       sonar-organization: ${{ vars.SONAR_ORG }}
@@ -79,16 +88,18 @@ jobs:
       pull-requests: write
 
   image-scan:
-    name: "Image ${{ matrix.image-name }}"
+    name: "Image ${{ matrix.name }}"
     needs: git-check
     if: needs.git-check.outputs.app_changed == 'true' || (github.event_name == 'workflow_dispatch' && inputs.run-image-scan)
     strategy:
       matrix:
         include:
-          - image-name: "keeptrack-webapi"
-            image-definition: "src/WebApi/Dockerfile"
-          - image-name: "keeptrack-blazorapp"
+          - name: "Blazor App"
+            image-name: "keeptrack-blazorapp"
             image-definition: "src/BlazorApp/Dockerfile"
+          - name: "Web Api"
+            image-name: "keeptrack-webapi"
+            image-definition: "src/WebApi/Dockerfile"
     uses: devpro/github-workflow-parts/.github/workflows/reusable-container-scan.yml@79ef8b68e376c0cb3df0fc82e25961cc649023db
     with:
       image-definition: ${{ matrix.image-definition }}
