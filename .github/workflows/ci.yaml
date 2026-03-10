@@ -63,7 +63,7 @@ jobs:
         "
         echo "Initialize database (indexes, tenants & users)"
         export MONGODB_URI="mongodb://localhost:27017/keeptrack_dev"
-        echo TODO (./scripts/...)
+        echo "TODO (./scripts/...)"
       dotnet-test-args: "--report-xunit-trx --coverage --coverage-output-format cobertura"
       fossa-enabled: true
       sonar-enabled: true
