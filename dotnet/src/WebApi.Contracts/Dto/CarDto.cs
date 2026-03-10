@@ -5,7 +5,7 @@ namespace KeepTrack.WebApi.Contracts.Dto;
 /// <summary>
 /// Car data transfer object.
 /// </summary>
-public class CarDto: IHasId
+public class CarDto : IHasId
 {
     /// <summary>
     /// Car ID.

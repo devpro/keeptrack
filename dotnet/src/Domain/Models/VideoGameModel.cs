@@ -5,7 +5,7 @@ namespace KeepTrack.Domain.Models;
 
 public class VideoGameModel : IHasIdAndOwnerId
 {
-    public string Id { get; set; } = string.Empty;
+    public string? Id { get; set; } = string.Empty;
 
     public string OwnerId { get; set; } = string.Empty;
 

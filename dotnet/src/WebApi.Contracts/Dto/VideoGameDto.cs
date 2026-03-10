@@ -6,7 +6,7 @@ namespace KeepTrack.WebApi.Contracts.Dto;
 /// <summary>
 /// Video Game data transfer object.
 /// </summary>
-public class VideoGameDto: IHasId
+public class VideoGameDto : IHasId
 {
     /// <summary>
     /// Video Game ID.

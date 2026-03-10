@@ -5,7 +5,7 @@ namespace KeepTrack.Domain.Models;
 
 public class CarHistoryModel : IHasIdAndOwnerId
 {
-    public string Id { get; set; } = null!;
+    public string? Id { get; set; } = null!;
 
     public required string OwnerId { get; set; }
 

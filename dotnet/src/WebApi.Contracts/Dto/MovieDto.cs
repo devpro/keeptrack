@@ -2,7 +2,7 @@
 
 namespace KeepTrack.WebApi.Contracts.Dto;
 
-public class MovieDto: IHasId
+public class MovieDto : IHasId
 {
     public string? Id { get; set; }
 

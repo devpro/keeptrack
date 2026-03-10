@@ -5,7 +5,7 @@ namespace KeepTrack.WebApi.Contracts.Dto;
 /// <summary>
 /// TV Show history transfer object.
 /// </summary>
-public class TvShowDto: IHasId
+public class TvShowDto : IHasId
 {
     /// <summary>
     /// TV Show ID.

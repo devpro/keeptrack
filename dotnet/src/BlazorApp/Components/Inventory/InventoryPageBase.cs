@@ -7,103 +7,112 @@ namespace KeepTrack.BlazorApp.Components.Inventory;
 public abstract class InventoryPageBase<TDto> : ComponentBase
     where TDto : IHasId, new()
 {
-    [Inject] protected NavigationManager Nav { get; set; } = null!;
+    private const int PageSize = 20;
+
+    protected List<TDto> _items = [];
+
+    protected TDto _form = new();
+
+    protected TDto? _editingInline;
+
+    protected TDto _inlineForm = new();
+
+    protected bool _showForm;
+
+    protected bool _loading = true;
+
+    protected string? _error;
+
+    protected string _search = "";
+
+    protected int _page = 1;
+
+    protected long _totalCount;
+
+    protected int TotalPages => (int)Math.Ceiling(_totalCount / (double)PageSize);
 
     protected abstract InventoryApiClientBase<TDto> Api { get; }
-
-    protected const int PageSize = 20;
-    protected List<TDto> Items = [];
-    protected TDto Form = new();
-    protected TDto? EditingInline;
-    protected TDto InlineForm = new();
-    protected bool ShowForm;
-    protected bool Loading = true;
-    protected string? Error;
-    protected string Search = "";
-    protected int Page = 1;
-    protected long TotalCount;
-    protected int TotalPages => (int)Math.Ceiling(TotalCount / (double)PageSize);
 
     protected abstract TDto CloneItem(TDto item);
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
-    protected void OnSearchChanged(string value) => Search = value;
+    protected void OnSearchChanged(string value) => _search = value;
 
     protected async Task OnSearchKeyUp(KeyboardEventArgs e)
     {
         if (e.Key == "Enter")
         {
-            Page = 1;
+            _page = 1;
             await LoadAsync();
         }
     }
 
     protected async Task ClearSearch()
     {
-        Search = "";
-        Page = 1;
+        _search = "";
+        _page = 1;
         await LoadAsync();
     }
 
     protected async Task GoToPage(int page)
     {
-        Page = page;
+        _page = page;
         await LoadAsync();
     }
 
     protected void ShowAddForm()
     {
-        Form = new TDto();
-        ShowForm = true;
-        EditingInline = default;
+        _form = new TDto();
+        _showForm = true;
+        _editingInline = default;
     }
 
     protected void CancelForm()
     {
-        ShowForm = false;
-        Error = null;
+        _showForm = false;
+        _error = null;
     }
 
     protected async Task SaveAsync()
     {
         try
         {
-            if (Form.Id is null) await Api.AddAsync(Form);
-            else await Api.UpdateAsync(Form);
-            ShowForm = false;
+            if (_form.Id is null) await Api.AddAsync(_form);
+            else await Api.UpdateAsync(_form);
+            _showForm = false;
             await LoadAsync();
         }
         catch (Exception ex)
         {
-            Error = ex.Message;
+            _error = ex.Message;
         }
     }
 
     protected void StartInlineEdit(TDto item)
     {
-        ShowForm = false;
-        EditingInline = item;
-        InlineForm = CloneItem(item);
+        _showForm = false;
+        _editingInline = item;
+        _inlineForm = CloneItem(item);
     }
 
     protected void CancelInline()
     {
-        EditingInline = default;
-        Error = null;
+        _editingInline = default;
+        _error = null;
     }
 
     protected async Task SaveInlineAsync()
     {
         try
         {
-            await Api.UpdateAsync(InlineForm);
-            EditingInline = default;
+            await Api.UpdateAsync(_inlineForm);
+            _editingInline = default;
             await LoadAsync();
         }
         catch (Exception ex)
         {
-            Error = ex.Message;
+            _error = ex.Message;
         }
     }
 
@@ -116,7 +125,7 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
         }
         catch (Exception ex)
         {
-            Error = ex.Message;
+            _error = ex.Message;
         }
     }
 
@@ -124,18 +133,18 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
     {
         try
         {
-            Loading = true;
-            var result = await Api.GetAsync(Search, Page, PageSize);
-            Items = result.Items;
-            TotalCount = result.TotalCount;
+            _loading = true;
+            var result = await Api.GetAsync(_search, _page, PageSize);
+            _items = result.Items;
+            _totalCount = result.TotalCount;
         }
         catch (Exception ex)
         {
-            Error = ex.Message;
+            _error = ex.Message;
         }
         finally
         {
-            Loading = false;
+            _loading = false;
         }
     }
 }

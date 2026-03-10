@@ -12,7 +12,7 @@ public class PagedRequest
     /// Search text.
     /// </summary>
     public string? Search { get; set; }
-    
+
     /// <summary>
     /// Page number to return (starts with 1).
     /// </summary>
