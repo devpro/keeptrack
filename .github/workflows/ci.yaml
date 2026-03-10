@@ -1,0 +1,93 @@
+﻿name: CI
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+# purpose: Continuous Integration pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run-code-quality:
+        description: 'Check code quality?'
+        required: false
+        type: boolean
+        default: false
+      run-image-scan:
+        description: 'Scan container image?'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: "${{ github.ref }}-ci"
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  git-check:
+    name: Git
+    uses: ./.github/workflows/reusable-git-check.yml
+    with:
+      is-pull-request: ${{ github.event_name == 'pull_request' }}
+
+  markup-lint:
+    name: Markup
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-markup-lint.yml@79ef8b68e376c0cb3df0fc82e25961cc649023db
+
+  code-quality:
+    name: Code
+    needs: git-check
+    if: needs.git-check.outputs.app_changed == 'true' || (github.event_name == 'workflow_dispatch' && inputs.run-code-quality)
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-dotnet-quality.yml@79ef8b68e376c0cb3df0fc82e25961cc649023db
+    with:
+      custom-commands: |
+        echo "Install and start MongoDB 8.2"
+        curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | \
+          sudo gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg \
+          --dearmor
+        echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.2 multiverse" |
+          sudo tee /etc/apt/sources.list.d/mongodb-org-8.2.list
+        sudo apt-get update
+        sudo apt-get install -y mongodb-org
+        sudo systemctl start mongod
+        timeout 30 bash -c "
+          until mongosh --host localhost:27017 --eval 'db.runCommand({ ping: 1 })' >/dev/null 2>&1; do
+            echo 'MongoDB not ready yet, retrying in 1 second...'
+            sleep 1
+          done
+        "
+        echo "Initialize database (indexes, tenants & users)"
+        export MONGODB_URI="mongodb://localhost:27017/keeptrack_dev"
+        echo TODO (./scripts/...)
+      dotnet-test-args: "--report-xunit-trx --coverage --coverage-output-format cobertura"
+      fossa-enabled: true
+      sonar-enabled: true
+      sonar-organization: ${{ vars.SONAR_ORG }}
+      sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
+      sonar-project-name: Keeptrack
+      workflow-parts-version: 79ef8b68e376c0cb3df0fc82e25961cc649023db
+    secrets:
+      fossa-api-key: ${{ secrets.FOSSA_API_KEY }}
+      sonar-token: ${{ secrets.SONAR_TOKEN }}
+    permissions:
+      contents: read
+      pull-requests: write
+
+  # TODO: loop on both apps (web api + blazor)
+  image-scan:
+    name: Image
+    needs: git-check
+    if: needs.git-check.outputs.app_changed == 'true' || (github.event_name == 'workflow_dispatch' && inputs.run-image-scan)
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-scan.yml@79ef8b68e376c0cb3df0fc82e25961cc649023db
+    with:
+      image-definition: "src/WebApi/Dockerfile"
+      image-name: ${{ vars.CONTAINER_IMAGE_NAME }}
+      image-path: ${{ vars.CONTAINER_REGISTRY_PATH }}
+      image-tag: "${{ needs.git-check.outputs.version_major_minor }}.${{ github.run_id }}"
+      max-high-cves: 0
+      max-medium-cves: 0

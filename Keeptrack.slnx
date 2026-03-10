@@ -2,24 +2,28 @@
   <Folder Name="/Solution Items/">
     <File Path=".editorconfig" />
     <File Path=".gitignore" />
+    <File Path=".markdownlint-cli2.yaml" />
+    <File Path=".yamllint.yaml" />
+    <File Path="CONTRIBUTING.md" />
     <File Path="Directory.Build.props" />
     <File Path="Directory.Packages.props" />
     <File Path="README.md" />
   </Folder>
   <Folder Name="/Solution Items/azure-devops/">
-    <File Path="../.azure/pipelines/ci.yml" />
-    <File Path="../.azure/pipelines/nightly.yml" />
-    <File Path="../.azure/pipelines/pkg.yml" />
+    <File Path=".azure/pipelines/ci.yml" />
+    <File Path=".azure/pipelines/nightly.yml" />
+    <File Path=".azure/pipelines/pkg.yml" />
   </Folder>
-  <Folder Name="/Solution Items/github/" />
+  <Folder Name="/Solution Items/github/">
+    <File Path=".github/workflows/ci.yaml" />
+    <File Path=".github/workflows/pkg.yaml" />
+    <File Path=".github/workflows/reusable-git-check.yml" />
+  </Folder>
   <Folder Name="/Solution Items/gitlab/">
-    <File Path="../.gitlab-ci.yml" />
+    <File Path=".gitlab-ci.yml" />
   </Folder>
   <Folder Name="/Solution Items/scripts/">
-    <File Path="../scripts/mongo-create-index.js" />
-    <File Path="../scripts/write_angularconfig.sh" />
-    <File Path="../scripts/write_blazorconfig.sh" />
-    <File Path="../scripts/write_testrunsettings.sh" />
+    <File Path="scripts/mongo-create-index.js" />
   </Folder>
   <Project Path="src/BlazorApp/BlazorApp.csproj" />
   <Project Path="src/Common.System/Common.System.csproj" />

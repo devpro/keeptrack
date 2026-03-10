@@ -6,7 +6,7 @@
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=devpro.keep-track&metric=alert_status)](https://sonarcloud.io/dashboard?id=devpro.keep-track)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=devpro.keep-track&metric=coverage)](https://sonarcloud.io/dashboard?id=devpro.keep-track)
 
-Keeptrack is a an open source application that let you save everything you read, watch, listen or play.
+Keeptrack is an open source application that let you save everything you read, watch, listen or play.
 
 ## Instances
 
