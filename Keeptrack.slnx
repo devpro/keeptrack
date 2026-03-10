@@ -24,6 +24,7 @@
   </Folder>
   <Folder Name="/Solution Items/scripts/">
     <File Path="scripts/mongo-create-index.js" />
+    <File Path="scripts/mongodb-install.sh" />
   </Folder>
   <Project Path="src/BlazorApp/BlazorApp.csproj" />
   <Project Path="src/Common.System/Common.System.csproj" />
