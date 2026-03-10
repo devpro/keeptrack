@@ -2,7 +2,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
-namespace KeepTrack.WebApi.UnitTests.MappingProfiles;
+namespace Keeptrack.WebApi.UnitTests.MappingProfiles;
 
 [Trait("Category", "UnitTests")]
 public class AutoMapperConfigurationTest

@@ -5,7 +5,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using AwesomeAssertions;
 
-namespace KeepTrack.WebApi.IntegrationTests.Firebase;
+namespace Keeptrack.WebApi.IntegrationTests.Firebase;
 
 /// <summary>
 /// Firebase account repository, uses Firebase API client.

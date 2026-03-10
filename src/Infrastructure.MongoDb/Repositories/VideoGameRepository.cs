@@ -1,11 +1,11 @@
 ﻿using AutoMapper;
-using KeepTrack.Domain.Models;
-using KeepTrack.Domain.Repositories;
-using KeepTrack.Infrastructure.MongoDb.Entities;
+using Keeptrack.Domain.Models;
+using Keeptrack.Domain.Repositories;
+using Keeptrack.Infrastructure.MongoDb.Entities;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 
-namespace KeepTrack.Infrastructure.MongoDb.Repositories;
+namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
 public class VideoGameRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepositoryBase<VideoGameModel, VideoGame>> logger, IMapper mapper)
     : MongoDbRepositoryBase<VideoGameModel, VideoGame>(mongoDatabase, logger, mapper), IVideoGameRepository

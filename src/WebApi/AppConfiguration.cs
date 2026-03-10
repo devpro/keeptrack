@@ -1,7 +1,7 @@
-﻿using KeepTrack.WebApi.Configuration;
+﻿using Keeptrack.WebApi.Configuration;
 using Withywoods.Configuration;
 
-namespace KeepTrack.WebApi;
+namespace Keeptrack.WebApi;
 
 public class AppConfiguration(IConfiguration configuration)
 {

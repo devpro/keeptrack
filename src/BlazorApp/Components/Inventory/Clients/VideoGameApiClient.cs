@@ -1,6 +1,6 @@
-﻿using KeepTrack.WebApi.Contracts.Dto;
+﻿using Keeptrack.WebApi.Contracts.Dto;
 
-namespace KeepTrack.BlazorApp.Components.Inventory.Clients;
+namespace Keeptrack.BlazorApp.Components.Inventory.Clients;
 
 public class VideoGameApiClient(HttpClient http)
     : InventoryApiClientBase<VideoGameDto>(http)

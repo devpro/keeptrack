@@ -3,7 +3,7 @@ using FirebaseAdmin.Auth;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc;
 
-namespace KeepTrack.BlazorApp.Components.Account.Controllers;
+namespace Keeptrack.BlazorApp.Components.Account.Controllers;
 
 public record TokenRequest(string IdToken);
 

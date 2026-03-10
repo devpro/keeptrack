@@ -3,12 +3,12 @@ using System.Net;
 using System.Threading.Tasks;
 using AwesomeAssertions;
 using Bogus;
-using KeepTrack.Common.System;
-using KeepTrack.WebApi.Contracts.Dto;
-using KeepTrack.WebApi.IntegrationTests.Hosting;
+using Keeptrack.Common.System;
+using Keeptrack.WebApi.Contracts.Dto;
+using Keeptrack.WebApi.IntegrationTests.Hosting;
 using Xunit;
 
-namespace KeepTrack.WebApi.IntegrationTests.Resources;
+namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 public class BookResourceTest(KestrelWebAppFactory<Program> factory)
     : ResourceTestBase(factory)

@@ -1,6 +1,6 @@
-﻿using KeepTrack.Common.System;
+﻿using Keeptrack.Common.System;
 
-namespace KeepTrack.BlazorApp.Components.Inventory.Clients;
+namespace Keeptrack.BlazorApp.Components.Inventory.Clients;
 
 public abstract class InventoryApiClientBase<TDto>(HttpClient http)
     where TDto : IHasId

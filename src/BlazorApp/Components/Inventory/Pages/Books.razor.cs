@@ -1,7 +1,7 @@
-﻿using KeepTrack.WebApi.Contracts.Dto;
+﻿using Keeptrack.WebApi.Contracts.Dto;
 using Microsoft.AspNetCore.Components;
 
-namespace KeepTrack.BlazorApp.Components.Inventory.Pages;
+namespace Keeptrack.BlazorApp.Components.Inventory.Pages;
 
 public partial class Books : InventoryPageBase<BookDto>
 {

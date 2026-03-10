@@ -1,11 +1,11 @@
 using AutoMapper;
-using KeepTrack.Domain.Models;
-using KeepTrack.Domain.Repositories;
-using KeepTrack.Infrastructure.MongoDb.Entities;
+using Keeptrack.Domain.Models;
+using Keeptrack.Domain.Repositories;
+using Keeptrack.Infrastructure.MongoDb.Entities;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 
-namespace KeepTrack.Infrastructure.MongoDb.Repositories;
+namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
 public class CarHistoryRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepositoryBase<CarHistoryModel, CarHistory>> logger, IMapper mapper)
     : MongoDbRepositoryBase<CarHistoryModel, CarHistory>(mongoDatabase, logger, mapper), ICarHistoryRepository

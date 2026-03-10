@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <AssemblyName>KeepTrack.Domain</AssemblyName>
-    <RootNamespace>KeepTrack.Domain</RootNamespace>
+    <AssemblyName>Keeptrack.Domain</AssemblyName>
+    <RootNamespace>Keeptrack.Domain</RootNamespace>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 

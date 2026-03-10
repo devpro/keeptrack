@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <AssemblyName>KeepTrack.WebApi</AssemblyName>
-    <RootNamespace>KeepTrack.WebApi</RootNamespace>
+    <AssemblyName>Keeptrack.WebApi</AssemblyName>
+    <RootNamespace>Keeptrack.WebApi</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>

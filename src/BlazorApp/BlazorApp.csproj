@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <AssemblyName>KeepTrack.BlazorApp</AssemblyName>
-    <RootNamespace>KeepTrack.BlazorApp</RootNamespace>
+    <AssemblyName>Keeptrack.BlazorApp</AssemblyName>
+    <RootNamespace>Keeptrack.BlazorApp</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>

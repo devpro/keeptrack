@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <AssemblyName>KeepTrack.Infrastructure.MongoDb</AssemblyName>
-    <RootNamespace>KeepTrack.Infrastructure.MongoDb</RootNamespace>
+    <AssemblyName>Keeptrack.Infrastructure.MongoDb</AssemblyName>
+    <RootNamespace>Keeptrack.Infrastructure.MongoDb</RootNamespace>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 

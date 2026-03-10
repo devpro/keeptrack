@@ -1,4 +1,4 @@
-﻿namespace KeepTrack.Common.System;
+﻿namespace Keeptrack.Common.System;
 
 /// <summary>
 /// Data query object.

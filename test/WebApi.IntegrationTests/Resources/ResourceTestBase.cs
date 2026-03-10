@@ -6,11 +6,11 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using AwesomeAssertions;
-using KeepTrack.WebApi.IntegrationTests.Firebase;
-using KeepTrack.WebApi.IntegrationTests.Hosting;
+using Keeptrack.WebApi.IntegrationTests.Firebase;
+using Keeptrack.WebApi.IntegrationTests.Hosting;
 using Xunit;
 
-namespace KeepTrack.WebApi.IntegrationTests.Resources;
+namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 public abstract class ResourceTestBase(KestrelWebAppFactory<Program> factory)
     : IClassFixture<KestrelWebAppFactory<Program>>, IAsyncLifetime

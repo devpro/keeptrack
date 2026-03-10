@@ -1,6 +1,6 @@
-﻿using KeepTrack.Common.System;
+﻿using Keeptrack.Common.System;
 
-namespace KeepTrack.WebApi.Contracts.Dto;
+namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
 /// TV Show history transfer object.

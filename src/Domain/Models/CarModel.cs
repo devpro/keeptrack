@@ -1,10 +1,10 @@
-﻿using KeepTrack.Common.System;
+﻿using Keeptrack.Common.System;
 
-namespace KeepTrack.Domain.Models;
+namespace Keeptrack.Domain.Models;
 
 public class CarModel : IHasIdAndOwnerId
 {
-    public string? Id { get; set; } = null!;
+    public string? Id { get; set; }
 
     public required string OwnerId { get; set; }
 

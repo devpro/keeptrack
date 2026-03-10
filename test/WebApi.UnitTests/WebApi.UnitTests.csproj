@@ -3,8 +3,8 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <OutputType>Exe</OutputType>
-    <AssemblyName>KeepTrack.WebApi.UnitTests</AssemblyName>
-    <RootNamespace>KeepTrack.WebApi.UnitTests</RootNamespace>
+    <AssemblyName>Keeptrack.WebApi.UnitTests</AssemblyName>
+    <RootNamespace>Keeptrack.WebApi.UnitTests</RootNamespace>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>

@@ -1,17 +1,17 @@
 ﻿using System;
-using KeepTrack.Common.System;
+using Keeptrack.Common.System;
 
-namespace KeepTrack.Domain.Models;
+namespace Keeptrack.Domain.Models;
 
 public class BookModel : IHasIdAndOwnerId
 {
-    public string? Id { get; set; } = string.Empty;
+    public string? Id { get; set; }
 
-    public string OwnerId { get; set; } = string.Empty;
+    public required string OwnerId { get; set; }
 
-    public string Title { get; set; } = string.Empty;
+    public required string Title { get; set; }
 
-    public string Author { get; set; } = string.Empty;
+    public required string Author { get; set; }
 
     public string? Series { get; set; }
 

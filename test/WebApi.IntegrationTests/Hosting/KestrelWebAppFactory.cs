@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace KeepTrack.WebApi.IntegrationTests.Hosting;
+namespace Keeptrack.WebApi.IntegrationTests.Hosting;
 
 public class KestrelWebAppFactory<TEntryPoint> : WebApplicationFactory<TEntryPoint>
     where TEntryPoint : class

@@ -1,8 +1,8 @@
-using KeepTrack.Common.System;
+using Keeptrack.Common.System;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace KeepTrack.BlazorApp.Components.Inventory;
+namespace Keeptrack.BlazorApp.Components.Inventory;
 
 public abstract class InventoryPageBase<TDto> : ComponentBase
     where TDto : IHasId, new()

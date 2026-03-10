@@ -1,7 +1,7 @@
 ﻿using System.Threading.Tasks;
-using KeepTrack.Common.System;
+using Keeptrack.Common.System;
 
-namespace KeepTrack.Domain.Repositories;
+namespace Keeptrack.Domain.Repositories;
 
 public interface IDataRepository<TModel>
     where TModel : IHasIdAndOwnerId

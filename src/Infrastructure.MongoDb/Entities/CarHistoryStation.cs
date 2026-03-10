@@ -1,6 +1,6 @@
 ﻿using MongoDB.Bson.Serialization.Attributes;
 
-namespace KeepTrack.Infrastructure.MongoDb.Entities;
+namespace Keeptrack.Infrastructure.MongoDb.Entities;
 
 public class CarHistoryStation
 {

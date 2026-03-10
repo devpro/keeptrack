@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace KeepTrack.WebApi.IntegrationTests.Firebase;
+namespace Keeptrack.WebApi.IntegrationTests.Firebase;
 
 public static class FirebaseConfiguration
 {

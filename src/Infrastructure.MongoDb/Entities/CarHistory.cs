@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using KeepTrack.Common.System;
+using Keeptrack.Common.System;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace KeepTrack.Infrastructure.MongoDb.Entities;
+namespace Keeptrack.Infrastructure.MongoDb.Entities;
 
 public class CarHistory : IHasIdAndOwnerId
 {

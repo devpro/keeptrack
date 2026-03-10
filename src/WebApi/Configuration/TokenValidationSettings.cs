@@ -1,4 +1,4 @@
-﻿namespace KeepTrack.WebApi.Configuration;
+﻿namespace Keeptrack.WebApi.Configuration;
 
 public class TokenValidationSettings
 {

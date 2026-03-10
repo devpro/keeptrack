@@ -1,12 +1,12 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using AutoMapper;
-using KeepTrack.Common.System;
-using KeepTrack.Infrastructure.MongoDb.Entities;
+using Keeptrack.Common.System;
+using Keeptrack.Infrastructure.MongoDb.Entities;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 
-namespace KeepTrack.Infrastructure.MongoDb.Repositories;
+namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
 /// <summary>
 /// MongoDB Data Access Layer repository abstract class.

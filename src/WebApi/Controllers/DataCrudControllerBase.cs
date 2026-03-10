@@ -1,8 +1,8 @@
-﻿using KeepTrack.Common.System;
-using KeepTrack.Domain.Repositories;
+﻿using Keeptrack.Common.System;
+using Keeptrack.Domain.Repositories;
 using Microsoft.AspNetCore.Mvc;
 
-namespace KeepTrack.WebApi.Controllers;
+namespace Keeptrack.WebApi.Controllers;
 
 /// <summary>
 /// Data CRUD (Create, Request, Update, Delete) Controller abstract class.

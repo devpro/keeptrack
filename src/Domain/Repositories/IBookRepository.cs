@@ -1,6 +1,6 @@
-﻿using KeepTrack.Domain.Models;
+﻿using Keeptrack.Domain.Models;
 
-namespace KeepTrack.Domain.Repositories;
+namespace Keeptrack.Domain.Repositories;
 
 public interface IBookRepository : IDataRepository<BookModel>
 {

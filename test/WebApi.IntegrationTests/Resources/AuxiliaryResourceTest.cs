@@ -4,7 +4,7 @@ using AwesomeAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 
-namespace KeepTrack.WebApi.IntegrationTests.Resources;
+namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 [Trait("Category", "IntegrationTests")]
 public class AuxiliaryResourceTest(WebApplicationFactory<Program> factory)

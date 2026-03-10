@@ -1,9 +1,9 @@
-﻿using KeepTrack.Infrastructure.MongoDb.Repositories;
+﻿using Keeptrack.Infrastructure.MongoDb.Repositories;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using MongoDB.Bson.Serialization.Conventions;
 using MongoDB.Driver;
 
-namespace KeepTrack.WebApi.DependencyInjection;
+namespace Keeptrack.WebApi.DependencyInjection;
 
 internal static class InfrastructureServiceCollectionExtensions
 {

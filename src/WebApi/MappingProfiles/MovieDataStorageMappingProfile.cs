@@ -1,10 +1,10 @@
-﻿namespace KeepTrack.WebApi.MappingProfiles;
+﻿namespace Keeptrack.WebApi.MappingProfiles;
 
 public class MovieDataStorageMappingProfile : Profile
 {
     public override string ProfileName
     {
-        get { return "KeepTrackMovieDataStorageMappingProfile"; }
+        get { return "KeeptrackMovieDataStorageMappingProfile"; }
     }
 
     public MovieDataStorageMappingProfile()

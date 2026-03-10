@@ -1,21 +1,21 @@
 ﻿using System;
-using KeepTrack.Common.System;
+using Keeptrack.Common.System;
 
-namespace KeepTrack.Domain.Models;
+namespace Keeptrack.Domain.Models;
 
 public class VideoGameModel : IHasIdAndOwnerId
 {
-    public string? Id { get; set; } = string.Empty;
+    public string? Id { get; set; }
 
-    public string OwnerId { get; set; } = string.Empty;
+    public required string OwnerId { get; set; }
 
-    public string Title { get; set; } = string.Empty;
+    public required string Title { get; set; }
 
-    public string Platform { get; set; } = string.Empty;
+    public required string Platform { get; set; }
 
     public DateTime? ReleasedAt { get; set; }
 
-    public string State { get; set; } = string.Empty;
+    public required string State { get; set; }
 
     public DateTime? FinishedAt { get; set; }
 }

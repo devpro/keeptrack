@@ -1,10 +1,10 @@
-﻿namespace KeepTrack.WebApi.MappingProfiles;
+﻿namespace Keeptrack.WebApi.MappingProfiles;
 
 public class WebServiceMappingProfile : Profile
 {
     public override string ProfileName
     {
-        get { return "KeepTrackWebServiceMappingProfile"; }
+        get { return "KeeptrackWebServiceMappingProfile"; }
     }
 
     public WebServiceMappingProfile()

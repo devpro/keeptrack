@@ -1,9 +1,9 @@
 ﻿global using System;
 global using AutoMapper;
-global using KeepTrack.WebApi;
-global using KeepTrack.WebApi.Contracts.Dto;
-global using KeepTrack.WebApi.DependencyInjection;
-global using KeepTrack.WebApi.Filters;
+global using Keeptrack.WebApi;
+global using Keeptrack.WebApi.Contracts.Dto;
+global using Keeptrack.WebApi.DependencyInjection;
+global using Keeptrack.WebApi.Filters;
 global using Microsoft.AspNetCore.Authentication.JwtBearer;
 global using Microsoft.AspNetCore.Builder;
 global using Microsoft.Extensions.Configuration;

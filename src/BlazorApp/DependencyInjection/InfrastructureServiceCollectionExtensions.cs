@@ -1,4 +1,4 @@
-﻿namespace KeepTrack.BlazorApp.DependencyInjection;
+﻿namespace Keeptrack.BlazorApp.DependencyInjection;
 
 internal static class InfrastructureServiceCollectionExtensions
 {

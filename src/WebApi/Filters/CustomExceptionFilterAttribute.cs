@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
-namespace KeepTrack.WebApi.Filters;
+namespace Keeptrack.WebApi.Filters;
 
 /// <summary>
 /// Exception filter to make sure the

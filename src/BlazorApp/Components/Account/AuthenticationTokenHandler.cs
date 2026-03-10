@@ -1,7 +1,7 @@
 ﻿using System.Net.Http.Headers;
 using Microsoft.AspNetCore.Authentication;
 
-namespace KeepTrack.BlazorApp.Components.Account;
+namespace Keeptrack.BlazorApp.Components.Account;
 
 public class AuthenticationTokenHandler(IHttpContextAccessor httpContextAccessor)
     : DelegatingHandler

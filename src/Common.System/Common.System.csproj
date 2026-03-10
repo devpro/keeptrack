@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <AssemblyName>KeepTrack.Common.System</AssemblyName>
-    <RootNamespace>KeepTrack.Common.System</RootNamespace>
+    <AssemblyName>Keeptrack.Common.System</AssemblyName>
+    <RootNamespace>Keeptrack.Common.System</RootNamespace>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
