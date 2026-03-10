@@ -1,9 +1,7 @@
-﻿using System.Threading.Tasks;
-using KeepTrack.Domain.Models;
+﻿using KeepTrack.Domain.Models;
 
 namespace KeepTrack.Domain.Repositories;
 
-public interface ICarRepository
+public interface ICarRepository : IDataRepository<CarModel>
 {
-    Task<CarModel?> FindOneAsync(string id);
 }

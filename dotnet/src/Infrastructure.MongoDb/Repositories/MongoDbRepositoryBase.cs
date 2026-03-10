@@ -23,12 +23,7 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
 
     protected ILogger<MongoDbRepositoryBase<TModel, TEntity>> Logger { get; } = logger;
 
-    protected IMapper Mapper { get; } = mapper;
-
-    protected IMongoCollection<TEntity> GetCollection()
-    {
-        return mongoDatabase.GetCollection<TEntity>(CollectionName);
-    }
+    private IMapper Mapper { get; } = mapper;
 
     public async Task<TModel?> FindOneAsync(string id, string ownerId)
     {
@@ -81,8 +76,13 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
     protected virtual FilterDefinition<TEntity> GetFilter(string ownerId, string? search, TModel input)
     {
         var builder = Builders<TEntity>.Filter;
-        return string.IsNullOrEmpty(search)
-            ? builder.Eq(f => f.OwnerId, ownerId)
-            : builder.Eq(f => f.OwnerId, ownerId) & builder.Text(search);
+        var filter = builder.Eq(f => f.OwnerId, ownerId);
+        if (!string.IsNullOrEmpty(search)) filter &= builder.Text(search);
+        return filter;
+    }
+
+    private IMongoCollection<TEntity> GetCollection()
+    {
+        return mongoDatabase.GetCollection<TEntity>(CollectionName);
     }
 }

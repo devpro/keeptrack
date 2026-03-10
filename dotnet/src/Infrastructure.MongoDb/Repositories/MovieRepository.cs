@@ -7,21 +7,17 @@ using MongoDB.Driver;
 
 namespace KeepTrack.Infrastructure.MongoDb.Repositories
 {
-    public class MovieMongoDbRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepositoryBase<MovieModel, Movie>> logger, IMapper mapper)
+    public class MovieRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepositoryBase<MovieModel, Movie>> logger, IMapper mapper)
         : MongoDbRepositoryBase<MovieModel, Movie>(mongoDatabase, logger, mapper), IMovieRepository
     {
         protected override string CollectionName => "movie";
 
         protected override FilterDefinition<Movie> GetFilter(string ownerId, string? search, MovieModel input)
         {
-            if (string.IsNullOrEmpty(search))
-            {
-                return base.GetFilter(ownerId, search, input);
-            }
-
             var builder = Builders<Movie>.Filter;
-            return builder.Eq(f => f.OwnerId, ownerId)
-                   & builder.Where(f => f.Title.ToLower().Contains(search.ToLower()));
+            var filter = builder.Eq(f => f.OwnerId, ownerId);
+            if (!string.IsNullOrEmpty(search)) builder.Where(f => f.Title.Contains(search, System.StringComparison.CurrentCultureIgnoreCase));
+            return filter;
         }
     }
 }

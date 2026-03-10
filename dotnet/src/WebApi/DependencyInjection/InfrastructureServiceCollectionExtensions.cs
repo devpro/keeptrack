@@ -25,11 +25,11 @@ internal static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IMongoDatabase>(sp =>
             sp.GetRequiredService<IMongoClient>().GetDatabase(configuration.DatabaseName));
 
-        services.TryAddScoped<Domain.Repositories.IBookRepository, BookMongoDbRepository>();
-        services.TryAddScoped<Domain.Repositories.ICarRepository, CarMongoDbRepository>();
-        services.TryAddScoped<Domain.Repositories.ICarHistoryRepository, CarHistoryMongoDbRepository>();
-        services.TryAddScoped<Domain.Repositories.IMovieRepository, MovieMongoDbRepository>();
-        services.TryAddScoped<Domain.Repositories.ITvShowRepository, TvShowMongoDbRepository>();
-        services.TryAddScoped<Domain.Repositories.IVideoGameRepository, VideoGameMongoDbRepository>();
+        services.TryAddScoped<Domain.Repositories.IBookRepository, BookRepository>();
+        services.TryAddScoped<Domain.Repositories.ICarRepository, CarRepository>();
+        services.TryAddScoped<Domain.Repositories.ICarHistoryRepository, CarHistoryRepository>();
+        services.TryAddScoped<Domain.Repositories.IMovieRepository, MovieRepository>();
+        services.TryAddScoped<Domain.Repositories.ITvShowRepository, TvShowRepository>();
+        services.TryAddScoped<Domain.Repositories.IVideoGameRepository, VideoGameRepository>();
     }
 }

@@ -1,4 +1,4 @@
-﻿namespace KeepTrack.BlazorApp.Configuration;
+﻿namespace KeepTrack.BlazorApp.Components.Account;
 
 public class FirebaseClientSettings
 {

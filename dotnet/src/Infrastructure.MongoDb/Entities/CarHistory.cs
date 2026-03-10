@@ -5,7 +5,7 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace KeepTrack.Infrastructure.MongoDb.Entities;
 
-public partial class CarHistory : IEntity
+public class CarHistory : IEntity
 {
     [BsonId]
     [BsonRepresentation(BsonType.ObjectId)]

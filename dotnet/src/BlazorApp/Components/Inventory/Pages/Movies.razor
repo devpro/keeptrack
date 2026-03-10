@@ -58,20 +58,7 @@
         Loading your collection…
     </div>
 }
-else if (_movies.Count == 0 && !_showForm)
-{
-    <div class="kt-table-wrap">
-        <div class="kt-table-header">
-            <h1 class="kt-table-title">My <span>Movies</span></h1>
-            <button class="btn btn-primary" @onclick="ShowAddForm">+ Add movie</button>
-        </div>
-        <div class="kt-empty">
-            <div class="kt-empty-icon">◈</div>
-            <p>Your collection is empty.<br/>Add the first film you remember loving.</p>
-        </div>
-    </div>
-}
-else if (_movies.Count > 0)
+else
 {
     <div class="kt-table-wrap">
         <div class="kt-table-header">
@@ -96,51 +83,53 @@ else if (_movies.Count > 0)
                 <button class="btn btn-secondary btn-sm" @onclick="ClearSearch">Clear</button>
             }
         </div>
-        <table class="table">
-            <thead>
-            <tr>
-                <th>Title</th>
-                <th>Year</th>
-                <th>Genre</th>
-                <th>Rating</th>
-                <th>Notes</th>
-                <th style="width:120px"></th>
-            </tr>
-            </thead>
-            <tbody>
-            @foreach (var movie in _movies)
-            {
+        @if (_movies.Count > 0)
+        {
+            <table class="table">
+                <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Year</th>
+                    <th>Genre</th>
+                    <th>Rating</th>
+                    <th>Notes</th>
+                    <th style="width:120px"></th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var movie in _movies)
+                {
                     @if (_editingInline?.Id == movie.Id)
                     {
                         <tr class="kt-editing">
-                            <td><input class="form-control form-control-sm" @bind="_inlineForm.Title" /></td>
-                            <td><input class="form-control form-control-sm" type="number" @bind="_inlineForm.Year" style="width:80px" /></td>
-                            <td><input class="form-control form-control-sm" @bind="_inlineForm.Genre" /></td>
+                            <td><input class="form-control form-control-sm" @bind="_inlineForm.Title"/></td>
+                            <td><input class="form-control form-control-sm" type="number" @bind="_inlineForm.Year" style="width:80px"/></td>
+                            <td><input class="form-control form-control-sm" @bind="_inlineForm.Genre"/></td>
                             <td>
                                 <select class="form-select form-select-sm" @bind="_inlineForm.Rating" style="width:80px">
                                     <option value="0">—</option>
-                                @for (var i = 1; i <= 5; i++)
-                                {
-                                    <option value="@i">@(new string('★', i))</option>
+                                    @for (var i = 1; i <= 5; i++)
+                                    {
+                                        <option value="@i">@(new string('★', i))</option>
                                     }
                                 </select>
                             </td>
-                            <td><input class="form-control form-control-sm" @bind="_inlineForm.Notes" /></td>
+                            <td><input class="form-control form-control-sm" @bind="_inlineForm.Notes"/></td>
                             <td>
                                 <div class="d-flex gap-1">
                                     <button class="btn btn-sm btn-success" @onclick="SaveInlineAsync">Save</button>
-                                <button class="btn btn-sm btn-secondary" @onclick="CancelInline">✕</button>
-                            </div>
-                        </td>
-                    </tr>
-                }
-                else
-                {
-                    <tr>
-                        <td style="font-weight:500">@movie.Title</td>
-                        <td style="color:var(--kt-text-muted)">@(movie.Year > 0 ? movie.Year : "—")</td>
-                        <td style="color:var(--kt-text-muted)">@(string.IsNullOrEmpty(movie.Genre) ? "—" : movie.Genre)</td>
-                        <td>
+                                    <button class="btn btn-sm btn-secondary" @onclick="CancelInline">✕</button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        <tr>
+                            <td style="font-weight:500">@movie.Title</td>
+                            <td style="color:var(--kt-text-muted)">@(movie.Year > 0 ? movie.Year : "—")</td>
+                            <td style="color:var(--kt-text-muted)">@(string.IsNullOrEmpty(movie.Genre) ? "—" : movie.Genre)</td>
+                            <td>
                                 @if (movie.Rating > 0)
                                 {
                                     <span class="kt-stars">
@@ -148,22 +137,30 @@ else if (_movies.Count > 0)
                                     </span>
                                 }
                                 else
-                            {
-                                <span style="color:var(--kt-text-subtle)">—</span>
-                            }
-                        </td>
-                        <td style="color:var(--kt-text-muted); font-size:0.85rem">@(string.IsNullOrEmpty(movie.Notes) ? "—" : movie.Notes)</td>
-                        <td>
-                            <div class="d-flex gap-1">
-                                <button class="btn btn-sm btn-outline-primary" @onclick="() => StartInlineEdit(movie)">Edit</button>
-                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(movie.Id!)">Del</button>
-                            </div>
-                        </td>
-                    </tr>
+                                {
+                                    <span style="color:var(--kt-text-subtle)">—</span>
+                                }
+                            </td>
+                            <td style="color:var(--kt-text-muted); font-size:0.85rem">@(string.IsNullOrEmpty(movie.Notes) ? "—" : movie.Notes)</td>
+                            <td>
+                                <div class="d-flex gap-1">
+                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => StartInlineEdit(movie)">Edit</button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(movie.Id!)">Del</button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
                 }
-            }
-            </tbody>
-        </table>
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="kt-empty">
+                <div class="kt-empty-icon">◈</div>
+                <p>Your collection is empty.<br/>Add the first film you remember loving.</p>
+            </div>
+        }
 
         @if (TotalPages > 1)
         {

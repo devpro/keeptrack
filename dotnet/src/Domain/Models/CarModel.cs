@@ -1,6 +1,6 @@
 ﻿namespace KeepTrack.Domain.Models;
 
-public class CarModel
+public class CarModel : IDataModel
 {
     public string Id { get; set; } = null!;
 
