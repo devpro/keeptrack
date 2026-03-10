@@ -1,6 +1,8 @@
-﻿namespace KeepTrack.Domain.Models;
+﻿using KeepTrack.Common.System;
 
-public class MovieModel : IDataModel
+namespace KeepTrack.Domain.Models;
+
+public class MovieModel : IHasIdAndOwnerId
 {
     public string Id { get; set; } = null!;
 

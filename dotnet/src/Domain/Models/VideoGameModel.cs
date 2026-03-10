@@ -1,8 +1,9 @@
 ﻿using System;
+using KeepTrack.Common.System;
 
 namespace KeepTrack.Domain.Models;
 
-public class VideoGameModel : IDataModel
+public class VideoGameModel : IHasIdAndOwnerId
 {
     public string Id { get; set; } = string.Empty;
 

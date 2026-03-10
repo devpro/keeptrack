@@ -1,4 +1,4 @@
-﻿namespace KeepTrack.Common.Collections.Generic;
+﻿namespace KeepTrack.Common.System;
 
 public interface IHasId
 {

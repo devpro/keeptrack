@@ -1,8 +1,9 @@
 ﻿using System;
+using KeepTrack.Common.System;
 
 namespace KeepTrack.Domain.Models;
 
-public class CarHistoryModel : IDataModel
+public class CarHistoryModel : IHasIdAndOwnerId
 {
     public string Id { get; set; } = null!;
 

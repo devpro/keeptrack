@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using AutoMapper;
-using KeepTrack.Common.Collections.Generic;
+using KeepTrack.Common.System;
 using KeepTrack.Infrastructure.MongoDb.Entities;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
@@ -17,7 +17,7 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
     IMongoDatabase mongoDatabase,
     ILogger<MongoDbRepositoryBase<TModel, TEntity>> logger,
     IMapper mapper)
-    where TEntity : IEntity
+    where TEntity : IHasIdAndOwnerId
 {
     protected abstract string CollectionName { get; }
 

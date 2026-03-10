@@ -1,11 +1,10 @@
 ﻿using System.Threading.Tasks;
-using KeepTrack.Common.Collections.Generic;
-using KeepTrack.Domain.Models;
+using KeepTrack.Common.System;
 
 namespace KeepTrack.Domain.Repositories;
 
 public interface IDataRepository<TModel>
-    where TModel : IDataModel
+    where TModel : IHasIdAndOwnerId
 {
     Task<TModel?> FindOneAsync(string id, string ownerId);
 

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace KeepTrack.Common.Collections.Generic;
+namespace KeepTrack.Common.System;
 
 /// <summary>
 /// Represents a paginated result set, carrying the requested page of items alongside the total number of records matching the query.

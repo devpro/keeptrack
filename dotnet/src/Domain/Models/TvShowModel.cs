@@ -1,6 +1,8 @@
-﻿namespace KeepTrack.Domain.Models;
+﻿using KeepTrack.Common.System;
 
-public class TvShowModel : IDataModel
+namespace KeepTrack.Domain.Models;
+
+public class TvShowModel : IHasIdAndOwnerId
 {
     public string Id { get; set; } = string.Empty;
 

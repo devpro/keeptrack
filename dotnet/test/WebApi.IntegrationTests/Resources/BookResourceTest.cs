@@ -3,7 +3,7 @@ using System.Net;
 using System.Threading.Tasks;
 using AwesomeAssertions;
 using Bogus;
-using KeepTrack.Common.Collections.Generic;
+using KeepTrack.Common.System;
 using KeepTrack.WebApi.Contracts.Dto;
 using KeepTrack.WebApi.IntegrationTests.Hosting;
 using Xunit;

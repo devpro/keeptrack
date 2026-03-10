@@ -1,4 +1,4 @@
-﻿using KeepTrack.Common.Collections.Generic;
+﻿using KeepTrack.Common.System;
 using KeepTrack.Domain.Repositories;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,7 +11,7 @@ namespace KeepTrack.WebApi.Controllers;
 /// <typeparam name="TModel">Domain Model</typeparam>
 public abstract class DataCrudControllerBase<TDto, TModel>(IMapper mapper, IDataRepository<TModel> dataRepository)
     : ControllerBase
-    where TModel : Domain.Models.IDataModel
+    where TModel : IHasIdAndOwnerId
 {
     [HttpGet]
     [ProducesResponseType(200)]

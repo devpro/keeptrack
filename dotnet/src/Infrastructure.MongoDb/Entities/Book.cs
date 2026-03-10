@@ -1,14 +1,15 @@
 ﻿using System;
+using KeepTrack.Common.System;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
 namespace KeepTrack.Infrastructure.MongoDb.Entities;
 
-public class Book : IEntity
+public class Book : IHasIdAndOwnerId
 {
     [BsonId]
     [BsonRepresentation(BsonType.ObjectId)]
-    public string Id { get; set; } = null!;
+    public string? Id { get; set; }
 
     [BsonElement("owner_id")]
     public required string OwnerId { get; set; }

@@ -1,15 +1,12 @@
-﻿namespace KeepTrack.Domain.Models;
+﻿using KeepTrack.Common.System;
 
-public class CarModel : IDataModel
+namespace KeepTrack.Domain.Models;
+
+public class CarModel : IHasIdAndOwnerId
 {
     public string Id { get; set; } = null!;
 
     public required string OwnerId { get; set; }
 
     public required string Name { get; set; }
-
-    public override string ToString()
-    {
-        return $"Car ID=\"{Id}\", Name=\"{Name}\"";
-    }
 }

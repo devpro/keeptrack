@@ -1,4 +1,4 @@
-﻿namespace KeepTrack.Common.Collections.Generic;
+﻿namespace KeepTrack.Common.System;
 
 /// <summary>
 /// Data query object.
@@ -8,6 +8,11 @@
 /// </remarks>
 public class PagedRequest
 {
+    /// <summary>
+    /// Search text.
+    /// </summary>
+    public string? Search { get; set; }
+    
     /// <summary>
     /// Page number to return (starts with 1).
     /// </summary>
@@ -22,9 +27,4 @@ public class PagedRequest
     /// Elements to skip.
     /// </summary>
     public int Skip => (Page - 1) * PageSize;
-
-    /// <summary>
-    /// Search text.
-    /// </summary>
-    public string? Search { get; set; }
 }
