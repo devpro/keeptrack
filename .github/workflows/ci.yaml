@@ -51,11 +51,11 @@ jobs:
         echo "TODO (MONGODB_URI="mongodb://localhost:27017/keeptrack_dev" ./scripts/...)"
       dotnet-test-args: "--report-xunit-trx --coverage --coverage-output-format cobertura"
       extra-vars: |
-        AllowedOrigins__0="5207"
+        AllowedOrigins__0=5207
         Features__IsScalarEnabled=true
         Features__IsHttpsRedirectionEnabled=false
-        Infrastructure__MongoDB__ConnectionString="mongodb://localhost:27017"
-        Infrastructure__MongoDB__DatabaseName="keeptrack_ci"
+        Infrastructure__MongoDB__ConnectionString=mongodb://localhost:27017
+        Infrastructure__MongoDB__DatabaseName=keeptrack_ci
       fossa-enabled: true
       sonar-enabled: true
       sonar-organization: ${{ vars.SONAR_ORG }}
@@ -66,12 +66,12 @@ jobs:
       fossa-api-key: ${{ secrets.FOSSA_API_KEY }}
       sonar-token: ${{ secrets.SONAR_TOKEN }}
       additional-vars: |
-        Authentication__JwtBearer__Authority="https://securetoken.google.com/${{ secrets.FIREBASE_PROJECTID }}"
-        Authentication__JwtBearer__TokenValidation__Issuer="https://securetoken.google.com/${{ secrets.FIREBASE_PROJECTID }}"
-        Authentication__JwtBearer__TokenValidation__Audience="${{ secrets.FIREBASE_PROJECTID }}"
-        FIREBASE_APIKEY="${{ secrets.FIREBASE_APIKEY }}"
-        FIREBASE_USERNAME="${{ secrets.FIREBASE_TESTUSERNAME }}"
-        FIREBASE_PASSWORD="${{ secrets.FIREBASE_TESTPASSWORD }}"
+        Authentication__JwtBearer__Authority=https://securetoken.google.com/${{ secrets.FIREBASE_PROJECTID }}
+        Authentication__JwtBearer__TokenValidation__Issuer=https://securetoken.google.com/${{ secrets.FIREBASE_PROJECTID }}
+        Authentication__JwtBearer__TokenValidation__Audience=${{ secrets.FIREBASE_PROJECTID }}
+        FIREBASE_APIKEY=${{ secrets.FIREBASE_APIKEY }}
+        FIREBASE_USERNAME=${{ secrets.FIREBASE_TESTUSERNAME }}
+        FIREBASE_PASSWORD=${{ secrets.FIREBASE_TESTPASSWORD }}
     permissions:
       contents: read
       pull-requests: write
