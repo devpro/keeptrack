@@ -7,9 +7,9 @@ namespace Keeptrack.BlazorApp.Components.Account.Controllers;
 
 public record TokenRequest(string IdToken);
 
-[Route("auth")]
 [ApiController]
-public class AuthenticationController : Controller
+[Route("auth")]
+public class AuthenticationController : ControllerBase
 {
     [HttpPost("callback")]
     [IgnoreAntiforgeryToken]
