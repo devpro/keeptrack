@@ -13,9 +13,9 @@ public class AppConfiguration(IConfiguration configuration)
 
     public bool IsScalarEnabled => configuration.TryGetSection<bool>("Features:IsScalarEnabled");
 
-    public OpenApiInfo OpenApiInfo => configuration.TryGetSection<OpenApiInfo>("OpenApi");
+    public OpenApiInfo OpenApiInfo { get; } = configuration.TryGetSection<OpenApiInfo>("OpenApi");
 
-    public JwtBearerSettings JwtBearerSettings = configuration.TryGetSection<JwtBearerSettings>("Authentication:JwtBearer");
+    public JwtBearerSettings JwtBearerSettings { get; } = configuration.TryGetSection<JwtBearerSettings>("Authentication:JwtBearer");
 
     public string ConnectionString => configuration.TryGetSection<string>("Infrastructure:MongoDB:ConnectionString");
 
@@ -27,5 +27,5 @@ public class AppConfiguration(IConfiguration configuration)
     /// <remarks>
     /// See https://docs.microsoft.com/en-us/aspnet/core/security/cors
     /// </remarks>
-    public List<string> CorsAllowedOrigin => configuration.TryGetSection<List<string>>("AllowedOrigins");
+    public List<string> CorsAllowedOrigin { get; } = configuration.TryGetSection<List<string>>("AllowedOrigins");
 }

@@ -1,4 +1,7 @@
-﻿namespace Keeptrack.WebApi.MappingProfiles;
+﻿using Keeptrack.Domain.Models;
+using Keeptrack.Infrastructure.MongoDb.Entities;
+
+namespace Keeptrack.WebApi.MappingProfiles;
 
 public class CarDataStorageMappingProfile : Profile
 {
@@ -9,8 +12,8 @@ public class CarDataStorageMappingProfile : Profile
 
     public CarDataStorageMappingProfile()
     {
-        CreateMap<Infrastructure.MongoDb.Entities.Car, Domain.Models.CarModel>();
-        CreateMap<Domain.Models.CarModel, Infrastructure.MongoDb.Entities.Car>();
+        CreateMap<Car, CarModel>();
+        CreateMap<CarModel, Car>();
 
         MapCarHistoryModel();
         MapCarHistory();
@@ -18,7 +21,7 @@ public class CarDataStorageMappingProfile : Profile
 
     private void MapCarHistoryModel()
     {
-        CreateMap<Infrastructure.MongoDb.Entities.CarHistory, Domain.Models.CarHistoryModel>()
+        CreateMap<CarHistory, CarHistoryModel>()
             .ForMember(x => x.City, opt => opt.MapFrom(
                 x => x.Location != null ? x.Location.City : null))
             .ForMember(x => x.Longitude, opt => opt.MapFrom(
@@ -37,7 +40,7 @@ public class CarDataStorageMappingProfile : Profile
 
     private void MapCarHistory()
     {
-        CreateMap<Domain.Models.CarHistoryModel, Infrastructure.MongoDb.Entities.CarHistory>()
+        CreateMap<CarHistoryModel, CarHistory>()
             .ForMember(x => x.Location, opt => opt.MapFrom(
                 x => x))
             .ForMember(x => x.Coordinates, opt => opt.MapFrom(
@@ -47,9 +50,9 @@ public class CarDataStorageMappingProfile : Profile
             .ForMember(x => x.Station, opt => opt.MapFrom(
                 x => x));
 
-        CreateMap<Domain.Models.CarHistoryModel, Infrastructure.MongoDb.Entities.CarHistoryLocation>();
+        CreateMap<CarHistoryModel, CarHistoryLocation>();
 
-        CreateMap<Domain.Models.CarHistoryModel, Infrastructure.MongoDb.Entities.CarHistoryFuel>()
+        CreateMap<CarHistoryModel, CarHistoryFuel>()
             .ForMember(x => x.Category, opt => opt.MapFrom(
                 x => x.FuelCategory))
             .ForMember(x => x.Volume, opt => opt.MapFrom(
@@ -57,7 +60,7 @@ public class CarDataStorageMappingProfile : Profile
             .ForMember(x => x.UnitPrice, opt => opt.MapFrom(
                 x => x.FuelUnitPrice));
 
-        CreateMap<Domain.Models.CarHistoryModel, Infrastructure.MongoDb.Entities.CarHistoryStation>()
+        CreateMap<CarHistoryModel, CarHistoryStation>()
             .ForMember(x => x.BrandName, opt => opt.MapFrom(
                 x => x.StationBrandName));
     }

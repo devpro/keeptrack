@@ -5,7 +5,7 @@ var builder = WebApplication.CreateBuilder(args);
 var configuration = new AppConfiguration(builder.Configuration);
 
 // adds services to the container
-builder.Services.AddControllers(opts => { opts.Filters.Add<CustomExceptionFilterAttribute>(); });
+builder.Services.AddControllers(opts => { opts.Filters.Add<ApiExceptionFilterAttribute>(); });
 builder.Services.AddOpenApi();
 builder.Services.AddAutoMapper(config =>
     {
@@ -65,8 +65,12 @@ if (configuration.IsHttpsRedirectionEnabled)
     app.UseHttpsRedirection();
 }
 app.UseCors(AppConfiguration.CorsPolicyName);
-app.UseAuthentication();
-app.UseAuthorization();
+app.UseExceptionHandler(appBuilder => appBuilder.Run(async ctx =>
+{
+    ctx.Response.StatusCode = StatusCodes.Status500InternalServerError;
+    ctx.Response.ContentType = "application/json";
+    await ctx.Response.WriteAsJsonAsync(new { error = "An unexpected error occurred." });
+}));
 app.MapControllers()
     .RequireCors(AppConfiguration.CorsPolicyName);
 app.MapHealthChecks(AppConfiguration.HealthCheckEndpoint);

@@ -69,6 +69,9 @@ jobs:
         Authentication__JwtBearer__Authority="https://securetoken.google.com/${{ secrets.FIREBASE_PROJECTID }}"
         Authentication__JwtBearer__TokenValidation__Issuer="https://securetoken.google.com/${{ secrets.FIREBASE_PROJECTID }}"
         Authentication__JwtBearer__TokenValidation__Audience="${{ secrets.FIREBASE_PROJECTID }}"
+        FIREBASE_APIKEY="${{ secrets.FIREBASE_APIKEY }}"
+        FIREBASE_USERNAME="${{ secrets.FIREBASE_TESTUSERNAME }}"
+        FIREBASE_PASSWORD="${{ secrets.FIREBASE_TESTPASSWORD }}"
     permissions:
       contents: read
       pull-requests: write

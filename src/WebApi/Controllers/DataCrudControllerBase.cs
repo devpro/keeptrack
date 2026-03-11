@@ -9,9 +9,10 @@ namespace Keeptrack.WebApi.Controllers;
 /// </summary>
 /// <typeparam name="TDto">Data Transfer Object</typeparam>
 /// <typeparam name="TModel">Domain Model</typeparam>
+[ApiController]
 public abstract class DataCrudControllerBase<TDto, TModel>(IMapper mapper, IDataRepository<TModel> dataRepository)
     : ControllerBase
-    where TModel : IHasIdAndOwnerId
+    where TModel : class, IHasIdAndOwnerId
 {
     [HttpGet]
     [ProducesResponseType(200)]

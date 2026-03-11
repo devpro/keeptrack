@@ -28,10 +28,9 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
     public async Task<TModel?> FindOneAsync(string id, string ownerId)
     {
         var entities = await GetCollection().FindAsync(x => x.Id == id && x.OwnerId == ownerId);
-        return Mapper.Map<TModel>(entities.FirstOrDefault());
+        return Mapper.Map<TModel>(await entities.FirstOrDefaultAsync());
     }
 
-    // TODO: use PagedRequest instead
     public async Task<PagedResult<TModel>> FindAllAsync(string ownerId, int page, int pageSize, string? search, TModel input)
     {
         var collection = GetCollection();
