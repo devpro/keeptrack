@@ -1,8 +1,7 @@
-﻿# Keeptrack .NET solution
+﻿# Contibutor guide
 
+[![GitLab Pipeline Status](https://gitlab.com/devpro-labs/software/keeptrack/badges/main/pipeline.svg)](https://gitlab.com/devpro-labs/software/keeptrack/-/pipelines)
 [![Build Status](https://dev.azure.com/devprofr/open-source/_apis/build/status/keeptrack-ci?branchName=main)](https://dev.azure.com/devprofr/open-source/_build/latest?definitionId=26&branchName=main)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=devpro.keep-track&metric=alert_status)](https://sonarcloud.io/dashboard?id=devpro.keep-track)
-[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=devpro.keep-track&metric=coverage)](https://sonarcloud.io/dashboard?id=devpro.keep-track)
 
 ## Design
 
@@ -41,7 +40,7 @@ NuGet Packages:
 
 ## How to configure
 
-### API
+### Web API
 
 Key                                       | Description
 ------------------------------------------|--------------------------
@@ -78,22 +77,9 @@ Template for `src/Api/appsettings.Development.json`:
 }
 ```
 
-### Blazor WebAssembly Firebase information
+### Blazor Server App
 
-Create a file `firebase.config.js` in `src/BlasorWebAssemblyApp/wwwroot`:
-
-```js
-export var firebaseConfig = {
-  apiKey: "******",
-  authDomain: "******.firebaseapp.com",
-  databaseURL: "******.firebaseio.com",
-  projectId: "******",
-  storageBucket: "******.appspot.com",
-  messagingSenderId: "******",
-  appId: "1:******:web:******",
-  measurementId: "******"
-};
-```
+TODO
 
 ## How to build
 
@@ -109,7 +95,7 @@ dotnet build
 dotnet run --project src/WebApi
 
 # run the Blazor WebAssembly web app (https://localhost:5021)
-dotnet watch run --project src/BlazorWebAssemblyApp
+dotnet run --project src/BlazorApp
 ```
 
 ## How to test

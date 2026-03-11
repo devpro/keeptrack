@@ -9,15 +9,16 @@
     <File Path="Directory.Packages.props" />
     <File Path="README.md" />
   </Folder>
-  <Folder Name="/Solution Items/azure-devops/">
+  <Folder Name="/Solution Items/pipelines/" />
+  <Folder Name="/Solution Items/pipelines/azure-devops/">
     <File Path=".azure/pipelines/ci.yml" />
   </Folder>
-  <Folder Name="/Solution Items/github/">
+  <Folder Name="/Solution Items/pipelines/github/">
     <File Path=".github/workflows/ci.yaml" />
     <File Path=".github/workflows/pkg.yaml" />
     <File Path=".github/workflows/reusable-git-check.yml" />
   </Folder>
-  <Folder Name="/Solution Items/gitlab/">
+  <Folder Name="/Solution Items/pipelines/gitlab/">
     <File Path=".gitlab-ci.yml" />
   </Folder>
   <Folder Name="/Solution Items/scripts/">

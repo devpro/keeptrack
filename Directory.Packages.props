@@ -14,6 +14,7 @@
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.3" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.3" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.3" />
+    <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.3" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
     <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.5.2" />
@@ -23,6 +24,8 @@
     <PackageVersion Include="Moq" Version="4.20.72" />
     <PackageVersion Include="Scalar.AspNetCore" Version="2.13.1" />
     <PackageVersion Include="SharpCompress" Version="0.44.5" />
+    <PackageVersion Include="System.CodeDom" Version="10.0.3" />
+    <PackageVersion Include="System.Management" Version="10.0.3" />
     <PackageVersion Include="SystemTextJson.JsonDiffPatch" Version="2.0.0" />
     <PackageVersion Include="Verify.XunitV3" Version="31.13.2" />
     <PackageVersion Include="Withywoods.AspNetCore.Mvc.Testing" Version="2.0.1" />
