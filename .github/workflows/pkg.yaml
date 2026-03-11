@@ -28,7 +28,7 @@ jobs:
     permissions:
       id-token: write
       contents: read
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-publication.yml@3194f3fe1116fb6cdb5e2578f2ac9f5b22a07122
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-publication.yml@4b5a3a936b522c4ea0e7461af395348b9173005c
     with:
       create-latest: ${{ github.ref_name == 'main' }}
       image-definition: ${{ matrix.image-definition }}
