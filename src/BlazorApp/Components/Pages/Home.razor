@@ -1,0 +1,22 @@
+﻿@page "/"
+
+<PageTitle>Keeptrack</PageTitle>
+
+<div class="kt-home">
+    <div class="kt-home-eyebrow">Your personal cinema</div>
+    <h1>Every film you've<br /><em>ever loved</em>, remembered.</h1>
+    <p class="kt-home-sub">
+        Keeptrack is a quiet place to log the movies you've seen,
+        rate them honestly, and never forget what you thought.
+    </p>
+    <div class="kt-home-cta">
+        <AuthorizeView>
+            <Authorized>
+                <a class="btn btn-primary" href="/movies">View my collection</a>
+            </Authorized>
+            <NotAuthorized>
+                <a class="btn btn-primary" href="/account/login" data-enhance-nav="false">Get started</a>
+            </NotAuthorized>
+        </AuthorizeView>
+    </div>
+</div>

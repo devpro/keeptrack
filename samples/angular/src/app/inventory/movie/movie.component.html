@@ -1,0 +1,104 @@
+<h1 id="tableLabel">Movies</h1>
+
+@if (!items) {
+  <p><em>Loading...</em></p>
+}
+
+<div class="form-group row">
+  <label class="col-sm-1 col-form-label">Filter:</label>
+  <div class="col-sm-3">
+    <input class="form-control" type="text" #searchInput placeholder="Search" (input)="load(searchInput.value, 1)">
+  </div>
+</div>
+
+<div class="table-responsive">
+  @if (items) {
+    <table class='table table-striped table-sm' aria-labelledby="tableLabel">
+      <thead>
+        <tr>
+          <th class="col-md-3">Title</th>
+          <th class="col-md-2">Year</th>
+          <th class="col-md-1">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (movie of items; track movie) {
+          <tr>
+            <td>
+              @if (!movie.isEditable ) {
+                {{ movie.title }}
+              }
+              @else {
+                <div>
+                  <input class="form-control" type="text" [(ngModel)]="movie.title" />
+                </div>
+              }
+            </td>
+            <td>
+              @if (!movie.isEditable ) {
+                {{ movie.year }}
+              }
+              @else {
+                <div>
+                  <input class="form-control" type="number" [(ngModel)]="movie.year" />
+                </div>
+              }
+            </td>
+            <td>
+              @if (!movie.isEditable) {
+                <button class="btn btn-action" (click)="startEditing(movie)">
+                  <span class="fa fa-pencil-square-o"></span>
+                </button>
+                <button class="btn btn-action" (click)="delete(movie)">
+                  <span class="fa fa-trash"></span>
+                </button>
+              }
+              @else {
+                <button class="btn btn-action" (click)="update(movie)">
+                  <span class="fa fa-floppy-o"></span>
+                </button>
+                <button class="btn btn-action" (click)="cancel(movie)">
+                  <span class="fa fa-ban"></span>
+                </button>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>
+
+@if (items) {
+  <nav aria-label="Table navigation">
+    <ul class="pagination justify-content-center">
+      <li class="page-item" [ngClass]="{ 'disabled': currentPage === 1 }"><a class="page-link" href="#" (click)="updateCurrentPage($event, currentPage - 1, searchInput.value)">&laquo;</a></li>
+      <li class="page-item active" aria-current="page"><a class="page-link">{{ currentPage }}</a></li>
+      <li class="page-item" [ngClass]="{ 'disabled': items.length !== pageSize }"><a class="page-link" href="#" (click)="updateCurrentPage($event, currentPage + 1, searchInput.value)">&raquo;</a></li>
+    </ul>
+  </nav>
+  <div class="card-group mb-1 text-center mx-auto" style="width: 70%;">
+    <div class="card mb-1 box-shadow">
+      <div class="card-header">
+        <h4 class="my-0 font-weight-normal">Add</h4>
+      </div>
+      <div class="card-body">
+        <div class="row g-2">
+          <div class="col-md-4">
+            <label for="inputTitle">Title</label>
+            <input id="inputTitle" class="form-control" #titleInput type="text" name="title" (keydown.enter)="create({ title: titleInput.value })" />
+          </div>
+          <div class="col-md-2">
+            <label for="inputYear">Year</label>
+            <input id="inputYear" class="form-control" #yearInput type="number" name="year" />
+          </div>
+          <div class="col-md-1">
+            <label>Action</label>
+            <br />
+            <button class="btn btn-primary" type="submit" (click)="create({ title: titleInput.value, year: yearInput.valueAsNumber })">Validate</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+}

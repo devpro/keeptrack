@@ -1,0 +1,28 @@
+﻿using System;
+using Keeptrack.Common.System;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
+
+namespace Keeptrack.Infrastructure.MongoDb.Entities;
+
+public class VideoGame : IHasIdAndOwnerId
+{
+    [BsonId]
+    [BsonRepresentation(BsonType.ObjectId)]
+    public string? Id { get; set; }
+
+    [BsonElement("owner_id")]
+    public required string OwnerId { get; set; }
+
+    public required string Title { get; set; }
+
+    public required string Platform { get; set; }
+
+    public required string State { get; set; }
+
+    [BsonElement("finished_at")]
+    public DateTime? FinishedAt { get; set; }
+
+    [BsonElement("released_at")]
+    public DateTime? ReleasedAt { get; set; }
+}

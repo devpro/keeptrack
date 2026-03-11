@@ -1,0 +1,40 @@
+﻿name: PKG
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+# purpose: Continuous Delivery (aka Packaging & Shipping)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  git-check:
+    name: Git
+    uses: ./.github/workflows/reusable-git-check.yml
+
+  image-publication:
+    name: "Image ${{ matrix.name }}"
+    needs: git-check
+    if: github.event_name == 'workflow_dispatch' || needs.git-check.outputs.app_changed == 'true'
+    strategy:
+      matrix:
+        include:
+          - name: "Blazor App"
+            image-name: "keeptrack-blazorapp"
+            image-definition: "src/BlazorApp/Dockerfile"
+          - name: "Web Api"
+            image-name: "keeptrack-webapi"
+            image-definition: "src/WebApi/Dockerfile"
+    permissions:
+      id-token: write
+      contents: read
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-publication.yml@87fc4cf004979998211b2c2126e903e7ea06f9c1
+    with:
+      create-latest: ${{ github.ref_name == 'main' }}
+      image-definition: ${{ matrix.image-definition }}
+      image-name: ${{ matrix.image-name }}
+      image-path: ${{ vars.CONTAINER_REGISTRY_PATH }}
+      image-tag: "${{ needs.git-check.outputs.version_major_minor }}.${{ github.run_id }}"
+    secrets:
+      container-registry-password: ${{ secrets.DOCKERHUB_TOKEN }}
+      container-registry-username: ${{ secrets.DOCKERHUB_USERNAME }}

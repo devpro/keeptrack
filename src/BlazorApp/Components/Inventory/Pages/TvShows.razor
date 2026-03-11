@@ -1,0 +1,42 @@
+﻿@page "/tv-shows"
+@inherits InventoryPageBase<TvShowDto>
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+<InventoryList TDto="TvShowDto"
+               Title="TvShowss"
+               Items="@_items"
+               Loading="@_loading"
+               Error="@_error"
+               Search="@_search"
+               Page="@_page"
+               TotalPages="@TotalPages"
+               TotalCount="@_totalCount"
+               ShowForm="@_showForm"
+               EditingInline="@_editingInline"
+               Form="@_form"
+               InlineForm="@_inlineForm"
+               OnSearchKeyUp="@OnSearchKeyUp"
+               OnClearSearch="@ClearSearch"
+               OnGoToPage="@GoToPage"
+               OnShowAddForm="@ShowAddForm"
+               OnCancelForm="@CancelForm"
+               OnSave="@SaveAsync"
+               OnStartInlineEdit="@StartInlineEdit"
+               OnCancelInline="@CancelInline"
+               OnSaveInline="@SaveInlineAsync"
+               OnDelete="@DeleteAsync"
+               OnSearchChanged="@OnSearchChanged">
+    <HeaderTemplate>
+        <th>Title</th>
+    </HeaderTemplate>
+    <RowTemplate Context="movie">
+        <td style="font-weight:500">@movie.Title</td>
+    </RowTemplate>
+    <FormTemplate Context="movie">
+        <input class="form-control" placeholder="Title" @bind="movie.Title"/>
+    </FormTemplate>
+    <InlineEditTemplate Context="movie">
+        <td><input class="form-control form-control-sm" @bind="movie.Title"/></td>
+    </InlineEditTemplate>
+</InventoryList>

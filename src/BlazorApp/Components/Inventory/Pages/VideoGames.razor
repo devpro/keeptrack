@@ -1,0 +1,98 @@
+﻿@page "/video-games"
+@inherits InventoryPageBase<VideoGameDto>
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+<InventoryList TDto="VideoGameDto"
+               Title="VideoGames"
+               Items="@_items"
+               Loading="@_loading"
+               Error="@_error"
+               Search="@_search"
+               Page="@_page"
+               TotalPages="@TotalPages"
+               TotalCount="@_totalCount"
+               ShowForm="@_showForm"
+               EditingInline="@_editingInline"
+               Form="@_form"
+               InlineForm="@_inlineForm"
+               OnSearchKeyUp="@OnSearchKeyUp"
+               OnClearSearch="@ClearSearch"
+               OnGoToPage="@GoToPage"
+               OnShowAddForm="@ShowAddForm"
+               OnCancelForm="@CancelForm"
+               OnSave="@SaveAsync"
+               OnStartInlineEdit="@StartInlineEdit"
+               OnCancelInline="@CancelInline"
+               OnSaveInline="@SaveInlineAsync"
+               OnDelete="@DeleteAsync"
+               OnSearchChanged="@OnSearchChanged">
+    <HeaderTemplate>
+        <th>Title</th>
+        <th>Platform</th>
+        <th>State</th>
+        <th>Released</th>
+        <th>Finished</th>
+    </HeaderTemplate>
+    <RowTemplate Context="game">
+        <td style="font-weight:500">@game.Title</td>
+        <td>@game.Platform</td>
+        <td>@game.State</td>
+        <td>@game.ReleasedAt?.ToString("yyyy-MM-dd")</td>
+        <td>@game.FinishedAt?.ToString("yyyy-MM-dd")</td>
+    </RowTemplate>
+    <FormTemplate Context="game">
+        <input class="form-control" placeholder="Title" @bind="game.Title" />
+        <select class="form-select" @bind="game.Platform">
+            <option value="">— Platform —</option>
+            <option>Xbox Series X</option>
+            <option>PS5</option>
+            <option>PC</option>
+            <option>Xbox One X</option>
+            <option>PS4</option>
+            <option>WII</option>
+            <option>Xbox 360</option>
+            <option>PS2</option>
+            <option>PS1</option>
+        </select>
+        <select class="form-select" @bind="game.State">
+            <option value="">— State —</option>
+            <option>Available</option>
+            <option>Completed</option>
+            <option>To resume</option>
+            <option>Current</option>
+            <option>On-hold</option>
+        </select>
+        <input class="form-control" type="date" placeholder="Released at" @bind="game.ReleasedAt" @bind:format="yyyy-MM-dd" />
+        <input class="form-control" type="date" placeholder="Finished at" @bind="game.FinishedAt" @bind:format="yyyy-MM-dd" />
+    </FormTemplate>
+    <InlineEditTemplate Context="game">
+        <td><input class="form-control form-control-sm" @bind="game.Title" /></td>
+        <td>
+            <select class="form-select form-select-sm" @bind="game.Platform">
+                <option value="">—</option>
+                <option>Xbox Series X</option>
+                <option>PS5</option>
+                <option>PC</option>
+                <option>Xbox One X</option>
+                <option>PS4</option>
+                <option>WII</option>
+                <option>Xbox 360</option>
+                <option>PS2</option>
+                <option>PS1</option>
+            </select>
+        </td>
+        <td>
+            <select class="form-select form-select-sm" @bind="game.State">
+                <option value="">—</option>
+                <option>Available</option>
+                <option>Completed</option>
+                <option>To resume</option>
+                <option>Current</option>
+                <option>On-hold</option>
+            </select>
+        </td>
+        <td><input class="form-control form-control-sm" type="date" @bind="game.ReleasedAt" @bind:format="yyyy-MM-dd" /></td>
+        <td><input class="form-control form-control-sm" type="date" @bind="game.FinishedAt" @bind:format="yyyy-MM-dd" /></td>
+    </InlineEditTemplate>
+</InventoryList>

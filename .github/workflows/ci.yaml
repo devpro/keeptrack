@@ -1,0 +1,99 @@
+﻿name: CI
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+# purpose: Continuous Integration pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run-code-quality:
+        description: 'Check code quality?'
+        required: false
+        type: boolean
+        default: false
+      run-image-scan:
+        description: 'Scan container image?'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: "${{ github.ref }}-ci"
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  git-check:
+    name: Git
+    uses: ./.github/workflows/reusable-git-check.yml
+    with:
+      is-pull-request: ${{ github.event_name == 'pull_request' }}
+
+  markup-lint:
+    name: Markup
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-markup-lint.yml@87fc4cf004979998211b2c2126e903e7ea06f9c1
+
+  code-quality:
+    name: Code
+    needs: git-check
+    if: needs.git-check.outputs.app_changed == 'true' || (github.event_name == 'workflow_dispatch' && inputs.run-code-quality)
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-dotnet-quality.yml@87fc4cf004979998211b2c2126e903e7ea06f9c1
+    with:
+      custom-commands: |
+        ./scripts/mongodb-install.sh
+        echo "Initialize database (indexes, tenants & users)"
+        echo "TODO (MONGODB_URI="mongodb://localhost:27017/keeptrack_dev" ./scripts/...)"
+      dotnet-test-args: "--report-xunit-trx --coverage --coverage-output-format cobertura"
+      extra-vars: |
+        AllowedOrigins__0=5207
+        Features__IsScalarEnabled=true
+        Features__IsHttpsRedirectionEnabled=false
+        Infrastructure__MongoDB__ConnectionString=mongodb://localhost:27017
+        Infrastructure__MongoDB__DatabaseName=keeptrack_ci
+      fossa-enabled: true
+      sonar-enabled: true
+      sonar-organization: ${{ vars.SONAR_ORG }}
+      sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
+      sonar-project-name: Keeptrack
+      workflow-parts-version: 87fc4cf004979998211b2c2126e903e7ea06f9c1
+    secrets:
+      fossa-api-key: ${{ secrets.FOSSA_API_KEY }}
+      sonar-token: ${{ secrets.SONAR_TOKEN }}
+      additional-vars: |
+        Authentication__JwtBearer__Authority=https://securetoken.google.com/${{ secrets.FIREBASE_PROJECTID }}
+        Authentication__JwtBearer__TokenValidation__Issuer=https://securetoken.google.com/${{ secrets.FIREBASE_PROJECTID }}
+        Authentication__JwtBearer__TokenValidation__Audience=${{ secrets.FIREBASE_PROJECTID }}
+        FIREBASE_APIKEY=${{ secrets.FIREBASE_APIKEY }}
+        FIREBASE_USERNAME=${{ secrets.FIREBASE_TESTUSERNAME }}
+        FIREBASE_PASSWORD=${{ secrets.FIREBASE_TESTPASSWORD }}
+    permissions:
+      contents: read
+      pull-requests: write
+
+  image-scan:
+    name: "Image ${{ matrix.name }}"
+    needs: git-check
+    if: needs.git-check.outputs.app_changed == 'true' || (github.event_name == 'workflow_dispatch' && inputs.run-image-scan)
+    strategy:
+      matrix:
+        include:
+          - name: "Blazor App"
+            image-name: "keeptrack-blazorapp"
+            image-definition: "src/BlazorApp/Dockerfile"
+          - name: "Web Api"
+            image-name: "keeptrack-webapi"
+            image-definition: "src/WebApi/Dockerfile"
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-scan.yml@87fc4cf004979998211b2c2126e903e7ea06f9c1
+    with:
+      image-definition: ${{ matrix.image-definition }}
+      image-name: ${{ matrix.image-name }}
+      image-path: ${{ vars.CONTAINER_REGISTRY_PATH }}
+      image-tag: "${{ needs.git-check.outputs.version_major_minor }}.${{ github.run_id }}"
+      max-high-cves: 0
+      max-medium-cves: 0

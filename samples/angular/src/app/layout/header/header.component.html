@@ -1,0 +1,45 @@
+<header>
+  <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
+    <div class="container">
+      <a class="navbar-brand" [routerLink]="['/']">Keeptrack</a>
+      <button class="navbar-toggler" type="button" data-toggle="collapse" data-target=".navbar-collapse" aria-label="Toggle navigation"
+        [attr.aria-expanded]="isExpanded" (click)="toggle()">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="navbar-collapse collapse d-sm-inline-flex flex-sm-row-reverse" [ngClass]="{ show: isExpanded }">
+        <ul class="navbar-nav flex-grow">
+          <li class="nav-item">
+            <a class="nav-link" [routerLink]="['/']" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">Home</a>
+          </li>
+          @if (user) {
+            <li class="nav-item">
+              <a class="nav-link" [routerLink]="['/books']" [routerLinkActive]="['active']">Books</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" [routerLink]="['/movies']" [routerLinkActive]="['active']">Movies</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" [routerLink]="['/tv-shows']" [routerLinkActive]="['active']">TV Shows</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" [routerLink]="['/video-games']" [routerLinkActive]="['active']">Video Games</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link">{{ user.email }}</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" (click)="logout($event)" href="#">
+                <span class="fa fa-power-off"></span>
+              </a>
+            </li>
+          }
+          @else {
+            <li class="nav-item">
+              <a class="nav-link" [routerLink]="['/login']" [routerLinkActive]="['active']">Login</a>
+            </li>
+          }
+      </ul>
+    </div>
+  </div>
+</nav>
+</header>

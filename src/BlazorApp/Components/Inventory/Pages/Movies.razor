@@ -1,0 +1,83 @@
+﻿@page "/movies"
+@inherits InventoryPageBase<MovieDto>
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+<InventoryList TDto="MovieDto"
+               Title="Movies"
+               Items="@_items"
+               Loading="@_loading"
+               Error="@_error"
+               Search="@_search"
+               Page="@_page"
+               TotalPages="@TotalPages"
+               TotalCount="@_totalCount"
+               ShowForm="@_showForm"
+               EditingInline="@_editingInline"
+               Form="@_form"
+               InlineForm="@_inlineForm"
+               OnSearchKeyUp="@OnSearchKeyUp"
+               OnClearSearch="@ClearSearch"
+               OnGoToPage="@GoToPage"
+               OnShowAddForm="@ShowAddForm"
+               OnCancelForm="@CancelForm"
+               OnSave="@SaveAsync"
+               OnStartInlineEdit="@StartInlineEdit"
+               OnCancelInline="@CancelInline"
+               OnSaveInline="@SaveInlineAsync"
+               OnDelete="@DeleteAsync"
+               OnSearchChanged="@OnSearchChanged">
+    <HeaderTemplate>
+        <th>Title</th>
+        <th>Year</th>
+        <th>Genre</th>
+        <th>Rating</th>
+        <th>Notes</th>
+    </HeaderTemplate>
+    <RowTemplate Context="movie">
+        <td style="font-weight:500">@movie.Title</td>
+        <td style="color:var(--kt-text-muted)">@(movie.Year > 0 ? movie.Year : "—")</td>
+        <td style="color:var(--kt-text-muted)">@(string.IsNullOrEmpty(movie.Genre) ? "—" : movie.Genre)</td>
+        <td>
+            @if (movie.Rating > 0)
+            {
+                <span class="kt-stars">
+                    @(new string('★', movie.Rating ?? 0))<span class="empty">@(new string('★', 5 - (movie.Rating ?? 0)))</span>
+                </span>
+            }
+            else
+            {
+                <span style="color:var(--kt-text-subtle)">—</span>
+            }
+        </td>
+        <td style="color:var(--kt-text-muted); font-size:0.85rem">@(string.IsNullOrEmpty(movie.Notes) ? "—" : movie.Notes)</td>
+    </RowTemplate>
+    <FormTemplate Context="movie">
+        <input class="form-control" placeholder="Title" @bind="movie.Title"/>
+        <input class="form-control" placeholder="Year" type="number" @bind="movie.Year"/>
+        <input class="form-control" placeholder="Genre" @bind="movie.Genre"/>
+        <select class="form-select" @bind="movie.Rating">
+            <option value="0">—</option>
+            @for (var i = 1; i <= 5; i++)
+            {
+                <option value="@i">@(new string('★', i))</option>
+            }
+        </select>
+        <input class="form-control" placeholder="Notes" @bind="movie.Notes"/>
+    </FormTemplate>
+    <InlineEditTemplate Context="movie">
+        <td><input class="form-control form-control-sm" @bind="movie.Title"/></td>
+        <td><input class="form-control form-control-sm" type="number" @bind="movie.Year" style="width:80px"/></td>
+        <td><input class="form-control form-control-sm" @bind="movie.Genre"/></td>
+        <td>
+            <select class="form-select form-select-sm" @bind="movie.Rating" style="width:80px">
+                <option value="0">—</option>
+                @for (var i = 1; i <= 5; i++)
+                {
+                    <option value="@i">@(new string('★', i))</option>
+                }
+            </select>
+        </td>
+        <td><input class="form-control form-control-sm" @bind="movie.Notes"/></td>
+    </InlineEditTemplate>
+</InventoryList>

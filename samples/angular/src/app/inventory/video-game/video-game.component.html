@@ -1,0 +1,175 @@
+<h1 id="tableLabel">Video games</h1>
+
+@if (!items) {
+  <p><em>Loading...</em></p>
+}
+
+<div class="form-group row">
+  <label class="col-sm-1 col-form-label">Filter:</label>
+  <div class="col-sm-3">
+    <input class="form-control" type="text" #searchInput placeholder="Search" (input)="load(searchInput.value, 1, { platform: platformFilter.value, state: stateFilter.value })">
+  </div>
+  <div class="col-sm-2">
+    <select class="form-control" #platformFilter (input)="load(searchInput.value, 1, { platform: platformFilter.value, state: stateFilter.value })">
+      <option selected value="" style="color: #6f747e;">Platform</option>
+      <option>Xbox Series X</option>
+      <option>PS5</option>
+      <option>PC</option>
+      <option>Xbox One X</option>
+      <option>PS4</option>
+      <option>WII</option>
+      <option>Xbox 360</option>
+      <option>PS2</option>
+      <option>PS1</option>
+    </select>
+  </div>
+  <div class="col-sm-2">
+    <select class="form-control" #stateFilter (input)="load(searchInput.value, 1, { platform: platformFilter.value, state: stateFilter.value })">
+      <option selected value="" style="color: #6f747e;">State</option>
+      <option>Available</option>
+      <option>Completed</option>
+      <option>To resume</option>
+      <option>Current</option>
+      <option>On-hold</option>
+    </select>
+  </div>
+</div>
+
+<div class="table-responsive">
+  @if (items) {
+    <table class='table table-striped table-sm' aria-labelledby="tableLabel">
+      <thead>
+        <tr>
+          <th class="col-md-3">Title</th>
+          <th class="col-md-2">Platform</th>
+          <th class="col-md-2">State</th>
+          <th class="col-md-2">Finished date</th>
+          <th class="col-md-1">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (videoGame of items; track videoGame) {
+          <tr>
+            <td>
+              @if (!videoGame.isEditable ) {
+                {{ videoGame.title }}
+              }
+              @else {
+                <div>
+                  <input class="form-control" type="text" [(ngModel)]="videoGame.title" />
+                </div>
+              }
+            </td>
+            <td>
+              @if (!videoGame.isEditable ) {
+                {{ videoGame.platform }}
+              }
+              @else {
+                <div>
+                  <input class="form-control" type="text" [(ngModel)]="videoGame.platform" />
+                </div>
+              }
+            </td>
+            <td>
+              @if (!videoGame.isEditable ) {
+                {{ videoGame.state }}
+              }
+              @else {
+                <div>
+                  <input class="form-control" type="text" [(ngModel)]="videoGame.state" />
+                </div>
+              }
+            </td>
+            <td>
+              @if (!videoGame.isEditable ) {
+                {{ videoGame.finishedAt | date: 'yyyy-MM-dd' }}
+              }
+              @else {
+                <div>
+                  <input class="form-control" type="text" [(ngModel)]="videoGame.finishedAt" />
+                </div>
+              }
+            </td>
+            <td>
+              @if (!videoGame.isEditable) {
+                <button class="btn btn-action" (click)="startEditing(videoGame)">
+                  <span class="fa fa-pencil-square-o"></span>
+                </button>
+                <button class="btn btn-action" (click)="delete(videoGame)">
+                  <span class="fa fa-trash"></span>
+                </button>
+              }
+              @else {
+                <button class="btn btn-action" (click)="update(videoGame)">
+                  <span class="fa fa-floppy-o"></span>
+                </button>
+                <button class="btn btn-action" (click)="cancel(videoGame)">
+                  <span class="fa fa-ban"></span>
+                </button>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>
+
+@if (items) {
+  <nav aria-label="Table navigation">
+    <ul class="pagination justify-content-center">
+      <li class="page-item" [ngClass]="{ 'disabled': currentPage === 1 }"><a class="page-link" href="#" (click)="updateCurrentPage($event, currentPage - 1, searchInput.value)">&laquo;</a></li>
+      <li class="page-item active" aria-current="page"><a class="page-link">{{ currentPage }}</a></li>
+      <li class="page-item" [ngClass]="{ 'disabled': items.length !== pageSize }"><a class="page-link" href="#" (click)="updateCurrentPage($event, currentPage + 1, searchInput.value)">&raquo;</a></li>
+    </ul>
+  </nav>
+}
+
+@if (items) {
+  <div class="card-group mb-1 text-center mx-auto" style="width: 70%;">
+    <div class="card mb-1 box-shadow">
+      <div class="card-header">
+        <h4 class="my-0 font-weight-normal">Add</h4>
+      </div>
+      <div class="card-body">
+        <div class="row g-4">
+          <div class="col-md-4">
+            <label for="inputTitle">Title</label>
+            <input id="inputTitle" class="form-control" #titleInput type="text" name="title" />
+          </div>
+          <div class="col-md-3">
+            <label for="inputPlatform">Platform</label>
+            <select id="inputPlatform" class="form-control" #platformInput>
+              <option selected></option>
+              <option>Xbox Series X</option>
+              <option>PS5</option>
+              <option>PC</option>
+              <option>Xbox One X</option>
+              <option>PS4</option>
+              <option>WII</option>
+              <option>Xbox 360</option>
+              <option>PS2</option>
+              <option>PS1</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label for="inputState">State</label>
+            <select id="inputState" class="form-control" #stateInput (keydown.enter)="create({ title: titleInput.value, platform: platformInput.value, state: stateInput.value })">
+              <option selected></option>
+              <option>Available</option>
+              <option>Completed</option>
+              <option>To resume</option>
+              <option>Current</option>
+              <option>On-hold</option>
+            </select>
+          </div>
+          <div class="col-md-1">
+            <label>Validate</label>
+            <br />
+            <button class="btn btn-primary" type="submit" (click)="create({ title: titleInput.value, platform: platformInput.value, state: stateInput.value })">Add</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+}

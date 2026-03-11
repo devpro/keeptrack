@@ -1,0 +1,59 @@
+<h1 id="tableLabel">TV shows</h1>
+
+@if (!items) {
+  <p><em>Loading...</em></p>
+}
+
+<div class="form-group row">
+  <label class="col-sm-1 col-form-label">Filter:</label>
+  <div class="col-sm-3">
+    <input class="form-control" type="text" #searchInput placeholder="Search" (input)="load(searchInput.value, 1)">
+  </div>
+</div>
+
+@if (items) {
+  <table class='table table-striped' aria-labelledby="tableLabel">
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (tvShow of items; track tvShow) {
+        <tr>
+          <td>{{ tvShow.title }}</td>
+          <td><button class="btn btn-action" (click)="delete(tvShow)"><span class="fa fa-trash"></span></button></td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}
+
+@if (items) {
+  <nav aria-label="Table navigation">
+    <ul class="pagination justify-content-center">
+      <li class="page-item" [ngClass]="{ 'disabled': currentPage === 1 }"><a class="page-link" href="#" (click)="updateCurrentPage($event, currentPage - 1, searchInput.value)">&laquo;</a></li>
+      <li class="page-item active" aria-current="page"><a class="page-link">{{ currentPage }}</a></li>
+      <li class="page-item" [ngClass]="{ 'disabled': items.length !== pageSize }"><a class="page-link" href="#" (click)="updateCurrentPage($event, currentPage + 1, searchInput.value)">&raquo;</a></li>
+    </ul>
+  </nav>
+  <div class="card mb-1 box-shadow text-center mx-auto" style="width: 70%;">
+    <div class="card-header">
+      <h4 class="my-0 font-weight-normal">Add</h4>
+    </div>
+    <div class="card-body">
+      <div class="row g-2">
+        <div class="col-auto">
+          <label for="inputTitle">Title</label>
+          <input id="inputTitle" class="form-control" #titleInput type="text" name="title" (keydown.enter)="create({ title: titleInput.value })" />
+        </div>
+        <div class="col-auto">
+          <label>Action</label>
+          <br />
+          <button class="btn btn-primary mb-2" type="submit" (click)="create({ title: titleInput.value })">Validate</button>
+        </div>
+      </div>
+    </div>
+  </div>
+}

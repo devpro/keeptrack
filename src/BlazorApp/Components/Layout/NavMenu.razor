@@ -1,0 +1,59 @@
+﻿<div class="top-row">
+    <a class="navbar-brand" href="">Keeptrack</a>
+    <label class="navbar-toggler-label" for="nav-toggle">&#9776;</label>
+</div>
+
+<input type="checkbox" id="nav-toggle" />
+
+<div class="nav-scrollable">
+    <nav class="nav flex-column">
+        <div class="nav-item">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="nav-icon">🏠</span> Home
+            </NavLink>
+        </div>
+        <AuthorizeView>
+            <Authorized>
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="books">
+                        <span class="nav-icon">📚</span> Books
+                    </NavLink>
+                </div>
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="movies">
+                        <span class="nav-icon">🎬</span> Movies
+                    </NavLink>
+                </div>
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="tv-shows">
+                        <span class="nav-icon">📺</span> TV shows
+                    </NavLink>
+                </div>
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="video-games">
+                        <span class="nav-icon">🎮</span> Video games
+                    </NavLink>
+                </div>
+                <div class="nav-divider"></div>
+                <div class="nav-item">
+                    <a class="nav-link nav-link-user" href="/account/manage">
+                        <span class="nav-icon">👤</span>
+                        <span class="nav-username">@context.User.Identity?.Name</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a class="nav-link nav-link-logout" href="/auth/logout">
+                        <span class="nav-icon">🚪</span> Log out
+                    </a>
+                </div>
+            </Authorized>
+            <NotAuthorized>
+                <div class="nav-item">
+                    <a class="nav-link" href="/account/login" data-enhance-nav="false">
+                        <span class="nav-icon">🔑</span> Sign in
+                    </a>
+                </div>
+            </NotAuthorized>
+        </AuthorizeView>
+    </nav>
+</div>

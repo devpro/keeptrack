@@ -1,0 +1,167 @@
+@typeparam TDto where TDto : IHasId
+
+@if (Error is not null)
+{
+    <div class="alert alert-danger mb-4" role="alert">@Error</div>
+}
+
+@if (ShowForm)
+{
+    <div class="kt-form-card">
+        <h5>@(Form.Id is null ? "New item" : "Edit item")</h5>
+        <div class="row g-3">
+            @FormTemplate(Form)
+        </div>
+        <div class="col-12 d-flex gap-2 pt-1">
+            <button class="btn btn-success" @onclick="OnSave">Save</button>
+            <button class="btn btn-secondary" @onclick="OnCancelForm">Cancel</button>
+        </div>
+    </div>
+}
+
+@if (Loading)
+{
+    <div class="kt-loading">
+        <div class="kt-spinner"></div>
+        Loading your collection…
+    </div>
+}
+else
+{
+    <div class="kt-table-wrap">
+        <div class="kt-table-header">
+            <h1 class="kt-table-title">My <span>@Title</span></h1>
+            @if (!ShowForm)
+            {
+                <button class="btn btn-primary" @onclick="OnShowAddForm">+ Add</button>
+            }
+        </div>
+        <div class="kt-search-bar">
+            <div class="kt-search-input-wrap">
+                <input class="form-control" type="search" placeholder="Search…"
+                       @bind="_localSearch" @bind:event="oninput"
+                       @onkeyup="HandleSearchKeyUp"/>
+                <span class="kt-search-icon">&#128269;</span>
+            </div>
+            @if (!string.IsNullOrEmpty(_localSearch))
+            {
+                <button class="btn btn-secondary btn-sm" @onclick="HandleClear">Clear</button>
+            }
+        </div>
+        @if (Items.Count > 0)
+        {
+            <table class="table">
+                <thead>
+                <tr>
+                    @HeaderTemplate
+                    <th style="width:120px"></th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var item in Items)
+                {
+                    @if (EditingInline?.Id == item.Id)
+                    {
+                        <tr class="kt-editing">
+                            @InlineEditTemplate(InlineForm)
+                            <td>
+                                <div class="d-flex gap-1">
+                                    <button class="btn btn-sm btn-success" @onclick="OnSaveInline">Save</button>
+                                    <button class="btn btn-sm btn-secondary" @onclick="OnCancelInline">✕</button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        <tr>
+                            @RowTemplate(item)
+                            <td>
+                                <div class="d-flex gap-1">
+                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => OnStartInlineEdit.InvokeAsync(item)">Edit</button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => OnDelete.InvokeAsync(item.Id!)">Del</button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="kt-empty">
+                <div class="kt-empty-icon">◈</div>
+                <p>Your collection is empty.</p>
+            </div>
+        }
+
+        @if (TotalPages > 1)
+        {
+            <div class="kt-pagination">
+                <button class="kt-page-btn" disabled="@(Page == 1)" @onclick="() => OnGoToPage.InvokeAsync(Page - 1)">&#8592;</button>
+                @for (var p = 1; p <= TotalPages; p++)
+                {
+                    var pageNum = p;
+                    <button class="kt-page-btn @(pageNum == Page ? "active" : "")"
+                            @onclick="() => OnGoToPage.InvokeAsync(pageNum)">@pageNum</button>
+                }
+                <button class="kt-page-btn" disabled="@(Page == TotalPages)" @onclick="() => OnGoToPage.InvokeAsync(Page + 1)">&#8594;</button>
+                <span class="kt-page-info">@TotalCount results</span>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private bool _initialized;
+    private string _localSearch = "";
+
+    protected override void OnParametersSet()
+    {
+        if (_initialized) return;
+        _localSearch = Search;
+        _initialized = true;
+    }
+
+    private async Task HandleSearchKeyUp(KeyboardEventArgs e)
+    {
+        await OnSearchChanged.InvokeAsync(_localSearch);
+        await OnSearchKeyUp.InvokeAsync(e);
+    }
+
+    private async Task HandleClear()
+    {
+        _localSearch = "";
+        await OnSearchChanged.InvokeAsync("");
+        await OnClearSearch.InvokeAsync();
+    }
+
+    [Parameter] public required string Title { get; set; }
+    [Parameter] public required List<TDto> Items { get; set; }
+    [Parameter] public required TDto Form { get; set; }
+    [Parameter] public required TDto? EditingInline { get; set; }
+    [Parameter] public required TDto InlineForm { get; set; }
+    [Parameter] public required bool Loading { get; set; }
+    [Parameter] public required bool ShowForm { get; set; }
+    [Parameter] public required string? Error { get; set; }
+    [Parameter] public required string Search { get; set; }
+    [Parameter] public required int Page { get; set; }
+    [Parameter] public required int TotalPages { get; set; }
+    [Parameter] public required long TotalCount { get; set; }
+    [Parameter] public required RenderFragment HeaderTemplate { get; set; }
+    [Parameter] public required RenderFragment<TDto> RowTemplate { get; set; }
+    [Parameter] public required RenderFragment<TDto> FormTemplate { get; set; }
+    [Parameter] public required RenderFragment<TDto> InlineEditTemplate { get; set; }
+    [Parameter] public required EventCallback OnSave { get; set; }
+    [Parameter] public required EventCallback OnCancelForm { get; set; }
+    [Parameter] public required EventCallback OnShowAddForm { get; set; }
+    [Parameter] public required EventCallback OnClearSearch { get; set; }
+    [Parameter] public required EventCallback OnSaveInline { get; set; }
+    [Parameter] public required EventCallback OnCancelInline { get; set; }
+    [Parameter] public required EventCallback<KeyboardEventArgs> OnSearchKeyUp { get; set; }
+    [Parameter] public required EventCallback<int> OnGoToPage { get; set; }
+    [Parameter] public required EventCallback<TDto> OnStartInlineEdit { get; set; }
+    [Parameter] public required EventCallback<string> OnDelete { get; set; }
+    [Parameter] public required EventCallback<string> OnSearchChanged { get; set; }
+}
