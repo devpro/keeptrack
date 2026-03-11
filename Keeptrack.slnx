@@ -11,8 +11,6 @@
   </Folder>
   <Folder Name="/Solution Items/azure-devops/">
     <File Path=".azure/pipelines/ci.yml" />
-    <File Path=".azure/pipelines/nightly.yml" />
-    <File Path=".azure/pipelines/pkg.yml" />
   </Folder>
   <Folder Name="/Solution Items/github/">
     <File Path=".github/workflows/ci.yaml" />

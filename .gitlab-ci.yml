@@ -11,27 +11,10 @@ workflow:
 
 variables:
   DOTNET_VERSION: "10.0"
-  NODEJS_VERSION: "22"
 
-.base-dotnet:
+build:
   image: mcr.microsoft.com/dotnet/sdk:$DOTNET_VERSION
-  before_script:
-    - cd dotnet
-
-build-dotnet:
-  extends: .base-dotnet
   stage: build
   script:
     - dotnet restore
     - dotnet build --no-restore --configuration Debug
-
-# .base-angular:
-#   image: node:$NODEJS_VERSION
-#   before_script:
-#     - cd angular-bootstrap
-
-# build-angular:
-#   extends: .base-angular
-#   stage: build
-#   script:
-#     - npm install

@@ -8,11 +8,6 @@ on:
         type: string
         required: false
         default: "src test"
-      debug:
-        description: "Enable debug mode (extra logging, verbose output)"
-        type: boolean
-        required: false
-        default: false
       is-pull-request:
         description: "Identify if build part of a PR"
         required: false
@@ -22,9 +17,6 @@ on:
       app_changed:
         description: "Whether application files changed (in src or test folder)"
         value: ${{ jobs.git-check.outputs.app_changed }}
-      environment_slug:
-        description: "Computed environment slug from branch"
-        value: ${{ jobs.git-check.outputs.environment_slug }}
       version_major_minor:
         description: "Version \"Major.Minor\" read from Directory.Build.props file"
         value: ${{ jobs.git-check.outputs.version_major_minor }}
@@ -42,17 +34,6 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - name: Debug git context
-        if: ${{ inputs.debug }}
-        run: |
-          echo "Event name (from caller info): ${{ inputs.is-pull-request && 'pull_request' || 'push/other' }}"
-          echo "github.sha      = ${{ github.sha }}"
-          echo "github.ref_name = ${{ github.ref_name }}"
-          echo "base ref        = ${{ github.base_ref }}"
-          echo "pr base sha     = ${{ github.event.pull_request.base.sha }}"
-          echo "pr head sha     = ${{ github.event.pull_request.head.sha }}"
-          git log --oneline -n 5 --decorate --graph || true
-          echo "---"
       - name: Determine BEFORE commit for diff
         id: set-before
         run: |
