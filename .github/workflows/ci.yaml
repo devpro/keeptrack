@@ -52,8 +52,8 @@ jobs:
       dotnet-test-args: "--report-xunit-trx --coverage --coverage-output-format cobertura"
       extra-vars: |
         AllowedOrigins__0="5207"
-        Features__IsScalarEnabled="true"
-        Features__IsHttpsRedirectionEnabled="false"
+        Features__IsScalarEnabled=true
+        Features__IsHttpsRedirectionEnabled=false
         Infrastructure__MongoDB__ConnectionString="mongodb://localhost:27017"
         Infrastructure__MongoDB__DatabaseName="keeptrack_ci"
       fossa-enabled: true

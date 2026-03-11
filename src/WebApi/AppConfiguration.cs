@@ -1,4 +1,4 @@
-﻿using Keeptrack.WebApi.Configuration;
+﻿using Keeptrack.WebApi.Authentication;
 using Withywoods.Configuration;
 
 namespace Keeptrack.WebApi;
