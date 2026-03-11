@@ -12,7 +12,6 @@ public record TokenRequest(string IdToken);
 public class AuthenticationController : ControllerBase
 {
     [HttpPost("callback")]
-    [IgnoreAntiforgeryToken]
     public async Task<IActionResult> Callback([FromBody] TokenRequest request)
     {
         if (string.IsNullOrWhiteSpace(request?.IdToken))
