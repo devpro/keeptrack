@@ -37,13 +37,13 @@ jobs:
 
   markup-lint:
     name: Markup
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-markup-lint.yml@87fc4cf004979998211b2c2126e903e7ea06f9c1
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-markup-lint.yml@b5937db15c2a060f3c9dd989ca06bac7eccc75a7
 
   code-quality:
     name: Code
     needs: git-check
     if: needs.git-check.outputs.app_changed == 'true' || (github.event_name == 'workflow_dispatch' && inputs.run-code-quality)
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-dotnet-quality.yml@87fc4cf004979998211b2c2126e903e7ea06f9c1
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-dotnet-quality.yml@b5937db15c2a060f3c9dd989ca06bac7eccc75a7
     with:
       custom-commands: |
         ./scripts/mongodb-install.sh
@@ -61,7 +61,7 @@ jobs:
       sonar-organization: ${{ vars.SONAR_ORG }}
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
       sonar-project-name: Keeptrack
-      workflow-parts-version: 87fc4cf004979998211b2c2126e903e7ea06f9c1
+      workflow-parts-version: b5937db15c2a060f3c9dd989ca06bac7eccc75a7
     secrets:
       fossa-api-key: ${{ secrets.FOSSA_API_KEY }}
       sonar-token: ${{ secrets.SONAR_TOKEN }}
@@ -89,7 +89,7 @@ jobs:
           - name: "Web Api"
             image-name: "keeptrack-webapi"
             image-definition: "src/WebApi/Dockerfile"
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-scan.yml@87fc4cf004979998211b2c2126e903e7ea06f9c1
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-scan.yml@b5937db15c2a060f3c9dd989ca06bac7eccc75a7
     with:
       image-definition: ${{ matrix.image-definition }}
       image-name: ${{ matrix.image-name }}
