@@ -21,7 +21,7 @@ public class CarHistoryDto : IHasId
     /// <summary>
     /// History date.
     /// </summary>
-    public DateTime HistoryDate { get; set; }
+    public DateOnly HistoryDate { get; set; }
 
     /// <summary>
     /// Mileage indicated on the car.

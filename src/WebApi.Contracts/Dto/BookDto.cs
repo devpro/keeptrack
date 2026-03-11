@@ -34,5 +34,5 @@ public class BookDto : IHasId
     /// <summary>
     /// Book finished reading date.
     /// </summary>
-    public DateTime? FinishedAt { get; set; }
+    public DateOnly? FinishedAt { get; set; }
 }

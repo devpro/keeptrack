@@ -11,7 +11,7 @@ public class CarHistoryModel : IHasIdAndOwnerId
 
     public required string CarId { get; set; }
 
-    public DateTime HistoryDate { get; set; }
+    public DateOnly HistoryDate { get; set; }
 
     public int? Mileage { get; set; }
 

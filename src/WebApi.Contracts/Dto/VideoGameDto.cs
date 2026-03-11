@@ -26,7 +26,7 @@ public class VideoGameDto : IHasId
     /// <summary>
     /// Released date.
     /// </summary>
-    public DateTime? ReleasedAt { get; set; }
+    public DateOnly? ReleasedAt { get; set; }
 
     /// <summary>
     /// Current payling state.
@@ -36,5 +36,5 @@ public class VideoGameDto : IHasId
     /// <summary>
     /// Finished date.
     /// </summary>
-    public DateTime? FinishedAt { get; set; }
+    public DateOnly? FinishedAt { get; set; }
 }

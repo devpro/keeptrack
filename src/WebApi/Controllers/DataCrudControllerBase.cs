@@ -25,7 +25,7 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IMapper mapper, IData
             pagedRequest.PageSize,
             pagedRequest.Search,
             mapper.Map<TModel>(input));
-        return Ok(models.Map(model => mapper.Map<TDto>(model)));
+        return Ok(models.Map(mapper.Map<TDto>));
     }
 
     [HttpGet("{id}")]

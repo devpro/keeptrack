@@ -15,5 +15,5 @@ public class BookModel : IHasIdAndOwnerId
 
     public string? Series { get; set; }
 
-    public DateTime? FinishedAt { get; set; }
+    public DateOnly? FinishedAt { get; set; }
 }

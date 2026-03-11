@@ -13,9 +13,9 @@ public class VideoGameModel : IHasIdAndOwnerId
 
     public required string Platform { get; set; }
 
-    public DateTime? ReleasedAt { get; set; }
+    public DateOnly? ReleasedAt { get; set; }
 
     public required string State { get; set; }
 
-    public DateTime? FinishedAt { get; set; }
+    public DateOnly? FinishedAt { get; set; }
 }

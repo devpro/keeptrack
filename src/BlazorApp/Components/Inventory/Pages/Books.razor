@@ -43,7 +43,7 @@
         <input class="form-control" placeholder="Title" @bind="book.Title" />
         <input class="form-control" placeholder="Author" @bind="book.Author" />
         <input class="form-control" placeholder="Series" @bind="book.Series" />
-        <input class="form-control" placeholder="Finished at" @bind="book.FinishedAt" />
+        <input class="form-control" type="date" placeholder="Finished at" @bind="book.FinishedAt" @bind:format="yyyy-MM-dd" />
     </FormTemplate>
     <InlineEditTemplate Context="book">
         <td><input class="form-control form-control-sm" @bind="book.Title" /></td>
