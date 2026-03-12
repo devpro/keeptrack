@@ -1,11 +1,13 @@
-﻿# Contibutor guide
+﻿# Contributor guide
 
 [![GitLab Pipeline Status](https://gitlab.com/devpro-labs/software/keeptrack/badges/main/pipeline.svg)](https://gitlab.com/devpro-labs/software/keeptrack/-/pipelines)
 [![Build Status](https://dev.azure.com/devprofr/open-source/_apis/build/status/keeptrack-ci?branchName=main)](https://dev.azure.com/devprofr/open-source/_build/latest?definitionId=26&branchName=main)
 
-## Design
+Follow this steps to run/debug/develop the application on your machine.
 
-This design of API has been inspired by the [Hexagonal Architecture](https://blog.octo.com/en/hexagonal-architecture-three-principles-and-an-implementation-example/).
+For an environment, look at [operations.md](docs/operations.md).
+
+## Design
 
 NuGet Packages:
 
@@ -14,7 +16,7 @@ NuGet Packages:
 ## Requirements
 
 - [.NET 10.0 SDK](https://dotnet.microsoft.com/download)
-- MongoDB 8.2 database
+- MongoDB database (up to 8.2)
   - Local server
 
   ```bash
@@ -31,12 +33,6 @@ NuGet Packages:
   ```
 
   - [MongoDB Atlas](https://cloud.mongodb.com/) cluster
-
-  - Database indexes
-
-  ```bash
-  docker run --rm --link mongodb -v "$(pwd)/scripts":/home/scripts mongo:8.2 bash -c "mongo mongodb://mongodb:27017/keeptrack /home/scripts/mongo-create-index.js"
-  ```
 
 ## How to configure
 
@@ -134,27 +130,4 @@ And execute all tests (unit and integration ones):
 
 ```bash
 dotnet test --settings Local.runsettings
-```
-
-## How to deploy
-
-- Add the outbound IP to the MongoDB Atlas cluster
-- Add the application url to Firebase domains
-- Create web project in Firebase and grab ids to be set to environment.ts file
-- Create a GitHub OAuth application ([firebase.google.com](https://firebase.google.com/docs/auth/web/github-auth),
-[github.com](https://github.com/settings/applications/new))
-- Add URLs in Azure web app CORS page
-
-## How to operate
-
-- Backup MongoDB database
-
-```bash
-docker run --rm -it --workdir=/data --volume $(pwd):/data mongo:8.2 /bin/sh -c "mongodump --uri mongodb+srv://<USER>:<PASSWORD>@<CLUSTER>.<PROJECT>.mongodb.net/test"
-```
-
-- Restore MongoDB database
-
-```bash
-docker run --rm -it --workdir=/data --volume $(pwd):/data mongo:8.2 /bin/sh -c "mongorestore --uri mongodb+srv://<USER>:<PASSWORD>@<CLUSTER>.<PROJECT>.mongodb.net"
 ```

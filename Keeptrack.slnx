@@ -9,6 +9,9 @@
     <File Path="Directory.Packages.props" />
     <File Path="README.md" />
   </Folder>
+  <Folder Name="/Solution Items/docs/">
+    <File Path="docs/operations.md" />
+  </Folder>
   <Folder Name="/Solution Items/pipelines/" />
   <Folder Name="/Solution Items/pipelines/azure-devops/">
     <File Path=".azure/pipelines/ci.yml" />
@@ -22,7 +25,7 @@
     <File Path=".gitlab-ci.yml" />
   </Folder>
   <Folder Name="/Solution Items/scripts/">
-    <File Path="scripts/mongo-create-index.js" />
+    <File Path="scripts/mongodb-create-index.js" />
     <File Path="scripts/mongodb-install.sh" />
   </Folder>
   <Project Path="src/BlazorApp/BlazorApp.csproj" />

@@ -1,7 +1,6 @@
 var builder = WebApplication.CreateBuilder(args);
 
 // adds services to the container
-builder.Services.AddControllers();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddCascadingAuthenticationState();
@@ -13,7 +12,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
         options.SlidingExpiration = true;
     });
-builder.Services.AddAuthorization();
+builder.Services.AddControllers();
 builder.Services.AddSingleton(builder.Configuration.TryGetSection<FirebaseClientSettings>("Firebase:WebAppConfiguration"));
 if (FirebaseApp.DefaultInstance is null)
 {
@@ -24,21 +23,26 @@ if (FirebaseApp.DefaultInstance is null)
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<AuthenticationTokenHandler>();
 builder.Services.AddWebApiHttpClient(builder.Configuration.TryGetSection<string>("WebApi:BaseUrl"));
+builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
 // configures the HTTP request pipeline
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+    app.UseExceptionHandler("/error", createScopeForErrors: true);
     app.UseHsts();
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
-app.UseHttpsRedirection();
+if (builder.Configuration.GetValue<bool>("Features:IsHttpsRedirectionEnabled"))
+{
+    app.UseHttpsRedirection();
+}
 app.UseAntiforgery();
 app.MapStaticAssets();
-app.MapControllers();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+app.MapControllers();
+app.MapHealthChecks("/health");
 
 await app.RunAsync();

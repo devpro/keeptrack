@@ -17,4 +17,3 @@ Local.runsettings
 # NPM
 firebase.config.js
 node_modules/
-dist/
