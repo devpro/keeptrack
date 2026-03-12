@@ -406,6 +406,25 @@ button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.
 .kt-home-sub { font-size: 1rem; color: var(--kt-text-muted); line-height: 1.75; margin-bottom: 2.5rem; }
 .kt-home-cta { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
 
+/* ── Home feature pills ────────────────────────────────────────────── */
+.kt-home-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.kt-home-feature {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--kt-text-muted);
+  background: var(--kt-surface-2);
+  border: 1px solid var(--kt-border);
+  border-radius: 20px;
+  padding: 0.3rem 0.85rem;
+  letter-spacing: 0.02em;
+}
+
 /* ── Login ─────────────────────────────────────────────────────────── */
 .kt-login-wrap {
   display: flex;

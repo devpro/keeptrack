@@ -4,9 +4,9 @@
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
-    branches: [main]
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       run-code-quality:
@@ -37,13 +37,13 @@ jobs:
 
   markup-lint:
     name: Markup
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-markup-lint.yml@b5937db15c2a060f3c9dd989ca06bac7eccc75a7
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-markup-lint.yml@62dbf6e833e49230ab34ef3c44093ebb727a095f
 
   code-quality:
     name: Code
     needs: git-check
     if: needs.git-check.outputs.app_changed == 'true' || (github.event_name == 'workflow_dispatch' && inputs.run-code-quality)
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-dotnet-quality.yml@b5937db15c2a060f3c9dd989ca06bac7eccc75a7
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-dotnet-quality.yml@62dbf6e833e49230ab34ef3c44093ebb727a095f
     with:
       custom-commands: |
         ./scripts/mongodb-install.sh
@@ -58,10 +58,11 @@ jobs:
         Infrastructure__MongoDB__DatabaseName=keeptrack_ci
       fossa-enabled: true
       sonar-enabled: true
+      sonar-exclusions: "samples/**"
       sonar-organization: ${{ vars.SONAR_ORG }}
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
       sonar-project-name: Keeptrack
-      workflow-parts-version: b5937db15c2a060f3c9dd989ca06bac7eccc75a7
+      workflow-parts-version: 62dbf6e833e49230ab34ef3c44093ebb727a095f
     secrets:
       fossa-api-key: ${{ secrets.FOSSA_API_KEY }}
       sonar-token: ${{ secrets.SONAR_TOKEN }}
@@ -89,7 +90,7 @@ jobs:
           - name: "Web Api"
             image-name: "keeptrack-webapi"
             image-definition: "src/WebApi/Dockerfile"
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-scan.yml@b5937db15c2a060f3c9dd989ca06bac7eccc75a7
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-scan.yml@62dbf6e833e49230ab34ef3c44093ebb727a095f
     with:
       image-definition: ${{ matrix.image-definition }}
       image-name: ${{ matrix.image-name }}
