@@ -9,34 +9,56 @@ For an environment, look at [operations.md](docs/operations.md).
 
 ## Design
 
-NuGet Packages:
+The application source code is in the following .NET projects:
 
-- [MongoDB C# Driver](https://www.mongodb.com/docs/drivers/csharp/current/)
+Project name               | Technology | Project type
+---------------------------|------------|------------------------------
+`BlazorApp`                | ASP.NET 10 | Blazor Server web application
+`Common.System`            | .NET 10    | Library
+`Domain`                   | .NET 10    | Library
+`Infrastructure.MongoDb`   | .NET 10    | Library
+`WebApi`                   | ASP.NET 10 | Web application (REST API)
+`WebApi.Contracts`         | .NET 10    | Library
+
+The application is using the following .NET packages (via NuGet):
+
+Name                | Description
+--------------------|--------------------
+`FirebaseAdmin`     | Firebase
+`MongoDB.Bson`      | MongoDB BSON
+`MongoDB.Driver`    | MongoDB .NET Driver
+`Scalar.AspNetCore` | OpenAPI web UI
 
 ## Requirements
 
-- [.NET 10.0 SDK](https://dotnet.microsoft.com/download)
-- MongoDB database (up to 8.2)
-  - Local server
+1. [.NET 10.0 SDK](https://dotnet.microsoft.com/download)
 
-  ```bash
-  cd D:/Programs/mongodb-8.2/bin
-  md log
-  md data
-  mongod --logpath log/mongod.log --dbpath data --port 27017
-  ```
+2. MongoDB database
 
-  - [Docker](https://hub.docker.com/_/mongo/)
+    Several options:
+    
+    - Local server
+  
+    ```bash
+    cd D:/Programs/mongodb-8.2/bin
+    md log
+    md data
+    mongod --logpath log/mongod.log --dbpath data --port 27017
+    ```
+  
+    - [Docker](https://hub.docker.com/_/mongo/)
+  
+    ```bash
+    docker run --name mongodb -d -p 27017:27017 mongo:8.2
+    ```
+  
+    - [MongoDB Atlas](https://cloud.mongodb.com/) cluster
 
-  ```bash
-  docker run --name mongodb -d -p 27017:27017 mongo:8.2
-  ```
+3. IDE: Rider, Visual Studio, Visual Studio Code
 
-  - [MongoDB Atlas](https://cloud.mongodb.com/) cluster
+## Configuration
 
-## How to configure
-
-### Web API
+### Web API appsettings
 
 Key                                       | Description
 ------------------------------------------|--------------------------
@@ -45,10 +67,14 @@ Key                                       | Description
 
 This values can be easily provided as environment variables (replace ":" by "__") or by configuration (json).
 
-Template for `src/Api/appsettings.Development.json`:
+Template for `src/WebApi/appsettings.Development.json`:
 
 ```json
 {
+  "AllowedOrigins": [
+    "http://localhost:5207",
+    "https://localhost:7042"
+  ],
   "Authentication": {
     "JwtBearer": {
       "Authority": "https://securetoken.google.com/<firebase-project-id>",
@@ -58,35 +84,46 @@ Template for `src/Api/appsettings.Development.json`:
       }
     }
   },
+  "Features": {
+    "IsScalarEnabled": true,
+    "IsHttpsRedirectionEnabled": false
+  },
   "Infrastructure": {
     "MongoDB": {
       "ConnectionString": "mongodb://localhost:27017",
-      "DatabaseName": "keeptrack"
+      "DatabaseName": "keeptrack_dev"
     }
   },
   "Logging": {
     "LogLevel": {
-      "KeepTrack": "Debug",
-      "Withywoods": "Debug"
+      "Default": "Debug",
+      "KeepTrack": "Debug"
     }
   }
 }
 ```
 
-### Blazor Server App
+### Blazor Server App appsettings
 
-TODO
+Key                                     | Required | Default value
+----------------------------------------|----------|--------------
+AllowedHosts                            | false    | "*"
+Features:IsHttpsRedirectionEnabled      | false    | true
+Firebase:WebAppConfiguration:ApiKey     | true     | ""
+Firebase:WebAppConfiguration:AuthDomain | true     | ""
+Firebase:WebAppConfiguration:ProjectId  | true     | ""
+Firebase:ServiceAccount                 | true     | ""
+Logging:LogLevel:Default                | false    | "Information"
+Logging:LogLevel:Microsoft.AspNetCore   | false    | "Warning"
+WebApi:BaseUrl                          | true     | "" 
 
-## How to build
+## Run
 
 ```bash
 dotnet restore
+
 dotnet build
-```
 
-## How to debug
-
-```bash
 # run the API (https://localhost:5011/)
 dotnet run --project src/WebApi
 
@@ -94,7 +131,7 @@ dotnet run --project src/WebApi
 dotnet run --project src/BlazorApp
 ```
 
-## How to test
+## Tests
 
 For integration tests, to manage the configuration (secrets) you can create a file at the root directory called `Local.runsettings` or define them as environment variables:
 
@@ -103,7 +140,7 @@ For integration tests, to manage the configuration (secrets) you can create a fi
 <RunSettings>
   <RunConfiguration>
     <EnvironmentVariables>
-      <AllowedOrigins__0>http://localhost:4200</AllowedOrigins__0>
+      <AllowedOrigins__0>http://localhost:5207</AllowedOrigins__0>
       <Infrastructure__MongoDB__ConnectionString>mongodb://localhost:27017</Infrastructure__MongoDB__ConnectionString>
       <Infrastructure__MongoDB__DatabaseName>keeptrack_integrationtests</Infrastructure__MongoDB__DatabaseName>
       <Authentication__JwtBearer__Authority></Authentication__JwtBearer__Authority>
@@ -126,8 +163,9 @@ Or in Rider, in "File | Settings | Build, Execution, Deployment | Unit Testing |
 
 Set KESTREL_WEBAPP_URL to target a specific instance (not use web app test instance).
 
-And execute all tests (unit and integration ones):
+## Container images
 
 ```bash
-dotnet test --settings Local.runsettings
+docker build . -t devprofr/keeptrack-blazorapp:local -f src/BlazorApp/Dockerfile
+docker build . -t devprofr/keeptrack-webapi:local -f src/WebApi/Dockerfile
 ```

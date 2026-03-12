@@ -18,10 +18,11 @@ A SaaS free version is currently available for early adopters (contact the repos
 
 ## Software design
 
-3 tier application:
+Three-tier application:
 
-- Frontend: Blazor Server application (.NET 10)
-- Backend: ASP.NET Web API application (.NET 10)
+- Frontend: Blazor Server application (.NET 10/C#)
+- Backend: ASP.NET Web API application (.NET 10/C#)
 - Database: MongoDB
 
-For more details, see [CONTRIBUTING.md](CONTRIBUTING.md) - any help is more than welcome 🙂
+For more details, see [CONTRIBUTING.md](CONTRIBUTING.md).
+Any help is more than welcome 🙂
