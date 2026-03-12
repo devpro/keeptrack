@@ -36,7 +36,7 @@ Name                | Description
 2. MongoDB database
 
     Several options:
-    
+
     - Local server
   
     ```bash
@@ -115,7 +115,7 @@ Firebase:WebAppConfiguration:ProjectId  | true     | ""
 Firebase:ServiceAccount                 | true     | ""
 Logging:LogLevel:Default                | false    | "Information"
 Logging:LogLevel:Microsoft.AspNetCore   | false    | "Warning"
-WebApi:BaseUrl                          | true     | "" 
+WebApi:BaseUrl                          | true     | ""
 
 ## Run
 
