@@ -99,14 +99,51 @@ else
         @if (TotalPages > 1)
         {
             <div class="kt-pagination">
-                <button class="kt-page-btn" disabled="@(Page == 1)" @onclick="() => OnGoToPage.InvokeAsync(Page - 1)">&#8592;</button>
-                @for (var p = 1; p <= TotalPages; p++)
+                <button class="kt-page-btn" disabled="@(Page == 1)"
+                        @onclick="() => OnGoToPage.InvokeAsync(1)">&#8676;
+                </button>
+                <button class="kt-page-btn" disabled="@(Page == 1)"
+                        @onclick="() => OnGoToPage.InvokeAsync(Page - 1)">&#8592;
+                </button>
+
+                @{
+                    int start, end;
+                    if (TotalPages <= 3)
+                    {
+                        start = 1;
+                        end = TotalPages;
+                    }
+                    else if (Page <= 2)
+                    {
+                        start = 1;
+                        end = 3;
+                    }
+                    else if (Page >= TotalPages - 1)
+                    {
+                        start = TotalPages - 2;
+                        end = TotalPages;
+                    }
+                    else
+                    {
+                        start = Page - 1;
+                        end = Page + 1;
+                    }
+                }
+
+                @for (var p = start; p <= end; p++)
                 {
                     var pageNum = p;
                     <button class="kt-page-btn @(pageNum == Page ? "active" : "")"
                             @onclick="() => OnGoToPage.InvokeAsync(pageNum)">@pageNum</button>
                 }
-                <button class="kt-page-btn" disabled="@(Page == TotalPages)" @onclick="() => OnGoToPage.InvokeAsync(Page + 1)">&#8594;</button>
+
+                <button class="kt-page-btn" disabled="@(Page == TotalPages)"
+                        @onclick="() => OnGoToPage.InvokeAsync(Page + 1)">&#8594;
+                </button>
+                <button class="kt-page-btn" disabled="@(Page == TotalPages)"
+                        @onclick="() => OnGoToPage.InvokeAsync(TotalPages)">&#8677;
+                </button>
+
                 <span class="kt-page-info">@TotalCount results</span>
             </div>
         }

@@ -557,6 +557,15 @@ button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.
   gap: 0.3rem;
   padding: 1rem 1.5rem;
   border-top: 1px solid var(--kt-border);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 767px) {
+  .kt-page-btn {
+    min-width: 30px;
+    height: 30px;
+    font-size: 0.75rem;
+  }
 }
 
 .kt-page-btn {
