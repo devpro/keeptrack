@@ -1,4 +1,5 @@
-﻿using Keeptrack.Common.System;
+﻿using System;
+using Keeptrack.Common.System;
 
 namespace Keeptrack.Domain.Models;
 
@@ -12,7 +13,7 @@ public class MovieModel : IHasIdAndOwnerId
 
     public int? Year { get; set; }
 
-    public int? Rating { get; set; }
+    public float? Rating { get; set; }
 
     public string? Genre { get; set; }
 
@@ -21,4 +22,6 @@ public class MovieModel : IHasIdAndOwnerId
     public string? ImdbPageId { get; set; }
 
     public string? AllocineId { get; set; }
+
+    public DateOnly? FirstSeenAt { get; set; }
 }

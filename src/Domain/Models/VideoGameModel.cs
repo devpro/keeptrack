@@ -13,9 +13,13 @@ public class VideoGameModel : IHasIdAndOwnerId
 
     public required string Platform { get; set; }
 
-    public DateOnly? ReleasedAt { get; set; }
-
     public required string State { get; set; }
+
+    public int? Year { get; set; }
+
+    public float? Rating { get; set; }
+
+    public string? Notes { get; set; }
 
     public DateOnly? FinishedAt { get; set; }
 }

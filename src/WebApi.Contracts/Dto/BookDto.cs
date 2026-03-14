@@ -31,8 +31,14 @@ public class BookDto : IHasId
     /// <example>Middle-earth Universe</example>
     public string? Series { get; set; }
 
+    public float? Rating { get; set; }
+
+    public string? Genre { get; set; }
+
+    public string? Notes { get; set; }
+
     /// <summary>
     /// Book finished reading date.
     /// </summary>
-    public DateOnly? FinishedAt { get; set; }
+    public DateOnly? FirstReadAt { get; set; }
 }

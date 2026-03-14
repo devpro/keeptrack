@@ -5,7 +5,7 @@ namespace Keeptrack.BlazorApp.Components.Inventory.Pages;
 
 public partial class Movies : InventoryPageBase<MovieDto>
 {
-    [Inject] private MoviesApiClient MovieApi { get; set; } = null!;
+    [Inject] private MovieApiClient MovieApi { get; set; } = null!;
 
     protected override InventoryApiClientBase<MovieDto> Api => MovieApi;
 
@@ -16,6 +16,9 @@ public partial class Movies : InventoryPageBase<MovieDto>
         Year = item.Year,
         Genre = item.Genre,
         Rating = item.Rating,
-        Notes = item.Notes
+        Notes = item.Notes,
+        FirstSeenAt = item.FirstSeenAt,
+        AllocineId = item.AllocineId,
+        ImdbPageId = item.ImdbPageId
     };
 }

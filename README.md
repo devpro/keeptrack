@@ -5,6 +5,7 @@
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=devpro_keeptrack&metric=alert_status)](https://sonarcloud.io/dashboard?id=devpro_keeptrack)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=devpro_keeptrack&metric=coverage)](https://sonarcloud.io/dashboard?id=devpro_keeptrack)
 [![Docker Image Version](https://img.shields.io/docker/v/devprofr/keeptrack-blazorapp?label=Image&logo=docker)](https://hub.docker.com/r/devprofr/keeptrack-blazorapp)
+
 [![FOSSA Status](https://app.fossa.com/api/projects/custom%2B60068%2Fgithub.com%2Fdevpro%2Fkeeptrack.svg?type=shield&issueType=license)](https://app.fossa.com/projects/custom%2B60068%2Fgithub.com%2Fdevpro%2Fkeeptrack?ref=badge_shield&issueType=license)
 [![FOSSA Status](https://app.fossa.com/api/projects/custom%2B60068%2Fgithub.com%2Fdevpro%2Fkeeptrack.svg?type=shield&issueType=security)](https://app.fossa.com/projects/custom%2B60068%2Fgithub.com%2Fdevpro%2Fkeeptrack?ref=badge_shield&issueType=security)
 

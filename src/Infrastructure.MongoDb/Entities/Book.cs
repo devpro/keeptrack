@@ -20,6 +20,12 @@ public class Book : IHasIdAndOwnerId
 
     public string? Series { get; set; }
 
-    [BsonElement("finished_at")]
-    public DateTime? FinishedAt { get; set; }
+    public float? Rating { get; set; }
+
+    public string? Genre { get; set; }
+
+    public string? Notes { get; set; }
+
+    [BsonElement("first_read_at")]
+    public DateTime? FirstReadAt { get; set; }
 }

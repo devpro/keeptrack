@@ -1,0 +1,67 @@
+﻿@page "/music-albums"
+@inherits InventoryPageBase<MusicAlbumDto>
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+<InventoryList TDto="MusicAlbumDto"
+               Title="Music Albums"
+               Items="@_items"
+               Loading="@_loading"
+               Error="@_error"
+               Search="@_search"
+               Page="@_page"
+               TotalPages="@TotalPages"
+               TotalCount="@_totalCount"
+               ShowForm="@_showForm"
+               EditingInline="@_editingInline"
+               Form="@_form"
+               InlineForm="@_inlineForm"
+               OnSearchKeyUp="@OnSearchKeyUp"
+               OnClearSearch="@ClearSearch"
+               OnGoToPage="@GoToPage"
+               OnShowAddForm="@ShowAddForm"
+               OnCancelForm="@CancelForm"
+               OnSave="@SaveAsync"
+               OnStartInlineEdit="@StartInlineEdit"
+               OnCancelInline="@CancelInline"
+               OnSaveInline="@SaveInlineAsync"
+               OnDelete="@DeleteAsync"
+               OnSearchChanged="@OnSearchChanged">
+    <HeaderTemplate>
+        <th>Title</th>
+        <th>Artist</th>
+        <th>Rating</th>
+    </HeaderTemplate>
+    <RowTemplate Context="album">
+        <td>@album.Title</td>
+        <td>@album.Artist</td>
+        <td><span class="kt-stars"><StarRating Rating="album.Rating" /></span></td>
+    </RowTemplate>
+    <FormTemplate Context="album">
+        <input class="form-control" placeholder="Title" @bind="album.Title" />
+        <input class="form-control" placeholder="Author" @bind="album.Artist" />
+        <input class="form-control" placeholder="Rating" @bind="album.Rating" type="number" />
+    </FormTemplate>
+    <EditModalTemplate Context="album">
+        <div class="col-12">
+            <label class="form-label">Title</label>
+            <input class="form-control" @bind="album.Title" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Artist</label>
+            <input class="form-control" @bind="album.Artist" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Year</label>
+            <input class="form-control" @bind="album.Year" type="number" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Genre</label>
+            <input class="form-control" @bind="album.Genre" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Rating</label>
+            <input class="form-control" @bind="album.Rating" type="number" />
+        </div>
+    </EditModalTemplate>
+</InventoryList>

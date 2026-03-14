@@ -1,4 +1,5 @@
-﻿using Keeptrack.Common.System;
+﻿using System;
+using Keeptrack.Common.System;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
@@ -14,4 +15,20 @@ public class TvShow : IHasIdAndOwnerId
     public required string OwnerId { get; set; }
 
     public required string Title { get; set; }
+
+    public int? Year { get; set; }
+
+    public float? Rating { get; set; }
+
+    public string? Notes { get; set; }
+
+    [BsonElement("last_episode_seen")]
+    public string? LastEpisodeSeen { get; set; }
+
+    public Imdb? Imdb { get; set; }
+
+    public Allocine? Allocine { get; set; }
+
+    [BsonElement("finished_at")]
+    public DateTime? FinishedAt { get; set; }
 }

@@ -36,7 +36,7 @@ public class BookResourceTest(KestrelWebAppFactory<Program> factory)
             await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
 
             var updated = await GetAsync<BookDto>($"/{ResourceEndpoint}/{created.Id}");
-            updated.Should().BeEquivalentTo(created, x => x.Excluding(item => item.FinishedAt)); // issue with DateTime and MongoDB
+            updated.Should().BeEquivalentTo(created, x => x.Excluding(item => item.FirstReadAt)); // issue with DateTime and MongoDB
 
             var finalItems = await GetAsync<PagedResult<BookDto>>($"/{ResourceEndpoint}");
             finalItems.TotalCount.Should().BeGreaterThan(initialItems.TotalCount);

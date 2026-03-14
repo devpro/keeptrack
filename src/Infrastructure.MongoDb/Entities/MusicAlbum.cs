@@ -1,11 +1,10 @@
-﻿using System;
-using Keeptrack.Common.System;
+﻿using Keeptrack.Common.System;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
 namespace Keeptrack.Infrastructure.MongoDb.Entities;
 
-public class VideoGame : IHasIdAndOwnerId
+public class MusicAlbum : IHasIdAndOwnerId
 {
     [BsonId]
     [BsonRepresentation(BsonType.ObjectId)]
@@ -16,16 +15,11 @@ public class VideoGame : IHasIdAndOwnerId
 
     public required string Title { get; set; }
 
-    public required string Platform { get; set; }
-
-    public required string State { get; set; }
+    public required string Artist { get; set; }
 
     public int? Year { get; set; }
 
+    public string? Genre { get; set; }
+
     public float? Rating { get; set; }
-
-    public string? Notes { get; set; }
-
-    [BsonElement("finished_at")]
-    public DateTime? FinishedAt { get; set; }
 }

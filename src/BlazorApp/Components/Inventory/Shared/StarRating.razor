@@ -1,0 +1,15 @@
+﻿@for (var i = 1; i <= 5; i++)
+{
+    <span class="star @GetStarClass(i)">★</span>
+}
+
+@code {
+    [Parameter] public float? Rating { get; set; }
+
+    private string GetStarClass(int position)
+    {
+        var rating = Rating ?? 0;
+        if (rating >= position) return "full";
+        return rating >= position - 0.5f ? "half" : "empty";
+    }
+}

@@ -14,8 +14,10 @@ public partial class VideoGames : InventoryPageBase<VideoGameDto>
         Id = item.Id,
         Title = item.Title,
         Platform = item.Platform,
-        ReleasedAt = item.ReleasedAt,
         State = item.State,
-        FinishedAt = item.FinishedAt
+        FinishedAt = item.FinishedAt,
+        Notes = item.Notes,
+        Rating = item.Rating,
+        Year = item.Year
     };
 }

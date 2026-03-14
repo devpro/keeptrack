@@ -9,17 +9,25 @@ public class WebServiceMappingProfile : Profile
 
     public WebServiceMappingProfile()
     {
-        CreateMap<MovieDto, Domain.Models.MovieModel>()
+        CreateMap<BookDto, Domain.Models.BookModel>()
             .ForMember(x => x.OwnerId, opt => opt.Ignore());
-        CreateMap<Domain.Models.MovieModel, MovieDto>();
+        CreateMap<Domain.Models.BookModel, BookDto>();
+
+        CreateMap<CarDto, Domain.Models.CarModel>()
+            .ForMember(x => x.OwnerId, opt => opt.Ignore());
+        CreateMap<Domain.Models.CarModel, CarDto>();
 
         CreateMap<CarHistoryDto, Domain.Models.CarHistoryModel>()
             .ForMember(x => x.OwnerId, opt => opt.Ignore());
         CreateMap<Domain.Models.CarHistoryModel, CarHistoryDto>();
 
-        CreateMap<BookDto, Domain.Models.BookModel>()
+        CreateMap<MovieDto, Domain.Models.MovieModel>()
             .ForMember(x => x.OwnerId, opt => opt.Ignore());
-        CreateMap<Domain.Models.BookModel, BookDto>();
+        CreateMap<Domain.Models.MovieModel, MovieDto>();
+
+        CreateMap<MusicAlbumDto, Domain.Models.MusicAlbumModel>()
+            .ForMember(x => x.OwnerId, opt => opt.Ignore());
+        CreateMap<Domain.Models.MusicAlbumModel, MusicAlbumDto>();
 
         CreateMap<TvShowDto, Domain.Models.TvShowModel>()
             .ForMember(x => x.OwnerId, opt => opt.Ignore());

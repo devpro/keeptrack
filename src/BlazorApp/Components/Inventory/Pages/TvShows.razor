@@ -4,7 +4,7 @@
 @attribute [Authorize]
 
 <InventoryList TDto="TvShowDto"
-               Title="TvShowss"
+               Title="Tv Shows"
                Items="@_items"
                Loading="@_loading"
                Error="@_error"
@@ -29,14 +29,43 @@
                OnSearchChanged="@OnSearchChanged">
     <HeaderTemplate>
         <th>Title</th>
+        <th>Last episode seen</th>
+        <th>Rating</th>
     </HeaderTemplate>
-    <RowTemplate Context="movie">
-        <td style="font-weight:500">@movie.Title</td>
+    <RowTemplate Context="show">
+        <td style="font-weight:500">@show.Title</td>
+        <td>@show.LastEpisodeSeen</td>
+        <td><span class="kt-stars"><StarRating Rating="show.Rating" /></span></td>
     </RowTemplate>
-    <FormTemplate Context="movie">
-        <input class="form-control" placeholder="Title" @bind="movie.Title"/>
+    <FormTemplate Context="show">
+        <input class="form-control" placeholder="Title" @bind="show.Title"/>
+        <input class="form-control" placeholder="Last episode seen" @bind="show.LastEpisodeSeen"/>
+        <input class="form-control" placeholder="Rating" @bind="show.Rating" type="number"/>
     </FormTemplate>
-    <InlineEditTemplate Context="movie">
-        <td><input class="form-control form-control-sm" @bind="movie.Title"/></td>
-    </InlineEditTemplate>
+    <EditModalTemplate Context="show">
+        <div class="col-12">
+            <label class="form-label">Title</label>
+            <input class="form-control" @bind="show.Title" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Year</label>
+            <input class="form-control" @bind="show.Year" type="number" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Rating</label>
+            <input class="form-control" @bind="show.Rating" type="number" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Last episode seen</label>
+            <input class="form-control" @bind="show.LastEpisodeSeen" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Finished at</label>
+            <input class="form-control" @bind="show.FinishedAt" @bind:format="yyyy-MM-dd" type="date" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Notes</label>
+            <input class="form-control" @bind="show.Notes" />
+        </div>
+    </EditModalTemplate>
 </InventoryList>

@@ -31,24 +31,51 @@
         <th>Title</th>
         <th>Author</th>
         <th>Series</th>
+        <th>Rating</th>
         <th>Finished at</th>
     </HeaderTemplate>
     <RowTemplate Context="book">
         <td>@book.Title</td>
         <td>@book.Author</td>
         <td>@book.Series</td>
-        <td>@book.FinishedAt?.ToString("yyyy-MM-dd")</td>
+        <td><span class="kt-stars"><StarRating Rating="book.Rating" /></span></td>
+        <td>@book.FirstReadAt?.ToString("yyyy-MM-dd")</td>
     </RowTemplate>
     <FormTemplate Context="book">
         <input class="form-control" placeholder="Title" @bind="book.Title" />
         <input class="form-control" placeholder="Author" @bind="book.Author" />
         <input class="form-control" placeholder="Series" @bind="book.Series" />
-        <input class="form-control" type="date" placeholder="Finished at" @bind="book.FinishedAt" @bind:format="yyyy-MM-dd" />
+        <input class="form-control" @bind="book.Rating" type="number" min="0" max="5" step="0.1" />
+        <input class="form-control" placeholder="Finished at" @bind="book.FirstReadAt" @bind:format="yyyy-MM-dd" type="date" />
     </FormTemplate>
-    <InlineEditTemplate Context="book">
-        <td><input class="form-control form-control-sm" @bind="book.Title" /></td>
-        <td><input class="form-control form-control-sm" @bind="book.Author" /></td>
-        <td><input class="form-control form-control-sm" @bind="book.Series" /></td>
-        <td><input class="form-control" type="date" @bind="book.FinishedAt" @bind:format="yyyy-MM-dd" /></td>
-    </InlineEditTemplate>
+    <EditModalTemplate Context="book">
+        <div class="col-12">
+            <label class="form-label">Title</label>
+            <input class="form-control" @bind="book.Title" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Author</label>
+            <input class="form-control" @bind="book.Author" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Series</label>
+            <input class="form-control" @bind="book.Series" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Genre</label>
+            <input class="form-control" @bind="book.Genre" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Rating</label>
+            <input class="form-control" @bind="book.Rating" type="number" min="0" max="5" step="0.1" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Notes</label>
+            <textarea class="form-control" @bind="book.Notes" rows="4"></textarea>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">First read at</label>
+            <input class="form-control" type="date" @bind="book.FirstReadAt" @bind:format="yyyy-MM-dd" />
+        </div>
+    </EditModalTemplate>
 </InventoryList>
