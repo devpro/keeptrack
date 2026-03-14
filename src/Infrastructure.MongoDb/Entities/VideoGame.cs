@@ -20,9 +20,12 @@ public class VideoGame : IHasIdAndOwnerId
 
     public required string State { get; set; }
 
+    public int? Year { get; set; }
+
+    public float? Rating { get; set; }
+
+    public string? Notes { get; set; }
+
     [BsonElement("finished_at")]
     public DateTime? FinishedAt { get; set; }
-
-    [BsonElement("released_at")]
-    public DateTime? ReleasedAt { get; set; }
 }

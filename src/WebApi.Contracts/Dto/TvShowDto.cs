@@ -1,4 +1,5 @@
-﻿using Keeptrack.Common.System;
+﻿using System;
+using Keeptrack.Common.System;
 
 namespace Keeptrack.WebApi.Contracts.Dto;
 
@@ -16,4 +17,18 @@ public class TvShowDto : IHasId
     /// TV Show title.
     /// </summary>
     public string? Title { get; set; }
+
+    public int? Year { get; set; }
+
+    public float? Rating { get; set; }
+
+    public string? Notes { get; set; }
+
+    public string? LastEpisodeSeen { get; set; }
+
+    public string? ImdbPageId { get; set; }
+
+    public string? AllocineId { get; set; }
+
+    public DateOnly? FinishedAt { get; set; }
 }

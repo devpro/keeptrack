@@ -20,4 +20,6 @@ public class MusicAlbum : IHasIdAndOwnerId
     public int? Year { get; set; }
 
     public string? Genre { get; set; }
+
+    public float? Rating { get; set; }
 }

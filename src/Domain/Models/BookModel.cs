@@ -15,5 +15,11 @@ public class BookModel : IHasIdAndOwnerId
 
     public string? Series { get; set; }
 
-    public DateOnly? FinishedAt { get; set; }
+    public float? Rating { get; set; }
+
+    public string? Genre { get; set; }
+
+    public string? Notes { get; set; }
+
+    public DateOnly? FirstReadAt { get; set; }
 }

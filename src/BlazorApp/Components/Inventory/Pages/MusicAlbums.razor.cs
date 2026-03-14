@@ -5,7 +5,7 @@ namespace Keeptrack.BlazorApp.Components.Inventory.Pages;
 
 public partial class MusicAlbums : InventoryPageBase<MusicAlbumDto>
 {
-    [Inject] private MusicAlbumsApiClient MusicAlbumApi { get; set; } = null!;
+    [Inject] private MusicAlbumApiClient MusicAlbumApi { get; set; } = null!;
 
     protected override InventoryApiClientBase<MusicAlbumDto> Api => MusicAlbumApi;
 

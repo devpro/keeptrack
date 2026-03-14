@@ -24,14 +24,15 @@ public class VideoGameDto : IHasId
     public string? Platform { get; set; }
 
     /// <summary>
-    /// Released date.
-    /// </summary>
-    public DateOnly? ReleasedAt { get; set; }
-
-    /// <summary>
     /// Current payling state.
     /// </summary>
     public string? State { get; set; }
+
+    public int? Year { get; set; }
+
+    public float? Rating { get; set; }
+
+    public string? Notes { get; set; }
 
     /// <summary>
     /// Finished date.

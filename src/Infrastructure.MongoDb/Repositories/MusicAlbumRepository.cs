@@ -10,7 +10,7 @@ namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 public class MusicAlbumRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepositoryBase<MusicAlbumModel, MusicAlbum>> logger, IMapper mapper)
     : MongoDbRepositoryBase<MusicAlbumModel, MusicAlbum>(mongoDatabase, logger, mapper), IMusicAlbumRepository
 {
-    protected override string CollectionName => "movie";
+    protected override string CollectionName => "music-album";
 
     protected override FilterDefinition<MusicAlbum> GetFilter(string ownerId, string? search, MusicAlbumModel input)
     {

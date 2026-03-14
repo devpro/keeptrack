@@ -1,4 +1,5 @@
-﻿using Keeptrack.Common.System;
+﻿using System;
+using Keeptrack.Common.System;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
@@ -17,7 +18,7 @@ public class Movie : IHasIdAndOwnerId
 
     public int? Year { get; set; }
 
-    public int? Rating { get; set; }
+    public float? Rating { get; set; }
 
     public string? Genre { get; set; }
 
@@ -26,4 +27,7 @@ public class Movie : IHasIdAndOwnerId
     public Imdb? Imdb { get; set; }
 
     public Allocine? Allocine { get; set; }
+
+    [BsonElement("first_seen_at")]
+    public DateTime? FirstSeenAt { get; set; }
 }

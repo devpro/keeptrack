@@ -4,7 +4,7 @@
 @attribute [Authorize]
 
 <InventoryList TDto="MusicAlbumDto"
-               Title="MusicAlbums"
+               Title="Music Albums"
                Items="@_items"
                Loading="@_loading"
                Error="@_error"
@@ -30,21 +30,38 @@
     <HeaderTemplate>
         <th>Title</th>
         <th>Artist</th>
-        <th>Genre</th>
+        <th>Rating</th>
     </HeaderTemplate>
-    <RowTemplate Context="book">
-        <td>@book.Title</td>
-        <td>@book.Artist</td>
-        <td>@book.Genre</td>
+    <RowTemplate Context="album">
+        <td>@album.Title</td>
+        <td>@album.Artist</td>
+        <td><span class="kt-stars"><StarRating Rating="album.Rating" /></span></td>
     </RowTemplate>
-    <FormTemplate Context="book">
-        <input class="form-control" placeholder="Title" @bind="book.Title" />
-        <input class="form-control" placeholder="Author" @bind="book.Artist" />
-        <input class="form-control" placeholder="Series" @bind="book.Genre" />
+    <FormTemplate Context="album">
+        <input class="form-control" placeholder="Title" @bind="album.Title" />
+        <input class="form-control" placeholder="Author" @bind="album.Artist" />
+        <input class="form-control" placeholder="Rating" @bind="album.Rating" type="number" />
     </FormTemplate>
-    <InlineEditTemplate Context="book">
-        <td><input class="form-control form-control-sm" @bind="book.Title" /></td>
-        <td><input class="form-control form-control-sm" @bind="book.Artist" /></td>
-        <td><input class="form-control form-control-sm" @bind="book.Genre" /></td>
-    </InlineEditTemplate>
+    <EditModalTemplate Context="album">
+        <div class="col-12">
+            <label class="form-label">Title</label>
+            <input class="form-control" @bind="album.Title" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Artist</label>
+            <input class="form-control" @bind="album.Artist" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Year</label>
+            <input class="form-control" @bind="album.Year" type="number" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Genre</label>
+            <input class="form-control" @bind="album.Genre" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Rating</label>
+            <input class="form-control" @bind="album.Rating" type="number" />
+        </div>
+    </EditModalTemplate>
 </InventoryList>

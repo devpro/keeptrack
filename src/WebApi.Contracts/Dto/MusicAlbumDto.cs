@@ -14,5 +14,5 @@ public class MusicAlbumDto : IHasId
 
     public string? Genre { get; set; }
 
-    public int? Rating { get; set; }
+    public float? Rating { get; set; }
 }

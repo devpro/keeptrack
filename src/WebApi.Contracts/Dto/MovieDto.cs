@@ -1,4 +1,5 @@
-﻿using Keeptrack.Common.System;
+﻿using System;
+using Keeptrack.Common.System;
 
 namespace Keeptrack.WebApi.Contracts.Dto;
 
@@ -10,7 +11,7 @@ public class MovieDto : IHasId
 
     public int? Year { get; set; }
 
-    public int? Rating { get; set; }
+    public float? Rating { get; set; }
 
     public string? Genre { get; set; }
 
@@ -19,4 +20,6 @@ public class MovieDto : IHasId
     public string? ImdbPageId { get; set; }
 
     public string? AllocineId { get; set; }
+
+    public DateOnly? FirstSeenAt { get; set; }
 }

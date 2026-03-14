@@ -4,7 +4,7 @@
 @attribute [Authorize]
 
 <InventoryList TDto="VideoGameDto"
-               Title="VideoGames"
+               Title="Video Games"
                Items="@_items"
                Loading="@_loading"
                Error="@_error"
@@ -31,14 +31,14 @@
         <th>Title</th>
         <th>Platform</th>
         <th>State</th>
-        <th>Released</th>
+        <th>Rating</th>
         <th>Finished</th>
     </HeaderTemplate>
     <RowTemplate Context="game">
         <td style="font-weight:500">@game.Title</td>
         <td>@game.Platform</td>
         <td>@game.State</td>
-        <td>@game.ReleasedAt?.ToString("yyyy-MM-dd")</td>
+        <td><span class="kt-stars"><StarRating Rating="game.Rating" /></span></td>
         <td>@game.FinishedAt?.ToString("yyyy-MM-dd")</td>
     </RowTemplate>
     <FormTemplate Context="game">
@@ -63,12 +63,16 @@
             <option>Current</option>
             <option>On-hold</option>
         </select>
-        <input class="form-control" type="date" placeholder="Released at" @bind="game.ReleasedAt" @bind:format="yyyy-MM-dd" />
-        <input class="form-control" type="date" placeholder="Finished at" @bind="game.FinishedAt" @bind:format="yyyy-MM-dd" />
+        <input class="form-control" placeholder="Rating" @bind="game.Rating" type="number" />
+        <input class="form-control" placeholder="Finished at" @bind="game.FinishedAt" @bind:format="yyyy-MM-dd" type="date" />
     </FormTemplate>
-    <InlineEditTemplate Context="game">
-        <td><input class="form-control form-control-sm" @bind="game.Title" /></td>
-        <td>
+    <EditModalTemplate Context="game">
+        <div class="col-12">
+            <label class="form-label">Title</label>
+            <input class="form-control" @bind="game.Title" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Platform</label>
             <select class="form-select form-select-sm" @bind="game.Platform">
                 <option value="">—</option>
                 <option>Xbox Series X</option>
@@ -81,18 +85,33 @@
                 <option>PS2</option>
                 <option>PS1</option>
             </select>
-        </td>
-        <td>
-            <select class="form-select form-select-sm" @bind="game.State">
-                <option value="">—</option>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">State</label>
+            <select class="form-select" @bind="game.State">
+                <option value="">— State —</option>
                 <option>Available</option>
                 <option>Completed</option>
                 <option>To resume</option>
                 <option>Current</option>
                 <option>On-hold</option>
             </select>
-        </td>
-        <td><input class="form-control form-control-sm" type="date" @bind="game.ReleasedAt" @bind:format="yyyy-MM-dd" /></td>
-        <td><input class="form-control form-control-sm" type="date" @bind="game.FinishedAt" @bind:format="yyyy-MM-dd" /></td>
-    </InlineEditTemplate>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Year</label>
+            <input class="form-control" @bind="game.Year" type="number" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Rating</label>
+            <input class="form-control" @bind="game.Rating" type="number" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Finished at</label>
+            <input class="form-control" @bind="game.FinishedAt" @bind:format="yyyy-MM-dd" type="date" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Notes</label>
+            <input class="form-control" @bind="game.Notes" />
+        </div>
+    </EditModalTemplate>
 </InventoryList>

@@ -16,5 +16,5 @@ public class MusicAlbumModel : IHasIdAndOwnerId
 
     public string? Genre { get; set; }
 
-    public int? Rating { get; set; }
+    public float? Rating { get; set; }
 }

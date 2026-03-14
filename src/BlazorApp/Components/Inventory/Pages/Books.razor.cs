@@ -14,7 +14,10 @@ public partial class Books : InventoryPageBase<BookDto>
         Id = item.Id,
         Title = item.Title,
         Author = item.Author,
-        FinishedAt = item.FinishedAt,
-        Series = item.Series
+        Series = item.Series,
+        Genre = item.Genre,
+        Rating = item.Rating,
+        Notes = item.Notes,
+        FirstReadAt = item.FirstReadAt
     };
 }

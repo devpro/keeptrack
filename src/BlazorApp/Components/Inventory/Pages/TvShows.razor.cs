@@ -12,6 +12,13 @@ public partial class TvShows : InventoryPageBase<TvShowDto>
     protected override TvShowDto CloneItem(TvShowDto item) => new()
     {
         Id = item.Id,
-        Title = item.Title
+        Title = item.Title,
+        Rating = item.Rating,
+        AllocineId = item.AllocineId,
+        ImdbPageId = item.ImdbPageId,
+        Notes = item.Notes,
+        FinishedAt = item.FinishedAt,
+        LastEpisodeSeen = item.LastEpisodeSeen,
+        Year = item.Year
     };
 }

@@ -5,10 +5,31 @@
     <div class="alert alert-danger mb-4" role="alert">@Error</div>
 }
 
+@if (_showModal)
+{
+    <div class="kt-modal-backdrop" @onclick="HandleBackdropClick" @onmousedown="HandleBackdropMouseDown">
+        <div class="kt-modal" @onclick:stopPropagation @onmousedown:stopPropagation>
+            <div class="kt-modal-header">
+                <h5>Edit item</h5>
+                <button class="kt-modal-close" @onclick="OnCancelModal">✕</button>
+            </div>
+            <div class="kt-modal-body">
+                <div class="row g-3">
+                    @EditModalTemplate(InlineForm)
+                </div>
+            </div>
+            <div class="kt-modal-footer">
+                <button class="btn btn-secondary" @onclick="OnCancelModal">Cancel</button>
+                <button class="btn btn-success" @onclick="OnSaveModal">Save</button>
+            </div>
+        </div>
+    </div>
+}
+
 @if (ShowForm)
 {
     <div class="kt-form-card">
-        <h5>@(Form.Id is null ? "New item" : "Edit item")</h5>
+        <h5>New item</h5>
         <div class="row g-3">
             @FormTemplate(Form)
         </div>
@@ -60,30 +81,15 @@ else
                 <tbody>
                 @foreach (var item in Items)
                 {
-                    @if (EditingInline?.Id == item.Id)
-                    {
-                        <tr class="kt-editing">
-                            @InlineEditTemplate(InlineForm)
-                            <td>
-                                <div class="d-flex gap-1">
-                                    <button class="btn btn-sm btn-success" @onclick="OnSaveInline">Save</button>
-                                    <button class="btn btn-sm btn-secondary" @onclick="OnCancelInline">✕</button>
-                                </div>
-                            </td>
-                        </tr>
-                    }
-                    else
-                    {
-                        <tr>
-                            @RowTemplate(item)
-                            <td>
-                                <div class="d-flex gap-1">
-                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => OnStartInlineEdit.InvokeAsync(item)">Edit</button>
-                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => OnDelete.InvokeAsync(item.Id!)">Del</button>
-                                </div>
-                            </td>
-                        </tr>
-                    }
+                    <tr>
+                        @RowTemplate(item)
+                        <td>
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenEditModal(item)">Edit</button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => OnDelete.InvokeAsync(item.Id!)">Del</button>
+                            </div>
+                        </td>
+                    </tr>
                 }
                 </tbody>
             </table>
@@ -105,7 +111,6 @@ else
                 <button class="kt-page-btn" disabled="@(Page == 1)"
                         @onclick="() => OnGoToPage.InvokeAsync(Page - 1)">&#8592;
                 </button>
-
                 @{
                     int start, end;
                     if (TotalPages <= 3)
@@ -129,21 +134,18 @@ else
                         end = Page + 1;
                     }
                 }
-
                 @for (var p = start; p <= end; p++)
                 {
                     var pageNum = p;
                     <button class="kt-page-btn @(pageNum == Page ? "active" : "")"
                             @onclick="() => OnGoToPage.InvokeAsync(pageNum)">@pageNum</button>
                 }
-
                 <button class="kt-page-btn" disabled="@(Page == TotalPages)"
                         @onclick="() => OnGoToPage.InvokeAsync(Page + 1)">&#8594;
                 </button>
                 <button class="kt-page-btn" disabled="@(Page == TotalPages)"
                         @onclick="() => OnGoToPage.InvokeAsync(TotalPages)">&#8677;
                 </button>
-
                 <span class="kt-page-info">@TotalCount results</span>
             </div>
         }
@@ -153,6 +155,8 @@ else
 @code {
     private bool _initialized;
     private string _localSearch = "";
+    private bool _showModal;
+    private bool _mouseDownOnBackdrop;
 
     protected override void OnParametersSet()
     {
@@ -174,6 +178,39 @@ else
         await OnClearSearch.InvokeAsync();
     }
 
+    private async Task OpenEditModal(TDto item)
+    {
+        await OnStartInlineEdit.InvokeAsync(item);
+        _showModal = true;
+    }
+
+    private async Task OnSaveModal()
+    {
+        await OnSaveInline.InvokeAsync();
+        _showModal = false;
+    }
+
+    private async Task OnCancelModal()
+    {
+        _showModal = false;
+        await OnCancelInline.InvokeAsync();
+    }
+
+    private void HandleBackdropMouseDown()
+    {
+        _mouseDownOnBackdrop = true;
+    }
+
+    private async Task HandleBackdropClick()
+    {
+        if (_mouseDownOnBackdrop)
+        {
+            _mouseDownOnBackdrop = false;
+            await OnCancelModal();
+        }
+        _mouseDownOnBackdrop = false;
+    }
+
     [Parameter] public required string Title { get; set; }
     [Parameter] public required List<TDto> Items { get; set; }
     [Parameter] public required TDto Form { get; set; }
@@ -189,7 +226,7 @@ else
     [Parameter] public required RenderFragment HeaderTemplate { get; set; }
     [Parameter] public required RenderFragment<TDto> RowTemplate { get; set; }
     [Parameter] public required RenderFragment<TDto> FormTemplate { get; set; }
-    [Parameter] public required RenderFragment<TDto> InlineEditTemplate { get; set; }
+    [Parameter] public required RenderFragment<TDto> EditModalTemplate { get; set; }
     [Parameter] public required EventCallback OnSave { get; set; }
     [Parameter] public required EventCallback OnCancelForm { get; set; }
     [Parameter] public required EventCallback OnShowAddForm { get; set; }

@@ -7,7 +7,9 @@ internal static class InfrastructureServiceCollectionExtensions
         var webApiUri = new Uri(webApiBaseUrl);
         services.AddHttpClient<BookApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
-        services.AddHttpClient<MoviesApiClient>(client => client.BaseAddress = webApiUri)
+        services.AddHttpClient<MovieApiClient>(client => client.BaseAddress = webApiUri)
+            .AddHttpMessageHandler<AuthenticationTokenHandler>();
+        services.AddHttpClient<MusicAlbumApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
         services.AddHttpClient<TvShowApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
