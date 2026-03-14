@@ -5,5 +5,5 @@ namespace Keeptrack.BlazorApp.Components.Inventory.Clients;
 public sealed class MusicAlbumApiClient(HttpClient http)
     : InventoryApiClientBase<MusicAlbumDto>(http)
 {
-    protected override string ApiResourceName => "/api/movies";
+    protected override string ApiResourceName => "/api/music-albums";
 }
