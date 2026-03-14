@@ -28,5 +28,9 @@ public class WebServiceMappingProfile : Profile
         CreateMap<VideoGameDto, Domain.Models.VideoGameModel>()
             .ForMember(x => x.OwnerId, opt => opt.Ignore());
         CreateMap<Domain.Models.VideoGameModel, VideoGameDto>();
+
+        CreateMap<MusicAlbumDto, Domain.Models.VideoGameModel>()
+            .ForMember(x => x.OwnerId, opt => opt.Ignore());
+        CreateMap<Domain.Models.VideoGameModel, MusicAlbumDto>();
     }
 }
