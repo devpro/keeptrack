@@ -6,7 +6,7 @@ rules:
   document-start: disable
   line-length:
     level: warning
-    max: 170
+    max: 200
   truthy: disable
   brackets:
     max-spaces-inside: 1
