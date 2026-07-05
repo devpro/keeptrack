@@ -58,7 +58,7 @@ Name                | Description
 
 ## Configuration
 
-### Web API appsettings
+### Web API settings
 
 Key                                       | Description
 ------------------------------------------|--------------------------
@@ -103,7 +103,7 @@ Template for `src/WebApi/appsettings.Development.json`:
 }
 ```
 
-### Blazor Server App appsettings
+### Blazor Server App settings
 
 Key                                     | Required | Default value
 ----------------------------------------|----------|--------------
