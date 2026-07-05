@@ -4,12 +4,14 @@
     <File Path=".gitignore" />
     <File Path=".markdownlint-cli2.yaml" />
     <File Path=".yamllint.yaml" />
+    <File Path="CLAUDE.md" />
     <File Path="CONTRIBUTING.md" />
     <File Path="Directory.Build.props" />
     <File Path="Directory.Packages.props" />
     <File Path="README.md" />
   </Folder>
   <Folder Name="/Solution Items/docs/">
+    <File Path="docs/code-quality-findings.md" />
     <File Path="docs/operations.md" />
   </Folder>
   <Folder Name="/Solution Items/pipelines/" />
