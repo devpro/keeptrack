@@ -71,11 +71,24 @@
                     @foreach (var candidate in _searchResults)
                     {
                         <div class="kt-form-card mb-2">
-                            <p class="mb-1"><strong>@candidate.Title</strong> @(candidate.Year is not null ? $"({candidate.Year})" : "")</p>
-                            @if (!string.IsNullOrEmpty(candidate.Synopsis))
-                            {
-                                <p class="kt-card-meta mb-2">@candidate.Synopsis</p>
-                            }
+                            <div class="d-flex gap-3">
+                                @if (!string.IsNullOrEmpty(candidate.PosterUrl))
+                                {
+                                    <img src="@candidate.PosterUrl" alt="@candidate.Title poster"
+                                         style="width:60px;height:90px;object-fit:cover;flex-shrink:0" class="rounded"/>
+                                }
+                                <div>
+                                    <p class="mb-1"><strong>@candidate.Title</strong> @(candidate.Year is not null ? $"({candidate.Year})" : "")</p>
+                                    @if (candidate.TopCastNames.Count > 0)
+                                    {
+                                        <p class="kt-card-meta mb-1">@string.Join(", ", candidate.TopCastNames)</p>
+                                    }
+                                    @if (!string.IsNullOrEmpty(candidate.Synopsis))
+                                    {
+                                        <p class="kt-card-meta mb-2">@candidate.Synopsis</p>
+                                    }
+                                </div>
+                            </div>
                             <button class="btn btn-sm btn-success" @onclick="() => LinkAsync(candidate)" disabled="@_linking">Link this one</button>
                         </div>
                     }

@@ -9,7 +9,7 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// One TMDB search hit - title, year and a short synopsis, enough for automatic matching or for an
 /// admin to pick from when a match is ambiguous.
 /// </summary>
-public record TmdbSearchResult(string TmdbId, string Title, int? Year, string? Synopsis);
+public record TmdbSearchResult(string TmdbId, string Title, int? Year, string? Synopsis, string? PosterUrl);
 
 public record TmdbEpisode(int SeasonNumber, int EpisodeNumber, string Title, DateOnly? AirDate);
 

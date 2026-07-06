@@ -22,7 +22,7 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
         var query = $"search/tv?api_key={ApiKey}&query={Encode(title)}" + (year is null ? "" : $"&first_air_date_year={year}");
         var response = await http.GetFromJsonAsync<TmdbSearchResponse>(query, cancellationToken);
         return response?.Results.Select(r => new TmdbSearchResult(
-            r.Id.ToString(CultureInfo.InvariantCulture), r.Name ?? title, ParseYear(r.FirstAirDate), r.Overview)).ToList() ?? [];
+            r.Id.ToString(CultureInfo.InvariantCulture), r.Name ?? title, ParseYear(r.FirstAirDate), r.Overview, BuildImageUrl(r.PosterPath, PosterImageSize))).ToList() ?? [];
     }
 
     public async Task<IReadOnlyList<TmdbSearchResult>> SearchMovieAsync(string title, int? year, CancellationToken cancellationToken = default)
@@ -30,7 +30,7 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
         var query = $"search/movie?api_key={ApiKey}&query={Encode(title)}" + (year is null ? "" : $"&year={year}");
         var response = await http.GetFromJsonAsync<TmdbSearchResponse>(query, cancellationToken);
         return response?.Results.Select(r => new TmdbSearchResult(
-            r.Id.ToString(CultureInfo.InvariantCulture), r.Title ?? title, ParseYear(r.ReleaseDate), r.Overview)).ToList() ?? [];
+            r.Id.ToString(CultureInfo.InvariantCulture), r.Title ?? title, ParseYear(r.ReleaseDate), r.Overview, BuildImageUrl(r.PosterPath, PosterImageSize))).ToList() ?? [];
     }
 
     public async Task<TmdbTvShowDetails?> GetTvShowDetailsAsync(string tmdbId, CancellationToken cancellationToken = default)
@@ -123,6 +123,9 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
 
         [JsonPropertyName("release_date")]
         public string? ReleaseDate { get; set; }
+
+        [JsonPropertyName("poster_path")]
+        public string? PosterPath { get; set; }
     }
 
     private sealed class TmdbTvShowDetailsResponse

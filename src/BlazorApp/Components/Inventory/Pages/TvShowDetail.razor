@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @attribute [Authorize]
 @using Keeptrack.BlazorApp.Components.ReferenceData
+@using Keeptrack.BlazorApp.Components.ReferenceDataAdmin
 
 @if (_loading)
 {
@@ -59,6 +60,11 @@ else
     {
         <h2 class="kt-section-title">Cast</h2>
         <CastGrid Cast="_reference.Cast"/>
+    }
+
+    @if (string.IsNullOrEmpty(_show.ReferenceId))
+    {
+        <InlineReferenceLinker Type="ReferenceItemType.TvShow" Title="@_show.Title" Year="_show.Year" OnLinked="LoadAsync"/>
     }
 
     @if (_reference is not null)

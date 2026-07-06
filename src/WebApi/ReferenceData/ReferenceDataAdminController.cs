@@ -35,7 +35,17 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// Live TMDB search, for an admin to pick the right candidate for an unresolved title.
+    /// How many search candidates get enriched with a poster and top cast names - bounds the extra
+    /// per-candidate credits calls to a small, admin-facing action, not the full ~20-result TMDB page.
+    /// </summary>
+    private const int MaxEnrichedCandidates = 5;
+
+    private const int MaxCastNamesPerCandidate = 3;
+
+    /// <summary>
+    /// Live TMDB search, for an admin to pick the right candidate for an unresolved title. The top
+    /// candidates are enriched with a poster and top-billed cast names to help tell apart near-identical
+    /// results (remakes, regional variants, sequels sharing a title).
     /// </summary>
     [HttpGet("search")]
     [ProducesResponseType(200)]
@@ -45,7 +55,25 @@ public class ReferenceDataAdminController(
             ? await tmdbClient.SearchTvShowAsync(title, year)
             : await tmdbClient.SearchMovieAsync(title, year);
 
-        return Ok(results.Select(r => new ReferenceSearchResultDto { TmdbId = r.TmdbId, Title = r.Title, Year = r.Year, Synopsis = r.Synopsis }).ToList());
+        var dtos = new List<ReferenceSearchResultDto>();
+        foreach (var result in results.Take(MaxEnrichedCandidates))
+        {
+            var cast = type == ReferenceItemType.TvShow
+                ? await tmdbClient.GetTvShowCastAsync(result.TmdbId)
+                : await tmdbClient.GetMovieCastAsync(result.TmdbId);
+
+            dtos.Add(new ReferenceSearchResultDto
+            {
+                TmdbId = result.TmdbId,
+                Title = result.Title,
+                Year = result.Year,
+                Synopsis = result.Synopsis,
+                PosterUrl = result.PosterUrl,
+                TopCastNames = cast.OrderBy(c => c.Order).Take(MaxCastNamesPerCandidate).Select(c => c.Name).ToList()
+            });
+        }
+
+        return Ok(dtos);
     }
 
     /// <summary>

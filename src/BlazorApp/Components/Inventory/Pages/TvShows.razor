@@ -66,12 +66,18 @@
     <EditModalTemplate Context="show">
         <div class="col-12">
             <label class="form-label">Title</label>
-            <input class="form-control" @bind="show.Title" />
+            <input class="form-control" @bind="show.Title" disabled="@(!string.IsNullOrEmpty(show.ReferenceId))"/>
         </div>
         <div class="col-md-6">
             <label class="form-label">Year</label>
-            <input class="form-control" @bind="show.Year" type="number" />
+            <input class="form-control" @bind="show.Year" type="number" disabled="@(!string.IsNullOrEmpty(show.ReferenceId))"/>
         </div>
+        @if (!string.IsNullOrEmpty(show.ReferenceId))
+        {
+            <div class="col-12">
+                <p class="kt-card-meta mb-0">Title/year are matched to a reference source and can't be edited here.</p>
+            </div>
+        }
         <div class="col-md-6">
             <label class="form-label">Rating</label>
             <input class="form-control" @bind="show.Rating" type="number" />

@@ -1,0 +1,92 @@
+@using Keeptrack.WebApi.Contracts.Dto
+@inject ReferenceDataAdminApiClient Api
+
+<AuthorizeView Policy="AdminOnly" Context="adminContext">
+    <Authorized>
+        <div class="kt-form-card">
+            <p class="kt-card-meta mb-2">Not yet matched to a reference source (admin only).</p>
+
+            @if (!_searched)
+            {
+                <button class="btn btn-sm btn-secondary" @onclick="SearchAsync">Search TMDB to link</button>
+            }
+            else if (_searching)
+            {
+                <div class="kt-loading"><div class="kt-spinner"></div> Searching…</div>
+            }
+            else if (_results.Count == 0)
+            {
+                <div class="alert alert-info mb-0">No TMDB results for this title/year.</div>
+            }
+            else
+            {
+                @foreach (var candidate in _results)
+                {
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        @if (!string.IsNullOrEmpty(candidate.PosterUrl))
+                        {
+                            <img src="@candidate.PosterUrl" alt="@candidate.Title poster"
+                                 style="width:40px;height:60px;object-fit:cover;flex-shrink:0" class="rounded"/>
+                        }
+                        <div>
+                            <strong>@candidate.Title</strong> @(candidate.Year is not null ? $"({candidate.Year})" : "")
+                            @if (candidate.TopCastNames.Count > 0)
+                            {
+                                <div class="kt-card-meta">@string.Join(", ", candidate.TopCastNames)</div>
+                            }
+                        </div>
+                        <button class="btn btn-sm btn-success ms-auto" @onclick="() => LinkAsync(candidate)" disabled="@_linking">Link</button>
+                    </div>
+                }
+            }
+
+            @if (_error is not null)
+            {
+                <div class="alert alert-danger mt-2 mb-0">@_error</div>
+            }
+        </div>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    [Parameter, EditorRequired] public required ReferenceItemType Type { get; set; }
+
+    [Parameter, EditorRequired] public required string Title { get; set; }
+
+    [Parameter] public int? Year { get; set; }
+
+    [Parameter] public EventCallback OnLinked { get; set; }
+
+    private bool _searched;
+    private bool _searching;
+    private bool _linking;
+    private List<ReferenceSearchResultDto> _results = [];
+    private string? _error;
+
+    private async Task SearchAsync()
+    {
+        _searched = true;
+        _searching = true;
+        _results = await Api.SearchAsync(Type, Title, Year);
+        _searching = false;
+    }
+
+    private async Task LinkAsync(ReferenceSearchResultDto candidate)
+    {
+        _linking = true;
+        _error = null;
+        try
+        {
+            await Api.LinkAsync(new LinkReferenceRequestDto { Type = Type, Title = Title, Year = Year, TmdbId = candidate.TmdbId });
+            await OnLinked.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _linking = false;
+        }
+    }
+}

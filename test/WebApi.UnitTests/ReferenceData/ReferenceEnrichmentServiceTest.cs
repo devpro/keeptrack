@@ -37,8 +37,8 @@ public class ReferenceEnrichmentServiceTest
     public async Task TryAutoResolveTvShowAsync_DoesNothing_WhenSearchIsAmbiguous()
     {
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(
-            new TmdbSearchResult("1", "Some Show", 2020, null),
-            new TmdbSearchResult("2", "Some Show", 2020, null)));
+            new TmdbSearchResult("1", "Some Show", 2020, null, null),
+            new TmdbSearchResult("2", "Some Show", 2020, null, null)));
 
         await service.TryAutoResolveTvShowAsync("Some Show", 2020);
 
@@ -48,7 +48,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task TryAutoResolveTvShowAsync_ResolvesAndPropagates_WhenExactlyOneCandidate()
     {
-        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults(new TmdbSearchResult("42", "Some Show", 2020, "Synopsis"));
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults(new TmdbSearchResult("42", "Some Show", 2020, "Synopsis", null));
         tmdbClient.TvShowDetails["42"] = new TmdbTvShowDetails("42", "Some Show", 2020, "Synopsis", [], [], null);
         _tvShowReferenceRepository
             .Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>()))
