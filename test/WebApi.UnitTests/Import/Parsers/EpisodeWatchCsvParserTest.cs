@@ -22,6 +22,7 @@ public class EpisodeWatchCsvParserTest
         // the per-show summary row (empty "gsi") is skipped; only the "watch-episode-*" row survives
         result.Should().ContainSingle();
         result[0].ShowTitle.Should().Be("Chicago Fire");
+        result[0].TvShowId.Should().Be("258541");
         result[0].SeasonNumber.Should().Be(10);
         result[0].EpisodeNumber.Should().Be(14);
         result[0].WatchedAt.Should().Be(new DateTime(2023, 12, 11, 12, 13, 39));

@@ -133,7 +133,66 @@ dotnet run --project src/BlazorApp
 
 ## Tests
 
-For integration tests, to manage the configuration (secrets) you can create a file at the root directory called `Local.runsettings` or define them as environment variables:
+The solution has two test projects:
+
+- `test/WebApi.UnitTests` has no external dependencies.
+- `test/WebApi.IntegrationTests` needs a running MongoDB and a Firebase test user, since it boots the real Web API and calls it like a real client would.
+
+Run everything:
+
+```bash
+dotnet test
+```
+
+Run just one project:
+
+```bash
+dotnet test test/WebApi.UnitTests/WebApi.UnitTests.csproj
+dotnet test test/WebApi.IntegrationTests/WebApi.IntegrationTests.csproj
+```
+
+Run a single test by fully qualified name (works for either project):
+
+```bash
+dotnet test --filter-method "Keeptrack.WebApi.UnitTests.MappingProfiles.AutoMapperConfigurationTest.WebApiAutoMapperProfile_ShouldBeValid"
+```
+
+### Unit tests
+
+No configuration needed - `dotnet test test/WebApi.UnitTests/WebApi.UnitTests.csproj` works as soon as the solution restores.
+
+### Integration tests
+
+These need two things configured before they'll pass:
+
+1. **A MongoDB instance** (see [Requirements](#requirements) above), pointed at by `Infrastructure__MongoDB__ConnectionString`/`Infrastructure__MongoDB__DatabaseName`.
+   Use a dedicated database (e.g. `keeptrack_integrationtests`), not your dev database - tests create and delete real documents.
+   Running `scripts/mongodb-create-index.js` against it first is recommended (keeps behavior closest to production) but not required for the tests themselves to pass.
+2. **A Firebase test user**, since `ResourceTestBase.Authenticate()` performs a real Firebase sign-in to obtain a bearer token:
+   - `FIREBASE_APIKEY`: the Firebase project's Web API key (Firebase Console → Project settings → General → Web API Key).
+   - `FIREBASE_USERNAME` / `FIREBASE_PASSWORD`: the email/password of a real user created in that project (Firebase Console → Authentication → Users → Add user).
+     Use a dedicated test account, not a personal one.
+   - `Authentication__JwtBearer__Authority`, `..__TokenValidation__Issuer`, `..__TokenValidation__Audience`: all `https://securetoken.google.com/<firebase-project-id>`.
+     See the [Web API settings](#web-api-settings) above for the Issuer/Audience split.
+     This is what lets the API-under-test validate the token issued by that same Firebase project.
+
+Provide all of this as environment variables (works everywhere, including CI - see `.github/workflows/ci.yaml` for how the pipeline supplies its own test account), for example:
+
+```bash
+export AllowedOrigins__0=http://localhost:5207
+export Infrastructure__MongoDB__ConnectionString=mongodb://localhost:27017
+export Infrastructure__MongoDB__DatabaseName=keeptrack_integrationtests
+export Authentication__JwtBearer__Authority=https://securetoken.google.com/<firebase-project-id>
+export Authentication__JwtBearer__TokenValidation__Issuer=https://securetoken.google.com/<firebase-project-id>
+export Authentication__JwtBearer__TokenValidation__Audience=<firebase-project-id>
+export FIREBASE_APIKEY=<web-api-key>
+export FIREBASE_USERNAME=<test-user-email>
+export FIREBASE_PASSWORD=<test-user-password>
+
+dotnet test test/WebApi.IntegrationTests/WebApi.IntegrationTests.csproj
+```
+
+Or, for an IDE-driven workflow, put the same values in a `Local.runsettings` file at the repository root (gitignored - never commit it) so Rider/Visual Studio pick them up automatically for test runs:
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -155,13 +214,9 @@ For integration tests, to manage the configuration (secrets) you can create a fi
 </RunSettings>
 ```
 
-Or in Rider, in "File | Settings | Build, Execution, Deployment | Unit Testing | Test Runner"
+Or in Rider, in "File | Settings | Build, Execution, Deployment | Unit Testing | Test Runner", set the same three Firebase variables directly so they apply to every test run in the IDE without a file.
 
-- FIREBASE_APIKEY
-- FIREBASE_USERNAME
-- FIREBASE_PASSWORD
-
-Set KESTREL_WEBAPP_URL to target a specific instance (not use web app test instance).
+Set `KESTREL_WEBAPP_URL` to target a specific already-running instance instead of letting the tests spin up their own.
 
 ## Container images
 

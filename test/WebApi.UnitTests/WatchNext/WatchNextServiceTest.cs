@@ -19,7 +19,7 @@ public class WatchNextServiceTest
         new() { OwnerId = "owner", TvShowId = showId, SeasonNumber = season, EpisodeNumber = episode, WatchedAt = watchedAt };
 
     [Fact]
-    public void ComputeNextEpisodes_ProposesTheEpisodeAfterTheHighestWatched()
+    public void ComputeInProgressShows_ReportsTheHighestSeasonAndEpisodeWatched()
     {
         var shows = new[] { Show("show-1", "Dark") };
         var episodes = new[]
@@ -28,52 +28,40 @@ public class WatchNextServiceTest
             Episode("show-1", 1, 2, new DateOnly(2024, 1, 2))
         };
 
-        var result = _service.ComputeNextEpisodes(shows, episodes);
+        var result = _service.ComputeInProgressShows(shows, episodes);
 
+        // deliberately does NOT propose a "next" episode: Keeptrack has no episode-guide data, so it
+        // can't tell whether a further episode actually exists yet.
         result.Should().ContainSingle();
         result[0].TvShowTitle.Should().Be("Dark");
-        result[0].NextSeasonNumber.Should().Be(1);
-        result[0].NextEpisodeNumber.Should().Be(3);
+        result[0].LastSeasonNumber.Should().Be(1);
+        result[0].LastEpisodeNumber.Should().Be(2);
         result[0].LastWatchedAt.Should().Be(new DateOnly(2024, 1, 2));
     }
 
     [Fact]
-    public void ComputeNextEpisodes_ProposesTheFirstEpisodeOfTheNextSeason_WhenTheHighestWatchedEndsASeason()
-    {
-        var shows = new[] { Show("show-1", "Dark") };
-        var episodes = new[] { Episode("show-1", 1, 8, new DateOnly(2024, 1, 1)) };
-
-        var result = _service.ComputeNextEpisodes(shows, episodes);
-
-        // the service only knows the highest (season, episode) watched, not each season's episode count,
-        // so "next" is always season N episode M+1 - a documented heuristic, not season-finale-aware.
-        result[0].NextSeasonNumber.Should().Be(1);
-        result[0].NextEpisodeNumber.Should().Be(9);
-    }
-
-    [Fact]
-    public void ComputeNextEpisodes_ExcludesFinishedShows()
+    public void ComputeInProgressShows_ExcludesFinishedShows()
     {
         var shows = new[] { Show("show-1", "Dark", finishedAt: new DateOnly(2024, 6, 1)) };
         var episodes = new[] { Episode("show-1", 1, 1) };
 
-        var result = _service.ComputeNextEpisodes(shows, episodes);
+        var result = _service.ComputeInProgressShows(shows, episodes);
 
         result.Should().BeEmpty();
     }
 
     [Fact]
-    public void ComputeNextEpisodes_ExcludesShowsWithNoWatchedEpisodes()
+    public void ComputeInProgressShows_ExcludesShowsWithNoWatchedEpisodes()
     {
         var shows = new[] { Show("show-1", "Dark") };
 
-        var result = _service.ComputeNextEpisodes(shows, []);
+        var result = _service.ComputeInProgressShows(shows, []);
 
         result.Should().BeEmpty();
     }
 
     [Fact]
-    public void ComputeNextEpisodes_OrdersByLastWatchedDescending()
+    public void ComputeInProgressShows_OrdersByLastWatchedDescending()
     {
         var shows = new[] { Show("show-1", "Older"), Show("show-2", "Newer") };
         var episodes = new[]
@@ -82,7 +70,7 @@ public class WatchNextServiceTest
             Episode("show-2", 1, 1, new DateOnly(2024, 6, 1))
         };
 
-        var result = _service.ComputeNextEpisodes(shows, episodes);
+        var result = _service.ComputeInProgressShows(shows, episodes);
 
         result.Should().HaveCount(2);
         result[0].TvShowTitle.Should().Be("Newer");

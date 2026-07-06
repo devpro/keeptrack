@@ -17,6 +17,18 @@ public class SeenEpisodeRecord
     [Name("tv_show_name", "series_name")]
     public required string ShowTitle { get; set; }
 
+    /// <summary>
+    /// TV Time's show id, when the source file has one (the tracking-prod-records files do;
+    /// seen_episode_source.csv doesn't, so this is null for records coming from that file).
+    /// Lets a show be identified - and enriched with its rating/status/comments - even when it never
+    /// appeared in followed_tv_show.csv. [Optional] because none of the three aliases exist at all in
+    /// seen_episode_source.csv's header, and CsvHelper's header validation otherwise throws on that,
+    /// even though the property itself isn't `required`.
+    /// </summary>
+    [Name("tv_show_id", "series_id", "s_id")]
+    [Optional]
+    public string? TvShowId { get; set; }
+
     [Name("episode_season_number", "season_number")]
     public required int SeasonNumber { get; set; }
 

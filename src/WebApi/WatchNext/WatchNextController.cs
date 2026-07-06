@@ -32,7 +32,7 @@ public class WatchNextController(
 
         return Ok(new WatchNextDto
         {
-            NextEpisodes = watchNextService.ComputeNextEpisodes(shows.Items, episodes.Items),
+            InProgressShows = watchNextService.ComputeInProgressShows(shows.Items, episodes.Items),
             MoviesToWatch = mapper.Map<List<MovieDto>>(moviesToWatch.Items)
         });
     }

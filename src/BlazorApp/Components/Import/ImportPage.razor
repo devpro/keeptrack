@@ -21,10 +21,10 @@
 
     @if (_importing)
     {
-        <div class="kt-loading">
-            <div class="kt-spinner"></div>
-            Importing…
+        <div class="progress mt-3" style="height:8px;">
+            <div class="progress-bar" role="progressbar" style="width:@(ProgressPercent(_stage))%"></div>
         </div>
+        <p class="kt-card-meta mt-2">@StageLabel(_stage)</p>
     }
 
     @if (_error is not null)
@@ -41,7 +41,7 @@
             @if (_result.Warnings.Count > 0)
             {
                 <hr/>
-                <p class="mb-1"><strong>Warnings:</strong></p>
+                <p class="mb-1"><strong>Good to know:</strong></p>
                 <ul class="mb-0">
                     @foreach (var warning in _result.Warnings)
                     {
@@ -55,22 +55,50 @@
 
 @code {
     private const long MaxFileSize = 50_000_000;
+    private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(600);
 
     [Inject] private TvTimeImportApiClient ImportApi { get; set; } = null!;
 
     private bool _importing;
     private string? _error;
     private ImportResultDto? _result;
+    private ImportStage _stage;
 
     private async Task OnFileSelectedAsync(InputFileChangeEventArgs e)
     {
         _importing = true;
         _error = null;
         _result = null;
+        _stage = ImportStage.Parsing;
+
         try
         {
-            await using var stream = e.File.OpenReadStream(MaxFileSize);
-            _result = await ImportApi.ImportAsync(stream, e.File.Name);
+            Guid jobId;
+            await using (var stream = e.File.OpenReadStream(MaxFileSize))
+            {
+                jobId = await ImportApi.StartImportAsync(stream, e.File.Name);
+            }
+
+            while (true)
+            {
+                var status = await ImportApi.GetStatusAsync(jobId);
+                _stage = status.Stage;
+
+                if (status.Stage == ImportStage.Completed)
+                {
+                    _result = status.Result;
+                    break;
+                }
+
+                if (status.Stage == ImportStage.Failed)
+                {
+                    _error = status.ErrorMessage ?? "The import failed.";
+                    break;
+                }
+
+                StateHasChanged();
+                await Task.Delay(PollInterval);
+            }
         }
         catch (Exception ex)
         {
@@ -81,4 +109,24 @@
             _importing = false;
         }
     }
+
+    private static int ProgressPercent(ImportStage stage) => stage switch
+    {
+        ImportStage.Parsing => 10,
+        ImportStage.ImportingShows => 35,
+        ImportStage.ImportingEpisodes => 65,
+        ImportStage.ImportingMovies => 90,
+        ImportStage.Completed => 100,
+        _ => 0
+    };
+
+    private static string StageLabel(ImportStage stage) => stage switch
+    {
+        ImportStage.Parsing => "Reading your export…",
+        ImportStage.ImportingShows => "Importing TV shows…",
+        ImportStage.ImportingEpisodes => "Importing episodes…",
+        ImportStage.ImportingMovies => "Importing movies…",
+        ImportStage.Completed => "Done",
+        _ => ""
+    };
 }

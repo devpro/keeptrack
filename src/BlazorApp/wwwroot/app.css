@@ -93,6 +93,10 @@ h1, h2, h3, h4 {
 a { color: var(--kt-accent); text-decoration: none; transition: color var(--kt-transition); }
 a:hover { color: var(--kt-accent-dim); }
 
+/* Routes.razor's <FocusOnNavigate Selector="h1"> programmatically focuses the page's h1 after
+   navigation for screen readers; suppress the resulting focus ring since h1 isn't interactive. */
+h1:focus { outline: none; }
+
 /* ── Layout ────────────────────────────────────────────────────────── */
 .page {
   display: flex;
@@ -404,6 +408,10 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
   letter-spacing: 0.06em;
 }
 
+/* ── Progress bar ──────────────────────────────────────────────────── */
+.progress { background-color: var(--kt-surface-3) !important; border-radius: 999px !important; }
+.progress-bar { background-color: var(--kt-accent) !important; transition: width 0.3s ease !important; }
+
 /* ── Alerts ────────────────────────────────────────────────────────── */
 .alert { border-radius: var(--kt-radius) !important; font-size: 0.875rem; padding: 0.8rem 1.1rem !important; }
 .alert-danger { background: rgba(199, 58, 82, 0.10) !important; border-color: rgba(199, 58, 82, 0.3) !important; color: var(--kt-danger) !important; }
@@ -542,7 +550,8 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
 /* ── Blazor internals ──────────────────────────────────────────────── */
 #blazor-error-ui { background: var(--kt-surface); border-top: 1px solid var(--kt-border); color: var(--kt-text-muted); font-family: var(--kt-font); font-size: 0.82rem; padding: 0.75rem 1.25rem; position: fixed; bottom: 0; width: 100%; z-index: 1000; display: none; }
 #blazor-error-ui .dismiss { cursor: pointer; float: right; font-weight: 600; }
-#components-reconnect-modal { background: var(--kt-surface); border: 1px solid var(--kt-border); border-radius: var(--kt-radius); padding: 0.85rem 1.25rem; position: fixed; bottom: 1.5rem; right: 1.5rem; color: var(--kt-text-muted); font-size: 0.82rem; z-index: 1001; box-shadow: var(--kt-shadow-lg); }
+/* Reconnect modal theming lives in Components/Layout/ReconnectModal.razor.css - it's Blazor CSS
+   isolation, so a scoped selector there always wins the cascade over anything declared here. */
 
 /* ── Responsive ────────────────────────────────────────────────────── */
 @media (max-width: 767px) {

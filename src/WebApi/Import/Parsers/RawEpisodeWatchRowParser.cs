@@ -14,7 +14,7 @@ namespace Keeptrack.WebApi.Import.Parsers;
 /// </summary>
 internal static class RawEpisodeWatchRowParser
 {
-    public static List<SeenEpisodeRecord> Parse(Stream csvStream, Func<CsvReader, bool> isEpisodeWatchRow)
+    public static List<SeenEpisodeRecord> Parse(Stream csvStream, string showIdColumn, Func<CsvReader, bool> isEpisodeWatchRow)
     {
         using var reader = new StreamReader(csvStream);
         using var csv = new CsvReader(reader, TvTimeCsvConfiguration.Instance);
@@ -33,6 +33,7 @@ internal static class RawEpisodeWatchRowParser
             records.Add(new SeenEpisodeRecord
             {
                 ShowTitle = csv.GetField("series_name") ?? string.Empty,
+                TvShowId = csv.GetField(showIdColumn),
                 SeasonNumber = int.Parse(seasonNumber, CultureInfo.InvariantCulture),
                 EpisodeNumber = int.Parse(episodeNumber, CultureInfo.InvariantCulture),
                 WatchedAt = csv.GetField<DateTime>("created_at")

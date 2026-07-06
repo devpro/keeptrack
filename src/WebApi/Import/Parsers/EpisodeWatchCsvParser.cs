@@ -16,5 +16,5 @@ public static class EpisodeWatchCsvParser
     private const string EpisodeWatchPrefix = "watch-episode-";
 
     public static List<SeenEpisodeRecord> Parse(Stream csvStream) =>
-        RawEpisodeWatchRowParser.Parse(csvStream, csv => (csv.GetField("gsi") ?? string.Empty).StartsWith(EpisodeWatchPrefix, StringComparison.Ordinal));
+        RawEpisodeWatchRowParser.Parse(csvStream, "s_id", csv => (csv.GetField("gsi") ?? string.Empty).StartsWith(EpisodeWatchPrefix, StringComparison.Ordinal));
 }

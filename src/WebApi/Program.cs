@@ -14,6 +14,7 @@ builder.Services.AddAutoMapper(config =>
     typeof(Program).Assembly);
 builder.Services.AddHealthChecks();
 builder.Services.AddSingleton<Keeptrack.WebApi.WatchNext.WatchNextService>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Import.ImportJobStore>();
 builder.Services.AddScoped<Keeptrack.WebApi.Import.TvTimeImportService>();
 builder.Services.AddMongoDbInfrastructure(configuration);
 builder.Services.AddOpenApiWithBearerAuth(configuration);

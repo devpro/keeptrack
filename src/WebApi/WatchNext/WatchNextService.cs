@@ -1,19 +1,22 @@
 using System.Collections.Generic;
 using System.Linq;
 using Keeptrack.Domain.Models;
+using Keeptrack.WebApi.Contracts.Dto;
 
 namespace Keeptrack.WebApi.WatchNext;
 
 /// <summary>
-/// Computes, for each in-progress TV show, the next episode to watch.
+/// Computes, for each in-progress TV show, the last episode Keeptrack knows was watched.
 /// </summary>
 public class WatchNextService
 {
     /// <summary>
-    /// For every show that has at least one watched episode and isn't finished, proposes the episode
-    /// right after the highest (season, episode) watched so far.
+    /// For every show that has at least one watched episode and isn't finished, reports the highest
+    /// (season, episode) watched so far. Deliberately doesn't propose a "next" episode: without
+    /// episode-guide data, Keeptrack can't tell whether a further episode exists yet, so guessing one
+    /// (e.g. "+1") can claim a show still has more to watch when it's actually fully caught up.
     /// </summary>
-    public List<NextEpisodeDto> ComputeNextEpisodes(IEnumerable<TvShowModel> shows, IEnumerable<EpisodeModel> episodes)
+    public List<InProgressShowDto> ComputeInProgressShows(IEnumerable<TvShowModel> shows, IEnumerable<EpisodeModel> episodes)
     {
         var inProgressShows = shows.Where(s => s.FinishedAt is null).ToDictionary(s => s.Id!);
 
@@ -27,12 +30,12 @@ public class WatchNextService
                     .OrderByDescending(e => e.SeasonNumber)
                     .ThenByDescending(e => e.EpisodeNumber)
                     .First();
-                return new NextEpisodeDto
+                return new InProgressShowDto
                 {
                     TvShowId = show.Id!,
                     TvShowTitle = show.Title,
-                    NextSeasonNumber = lastWatched.SeasonNumber,
-                    NextEpisodeNumber = lastWatched.EpisodeNumber + 1,
+                    LastSeasonNumber = lastWatched.SeasonNumber,
+                    LastEpisodeNumber = lastWatched.EpisodeNumber,
                     LastWatchedAt = lastWatched.WatchedAt
                 };
             })

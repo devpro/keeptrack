@@ -14,5 +14,5 @@ namespace Keeptrack.WebApi.Import.Parsers;
 public static class LegacyEpisodeWatchCsvParser
 {
     public static List<SeenEpisodeRecord> Parse(Stream csvStream) =>
-        RawEpisodeWatchRowParser.Parse(csvStream, csv => csv.GetField("type") == "watch" && csv.GetField("entity_type") == "episode");
+        RawEpisodeWatchRowParser.Parse(csvStream, "series_id", csv => csv.GetField("type") == "watch" && csv.GetField("entity_type") == "episode");
 }

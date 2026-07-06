@@ -4,17 +4,19 @@ using System.Collections.Generic;
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// A TV show with a suggested next episode to watch.
+/// A TV show in progress, with the last episode Keeptrack knows was watched. Deliberately does not
+/// guess a "next" episode number: Keeptrack has no episode-guide data, so it has no way to know
+/// whether a further episode actually exists (the show might already be fully caught up).
 /// </summary>
-public class NextEpisodeDto
+public class InProgressShowDto
 {
     public required string TvShowId { get; set; }
 
     public required string TvShowTitle { get; set; }
 
-    public required int NextSeasonNumber { get; set; }
+    public required int LastSeasonNumber { get; set; }
 
-    public required int NextEpisodeNumber { get; set; }
+    public required int LastEpisodeNumber { get; set; }
 
     public DateOnly? LastWatchedAt { get; set; }
 }
@@ -24,7 +26,7 @@ public class NextEpisodeDto
 /// </summary>
 public class WatchNextDto
 {
-    public List<NextEpisodeDto> NextEpisodes { get; set; } = [];
+    public List<InProgressShowDto> InProgressShows { get; set; } = [];
 
     public List<MovieDto> MoviesToWatch { get; set; } = [];
 }

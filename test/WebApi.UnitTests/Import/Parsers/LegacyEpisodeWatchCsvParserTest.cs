@@ -22,6 +22,7 @@ public class LegacyEpisodeWatchCsvParserTest
         // the "count-watch-episode-series" summary row is skipped; only the "watch"/"episode" row survives
         result.Should().ContainSingle();
         result[0].ShowTitle.Should().Be("Chicago Fire");
+        result[0].TvShowId.Should().Be("258541");
         result[0].SeasonNumber.Should().Be(9);
         result[0].EpisodeNumber.Should().Be(16);
         result[0].WatchedAt.Should().Be(new DateTime(2021, 6, 22, 11, 22, 30));

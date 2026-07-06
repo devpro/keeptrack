@@ -28,10 +28,16 @@ public class TvTimeImportService(ITvShowRepository tvShowRepository, IEpisodeRep
         "emotions-live-votes.csv"
     ];
 
-    public async Task<ImportResultDto> ImportAsync(Stream zipStream, string ownerId)
+    public async Task<ImportResultDto> ImportAsync(Stream zipStream, string ownerId, Action<ImportStage>? onStageChanged = null)
     {
+        onStageChanged?.Invoke(ImportStage.Parsing);
+
         using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
 
+        // followed_tv_show.csv is NOT a complete list of shows the user has a relationship with - it's
+        // just one signal among several (confirmed against real export data: shows with real watch
+        // history in the tracking files are sometimes entirely absent from this file). Never treat it
+        // as the sole source of truth for "which shows exist".
         var followedShows = ReadCsvEntry(archive, "followed_tv_show.csv", FollowedShowsCsvParser.Parse) ?? [];
 
         // Three overlapping sources of "episode watched on this date", oldest/least complete to newest/most complete.
@@ -56,11 +62,17 @@ public class TvTimeImportService(ITvShowRepository tvShowRepository, IEpisodeRep
             .SelectMany(votes => votes!)
             .ToList();
 
+        var enrichment = ShowEnrichment.Build(showRatings, showStatuses, showComments);
         var result = new ImportResultDto();
 
-        var showsByTitle = await ImportShowsAsync(ownerId, followedShows, showRatings, showStatuses, showComments, result);
-        var detailedEpisodeCountByShowTitle = await ImportEpisodesAsync(ownerId, showsByTitle, seenEpisodes, episodeComments, result);
+        onStageChanged?.Invoke(ImportStage.ImportingShows);
+        var showsByTitle = await ImportShowsAsync(ownerId, followedShows, enrichment, result);
+
+        onStageChanged?.Invoke(ImportStage.ImportingEpisodes);
+        var detailedEpisodeCountByShowTitle = await ImportEpisodesAsync(ownerId, showsByTitle, seenEpisodes, episodeComments, enrichment, result);
         AnnotateWatchCompleteness(followedShows, showActivity, detailedEpisodeCountByShowTitle, result);
+
+        onStageChanged?.Invoke(ImportStage.ImportingMovies);
         await ImportMoviesAsync(ownerId, movieVotes, favoriteMovieUuids, result);
 
         return result;
@@ -69,21 +81,12 @@ public class TvTimeImportService(ITvShowRepository tvShowRepository, IEpisodeRep
     private async Task<Dictionary<string, TvShowModel>> ImportShowsAsync(
         string ownerId,
         List<FollowedShowRecord> followedShows,
-        List<ShowRatingRecord> showRatings,
-        List<ShowStatusRecord> showStatuses,
-        List<ShowCommentRecord> showComments,
+        ShowEnrichment enrichment,
         ImportResultDto result)
     {
         var showsByTitle = (await tvShowRepository.FindAllAsync(ownerId, 1, int.MaxValue, null, NewShow(ownerId, string.Empty)))
             .Items
             .ToDictionary(show => NormalizeTitle(show.Title));
-
-        var ratingByShowId = showRatings.GroupBy(r => r.TvShowId).ToDictionary(g => g.Key, g => g.Last().Rating);
-        var favoriteShowIds = showStatuses.Where(s => s.Status == ShowStatusCsvParser.FavoriteStatus).Select(s => s.TvShowId).ToHashSet();
-        var wantToWatchShowIds = showStatuses.Where(s => s.Status == ShowStatusCsvParser.ForLaterStatus).Select(s => s.TvShowId).ToHashSet();
-        var notesByShowId = showComments
-            .GroupBy(c => c.TvShowId)
-            .ToDictionary(g => g.Key, g => FormatComments(g.Select(c => (c.CreatedAt, c.Comment))));
 
         foreach (var show in followedShows)
         {
@@ -92,10 +95,7 @@ public class TvTimeImportService(ITvShowRepository tvShowRepository, IEpisodeRep
             model ??= NewShow(ownerId, show.Title);
 
             model.Title = show.Title;
-            if (ratingByShowId.TryGetValue(show.TvShowId, out var rating)) model.Rating = rating;
-            if (favoriteShowIds.Contains(show.TvShowId)) model.IsFavorite = true;
-            if (wantToWatchShowIds.Contains(show.TvShowId)) model.WantToWatch = true;
-            if (notesByShowId.TryGetValue(show.TvShowId, out var notes)) model.Notes = notes;
+            enrichment.ApplyTo(model, show.TvShowId);
 
             if (await SaveAsync(tvShowRepository, model, ownerId, isNew)) result.ShowsCreated++;
             else result.ShowsUpdated++;
@@ -108,16 +108,19 @@ public class TvTimeImportService(ITvShowRepository tvShowRepository, IEpisodeRep
 
     /// <summary>
     /// Upserts episodes from the merged watch-event sources (see <see cref="ImportAsync"/>), taking the
-    /// earliest recorded date per (show, season, episode) when more than one source reports it. Returns,
-    /// per normalized show title, how many distinct episodes got a watch date - used by
-    /// <see cref="AnnotateWatchCompleteness"/> to flag shows where TV Time's own reported total is still
-    /// higher than what these files captured in detail.
+    /// earliest recorded date per (show, season, episode) when more than one source reports it. A show
+    /// with watch history that was never in followed_tv_show.csv is created here rather than skipped -
+    /// confirmed against real export data that a show can have genuine watch history without ever
+    /// appearing in that file. Returns, per normalized show title, how many distinct episodes got a
+    /// watch date - used by <see cref="AnnotateWatchCompleteness"/> to flag shows where TV Time's own
+    /// reported total is still higher than what these files captured in detail.
     /// </summary>
     private async Task<Dictionary<string, int>> ImportEpisodesAsync(
         string ownerId,
         Dictionary<string, TvShowModel> showsByTitle,
         List<SeenEpisodeRecord> seenEpisodes,
         List<EpisodeCommentRecord> episodeComments,
+        ShowEnrichment enrichment,
         ImportResultDto result)
     {
         var notesByEpisodeKey = episodeComments
@@ -130,8 +133,12 @@ public class TvTimeImportService(ITvShowRepository tvShowRepository, IEpisodeRep
         {
             if (!showsByTitle.TryGetValue(showGroup.Key, out var show) || show.Id is null)
             {
-                result.Warnings.Add($"Episode watch history for unknown show '{showGroup.First().ShowTitle}' was skipped.");
-                continue;
+                var tvShowId = showGroup.Select(e => e.TvShowId).FirstOrDefault(id => !string.IsNullOrEmpty(id));
+                show = NewShow(ownerId, showGroup.First().ShowTitle);
+                enrichment.ApplyTo(show, tvShowId);
+
+                if (await SaveAsync(tvShowRepository, show, ownerId, isNew: true)) result.ShowsCreated++;
+                showsByTitle[showGroup.Key] = show;
             }
 
             // de-duplicate across the merged sources: one row per (season, episode), earliest date wins
@@ -144,7 +151,7 @@ public class TvTimeImportService(ITvShowRepository tvShowRepository, IEpisodeRep
 
             // one bulk fetch per show, so matching each watched episode doesn't need its own database round trip
             var existingEpisodes = (await episodeRepository.FindAllAsync(ownerId, 1, int.MaxValue, null,
-                    NewEpisode(ownerId, show.Id, 0, 0)))
+                    NewEpisode(ownerId, show.Id!, 0, 0)))
                 .Items
                 .ToDictionary(e => (e.SeasonNumber, e.EpisodeNumber));
 
@@ -152,7 +159,7 @@ public class TvTimeImportService(ITvShowRepository tvShowRepository, IEpisodeRep
             {
                 var episodeKey = (seen.SeasonNumber, seen.EpisodeNumber);
                 var isNew = !existingEpisodes.TryGetValue(episodeKey, out var episode);
-                episode ??= NewEpisode(ownerId, show.Id, seen.SeasonNumber, seen.EpisodeNumber);
+                episode ??= NewEpisode(ownerId, show.Id!, seen.SeasonNumber, seen.EpisodeNumber);
 
                 episode.WatchedAt = DateOnly.FromDateTime(seen.WatchedAt);
                 if (notesByEpisodeKey.TryGetValue((showGroup.Key, seen.SeasonNumber, seen.EpisodeNumber), out var notes)) episode.Notes = notes;
@@ -168,10 +175,10 @@ public class TvTimeImportService(ITvShowRepository tvShowRepository, IEpisodeRep
     }
 
     /// <summary>
-    /// TV Time only writes a row to seen_episode_source.csv when an episode is marked watched via
-    /// its episode-detail screen; episodes marked watched through bulk/season actions never get an
-    /// individual date there, even though user_tv_show_data.csv's own episode count includes them.
-    /// Surface that gap as a warning instead of silently importing a suspiciously short watch history.
+    /// TV Time's own reported episode count (user_tv_show_data.csv) can still be higher than what the
+    /// merged watch-event sources captured in detail, for shows with activity old or unusual enough
+    /// that even those logs missed it. Surface that gap in plain language instead of silently importing
+    /// a suspiciously short watch history.
     /// </summary>
     private static void AnnotateWatchCompleteness(
         List<FollowedShowRecord> followedShows,
@@ -188,9 +195,7 @@ public class TvTimeImportService(ITvShowRepository tvShowRepository, IEpisodeRep
             var detailedCount = detailedEpisodeCountByShowTitle.GetValueOrDefault(NormalizeTitle(show.Title));
             if (reportedCount <= detailedCount) continue;
 
-            result.Warnings.Add(
-                $"{show.Title}: TV Time reports {reportedCount} episodes seen, but only {detailedCount} have per-episode watch dates in this export " +
-                "(TV Time doesn't log detail for episodes marked via bulk/season actions).");
+            result.Warnings.Add($"{show.Title}: {detailedCount} of {reportedCount} episodes imported (bulk actions are not exported by TV Time).");
         }
     }
 
@@ -255,5 +260,34 @@ public class TvTimeImportService(ITvShowRepository tvShowRepository, IEpisodeRep
         if (entry is null) return null;
         using var stream = entry.Open();
         return parse(stream);
+    }
+
+    /// <summary>
+    /// Per-show rating/favorite/want-to-watch/notes, keyed by TV Time's show id. Built once from
+    /// tv_show_rate.csv/user_show_special_status.csv/show_comment.csv and applied both to shows found
+    /// via followed_tv_show.csv and to shows discovered only through episode watch history.
+    /// </summary>
+    private sealed class ShowEnrichment(
+        Dictionary<string, float> ratingByShowId,
+        HashSet<string> favoriteShowIds,
+        HashSet<string> wantToWatchShowIds,
+        Dictionary<string, string> notesByShowId)
+    {
+        public static ShowEnrichment Build(List<ShowRatingRecord> showRatings, List<ShowStatusRecord> showStatuses, List<ShowCommentRecord> showComments) =>
+            new(
+                showRatings.GroupBy(r => r.TvShowId).ToDictionary(g => g.Key, g => g.Last().Rating),
+                showStatuses.Where(s => s.Status == ShowStatusCsvParser.FavoriteStatus).Select(s => s.TvShowId).ToHashSet(),
+                showStatuses.Where(s => s.Status == ShowStatusCsvParser.ForLaterStatus).Select(s => s.TvShowId).ToHashSet(),
+                showComments.GroupBy(c => c.TvShowId).ToDictionary(g => g.Key, g => FormatComments(g.Select(c => (c.CreatedAt, c.Comment)))));
+
+        public void ApplyTo(TvShowModel show, string? tvShowId)
+        {
+            if (tvShowId is null) return;
+
+            if (ratingByShowId.TryGetValue(tvShowId, out var rating)) show.Rating = rating;
+            if (favoriteShowIds.Contains(tvShowId)) show.IsFavorite = true;
+            if (wantToWatchShowIds.Contains(tvShowId)) show.WantToWatch = true;
+            if (notesByShowId.TryGetValue(tvShowId, out var notes)) show.Notes = notes;
+        }
     }
 }
