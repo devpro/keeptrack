@@ -28,6 +28,11 @@ else
         </div>
     </div>
 
+    @if (string.IsNullOrEmpty(_show.ReferenceId))
+    {
+        <InlineReferenceLinker Type="ReferenceItemType.TvShow" Title="@_show.Title" Year="_show.Year" OnLinked="LoadAsync"/>
+    }
+
     <div class="kt-form-card">
         <div class="row g-3">
             @if (!string.IsNullOrEmpty(_reference?.PosterUrl))
@@ -62,11 +67,6 @@ else
         <CastGrid Cast="_reference.Cast"/>
     }
 
-    @if (string.IsNullOrEmpty(_show.ReferenceId))
-    {
-        <InlineReferenceLinker Type="ReferenceItemType.TvShow" Title="@_show.Title" Year="_show.Year" OnLinked="LoadAsync"/>
-    }
-
     @if (_reference is not null)
     {
         @if (_seasons.Count == 0)
@@ -87,7 +87,14 @@ else
             </div>
 
             <div class="kt-season">
-                <div class="kt-season-header">Season @_selectedSeason</div>
+                <div class="kt-season-header d-flex justify-content-between align-items-center">
+                    <span>Season @_selectedSeason</span>
+                    <label class="d-flex align-items-center gap-2" style="font-size:0.8rem;font-weight:400;cursor:pointer">
+                        <input class="form-check-input" type="checkbox" checked="@IsSelectedSeasonFullyWatched()"
+                               @onchange="e => ToggleSeasonAsync((bool)e.Value!)"/>
+                        Mark whole season
+                    </label>
+                </div>
                 @foreach (var episode in _referenceEpisodesBySeason[_selectedSeason])
                 {
                     var watched = _watchedByKey.GetValueOrDefault((episode.SeasonNumber, episode.EpisodeNumber));
@@ -240,26 +247,33 @@ else
         await TvShowApi.UpdateAsync(_show);
     }
 
+    private bool IsSelectedSeasonFullyWatched() =>
+        _referenceEpisodesBySeason.TryGetValue(_selectedSeason, out var episodes) && episodes.Count > 0
+        && episodes.All(e => _watchedByKey.ContainsKey((e.SeasonNumber, e.EpisodeNumber)));
+
     private async Task ToggleEpisodeAsync(ReferenceEpisodeDto episode, bool isWatched)
     {
         try
         {
-            var key = (episode.SeasonNumber, episode.EpisodeNumber);
-            var existing = _watchedByKey.GetValueOrDefault(key);
+            await SetEpisodeWatchedAsync(episode, isWatched);
+            _error = null;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
 
-            if (isWatched && existing is null)
+    private async Task ToggleSeasonAsync(bool markWatched)
+    {
+        if (!_referenceEpisodesBySeason.TryGetValue(_selectedSeason, out var episodes)) return;
+
+        try
+        {
+            foreach (var episode in episodes)
             {
-                await EpisodeApi.AddAsync(new EpisodeDto
-                {
-                    TvShowId = Id,
-                    SeasonNumber = episode.SeasonNumber,
-                    EpisodeNumber = episode.EpisodeNumber,
-                    WatchedAt = DateOnly.FromDateTime(DateTime.Today)
-                });
-            }
-            else if (!isWatched && existing?.Id is not null)
-            {
-                await EpisodeApi.DeleteAsync(existing.Id);
+                await SetEpisodeWatchedAsync(episode, markWatched);
             }
 
             _error = null;
@@ -268,6 +282,27 @@ else
         catch (Exception ex)
         {
             _error = ex.Message;
+        }
+    }
+
+    private async Task SetEpisodeWatchedAsync(ReferenceEpisodeDto episode, bool isWatched)
+    {
+        var key = (episode.SeasonNumber, episode.EpisodeNumber);
+        var existing = _watchedByKey.GetValueOrDefault(key);
+
+        if (isWatched && existing is null)
+        {
+            await EpisodeApi.AddAsync(new EpisodeDto
+            {
+                TvShowId = Id,
+                SeasonNumber = episode.SeasonNumber,
+                EpisodeNumber = episode.EpisodeNumber,
+                WatchedAt = DateOnly.FromDateTime(DateTime.Today)
+            });
+        }
+        else if (!isWatched && existing?.Id is not null)
+        {
+            await EpisodeApi.DeleteAsync(existing.Id);
         }
     }
 

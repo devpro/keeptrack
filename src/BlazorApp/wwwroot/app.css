@@ -21,6 +21,8 @@
   --kt-text-subtle:  #b1b6bd;
   --kt-danger:       #c73a52;
   --kt-success:      #2b8a5e;
+  --kt-warning:      #9a6b00;
+  --kt-warning-bg:   #f7ecd2;
   --kt-radius:       10px;
   --kt-radius-lg:    14px;
   --kt-shadow:       0 2px 10px rgba(15, 18, 25, 0.06);
@@ -57,6 +59,8 @@
   --kt-text-subtle:  #565c66;
   --kt-danger:       #e0687a;
   --kt-success:      #4cb489;
+  --kt-warning:      #e0be5b;
+  --kt-warning-bg:   rgba(224, 190, 91, 0.16);
   --kt-shadow:       0 4px 20px rgba(0, 0, 0, 0.35);
   --kt-shadow-lg:    0 16px 48px rgba(0, 0, 0, 0.5);
 
@@ -391,6 +395,7 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
 
 /* ── Form card ─────────────────────────────────────────────────────── */
 .kt-form-card {
+  position: relative;
   background: var(--kt-surface);
   border: 1px solid var(--kt-border);
   border-top: 2px solid var(--kt-accent);
@@ -406,6 +411,27 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
   margin-bottom: 1.25rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+
+/* corner flag: e.g. "watched" status on a movie/show presentation card */
+.kt-corner-flag {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 0.35rem 0.9rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 0 var(--kt-radius-lg) 0 var(--kt-radius);
+  cursor: pointer;
+  background: var(--kt-surface-3);
+  color: var(--kt-text-muted);
+  transition: background var(--kt-transition), color var(--kt-transition);
+  user-select: none;
+}
+.kt-corner-flag:hover { background: var(--kt-border-hover); }
+.kt-corner-flag.active {
+  background: var(--kt-warning-bg);
+  color: var(--kt-warning);
 }
 
 /* ── Progress bar ──────────────────────────────────────────────────── */

@@ -16,9 +16,9 @@ namespace Keeptrack.WebApi.Import;
 /// <summary>
 /// Imports a TV Time GDPR export (a zip of CSV files) as an upsert: followed shows, per-episode
 /// watch history, ratings, favorite/want-to-watch status, comments, and movies discovered through
-/// rating/emotion votes. Every record created or updated is stamped with the authenticated caller's
-/// owner id only - nothing in the uploaded file (including TV Time's own internal user id) is ever
-/// used to determine ownership.
+/// rating/emotion votes and tracking-prod-records.csv's movie watch/want-to-watch/follow events.
+/// Every record created or updated is stamped with the authenticated caller's owner id only - nothing
+/// in the uploaded file (including TV Time's own internal user id) is ever used to determine ownership.
 /// </summary>
 public class TvTimeImportService(
     ITvShowRepository tvShowRepository,
@@ -69,6 +69,10 @@ public class TvTimeImportService(
             .SelectMany(votes => votes!)
             .ToList();
 
+        // The only source of a movie's watched-date/want-to-watch status: tracking-prod-records.csv's
+        // generic event log also carries movie rows (entity_type "movie"), not just episode ones.
+        var movieTrackingEvents = ReadCsvEntry(archive, "tracking-prod-records.csv", MovieTrackingEventsCsvParser.Parse) ?? [];
+
         var enrichment = ShowEnrichment.Build(showRatings, showStatuses, showComments);
         var result = new ImportResultDto();
 
@@ -80,7 +84,7 @@ public class TvTimeImportService(
         AnnotateWatchCompleteness(followedShows, showActivity, detailedEpisodeCountByShowTitle, result);
 
         onStageChanged?.Invoke(ImportStage.ImportingMovies);
-        await ImportMoviesAsync(ownerId, movieVotes, favoriteMovieUuids, result);
+        await ImportMoviesAsync(ownerId, movieVotes, movieTrackingEvents, favoriteMovieUuids, result);
 
         return result;
     }
@@ -218,9 +222,18 @@ public class TvTimeImportService(
         }
     }
 
+    /// <summary>
+    /// A movie exists in Keeptrack if it appears in *either* the rating/emotion vote files or the
+    /// tracking-prod-records.csv movie events - not just the vote files, the same "don't limit
+    /// existence to one file" lesson already applied to shows. <see cref="MovieTrackingEventType.Watched"/>
+    /// events set <see cref="MovieModel.FirstSeenAt"/> (the earliest one, if there's more than one);
+    /// a <see cref="MovieTrackingEventType.WantToWatch"/> event only sets <see cref="MovieModel.WantToWatch"/>
+    /// when there's no watched event too, so a since-watched movie doesn't stay flagged as still-to-watch.
+    /// </summary>
     private async Task ImportMoviesAsync(
         string ownerId,
         List<MovieVoteRecord> movieVotes,
+        List<MovieTrackingEventRecord> movieTrackingEvents,
         HashSet<string> favoriteMovieUuids,
         ImportResultDto result)
     {
@@ -228,12 +241,30 @@ public class TvTimeImportService(
             .Items
             .ToDictionary(movie => TitleNormalizer.Normalize(movie.Title));
 
-        foreach (var titleGroup in movieVotes.GroupBy(v => TitleNormalizer.Normalize(v.MovieName)))
-        {
-            var isNew = !moviesByTitle.TryGetValue(titleGroup.Key, out var model);
-            model ??= NewMovie(ownerId, titleGroup.First().MovieName);
+        var votesByTitle = movieVotes.GroupBy(v => TitleNormalizer.Normalize(v.MovieName)).ToDictionary(g => g.Key, g => g.ToList());
+        var trackingByTitle = movieTrackingEvents.GroupBy(e => TitleNormalizer.Normalize(e.MovieName)).ToDictionary(g => g.Key, g => g.ToList());
 
-            if (titleGroup.Any(v => favoriteMovieUuids.Contains(v.Uuid))) model.IsFavorite = true;
+        var titles = votesByTitle.Select(g => (g.Key, Name: g.Value[0].MovieName))
+            .Concat(trackingByTitle.Select(g => (g.Key, Name: g.Value[0].MovieName)))
+            .GroupBy(x => x.Key)
+            .Select(g => g.First());
+
+        foreach (var (key, movieName) in titles)
+        {
+            var isNew = !moviesByTitle.TryGetValue(key, out var model);
+            model ??= NewMovie(ownerId, movieName);
+
+            if (votesByTitle.TryGetValue(key, out var votes) && votes.Any(v => favoriteMovieUuids.Contains(v.Uuid)))
+            {
+                model.IsFavorite = true;
+            }
+
+            if (trackingByTitle.TryGetValue(key, out var events))
+            {
+                var watchDates = events.Where(e => e.EventType == MovieTrackingEventType.Watched).Select(e => e.CreatedAt).ToList();
+                if (watchDates.Count > 0) model.FirstSeenAt = DateOnly.FromDateTime(watchDates.Min());
+                if (watchDates.Count == 0 && events.Any(e => e.EventType == MovieTrackingEventType.WantToWatch)) model.WantToWatch = true;
+            }
 
             if (await SaveAsync(movieRepository, model, ownerId, isNew))
             {
@@ -245,7 +276,7 @@ public class TvTimeImportService(
                 result.MoviesUpdated++;
             }
 
-            moviesByTitle[titleGroup.Key] = model;
+            moviesByTitle[key] = model;
         }
     }
 

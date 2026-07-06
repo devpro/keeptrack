@@ -34,6 +34,19 @@ Files:
 - `src/Infrastructure.MongoDb/Repositories/TvShowRepository.cs`
 - `src/Infrastructure.MongoDb/Repositories/MovieRepository.cs`
 
+### Index script had it backwards: dead text indexes on Book/Movie/TvShow/VideoGame, missing ones on Car/CarHistory, and no plain `owner_id` index almost anywhere
+
+Found on 2026-07-06 during a review of `scripts/mongodb-create-index.js` requested directly against the actual repository query code (grepped every repository for `.Text(` usage rather than assuming the script matched).
+Three separate problems, all in the same file:
+
+1. `book_text`/`movie_text`/`tvshow_text`/`videogame_text` were dead. `Book`/`Movie`/`MusicAlbum`/`TvShow`/`VideoGame` all search via `builder.Where(f => f.Title.Contains(...))`, a regex filter that a MongoDB `text` index never accelerates. The only two repositories that call `builder.Text(...)` at all are `CarRepository` (via the base class default) and `CarHistoryRepository` - confirmed by grep, not assumption.
+2. Following directly from (1): `car`/`car_history` had **no** index at all despite being the only two collections whose queries actually need one - this is the other half of "Car and CarHistory search relies on a `$text` index that does not exist" below, now fixed at the index level (the `CarHistoryRepository` code bug tracked separately below is not).
+3. Beyond text search: almost every tenant-scoped collection (`book`, `car`, `car_history`, `movie`, `music-album`, `tvshow`, `videogame`) had no plain `{ owner_id: 1 }` index, even though every list/search request filters on `owner_id` first. The `movie_favorite`/`tvshow_favorite` partial indexes don't help a plain "all movies for this owner" query either - a partial index only accelerates queries the planner can prove only match documents inside its partial filter, and a plain list query has no `is_favorite` condition to prove that with.
+
+Fixed by removing the four dead text indexes, adding `car_text`/`car_history_text`, and adding a plain `owner_id` index for every collection that lacked one (`episode` and the two favorite/want-to-watch pairs already had owner_id-prefixed indexes covering it).
+
+File: `scripts/mongodb-create-index.js`
+
 ### Search was a no-op for Movie and Music Album
 
 Fixed on 2026-07-06 while building the TV Time import feature (both repositories were touched anyway to add the `IsFavorite`/`WantToWatch` filters).
@@ -50,27 +63,10 @@ Files:
 
 These are true defects. They should be fixed.
 
-### Car and CarHistory search relies on a `$text` index that does not exist
-
-`CarRepository` has no `GetFilter` override, so it falls back to `MongoDbRepositoryBase.GetFilter`, which calls `builder.Text(search)`.
-`CarHistoryRepository.GetFilter` also calls `builder.Text(...)`.
-Both require a MongoDB text index on their collection.
-`scripts/mongodb-create-index.js` only creates text indexes for `book`, `movie`, `tvshow`, and `videogame`.
-No index exists for `car` or `car_history`.
-A search request against either resource will throw a runtime error ("text index required for $text query").
-
-Files:
-
-- `src/Infrastructure.MongoDb/Repositories/CarRepository.cs`
-- `src/Infrastructure.MongoDb/Repositories/CarHistoryRepository.cs`
-- `scripts/mongodb-create-index.js`
-
-Fix: either create the missing indexes, or switch these two repositories to the same per-field filter strategy used by Book/TvShow/VideoGame.
-
 ### CarHistory treats a car ID as free text
 
 `CarHistoryRepository.GetFilter` calls `builder.Text(input.CarId)`.
-A car ID is an exact identifier, not a free-text search term, so this is the wrong filter type regardless of the missing index above.
+A car ID is an exact identifier, not a free-text search term, so this is the wrong filter type - the `car_history_text` index (see "Fixed" above) makes the collection searchable again, but doesn't fix this.
 MongoDB also only allows one `$text` expression per query.
 If both `input.CarId` and `search` are non-empty at the same time, the query throws ("only one $text expression allowed per query").
 

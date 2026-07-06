@@ -59,6 +59,9 @@ public class TvTimeImportResourceTest(KestrelWebAppFactory<Program> factory)
             var movies = await GetAsync<PagedResult<MovieDto>>($"/api/movies?search={Uri.EscapeDataString(TvTimeFixtureZipBuilder.MovieTitle)}");
             var movie = movies.Items.Should().ContainSingle().Subject;
             movie.IsFavorite.Should().BeTrue();
+            // the only source of a movie's watched date is a "watch"/"movie" row in tracking-prod-records.csv -
+            // confirmed against a real export, where the rating/emotion vote files never carry one
+            movie.FirstSeenAt.Should().Be(new DateOnly(2020, 1, 7));
 
             // re-importing the same export must upsert, not duplicate
             var secondJob = await PostFileAsync<ImportJobDto>("/api/import/tv-time", "file", zip, "gdpr-data.zip", HttpStatusCode.Accepted);

@@ -58,6 +58,13 @@ internal static class TvTimeFixtureZipBuilder
                     ["series_name"] = ShowTitle, ["uuid"] = "bbbb", ["type-uuid-n"] = "watch-bbbb-0", ["type"] = "watch",
                     ["created_at"] = "2020-01-04 00:00:00", ["series_id"] = "999001", ["user_id"] = "999", ["entity_type"] = "episode",
                     ["season_number"] = "1", ["episode_number"] = "3"
+                },
+                // movie watch event: the only source of a movie's watched date (confirmed against a real
+                // export - the rating/emotion vote files never carry one)
+                new Dictionary<string, string>
+                {
+                    ["uuid"] = "movie-watch-1", ["type"] = "watch", ["created_at"] = "2020-01-07 00:00:00",
+                    ["user_id"] = "999", ["movie_name"] = MovieTitle, ["entity_type"] = "movie"
                 }),
             ["tracking-prod-records-v2.csv"] = BuildCsv(
                 ["s_id", "user_id", "episode_id", "series_name", "gsi", "runtime", "created_at", "season_number", "episode_number",

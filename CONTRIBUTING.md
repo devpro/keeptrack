@@ -54,6 +54,14 @@ Name                | Description
   
     - [MongoDB Atlas](https://cloud.mongodb.com/) cluster
 
+    Once it's running, create the app's indexes with [`mongosh`](https://www.mongodb.com/docs/mongodb-shell/), pointed at the database you're using (`keeptrack_dev` by default - see [Web API settings](#web-api-settings) below):
+
+    ```bash
+    mongosh "mongodb://localhost:27017/keeptrack_dev" scripts/mongodb-create-index.js
+    ```
+
+    `scripts/mongodb-create-index.js` is idempotent, so it's safe to run again after pulling changes to it or against a database that already has these indexes.
+
 3. IDE: Rider, Visual Studio, Visual Studio Code
 
 ## Configuration
@@ -205,7 +213,7 @@ These need two things configured before they'll pass:
 
 1. **A MongoDB instance** (see [Requirements](#requirements) above), pointed at by `Infrastructure__MongoDB__ConnectionString`/`Infrastructure__MongoDB__DatabaseName`.
    Use a dedicated database (e.g. `keeptrack_integrationtests`), not your dev database - tests create and delete real documents.
-   Running `scripts/mongodb-create-index.js` against it first is recommended (keeps behavior closest to production) but not required for the tests themselves to pass.
+   Running `scripts/mongodb-create-index.js` against it first is recommended (keeps behavior closest to production) but not required for the tests themselves to pass - see [Requirements](#requirements) above for the exact `mongosh` command (swap in `keeptrack_integrationtests` for the database name).
 2. **A Firebase test user**, since `ResourceTestBase.Authenticate()` performs a real Firebase sign-in to obtain a bearer token:
    - `FIREBASE_APIKEY`: the Firebase project's Web API key (Firebase Console → Project settings → General → Web API Key).
    - `FIREBASE_USERNAME` / `FIREBASE_PASSWORD`: the email/password of a real user created in that project (Firebase Console → Authentication → Users → Add user).

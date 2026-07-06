@@ -28,7 +28,15 @@ else
         </div>
     </div>
 
+    @if (string.IsNullOrEmpty(_movie.ReferenceId))
+    {
+        <InlineReferenceLinker Type="ReferenceItemType.Movie" Title="@_movie.Title" Year="_movie.Year" OnLinked="LoadAsync"/>
+    }
+
     <div class="kt-form-card">
+        <span class="kt-corner-flag @(_movie.FirstSeenAt is not null ? "active" : "")" @onclick="ToggleWatchedAsync">
+            @(_movie.FirstSeenAt is not null ? $"✓ Watched {_movie.FirstSeenAt:yyyy-MM-dd}" : "Mark as watched")
+        </span>
         <div class="row g-3">
             @if (!string.IsNullOrEmpty(_reference?.PosterUrl))
             {
@@ -41,13 +49,6 @@ else
                 <div>@(_reference?.Year ?? _movie.Year)</div>
                 <label class="form-label mt-2">Rating</label>
                 <div class="kt-stars"><StarRating Rating="_movie.Rating" OnRatingChanged="SetRatingAsync"/></div>
-                <div class="form-check mt-2">
-                    <input class="form-check-input" type="checkbox" id="movie-watched"
-                           checked="@(_movie.FirstSeenAt is not null)" @onchange="ToggleWatchedAsync"/>
-                    <label class="form-check-label" for="movie-watched">
-                        Watched@(_movie.FirstSeenAt is not null ? $" ({_movie.FirstSeenAt:yyyy-MM-dd})" : "")
-                    </label>
-                </div>
                 @if (_reference?.Genres.Count > 0)
                 {
                     <p class="kt-card-meta mt-2 mb-0">@string.Join(", ", _reference.Genres)</p>
@@ -69,11 +70,6 @@ else
     {
         <h2 class="kt-section-title">Cast</h2>
         <CastGrid Cast="_reference.Cast"/>
-    }
-
-    @if (string.IsNullOrEmpty(_movie.ReferenceId))
-    {
-        <InlineReferenceLinker Type="ReferenceItemType.Movie" Title="@_movie.Title" Year="_movie.Year" OnLinked="LoadAsync"/>
     }
 }
 
@@ -119,10 +115,10 @@ else
         await MovieApi.UpdateAsync(_movie);
     }
 
-    private async Task ToggleWatchedAsync(ChangeEventArgs e)
+    private async Task ToggleWatchedAsync()
     {
         if (_movie is null) return;
-        _movie.FirstSeenAt = (bool)e.Value! ? DateOnly.FromDateTime(DateTime.Today) : null;
+        _movie.FirstSeenAt = _movie.FirstSeenAt is null ? DateOnly.FromDateTime(DateTime.Today) : null;
         await MovieApi.UpdateAsync(_movie);
     }
 }
