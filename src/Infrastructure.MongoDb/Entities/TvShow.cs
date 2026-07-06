@@ -1,5 +1,5 @@
-﻿using System;
-using Keeptrack.Common.System;
+﻿using Keeptrack.Common.System;
+using Keeptrack.Domain.Models;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
@@ -28,8 +28,7 @@ public class TvShow : IHasIdAndOwnerId
     [BsonElement("reference_id")]
     public string? ReferenceId { get; set; }
 
-    [BsonElement("finished_at")]
-    public DateTime? FinishedAt { get; set; }
+    public TvShowStatus? Status { get; set; }
 
     [BsonElement("is_favorite")]
     public bool IsFavorite { get; set; }

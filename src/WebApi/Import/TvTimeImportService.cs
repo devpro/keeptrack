@@ -9,6 +9,7 @@ using Keeptrack.Domain.Repositories;
 using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.Import.Parsers;
 using Keeptrack.WebApi.ReferenceData;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Keeptrack.WebApi.Import;
@@ -24,7 +25,7 @@ public class TvTimeImportService(
     ITvShowRepository tvShowRepository,
     IEpisodeRepository episodeRepository,
     IMovieRepository movieRepository,
-    ReferenceEnrichmentService enrichmentService,
+    IServiceScopeFactory scopeFactory,
     ILogger<TvTimeImportService> logger)
 {
     private static readonly string[] MovieVoteFileNames =
@@ -309,34 +310,53 @@ public class TvTimeImportService(
         string.Join('\n', comments.OrderBy(c => c.CreatedAt).Select(c => $"{c.CreatedAt:yyyy-MM-dd}: {c.Comment}"));
 
     /// <summary>
-    /// Best-effort background reference-data match for a newly-imported show. A single show's TMDB
-    /// lookup failing (rate limit, no network) must never fail the rest of the import.
+    /// Best-effort background reference-data match for a newly-imported show, fired on its own DI scope
+    /// instead of awaited inline - a bulk import creating dozens of shows/movies must not block on a
+    /// sequential chain of TMDB HTTP calls (search + details + credits, per item) before finishing. Same
+    /// shape already used for single-item creation via <c>TvShowController</c>/<c>MovieController.OnCreatedAsync</c>.
+    /// A single show's TMDB lookup failing (rate limit, no network) must never fail the rest of the import.
     /// </summary>
-    private async Task TryEnrichShowAsync(TvShowModel show)
+    private Task TryEnrichShowAsync(TvShowModel show)
     {
-        try
+        var title = show.Title;
+        var year = show.Year;
+        _ = Task.Run(async () =>
         {
-            await enrichmentService.TryAutoResolveTvShowAsync(show.Title, show.Year);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Reference-data match failed for imported TV show '{Title}'.", show.Title);
-        }
+            try
+            {
+                using var scope = scopeFactory.CreateScope();
+                var enrichmentService = scope.ServiceProvider.GetRequiredService<ReferenceEnrichmentService>();
+                await enrichmentService.TryAutoResolveTvShowAsync(title, year);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Reference-data match failed for imported TV show '{Title}'.", title);
+            }
+        });
+        return Task.CompletedTask;
     }
 
     /// <summary>
     /// Movie equivalent of <see cref="TryEnrichShowAsync"/>.
     /// </summary>
-    private async Task TryEnrichMovieAsync(MovieModel movie)
+    private Task TryEnrichMovieAsync(MovieModel movie)
     {
-        try
+        var title = movie.Title;
+        var year = movie.Year;
+        _ = Task.Run(async () =>
         {
-            await enrichmentService.TryAutoResolveMovieAsync(movie.Title, movie.Year);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Reference-data match failed for imported movie '{Title}'.", movie.Title);
-        }
+            try
+            {
+                using var scope = scopeFactory.CreateScope();
+                var enrichmentService = scope.ServiceProvider.GetRequiredService<ReferenceEnrichmentService>();
+                await enrichmentService.TryAutoResolveMovieAsync(title, year);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Reference-data match failed for imported movie '{Title}'.", title);
+            }
+        });
+        return Task.CompletedTask;
     }
 
     private static TResult? ReadCsvEntry<TResult>(ZipArchive archive, string entryName, Func<Stream, TResult> parse)

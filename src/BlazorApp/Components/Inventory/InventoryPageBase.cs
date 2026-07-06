@@ -35,6 +35,12 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
 
     protected abstract TDto CloneItem(TDto item);
 
+    /// <summary>
+    /// Extra query parameters beyond search/page/pageSize - null by default. Override in a page that
+    /// needs its own filter (e.g. a status dropdown) instead of reimplementing paging/search from scratch.
+    /// </summary>
+    protected virtual IReadOnlyDictionary<string, string>? ExtraQuery => null;
+
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
     protected void OnSearchChanged(string value) => _search = value;
@@ -129,12 +135,12 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
         }
     }
 
-    private async Task LoadAsync()
+    protected async Task LoadAsync()
     {
         try
         {
             _loading = true;
-            var result = await Api.GetAsync(_search, _page, PageSize);
+            var result = await Api.GetAsync(_search, _page, PageSize, ExtraQuery);
             _items = result.Items;
             _totalCount = result.TotalCount;
         }

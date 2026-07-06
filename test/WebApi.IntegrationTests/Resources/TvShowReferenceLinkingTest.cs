@@ -10,7 +10,7 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Exercises <see cref="ITvShowRepository.SetReferenceIdForTitleYearAsync"/> and
+/// Exercises <see cref="ITvShowRepository.SetReferenceLinkAsync"/> and
 /// <see cref="ITvShowRepository.FindDistinctUnresolvedTitleYearsAsync"/> directly against real MongoDB -
 /// these are new, hand-written Mongo queries (case-insensitive regex match, a "don't overwrite an
 /// existing link" guard, a $group aggregation), exactly the kind of per-type override logic that has
@@ -22,11 +22,12 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 public class TvShowReferenceLinkingTest(KestrelWebAppFactory<Program> factory) : IClassFixture<KestrelWebAppFactory<Program>>
 {
     [Fact]
-    public async Task SetReferenceIdForTitleYearAsync_UpdatesEveryMatchingTenantsShow_ButNotOthers()
+    public async Task SetReferenceLinkAsync_UpdatesEveryMatchingTenantsShow_ButNotOthers()
     {
         using var scope = factory.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<ITvShowRepository>();
         var title = $"Reference Linking Test Show {Guid.NewGuid()}";
+        var canonicalTitle = $"Canonical {title}";
         const int year = 2021;
 
         var tenantAShow = await repository.CreateAsync(new TvShowModel { OwnerId = "reference-link-tenant-a", Title = title, Year = year });
@@ -40,16 +41,21 @@ public class TvShowReferenceLinkingTest(KestrelWebAppFactory<Program> factory) :
 
         try
         {
-            var modifiedCount = await repository.SetReferenceIdForTitleYearAsync(title, year, "reference-123");
+            var modifiedCount = await repository.SetReferenceLinkAsync(title, year, "reference-123", canonicalTitle);
 
             modifiedCount.Should().Be(2);
-            (await repository.FindOneAsync(tenantAShow.Id!, "reference-link-tenant-a"))!.ReferenceId.Should().Be("reference-123");
+            var tenantAResult = (await repository.FindOneAsync(tenantAShow.Id!, "reference-link-tenant-a"))!;
+            tenantAResult.ReferenceId.Should().Be("reference-123");
+            // the tenant's own title is replaced with the reference's canonical name, not just the id
+            tenantAResult.Title.Should().Be(canonicalTitle);
             (await repository.FindOneAsync(tenantBShow.Id!, "reference-link-tenant-b"))!.ReferenceId.Should().Be("reference-123");
             // AutoMapper's AllowNullDestinationValues=false (see Program.cs) means an unset ReferenceId
             // round-trips as "" rather than null - BeNullOrEmpty is the correct "still unresolved" check.
             (await repository.FindOneAsync(differentYearShow.Id!, "reference-link-tenant-a"))!.ReferenceId.Should().BeNullOrEmpty();
             // a show that already has a link is never clobbered by a later automatic/admin resolution
-            (await repository.FindOneAsync(alreadyLinkedShow.Id!, "reference-link-tenant-c"))!.ReferenceId.Should().Be("pre-existing-link");
+            var alreadyLinkedResult = (await repository.FindOneAsync(alreadyLinkedShow.Id!, "reference-link-tenant-c"))!;
+            alreadyLinkedResult.ReferenceId.Should().Be("pre-existing-link");
+            alreadyLinkedResult.Title.Should().Be(title);
         }
         finally
         {

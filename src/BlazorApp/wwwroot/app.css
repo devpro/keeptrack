@@ -20,7 +20,9 @@
   --kt-text-muted:   #5f6570;
   --kt-text-subtle:  #b1b6bd;
   --kt-danger:       #c73a52;
+  --kt-danger-bg:    #f5dde1;
   --kt-success:      #2b8a5e;
+  --kt-success-bg:   #dcefe4;
   --kt-warning:      #9a6b00;
   --kt-warning-bg:   #f7ecd2;
   --kt-radius:       10px;
@@ -58,7 +60,9 @@
   --kt-text-muted:   #9aa0aa;
   --kt-text-subtle:  #565c66;
   --kt-danger:       #e0687a;
+  --kt-danger-bg:    rgba(224, 104, 122, 0.16);
   --kt-success:      #4cb489;
+  --kt-success-bg:   rgba(76, 180, 137, 0.16);
   --kt-warning:      #e0be5b;
   --kt-warning-bg:   rgba(224, 190, 91, 0.16);
   --kt-shadow:       0 4px 20px rgba(0, 0, 0, 0.35);
@@ -393,6 +397,23 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
 .kt-page-header h1 { font-size: 2rem; color: var(--kt-text); margin: 0; line-height: 1; }
 .kt-page-header h1 span { color: var(--kt-accent); }
 
+/* editable "title" input on a detail page, styled to read as a heading until you interact with it */
+.kt-title-input {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--kt-text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--kt-radius);
+  padding: 0.1rem 0.5rem;
+  margin: 0 0 0 -0.5rem;
+  max-width: 100%;
+  font-family: var(--kt-font);
+}
+.kt-title-input:hover:not(:disabled) { border-color: var(--kt-border); }
+.kt-title-input:focus { border-color: var(--kt-accent); outline: none; background: var(--kt-surface); }
+.kt-title-input:disabled { cursor: not-allowed; }
+
 /* ── Form card ─────────────────────────────────────────────────────── */
 .kt-form-card {
   position: relative;
@@ -434,6 +455,20 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
   color: var(--kt-warning);
 }
 
+/* TV show status: a small colored pill for the list column (setting status itself happens via the
+   explicit Current/Finished/Stopped buttons on the detail page, not by clicking this) */
+.kt-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 20px;
+}
+.kt-status-badge.current { background: var(--kt-warning-bg); color: var(--kt-warning); }
+.kt-status-badge.finished { background: var(--kt-success-bg); color: var(--kt-success); }
+.kt-status-badge.stopped { background: var(--kt-danger-bg); color: var(--kt-danger); }
+
 /* ── Progress bar ──────────────────────────────────────────────────── */
 .progress { background-color: var(--kt-surface-3) !important; border-radius: 999px !important; }
 .progress-bar { background-color: var(--kt-accent) !important; transition: width 0.3s ease !important; }
@@ -453,21 +488,14 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
 
 /* ── Stars ─────────────────────────────────────────────────────────── */
 .kt-stars { color: var(--kt-accent); letter-spacing: 0; font-size: 0.85rem; }
-.kt-stars .empty { color: var(--kt-text-subtle); }
 
-.star { font-size: 1.2rem; }
-.star.full  { color: var(--kt-accent); }
-.star.empty { color: var(--kt-text-subtle); }
-.star.half  {
-  position: relative;
-  display: inline-block;
-  color: var(--kt-text-subtle);
-}
-.star.half::before {
-  content: '★';
+/* each star is the empty glyph with a precisely-widthed filled glyph overlaid on top, so any decimal
+   rating (e.g. 4.8) renders as an accurate partial fill, not rounded to the nearest half star */
+.star { position: relative; display: inline-block; font-size: 1.2rem; color: var(--kt-text-subtle); }
+.star-fill {
   position: absolute;
   left: 0;
-  width: 50%;
+  top: 0;
   overflow: hidden;
   color: var(--kt-accent);
 }

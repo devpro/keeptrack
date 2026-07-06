@@ -81,7 +81,7 @@ public class ReferenceEnrichmentService(
         };
 
         var saved = await tvShowReferenceRepository.UpsertAsync(model);
-        await tvShowRepository.SetReferenceIdForTitleYearAsync(title, year, saved.Id!);
+        await tvShowRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title);
         return saved;
     }
 
@@ -113,7 +113,7 @@ public class ReferenceEnrichmentService(
         };
 
         var saved = await movieReferenceRepository.UpsertAsync(model);
-        await movieRepository.SetReferenceIdForTitleYearAsync(title, year, saved.Id!);
+        await movieRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title);
         return saved;
     }
 

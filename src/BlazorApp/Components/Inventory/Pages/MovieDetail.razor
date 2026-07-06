@@ -21,7 +21,14 @@ else if (_movie is null)
 else
 {
     <div class="kt-page-header">
-        <h1>@_movie.Title</h1>
+        <AuthorizeView Policy="AdminOnly" Context="titleAdminCtx">
+            <Authorized>
+                <input class="kt-title-input" value="@_movie.Title" @onchange="SaveTitleAsync"/>
+            </Authorized>
+            <NotAuthorized>
+                <input class="kt-title-input" value="@_movie.Title" @onchange="SaveTitleAsync" disabled="@(!string.IsNullOrEmpty(_movie.ReferenceId))"/>
+            </NotAuthorized>
+        </AuthorizeView>
         <div class="d-flex gap-2">
             <button class="btn btn-sm @(_movie.IsFavorite ? "btn-primary" : "btn-secondary")" @onclick="ToggleFavoriteAsync">⭐ Best of</button>
             <button class="btn btn-sm @(_movie.WantToWatch ? "btn-primary" : "btn-secondary")" @onclick="ToggleWantToWatchAsync">👁 Want to watch</button>
@@ -35,7 +42,7 @@ else
 
     <div class="kt-form-card">
         <span class="kt-corner-flag @(_movie.FirstSeenAt is not null ? "active" : "")" @onclick="ToggleWatchedAsync">
-            @(_movie.FirstSeenAt is not null ? $"✓ Watched {_movie.FirstSeenAt:yyyy-MM-dd}" : "Mark as watched")
+            @(_movie.FirstSeenAt is not null ? "✓ Watched" : "Mark as watched")
         </span>
         <div class="row g-3">
             @if (!string.IsNullOrEmpty(_reference?.PosterUrl))
@@ -45,18 +52,38 @@ else
                 </div>
             }
             <div class="col-md-4">
-                <label class="form-label">Year</label>
-                <div>@(_reference?.Year ?? _movie.Year)</div>
-                <label class="form-label mt-2">Rating</label>
-                <div class="kt-stars"><StarRating Rating="_movie.Rating" OnRatingChanged="SetRatingAsync"/></div>
+                <div>
+                    <label class="form-label">Year</label>
+                    @if (_reference is not null)
+                    {
+                        <div>@_reference.Year</div>
+                    }
+                    else
+                    {
+                        <input class="form-control form-control-sm" style="max-width:120px" type="number" min="1970" max="2100"
+                               value="@_movie.Year" @onchange="SaveYearAsync"/>
+                    }
+                </div>
+                <div class="mt-3">
+                    <label class="form-label">Rating</label>
+                    <StarRatingInput Rating="_movie.Rating" RatingChanged="SetRatingAsync"/>
+                </div>
+                @if (_movie.FirstSeenAt is not null)
+                {
+                    <div class="mt-3">
+                        <label class="form-label">Watched on</label>
+                        <input class="form-control form-control-sm" style="max-width:160px" type="date"
+                               value="@_movie.FirstSeenAt?.ToString("yyyy-MM-dd")" @onchange="SetWatchedDateAsync"/>
+                    </div>
+                }
                 @if (_reference?.Genres.Count > 0)
                 {
-                    <p class="kt-card-meta mt-2 mb-0">@string.Join(", ", _reference.Genres)</p>
+                    <p class="kt-card-meta mt-3 mb-0">@string.Join(", ", _reference.Genres)</p>
                 }
             </div>
             <div class="col-md-6">
                 <label class="form-label">Notes</label>
-                <div style="white-space:pre-line">@_movie.Notes</div>
+                <textarea class="form-control" rows="3" @onchange="SaveNotesAsync">@_movie.Notes</textarea>
             </div>
         </div>
         @if (!string.IsNullOrEmpty(_reference?.Synopsis))
@@ -119,6 +146,36 @@ else
     {
         if (_movie is null) return;
         _movie.FirstSeenAt = _movie.FirstSeenAt is null ? DateOnly.FromDateTime(DateTime.Today) : null;
+        await MovieApi.UpdateAsync(_movie);
+    }
+
+    private async Task SetWatchedDateAsync(ChangeEventArgs e)
+    {
+        if (_movie is null) return;
+        _movie.FirstSeenAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
+        await MovieApi.UpdateAsync(_movie);
+    }
+
+    private async Task SaveTitleAsync(ChangeEventArgs e)
+    {
+        if (_movie is null) return;
+        var title = e.Value?.ToString();
+        if (string.IsNullOrWhiteSpace(title)) return;
+        _movie.Title = title;
+        await MovieApi.UpdateAsync(_movie);
+    }
+
+    private async Task SaveYearAsync(ChangeEventArgs e)
+    {
+        if (_movie is null) return;
+        _movie.Year = int.TryParse(e.Value?.ToString(), out var year) ? year : null;
+        await MovieApi.UpdateAsync(_movie);
+    }
+
+    private async Task SaveNotesAsync(ChangeEventArgs e)
+    {
+        if (_movie is null) return;
+        _movie.Notes = e.Value?.ToString();
         await MovieApi.UpdateAsync(_movie);
     }
 }

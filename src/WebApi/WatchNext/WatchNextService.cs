@@ -18,7 +18,9 @@ public class WatchNextService
     /// </summary>
     public List<InProgressShowDto> ComputeInProgressShows(IEnumerable<TvShowModel> shows, IEnumerable<EpisodeModel> episodes)
     {
-        var inProgressShows = shows.Where(s => s.FinishedAt is null).ToDictionary(s => s.Id!);
+        var inProgressShows = shows
+            .Where(s => s.Status != Domain.Models.TvShowStatus.Finished && s.Status != Domain.Models.TvShowStatus.Stopped)
+            .ToDictionary(s => s.Id!);
 
         return episodes
             .Where(e => inProgressShows.ContainsKey(e.TvShowId))

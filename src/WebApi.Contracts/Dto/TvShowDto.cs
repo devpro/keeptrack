@@ -1,5 +1,4 @@
-﻿using System;
-using Keeptrack.Common.System;
+﻿using Keeptrack.Common.System;
 
 namespace Keeptrack.WebApi.Contracts.Dto;
 
@@ -31,7 +30,7 @@ public class TvShowDto : IHasId
     /// </summary>
     public string? ReferenceId { get; set; }
 
-    public DateOnly? FinishedAt { get; set; }
+    public TvShowStatus? Status { get; set; }
 
     public bool IsFavorite { get; set; }
 

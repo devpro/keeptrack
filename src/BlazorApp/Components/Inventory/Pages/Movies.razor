@@ -55,7 +55,7 @@
     <FormTemplate Context="movie">
         <input class="form-control" placeholder="Title" @bind="movie.Title"/>
         <input class="form-control" @bind="movie.Year" type="number" min="1970" max="2100" />
-        <input class="form-control" placeholder="Rating" @bind="movie.Rating" type="number" />
+        <input class="form-control" placeholder="Rating" @bind="movie.Rating" type="number" step="0.1" min="0" max="5"/>
         <textarea class="form-control" rows="4" @bind="movie.Notes"></textarea>
         <div class="form-check">
             <input class="form-check-input" type="checkbox" id="movie-favorite" @bind="movie.IsFavorite" />
@@ -69,7 +69,10 @@
     <EditModalTemplate Context="movie">
         <div class="col-12">
             <label class="form-label">Title</label>
-            <input class="form-control" @bind="movie.Title" disabled="@(!string.IsNullOrEmpty(movie.ReferenceId))"/>
+            <AuthorizeView Policy="AdminOnly" Context="titleAdminCtx">
+                <Authorized><input class="form-control" @bind="movie.Title"/></Authorized>
+                <NotAuthorized><input class="form-control" @bind="movie.Title" disabled="@(!string.IsNullOrEmpty(movie.ReferenceId))"/></NotAuthorized>
+            </AuthorizeView>
         </div>
         <div class="col-md-6">
             <label class="form-label">Year</label>
@@ -78,12 +81,12 @@
         @if (!string.IsNullOrEmpty(movie.ReferenceId))
         {
             <div class="col-12">
-                <p class="kt-card-meta mb-0">Title/year are matched to a reference source and can't be edited here.</p>
+                <p class="kt-card-meta mb-0">Year is matched to a reference source and can't be edited here.</p>
             </div>
         }
         <div class="col-md-6">
             <label class="form-label">Rating</label>
-            <input class="form-control" @bind="movie.Rating" type="number" />
+            <input class="form-control" @bind="movie.Rating" type="number" step="0.1" min="0" max="5"/>
         </div>
         <div class="col-md-6">
             <label class="form-label">Notes</label>

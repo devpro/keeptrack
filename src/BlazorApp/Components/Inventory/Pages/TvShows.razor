@@ -1,7 +1,14 @@
-﻿@page "/tv-shows"
+@page "/tv-shows"
 @inherits InventoryPageBase<TvShowDto>
 @rendermode InteractiveServer
 @attribute [Authorize]
+
+<div class="d-flex gap-2 mb-2">
+    <button class="btn btn-sm @(_statusFilter is null ? "btn-primary" : "btn-secondary")" @onclick='() => SetStatusFilterAsync(null)'>All</button>
+    <button class="btn btn-sm @(_statusFilter == TvShowStatus.Current ? "btn-primary" : "btn-secondary")" @onclick='() => SetStatusFilterAsync(TvShowStatus.Current)'>Current</button>
+    <button class="btn btn-sm @(_statusFilter == TvShowStatus.Finished ? "btn-primary" : "btn-secondary")" @onclick='() => SetStatusFilterAsync(TvShowStatus.Finished)'>Finished</button>
+    <button class="btn btn-sm @(_statusFilter == TvShowStatus.Stopped ? "btn-primary" : "btn-secondary")" @onclick='() => SetStatusFilterAsync(TvShowStatus.Stopped)'>Stopped</button>
+</div>
 
 <InventoryList TDto="TvShowDto"
                Title="Tv Shows"
@@ -29,7 +36,7 @@
                OnSearchChanged="@OnSearchChanged">
     <HeaderTemplate>
         <th>Title</th>
-        <th>Last episode seen</th>
+        <th>Status</th>
         <th>Rating</th>
         <th></th>
     </HeaderTemplate>
@@ -37,7 +44,12 @@
         <td style="font-weight:500">
             <a href="@($"/tv-shows/{show.Id}")">@show.Title</a>
         </td>
-        <td>@show.LastEpisodeSeen</td>
+        <td>
+            @if (show.Status is not null)
+            {
+                <span class="kt-status-badge @show.Status.ToString()!.ToLowerInvariant()">@show.Status</span>
+            }
+        </td>
         <td><span class="kt-stars"><StarRating Rating="show.Rating" /></span></td>
         <td>
             @if (show.IsFavorite)
@@ -53,7 +65,7 @@
     <FormTemplate Context="show">
         <input class="form-control" placeholder="Title" @bind="show.Title"/>
         <input class="form-control" placeholder="Last episode seen" @bind="show.LastEpisodeSeen"/>
-        <input class="form-control" placeholder="Rating" @bind="show.Rating" type="number"/>
+        <input class="form-control" placeholder="Rating" @bind="show.Rating" type="number" step="0.1" min="0" max="5"/>
         <div class="form-check">
             <input class="form-check-input" type="checkbox" id="show-favorite" @bind="show.IsFavorite" />
             <label class="form-check-label" for="show-favorite">Best of</label>
@@ -66,7 +78,10 @@
     <EditModalTemplate Context="show">
         <div class="col-12">
             <label class="form-label">Title</label>
-            <input class="form-control" @bind="show.Title" disabled="@(!string.IsNullOrEmpty(show.ReferenceId))"/>
+            <AuthorizeView Policy="AdminOnly" Context="titleAdminCtx">
+                <Authorized><input class="form-control" @bind="show.Title"/></Authorized>
+                <NotAuthorized><input class="form-control" @bind="show.Title" disabled="@(!string.IsNullOrEmpty(show.ReferenceId))"/></NotAuthorized>
+            </AuthorizeView>
         </div>
         <div class="col-md-6">
             <label class="form-label">Year</label>
@@ -75,20 +90,25 @@
         @if (!string.IsNullOrEmpty(show.ReferenceId))
         {
             <div class="col-12">
-                <p class="kt-card-meta mb-0">Title/year are matched to a reference source and can't be edited here.</p>
+                <p class="kt-card-meta mb-0">Year is matched to a reference source and can't be edited here.</p>
             </div>
         }
         <div class="col-md-6">
             <label class="form-label">Rating</label>
-            <input class="form-control" @bind="show.Rating" type="number" />
+            <input class="form-control" @bind="show.Rating" type="number" step="0.1" min="0" max="5"/>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Status</label>
+            <select class="form-select" @bind="show.Status">
+                <option value="">—</option>
+                <option value="Current">Current</option>
+                <option value="Finished">Finished</option>
+                <option value="Stopped">Stopped</option>
+            </select>
         </div>
         <div class="col-md-6">
             <label class="form-label">Last episode seen</label>
             <input class="form-control" @bind="show.LastEpisodeSeen" />
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">Finished at</label>
-            <input class="form-control" @bind="show.FinishedAt" @bind:format="yyyy-MM-dd" type="date" />
         </div>
         <div class="col-md-6">
             <label class="form-label">Notes</label>

@@ -1,5 +1,4 @@
-﻿using System;
-using Keeptrack.Common.System;
+﻿using Keeptrack.Common.System;
 
 namespace Keeptrack.Domain.Models;
 
@@ -21,7 +20,7 @@ public class TvShowModel : IHasIdAndOwnerId
 
     public string? ReferenceId { get; set; }
 
-    public DateOnly? FinishedAt { get; set; }
+    public TvShowStatus? Status { get; set; }
 
     public bool IsFavorite { get; set; }
 

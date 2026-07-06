@@ -12,8 +12,8 @@ public class WatchNextServiceTest
 {
     private readonly WatchNextService _service = new();
 
-    private static TvShowModel Show(string id, string title, DateOnly? finishedAt = null) =>
-        new() { Id = id, OwnerId = "owner", Title = title, FinishedAt = finishedAt };
+    private static TvShowModel Show(string id, string title, TvShowStatus? status = null) =>
+        new() { Id = id, OwnerId = "owner", Title = title, Status = status };
 
     private static EpisodeModel Episode(string showId, int season, int episode, DateOnly? watchedAt = null) =>
         new() { OwnerId = "owner", TvShowId = showId, SeasonNumber = season, EpisodeNumber = episode, WatchedAt = watchedAt };
@@ -42,12 +42,34 @@ public class WatchNextServiceTest
     [Fact]
     public void ComputeInProgressShows_ExcludesFinishedShows()
     {
-        var shows = new[] { Show("show-1", "Dark", finishedAt: new DateOnly(2024, 6, 1)) };
+        var shows = new[] { Show("show-1", "Dark", status: TvShowStatus.Finished) };
         var episodes = new[] { Episode("show-1", 1, 1) };
 
         var result = _service.ComputeInProgressShows(shows, episodes);
 
         result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ComputeInProgressShows_ExcludesStoppedShows()
+    {
+        var shows = new[] { Show("show-1", "Dark", status: TvShowStatus.Stopped) };
+        var episodes = new[] { Episode("show-1", 1, 1) };
+
+        var result = _service.ComputeInProgressShows(shows, episodes);
+
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ComputeInProgressShows_IncludesShowsWithNoStatusSet()
+    {
+        var shows = new[] { Show("show-1", "Dark") };
+        var episodes = new[] { Episode("show-1", 1, 1, new DateOnly(2024, 1, 1)) };
+
+        var result = _service.ComputeInProgressShows(shows, episodes);
+
+        result.Should().ContainSingle();
     }
 
     [Fact]

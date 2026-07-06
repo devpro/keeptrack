@@ -30,7 +30,7 @@ public class ReferenceEnrichmentServiceTest
 
         await service.TryAutoResolveTvShowAsync("Some Show", 2020);
 
-        _tvShowRepository.Verify(r => r.SetReferenceIdForTitleYearAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>()), Times.Never);
+        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -42,7 +42,7 @@ public class ReferenceEnrichmentServiceTest
 
         await service.TryAutoResolveTvShowAsync("Some Show", 2020);
 
-        _tvShowRepository.Verify(r => r.SetReferenceIdForTitleYearAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>()), Times.Never);
+        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public class ReferenceEnrichmentServiceTest
         await service.TryAutoResolveTvShowAsync("Some Show", 2020);
 
         _tvShowReferenceRepository.Verify(r => r.UpsertAsync(It.Is<TvShowReferenceModel>(m => m.ExternalIds["tmdb"] == "42")), Times.Once);
-        _tvShowRepository.Verify(r => r.SetReferenceIdForTitleYearAsync("Some Show", 2020, It.IsAny<string>()), Times.Once);
+        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync("Some Show", 2020, It.IsAny<string>(), "Some Show"), Times.Once);
     }
 
     [Fact]
@@ -74,7 +74,7 @@ public class ReferenceEnrichmentServiceTest
         var result = await service.ResolveTvShowAsync("Some Show", 2020, "42");
 
         result.Id.Should().Be("reference-1");
-        _tvShowRepository.Verify(r => r.SetReferenceIdForTitleYearAsync("Some Show", 2020, "reference-1"), Times.Once);
+        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync("Some Show", 2020, "reference-1", "Some Show"), Times.Once);
     }
 
     [Fact]

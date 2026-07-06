@@ -27,14 +27,15 @@ public class MovieRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbReposi
         return filter;
     }
 
-    public async Task<long> SetReferenceIdForTitleYearAsync(string title, int? year, string referenceId)
+    public async Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle)
     {
         var builder = Builders<Movie>.Filter;
         var filter = builder.Regex(f => f.Title, new BsonRegularExpression($"^{Regex.Escape(title)}$", "i"))
                      & builder.Eq(f => f.Year, year)
                      & UnresolvedFilter();
 
-        var result = await GetCollection().UpdateManyAsync(filter, Builders<Movie>.Update.Set(f => f.ReferenceId, referenceId));
+        var update = Builders<Movie>.Update.Set(f => f.ReferenceId, referenceId).Set(f => f.Title, canonicalTitle);
+        var result = await GetCollection().UpdateManyAsync(filter, update);
         return result.ModifiedCount;
     }
 

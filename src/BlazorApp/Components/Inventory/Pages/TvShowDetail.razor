@@ -21,11 +21,24 @@ else if (_show is null)
 else
 {
     <div class="kt-page-header">
-        <h1>@_show.Title</h1>
+        <AuthorizeView Policy="AdminOnly" Context="titleAdminCtx">
+            <Authorized>
+                <input class="kt-title-input" value="@_show.Title" @onchange="SaveTitleAsync"/>
+            </Authorized>
+            <NotAuthorized>
+                <input class="kt-title-input" value="@_show.Title" @onchange="SaveTitleAsync" disabled="@(!string.IsNullOrEmpty(_show.ReferenceId))"/>
+            </NotAuthorized>
+        </AuthorizeView>
         <div class="d-flex gap-2">
             <button class="btn btn-sm @(_show.IsFavorite ? "btn-primary" : "btn-secondary")" @onclick="ToggleFavoriteAsync">⭐ Best of</button>
             <button class="btn btn-sm @(_show.WantToWatch ? "btn-primary" : "btn-secondary")" @onclick="ToggleWantToWatchAsync">👁 Want to watch</button>
         </div>
+    </div>
+
+    <div class="d-flex gap-2 mb-3">
+        <button class="btn btn-sm @(_show.Status == TvShowStatus.Current ? "btn-warning" : "btn-secondary")" @onclick='() => SetStatusAsync(TvShowStatus.Current)'>Current</button>
+        <button class="btn btn-sm @(_show.Status == TvShowStatus.Finished ? "btn-success" : "btn-secondary")" @onclick='() => SetStatusAsync(TvShowStatus.Finished)'>Finished</button>
+        <button class="btn btn-sm @(_show.Status == TvShowStatus.Stopped ? "btn-danger" : "btn-secondary")" @onclick='() => SetStatusAsync(TvShowStatus.Stopped)'>Stopped</button>
     </div>
 
     @if (string.IsNullOrEmpty(_show.ReferenceId))
@@ -42,16 +55,30 @@ else
                 </div>
             }
             <div class="col-md-4">
-                <label class="form-label">Rating</label>
-                <div class="kt-stars"><StarRating Rating="_show.Rating"/></div>
+                <div>
+                    <label class="form-label">Year</label>
+                    @if (_reference is not null)
+                    {
+                        <div>@_reference.Year</div>
+                    }
+                    else
+                    {
+                        <input class="form-control form-control-sm" style="max-width:120px" type="number" min="1970" max="2100"
+                               value="@_show.Year" @onchange="SaveYearAsync"/>
+                    }
+                </div>
+                <div class="mt-3">
+                    <label class="form-label">Rating</label>
+                    <StarRatingInput Rating="_show.Rating" RatingChanged="SetRatingAsync"/>
+                </div>
                 @if (_reference?.Genres.Count > 0)
                 {
-                    <p class="kt-card-meta mt-2 mb-0">@string.Join(", ", _reference.Genres)</p>
+                    <p class="kt-card-meta mt-3 mb-0">@string.Join(", ", _reference.Genres)</p>
                 }
             </div>
             <div class="col-md-6">
                 <label class="form-label">Notes</label>
-                <div style="white-space:pre-line">@_show.Notes</div>
+                <textarea class="form-control" rows="3" @onchange="SaveNotesAsync">@_show.Notes</textarea>
             </div>
         </div>
         @if (!string.IsNullOrEmpty(_reference?.Synopsis))
@@ -244,6 +271,48 @@ else
     {
         if (_show is null) return;
         _show.WantToWatch = !_show.WantToWatch;
+        await TvShowApi.UpdateAsync(_show);
+    }
+
+    private async Task SetRatingAsync(float rating)
+    {
+        if (_show is null) return;
+        _show.Rating = rating;
+        await TvShowApi.UpdateAsync(_show);
+    }
+
+    /// <summary>
+    /// Clicking the already-active status button clears it back to unset - otherwise sets it. Explicit
+    /// buttons instead of a click-to-cycle flag: all three options are visible and directly selectable,
+    /// nothing to guess about what a click will do.
+    /// </summary>
+    private async Task SetStatusAsync(TvShowStatus status)
+    {
+        if (_show is null) return;
+        _show.Status = _show.Status == status ? null : status;
+        await TvShowApi.UpdateAsync(_show);
+    }
+
+    private async Task SaveTitleAsync(ChangeEventArgs e)
+    {
+        if (_show is null) return;
+        var title = e.Value?.ToString();
+        if (string.IsNullOrWhiteSpace(title)) return;
+        _show.Title = title;
+        await TvShowApi.UpdateAsync(_show);
+    }
+
+    private async Task SaveYearAsync(ChangeEventArgs e)
+    {
+        if (_show is null) return;
+        _show.Year = int.TryParse(e.Value?.ToString(), out var year) ? year : null;
+        await TvShowApi.UpdateAsync(_show);
+    }
+
+    private async Task SaveNotesAsync(ChangeEventArgs e)
+    {
+        if (_show is null) return;
+        _show.Notes = e.Value?.ToString();
         await TvShowApi.UpdateAsync(_show);
     }
 
