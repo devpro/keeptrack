@@ -20,7 +20,7 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IMapper mapper, IData
     [ProducesResponseType(500)]
     public async Task<ActionResult<PagedResult<TDto>>> Get([FromQuery] PagedRequest pagedRequest, [FromQuery] TDto input)
     {
-        var models = await dataRepository.FindAllAsync(GetUserId(),
+        var models = await dataRepository.FindAllAsync(this.GetUserId(),
             pagedRequest.Page,
             pagedRequest.PageSize,
             pagedRequest.Search,
@@ -40,7 +40,7 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IMapper mapper, IData
             return BadRequest();
         }
 
-        var model = await dataRepository.FindOneAsync(id, GetUserId());
+        var model = await dataRepository.FindOneAsync(id, this.GetUserId());
         if (model == null)
         {
             return NotFound();
@@ -56,7 +56,7 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IMapper mapper, IData
     public async Task<IActionResult> Post([FromBody] TDto dto)
     {
         var input = mapper.Map<TModel>(dto);
-        input.OwnerId = GetUserId();
+        input.OwnerId = this.GetUserId();
         var model = await dataRepository.CreateAsync(input);
         return CreatedAtAction(nameof(GetById), new { id = model.Id }, mapper.Map<TDto>(model));
     }
@@ -73,8 +73,8 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IMapper mapper, IData
         }
 
         var input = mapper.Map<TModel>(dto);
-        input.OwnerId = GetUserId();
-        await dataRepository.UpdateAsync(id, input, GetUserId());
+        input.OwnerId = this.GetUserId();
+        await dataRepository.UpdateAsync(id, input, this.GetUserId());
         return NoContent();
     }
 
@@ -89,17 +89,7 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IMapper mapper, IData
             return BadRequest();
         }
 
-        await dataRepository.DeleteAsync(id, GetUserId());
+        await dataRepository.DeleteAsync(id, this.GetUserId());
         return NoContent();
-    }
-
-    /// <summary>
-    /// Get authenticated user id.
-    /// </summary>
-    /// <returns></returns>
-    private string GetUserId()
-    {
-        var userId = User.Claims.FirstOrDefault(x => x.Type == "user_id")?.Value;
-        return string.IsNullOrEmpty(userId) ? throw new UnauthorizedAccessException() : userId;
     }
 }

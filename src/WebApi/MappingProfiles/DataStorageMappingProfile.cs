@@ -12,6 +12,9 @@ public class DataStorageMappingProfile : Profile
         CreateMap<Infrastructure.MongoDb.Entities.Book, Domain.Models.BookModel>();
         CreateMap<Domain.Models.BookModel, Infrastructure.MongoDb.Entities.Book>();
 
+        CreateMap<Infrastructure.MongoDb.Entities.Episode, Domain.Models.EpisodeModel>();
+        CreateMap<Domain.Models.EpisodeModel, Infrastructure.MongoDb.Entities.Episode>();
+
         CreateMap<Infrastructure.MongoDb.Entities.Movie, Domain.Models.MovieModel>()
             .ForMember(x => x.AllocineId, opt => opt.MapFrom(
                 x => x.Allocine != null ? x.Allocine.Id : null))

@@ -22,4 +22,8 @@ public class MovieDto : IHasId
     public string? AllocineId { get; set; }
 
     public DateOnly? FirstSeenAt { get; set; }
+
+    public bool IsFavorite { get; set; }
+
+    public bool WantToWatch { get; set; }
 }

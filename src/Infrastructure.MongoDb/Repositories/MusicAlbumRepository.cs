@@ -16,8 +16,8 @@ public class MusicAlbumRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbR
     {
         var builder = Builders<MusicAlbum>.Filter;
         var filter = builder.Eq(f => f.OwnerId, ownerId);
-        if (!string.IsNullOrEmpty(search)) builder.Where(f => f.Title.Contains(search, System.StringComparison.CurrentCultureIgnoreCase)
-                                                              || f.Artist.Contains(search, System.StringComparison.CurrentCultureIgnoreCase));
+        if (!string.IsNullOrEmpty(search)) filter &= builder.Where(f => f.Title.Contains(search, System.StringComparison.CurrentCultureIgnoreCase)
+                                                                        || f.Artist.Contains(search, System.StringComparison.CurrentCultureIgnoreCase));
         return filter;
     }
 }

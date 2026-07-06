@@ -4,22 +4,23 @@ This document tracks a code review performed on 2026-07-06 against current .NET 
 Each finding is classified as a confirmed bug, a confirmed by-design behavior, or a known gap that is not yet implemented.
 Update this file as items are fixed or as new reviews are performed.
 
-## Confirmed bugs
+## Fixed
 
-These are true defects. They should be fixed.
+### Search was a no-op for Movie and Music Album
 
-### Search is a no-op for Movie and Music Album
-
-`MovieRepository.GetFilter` and `MusicAlbumRepository.GetFilter` build a MongoDB filter with `builder.Where(...)`.
-The result is never combined into the returned `filter`.
-As a result, the `search` box on the Movies and Music Albums pages currently filters nothing.
+Fixed on 2026-07-06 while building the TV Time import feature (both repositories were touched anyway to add the `IsFavorite`/`WantToWatch` filters).
+`MovieRepository.GetFilter` and `MusicAlbumRepository.GetFilter` built a MongoDB filter with `builder.Where(...)` but never combined the result back into the returned `filter`.
+Both now do `filter &= builder.Where(...)`.
+A regression test (`MovieResourceTest.MovieResourceSearch_FiltersToMatchingTitle_IsOk`) locks in the Movie fix; `MusicAlbum` still has no integration test at all (see "Thin test coverage" below), so its fix is unverified beyond the code change itself.
 
 Files:
 
 - `src/Infrastructure.MongoDb/Repositories/MovieRepository.cs`
 - `src/Infrastructure.MongoDb/Repositories/MusicAlbumRepository.cs`
 
-Fix: combine the built expression back into the filter, e.g. `filter &= builder.Where(...)`.
+## Confirmed bugs
+
+These are true defects. They should be fixed.
 
 ### Car and CarHistory search relies on a `$text` index that does not exist
 
@@ -83,9 +84,9 @@ A very large `PageSize` forces an unbounded fetch.
 
 ### Thin test coverage
 
-Only `Book` and `Movie` have integration tests (`BookResourceTest`, `MovieResourceTest`).
-`CarHistory`, `MusicAlbum`, `TvShow`, and `VideoGame` have none.
-No test exercises the `search` query parameter for any resource, which is why the search bugs above went unnoticed.
+`Book` and `Movie` have integration tests (`BookResourceTest`, `MovieResourceTest`); `Movie`'s now also covers `?search=`.
+`Episode` and `TvShow` gained partial coverage as a side effect of `TvTimeImportResourceTest` (create/upsert/search paths, plus `Episode`'s `TvShowId` filter), but neither has a dedicated full CRUD test of its own yet.
+`CarHistory`, `MusicAlbum`, and `VideoGame` still have none.
 No test asserts ownership isolation (that user A cannot read, update, or delete user B's record).
 There is no test project for `BlazorApp`.
 `BookResourceTest` and `MovieResourceTest` are also close to copy-pasted; a generic/parameterized test base (mirroring `DataCrudControllerBase<TDto, TModel>` on the production side) would cover all resources without duplicating the test code per type.

@@ -82,13 +82,25 @@ Follow the existing types (`Book`, `Movie`, `MusicAlbum`, `TvShow`, `VideoGame`,
 6. Add both AutoMapper maps (`DataStorageMappingProfile`, `WebServiceMappingProfile`).
 7. `BlazorApp/Components/Inventory/Clients/<X>ApiClient.cs` extending `InventoryApiClientBase<TDto>`, plus a `Pages/<X>.razor` / `<X>.razor.cs` pair extending `InventoryPageBase<TDto>`.
 
+### Child entities (1-to-many owned by another entity)
+
+`CarHistory` (owned by `Car`) and `Episode` (owned by `TvShow`) are separate top-level collections referencing their parent by id (`car_id`, `tv_show_id`), not embedded arrays. This is deliberate MongoDB schema design, not an accident: these child collections can grow unbounded per parent over years of use, and features that need to query the child across *all* of a user's parents at once (e.g. Watch Next, below) need a plain indexed query rather than an `$unwind` aggregation. Embedding is the right call for genuinely small, always-together, never-queried-alone data; neither condition holds here. `EpisodeRepository.GetFilter` filters by `input.TvShowId` with `Eq` (not `Text` — see the `CarHistory` bug in `docs/code-quality-findings.md` for what happens when an exact-id filter uses `Text` instead). New multi-word BSON fields get an explicit `[BsonElement("snake_case_name")]`; don't rely on the `CamelCaseElementNameConvention` registered in `AddMongoDbInfrastructure` — every existing multi-word field already overrides it explicitly, so it's effectively dead configuration. Indexes for new collections are declared in `scripts/mongodb-create-index.js` (natural-key uniqueness, query-shape support, and partial indexes for sparse boolean flags like `is_favorite`/`want_to_watch`).
+
 ### Web API request flow
 
-`DataCrudControllerBase<TDto, TModel>` (`WebApi/Controllers/DataCrudControllerBase.cs`) implements the full CRUD surface (`GET`, `GET/{id}`, `POST`, `PUT/{id}`, `DELETE/{id}`) once, generically. It reads the caller's `user_id` claim to scope every query and to stamp `OwnerId` on writes, so per-type controllers only need routing and generic type arguments. Unhandled exceptions are converted to JSON error responses by `ApiExceptionFilterAttribute` (`ArgumentException`/`ArgumentNullException` -> 400, everything else -> 500).
+`DataCrudControllerBase<TDto, TModel>` (`WebApi/Controllers/DataCrudControllerBase.cs`) implements the full CRUD surface (`GET`, `GET/{id}`, `POST`, `PUT/{id}`, `DELETE/{id}`) once, generically. It calls the shared `ControllerBaseExtensions.GetUserId()` extension (`WebApi/Controllers/ControllerBaseExtensions.cs`) to read the caller's `user_id` claim, scope every query, and stamp `OwnerId` on writes, so per-type controllers only need routing and generic type arguments — any new controller (CRUD or not) should call the same extension rather than re-reading the claim. Unhandled exceptions are converted to JSON error responses by `ApiExceptionFilterAttribute` (`ArgumentException`/`ArgumentNullException` -> 400, everything else -> 500).
+
+Not every endpoint is per-item CRUD. `WebApi/WatchNext/` (a read-only cross-entity aggregation) and `WebApi/Import/` (the TV Time GDPR-export upsert, using `CsvHelper` for parsing) are their own feature folders with a plain `ControllerBase` and a small service class, rather than being force-fit into `DataCrudControllerBase`. Follow that folder-per-feature shape for future non-CRUD endpoints instead of stretching the generic CRUD base to cover them.
 
 ### Blazor app
 
-`InventoryPageBase<TDto>` (`BlazorApp/Components/Inventory/InventoryPageBase.cs`) centralizes list/paging/search/inline-edit state and calls into `InventoryApiClientBase<TDto>`, which wraps the typed `HttpClient` calls to the Web API. Each concrete page (`Books.razor.cs`, `Movies.razor.cs`, ...) only supplies its `Api` instance and `CloneItem`. Authentication uses Firebase (cookie auth in the Blazor app, JWT bearer validated against Firebase in the Web API); `AuthenticationTokenHandler` attaches the bearer token to outgoing API calls.
+`InventoryPageBase<TDto>` (`BlazorApp/Components/Inventory/InventoryPageBase.cs`) centralizes list/paging/search/inline-edit state and calls into `InventoryApiClientBase<TDto>`, which wraps the typed `HttpClient` calls to the Web API (its `GetAsync` takes an optional extra-query-parameters dictionary, used by features that filter on more than search/page/pageSize). Each concrete page (`Books.razor.cs`, `Movies.razor.cs`, ...) only supplies its `Api` instance and `CloneItem`. Authentication uses Firebase (cookie auth in the Blazor app, JWT bearer validated against Firebase in the Web API); `AuthenticationTokenHandler` attaches the bearer token to outgoing API calls.
+
+Pages that aren't a generic CRUD list (`TvShowDetail.razor`, `WatchNext/WatchNextPage.razor`, `Import/ImportPage.razor`) don't extend `InventoryPageBase`/`InventoryList` — they're free to build their own layout on top of the shared `kt-*` CSS classes in `app.css`. Their API clients live next to them in a feature folder rather than in `Inventory/Clients/`.
+
+### Theme
+
+`app.css` is a light+dark theme driven by `data-bs-theme` on `<html>` (Bootstrap 5.3's native color-mode support), with Keeptrack's own `--kt-*` tokens layered on top for custom components (sidebar, `kt-table-wrap`, `kt-modal`, etc.). `wwwroot/theme.js` sets the initial theme from `localStorage`/`prefers-color-scheme` before first paint (avoiding a flash of the wrong theme) and exposes `ktToggleTheme()`, called directly from a plain button in `NavMenu.razor` — no Blazor/JS interop needed for the toggle itself. Use system-ui fonts only; no decorative/display webfonts.
 
 ## Code style
 
@@ -100,8 +112,8 @@ Follow the existing types (`Book`, `Movie`, `MusicAlbum`, `TvShow`, `VideoGame`,
 
 ## Tests
 
-- `test/WebApi.UnitTests`: xunit v3 unit tests, e.g. AutoMapper configuration validation.
-- `test/WebApi.IntegrationTests`: xunit v3 tests booted against a real Kestrel host (`KestrelWebAppFactory<Program>`) and a real MongoDB instance. `ResourceTestBase` provides typed `GetAsync`/`PostAsync`/`PutAsync`/`DeleteAsync` helpers and an `Authenticate()` helper that logs in against Firebase to obtain a bearer token. Resource tests (`BookResourceTest`, `MovieResourceTest`) exercise a full create/read/update/delete cycle against the live API and clean up what they create.
+- `test/WebApi.UnitTests`: xunit v3 unit tests, e.g. AutoMapper configuration validation, the TV Time import parsers (`Import/Parsers/`, pure stream-in/records-out, no I/O beyond an in-memory stream), and `WatchNextService` (pure next-episode computation).
+- `test/WebApi.IntegrationTests`: xunit v3 tests booted against a real Kestrel host (`KestrelWebAppFactory<Program>`) and a real MongoDB instance. `ResourceTestBase` provides typed `GetAsync`/`PostAsync`/`PutAsync`/`DeleteAsync`/`PostFileAsync` helpers and an `Authenticate()` helper that logs in against Firebase to obtain a bearer token. Resource tests (`BookResourceTest`, `MovieResourceTest`, `TvTimeImportResourceTest`) exercise a full create/read/update/delete (or upsert) cycle against the live API and clean up what they create. `TvTimeFixtureZipBuilder` builds a small synthetic TV Time export in memory for the import test — never commit a real personal export as a test fixture.
 - Assertions use `AwesomeAssertions` (a `FluentAssertions`-compatible API); test data is generated with `Bogus`.
 
 ## CI

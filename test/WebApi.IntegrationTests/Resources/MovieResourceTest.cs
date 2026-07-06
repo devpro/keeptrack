@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using AwesomeAssertions;
@@ -43,6 +44,29 @@ public class MovieResourceTest(KestrelWebAppFactory<Program> factory)
             var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
             firstItem.Should().NotBeNull();
             firstItem.Title.Should().Be(updated.Title);
+        }
+        finally
+        {
+            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
+        }
+    }
+
+    [Fact]
+    public async Task MovieResourceSearch_FiltersToMatchingTitle_IsOk()
+    {
+        await Authenticate();
+
+        var uniqueTitle = $"UniqueSearchTarget-{Guid.NewGuid():N}";
+        var input = new Faker<MovieDto>().Rules((f, o) => { o.Title = uniqueTitle; }).Generate();
+        var created = await PostAsync($"/{ResourceEndpoint}", input);
+
+        try
+        {
+            var matching = await GetAsync<PagedResult<MovieDto>>($"/{ResourceEndpoint}?search={uniqueTitle}");
+            matching.Items.Should().Contain(m => m.Id == created.Id);
+
+            var nonMatching = await GetAsync<PagedResult<MovieDto>>($"/{ResourceEndpoint}?search={Guid.NewGuid():N}");
+            nonMatching.Items.Should().NotContain(m => m.Id == created.Id);
         }
         finally
         {

@@ -17,6 +17,8 @@ public class TvShowRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepos
         var builder = Builders<TvShow>.Filter;
         var filter = builder.Eq(f => f.OwnerId, ownerId);
         if (!string.IsNullOrEmpty(search)) filter &= builder.Where(f => f.Title.Contains(search, System.StringComparison.CurrentCultureIgnoreCase));
+        if (input.IsFavorite) filter &= builder.Eq(f => f.IsFavorite, true);
+        if (input.WantToWatch) filter &= builder.Eq(f => f.WantToWatch, true);
         return filter;
     }
 }

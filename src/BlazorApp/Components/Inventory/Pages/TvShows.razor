@@ -31,16 +31,37 @@
         <th>Title</th>
         <th>Last episode seen</th>
         <th>Rating</th>
+        <th></th>
     </HeaderTemplate>
     <RowTemplate Context="show">
-        <td style="font-weight:500">@show.Title</td>
+        <td style="font-weight:500">
+            <a href="@($"/tv-shows/{show.Id}")">@show.Title</a>
+        </td>
         <td>@show.LastEpisodeSeen</td>
         <td><span class="kt-stars"><StarRating Rating="show.Rating" /></span></td>
+        <td>
+            @if (show.IsFavorite)
+            {
+                <span title="Best of">⭐</span>
+            }
+            @if (show.WantToWatch)
+            {
+                <span title="Want to watch">👁</span>
+            }
+        </td>
     </RowTemplate>
     <FormTemplate Context="show">
         <input class="form-control" placeholder="Title" @bind="show.Title"/>
         <input class="form-control" placeholder="Last episode seen" @bind="show.LastEpisodeSeen"/>
         <input class="form-control" placeholder="Rating" @bind="show.Rating" type="number"/>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="show-favorite" @bind="show.IsFavorite" />
+            <label class="form-check-label" for="show-favorite">Best of</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="show-want-to-watch" @bind="show.WantToWatch" />
+            <label class="form-check-label" for="show-want-to-watch">Want to watch</label>
+        </div>
     </FormTemplate>
     <EditModalTemplate Context="show">
         <div class="col-12">
@@ -66,6 +87,17 @@
         <div class="col-md-6">
             <label class="form-label">Notes</label>
             <input class="form-control" @bind="show.Notes" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Lists</label>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="show-favorite-modal" @bind="show.IsFavorite" />
+                <label class="form-check-label" for="show-favorite-modal">Best of</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="show-want-to-watch-modal" @bind="show.WantToWatch" />
+                <label class="form-check-label" for="show-want-to-watch-modal">Want to watch</label>
+            </div>
         </div>
     </EditModalTemplate>
 </InventoryList>

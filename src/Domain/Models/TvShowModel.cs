@@ -24,4 +24,8 @@ public class TvShowModel : IHasIdAndOwnerId
     public string? AllocineId { get; set; }
 
     public DateOnly? FinishedAt { get; set; }
+
+    public bool IsFavorite { get; set; }
+
+    public bool WantToWatch { get; set; }
 }

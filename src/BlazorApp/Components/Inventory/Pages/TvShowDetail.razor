@@ -1,0 +1,172 @@
+@page "/tv-shows/{Id}"
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+@if (_loading)
+{
+    <div class="kt-loading">
+        <div class="kt-spinner"></div>
+        Loading…
+    </div>
+}
+else if (_show is null)
+{
+    <div class="kt-empty">
+        <div class="kt-empty-icon">◈</div>
+        <p>Show not found.</p>
+    </div>
+}
+else
+{
+    <div class="kt-page-header">
+        <h1>@_show.Title</h1>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm @(_show.IsFavorite ? "btn-primary" : "btn-secondary")" @onclick="ToggleFavoriteAsync">⭐ Best of</button>
+            <button class="btn btn-sm @(_show.WantToWatch ? "btn-primary" : "btn-secondary")" @onclick="ToggleWantToWatchAsync">👁 Want to watch</button>
+        </div>
+    </div>
+
+    <div class="kt-form-card">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Rating</label>
+                <div class="kt-stars"><StarRating Rating="_show.Rating"/></div>
+            </div>
+            <div class="col-md-8">
+                <label class="form-label">Notes</label>
+                <div style="white-space:pre-line">@_show.Notes</div>
+            </div>
+        </div>
+    </div>
+
+    <h2 class="kt-section-title">Add episode watched</h2>
+    <div class="kt-form-card">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Season</label>
+                <input class="form-control" type="number" min="0" @bind="_newSeason"/>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Episode</label>
+                <input class="form-control" type="number" min="0" @bind="_newEpisode"/>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Watched at</label>
+                <input class="form-control" type="date" @bind="_newWatchedAt" @bind:format="yyyy-MM-dd"/>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button class="btn btn-success" @onclick="AddEpisodeAsync">Add</button>
+            </div>
+        </div>
+        @if (_error is not null)
+        {
+            <div class="alert alert-danger mt-3 mb-0">@_error</div>
+        }
+    </div>
+
+    @if (_seasons.Count == 0)
+    {
+        <div class="kt-empty">
+            <div class="kt-empty-icon">◈</div>
+            <p>No episodes tracked yet.</p>
+        </div>
+    }
+    else
+    {
+        <div class="kt-season-picker">
+            @foreach (var season in _seasons)
+            {
+                <button class="kt-page-btn @(season == _selectedSeason ? "active" : "")" @onclick="() => SelectSeason(season)">S@(season.ToString("00"))</button>
+            }
+        </div>
+
+        <div class="kt-season">
+            <div class="kt-season-header">Season @_selectedSeason</div>
+            @foreach (var episode in _episodesBySeason[_selectedSeason])
+            {
+                <div class="kt-episode-row watched">
+                    <span class="kt-episode-number">E@(episode.EpisodeNumber.ToString("00"))</span>
+                    <span>@episode.Notes</span>
+                    <span class="kt-episode-date">@episode.WatchedAt?.ToString("yyyy-MM-dd")</span>
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public required string Id { get; set; }
+
+    [Inject] private TvShowApiClient TvShowApi { get; set; } = null!;
+
+    [Inject] private EpisodeApiClient EpisodeApi { get; set; } = null!;
+
+    private bool _loading = true;
+    private TvShowDto? _show;
+    private Dictionary<int, List<EpisodeDto>> _episodesBySeason = new();
+    private List<int> _seasons = [];
+    private int _selectedSeason;
+    private string? _error;
+
+    private int _newSeason = 1;
+    private int _newEpisode = 1;
+    private DateOnly? _newWatchedAt = DateOnly.FromDateTime(DateTime.Today);
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _show = await TvShowApi.GetOneAsync(Id);
+        var episodes = await EpisodeApi.GetAsync(string.Empty, 1, 5000, new Dictionary<string, string> { ["TvShowId"] = Id });
+
+        // most recently aired first: latest season at the top, latest episode within a season at the top
+        _episodesBySeason = episodes.Items
+            .GroupBy(e => e.SeasonNumber)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(e => e.EpisodeNumber).ToList());
+        _seasons = _episodesBySeason.Keys.OrderByDescending(s => s).ToList();
+
+        if (!_seasons.Contains(_selectedSeason))
+        {
+            _selectedSeason = _seasons.Count > 0 ? _seasons[0] : 0;
+        }
+
+        _loading = false;
+    }
+
+    private void SelectSeason(int season) => _selectedSeason = season;
+
+    private async Task ToggleFavoriteAsync()
+    {
+        if (_show is null) return;
+        _show.IsFavorite = !_show.IsFavorite;
+        await TvShowApi.UpdateAsync(_show);
+    }
+
+    private async Task ToggleWantToWatchAsync()
+    {
+        if (_show is null) return;
+        _show.WantToWatch = !_show.WantToWatch;
+        await TvShowApi.UpdateAsync(_show);
+    }
+
+    private async Task AddEpisodeAsync()
+    {
+        try
+        {
+            await EpisodeApi.AddAsync(new EpisodeDto
+            {
+                TvShowId = Id,
+                SeasonNumber = _newSeason,
+                EpisodeNumber = _newEpisode,
+                WatchedAt = _newWatchedAt
+            });
+            _error = null;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}

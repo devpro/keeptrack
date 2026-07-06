@@ -1,0 +1,84 @@
+@page "/import"
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+<div class="kt-page-header">
+    <h1>Import from <span>TV Time</span></h1>
+</div>
+
+<div class="kt-form-card">
+    <p style="color:var(--kt-text-muted)">
+        Upload the zip file from TV Time's "Download my data" (GDPR) export.
+        Keeptrack reads your followed shows, episode watch history, ratings, favorite/want-to-watch status,
+        comments, and movies, and upserts them into your account.
+        Safe to run more than once.
+    </p>
+
+    <div class="kt-dropzone">
+        <span class="kt-dropzone-icon">📦</span>
+        <InputFile OnChange="OnFileSelectedAsync" accept=".zip" disabled="@_importing"/>
+    </div>
+
+    @if (_importing)
+    {
+        <div class="kt-loading">
+            <div class="kt-spinner"></div>
+            Importing…
+        </div>
+    }
+
+    @if (_error is not null)
+    {
+        <div class="alert alert-danger mt-3">@_error</div>
+    }
+
+    @if (_result is not null)
+    {
+        <div class="alert alert-info mt-3">
+            <p class="mb-1"><strong>Shows:</strong> @_result.ShowsCreated created, @_result.ShowsUpdated updated</p>
+            <p class="mb-1"><strong>Episodes:</strong> @_result.EpisodesCreated created, @_result.EpisodesUpdated updated</p>
+            <p class="mb-0"><strong>Movies:</strong> @_result.MoviesCreated created, @_result.MoviesUpdated updated</p>
+            @if (_result.Warnings.Count > 0)
+            {
+                <hr/>
+                <p class="mb-1"><strong>Warnings:</strong></p>
+                <ul class="mb-0">
+                    @foreach (var warning in _result.Warnings)
+                    {
+                        <li>@warning</li>
+                    }
+                </ul>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private const long MaxFileSize = 50_000_000;
+
+    [Inject] private TvTimeImportApiClient ImportApi { get; set; } = null!;
+
+    private bool _importing;
+    private string? _error;
+    private ImportResultDto? _result;
+
+    private async Task OnFileSelectedAsync(InputFileChangeEventArgs e)
+    {
+        _importing = true;
+        _error = null;
+        _result = null;
+        try
+        {
+            await using var stream = e.File.OpenReadStream(MaxFileSize);
+            _result = await ImportApi.ImportAsync(stream, e.File.Name);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _importing = false;
+        }
+    }
+}

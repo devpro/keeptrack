@@ -7,6 +7,8 @@ internal static class InfrastructureServiceCollectionExtensions
         var webApiUri = new Uri(webApiBaseUrl);
         services.AddHttpClient<BookApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
+        services.AddHttpClient<EpisodeApiClient>(client => client.BaseAddress = webApiUri)
+            .AddHttpMessageHandler<AuthenticationTokenHandler>();
         services.AddHttpClient<MovieApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
         services.AddHttpClient<MusicAlbumApiClient>(client => client.BaseAddress = webApiUri)
@@ -14,6 +16,10 @@ internal static class InfrastructureServiceCollectionExtensions
         services.AddHttpClient<TvShowApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
         services.AddHttpClient<VideoGameApiClient>(client => client.BaseAddress = webApiUri)
+            .AddHttpMessageHandler<AuthenticationTokenHandler>();
+        services.AddHttpClient<Components.WatchNext.WatchNextApiClient>(client => client.BaseAddress = webApiUri)
+            .AddHttpMessageHandler<AuthenticationTokenHandler>();
+        services.AddHttpClient<Components.Import.TvTimeImportApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
     }
 }

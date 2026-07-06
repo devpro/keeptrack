@@ -32,12 +32,23 @@
         <th>Year</th>
         <th>Rating</th>
         <td>First seen</td>
+        <th></th>
     </HeaderTemplate>
     <RowTemplate Context="movie">
         <td style="font-weight:500">@movie.Title</td>
         <td style="color:var(--kt-text-muted)">@(movie.Year > 0 ? movie.Year : "")</td>
         <td><span class="kt-stars"><StarRating Rating="movie.Rating" /></span></td>
         <td>@movie.FirstSeenAt?.ToString("yyyy-MM-dd")</td>
+        <td>
+            @if (movie.IsFavorite)
+            {
+                <span title="Best of">⭐</span>
+            }
+            @if (movie.WantToWatch)
+            {
+                <span title="Want to watch">👁</span>
+            }
+        </td>
     </RowTemplate>
     <FormTemplate Context="movie">
         <input class="form-control" placeholder="Title" @bind="movie.Title"/>
@@ -45,6 +56,14 @@
         <input class="form-control" placeholder="Genre" @bind="movie.Genre"/>
         <input class="form-control" placeholder="Rating" @bind="movie.Rating" type="number" />
         <textarea class="form-control" rows="4" @bind="movie.Notes"></textarea>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="movie-favorite" @bind="movie.IsFavorite" />
+            <label class="form-check-label" for="movie-favorite">Best of</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="movie-want-to-watch" @bind="movie.WantToWatch" />
+            <label class="form-check-label" for="movie-want-to-watch">Want to watch</label>
+        </div>
     </FormTemplate>
     <EditModalTemplate Context="movie">
         <div class="col-12">
@@ -70,6 +89,17 @@
         <div class="col-md-6">
             <label class="form-label">First seen at</label>
             <input class="form-control" type="date" @bind="movie.FirstSeenAt" @bind:format="yyyy-MM-dd" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Lists</label>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="movie-favorite-modal" @bind="movie.IsFavorite" />
+                <label class="form-check-label" for="movie-favorite-modal">Best of</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="movie-want-to-watch-modal" @bind="movie.WantToWatch" />
+                <label class="form-check-label" for="movie-want-to-watch-modal">Want to watch</label>
+            </div>
         </div>
     </EditModalTemplate>
 </InventoryList>

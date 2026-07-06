@@ -1,0 +1,79 @@
+@page "/watch-next"
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+<div class="kt-page-header">
+    <h1>Watch <span>next</span></h1>
+</div>
+
+@if (_loading)
+{
+    <div class="kt-loading">
+        <div class="kt-spinner"></div>
+        Loading…
+    </div>
+}
+else
+{
+    <h2 class="kt-section-title">Continue watching</h2>
+    @if (_data.NextEpisodes.Count == 0)
+    {
+        <div class="kt-empty">
+            <div class="kt-empty-icon">◈</div>
+            <p>No shows in progress. Mark an episode as watched to get suggestions here.</p>
+        </div>
+    }
+    else
+    {
+        <div class="kt-card-grid">
+            @foreach (var next in _data.NextEpisodes)
+            {
+                <a class="kt-card" href="@($"/tv-shows/{next.TvShowId}")" style="display:block;color:inherit">
+                    <span class="kt-card-badge">S@(next.NextSeasonNumber.ToString("00"))E@(next.NextEpisodeNumber.ToString("00"))</span>
+                    <p class="kt-card-title">@next.TvShowTitle</p>
+                    @if (next.LastWatchedAt is not null)
+                    {
+                        <p class="kt-card-meta">Last watched @next.LastWatchedAt.Value.ToString("yyyy-MM-dd")</p>
+                    }
+                </a>
+            }
+        </div>
+    }
+
+    <h2 class="kt-section-title">Movies to watch</h2>
+    @if (_data.MoviesToWatch.Count == 0)
+    {
+        <div class="kt-empty">
+            <div class="kt-empty-icon">◈</div>
+            <p>Your movie watchlist is empty. Mark a movie as "want to watch" to see it here.</p>
+        </div>
+    }
+    else
+    {
+        <div class="kt-card-grid">
+            @foreach (var movie in _data.MoviesToWatch)
+            {
+                <div class="kt-card">
+                    <p class="kt-card-title">@movie.Title</p>
+                    @if (movie.Year > 0)
+                    {
+                        <p class="kt-card-meta">@movie.Year</p>
+                    }
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    [Inject] private WatchNextApiClient WatchNextApi { get; set; } = null!;
+
+    private bool _loading = true;
+    private WatchNextDto _data = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _data = await WatchNextApi.GetAsync();
+        _loading = false;
+    }
+}

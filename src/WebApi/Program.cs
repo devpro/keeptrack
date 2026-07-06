@@ -13,6 +13,8 @@ builder.Services.AddAutoMapper(config =>
     },
     typeof(Program).Assembly);
 builder.Services.AddHealthChecks();
+builder.Services.AddSingleton<Keeptrack.WebApi.WatchNext.WatchNextService>();
+builder.Services.AddScoped<Keeptrack.WebApi.Import.TvTimeImportService>();
 builder.Services.AddMongoDbInfrastructure(configuration);
 builder.Services.AddOpenApiWithBearerAuth(configuration);
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

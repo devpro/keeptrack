@@ -30,4 +30,10 @@ public class Movie : IHasIdAndOwnerId
 
     [BsonElement("first_seen_at")]
     public DateTime? FirstSeenAt { get; set; }
+
+    [BsonElement("is_favorite")]
+    public bool IsFavorite { get; set; }
+
+    [BsonElement("want_to_watch")]
+    public bool WantToWatch { get; set; }
 }

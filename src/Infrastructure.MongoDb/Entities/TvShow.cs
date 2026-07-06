@@ -31,4 +31,10 @@ public class TvShow : IHasIdAndOwnerId
 
     [BsonElement("finished_at")]
     public DateTime? FinishedAt { get; set; }
+
+    [BsonElement("is_favorite")]
+    public bool IsFavorite { get; set; }
+
+    [BsonElement("want_to_watch")]
+    public bool WantToWatch { get; set; }
 }

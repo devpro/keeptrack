@@ -28,6 +28,7 @@ internal static class InfrastructureServiceCollectionExtensions
         services.TryAddScoped<Domain.Repositories.IBookRepository, BookRepository>();
         services.TryAddScoped<Domain.Repositories.ICarRepository, CarRepository>();
         services.TryAddScoped<Domain.Repositories.ICarHistoryRepository, CarHistoryRepository>();
+        services.TryAddScoped<Domain.Repositories.IEpisodeRepository, EpisodeRepository>();
         services.TryAddScoped<Domain.Repositories.IMovieRepository, MovieRepository>();
         services.TryAddScoped<Domain.Repositories.IMusicAlbumRepository, MusicAlbumRepository>();
         services.TryAddScoped<Domain.Repositories.ITvShowRepository, TvShowRepository>();

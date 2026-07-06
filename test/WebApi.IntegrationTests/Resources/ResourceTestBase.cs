@@ -69,6 +69,21 @@ public abstract class ResourceTestBase(KestrelWebAppFactory<Program> factory)
         response.StatusCode.Should().Be(httpStatusCode);
     }
 
+    protected async Task<T> PostFileAsync<T>(string url, string fieldName, byte[] fileContent, string fileName, HttpStatusCode httpStatusCode = HttpStatusCode.OK)
+    {
+        using var content = new MultipartFormDataContent();
+        using var byteContent = new ByteArrayContent(fileContent);
+        content.Add(byteContent, fieldName, fileName);
+
+        var response = await _httpClient.PostAsync(url, content);
+        response.StatusCode.Should().Be(httpStatusCode);
+
+        var stringResponse = await response.Content.ReadAsStringAsync();
+        var output = JsonSerializer.Deserialize<T>(stringResponse, JsonSerializerOptions.Web);
+        output.Should().NotBeNull();
+        return output;
+    }
+
     protected async Task DeleteAsync(string url, HttpStatusCode httpStatusCode = HttpStatusCode.NoContent)
     {
         var response = await _httpClient.DeleteAsync(url);
