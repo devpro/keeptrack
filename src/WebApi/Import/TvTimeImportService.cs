@@ -33,11 +33,21 @@ public class TvTimeImportService(ITvShowRepository tvShowRepository, IEpisodeRep
         using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
 
         var followedShows = ReadCsvEntry(archive, "followed_tv_show.csv", FollowedShowsCsvParser.Parse) ?? [];
-        var seenEpisodes = ReadCsvEntry(archive, "seen_episode_source.csv", SeenEpisodesCsvParser.Parse) ?? [];
+
+        // Three overlapping sources of "episode watched on this date", oldest/least complete to newest/most complete.
+        // seen_episode_source.csv alone is usually drastically incomplete (only episode-detail-screen taps); the two
+        // tracking-prod-records files are TV Time's generic event logs and capture episodes marked watched any other
+        // way too. All three are merged and de-duplicated per (show, season, episode) in ImportEpisodesAsync.
+        var seenEpisodes = (ReadCsvEntry(archive, "seen_episode_source.csv", SeenEpisodesCsvParser.Parse) ?? [])
+            .Concat(ReadCsvEntry(archive, "tracking-prod-records.csv", LegacyEpisodeWatchCsvParser.Parse) ?? [])
+            .Concat(ReadCsvEntry(archive, "tracking-prod-records-v2.csv", EpisodeWatchCsvParser.Parse) ?? [])
+            .ToList();
+
         var showRatings = ReadCsvEntry(archive, "tv_show_rate.csv", ShowRatingsCsvParser.Parse) ?? [];
         var showStatuses = ReadCsvEntry(archive, "user_show_special_status.csv", ShowStatusCsvParser.Parse) ?? [];
         var showComments = ReadCsvEntry(archive, "show_comment.csv", ShowCommentsCsvParser.Parse) ?? [];
         var episodeComments = ReadCsvEntry(archive, "episode_comment.csv", EpisodeCommentsCsvParser.Parse) ?? [];
+        var showActivity = ReadCsvEntry(archive, "user_tv_show_data.csv", ShowActivityCsvParser.Parse) ?? [];
         var favoriteMovieUuids = ReadCsvEntry(archive, "lists-prod-lists.csv", FavoriteMoviesListParser.Parse) ?? [];
 
         var movieVotes = MovieVoteFileNames
@@ -49,7 +59,8 @@ public class TvTimeImportService(ITvShowRepository tvShowRepository, IEpisodeRep
         var result = new ImportResultDto();
 
         var showsByTitle = await ImportShowsAsync(ownerId, followedShows, showRatings, showStatuses, showComments, result);
-        await ImportEpisodesAsync(ownerId, showsByTitle, seenEpisodes, episodeComments, result);
+        var detailedEpisodeCountByShowTitle = await ImportEpisodesAsync(ownerId, showsByTitle, seenEpisodes, episodeComments, result);
+        AnnotateWatchCompleteness(followedShows, showActivity, detailedEpisodeCountByShowTitle, result);
         await ImportMoviesAsync(ownerId, movieVotes, favoriteMovieUuids, result);
 
         return result;
@@ -95,7 +106,14 @@ public class TvTimeImportService(ITvShowRepository tvShowRepository, IEpisodeRep
         return showsByTitle;
     }
 
-    private async Task ImportEpisodesAsync(
+    /// <summary>
+    /// Upserts episodes from the merged watch-event sources (see <see cref="ImportAsync"/>), taking the
+    /// earliest recorded date per (show, season, episode) when more than one source reports it. Returns,
+    /// per normalized show title, how many distinct episodes got a watch date - used by
+    /// <see cref="AnnotateWatchCompleteness"/> to flag shows where TV Time's own reported total is still
+    /// higher than what these files captured in detail.
+    /// </summary>
+    private async Task<Dictionary<string, int>> ImportEpisodesAsync(
         string ownerId,
         Dictionary<string, TvShowModel> showsByTitle,
         List<SeenEpisodeRecord> seenEpisodes,
@@ -106,6 +124,8 @@ public class TvTimeImportService(ITvShowRepository tvShowRepository, IEpisodeRep
             .GroupBy(c => (Title: NormalizeTitle(c.ShowTitle), c.SeasonNumber, c.EpisodeNumber))
             .ToDictionary(g => g.Key, g => FormatComments(g.Select(c => (c.CreatedAt, c.Comment))));
 
+        var detailedEpisodeCountByShowTitle = new Dictionary<string, int>();
+
         foreach (var showGroup in seenEpisodes.GroupBy(e => NormalizeTitle(e.ShowTitle)))
         {
             if (!showsByTitle.TryGetValue(showGroup.Key, out var show) || show.Id is null)
@@ -114,13 +134,21 @@ public class TvTimeImportService(ITvShowRepository tvShowRepository, IEpisodeRep
                 continue;
             }
 
+            // de-duplicate across the merged sources: one row per (season, episode), earliest date wins
+            var episodesWatched = showGroup
+                .GroupBy(e => (e.SeasonNumber, e.EpisodeNumber))
+                .Select(g => (g.Key.SeasonNumber, g.Key.EpisodeNumber, WatchedAt: g.Min(e => e.WatchedAt)))
+                .ToList();
+
+            detailedEpisodeCountByShowTitle[showGroup.Key] = episodesWatched.Count;
+
             // one bulk fetch per show, so matching each watched episode doesn't need its own database round trip
             var existingEpisodes = (await episodeRepository.FindAllAsync(ownerId, 1, int.MaxValue, null,
                     NewEpisode(ownerId, show.Id, 0, 0)))
                 .Items
                 .ToDictionary(e => (e.SeasonNumber, e.EpisodeNumber));
 
-            foreach (var seen in showGroup)
+            foreach (var seen in episodesWatched)
             {
                 var episodeKey = (seen.SeasonNumber, seen.EpisodeNumber);
                 var isNew = !existingEpisodes.TryGetValue(episodeKey, out var episode);
@@ -134,6 +162,35 @@ public class TvTimeImportService(ITvShowRepository tvShowRepository, IEpisodeRep
 
                 existingEpisodes[episodeKey] = episode;
             }
+        }
+
+        return detailedEpisodeCountByShowTitle;
+    }
+
+    /// <summary>
+    /// TV Time only writes a row to seen_episode_source.csv when an episode is marked watched via
+    /// its episode-detail screen; episodes marked watched through bulk/season actions never get an
+    /// individual date there, even though user_tv_show_data.csv's own episode count includes them.
+    /// Surface that gap as a warning instead of silently importing a suspiciously short watch history.
+    /// </summary>
+    private static void AnnotateWatchCompleteness(
+        List<FollowedShowRecord> followedShows,
+        List<ShowActivityRecord> showActivity,
+        Dictionary<string, int> detailedEpisodeCountByShowTitle,
+        ImportResultDto result)
+    {
+        var reportedCountByTvShowId = showActivity.ToDictionary(a => a.TvShowId, a => a.EpisodesSeenCount);
+
+        foreach (var show in followedShows)
+        {
+            if (!reportedCountByTvShowId.TryGetValue(show.TvShowId, out var reportedCount)) continue;
+
+            var detailedCount = detailedEpisodeCountByShowTitle.GetValueOrDefault(NormalizeTitle(show.Title));
+            if (reportedCount <= detailedCount) continue;
+
+            result.Warnings.Add(
+                $"{show.Title}: TV Time reports {reportedCount} episodes seen, but only {detailedCount} have per-episode watch dates in this export " +
+                "(TV Time doesn't log detail for episodes marked via bulk/season actions).");
         }
     }
 

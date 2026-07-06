@@ -22,8 +22,11 @@ public class TvTimeImportResourceTest(KestrelWebAppFactory<Program> factory)
 
         var firstResult = await PostFileAsync<ImportResultDto>("/api/import/tv-time", "file", zip, "gdpr-data.zip");
         firstResult.ShowsCreated.Should().Be(1);
-        firstResult.EpisodesCreated.Should().Be(2);
+        // 2 from seen_episode_source.csv + 1 from tracking-prod-records.csv + 1 from tracking-prod-records-v2.csv
+        firstResult.EpisodesCreated.Should().Be(4);
         firstResult.MoviesCreated.Should().Be(1);
+        // user_tv_show_data.csv reports 5 episodes seen, but only 4 got a watch date from the sources above
+        firstResult.Warnings.Should().Contain(w => w.Contains(TvTimeFixtureZipBuilder.ShowTitle) && w.Contains("reports 5") && w.Contains("only 4"));
 
         try
         {
@@ -34,8 +37,10 @@ public class TvTimeImportResourceTest(KestrelWebAppFactory<Program> factory)
             show.Notes.Should().Contain("Great show");
 
             var episodes = await GetAsync<PagedResult<EpisodeDto>>($"/api/episodes?TvShowId={show.Id}");
-            episodes.Items.Should().HaveCount(2);
+            episodes.Items.Should().HaveCount(4);
             episodes.Items.Should().Contain(e => e.SeasonNumber == 1 && e.EpisodeNumber == 1 && e.Notes == "Great pilot");
+            episodes.Items.Should().Contain(e => e.SeasonNumber == 1 && e.EpisodeNumber == 3);
+            episodes.Items.Should().Contain(e => e.SeasonNumber == 2 && e.EpisodeNumber == 1);
 
             var movies = await GetAsync<PagedResult<MovieDto>>($"/api/movies?search={Uri.EscapeDataString(TvTimeFixtureZipBuilder.MovieTitle)}");
             var movie = movies.Items.Should().ContainSingle().Subject;
@@ -46,7 +51,7 @@ public class TvTimeImportResourceTest(KestrelWebAppFactory<Program> factory)
             secondResult.ShowsCreated.Should().Be(0);
             secondResult.ShowsUpdated.Should().Be(1);
             secondResult.EpisodesCreated.Should().Be(0);
-            secondResult.EpisodesUpdated.Should().Be(2);
+            secondResult.EpisodesUpdated.Should().Be(4);
             secondResult.MoviesCreated.Should().Be(0);
             secondResult.MoviesUpdated.Should().Be(1);
 
