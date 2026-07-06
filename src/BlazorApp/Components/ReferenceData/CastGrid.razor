@@ -1,0 +1,23 @@
+@using Keeptrack.WebApi.Contracts.Dto
+
+<div class="d-flex flex-wrap gap-3">
+    @foreach (var member in Cast)
+    {
+        <div class="kt-card" style="width:120px">
+            @if (!string.IsNullOrEmpty(member.ProfileImageUrl))
+            {
+                <img src="@member.ProfileImageUrl" alt="@member.Name" class="img-fluid rounded mb-2"/>
+            }
+            else
+            {
+                <div class="kt-empty-icon mb-2">◈</div>
+            }
+            <p class="mb-0" style="font-weight:500">@member.Name</p>
+            <p class="kt-card-meta mb-0">@member.CharacterName</p>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public required List<CastMemberDto> Cast { get; set; }
+}

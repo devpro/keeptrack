@@ -29,11 +29,21 @@ else
 
     <div class="kt-form-card">
         <div class="row g-3">
+            @if (!string.IsNullOrEmpty(_reference?.PosterUrl))
+            {
+                <div class="col-md-2">
+                    <img src="@_reference.PosterUrl" alt="@_show.Title poster" class="img-fluid rounded"/>
+                </div>
+            }
             <div class="col-md-4">
                 <label class="form-label">Rating</label>
                 <div class="kt-stars"><StarRating Rating="_show.Rating"/></div>
+                @if (_reference?.Genres.Count > 0)
+                {
+                    <p class="kt-card-meta mt-2 mb-0">@string.Join(", ", _reference.Genres)</p>
+                }
             </div>
-            <div class="col-md-8">
+            <div class="col-md-6">
                 <label class="form-label">Notes</label>
                 <div style="white-space:pre-line">@_show.Notes</div>
             </div>
@@ -45,59 +55,106 @@ else
         }
     </div>
 
-    <h2 class="kt-section-title">Add episode watched</h2>
-    <div class="kt-form-card">
-        <div class="row g-3">
-            <div class="col-md-3">
-                <label class="form-label">Season</label>
-                <input class="form-control" type="number" min="0" @bind="_newSeason"/>
+    @if (_reference?.Cast.Count > 0)
+    {
+        <h2 class="kt-section-title">Cast</h2>
+        <CastGrid Cast="_reference.Cast"/>
+    }
+
+    @if (_reference is not null)
+    {
+        @if (_seasons.Count == 0)
+        {
+            <div class="kt-empty">
+                <div class="kt-empty-icon">◈</div>
+                <p>No episode data available for this show yet.</p>
             </div>
-            <div class="col-md-3">
-                <label class="form-label">Episode</label>
-                <input class="form-control" type="number" min="0" @bind="_newEpisode"/>
+        }
+        else
+        {
+            <h2 class="kt-section-title">Episodes</h2>
+            <div class="kt-season-picker">
+                @foreach (var season in _seasons)
+                {
+                    <button class="kt-page-btn @(season == _selectedSeason ? "active" : "")" @onclick="() => SelectSeason(season)">S@(season.ToString("00"))</button>
+                }
             </div>
-            <div class="col-md-3">
-                <label class="form-label">Watched at</label>
-                <input class="form-control" type="date" @bind="_newWatchedAt" @bind:format="yyyy-MM-dd"/>
+
+            <div class="kt-season">
+                <div class="kt-season-header">Season @_selectedSeason</div>
+                @foreach (var episode in _referenceEpisodesBySeason[_selectedSeason])
+                {
+                    var watched = _watchedByKey.GetValueOrDefault((episode.SeasonNumber, episode.EpisodeNumber));
+                    <div class="kt-episode-row @(watched is not null ? "watched" : "")">
+                        <input class="form-check-input" type="checkbox" checked="@(watched is not null)"
+                               @onchange="e => ToggleEpisodeAsync(episode, (bool)e.Value!)"/>
+                        <span class="kt-episode-number">E@(episode.EpisodeNumber.ToString("00"))</span>
+                        <span>@episode.Title</span>
+                        <span class="kt-episode-date">@watched?.WatchedAt?.ToString("yyyy-MM-dd")</span>
+                    </div>
+                }
             </div>
-            <div class="col-md-3 d-flex align-items-end">
-                <button class="btn btn-success" @onclick="AddEpisodeAsync">Add</button>
-            </div>
-        </div>
+        }
         @if (_error is not null)
         {
-            <div class="alert alert-danger mt-3 mb-0">@_error</div>
+            <div class="alert alert-danger mt-3">@_error</div>
         }
-    </div>
-
-    @if (_seasons.Count == 0)
-    {
-        <div class="kt-empty">
-            <div class="kt-empty-icon">◈</div>
-            <p>No episodes tracked yet.</p>
-        </div>
     }
     else
     {
-        <div class="kt-season-picker">
-            @foreach (var season in _seasons)
+        <h2 class="kt-section-title">Add episode watched</h2>
+        <div class="kt-form-card">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Season</label>
+                    <input class="form-control" type="number" min="0" @bind="_newSeason"/>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Episode</label>
+                    <input class="form-control" type="number" min="0" @bind="_newEpisode"/>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Watched at</label>
+                    <input class="form-control" type="date" @bind="_newWatchedAt" @bind:format="yyyy-MM-dd"/>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button class="btn btn-success" @onclick="AddEpisodeAsync">Add</button>
+                </div>
+            </div>
+            @if (_error is not null)
             {
-                <button class="kt-page-btn @(season == _selectedSeason ? "active" : "")" @onclick="() => SelectSeason(season)">S@(season.ToString("00"))</button>
+                <div class="alert alert-danger mt-3 mb-0">@_error</div>
             }
         </div>
 
-        <div class="kt-season">
-            <div class="kt-season-header">Season @_selectedSeason</div>
-            @foreach (var episode in _episodesBySeason[_selectedSeason])
-            {
-                <div class="kt-episode-row watched">
-                    <span class="kt-episode-number">E@(episode.EpisodeNumber.ToString("00"))</span>
-                    <span>@ReferenceEpisodeTitle(episode)</span>
-                    <span>@episode.Notes</span>
-                    <span class="kt-episode-date">@episode.WatchedAt?.ToString("yyyy-MM-dd")</span>
-                </div>
-            }
-        </div>
+        @if (_unresolvedSeasons.Count == 0)
+        {
+            <div class="kt-empty">
+                <div class="kt-empty-icon">◈</div>
+                <p>No episodes tracked yet. This show hasn't been matched to a reference source yet, so the full episode list isn't available - add episodes manually above.</p>
+            </div>
+        }
+        else
+        {
+            <div class="kt-season-picker">
+                @foreach (var season in _unresolvedSeasons)
+                {
+                    <button class="kt-page-btn @(season == _selectedSeason ? "active" : "")" @onclick="() => SelectSeason(season)">S@(season.ToString("00"))</button>
+                }
+            </div>
+
+            <div class="kt-season">
+                <div class="kt-season-header">Season @_selectedSeason</div>
+                @foreach (var episode in _unresolvedEpisodesBySeason[_selectedSeason])
+                {
+                    <div class="kt-episode-row watched">
+                        <span class="kt-episode-number">E@(episode.EpisodeNumber.ToString("00"))</span>
+                        <span>@episode.Notes</span>
+                        <span class="kt-episode-date">@episode.WatchedAt?.ToString("yyyy-MM-dd")</span>
+                    </div>
+                }
+            </div>
+        }
     }
 }
 
@@ -113,9 +170,11 @@ else
     private bool _loading = true;
     private TvShowDto? _show;
     private TvShowReferenceDto? _reference;
-    private Dictionary<(int Season, int Episode), ReferenceEpisodeDto> _referenceEpisodesByKey = new();
-    private Dictionary<int, List<EpisodeDto>> _episodesBySeason = new();
+    private Dictionary<(int Season, int Episode), EpisodeDto> _watchedByKey = new();
+    private Dictionary<int, List<ReferenceEpisodeDto>> _referenceEpisodesBySeason = new();
     private List<int> _seasons = [];
+    private Dictionary<int, List<EpisodeDto>> _unresolvedEpisodesBySeason = new();
+    private List<int> _unresolvedSeasons = [];
     private int _selectedSeason;
     private string? _error;
 
@@ -131,29 +190,35 @@ else
         _show = await TvShowApi.GetOneAsync(Id);
         var episodes = await EpisodeApi.GetAsync(string.Empty, 1, 5000, new Dictionary<string, string> { ["TvShowId"] = Id });
 
-        // reference data (synopsis, real episode titles) is a progressive enhancement: it may not exist
-        // yet (background match still pending, or genuinely unresolved), so the page never blocks on it
+        // reference data (synopsis, real episode titles, cast, poster) is a progressive enhancement: it
+        // may not exist yet (background match still pending, or genuinely unresolved), so the page never
+        // blocks on it - see the two very different rendering branches below.
         _reference = string.IsNullOrEmpty(_show?.ReferenceId) ? null : await ReferenceDataApi.GetTvShowAsync(_show.ReferenceId);
-        _referenceEpisodesByKey = _reference?.Episodes.ToDictionary(e => (e.SeasonNumber, e.EpisodeNumber)) ?? new();
+        _watchedByKey = episodes.Items.ToDictionary(e => (e.SeasonNumber, e.EpisodeNumber));
 
-        // most recently aired first: latest season at the top, latest episode within a season at the top
-        _episodesBySeason = episodes.Items
-            .GroupBy(e => e.SeasonNumber)
-            .ToDictionary(g => g.Key, g => g.OrderByDescending(e => e.EpisodeNumber).ToList());
-        _seasons = _episodesBySeason.Keys.OrderByDescending(s => s).ToList();
-
-        if (!_seasons.Contains(_selectedSeason))
+        if (_reference is not null)
         {
-            _selectedSeason = _seasons.Count > 0 ? _seasons[0] : 0;
+            // full checklist, in natural watch-through order
+            _referenceEpisodesBySeason = _reference.Episodes
+                .GroupBy(e => e.SeasonNumber)
+                .ToDictionary(g => g.Key, g => g.OrderBy(e => e.EpisodeNumber).ToList());
+            _seasons = _referenceEpisodesBySeason.Keys.OrderByDescending(s => s).ToList();
+            if (!_seasons.Contains(_selectedSeason)) _selectedSeason = _seasons.Count > 0 ? _seasons[0] : 0;
+        }
+        else
+        {
+            // unresolved: only what's actually been recorded, most recently aired first
+            _unresolvedEpisodesBySeason = episodes.Items
+                .GroupBy(e => e.SeasonNumber)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(e => e.EpisodeNumber).ToList());
+            _unresolvedSeasons = _unresolvedEpisodesBySeason.Keys.OrderByDescending(s => s).ToList();
+            if (!_unresolvedSeasons.Contains(_selectedSeason)) _selectedSeason = _unresolvedSeasons.Count > 0 ? _unresolvedSeasons[0] : 0;
         }
 
         _loading = false;
     }
 
     private void SelectSeason(int season) => _selectedSeason = season;
-
-    private string? ReferenceEpisodeTitle(EpisodeDto episode) =>
-        _referenceEpisodesByKey.GetValueOrDefault((episode.SeasonNumber, episode.EpisodeNumber))?.Title;
 
     private async Task ToggleFavoriteAsync()
     {
@@ -167,6 +232,37 @@ else
         if (_show is null) return;
         _show.WantToWatch = !_show.WantToWatch;
         await TvShowApi.UpdateAsync(_show);
+    }
+
+    private async Task ToggleEpisodeAsync(ReferenceEpisodeDto episode, bool isWatched)
+    {
+        try
+        {
+            var key = (episode.SeasonNumber, episode.EpisodeNumber);
+            var existing = _watchedByKey.GetValueOrDefault(key);
+
+            if (isWatched && existing is null)
+            {
+                await EpisodeApi.AddAsync(new EpisodeDto
+                {
+                    TvShowId = Id,
+                    SeasonNumber = episode.SeasonNumber,
+                    EpisodeNumber = episode.EpisodeNumber,
+                    WatchedAt = DateOnly.FromDateTime(DateTime.Today)
+                });
+            }
+            else if (!isWatched && existing?.Id is not null)
+            {
+                await EpisodeApi.DeleteAsync(existing.Id);
+            }
+
+            _error = null;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
     }
 
     private async Task AddEpisodeAsync()

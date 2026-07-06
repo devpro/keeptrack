@@ -18,4 +18,10 @@ public class TvShowReferenceDto : IHasId
     public string? Synopsis { get; set; }
 
     public List<ReferenceEpisodeDto> Episodes { get; set; } = [];
+
+    public List<string> Genres { get; set; } = [];
+
+    public List<CastMemberDto> Cast { get; set; } = [];
+
+    public string? PosterUrl { get; set; }
 }

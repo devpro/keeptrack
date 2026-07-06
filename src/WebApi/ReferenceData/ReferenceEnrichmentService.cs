@@ -18,9 +18,16 @@ public class ReferenceEnrichmentService(
     ITmdbClient tmdbClient,
     ITvShowReferenceRepository tvShowReferenceRepository,
     IMovieReferenceRepository movieReferenceRepository,
+    IPersonReferenceRepository personReferenceRepository,
     ITvShowRepository tvShowRepository,
     IMovieRepository movieRepository)
 {
+    /// <summary>
+    /// TMDB credits routinely list dozens of cast members; only the top-billed cast is shown on a
+    /// show/movie page, so only that many are fetched into the reference document.
+    /// </summary>
+    private const int MaxCastMembers = 15;
+
     /// <summary>
     /// Best-effort automatic match: does nothing if the search returns zero or more than one candidate,
     /// leaving the show unresolved for the admin queue instead of guessing.
@@ -50,6 +57,7 @@ public class ReferenceEnrichmentService(
     {
         var details = await tmdbClient.GetTvShowDetailsAsync(tmdbId)
                       ?? throw new InvalidOperationException($"TMDB show {tmdbId} could not be fetched.");
+        var cast = await tmdbClient.GetTvShowCastAsync(tmdbId);
 
         var existing = await tvShowReferenceRepository.FindByTitleYearAsync(title, year);
         var externalIds = existing?.ExternalIds ?? new Dictionary<string, string>();
@@ -66,6 +74,9 @@ public class ReferenceEnrichmentService(
             Episodes = details.Episodes
                 .Select(e => new ReferenceEpisodeModel { SeasonNumber = e.SeasonNumber, EpisodeNumber = e.EpisodeNumber, Title = e.Title, AirDate = e.AirDate })
                 .ToList(),
+            Genres = details.Genres,
+            Cast = await ResolveCastAsync(cast),
+            PosterUrl = details.PosterUrl,
             LastEnrichedAt = DateTime.UtcNow
         };
 
@@ -81,6 +92,7 @@ public class ReferenceEnrichmentService(
     {
         var details = await tmdbClient.GetMovieDetailsAsync(tmdbId)
                       ?? throw new InvalidOperationException($"TMDB movie {tmdbId} could not be fetched.");
+        var cast = await tmdbClient.GetMovieCastAsync(tmdbId);
 
         var existing = await movieReferenceRepository.FindByTitleYearAsync(title, year);
         var externalIds = existing?.ExternalIds ?? new Dictionary<string, string>();
@@ -94,11 +106,41 @@ public class ReferenceEnrichmentService(
             Year = details.Year ?? year,
             Synopsis = details.Synopsis,
             ExternalIds = externalIds,
+            Genres = details.Genres,
+            Cast = await ResolveCastAsync(cast),
+            PosterUrl = details.PosterUrl,
             LastEnrichedAt = DateTime.UtcNow
         };
 
         var saved = await movieReferenceRepository.UpsertAsync(model);
         await movieRepository.SetReferenceIdForTitleYearAsync(title, year, saved.Id!);
         return saved;
+    }
+
+    /// <summary>
+    /// Upserts each cast member into the shared, owner-less person_reference collection (deduplicated by
+    /// TMDB person id - the same actor credited in two different shows only ever gets one document), then
+    /// returns the embedded cast list pointing at those documents.
+    /// </summary>
+    private async Task<List<CastMemberModel>> ResolveCastAsync(IReadOnlyList<TmdbCastMember> cast)
+    {
+        var result = new List<CastMemberModel>();
+
+        foreach (var member in cast.OrderBy(c => c.Order).Take(MaxCastMembers))
+        {
+            var existingPerson = await personReferenceRepository.FindByExternalIdAsync("tmdb", member.PersonTmdbId);
+            var person = new PersonReferenceModel
+            {
+                Id = existingPerson?.Id,
+                Name = member.Name,
+                ProfileImageUrl = member.ProfileImageUrl ?? existingPerson?.ProfileImageUrl,
+                ExternalIds = existingPerson?.ExternalIds ?? new Dictionary<string, string> { ["tmdb"] = member.PersonTmdbId }
+            };
+            var savedPerson = await personReferenceRepository.UpsertAsync(person);
+
+            result.Add(new CastMemberModel { PersonReferenceId = savedPerson.Id!, CharacterName = member.CharacterName, Order = member.Order });
+        }
+
+        return result;
     }
 }

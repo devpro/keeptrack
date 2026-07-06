@@ -27,6 +27,13 @@ public class MovieReference
     [BsonElement("external_ids")]
     public required Dictionary<string, string> ExternalIds { get; set; }
 
+    public List<string> Genres { get; set; } = [];
+
+    public List<CastMember> Cast { get; set; } = [];
+
+    [BsonElement("poster_url")]
+    public string? PosterUrl { get; set; }
+
     [BsonElement("last_enriched_at")]
     public DateTime? LastEnrichedAt { get; set; }
 }

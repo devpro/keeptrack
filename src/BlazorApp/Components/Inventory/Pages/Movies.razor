@@ -35,7 +35,9 @@
         <th></th>
     </HeaderTemplate>
     <RowTemplate Context="movie">
-        <td style="font-weight:500">@movie.Title</td>
+        <td style="font-weight:500">
+            <a href="@($"/movies/{movie.Id}")">@movie.Title</a>
+        </td>
         <td style="color:var(--kt-text-muted)">@(movie.Year > 0 ? movie.Year : "")</td>
         <td><span class="kt-stars"><StarRating Rating="movie.Rating" /></span></td>
         <td>@movie.FirstSeenAt?.ToString("yyyy-MM-dd")</td>
@@ -53,7 +55,6 @@
     <FormTemplate Context="movie">
         <input class="form-control" placeholder="Title" @bind="movie.Title"/>
         <input class="form-control" @bind="movie.Year" type="number" min="1970" max="2100" />
-        <input class="form-control" placeholder="Genre" @bind="movie.Genre"/>
         <input class="form-control" placeholder="Rating" @bind="movie.Rating" type="number" />
         <textarea class="form-control" rows="4" @bind="movie.Notes"></textarea>
         <div class="form-check">
@@ -73,10 +74,6 @@
         <div class="col-md-6">
             <label class="form-label">Year</label>
             <input class="form-control" @bind="movie.Year" type="number" min="1970" max="2100" />
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">Genre</label>
-            <input class="form-control" @bind="movie.Genre" />
         </div>
         <div class="col-md-6">
             <label class="form-label">Rating</label>

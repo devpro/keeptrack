@@ -36,6 +36,12 @@ public class DataStorageMappingProfile : Profile
         CreateMap<Infrastructure.MongoDb.Entities.MovieReference, Domain.Models.MovieReferenceModel>();
         CreateMap<Domain.Models.MovieReferenceModel, Infrastructure.MongoDb.Entities.MovieReference>();
 
+        CreateMap<Infrastructure.MongoDb.Entities.CastMember, Domain.Models.CastMemberModel>();
+        CreateMap<Domain.Models.CastMemberModel, Infrastructure.MongoDb.Entities.CastMember>();
+
+        CreateMap<Infrastructure.MongoDb.Entities.PersonReference, Domain.Models.PersonReferenceModel>();
+        CreateMap<Domain.Models.PersonReferenceModel, Infrastructure.MongoDb.Entities.PersonReference>();
+
         CreateMap<DateTime, DateOnly>().ConvertUsing(dt => DateOnly.FromDateTime(dt));
         CreateMap<DateOnly, DateTime>().ConvertUsing(d => d.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc));
     }

@@ -43,3 +43,10 @@ db.movie_reference.createIndex(
   { title_normalized: 1, year: 1 },
   { name: "movie_reference_title_year" }
 );
+
+// person_reference: actors/cast are deduplicated across every show/movie that credits them, looked up
+// by external provider id (e.g. their TMDB person id), never by name
+db.person_reference.createIndex(
+  { "external_ids.tmdb": 1 },
+  { name: "person_reference_tmdb_id" }
+);

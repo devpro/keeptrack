@@ -14,7 +14,6 @@ public partial class Movies : InventoryPageBase<MovieDto>
         Id = item.Id,
         Title = item.Title,
         Year = item.Year,
-        Genre = item.Genre,
         Rating = item.Rating,
         Notes = item.Notes,
         FirstSeenAt = item.FirstSeenAt,

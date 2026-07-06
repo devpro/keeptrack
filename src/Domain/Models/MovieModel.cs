@@ -15,8 +15,6 @@ public class MovieModel : IHasIdAndOwnerId
 
     public float? Rating { get; set; }
 
-    public string? Genre { get; set; }
-
     public string? Notes { get; set; }
 
     public string? ReferenceId { get; set; }

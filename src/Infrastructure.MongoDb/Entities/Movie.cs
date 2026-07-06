@@ -20,8 +20,6 @@ public class Movie : IHasIdAndOwnerId
 
     public float? Rating { get; set; }
 
-    public string? Genre { get; set; }
-
     public string? Notes { get; set; }
 
     [BsonElement("reference_id")]

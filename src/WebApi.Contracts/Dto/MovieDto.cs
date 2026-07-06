@@ -13,8 +13,6 @@ public class MovieDto : IHasId
 
     public float? Rating { get; set; }
 
-    public string? Genre { get; set; }
-
     public string? Notes { get; set; }
 
     /// <summary>

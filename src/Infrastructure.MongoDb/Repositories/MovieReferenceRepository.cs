@@ -17,7 +17,9 @@ public class MovieReferenceRepository(IMongoDatabase mongoDatabase, IMapper mapp
     public async Task<MovieReferenceModel?> FindByIdAsync(string id)
     {
         var entity = await Collection.Find(x => x.Id == id).FirstOrDefaultAsync();
-        return mapper.Map<MovieReferenceModel>(entity);
+        // AutoMapper's AllowNullDestinationValues = false (Program.cs) makes Map<T>(null) return a new,
+        // all-default instance instead of null - checking for a missing document must happen before mapping.
+        return entity is null ? null : mapper.Map<MovieReferenceModel>(entity);
     }
 
     public async Task<MovieReferenceModel?> FindByTitleYearAsync(string title, int? year)
@@ -25,7 +27,7 @@ public class MovieReferenceRepository(IMongoDatabase mongoDatabase, IMapper mapp
         var filter = Builders<MovieReference>.Filter.Eq(x => x.TitleNormalized, TitleNormalizer.Normalize(title))
                      & Builders<MovieReference>.Filter.Eq(x => x.Year, year);
         var entity = await Collection.Find(filter).FirstOrDefaultAsync();
-        return mapper.Map<MovieReferenceModel>(entity);
+        return entity is null ? null : mapper.Map<MovieReferenceModel>(entity);
     }
 
     public async Task<MovieReferenceModel> UpsertAsync(MovieReferenceModel model)

@@ -17,7 +17,9 @@ public class TvShowReferenceRepository(IMongoDatabase mongoDatabase, IMapper map
     public async Task<TvShowReferenceModel?> FindByIdAsync(string id)
     {
         var entity = await Collection.Find(x => x.Id == id).FirstOrDefaultAsync();
-        return mapper.Map<TvShowReferenceModel>(entity);
+        // AutoMapper's AllowNullDestinationValues = false (Program.cs) makes Map<T>(null) return a new,
+        // all-default instance instead of null - checking for a missing document must happen before mapping.
+        return entity is null ? null : mapper.Map<TvShowReferenceModel>(entity);
     }
 
     public async Task<TvShowReferenceModel?> FindByTitleYearAsync(string title, int? year)
@@ -25,7 +27,7 @@ public class TvShowReferenceRepository(IMongoDatabase mongoDatabase, IMapper map
         var filter = Builders<TvShowReference>.Filter.Eq(x => x.TitleNormalized, TitleNormalizer.Normalize(title))
                      & Builders<TvShowReference>.Filter.Eq(x => x.Year, year);
         var entity = await Collection.Find(filter).FirstOrDefaultAsync();
-        return mapper.Map<TvShowReferenceModel>(entity);
+        return entity is null ? null : mapper.Map<TvShowReferenceModel>(entity);
     }
 
     public async Task<TvShowReferenceModel> UpsertAsync(TvShowReferenceModel model)

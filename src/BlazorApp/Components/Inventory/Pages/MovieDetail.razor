@@ -1,0 +1,101 @@
+@page "/movies/{Id}"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using Keeptrack.BlazorApp.Components.ReferenceData
+
+@if (_loading)
+{
+    <div class="kt-loading">
+        <div class="kt-spinner"></div>
+        Loading…
+    </div>
+}
+else if (_movie is null)
+{
+    <div class="kt-empty">
+        <div class="kt-empty-icon">◈</div>
+        <p>Movie not found.</p>
+    </div>
+}
+else
+{
+    <div class="kt-page-header">
+        <h1>@_movie.Title</h1>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm @(_movie.IsFavorite ? "btn-primary" : "btn-secondary")" @onclick="ToggleFavoriteAsync">⭐ Best of</button>
+            <button class="btn btn-sm @(_movie.WantToWatch ? "btn-primary" : "btn-secondary")" @onclick="ToggleWantToWatchAsync">👁 Want to watch</button>
+        </div>
+    </div>
+
+    <div class="kt-form-card">
+        <div class="row g-3">
+            @if (!string.IsNullOrEmpty(_reference?.PosterUrl))
+            {
+                <div class="col-md-2">
+                    <img src="@_reference.PosterUrl" alt="@_movie.Title poster" class="img-fluid rounded"/>
+                </div>
+            }
+            <div class="col-md-4">
+                <label class="form-label">Year</label>
+                <div>@(_reference?.Year ?? _movie.Year)</div>
+                <label class="form-label mt-2">Rating</label>
+                <div class="kt-stars"><StarRating Rating="_movie.Rating"/></div>
+                @if (_reference?.Genres.Count > 0)
+                {
+                    <p class="kt-card-meta mt-2 mb-0">@string.Join(", ", _reference.Genres)</p>
+                }
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Notes</label>
+                <div style="white-space:pre-line">@_movie.Notes</div>
+            </div>
+        </div>
+        @if (!string.IsNullOrEmpty(_reference?.Synopsis))
+        {
+            <hr/>
+            <p class="mb-0" style="color:var(--kt-text-muted)">@_reference.Synopsis</p>
+        }
+    </div>
+
+    @if (_reference?.Cast.Count > 0)
+    {
+        <h2 class="kt-section-title">Cast</h2>
+        <CastGrid Cast="_reference.Cast"/>
+    }
+}
+
+@code {
+    [Parameter] public required string Id { get; set; }
+
+    [Inject] private MovieApiClient MovieApi { get; set; } = null!;
+
+    [Inject] private ReferenceDataApiClient ReferenceDataApi { get; set; } = null!;
+
+    private bool _loading = true;
+    private MovieDto? _movie;
+    private MovieReferenceDto? _reference;
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _movie = await MovieApi.GetOneAsync(Id);
+        _reference = string.IsNullOrEmpty(_movie?.ReferenceId) ? null : await ReferenceDataApi.GetMovieAsync(_movie.ReferenceId);
+        _loading = false;
+    }
+
+    private async Task ToggleFavoriteAsync()
+    {
+        if (_movie is null) return;
+        _movie.IsFavorite = !_movie.IsFavorite;
+        await MovieApi.UpdateAsync(_movie);
+    }
+
+    private async Task ToggleWantToWatchAsync()
+    {
+        if (_movie is null) return;
+        _movie.WantToWatch = !_movie.WantToWatch;
+        await MovieApi.UpdateAsync(_movie);
+    }
+}

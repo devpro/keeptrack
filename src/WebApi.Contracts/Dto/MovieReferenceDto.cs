@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Keeptrack.Common.System;
 
 namespace Keeptrack.WebApi.Contracts.Dto;
@@ -15,4 +16,10 @@ public class MovieReferenceDto : IHasId
     public int? Year { get; set; }
 
     public string? Synopsis { get; set; }
+
+    public List<string> Genres { get; set; } = [];
+
+    public List<CastMemberDto> Cast { get; set; } = [];
+
+    public string? PosterUrl { get; set; }
 }

@@ -49,7 +49,9 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
                 new TmdbEpisode(season.SeasonNumber, e.EpisodeNumber, e.Name ?? $"Episode {e.EpisodeNumber}", ParseDate(e.AirDate))));
         }
 
-        return new TmdbTvShowDetails(tmdbId, details.Name ?? string.Empty, ParseYear(details.FirstAirDate), details.Overview, episodes);
+        return new TmdbTvShowDetails(
+            tmdbId, details.Name ?? string.Empty, ParseYear(details.FirstAirDate), details.Overview, episodes,
+            details.Genres.Select(g => g.Name).ToList(), BuildImageUrl(details.PosterPath, PosterImageSize));
     }
 
     public async Task<TmdbMovieDetails?> GetMovieDetailsAsync(string tmdbId, CancellationToken cancellationToken = default)
@@ -57,10 +59,29 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
         var details = await http.GetFromJsonAsync<TmdbMovieDetailsResponse>($"movie/{tmdbId}?api_key={ApiKey}", cancellationToken);
         return details is null
             ? null
-            : new TmdbMovieDetails(tmdbId, details.Title ?? string.Empty, ParseYear(details.ReleaseDate), details.Overview);
+            : new TmdbMovieDetails(
+                tmdbId, details.Title ?? string.Empty, ParseYear(details.ReleaseDate), details.Overview,
+                details.Genres.Select(g => g.Name).ToList(), BuildImageUrl(details.PosterPath, PosterImageSize));
+    }
+
+    public async Task<IReadOnlyList<TmdbCastMember>> GetTvShowCastAsync(string tmdbId, CancellationToken cancellationToken = default) =>
+        await GetCastAsync($"tv/{tmdbId}/credits", cancellationToken);
+
+    public async Task<IReadOnlyList<TmdbCastMember>> GetMovieCastAsync(string tmdbId, CancellationToken cancellationToken = default) =>
+        await GetCastAsync($"movie/{tmdbId}/credits", cancellationToken);
+
+    private async Task<IReadOnlyList<TmdbCastMember>> GetCastAsync(string path, CancellationToken cancellationToken)
+    {
+        var credits = await http.GetFromJsonAsync<TmdbCreditsResponse>($"{path}?api_key={ApiKey}", cancellationToken);
+        return credits?.Cast.Select(c => new TmdbCastMember(
+            c.Id.ToString(CultureInfo.InvariantCulture), c.Name ?? string.Empty, c.Character ?? string.Empty, c.Order,
+            BuildImageUrl(c.ProfilePath, ProfileImageSize))).ToList() ?? [];
     }
 
     private string ApiKey => settings.ApiKey;
+
+    private const string PosterImageSize = "w500";
+    private const string ProfileImageSize = "w185";
 
     private static string Encode(string value) => HttpUtility.UrlEncode(value);
 
@@ -68,6 +89,14 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
 
     private static DateOnly? ParseDate(string? date) =>
         !string.IsNullOrEmpty(date) && DateOnly.TryParse(date, CultureInfo.InvariantCulture, out var parsed) ? parsed : null;
+
+    /// <summary>
+    /// TMDB's image CDN is a separate, unauthenticated static-asset host explicitly meant for direct
+    /// hotlinking (not the rate-limited API) - the standard pattern every TMDB-consuming app uses, so
+    /// this just builds the URL rather than downloading anything.
+    /// </summary>
+    private static string? BuildImageUrl(string? path, string size) =>
+        string.IsNullOrEmpty(path) ? null : $"https://image.tmdb.org/t/p/{size}{path}";
 
     private sealed class TmdbSearchResponse
     {
@@ -107,8 +136,20 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
         [JsonPropertyName("first_air_date")]
         public string? FirstAirDate { get; set; }
 
+        [JsonPropertyName("poster_path")]
+        public string? PosterPath { get; set; }
+
+        [JsonPropertyName("genres")]
+        public List<TmdbGenre> Genres { get; set; } = [];
+
         [JsonPropertyName("seasons")]
         public List<TmdbSeasonSummary> Seasons { get; set; } = [];
+    }
+
+    private sealed class TmdbGenre
+    {
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = string.Empty;
     }
 
     private sealed class TmdbSeasonSummary
@@ -145,5 +186,35 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
 
         [JsonPropertyName("release_date")]
         public string? ReleaseDate { get; set; }
+
+        [JsonPropertyName("poster_path")]
+        public string? PosterPath { get; set; }
+
+        [JsonPropertyName("genres")]
+        public List<TmdbGenre> Genres { get; set; } = [];
+    }
+
+    private sealed class TmdbCreditsResponse
+    {
+        [JsonPropertyName("cast")]
+        public List<TmdbCastMemberWire> Cast { get; set; } = [];
+    }
+
+    private sealed class TmdbCastMemberWire
+    {
+        [JsonPropertyName("id")]
+        public int Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+
+        [JsonPropertyName("character")]
+        public string? Character { get; set; }
+
+        [JsonPropertyName("order")]
+        public int Order { get; set; }
+
+        [JsonPropertyName("profile_path")]
+        public string? ProfilePath { get; set; }
     }
 }

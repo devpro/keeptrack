@@ -6,6 +6,20 @@ Update this file as items are fixed or as new reviews are performed.
 
 ## Fixed
 
+### `mapper.Map<T>(null)` returned a fake empty object instead of null
+
+Found on 2026-07-06 while adding the cast/actors integration test (`PersonReferenceRepositoryTest`), in `TvShowReferenceRepository`/`MovieReferenceRepository`/`PersonReferenceRepository`'s `Find*Async` methods.
+Each did `var entity = await Collection.Find(...).FirstOrDefaultAsync(); return mapper.Map<TModel>(entity);` - when nothing matched, `entity` is `null`, and the same `AllowNullDestinationValues = false` AutoMapper setting behind the previous finding also changes `Map<TDestination>(null)`: instead of returning `null`, it returns a new, all-default `TDestination` instance.
+The integration test's `found.Should().BeNull()` assertion caught it directly (`found` was a non-null `PersonReferenceModel` with every property null).
+This silently broke "not found" handling anywhere these methods were used with an `is null` check, including `ReferenceDataController`'s 404 responses.
+Fixed by checking `entity is null` before calling `mapper.Map` in all three repositories, returning `null` directly instead.
+
+Files:
+
+- `src/Infrastructure.MongoDb/Repositories/TvShowReferenceRepository.cs`
+- `src/Infrastructure.MongoDb/Repositories/MovieReferenceRepository.cs`
+- `src/Infrastructure.MongoDb/Repositories/PersonReferenceRepository.cs`
+
 ### `Eq(x => x.ReferenceId, null)` never matched a document, because it was never actually null
 
 Found on 2026-07-06 while building the reference-data (TMDB) feature, in the first draft of `TvShowRepository.SetReferenceIdForTitleYearAsync`/`FindDistinctUnresolvedTitleYearsAsync`.

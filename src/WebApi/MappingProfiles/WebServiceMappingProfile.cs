@@ -44,7 +44,13 @@ public class WebServiceMappingProfile : Profile
         // Reference-data reads are one-directional (Model -> Dto): admins submit a LinkReferenceRequestDto,
         // never a full TvShowReferenceDto/MovieReferenceDto, so there's no Dto -> Model direction to map.
         CreateMap<Domain.Models.ReferenceEpisodeModel, ReferenceEpisodeDto>();
-        CreateMap<Domain.Models.TvShowReferenceModel, TvShowReferenceDto>();
-        CreateMap<Domain.Models.MovieReferenceModel, MovieReferenceDto>();
+
+        // Cast is ignored here and hydrated manually by ReferenceDataController: CastMemberModel only
+        // carries a PersonReferenceId, while CastMemberDto needs the person's name/photo joined in from
+        // person_reference - a join AutoMapper has no repository access to perform.
+        CreateMap<Domain.Models.TvShowReferenceModel, TvShowReferenceDto>()
+            .ForMember(x => x.Cast, opt => opt.Ignore());
+        CreateMap<Domain.Models.MovieReferenceModel, MovieReferenceDto>()
+            .ForMember(x => x.Cast, opt => opt.Ignore());
     }
 }
