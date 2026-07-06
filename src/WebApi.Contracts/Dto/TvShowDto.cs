@@ -26,9 +26,10 @@ public class TvShowDto : IHasId
 
     public string? LastEpisodeSeen { get; set; }
 
-    public string? ImdbPageId { get; set; }
-
-    public string? AllocineId { get; set; }
+    /// <summary>
+    /// Id of the shared reference-data document (episode titles, synopsis) for this show, once resolved.
+    /// </summary>
+    public string? ReferenceId { get; set; }
 
     public DateOnly? FinishedAt { get; set; }
 

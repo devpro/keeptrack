@@ -19,9 +19,7 @@ public class MovieModel : IHasIdAndOwnerId
 
     public string? Notes { get; set; }
 
-    public string? ImdbPageId { get; set; }
-
-    public string? AllocineId { get; set; }
+    public string? ReferenceId { get; set; }
 
     public DateOnly? FirstSeenAt { get; set; }
 

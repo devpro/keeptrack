@@ -33,5 +33,7 @@ internal static class InfrastructureServiceCollectionExtensions
         services.TryAddScoped<Domain.Repositories.IMusicAlbumRepository, MusicAlbumRepository>();
         services.TryAddScoped<Domain.Repositories.ITvShowRepository, TvShowRepository>();
         services.TryAddScoped<Domain.Repositories.IVideoGameRepository, VideoGameRepository>();
+        services.TryAddScoped<Domain.Repositories.ITvShowReferenceRepository, TvShowReferenceRepository>();
+        services.TryAddScoped<Domain.Repositories.IMovieReferenceRepository, MovieReferenceRepository>();
     }
 }

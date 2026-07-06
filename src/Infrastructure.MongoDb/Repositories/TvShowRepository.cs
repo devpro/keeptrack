@@ -1,8 +1,13 @@
-﻿using AutoMapper;
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using AutoMapper;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.Infrastructure.MongoDb.Entities;
 using Microsoft.Extensions.Logging;
+using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
@@ -20,5 +25,36 @@ public class TvShowRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepos
         if (input.IsFavorite) filter &= builder.Eq(f => f.IsFavorite, true);
         if (input.WantToWatch) filter &= builder.Eq(f => f.WantToWatch, true);
         return filter;
+    }
+
+    public async Task<long> SetReferenceIdForTitleYearAsync(string title, int? year, string referenceId)
+    {
+        var builder = Builders<TvShow>.Filter;
+        var filter = builder.Regex(f => f.Title, new BsonRegularExpression($"^{Regex.Escape(title)}$", "i"))
+                     & builder.Eq(f => f.Year, year)
+                     & UnresolvedFilter();
+
+        var result = await GetCollection().UpdateManyAsync(filter, Builders<TvShow>.Update.Set(f => f.ReferenceId, referenceId));
+        return result.ModifiedCount;
+    }
+
+    public async Task<IReadOnlyList<(string Title, int? Year)>> FindDistinctUnresolvedTitleYearsAsync()
+    {
+        var groups = await GetCollection().Aggregate()
+            .Match(UnresolvedFilter())
+            .Group(f => new { f.Title, f.Year }, g => g.Key)
+            .ToListAsync();
+        return groups.Select(g => (g.Title, g.Year)).ToList();
+    }
+
+    /// <summary>
+    /// "Has no reference link yet" means <see cref="TvShow.ReferenceId"/> is null OR empty string, not
+    /// just null: AutoMapper is configured with <c>AllowNullDestinationValues = false</c> (see Program.cs),
+    /// so mapping a model with a null string property stores an empty string, never an actual null.
+    /// </summary>
+    private static FilterDefinition<TvShow> UnresolvedFilter()
+    {
+        var builder = Builders<TvShow>.Filter;
+        return builder.Eq(f => f.ReferenceId, null) | builder.Eq(f => f.ReferenceId, string.Empty);
     }
 }

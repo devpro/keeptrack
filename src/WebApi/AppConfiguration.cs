@@ -1,4 +1,5 @@
 ﻿using Keeptrack.WebApi.Authentication;
+using Keeptrack.WebApi.ReferenceData;
 using Withywoods.Configuration;
 
 namespace Keeptrack.WebApi;
@@ -16,6 +17,8 @@ public class AppConfiguration(IConfiguration configuration)
     public OpenApiInfo OpenApiInfo { get; } = configuration.TryGetSection<OpenApiInfo>("OpenApi");
 
     public JwtBearerSettings JwtBearerSettings { get; } = configuration.TryGetSection<JwtBearerSettings>("Authentication:JwtBearer");
+
+    public TmdbSettings TmdbSettings { get; } = configuration.TryGetSection<TmdbSettings>("Tmdb");
 
     public string ConnectionString => configuration.TryGetSection<string>("Infrastructure:MongoDB:ConnectionString");
 

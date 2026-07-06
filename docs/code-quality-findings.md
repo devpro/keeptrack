@@ -6,6 +6,20 @@ Update this file as items are fixed or as new reviews are performed.
 
 ## Fixed
 
+### `Eq(x => x.ReferenceId, null)` never matched a document, because it was never actually null
+
+Found on 2026-07-06 while building the reference-data (TMDB) feature, in the first draft of `TvShowRepository.SetReferenceIdForTitleYearAsync`/`FindDistinctUnresolvedTitleYearsAsync`.
+The filter checked `Builders<TvShow>.Filter.Eq(f => f.ReferenceId, null)`, expecting it to match every show that had never been linked.
+It matched zero documents, because `AddAutoMapper` is configured with `AllowNullDestinationValues = false` (`WebApi/Program.cs`) - mapping a model whose string property is null stores an **empty string** in MongoDB, never an actual BSON null.
+Every "is this string field unset" filter in the codebase needs to check for null *or* empty string, not just null.
+Fixed by adding a shared `UnresolvedFilter()` helper (in both `TvShowRepository` and `MovieRepository`) that matches either.
+This is a real-database-only bug: it doesn't throw, so a unit test against a mocked repository can't catch it - only `TvShowReferenceLinkingTest`, which runs the actual query against a real MongoDB instance, caught it (the assertion literally saw `"reference_id": ""` in the raw document via a diagnostic dump, not `null`).
+
+Files:
+
+- `src/Infrastructure.MongoDb/Repositories/TvShowRepository.cs`
+- `src/Infrastructure.MongoDb/Repositories/MovieRepository.cs`
+
 ### Search was a no-op for Movie and Music Album
 
 Fixed on 2026-07-06 while building the TV Time import feature (both repositories were touched anyway to add the `IsFavorite`/`WantToWatch` filters).
@@ -88,5 +102,6 @@ A very large `PageSize` forces an unbounded fetch.
 `Episode` and `TvShow` gained partial coverage as a side effect of `TvTimeImportResourceTest` (create/upsert/search paths, plus `Episode`'s `TvShowId` filter), but neither has a dedicated full CRUD test of its own yet.
 `CarHistory`, `MusicAlbum`, and `VideoGame` still have none.
 No test asserts ownership isolation (that user A cannot read, update, or delete user B's record).
-There is no test project for `BlazorApp`.
+There is no test project for `BlazorApp` - `AuthenticationController`'s Firebase-custom-claim-to-cookie-claim copy (added for the admin role) has no automated coverage as a result, only manual verification.
+The reference-data admin endpoints have integration coverage for the non-admin-rejected (403) path and for the underlying Mongo queries directly (`TvShowReferenceLinkingTest`), but not for the admin-succeeds path over HTTP end-to-end, since that needs a second Firebase test user with the `role: admin` claim pre-set (see `CONTRIBUTING.md`).
 `BookResourceTest` and `MovieResourceTest` are also close to copy-pasted; a generic/parameterized test base (mirroring `DataCrudControllerBase<TDto, TModel>` on the production side) would cover all resources without duplicating the test code per type.

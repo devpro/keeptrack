@@ -27,6 +27,7 @@
     <File Path=".gitlab-ci.yml" />
   </Folder>
   <Folder Name="/Solution Items/scripts/">
+    <File Path="scripts/firebase-set-admin.js" />
     <File Path="scripts/mongodb-create-index.js" />
     <File Path="scripts/mongodb-install.sh" />
   </Folder>

@@ -8,6 +8,8 @@ using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.Import.Parsers;
+using Keeptrack.WebApi.ReferenceData;
+using Microsoft.Extensions.Logging;
 
 namespace Keeptrack.WebApi.Import;
 
@@ -18,7 +20,12 @@ namespace Keeptrack.WebApi.Import;
 /// owner id only - nothing in the uploaded file (including TV Time's own internal user id) is ever
 /// used to determine ownership.
 /// </summary>
-public class TvTimeImportService(ITvShowRepository tvShowRepository, IEpisodeRepository episodeRepository, IMovieRepository movieRepository)
+public class TvTimeImportService(
+    ITvShowRepository tvShowRepository,
+    IEpisodeRepository episodeRepository,
+    IMovieRepository movieRepository,
+    ReferenceEnrichmentService enrichmentService,
+    ILogger<TvTimeImportService> logger)
 {
     private static readonly string[] MovieVoteFileNames =
     [
@@ -86,19 +93,26 @@ public class TvTimeImportService(ITvShowRepository tvShowRepository, IEpisodeRep
     {
         var showsByTitle = (await tvShowRepository.FindAllAsync(ownerId, 1, int.MaxValue, null, NewShow(ownerId, string.Empty)))
             .Items
-            .ToDictionary(show => NormalizeTitle(show.Title));
+            .ToDictionary(show => TitleNormalizer.Normalize(show.Title));
 
         foreach (var show in followedShows)
         {
-            var key = NormalizeTitle(show.Title);
+            var key = TitleNormalizer.Normalize(show.Title);
             var isNew = !showsByTitle.TryGetValue(key, out var model);
             model ??= NewShow(ownerId, show.Title);
 
             model.Title = show.Title;
             enrichment.ApplyTo(model, show.TvShowId);
 
-            if (await SaveAsync(tvShowRepository, model, ownerId, isNew)) result.ShowsCreated++;
-            else result.ShowsUpdated++;
+            if (await SaveAsync(tvShowRepository, model, ownerId, isNew))
+            {
+                result.ShowsCreated++;
+                await TryEnrichShowAsync(model);
+            }
+            else
+            {
+                result.ShowsUpdated++;
+            }
 
             showsByTitle[key] = model;
         }
@@ -124,12 +138,12 @@ public class TvTimeImportService(ITvShowRepository tvShowRepository, IEpisodeRep
         ImportResultDto result)
     {
         var notesByEpisodeKey = episodeComments
-            .GroupBy(c => (Title: NormalizeTitle(c.ShowTitle), c.SeasonNumber, c.EpisodeNumber))
+            .GroupBy(c => (Title: TitleNormalizer.Normalize(c.ShowTitle), c.SeasonNumber, c.EpisodeNumber))
             .ToDictionary(g => g.Key, g => FormatComments(g.Select(c => (c.CreatedAt, c.Comment))));
 
         var detailedEpisodeCountByShowTitle = new Dictionary<string, int>();
 
-        foreach (var showGroup in seenEpisodes.GroupBy(e => NormalizeTitle(e.ShowTitle)))
+        foreach (var showGroup in seenEpisodes.GroupBy(e => TitleNormalizer.Normalize(e.ShowTitle)))
         {
             if (!showsByTitle.TryGetValue(showGroup.Key, out var show) || show.Id is null)
             {
@@ -137,7 +151,12 @@ public class TvTimeImportService(ITvShowRepository tvShowRepository, IEpisodeRep
                 show = NewShow(ownerId, showGroup.First().ShowTitle);
                 enrichment.ApplyTo(show, tvShowId);
 
-                if (await SaveAsync(tvShowRepository, show, ownerId, isNew: true)) result.ShowsCreated++;
+                if (await SaveAsync(tvShowRepository, show, ownerId, isNew: true))
+                {
+                    result.ShowsCreated++;
+                    await TryEnrichShowAsync(show);
+                }
+
                 showsByTitle[showGroup.Key] = show;
             }
 
@@ -192,7 +211,7 @@ public class TvTimeImportService(ITvShowRepository tvShowRepository, IEpisodeRep
         {
             if (!reportedCountByTvShowId.TryGetValue(show.TvShowId, out var reportedCount)) continue;
 
-            var detailedCount = detailedEpisodeCountByShowTitle.GetValueOrDefault(NormalizeTitle(show.Title));
+            var detailedCount = detailedEpisodeCountByShowTitle.GetValueOrDefault(TitleNormalizer.Normalize(show.Title));
             if (reportedCount <= detailedCount) continue;
 
             result.Warnings.Add($"{show.Title}: {detailedCount} of {reportedCount} episodes imported (bulk actions are not exported by TV Time).");
@@ -207,17 +226,24 @@ public class TvTimeImportService(ITvShowRepository tvShowRepository, IEpisodeRep
     {
         var moviesByTitle = (await movieRepository.FindAllAsync(ownerId, 1, int.MaxValue, null, NewMovie(ownerId, string.Empty)))
             .Items
-            .ToDictionary(movie => NormalizeTitle(movie.Title));
+            .ToDictionary(movie => TitleNormalizer.Normalize(movie.Title));
 
-        foreach (var titleGroup in movieVotes.GroupBy(v => NormalizeTitle(v.MovieName)))
+        foreach (var titleGroup in movieVotes.GroupBy(v => TitleNormalizer.Normalize(v.MovieName)))
         {
             var isNew = !moviesByTitle.TryGetValue(titleGroup.Key, out var model);
             model ??= NewMovie(ownerId, titleGroup.First().MovieName);
 
             if (titleGroup.Any(v => favoriteMovieUuids.Contains(v.Uuid))) model.IsFavorite = true;
 
-            if (await SaveAsync(movieRepository, model, ownerId, isNew)) result.MoviesCreated++;
-            else result.MoviesUpdated++;
+            if (await SaveAsync(movieRepository, model, ownerId, isNew))
+            {
+                result.MoviesCreated++;
+                await TryEnrichMovieAsync(model);
+            }
+            else
+            {
+                result.MoviesUpdated++;
+            }
 
             moviesByTitle[titleGroup.Key] = model;
         }
@@ -248,10 +274,39 @@ public class TvTimeImportService(ITvShowRepository tvShowRepository, IEpisodeRep
     private static EpisodeModel NewEpisode(string ownerId, string tvShowId, int seasonNumber, int episodeNumber) =>
         new() { OwnerId = ownerId, TvShowId = tvShowId, SeasonNumber = seasonNumber, EpisodeNumber = episodeNumber };
 
-    private static string NormalizeTitle(string title) => title.Trim().ToLowerInvariant();
-
     private static string FormatComments(IEnumerable<(DateTime CreatedAt, string Comment)> comments) =>
         string.Join('\n', comments.OrderBy(c => c.CreatedAt).Select(c => $"{c.CreatedAt:yyyy-MM-dd}: {c.Comment}"));
+
+    /// <summary>
+    /// Best-effort background reference-data match for a newly-imported show. A single show's TMDB
+    /// lookup failing (rate limit, no network) must never fail the rest of the import.
+    /// </summary>
+    private async Task TryEnrichShowAsync(TvShowModel show)
+    {
+        try
+        {
+            await enrichmentService.TryAutoResolveTvShowAsync(show.Title, show.Year);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Reference-data match failed for imported TV show '{Title}'.", show.Title);
+        }
+    }
+
+    /// <summary>
+    /// Movie equivalent of <see cref="TryEnrichShowAsync"/>.
+    /// </summary>
+    private async Task TryEnrichMovieAsync(MovieModel movie)
+    {
+        try
+        {
+            await enrichmentService.TryAutoResolveMovieAsync(movie.Title, movie.Year);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Reference-data match failed for imported movie '{Title}'.", movie.Title);
+        }
+    }
 
     private static TResult? ReadCsvEntry<TResult>(ZipArchive archive, string entryName, Func<Stream, TResult> parse)
         where TResult : class

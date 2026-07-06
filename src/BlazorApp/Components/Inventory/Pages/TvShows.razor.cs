@@ -14,11 +14,12 @@ public partial class TvShows : InventoryPageBase<TvShowDto>
         Id = item.Id,
         Title = item.Title,
         Rating = item.Rating,
-        AllocineId = item.AllocineId,
-        ImdbPageId = item.ImdbPageId,
+        ReferenceId = item.ReferenceId,
         Notes = item.Notes,
         FinishedAt = item.FinishedAt,
         LastEpisodeSeen = item.LastEpisodeSeen,
-        Year = item.Year
+        Year = item.Year,
+        IsFavorite = item.IsFavorite,
+        WantToWatch = item.WantToWatch
     };
 }

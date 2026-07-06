@@ -1,0 +1,15 @@
+namespace Keeptrack.WebApi.Contracts.Dto;
+
+/// <summary>
+/// An admin's manual choice: link every tenant's (Title, Year) match to this TMDB id.
+/// </summary>
+public class LinkReferenceRequestDto
+{
+    public required ReferenceItemType Type { get; set; }
+
+    public required string Title { get; set; }
+
+    public int? Year { get; set; }
+
+    public required string TmdbId { get; set; }
+}

@@ -25,9 +25,8 @@ public class TvShow : IHasIdAndOwnerId
     [BsonElement("last_episode_seen")]
     public string? LastEpisodeSeen { get; set; }
 
-    public Imdb? Imdb { get; set; }
-
-    public Allocine? Allocine { get; set; }
+    [BsonElement("reference_id")]
+    public string? ReferenceId { get; set; }
 
     [BsonElement("finished_at")]
     public DateTime? FinishedAt { get; set; }

@@ -1,0 +1,148 @@
+@page "/admin/reference-data"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = "AdminOnly")]
+@using Keeptrack.WebApi.Contracts.Dto
+
+<div class="kt-page-header">
+    <h1>Reference data</h1>
+</div>
+
+<div class="kt-form-card">
+    <p style="color:var(--kt-text-muted)">
+        Titles below couldn't be automatically matched to a TMDB entry (no result, or more than one
+        candidate). Pick the right one to link every account's matching show/movie at once.
+    </p>
+    <div class="d-flex gap-2 mb-3">
+        <button class="btn btn-sm @(_type == ReferenceItemType.TvShow ? "btn-primary" : "btn-secondary")" @onclick='() => SelectTypeAsync(ReferenceItemType.TvShow)'>TV shows</button>
+        <button class="btn btn-sm @(_type == ReferenceItemType.Movie ? "btn-primary" : "btn-secondary")" @onclick='() => SelectTypeAsync(ReferenceItemType.Movie)'>Movies</button>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="kt-table-wrap">
+            <div class="kt-table-header">
+                <span class="kt-table-title">Unresolved (@_unresolved.Count)</span>
+            </div>
+            @if (_unresolved.Count == 0)
+            {
+                <div class="kt-empty">
+                    <div class="kt-empty-icon">◈</div>
+                    <p>Nothing waiting on a manual match.</p>
+                </div>
+            }
+            else
+            {
+                <table class="table">
+                    <tbody>
+                        @foreach (var item in _unresolved)
+                        {
+                            <tr class="@(item == _selected ? "table-active" : "")" @onclick="() => SelectItemAsync(item)" style="cursor:pointer">
+                                <td>@item.Title</td>
+                                <td>@item.Year</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="kt-form-card">
+            @if (_selected is null)
+            {
+                <p class="kt-card-meta">Pick a title on the left to search TMDB for a match.</p>
+            }
+            else
+            {
+                <p><strong>@_selected.Title</strong> @(_selected.Year is not null ? $"({_selected.Year})" : "")</p>
+
+                @if (_searching)
+                {
+                    <div class="kt-loading"><div class="kt-spinner"></div> Searching…</div>
+                }
+                else if (_searchResults.Count == 0)
+                {
+                    <div class="alert alert-info">No TMDB results for this title/year.</div>
+                }
+                else
+                {
+                    @foreach (var candidate in _searchResults)
+                    {
+                        <div class="kt-form-card mb-2">
+                            <p class="mb-1"><strong>@candidate.Title</strong> @(candidate.Year is not null ? $"({candidate.Year})" : "")</p>
+                            @if (!string.IsNullOrEmpty(candidate.Synopsis))
+                            {
+                                <p class="kt-card-meta mb-2">@candidate.Synopsis</p>
+                            }
+                            <button class="btn btn-sm btn-success" @onclick="() => LinkAsync(candidate)" disabled="@_linking">Link this one</button>
+                        </div>
+                    }
+                }
+
+                @if (_error is not null)
+                {
+                    <div class="alert alert-danger mt-2">@_error</div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Inject] private ReferenceDataAdminApiClient Api { get; set; } = null!;
+
+    private ReferenceItemType _type = ReferenceItemType.TvShow;
+    private List<UnresolvedReferenceDto> _unresolved = [];
+    private UnresolvedReferenceDto? _selected;
+    private List<ReferenceSearchResultDto> _searchResults = [];
+    private bool _searching;
+    private bool _linking;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync() => await LoadUnresolvedAsync();
+
+    private async Task LoadUnresolvedAsync()
+    {
+        _unresolved = await Api.GetUnresolvedAsync(_type);
+        _selected = null;
+        _searchResults = [];
+    }
+
+    private async Task SelectTypeAsync(ReferenceItemType type)
+    {
+        _type = type;
+        await LoadUnresolvedAsync();
+    }
+
+    private async Task SelectItemAsync(UnresolvedReferenceDto item)
+    {
+        _selected = item;
+        _searching = true;
+        _error = null;
+        _searchResults = await Api.SearchAsync(_type, item.Title, item.Year);
+        _searching = false;
+    }
+
+    private async Task LinkAsync(ReferenceSearchResultDto candidate)
+    {
+        if (_selected is null) return;
+
+        _linking = true;
+        _error = null;
+        try
+        {
+            await Api.LinkAsync(new LinkReferenceRequestDto { Type = _type, Title = _selected.Title, Year = _selected.Year, TmdbId = candidate.TmdbId });
+            await LoadUnresolvedAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _linking = false;
+        }
+    }
+}

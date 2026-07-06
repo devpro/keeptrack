@@ -40,5 +40,11 @@ public class WebServiceMappingProfile : Profile
         CreateMap<VideoGameDto, Domain.Models.VideoGameModel>()
             .ForMember(x => x.OwnerId, opt => opt.Ignore());
         CreateMap<Domain.Models.VideoGameModel, VideoGameDto>();
+
+        // Reference-data reads are one-directional (Model -> Dto): admins submit a LinkReferenceRequestDto,
+        // never a full TvShowReferenceDto/MovieReferenceDto, so there's no Dto -> Model direction to map.
+        CreateMap<Domain.Models.ReferenceEpisodeModel, ReferenceEpisodeDto>();
+        CreateMap<Domain.Models.TvShowReferenceModel, TvShowReferenceDto>();
+        CreateMap<Domain.Models.MovieReferenceModel, MovieReferenceDto>();
     }
 }

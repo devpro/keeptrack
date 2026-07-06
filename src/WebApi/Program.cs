@@ -16,11 +16,22 @@ builder.Services.AddHealthChecks();
 builder.Services.AddSingleton<Keeptrack.WebApi.WatchNext.WatchNextService>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Import.ImportJobStore>();
 builder.Services.AddScoped<Keeptrack.WebApi.Import.TvTimeImportService>();
+builder.Services.AddSingleton(configuration.TmdbSettings);
+builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.ITmdbClient, Keeptrack.WebApi.ReferenceData.TmdbClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.themoviedb.org/3/");
+});
+builder.Services.AddScoped<Keeptrack.WebApi.ReferenceData.ReferenceEnrichmentService>();
 builder.Services.AddMongoDbInfrastructure(configuration);
 builder.Services.AddOpenApiWithBearerAuth(configuration);
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        // Firebase's own claim names ("user_id", "role", ...) must stay exactly as issued - without this,
+        // some claim types (short JWT claim names like "role") get silently renamed to legacy ClaimTypes.*
+        // URIs by the token handler's inbound claim mapping, breaking RequireClaim("role", ...) checks
+        // that look for the literal type "role".
+        options.MapInboundClaims = false;
         options.Authority = configuration.JwtBearerSettings.Authority;
         options.TokenValidationParameters = new TokenValidationParameters
         {
@@ -31,6 +42,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateLifetime = true
         };
     });
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy => policy.RequireClaim("role", "admin"));
+});
 if (configuration.CorsAllowedOrigin.Count != 0)
 {
     builder.Services.AddCors(options =>

@@ -15,35 +15,26 @@ public class DataStorageMappingProfile : Profile
         CreateMap<Infrastructure.MongoDb.Entities.Episode, Domain.Models.EpisodeModel>();
         CreateMap<Domain.Models.EpisodeModel, Infrastructure.MongoDb.Entities.Episode>();
 
-        CreateMap<Infrastructure.MongoDb.Entities.Movie, Domain.Models.MovieModel>()
-            .ForMember(x => x.AllocineId, opt => opt.MapFrom(
-                x => x.Allocine != null ? x.Allocine.Id : null))
-            .ForMember(x => x.ImdbPageId, opt => opt.MapFrom(
-                x => x.Imdb != null ? x.Imdb.PageId : null));
-
-        CreateMap<Domain.Models.MovieModel, Infrastructure.MongoDb.Entities.Movie>()
-            .ForMember(x => x.Allocine, opt => opt.MapFrom(
-                x => !string.IsNullOrEmpty(x.AllocineId) ? new Infrastructure.MongoDb.Entities.Allocine { Id = x.AllocineId } : null))
-            .ForMember(x => x.Imdb, opt => opt.MapFrom(
-                x => !string.IsNullOrEmpty(x.ImdbPageId) ? new Infrastructure.MongoDb.Entities.Imdb { PageId = x.ImdbPageId } : null));
+        CreateMap<Infrastructure.MongoDb.Entities.Movie, Domain.Models.MovieModel>();
+        CreateMap<Domain.Models.MovieModel, Infrastructure.MongoDb.Entities.Movie>();
 
         CreateMap<Infrastructure.MongoDb.Entities.MusicAlbum, Domain.Models.MusicAlbumModel>();
         CreateMap<Domain.Models.MusicAlbumModel, Infrastructure.MongoDb.Entities.MusicAlbum>();
 
-        CreateMap<Infrastructure.MongoDb.Entities.TvShow, Domain.Models.TvShowModel>()
-            .ForMember(x => x.AllocineId, opt => opt.MapFrom(
-                x => x.Allocine != null ? x.Allocine.Id : null))
-            .ForMember(x => x.ImdbPageId, opt => opt.MapFrom(
-                x => x.Imdb != null ? x.Imdb.PageId : null));
-
-        CreateMap<Domain.Models.TvShowModel, Infrastructure.MongoDb.Entities.TvShow>()
-            .ForMember(x => x.Allocine, opt => opt.MapFrom(
-                x => !string.IsNullOrEmpty(x.AllocineId) ? new Infrastructure.MongoDb.Entities.Allocine { Id = x.AllocineId } : null))
-            .ForMember(x => x.Imdb, opt => opt.MapFrom(
-                x => !string.IsNullOrEmpty(x.ImdbPageId) ? new Infrastructure.MongoDb.Entities.Imdb { PageId = x.ImdbPageId } : null));
+        CreateMap<Infrastructure.MongoDb.Entities.TvShow, Domain.Models.TvShowModel>();
+        CreateMap<Domain.Models.TvShowModel, Infrastructure.MongoDb.Entities.TvShow>();
 
         CreateMap<Infrastructure.MongoDb.Entities.VideoGame, Domain.Models.VideoGameModel>();
         CreateMap<Domain.Models.VideoGameModel, Infrastructure.MongoDb.Entities.VideoGame>();
+
+        CreateMap<Infrastructure.MongoDb.Entities.ReferenceEpisode, Domain.Models.ReferenceEpisodeModel>();
+        CreateMap<Domain.Models.ReferenceEpisodeModel, Infrastructure.MongoDb.Entities.ReferenceEpisode>();
+
+        CreateMap<Infrastructure.MongoDb.Entities.TvShowReference, Domain.Models.TvShowReferenceModel>();
+        CreateMap<Domain.Models.TvShowReferenceModel, Infrastructure.MongoDb.Entities.TvShowReference>();
+
+        CreateMap<Infrastructure.MongoDb.Entities.MovieReference, Domain.Models.MovieReferenceModel>();
+        CreateMap<Domain.Models.MovieReferenceModel, Infrastructure.MongoDb.Entities.MovieReference>();
 
         CreateMap<DateTime, DateOnly>().ConvertUsing(dt => DateOnly.FromDateTime(dt));
         CreateMap<DateOnly, DateTime>().ConvertUsing(d => d.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc));

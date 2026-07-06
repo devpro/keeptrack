@@ -19,9 +19,7 @@ public class TvShowModel : IHasIdAndOwnerId
 
     public string? LastEpisodeSeen { get; set; }
 
-    public string? ImdbPageId { get; set; }
-
-    public string? AllocineId { get; set; }
+    public string? ReferenceId { get; set; }
 
     public DateOnly? FinishedAt { get; set; }
 

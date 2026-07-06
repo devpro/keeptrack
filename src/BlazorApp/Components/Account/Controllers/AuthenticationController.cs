@@ -36,6 +36,14 @@ public class AuthenticationController : ControllerBase
             new(ClaimTypes.Email, decoded.Claims.TryGetValue("email", out var e) ? e.ToString()! : ""),
         };
 
+        // Firebase custom claims (e.g. the admin "role" claim, set via the Firebase Admin SDK) land in
+        // decoded.Claims like any other - copy them through so Blazor's own AuthorizeView/policy checks
+        // (which run against this cookie principal, not the bearer token WebApi validates separately) see them too.
+        if (decoded.Claims.TryGetValue("role", out var role))
+        {
+            claims.Add(new Claim("role", role.ToString()!));
+        }
+
         var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme));
 
         var props = new AuthenticationProperties { IsPersistent = true };

@@ -24,9 +24,8 @@ public class Movie : IHasIdAndOwnerId
 
     public string? Notes { get; set; }
 
-    public Imdb? Imdb { get; set; }
-
-    public Allocine? Allocine { get; set; }
+    [BsonElement("reference_id")]
+    public string? ReferenceId { get; set; }
 
     [BsonElement("first_seen_at")]
     public DateTime? FirstSeenAt { get; set; }

@@ -64,6 +64,7 @@ Key                                       | Description
 ------------------------------------------|--------------------------
 `Infrastructure:MongoDB:ConnectionString` | MongoDB connection string
 `Infrastructure:MongoDB:DatabaseName`     | MongoDB database name
+`Tmdb:ApiKey`                             | TMDB v3 API key, used to auto-match shows/movies to episode titles and synopses (see [Reference data (TMDB)](#reference-data-tmdb) below)
 
 This values can be easily provided as environment variables (replace ":" by "__") or by configuration (json).
 
@@ -94,6 +95,9 @@ Template for `src/WebApi/appsettings.Development.json`:
       "DatabaseName": "keeptrack_dev"
     }
   },
+  "Tmdb": {
+    "ApiKey": "<your-tmdb-api-key>"
+  },
   "Logging": {
     "LogLevel": {
       "Default": "Debug",
@@ -101,6 +105,40 @@ Template for `src/WebApi/appsettings.Development.json`:
     }
   }
 }
+```
+
+### Reference data (TMDB)
+
+Episode titles, synopses, and the "what should I watch next" experience are backed by a shared reference collection, populated from [TMDB](https://www.themoviedb.org/) (The Movie Database) rather than typed in by hand.
+
+1. Create a free TMDB account, then generate a v3 API key at [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api).
+2. Set `Tmdb:ApiKey` (or the `Tmdb__ApiKey` environment variable) to that key.
+
+Without a key, new shows/movies simply stay unresolved (no episode titles, no synopsis) instead of erroring - the app degrades gracefully, it just won't be able to auto-match anything.
+
+### Admin role
+
+The reference-data curation page (`/admin/reference-data`, and its underlying `api/reference-data/*` admin endpoints) is restricted to users carrying a Firebase custom claim `role: "admin"`.
+There's no in-app way to grant this - it's a one-off action against your own Firebase project, e.g. with the [Firebase Admin SDK](https://firebase.google.com/docs/auth/admin/custom-claims) for Node:
+
+```javascript
+const admin = require("firebase-admin");
+admin.initializeApp();
+admin.auth().setCustomUserClaims("<firebase-user-uid>", { role: "admin" });
+```
+
+The claim is embedded directly in that user's ID token on their next sign-in (existing sessions need to sign out/in again to pick it up).
+
+[Install Deno](https://docs.deno.com/runtime/getting_started/installation/):
+
+```cmd
+winget install DenoLand.Deno
+```
+
+Run the script:
+
+```cmd
+deno run -A scripts/firebase-set-admin.js ./path/to/serviceAccount.json user@example.com
 ```
 
 ### Blazor Server App settings
@@ -217,6 +255,8 @@ Or, for an IDE-driven workflow, put the same values in a `Local.runsettings` fil
 Or in Rider, in "File | Settings | Build, Execution, Deployment | Unit Testing | Test Runner", set the same three Firebase variables directly so they apply to every test run in the IDE without a file.
 
 Set `KESTREL_WEBAPP_URL` to target a specific already-running instance instead of letting the tests spin up their own.
+
+The standard test user above has no `role` claim, which is exactly what `ReferenceDataAdminResourceTest` needs to prove the "AdminOnly" policy actually rejects a non-admin caller (403). There's no automated coverage yet of the admin-succeeds path end-to-end over HTTP, since that would need a second Firebase test user with the `role: admin` claim set (see [Admin role](#admin-role) above) plus its own `FIREBASE_ADMIN_USERNAME`/`FIREBASE_ADMIN_PASSWORD` env vars and an `AuthenticateAsAdmin()` helper - a deliberately deferred setup step, not a gap that was missed. The underlying Mongo query logic (`SetReferenceIdForTitleYearAsync`, `FindDistinctUnresolvedTitleYearsAsync`) is still covered directly against a real database in `TvShowReferenceLinkingTest`, which resolves repositories from the test host's DI container instead of going over HTTP.
 
 ## Container images
 

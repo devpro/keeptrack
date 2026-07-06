@@ -31,3 +31,15 @@ db.tvshow.createIndex(
   { owner_id: 1, want_to_watch: 1 },
   { name: "tvshow_want_to_watch", partialFilterExpression: { want_to_watch: true } }
 );
+
+// tvshow_reference / movie_reference: shared, owner-less lookup tables (see CLAUDE.md) keyed by
+// normalized title + year, the primary automatic-match key. Non-unique deliberately - two genuinely
+// different real-world titles/years colliding is exactly what the admin curation queue is for.
+db.tvshow_reference.createIndex(
+  { title_normalized: 1, year: 1 },
+  { name: "tvshow_reference_title_year" }
+);
+db.movie_reference.createIndex(
+  { title_normalized: 1, year: 1 },
+  { name: "movie_reference_title_year" }
+);

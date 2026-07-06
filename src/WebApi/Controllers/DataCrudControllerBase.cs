@@ -58,8 +58,15 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IMapper mapper, IData
         var input = mapper.Map<TModel>(dto);
         input.OwnerId = this.GetUserId();
         var model = await dataRepository.CreateAsync(input);
+        await OnCreatedAsync(model);
         return CreatedAtAction(nameof(GetById), new { id = model.Id }, mapper.Map<TDto>(model));
     }
+
+    /// <summary>
+    /// Hook for subclasses that need to react to a new item being created (e.g. triggering background
+    /// reference-data enrichment). No-op by default.
+    /// </summary>
+    protected virtual Task OnCreatedAsync(TModel model) => Task.CompletedTask;
 
     [HttpPut("{id}")]
     [ProducesResponseType(204)]

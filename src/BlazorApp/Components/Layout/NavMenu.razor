@@ -49,6 +49,15 @@
                         <span class="nav-icon">⬆️</span> Import
                     </NavLink>
                 </div>
+                <AuthorizeView Policy="AdminOnly" Context="adminContext">
+                    <Authorized>
+                        <div class="nav-item">
+                            <NavLink class="nav-link" href="admin/reference-data">
+                                <span class="nav-icon">🛠️</span> Admin
+                            </NavLink>
+                        </div>
+                    </Authorized>
+                </AuthorizeView>
                 <div class="nav-divider"></div>
                 <div class="nav-item">
                     <button type="button" class="nav-link kt-theme-toggle" onclick="ktToggleTheme()">

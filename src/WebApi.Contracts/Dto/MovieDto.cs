@@ -17,9 +17,10 @@ public class MovieDto : IHasId
 
     public string? Notes { get; set; }
 
-    public string? ImdbPageId { get; set; }
-
-    public string? AllocineId { get; set; }
+    /// <summary>
+    /// Id of the shared reference-data document (synopsis) for this movie, once resolved.
+    /// </summary>
+    public string? ReferenceId { get; set; }
 
     public DateOnly? FirstSeenAt { get; set; }
 

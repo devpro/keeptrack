@@ -1,6 +1,7 @@
 @page "/tv-shows/{Id}"
 @rendermode InteractiveServer
 @attribute [Authorize]
+@using Keeptrack.BlazorApp.Components.ReferenceData
 
 @if (_loading)
 {
@@ -37,6 +38,11 @@ else
                 <div style="white-space:pre-line">@_show.Notes</div>
             </div>
         </div>
+        @if (!string.IsNullOrEmpty(_reference?.Synopsis))
+        {
+            <hr/>
+            <p class="mb-0" style="color:var(--kt-text-muted)">@_reference.Synopsis</p>
+        }
     </div>
 
     <h2 class="kt-section-title">Add episode watched</h2>
@@ -86,6 +92,7 @@ else
             {
                 <div class="kt-episode-row watched">
                     <span class="kt-episode-number">E@(episode.EpisodeNumber.ToString("00"))</span>
+                    <span>@ReferenceEpisodeTitle(episode)</span>
                     <span>@episode.Notes</span>
                     <span class="kt-episode-date">@episode.WatchedAt?.ToString("yyyy-MM-dd")</span>
                 </div>
@@ -101,8 +108,12 @@ else
 
     [Inject] private EpisodeApiClient EpisodeApi { get; set; } = null!;
 
+    [Inject] private ReferenceDataApiClient ReferenceDataApi { get; set; } = null!;
+
     private bool _loading = true;
     private TvShowDto? _show;
+    private TvShowReferenceDto? _reference;
+    private Dictionary<(int Season, int Episode), ReferenceEpisodeDto> _referenceEpisodesByKey = new();
     private Dictionary<int, List<EpisodeDto>> _episodesBySeason = new();
     private List<int> _seasons = [];
     private int _selectedSeason;
@@ -120,6 +131,11 @@ else
         _show = await TvShowApi.GetOneAsync(Id);
         var episodes = await EpisodeApi.GetAsync(string.Empty, 1, 5000, new Dictionary<string, string> { ["TvShowId"] = Id });
 
+        // reference data (synopsis, real episode titles) is a progressive enhancement: it may not exist
+        // yet (background match still pending, or genuinely unresolved), so the page never blocks on it
+        _reference = string.IsNullOrEmpty(_show?.ReferenceId) ? null : await ReferenceDataApi.GetTvShowAsync(_show.ReferenceId);
+        _referenceEpisodesByKey = _reference?.Episodes.ToDictionary(e => (e.SeasonNumber, e.EpisodeNumber)) ?? new();
+
         // most recently aired first: latest season at the top, latest episode within a season at the top
         _episodesBySeason = episodes.Items
             .GroupBy(e => e.SeasonNumber)
@@ -135,6 +151,9 @@ else
     }
 
     private void SelectSeason(int season) => _selectedSeason = season;
+
+    private string? ReferenceEpisodeTitle(EpisodeDto episode) =>
+        _referenceEpisodesByKey.GetValueOrDefault((episode.SeasonNumber, episode.EpisodeNumber))?.Title;
 
     private async Task ToggleFavoriteAsync()
     {

@@ -18,7 +18,8 @@ public partial class Movies : InventoryPageBase<MovieDto>
         Rating = item.Rating,
         Notes = item.Notes,
         FirstSeenAt = item.FirstSeenAt,
-        AllocineId = item.AllocineId,
-        ImdbPageId = item.ImdbPageId
+        ReferenceId = item.ReferenceId,
+        IsFavorite = item.IsFavorite,
+        WantToWatch = item.WantToWatch
     };
 }

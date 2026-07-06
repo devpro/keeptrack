@@ -80,7 +80,7 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
         return filter;
     }
 
-    private IMongoCollection<TEntity> GetCollection()
+    protected IMongoCollection<TEntity> GetCollection()
     {
         return mongoDatabase.GetCollection<TEntity>(CollectionName);
     }
