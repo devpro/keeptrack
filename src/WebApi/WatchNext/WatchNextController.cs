@@ -13,6 +13,7 @@ public class WatchNextController(
     ITvShowRepository tvShowRepository,
     IEpisodeRepository episodeRepository,
     IMovieRepository movieRepository,
+    ITvShowReferenceRepository tvShowReferenceRepository,
     WatchNextService watchNextService,
     IMapper mapper) : ControllerBase
 {
@@ -30,9 +31,18 @@ public class WatchNextController(
         var moviesToWatch = await movieRepository.FindAllAsync(ownerId, 1, int.MaxValue, null,
             new MovieModel { OwnerId = ownerId, Title = string.Empty, WantToWatch = true });
 
+        // only current shows with a reference link can possibly appear in the result (see WatchNextService),
+        // so only those need their (small, bounded) episode guide fetched
+        var referencesByShowId = new Dictionary<string, TvShowReferenceModel>();
+        foreach (var show in shows.Items.Where(s => s.Status == Domain.Models.TvShowStatus.Current && !string.IsNullOrEmpty(s.ReferenceId)))
+        {
+            var reference = await tvShowReferenceRepository.FindByIdAsync(show.ReferenceId!);
+            if (reference is not null) referencesByShowId[show.Id!] = reference;
+        }
+
         return Ok(new WatchNextDto
         {
-            InProgressShows = watchNextService.ComputeInProgressShows(shows.Items, episodes.Items),
+            InProgressShows = watchNextService.ComputeInProgressShows(shows.Items, episodes.Items, referencesByShowId),
             MoviesToWatch = mapper.Map<List<MovieDto>>(moviesToWatch.Items)
         });
     }

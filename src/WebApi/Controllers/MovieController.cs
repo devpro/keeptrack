@@ -11,7 +11,12 @@ namespace Keeptrack.WebApi.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/movies")]
-public class MovieController(IMapper mapper, IMovieRepository dataRepository, IServiceScopeFactory scopeFactory, ILogger<MovieController> logger)
+public class MovieController(
+    IMapper mapper,
+    IMovieRepository dataRepository,
+    ReferenceEnrichmentService enrichmentService,
+    IServiceScopeFactory scopeFactory,
+    ILogger<MovieController> logger)
     : DataCrudControllerBase<MovieDto, MovieModel>(mapper, dataRepository)
 {
     /// <summary>
@@ -26,8 +31,8 @@ public class MovieController(IMapper mapper, IMovieRepository dataRepository, IS
             try
             {
                 using var scope = scopeFactory.CreateScope();
-                var enrichmentService = scope.ServiceProvider.GetRequiredService<ReferenceEnrichmentService>();
-                await enrichmentService.TryAutoResolveMovieAsync(title, year);
+                var scopedEnrichmentService = scope.ServiceProvider.GetRequiredService<ReferenceEnrichmentService>();
+                await scopedEnrichmentService.TryAutoResolveMovieAsync(title, year);
             }
             catch (Exception ex)
             {
@@ -35,5 +40,21 @@ public class MovieController(IMapper mapper, IMovieRepository dataRepository, IS
             }
         });
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// User-triggered, exact-match-only re-check against the local reference collection - see
+    /// <see cref="TvShowController.RefreshReference"/>.
+    /// </summary>
+    [HttpPost("{id}/refresh-reference")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(404)]
+    public async Task<ActionResult<MovieDto>> RefreshReference(string id)
+    {
+        var model = await dataRepository.FindOneAsync(id, this.GetUserId());
+        if (model is null) return NotFound();
+
+        model = await enrichmentService.TryLinkExistingMovieReferenceAsync(model);
+        return Ok(Mapper.Map<MovieDto>(model));
     }
 }

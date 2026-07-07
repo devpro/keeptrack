@@ -21,14 +21,17 @@ else if (_show is null)
 else
 {
     <div class="kt-page-header">
-        <AuthorizeView Policy="AdminOnly" Context="titleAdminCtx">
-            <Authorized>
-                <input class="kt-title-input" value="@_show.Title" @onchange="SaveTitleAsync"/>
-            </Authorized>
-            <NotAuthorized>
-                <input class="kt-title-input" value="@_show.Title" @onchange="SaveTitleAsync" disabled="@(!string.IsNullOrEmpty(_show.ReferenceId))"/>
-            </NotAuthorized>
-        </AuthorizeView>
+        <div class="d-flex align-items-center gap-2" style="flex:1;min-width:0">
+            <input class="kt-title-input" value="@_show.Title" @onchange="SaveTitleAsync"/>
+            <button class="kt-icon-btn" @onclick="RefreshReferenceAsync" disabled="@_refreshingReference"
+                    title="@(string.IsNullOrEmpty(_show.ReferenceId) ? "Check for reference match. Tip: including the year in the title, like \"Dune 2021\", can help find the right match." : $"Linked to \"{_reference?.Title}\". Not right? Edit the title, then check again.")">
+                <span class="@(_refreshingReference ? "kt-icon-spin" : "")">↻</span>
+            </button>
+            @if (_refreshMessage is not null)
+            {
+                <span class="kt-inline-toast @_refreshMessageStyle">@_refreshMessage</span>
+            }
+        </div>
         <div class="d-flex gap-2">
             <button class="btn btn-sm @(_show.IsFavorite ? "btn-primary" : "btn-secondary")" @onclick="ToggleFavoriteAsync">⭐ Best of</button>
             <button class="btn btn-sm @(_show.WantToWatch ? "btn-primary" : "btn-secondary")" @onclick="ToggleWantToWatchAsync">👁 Want to watch</button>
@@ -43,7 +46,11 @@ else
 
     @if (string.IsNullOrEmpty(_show.ReferenceId))
     {
-        <InlineReferenceLinker Type="ReferenceItemType.TvShow" Title="@_show.Title" Year="_show.Year" OnLinked="LoadAsync"/>
+        <AuthorizeView Policy="AdminOnly">
+            <Authorized>
+                <InlineReferenceLinker Type="ReferenceItemType.TvShow" Title="@_show.Title" Year="_show.Year" OnLinked="LoadAsync"/>
+            </Authorized>
+        </AuthorizeView>
     }
 
     <div class="kt-form-card">
@@ -217,6 +224,11 @@ else
     private List<int> _unresolvedSeasons = [];
     private int _selectedSeason;
     private string? _error;
+    private static readonly TimeSpan RefreshMessageDuration = TimeSpan.FromSeconds(4);
+    private bool _refreshingReference;
+    private string? _refreshMessage;
+    private string _refreshMessageStyle = "neutral";
+    private object? _refreshMessageToken;
 
     private int _newSeason = 1;
     private int _newEpisode = 1;
@@ -300,6 +312,54 @@ else
         if (string.IsNullOrWhiteSpace(title)) return;
         _show.Title = title;
         await TvShowApi.UpdateAsync(_show);
+    }
+
+    private async Task RefreshReferenceAsync()
+    {
+        if (_show?.Id is null) return;
+
+        var previousReferenceId = _show.ReferenceId;
+        _refreshingReference = true;
+        _refreshMessage = null;
+        try
+        {
+            var refreshed = await TvShowApi.RefreshReferenceAsync(_show.Id);
+            await LoadAsync();
+
+            (_refreshMessage, _refreshMessageStyle) = string.IsNullOrEmpty(refreshed.ReferenceId)
+                ? string.IsNullOrEmpty(previousReferenceId) ? ("No match found", "neutral") : ("Unlinked - no match", "danger")
+                : refreshed.ReferenceId == previousReferenceId ? ("Already linked", "neutral") : ("Linked!", "success");
+        }
+        catch (Exception ex)
+        {
+            _refreshMessage = $"Error: {ex.Message}";
+            _refreshMessageStyle = "danger";
+        }
+        finally
+        {
+            _refreshingReference = false;
+        }
+
+        ScheduleRefreshMessageClear();
+    }
+
+    /// <summary>
+    /// The toast is a small, auto-dismissing pill next to the refresh icon, not a permanent line of text -
+    /// a token guards against an in-flight delay from a previous click clearing a newer message.
+    /// </summary>
+    private void ScheduleRefreshMessageClear()
+    {
+        var token = new object();
+        _refreshMessageToken = token;
+        _ = ClearRefreshMessageAfterDelayAsync(token);
+    }
+
+    private async Task ClearRefreshMessageAfterDelayAsync(object token)
+    {
+        await Task.Delay(RefreshMessageDuration);
+        if (!ReferenceEquals(_refreshMessageToken, token)) return;
+        _refreshMessage = null;
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task SaveYearAsync(ChangeEventArgs e)

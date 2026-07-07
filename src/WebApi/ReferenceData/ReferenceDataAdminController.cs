@@ -1,6 +1,10 @@
 using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
+using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,8 +22,96 @@ public class ReferenceDataAdminController(
     ITvShowRepository tvShowRepository,
     IMovieRepository movieRepository,
     ITmdbClient tmdbClient,
-    ReferenceEnrichmentService enrichmentService) : ControllerBase
+    ReferenceEnrichmentService enrichmentService,
+    ITvShowReferenceRepository tvShowReferenceRepository,
+    IMovieReferenceRepository movieReferenceRepository,
+    IPersonReferenceRepository personReferenceRepository) : ControllerBase
 {
+    private const string TvShowEntryName = "tvshow_reference.json";
+    private const string MovieEntryName = "movie_reference.json";
+    private const string PersonEntryName = "person_reference.json";
+
+    /// <summary>
+    /// Every reference document (TV shows, movies, cast) as a zip, so an admin can seed a fresh
+    /// environment's reference data without re-earning every TMDB match one search at a time.
+    /// </summary>
+    [HttpGet("export")]
+    [ProducesResponseType(200)]
+    public async Task<IActionResult> Export()
+    {
+        var tvShows = await tvShowReferenceRepository.FindAllAsync();
+        var movies = await movieReferenceRepository.FindAllAsync();
+        var people = await personReferenceRepository.FindAllAsync();
+
+        var buffer = new MemoryStream();
+        using (var archive = new ZipArchive(buffer, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            await WriteJsonEntryAsync(archive, TvShowEntryName, tvShows);
+            await WriteJsonEntryAsync(archive, MovieEntryName, movies);
+            await WriteJsonEntryAsync(archive, PersonEntryName, people);
+        }
+
+        buffer.Position = 0;
+        return File(buffer, "application/zip", "keeptrack-reference-data.zip");
+    }
+
+    /// <summary>
+    /// Idempotent (upsert-by-id) re-import of a previously exported zip - re-running the same import
+    /// twice is a no-op the second time, since every document already carries the id it was exported with.
+    /// </summary>
+    [HttpPost("import")]
+    [RequestSizeLimit(50_000_000)]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    public async Task<ActionResult<ReferenceDataImportResultDto>> Import(IFormFile file)
+    {
+        if (file.Length == 0) return BadRequest();
+
+        await using var uploadStream = file.OpenReadStream();
+        using var archive = new ZipArchive(uploadStream, ZipArchiveMode.Read);
+
+        var tvShowCount = 0;
+        var movieCount = 0;
+        var personCount = 0;
+
+        foreach (var show in await ReadJsonEntryAsync<TvShowReferenceModel>(archive, TvShowEntryName))
+        {
+            await tvShowReferenceRepository.UpsertAsync(show);
+            tvShowCount++;
+        }
+
+        foreach (var movie in await ReadJsonEntryAsync<MovieReferenceModel>(archive, MovieEntryName))
+        {
+            await movieReferenceRepository.UpsertAsync(movie);
+            movieCount++;
+        }
+
+        foreach (var person in await ReadJsonEntryAsync<PersonReferenceModel>(archive, PersonEntryName))
+        {
+            await personReferenceRepository.UpsertAsync(person);
+            personCount++;
+        }
+
+        return Ok(new ReferenceDataImportResultDto { TvShowCount = tvShowCount, MovieCount = movieCount, PersonCount = personCount });
+    }
+
+    private static async Task WriteJsonEntryAsync<T>(ZipArchive archive, string entryName, T value)
+    {
+        var entry = archive.CreateEntry(entryName, CompressionLevel.Optimal);
+        await using var entryStream = entry.Open();
+        await JsonSerializer.SerializeAsync(entryStream, value);
+    }
+
+    private static async Task<List<T>> ReadJsonEntryAsync<T>(ZipArchive archive, string entryName)
+    {
+        var entry = archive.GetEntry(entryName);
+        if (entry is null) return [];
+
+        await using var entryStream = entry.Open();
+        return await JsonSerializer.DeserializeAsync<List<T>>(entryStream) ?? [];
+    }
+
     /// <summary>
     /// Distinct (title, year) pairs, across every tenant, still missing a reference-data link.
     /// </summary>

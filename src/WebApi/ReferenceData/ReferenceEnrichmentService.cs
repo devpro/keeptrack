@@ -29,6 +29,79 @@ public class ReferenceEnrichmentService(
     private const int MaxCastMembers = 15;
 
     /// <summary>
+    /// User-triggered "check for reference match" - looks only at the local reference collection (title+year,
+    /// falling back to title-only, against every title ever confirmed for that reference - see
+    /// <see cref="TvShowReferenceModel.MatchedTitles"/>), never TMDB. Cheap enough to run on demand from a
+    /// detail page: no HTTP call, just an indexed Mongo lookup. Deliberately does NOT short-circuit when the
+    /// model already has a link: the whole point is to let a tenant who isn't happy with the current match
+    /// fix the title/year and re-check, replacing a wrong link - "don't guess" only applies to inventing a
+    /// match from nothing, not to re-verifying one the tenant explicitly asked to redo. Updates only this
+    /// tenant's own document directly (not the broad cross-tenant <see cref="ITvShowRepository.SetReferenceLinkAsync"/>,
+    /// which refuses to touch already-linked documents by design), but still calls that method with the
+    /// pre-edit title/year afterward so any other still-unresolved tenant sharing that text benefits too.
+    /// If no match is found for the current title/year and the document WAS linked, the link is cleared
+    /// rather than left pointing at something the tenant just told us (by editing the title) is wrong -
+    /// clearing <c>ReferenceId</c> is also exactly what puts it back into the admin's unresolved queue
+    /// (<see cref="ITvShowRepository.FindDistinctUnresolvedTitleYearsAsync"/>) for a manual TMDB search.
+    /// </summary>
+    public async Task<TvShowModel> TryLinkExistingTvShowReferenceAsync(TvShowModel model)
+    {
+        var reference = await tvShowReferenceRepository.FindByTitleYearAsync(model.Title, model.Year)
+                        ?? await tvShowReferenceRepository.FindByTitleAsync(model.Title);
+
+        if (reference is null)
+        {
+            if (!string.IsNullOrEmpty(model.ReferenceId))
+            {
+                model.ReferenceId = string.Empty;
+                await tvShowRepository.UpdateAsync(model.Id!, model, model.OwnerId);
+            }
+
+            return model;
+        }
+
+        var originalTitle = model.Title;
+        var originalYear = model.Year;
+
+        model.ReferenceId = reference.Id;
+        model.Title = reference.Title;
+        await tvShowRepository.UpdateAsync(model.Id!, model, model.OwnerId);
+        await tvShowRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title);
+
+        return model;
+    }
+
+    /// <summary>
+    /// Movie equivalent of <see cref="TryLinkExistingTvShowReferenceAsync"/>.
+    /// </summary>
+    public async Task<MovieModel> TryLinkExistingMovieReferenceAsync(MovieModel model)
+    {
+        var reference = await movieReferenceRepository.FindByTitleYearAsync(model.Title, model.Year)
+                        ?? await movieReferenceRepository.FindByTitleAsync(model.Title);
+
+        if (reference is null)
+        {
+            if (!string.IsNullOrEmpty(model.ReferenceId))
+            {
+                model.ReferenceId = string.Empty;
+                await movieRepository.UpdateAsync(model.Id!, model, model.OwnerId);
+            }
+
+            return model;
+        }
+
+        var originalTitle = model.Title;
+        var originalYear = model.Year;
+
+        model.ReferenceId = reference.Id;
+        model.Title = reference.Title;
+        await movieRepository.UpdateAsync(model.Id!, model, model.OwnerId);
+        await movieRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title);
+
+        return model;
+    }
+
+    /// <summary>
     /// Best-effort automatic match: does nothing if the search returns zero or more than one candidate,
     /// leaving the show unresolved for the admin queue instead of guessing.
     /// </summary>
@@ -59,7 +132,12 @@ public class ReferenceEnrichmentService(
                       ?? throw new InvalidOperationException($"TMDB show {tmdbId} could not be fetched.");
         var cast = await tmdbClient.GetTvShowCastAsync(tmdbId);
 
-        var existing = await tvShowReferenceRepository.FindByTitleYearAsync(title, year);
+        // tmdbId is checked first and is authoritative: two tenants resolving the exact same TMDB show under
+        // different title text (a translation, a typo an admin corrected) must reuse the same reference
+        // document, not create a duplicate - title/year matching alone can't guarantee that, only the id can.
+        var existing = await tvShowReferenceRepository.FindByExternalIdAsync("tmdb", tmdbId)
+                       ?? await tvShowReferenceRepository.FindByTitleYearAsync(title, year)
+                       ?? await tvShowReferenceRepository.FindByTitleAsync(title);
         var externalIds = existing?.ExternalIds ?? new Dictionary<string, string>();
         externalIds["tmdb"] = tmdbId;
 
@@ -71,6 +149,9 @@ public class ReferenceEnrichmentService(
             Year = details.Year ?? year,
             Synopsis = details.Synopsis,
             ExternalIds = externalIds,
+            // remembers both the canonical TMDB title and whatever text the tenant actually searched with -
+            // see MatchedTitles: this is what lets a later, differently-titled tenant match instantly
+            MatchedTitles = MergeMatchedTitles(existing?.MatchedTitles, details.Title, title),
             Episodes = details.Episodes
                 .Select(e => new ReferenceEpisodeModel { SeasonNumber = e.SeasonNumber, EpisodeNumber = e.EpisodeNumber, Title = e.Title, AirDate = e.AirDate })
                 .ToList(),
@@ -94,7 +175,12 @@ public class ReferenceEnrichmentService(
                       ?? throw new InvalidOperationException($"TMDB movie {tmdbId} could not be fetched.");
         var cast = await tmdbClient.GetMovieCastAsync(tmdbId);
 
-        var existing = await movieReferenceRepository.FindByTitleYearAsync(title, year);
+        // tmdbId is checked first and is authoritative: two tenants resolving the exact same TMDB movie under
+        // different title text (a translation, a typo an admin corrected) must reuse the same reference
+        // document, not create a duplicate - title/year matching alone can't guarantee that, only the id can.
+        var existing = await movieReferenceRepository.FindByExternalIdAsync("tmdb", tmdbId)
+                       ?? await movieReferenceRepository.FindByTitleYearAsync(title, year)
+                       ?? await movieReferenceRepository.FindByTitleAsync(title);
         var externalIds = existing?.ExternalIds ?? new Dictionary<string, string>();
         externalIds["tmdb"] = tmdbId;
 
@@ -106,6 +192,9 @@ public class ReferenceEnrichmentService(
             Year = details.Year ?? year,
             Synopsis = details.Synopsis,
             ExternalIds = externalIds,
+            // remembers both the canonical TMDB title and whatever text the tenant actually searched with -
+            // see MatchedTitles: this is what lets a later, differently-titled tenant match instantly
+            MatchedTitles = MergeMatchedTitles(existing?.MatchedTitles, details.Title, title),
             Genres = details.Genres,
             Cast = await ResolveCastAsync(cast),
             PosterUrl = details.PosterUrl,
@@ -115,6 +204,23 @@ public class ReferenceEnrichmentService(
         var saved = await movieReferenceRepository.UpsertAsync(model);
         await movieRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title);
         return saved;
+    }
+
+    /// <summary>
+    /// Combines whatever title variants a reference document already remembered with the two new ones this
+    /// resolution just confirmed: the TMDB canonical name and the text the tenant actually searched with (which
+    /// may be a typo, a translation, or otherwise differ from canonical). Deduplicated and normalized.
+    /// </summary>
+    private static List<string> MergeMatchedTitles(List<string>? existing, string canonicalTitle, string searchedTitle)
+    {
+        var titles = new List<string>(existing ?? []);
+        foreach (var title in new[] { canonicalTitle, searchedTitle })
+        {
+            var normalized = TitleNormalizer.Normalize(title);
+            if (!titles.Contains(normalized)) titles.Add(normalized);
+        }
+
+        return titles;
     }
 
     /// <summary>

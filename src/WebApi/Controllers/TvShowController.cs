@@ -11,7 +11,12 @@ namespace Keeptrack.WebApi.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/tv-shows")]
-public class TvShowController(IMapper mapper, ITvShowRepository dataRepository, IServiceScopeFactory scopeFactory, ILogger<TvShowController> logger)
+public class TvShowController(
+    IMapper mapper,
+    ITvShowRepository dataRepository,
+    ReferenceEnrichmentService enrichmentService,
+    IServiceScopeFactory scopeFactory,
+    ILogger<TvShowController> logger)
     : DataCrudControllerBase<TvShowDto, TvShowModel>(mapper, dataRepository)
 {
     /// <summary>
@@ -27,8 +32,8 @@ public class TvShowController(IMapper mapper, ITvShowRepository dataRepository, 
             try
             {
                 using var scope = scopeFactory.CreateScope();
-                var enrichmentService = scope.ServiceProvider.GetRequiredService<ReferenceEnrichmentService>();
-                await enrichmentService.TryAutoResolveTvShowAsync(title, year);
+                var scopedEnrichmentService = scope.ServiceProvider.GetRequiredService<ReferenceEnrichmentService>();
+                await scopedEnrichmentService.TryAutoResolveTvShowAsync(title, year);
             }
             catch (Exception ex)
             {
@@ -36,5 +41,22 @@ public class TvShowController(IMapper mapper, ITvShowRepository dataRepository, 
             }
         });
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// User-triggered, exact-match-only re-check against the local reference collection - no TMDB call.
+    /// Distinct from the admin-only live TMDB search/linker: this only ever picks up a match that already
+    /// exists locally (e.g. after the tenant fixes a typo'd title), so any user can trigger it.
+    /// </summary>
+    [HttpPost("{id}/refresh-reference")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(404)]
+    public async Task<ActionResult<TvShowDto>> RefreshReference(string id)
+    {
+        var model = await dataRepository.FindOneAsync(id, this.GetUserId());
+        if (model is null) return NotFound();
+
+        model = await enrichmentService.TryLinkExistingTvShowReferenceAsync(model);
+        return Ok(Mapper.Map<TvShowDto>(model));
     }
 }

@@ -17,6 +17,13 @@ public abstract class ResourceTestBase(KestrelWebAppFactory<Program> factory)
 {
     private const string MediaTypeJson = "application/json";
 
+    /// <summary>
+    /// Exposes the factory to subclasses that also need a DI scope (e.g. to seed data directly via a
+    /// repository) alongside the HTTP helpers below - avoids a second, redundant capture of the same
+    /// constructor parameter as its own field.
+    /// </summary>
+    protected KestrelWebAppFactory<Program> Factory => factory;
+
     private HttpClient _httpClient = null!;
 
     public ValueTask InitializeAsync()

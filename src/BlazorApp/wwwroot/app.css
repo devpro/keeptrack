@@ -397,7 +397,10 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
 .kt-page-header h1 { font-size: 2rem; color: var(--kt-text); margin: 0; line-height: 1; }
 .kt-page-header h1 span { color: var(--kt-accent); }
 
-/* editable "title" input on a detail page, styled to read as a heading until you interact with it */
+/* editable "title" input on a detail page, styled to read as a heading until you interact with it.
+   flex/min-width let it fill its row (rather than a fixed browser-default input width), so a button placed
+   right after it (e.g. the reference-refresh icon) sits at a predictable spot instead of trailing right
+   after wherever the visible text happens to end. */
 .kt-title-input {
   font-size: 2rem;
   font-weight: 700;
@@ -408,11 +411,51 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
   padding: 0.1rem 0.5rem;
   margin: 0 0 0 -0.5rem;
   max-width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   font-family: var(--kt-font);
 }
 .kt-title-input:hover:not(:disabled) { border-color: var(--kt-border); }
 .kt-title-input:focus { border-color: var(--kt-accent); outline: none; background: var(--kt-surface); }
 .kt-title-input:disabled { cursor: not-allowed; }
+
+/* small icon-only button next to the title (e.g. "check for reference match") - borderless/transparent
+   until hover, matching the title input's own minimal look, instead of standing out as a heavy bordered button */
+.kt-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  border-radius: var(--kt-radius);
+  color: var(--kt-text-muted);
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+.kt-icon-btn:hover:not(:disabled) { background: var(--kt-surface-3); color: var(--kt-text); }
+.kt-icon-btn:disabled { cursor: not-allowed; opacity: 0.5; }
+
+/* small transient pill next to an inline action button (e.g. the refresh-reference result), instead of a
+   plain unstyled paragraph that reads like leftover debug output. Same pill shape as .kt-status-badge, with
+   generic semantic colors instead of TvShowStatus-specific ones. Auto-dismissed from code-behind after a
+   few seconds - see RefreshReferenceAsync in MovieDetail.razor/TvShowDetail.razor. */
+.kt-inline-toast {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 20px;
+  white-space: nowrap;
+  animation: kt-toast-in 0.15s ease-out;
+}
+.kt-inline-toast.success { background: var(--kt-success-bg); color: var(--kt-success); }
+.kt-inline-toast.neutral { background: var(--kt-surface-3); color: var(--kt-text-muted); }
+.kt-inline-toast.danger  { background: var(--kt-danger-bg); color: var(--kt-danger); }
+@keyframes kt-toast-in { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ── Form card ─────────────────────────────────────────────────────── */
 .kt-form-card {
@@ -482,6 +525,10 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
 .kt-loading { display: flex; align-items: center; gap: 0.75rem; color: var(--kt-text-muted); font-size: 0.9rem; padding: 4rem 0; justify-content: center; }
 .kt-spinner { width: 18px; height: 18px; border: 2px solid var(--kt-surface-3); border-top-color: var(--kt-accent); border-radius: 50%; animation: spin 0.75s linear infinite; flex-shrink: 0; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* plain monochrome glyph (not a color emoji) for a small inline action button, e.g. "check for reference
+   match" - spins in place using the same animation as .kt-spinner while the action is running */
+.kt-icon-spin { display: inline-block; animation: spin 0.75s linear infinite; }
 .kt-empty { text-align: center; padding: 5rem 2rem; }
 .kt-empty-icon { font-size: 2.5rem; color: var(--kt-text-subtle); display: block; margin-bottom: 1rem; }
 .kt-empty p { font-size: 0.9rem; color: var(--kt-text-muted); margin: 0; line-height: 1.8; }

@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using Keeptrack.WebApi.Contracts.Dto;
 
 namespace Keeptrack.BlazorApp.Components.ReferenceDataAdmin;
@@ -23,5 +24,31 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
     {
         var response = await http.PostAsJsonAsync("/api/reference-data/link", request);
         response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>
+    /// The full reference dataset (TV shows, movies, cast) as a zip, for seeding a fresh environment.
+    /// </summary>
+    public async Task<byte[]> ExportAsync()
+    {
+        var response = await http.GetAsync("/api/reference-data/export");
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadAsByteArrayAsync();
+    }
+
+    /// <summary>
+    /// Idempotent (upsert-by-id) re-import of a previously exported zip.
+    /// </summary>
+    public async Task<ReferenceDataImportResultDto> ImportAsync(Stream zipStream, string fileName)
+    {
+        using var content = new MultipartFormDataContent();
+        using var streamContent = new StreamContent(zipStream);
+        streamContent.Headers.ContentType = new MediaTypeHeaderValue("application/zip");
+        content.Add(streamContent, "file", fileName);
+
+        var response = await http.PostAsync("/api/reference-data/import", content);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<ReferenceDataImportResultDto>()
+               ?? new ReferenceDataImportResultDto { TvShowCount = 0, MovieCount = 0, PersonCount = 0 };
     }
 }

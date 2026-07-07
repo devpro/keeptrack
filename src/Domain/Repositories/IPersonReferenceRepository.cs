@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Keeptrack.Domain.Models;
 
@@ -14,4 +15,10 @@ public interface IPersonReferenceRepository
     Task<PersonReferenceModel?> FindByExternalIdAsync(string provider, string externalId);
 
     Task<PersonReferenceModel> UpsertAsync(PersonReferenceModel model);
+
+    /// <summary>
+    /// Every reference document, for admin export. Bounded, shared metadata (not per-tenant), so a
+    /// full unpaged read is fine.
+    /// </summary>
+    Task<List<PersonReferenceModel>> FindAllAsync();
 }

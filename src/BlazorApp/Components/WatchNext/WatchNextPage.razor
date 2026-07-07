@@ -17,13 +17,13 @@ else
 {
     <h2 class="kt-section-title">In progress</h2>
     <p style="color:var(--kt-text-muted);margin-top:-0.5rem">
-        Where you left off - Keeptrack doesn't know if a new episode is out yet, so check the show itself for that.
+        Current shows with a confirmed new episode ready to watch.
     </p>
     @if (_data.InProgressShows.Count == 0)
     {
         <div class="kt-empty">
             <div class="kt-empty-icon">◈</div>
-            <p>No shows in progress. Mark an episode as watched to see it here.</p>
+            <p>Nothing new to watch. Shows need a "Current" status and a linked reference to appear here.</p>
         </div>
     }
     else
@@ -32,12 +32,10 @@ else
             @foreach (var show in _data.InProgressShows)
             {
                 <a class="kt-card" href="@($"/tv-shows/{show.TvShowId}")" style="display:block;color:inherit">
-                    <span class="kt-card-badge">Last seen S@(show.LastSeasonNumber.ToString("00"))E@(show.LastEpisodeNumber.ToString("00"))</span>
+                    <span class="kt-card-badge">Next: S@(show.NextSeasonNumber.ToString("00"))E@(show.NextEpisodeNumber.ToString("00"))</span>
                     <p class="kt-card-title">@show.TvShowTitle</p>
-                    @if (show.LastWatchedAt is not null)
-                    {
-                        <p class="kt-card-meta">@show.LastWatchedAt.Value.ToString("yyyy-MM-dd")</p>
-                    }
+                    <p class="kt-card-meta">@show.NextEpisodeTitle</p>
+                    <p class="kt-card-meta">Last seen S@(show.LastSeasonNumber.ToString("00"))E@(show.LastEpisodeNumber.ToString("00"))</p>
                 </a>
             }
         </div>

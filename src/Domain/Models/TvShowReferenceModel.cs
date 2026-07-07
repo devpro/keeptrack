@@ -29,6 +29,15 @@ public class TvShowReferenceModel : IHasId
     /// </summary>
     public required Dictionary<string, string> ExternalIds { get; set; }
 
+    /// <summary>
+    /// Every normalized title string that has ever been confirmed (via TMDB resolution, automatic or
+    /// admin-picked) to mean this show - not just <see cref="TitleNormalized"/>. A tenant typing a
+    /// different-language title, a typo, or a regional variant that an admin resolved to this same TMDB
+    /// entry gets remembered here, so the next tenant with that exact same text matches instantly without
+    /// a fresh TMDB search. Always includes <see cref="TitleNormalized"/> itself.
+    /// </summary>
+    public List<string> MatchedTitles { get; set; } = [];
+
     public List<ReferenceEpisodeModel> Episodes { get; set; } = [];
 
     public List<string> Genres { get; set; } = [];

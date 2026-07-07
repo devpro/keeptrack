@@ -78,17 +78,35 @@ ensureIndex(
 );
 
 // tvshow_reference / movie_reference: shared, owner-less lookup tables (see CLAUDE.md) keyed by
-// normalized title + year, the primary automatic-match key. Non-unique deliberately - two genuinely
-// different real-world titles/years colliding is exactly what the admin curation queue is for.
+// matched_titles (every normalized title variant ever confirmed for that reference, not just its
+// canonical one - see MatchedTitles in CLAUDE.md) + year, the primary automatic-match key. Indexing an
+// array field like matched_titles automatically creates a multikey index, so an "is this title one of the
+// known variants" lookup stays indexed same as a plain equality field would. Non-unique deliberately - two
+// genuinely different real-world titles/years colliding is exactly what the admin curation queue is for.
 ensureIndex(
   db.tvshow_reference,
-  { title_normalized: 1, year: 1 },
+  { matched_titles: 1, year: 1 },
   { name: "tvshow_reference_title_year" }
 );
 ensureIndex(
   db.movie_reference,
-  { title_normalized: 1, year: 1 },
+  { matched_titles: 1, year: 1 },
   { name: "movie_reference_title_year" }
+);
+
+// tvshow_reference / movie_reference: also looked up by external provider id (e.g. TMDB id) when resolving
+// a title - checked first and authoritative, since two tenants resolving the exact same TMDB entry under
+// different title text must reuse the same reference document, not create a duplicate (title/year matching
+// alone can't guarantee that). Same shape as person_reference_tmdb_id below.
+ensureIndex(
+  db.tvshow_reference,
+  { "external_ids.tmdb": 1 },
+  { name: "tvshow_reference_tmdb_id" }
+);
+ensureIndex(
+  db.movie_reference,
+  { "external_ids.tmdb": 1 },
+  { name: "movie_reference_tmdb_id" }
 );
 
 // person_reference: actors/cast are deduplicated across every show/movie that credits them, looked up

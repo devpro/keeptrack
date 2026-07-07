@@ -7,6 +7,13 @@ public abstract class InventoryApiClientBase<TDto>(HttpClient http)
 {
     protected abstract string ApiResourceName { get; }
 
+    /// <summary>
+    /// Exposes the HttpClient to subclasses that add their own calls (e.g. a refresh-reference endpoint) -
+    /// lets them reuse this instance instead of capturing their own <c>HttpClient</c> primary-constructor
+    /// parameter as a second field holding the same reference.
+    /// </summary>
+    protected HttpClient Http => http;
+
     public async Task<PagedResult<TDto>> GetAsync(string search, int page, int pageSize, IReadOnlyDictionary<string, string>? extraQuery = null)
     {
         var query = $"{ApiResourceName}?search={Uri.EscapeDataString(search)}&page={page}&pageSize={pageSize}";

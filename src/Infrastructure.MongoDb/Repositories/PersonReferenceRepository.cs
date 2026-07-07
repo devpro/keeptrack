@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
 using Keeptrack.Domain.Models;
@@ -28,6 +30,12 @@ public class PersonReferenceRepository(IMongoDatabase mongoDatabase, IMapper map
         var filter = Builders<PersonReference>.Filter.Eq($"external_ids.{provider}", externalId);
         var entity = await Collection.Find(filter).FirstOrDefaultAsync();
         return entity is null ? null : mapper.Map<PersonReferenceModel>(entity);
+    }
+
+    public async Task<List<PersonReferenceModel>> FindAllAsync()
+    {
+        var entities = await Collection.Find(FilterDefinition<PersonReference>.Empty).ToListAsync();
+        return entities.Select(mapper.Map<PersonReferenceModel>).ToList();
     }
 
     public async Task<PersonReferenceModel> UpsertAsync(PersonReferenceModel model)

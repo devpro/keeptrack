@@ -14,6 +14,13 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IMapper mapper, IData
     : ControllerBase
     where TModel : class, IHasIdAndOwnerId
 {
+    /// <summary>
+    /// Exposes the mapper to subclasses that add their own actions (e.g. a refresh-reference endpoint) -
+    /// lets them reuse this instance instead of capturing their own <c>IMapper</c> primary-constructor
+    /// parameter as a second field holding the same reference.
+    /// </summary>
+    protected IMapper Mapper => mapper;
+
     [HttpGet]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]

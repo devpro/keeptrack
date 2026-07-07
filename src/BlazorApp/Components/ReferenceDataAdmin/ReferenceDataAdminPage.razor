@@ -9,6 +9,31 @@
 
 <div class="kt-form-card">
     <p style="color:var(--kt-text-muted)">
+        Export the whole reference dataset (TV shows, movies, cast) as a zip, or re-import a previously
+        exported one - re-importing is safe to run more than once, since every document is upserted by id.
+    </p>
+    <div class="d-flex align-items-center gap-3">
+        <button class="btn btn-sm btn-secondary" @onclick="ExportAsync" disabled="@_exporting">⬇ Download export</button>
+        <InputFile OnChange="OnImportFileSelectedAsync" accept=".zip" disabled="@_importing"/>
+        @if (_importing)
+        {
+            <div class="kt-spinner" style="width:1rem;height:1rem"></div>
+        }
+    </div>
+    @if (_importResult is not null)
+    {
+        <div class="alert alert-info mt-3 mb-0">
+            Imported @_importResult.TvShowCount TV show(s), @_importResult.MovieCount movie(s), @_importResult.PersonCount person(s).
+        </div>
+    }
+    @if (_importExportError is not null)
+    {
+        <div class="alert alert-danger mt-3 mb-0">@_importExportError</div>
+    }
+</div>
+
+<div class="kt-form-card">
+    <p style="color:var(--kt-text-muted)">
         Titles below couldn't be automatically matched to a TMDB entry (no result, or more than one
         candidate). Pick the right one to link every account's matching show/movie at once.
     </p>
@@ -104,7 +129,11 @@
 </div>
 
 @code {
+    private const long MaxImportFileSize = 50_000_000;
+
     [Inject] private ReferenceDataAdminApiClient Api { get; set; } = null!;
+
+    [Inject] private IJSRuntime JsRuntime { get; set; } = null!;
 
     private ReferenceItemType _type = ReferenceItemType.TvShow;
     private List<UnresolvedReferenceDto> _unresolved = [];
@@ -113,6 +142,50 @@
     private bool _searching;
     private bool _linking;
     private string? _error;
+
+    private bool _exporting;
+    private bool _importing;
+    private ReferenceDataImportResultDto? _importResult;
+    private string? _importExportError;
+
+    private async Task ExportAsync()
+    {
+        _exporting = true;
+        _importExportError = null;
+        try
+        {
+            var bytes = await Api.ExportAsync();
+            await JsRuntime.InvokeVoidAsync("ktDownloadFile", "keeptrack-reference-data.zip", "application/zip", Convert.ToBase64String(bytes));
+        }
+        catch (Exception ex)
+        {
+            _importExportError = ex.Message;
+        }
+        finally
+        {
+            _exporting = false;
+        }
+    }
+
+    private async Task OnImportFileSelectedAsync(InputFileChangeEventArgs e)
+    {
+        _importing = true;
+        _importExportError = null;
+        _importResult = null;
+        try
+        {
+            await using var stream = e.File.OpenReadStream(MaxImportFileSize);
+            _importResult = await Api.ImportAsync(stream, e.File.Name);
+        }
+        catch (Exception ex)
+        {
+            _importExportError = ex.Message;
+        }
+        finally
+        {
+            _importing = false;
+        }
+    }
 
     protected override async Task OnInitializedAsync() => await LoadUnresolvedAsync();
 
