@@ -31,7 +31,13 @@ public class DataStorageMappingProfile : Profile
         CreateMap<Domain.Models.ReferenceEpisodeModel, Infrastructure.MongoDb.Entities.ReferenceEpisode>();
 
         CreateMap<Infrastructure.MongoDb.Entities.ReferenceMatch, Domain.Models.ReferenceMatchModel>();
-        CreateMap<Domain.Models.ReferenceMatchModel, Infrastructure.MongoDb.Entities.ReferenceMatch>();
+
+        // Creator has no creator dimension for TV show/movie/video game (always null there) - overriding
+        // the profile-wide AllowNullDestinationValues = false (Program.cs) just for this member keeps a
+        // null Creator stored as an actual BSON null instead of "", so the app never has to treat null and
+        // "" as equivalent when comparing it (see ReferenceEnrichmentService.MergeMatchedAliases).
+        CreateMap<Domain.Models.ReferenceMatchModel, Infrastructure.MongoDb.Entities.ReferenceMatch>()
+            .ForMember(x => x.Creator, opt => opt.AllowNull());
 
         CreateMap<Infrastructure.MongoDb.Entities.TvShowReference, Domain.Models.TvShowReferenceModel>();
         CreateMap<Domain.Models.TvShowReferenceModel, Infrastructure.MongoDb.Entities.TvShowReference>();

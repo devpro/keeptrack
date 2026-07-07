@@ -42,6 +42,16 @@ public partial class ReferenceEnrichmentService(
     /// TV show/movie/video game (no creator dimension in their match key); Book/Album always pass their
     /// resolved author/artist text - see <see cref="ReferenceMatchModel.Creator"/> for why it matters there.
     /// </summary>
+    /// <remarks>
+    /// The dedup check compares <c>Creator</c> directly (no null/empty-string normalization needed here):
+    /// <c>DataStorageMappingProfile</c>'s <c>ReferenceMatchModel</c> -&gt; <c>ReferenceMatch</c> map opts
+    /// <c>Creator</c> out of the profile-wide <c>AllowNullDestinationValues = false</c> (<c>.ForMember(x =>
+    /// x.Creator, opt => opt.AllowNull())</c>), so a null <c>Creator</c> round-trips through Mongo as an
+    /// actual BSON null, not <c>""</c> - keeping that distinction the database layer's job instead of a
+    /// workaround here. Getting this wrong once already duplicated an alias on every re-resolve/re-refresh
+    /// (confirmed against a real video game reference, RAWG's "God of War", that had accumulated an exact
+    /// duplicate this way) - see `scripts/dedupe-matched-aliases.js` for the one-off cleanup this needed.
+    /// </remarks>
     private static List<Domain.Models.ReferenceMatchModel> MergeMatchedAliases(List<Domain.Models.ReferenceMatchModel>? existing, params (string Title, int? Year, string? Creator)[] aliases)
     {
         var result = new List<Domain.Models.ReferenceMatchModel>(existing ?? []);

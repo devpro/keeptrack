@@ -130,7 +130,7 @@ Episode titles, synopses, cover art, and the "what should I watch next" experien
 Type        | Provider                                       | Setting            | API key required?
 ------------|-------------------------------------------------|---------------------|-------------------
 TV shows / Movies | [TMDB](https://www.themoviedb.org/) (The Movie Database) | `Tmdb:ApiKey`       | Yes
-Books       | [Open Library](https://openlibrary.org/)         | *(none)*            | No
+Books             | [Open Library](https://openlibrary.org/)         | *(none)*            | No
 Video Games | [RAWG](https://rawg.io/apidocs)                  | `Rawg:ApiKey`       | Yes
 Albums      | [Discogs](https://www.discogs.com/developers)    | `Discogs:Token`     | Yes (personal access token)
 

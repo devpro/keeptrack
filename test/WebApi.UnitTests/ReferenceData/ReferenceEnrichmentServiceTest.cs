@@ -708,6 +708,31 @@ public class ReferenceEnrichmentServiceTest
     }
 
     [Fact]
+    public async Task RefreshVideoGameReferenceAsync_DoesNotDuplicateAnAliasAlreadyPersistedWithAnEmptyCreator()
+    {
+        // Regression: a null Creator (TV show/movie/video game domains have no creator dimension) round-trips
+        // through Mongo as an empty string, not null (AllowNullDestinationValues = false - see Program.cs).
+        // MergeMatchedAliases must treat that persisted "" the same as the freshly-computed null it's about
+        // to re-add, or every refresh appends a fresh, indistinguishable duplicate of the same alias forever.
+        // Confirmed against a real RAWG-backed video game reference ("God of War") that had accumulated an
+        // exact duplicate {title, year, creator: ""} entry from being resolved/refreshed more than once.
+        var rawgClient = FakeRawgClient.Empty();
+        rawgClient.Details["1"] = new RawgGameDetails("1", "Some Game", 2020, "Synopsis", ["Action"], ["PC"], null);
+        var reference = new VideoGameReferenceModel
+        {
+            Id = "reference-1", Title = "Some Game", TitleNormalized = "some game",
+            ExternalIds = new Dictionary<string, string> { ["rawg"] = "1" },
+            MatchedAliases = [new ReferenceMatchModel { Title = "some game", Year = 2020, Creator = "" }]
+        };
+        _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) => m);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), rawgClient: rawgClient);
+
+        var (result, _) = await service.RefreshVideoGameReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        result.MatchedAliases.Should().ContainSingle();
+    }
+
+    [Fact]
     public async Task TryAutoResolveAlbumAsync_DoesNothing_WhenSearchIsAmbiguous()
     {
         var discogsClient = FakeDiscogsClient.WithSearchResults(
