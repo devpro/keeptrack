@@ -43,7 +43,7 @@ public class WatchNextController(
         return Ok(new WatchNextDto
         {
             InProgressShows = watchNextService.ComputeInProgressShows(shows.Items, episodes.Items, referencesByShowId),
-            MoviesToWatch = mapper.Map<List<MovieDto>>(moviesToWatch.Items)
+            MoviesToWatch = mapper.Map<List<MovieDto>>(watchNextService.FilterMoviesToWatch(moviesToWatch.Items))
         });
     }
 }

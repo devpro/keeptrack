@@ -40,4 +40,16 @@ public interface ITmdbClient
     Task<IReadOnlyList<TmdbCastMember>> GetTvShowCastAsync(string tmdbId, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<TmdbCastMember>> GetMovieCastAsync(string tmdbId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Whether TMDB has recorded any change to this show since <paramref name="since"/> - a cheap (one
+    /// call, no season fan-out) pre-check the periodic reference sync uses to skip a full re-fetch of
+    /// unchanged shows.
+    /// </summary>
+    Task<bool> HasTvShowChangedSinceAsync(string tmdbId, DateTime since, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Movie equivalent of <see cref="HasTvShowChangedSinceAsync"/>.
+    /// </summary>
+    Task<bool> HasMovieChangedSinceAsync(string tmdbId, DateTime since, CancellationToken cancellationToken = default);
 }

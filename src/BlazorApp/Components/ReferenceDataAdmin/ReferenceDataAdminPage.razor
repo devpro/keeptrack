@@ -13,7 +13,7 @@
         exported one - re-importing is safe to run more than once, since every document is upserted by id.
     </p>
     <div class="d-flex align-items-center gap-3">
-        <button class="btn btn-sm btn-secondary" @onclick="ExportAsync" disabled="@_exporting">⬇ Download export</button>
+        <button class="btn btn-sm btn-secondary" @onclick="ExportAsync" disabled="@_exporting">Download export</button>
         <InputFile OnChange="OnImportFileSelectedAsync" accept=".zip" disabled="@_importing"/>
         @if (_importing)
         {
@@ -29,6 +29,32 @@
     @if (_importExportError is not null)
     {
         <div class="alert alert-danger mt-3 mb-0">@_importExportError</div>
+    }
+</div>
+
+<div class="kt-form-card">
+    <p style="color:var(--kt-text-muted)">
+        Reference data (episode guides, genres, posters, cast) drifts out of date after TMDB updates a show
+        or movie - a background sync re-checks documents older than 3 days every 24h. Use this to force an
+        immediate re-check of everything instead of waiting.
+    </p>
+    <div class="d-flex align-items-center gap-3">
+        <button class="btn btn-sm btn-secondary" @onclick="SyncNowAsync" disabled="@_syncing">Sync now</button>
+        @if (_syncing)
+        {
+            <div class="kt-spinner" style="width:1rem;height:1rem"></div>
+        }
+    </div>
+    @if (_syncResult is not null)
+    {
+        <div class="alert alert-info mt-3 mb-0">
+            TV shows: @_syncResult.TvShowsChecked checked, @_syncResult.TvShowsUpdated updated.
+            Movies: @_syncResult.MoviesChecked checked, @_syncResult.MoviesUpdated updated.
+        </div>
+    }
+    @if (_syncError is not null)
+    {
+        <div class="alert alert-danger mt-3 mb-0">@_syncError</div>
     }
 </div>
 
@@ -147,6 +173,28 @@
     private bool _importing;
     private ReferenceDataImportResultDto? _importResult;
     private string? _importExportError;
+
+    private bool _syncing;
+    private ReferenceSyncResultDto? _syncResult;
+    private string? _syncError;
+
+    private async Task SyncNowAsync()
+    {
+        _syncing = true;
+        _syncError = null;
+        try
+        {
+            _syncResult = await Api.SyncNowAsync();
+        }
+        catch (Exception ex)
+        {
+            _syncError = ex.Message;
+        }
+        finally
+        {
+            _syncing = false;
+        }
+    }
 
     private async Task ExportAsync()
     {

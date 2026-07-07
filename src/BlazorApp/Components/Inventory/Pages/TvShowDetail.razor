@@ -33,8 +33,8 @@ else
             }
         </div>
         <div class="d-flex gap-2">
-            <button class="btn btn-sm @(_show.IsFavorite ? "btn-primary" : "btn-secondary")" @onclick="ToggleFavoriteAsync">⭐ Best of</button>
-            <button class="btn btn-sm @(_show.WantToWatch ? "btn-primary" : "btn-secondary")" @onclick="ToggleWantToWatchAsync">👁 Want to watch</button>
+            <button class="btn btn-sm kt-toggle-btn @(_show.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>
+            <button class="btn btn-sm kt-toggle-btn @(_show.WantToWatch ? "active" : "")" @onclick="ToggleWantToWatchAsync">Watchlist</button>
         </div>
     </div>
 
@@ -250,8 +250,12 @@ else
 
         if (_reference is not null)
         {
-            // full checklist, in natural watch-through order
+            // full checklist, in natural watch-through order - an episode TMDB lists with a future air date
+            // hasn't aired yet, so it isn't "unseen and ready to watch", it doesn't exist yet from the
+            // viewer's perspective (same air-date filter WatchNextService applies for the "next episode" calc)
+            var today = DateOnly.FromDateTime(DateTime.Today);
             _referenceEpisodesBySeason = _reference.Episodes
+                .Where(e => e.AirDate is null || e.AirDate <= today)
                 .GroupBy(e => e.SeasonNumber)
                 .ToDictionary(g => g.Key, g => g.OrderBy(e => e.EpisodeNumber).ToList());
             _seasons = _referenceEpisodesBySeason.Keys.OrderByDescending(s => s).ToList();

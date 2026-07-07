@@ -22,6 +22,8 @@ builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.ITmdbClient, Keept
     client.BaseAddress = new Uri("https://api.themoviedb.org/3/");
 });
 builder.Services.AddScoped<Keeptrack.WebApi.ReferenceData.ReferenceEnrichmentService>();
+builder.Services.AddScoped<Keeptrack.WebApi.ReferenceData.ReferenceSyncService>();
+builder.Services.AddHostedService<Keeptrack.WebApi.ReferenceData.ReferenceSyncBackgroundService>();
 builder.Services.AddMongoDbInfrastructure(configuration);
 builder.Services.AddOpenApiWithBearerAuth(configuration);
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

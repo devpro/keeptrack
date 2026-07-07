@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
@@ -204,6 +205,80 @@ public class ReferenceEnrichmentService(
         var saved = await movieReferenceRepository.UpsertAsync(model);
         await movieRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title);
         return saved;
+    }
+
+    /// <summary>
+    /// Re-fetches a TV show reference from TMDB if anything has changed since <see cref="TvShowReferenceModel.LastEnrichedAt"/>
+    /// (skipping the expensive per-season episode fan-out when it hasn't), and always bumps <c>LastEnrichedAt</c>
+    /// so the periodic sync doesn't keep re-checking an up-to-date document every run. A no-op (returns
+    /// unchanged) for a reference with no TMDB id or that TMDB no longer has details for.
+    /// </summary>
+    public async Task<(TvShowReferenceModel Model, bool DataChanged)> RefreshTvShowReferenceAsync(TvShowReferenceModel reference, CancellationToken cancellationToken = default)
+    {
+        var tmdbId = reference.ExternalIds.GetValueOrDefault("tmdb");
+        if (string.IsNullOrEmpty(tmdbId)) return (reference, false);
+
+        if (reference.LastEnrichedAt is not null)
+        {
+            var changed = await tmdbClient.HasTvShowChangedSinceAsync(tmdbId, reference.LastEnrichedAt.Value, cancellationToken);
+            if (!changed)
+            {
+                reference.LastEnrichedAt = DateTime.UtcNow;
+                return (await tvShowReferenceRepository.UpsertAsync(reference), false);
+            }
+        }
+
+        var details = await tmdbClient.GetTvShowDetailsAsync(tmdbId, cancellationToken);
+        if (details is null) return (reference, false);
+        var cast = await tmdbClient.GetTvShowCastAsync(tmdbId, cancellationToken);
+
+        reference.Title = details.Title;
+        reference.Year = details.Year ?? reference.Year;
+        reference.Synopsis = details.Synopsis;
+        reference.Episodes = details.Episodes
+            .Select(e => new ReferenceEpisodeModel { SeasonNumber = e.SeasonNumber, EpisodeNumber = e.EpisodeNumber, Title = e.Title, AirDate = e.AirDate })
+            .ToList();
+        reference.Genres = details.Genres;
+        reference.Cast = await ResolveCastAsync(cast);
+        reference.PosterUrl = details.PosterUrl ?? reference.PosterUrl;
+        reference.MatchedTitles = MergeMatchedTitles(reference.MatchedTitles, details.Title, details.Title);
+        reference.LastEnrichedAt = DateTime.UtcNow;
+
+        return (await tvShowReferenceRepository.UpsertAsync(reference), true);
+    }
+
+    /// <summary>
+    /// Movie equivalent of <see cref="RefreshTvShowReferenceAsync"/>.
+    /// </summary>
+    public async Task<(MovieReferenceModel Model, bool DataChanged)> RefreshMovieReferenceAsync(MovieReferenceModel reference, CancellationToken cancellationToken = default)
+    {
+        var tmdbId = reference.ExternalIds.GetValueOrDefault("tmdb");
+        if (string.IsNullOrEmpty(tmdbId)) return (reference, false);
+
+        if (reference.LastEnrichedAt is not null)
+        {
+            var changed = await tmdbClient.HasMovieChangedSinceAsync(tmdbId, reference.LastEnrichedAt.Value, cancellationToken);
+            if (!changed)
+            {
+                reference.LastEnrichedAt = DateTime.UtcNow;
+                return (await movieReferenceRepository.UpsertAsync(reference), false);
+            }
+        }
+
+        var details = await tmdbClient.GetMovieDetailsAsync(tmdbId, cancellationToken);
+        if (details is null) return (reference, false);
+        var cast = await tmdbClient.GetMovieCastAsync(tmdbId, cancellationToken);
+
+        reference.Title = details.Title;
+        reference.Year = details.Year ?? reference.Year;
+        reference.Synopsis = details.Synopsis;
+        reference.Genres = details.Genres;
+        reference.Cast = await ResolveCastAsync(cast);
+        reference.PosterUrl = details.PosterUrl ?? reference.PosterUrl;
+        reference.MatchedTitles = MergeMatchedTitles(reference.MatchedTitles, details.Title, details.Title);
+        reference.LastEnrichedAt = DateTime.UtcNow;
+
+        return (await movieReferenceRepository.UpsertAsync(reference), true);
     }
 
     /// <summary>

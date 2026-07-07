@@ -51,4 +51,15 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
         return await response.Content.ReadFromJsonAsync<ReferenceDataImportResultDto>()
                ?? new ReferenceDataImportResultDto { TvShowCount = 0, MovieCount = 0, PersonCount = 0 };
     }
+
+    /// <summary>
+    /// Forces an immediate re-check of every reference document against TMDB (see
+    /// <c>ReferenceDataAdminController.SyncNow</c>), instead of waiting for the periodic background sync.
+    /// </summary>
+    public async Task<ReferenceSyncResultDto> SyncNowAsync()
+    {
+        var response = await http.PostAsync("/api/reference-data/sync-now", null);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<ReferenceSyncResultDto>())!;
+    }
 }

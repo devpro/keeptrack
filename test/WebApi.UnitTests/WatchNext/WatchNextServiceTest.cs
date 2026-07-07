@@ -169,4 +169,29 @@ public class WatchNextServiceTest
         result[0].TvShowTitle.Should().Be("Newer");
         result[1].TvShowTitle.Should().Be("Older");
     }
+
+    private static MovieModel Movie(string id, string title, DateOnly? firstSeenAt = null) =>
+        new() { Id = id, OwnerId = "owner", Title = title, WantToWatch = true, FirstSeenAt = firstSeenAt };
+
+    [Fact]
+    public void FilterMoviesToWatch_IncludesMoviesNotYetSeen()
+    {
+        var movies = new[] { Movie("movie-1", "Dune") };
+
+        var result = _service.FilterMoviesToWatch(movies);
+
+        result.Should().ContainSingle(m => m.Id == "movie-1");
+    }
+
+    [Fact]
+    public void FilterMoviesToWatch_ExcludesMoviesAlreadyMarkedAsSeen()
+    {
+        // toggling "want to watch" on a movie's detail page doesn't clear the flag once it's marked watched -
+        // an already-seen movie shouldn't linger in the watchlist regardless
+        var movies = new[] { Movie("movie-1", "Dune", new DateOnly(2024, 1, 1)) };
+
+        var result = _service.FilterMoviesToWatch(movies);
+
+        result.Should().BeEmpty();
+    }
 }

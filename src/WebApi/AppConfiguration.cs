@@ -14,6 +14,13 @@ public class AppConfiguration(IConfiguration configuration)
 
     public bool IsScalarEnabled => configuration.TryGetSection<bool>("Features:IsScalarEnabled");
 
+    /// <summary>
+    /// Gates <see cref="ReferenceSyncBackgroundService"/> - on by default (production wants this running),
+    /// but off in the integration test host (see <c>KestrelWebAppFactory</c>), which otherwise fires real
+    /// TMDB calls against shared test data on every host start-up.
+    /// </summary>
+    public bool IsReferenceSyncEnabled => configuration.TryGetSection<bool>("Features:IsReferenceSyncEnabled");
+
     public OpenApiInfo OpenApiInfo { get; } = configuration.TryGetSection<OpenApiInfo>("OpenApi");
 
     public JwtBearerSettings JwtBearerSettings { get; } = configuration.TryGetSection<JwtBearerSettings>("Authentication:JwtBearer");

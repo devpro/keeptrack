@@ -65,4 +65,13 @@ public class WatchNextService
             .OrderByDescending(n => n.LastWatchedAt)
             .ToList();
     }
+
+    /// <summary>
+    /// A movie flagged "want to watch" that has since been marked seen shouldn't linger in the watchlist -
+    /// mirrors <c>MovieTrackingEventsCsvParser</c>'s "towatch" handling, which never flags an already-watched
+    /// movie in the first place. Toggling "want to watch" directly on a movie's own detail page doesn't clear
+    /// the flag on watch, so this is filtered here rather than relying on the flag never going stale.
+    /// </summary>
+    public List<MovieModel> FilterMoviesToWatch(IEnumerable<MovieModel> movies) =>
+        movies.Where(m => m.FirstSeenAt is null).ToList();
 }

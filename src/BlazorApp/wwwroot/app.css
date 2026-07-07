@@ -494,9 +494,25 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
 }
 .kt-corner-flag:hover { background: var(--kt-border-hover); }
 .kt-corner-flag.active {
-  background: var(--kt-warning-bg);
-  color: var(--kt-warning);
+  background: var(--kt-success-bg);
+  color: var(--kt-success);
 }
+
+/* favorite/watchlist toggle buttons on a detail page: a soft tinted "selected" state instead of the
+   solid btn-primary blue/white block, which read as unnecessarily aggressive, especially in dark mode -
+   same accent-glow treatment already used for .kt-page-btn.active. */
+.kt-toggle-btn {
+  background: var(--kt-surface-3) !important;
+  color: var(--kt-text-muted) !important;
+  border: 1px solid var(--kt-border) !important;
+}
+.kt-toggle-btn:hover { background: var(--kt-surface-2) !important; color: var(--kt-text) !important; }
+.kt-toggle-btn.active {
+  background: var(--kt-accent-glow) !important;
+  color: var(--kt-accent) !important;
+  border-color: rgba(47, 111, 237, 0.35) !important;
+}
+.kt-toggle-btn.active:hover { background: var(--kt-accent-glow) !important; }
 
 /* TV show status: a small colored pill for the list column (setting status itself happens via the
    explicit Current/Finished/Stopped buttons on the detail page, not by clicking this) */

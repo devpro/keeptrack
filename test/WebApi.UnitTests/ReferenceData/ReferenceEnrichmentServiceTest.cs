@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -293,13 +294,100 @@ public class ReferenceEnrichmentServiceTest
         _movieRepository.Verify(r => r.UpdateAsync("movie-1", It.Is<MovieModel>(m => m.ReferenceId == string.Empty), "owner"), Times.Once);
     }
 
+    [Fact]
+    public async Task RefreshTvShowReferenceAsync_ReturnsUnchanged_WhenReferenceHasNoTmdbId()
+    {
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        var service = CreateService(tmdbClient);
+        var reference = new TvShowReferenceModel { Id = "reference-1", Title = "Some Show", TitleNormalized = "some show", ExternalIds = [] };
+
+        var (result, changed) = await service.RefreshTvShowReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        changed.Should().BeFalse();
+        result.Should().BeSameAs(reference);
+        _tvShowReferenceRepository.Verify(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RefreshTvShowReferenceAsync_OnlyBumpsLastEnrichedAt_WhenTmdbReportsNoChanges()
+    {
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.ChangedSince["42"] = false;
+        var lastEnrichedAt = DateTime.UtcNow.AddDays(-5);
+        var reference = new TvShowReferenceModel
+        {
+            Id = "reference-1", Title = "Some Show", TitleNormalized = "some show",
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" }, LastEnrichedAt = lastEnrichedAt
+        };
+        _tvShowReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>())).ReturnsAsync((TvShowReferenceModel m) => m);
+        var service = CreateService(tmdbClient);
+
+        var (result, changed) = await service.RefreshTvShowReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        changed.Should().BeFalse();
+        result.LastEnrichedAt.Should().BeAfter(lastEnrichedAt);
+        // no changes reported: the expensive details/season fetch must never happen
+        tmdbClient.TvShowDetailsRequested.Should().NotContain("42");
+    }
+
+    [Fact]
+    public async Task RefreshTvShowReferenceAsync_RefetchesDetails_WhenTmdbReportsChanges()
+    {
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.ChangedSince["42"] = true;
+        tmdbClient.TvShowDetails["42"] = new TmdbTvShowDetails("42", "Some Show - Updated", 2020, "New synopsis", [], ["Drama"], null);
+        var reference = new TvShowReferenceModel
+        {
+            Id = "reference-1", Title = "Some Show", TitleNormalized = "some show",
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" }, LastEnrichedAt = DateTime.UtcNow.AddDays(-5)
+        };
+        _tvShowReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>())).ReturnsAsync((TvShowReferenceModel m) => m);
+        var service = CreateService(tmdbClient);
+
+        var (result, changed) = await service.RefreshTvShowReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        changed.Should().BeTrue();
+        result.Title.Should().Be("Some Show - Updated");
+        result.Synopsis.Should().Be("New synopsis");
+        result.Genres.Should().Contain("Drama");
+    }
+
+    [Fact]
+    public async Task RefreshTvShowReferenceAsync_RefetchesDetails_WhenNeverPreviouslyEnriched()
+    {
+        // no LastEnrichedAt to compare against: always do the full fetch, never call the changes pre-check
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.TvShowDetails["42"] = new TmdbTvShowDetails("42", "Some Show", 2020, "Synopsis", [], [], null);
+        var reference = new TvShowReferenceModel
+        {
+            Id = "reference-1", Title = "Some Show", TitleNormalized = "some show",
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" }, LastEnrichedAt = null
+        };
+        _tvShowReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>())).ReturnsAsync((TvShowReferenceModel m) => m);
+        var service = CreateService(tmdbClient);
+
+        var (_, changed) = await service.RefreshTvShowReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        changed.Should().BeTrue();
+        tmdbClient.ChangesRequested.Should().NotContain("42");
+    }
+
     private sealed class FakeTmdbClient : ITmdbClient
     {
         private readonly List<TmdbSearchResult> _tvShowSearchResults;
 
         public Dictionary<string, TmdbTvShowDetails> TvShowDetails { get; } = new();
 
+        public Dictionary<string, TmdbMovieDetails> MovieDetails { get; } = new();
+
         public Dictionary<string, List<TmdbCastMember>> Cast { get; } = new();
+
+        /// <summary>Whether TMDB reports a change for a given id - defaults to true (changed) when unset.</summary>
+        public Dictionary<string, bool> ChangedSince { get; } = new();
+
+        public List<string> TvShowDetailsRequested { get; } = [];
+
+        public List<string> ChangesRequested { get; } = [];
 
         private FakeTmdbClient(List<TmdbSearchResult> tvShowSearchResults) => _tvShowSearchResults = tvShowSearchResults;
 
@@ -311,16 +399,31 @@ public class ReferenceEnrichmentServiceTest
         public Task<IReadOnlyList<TmdbSearchResult>> SearchMovieAsync(string title, int? year, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<TmdbSearchResult>>([]);
 
-        public Task<TmdbTvShowDetails?> GetTvShowDetailsAsync(string tmdbId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(TvShowDetails.GetValueOrDefault(tmdbId));
+        public Task<TmdbTvShowDetails?> GetTvShowDetailsAsync(string tmdbId, CancellationToken cancellationToken = default)
+        {
+            TvShowDetailsRequested.Add(tmdbId);
+            return Task.FromResult(TvShowDetails.GetValueOrDefault(tmdbId));
+        }
 
         public Task<TmdbMovieDetails?> GetMovieDetailsAsync(string tmdbId, CancellationToken cancellationToken = default) =>
-            Task.FromResult<TmdbMovieDetails?>(null);
+            Task.FromResult(MovieDetails.GetValueOrDefault(tmdbId));
 
         public Task<IReadOnlyList<TmdbCastMember>> GetTvShowCastAsync(string tmdbId, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<TmdbCastMember>>(Cast.GetValueOrDefault(tmdbId) ?? []);
 
         public Task<IReadOnlyList<TmdbCastMember>> GetMovieCastAsync(string tmdbId, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<TmdbCastMember>>([]);
+            Task.FromResult<IReadOnlyList<TmdbCastMember>>(Cast.GetValueOrDefault(tmdbId) ?? []);
+
+        public Task<bool> HasTvShowChangedSinceAsync(string tmdbId, DateTime since, CancellationToken cancellationToken = default)
+        {
+            ChangesRequested.Add(tmdbId);
+            return Task.FromResult(ChangedSince.GetValueOrDefault(tmdbId, true));
+        }
+
+        public Task<bool> HasMovieChangedSinceAsync(string tmdbId, DateTime since, CancellationToken cancellationToken = default)
+        {
+            ChangesRequested.Add(tmdbId);
+            return Task.FromResult(ChangedSince.GetValueOrDefault(tmdbId, true));
+        }
     }
 }

@@ -78,6 +78,25 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
             BuildImageUrl(c.ProfilePath, ProfileImageSize))).ToList() ?? [];
     }
 
+    public Task<bool> HasTvShowChangedSinceAsync(string tmdbId, DateTime since, CancellationToken cancellationToken = default) =>
+        HasChangedSinceAsync("tv", tmdbId, since, cancellationToken);
+
+    public Task<bool> HasMovieChangedSinceAsync(string tmdbId, DateTime since, CancellationToken cancellationToken = default) =>
+        HasChangedSinceAsync("movie", tmdbId, since, cancellationToken);
+
+    /// <summary>
+    /// TMDB's per-id "changes" endpoint (as opposed to the bulk <c>/tv/changes</c>, <c>/movie/changes</c>
+    /// endpoints which only cover the last 24-72h) reports whether anything changed since an arbitrary date -
+    /// one cheap call instead of blindly re-fetching details plus every season for a show that hasn't moved.
+    /// </summary>
+    private async Task<bool> HasChangedSinceAsync(string resourceType, string tmdbId, DateTime since, CancellationToken cancellationToken)
+    {
+        var startDate = since.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var response = await http.GetFromJsonAsync<TmdbChangesResponse>(
+            $"{resourceType}/{tmdbId}/changes?api_key={ApiKey}&start_date={startDate}", cancellationToken);
+        return response?.Changes.Count > 0;
+    }
+
     private string ApiKey => settings.ApiKey;
 
     private const string PosterImageSize = "w500";
@@ -201,6 +220,12 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
     {
         [JsonPropertyName("cast")]
         public List<TmdbCastMemberWire> Cast { get; set; } = [];
+    }
+
+    private sealed class TmdbChangesResponse
+    {
+        [JsonPropertyName("changes")]
+        public List<object> Changes { get; set; } = [];
     }
 
     private sealed class TmdbCastMemberWire

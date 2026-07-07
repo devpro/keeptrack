@@ -3,9 +3,11 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
+using Keeptrack.WebApi.Contracts.Dto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -23,6 +25,7 @@ public class ReferenceDataAdminController(
     IMovieRepository movieRepository,
     ITmdbClient tmdbClient,
     ReferenceEnrichmentService enrichmentService,
+    ReferenceSyncService syncService,
     ITvShowReferenceRepository tvShowReferenceRepository,
     IMovieReferenceRepository movieReferenceRepository,
     IPersonReferenceRepository personReferenceRepository) : ControllerBase
@@ -111,6 +114,16 @@ public class ReferenceDataAdminController(
         await using var entryStream = entry.Open();
         return await JsonSerializer.DeserializeAsync<List<T>>(entryStream) ?? [];
     }
+
+    /// <summary>
+    /// Forces an immediate re-check of every reference document against TMDB, regardless of how recently
+    /// it was last enriched - the same logic the periodic background sync runs on a schedule (see
+    /// <see cref="ReferenceSyncBackgroundService"/>), just triggered on demand instead of waiting.
+    /// </summary>
+    [HttpPost("sync-now")]
+    [ProducesResponseType(200)]
+    public async Task<ActionResult<ReferenceSyncResultDto>> SyncNow(CancellationToken cancellationToken) =>
+        Ok(await syncService.SyncStaleReferencesAsync(TimeSpan.Zero, cancellationToken));
 
     /// <summary>
     /// Distinct (title, year) pairs, across every tenant, still missing a reference-data link.

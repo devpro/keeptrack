@@ -98,21 +98,28 @@ ensureIndex(
 // a title - checked first and authoritative, since two tenants resolving the exact same TMDB entry under
 // different title text must reuse the same reference document, not create a duplicate (title/year matching
 // alone can't guarantee that). Same shape as person_reference_tmdb_id below.
+// unique + partialFilterExpression (rather than a legacy sparse index): a real TMDB id must never be
+// claimed by two different reference documents (ResolveTvShowAsync/ResolveMovieAsync already look this
+// up first specifically to prevent that), and the partial filter is what makes the uniqueness constraint
+// safe for any document created before this field existed - MongoDB would otherwise treat every one of
+// those "missing external_ids.tmdb" documents as colliding on the same null key.
+// NOTE: if this fails with a duplicate-key error, a duplicate already exists (e.g. from before the
+// ResolveTvShowAsync/ResolveMovieAsync id-first dedup fix - see CLAUDE.md) and must be merged/removed first.
 ensureIndex(
   db.tvshow_reference,
   { "external_ids.tmdb": 1 },
-  { name: "tvshow_reference_tmdb_id" }
+  { name: "tvshow_reference_tmdb_id", unique: true, partialFilterExpression: { "external_ids.tmdb": { $exists: true } } }
 );
 ensureIndex(
   db.movie_reference,
   { "external_ids.tmdb": 1 },
-  { name: "movie_reference_tmdb_id" }
+  { name: "movie_reference_tmdb_id", unique: true, partialFilterExpression: { "external_ids.tmdb": { $exists: true } } }
 );
 
 // person_reference: actors/cast are deduplicated across every show/movie that credits them, looked up
-// by external provider id (e.g. their TMDB person id), never by name
+// by external provider id (e.g. their TMDB person id), never by name - same uniqueness rationale as above.
 ensureIndex(
   db.person_reference,
   { "external_ids.tmdb": 1 },
-  { name: "person_reference_tmdb_id" }
+  { name: "person_reference_tmdb_id", unique: true, partialFilterExpression: { "external_ids.tmdb": { $exists: true } } }
 );

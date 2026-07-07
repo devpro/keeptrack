@@ -1,9 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Keeptrack.WebApi.IntegrationTests.Hosting;
@@ -22,6 +25,21 @@ public class KestrelWebAppFactory<TEntryPoint> : WebApplicationFactory<TEntryPoi
         {
             UseKestrel(options => options.Listen(IPAddress.Loopback, 0));
         }
+    }
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        // the periodic reference sync fires real TMDB calls against whatever reference data the test
+        // Mongo instance happens to hold - undesirable noise/flakiness in a test run, not a regression to
+        // chase down; the app's own default (Features:IsReferenceSyncEnabled=true in appsettings.json) is
+        // unaffected, this only overrides the test host's configuration. ConfigureAppConfiguration (rather
+        // than UseSetting, which loads before appsettings.json and so gets overridden by it) is added last
+        // and wins.
+        builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(
+        [
+            new KeyValuePair<string, string?>("Features:IsReferenceSyncEnabled", "false")
+        ]));
+        base.ConfigureWebHost(builder);
     }
 
     public string ServerAddress
