@@ -28,7 +28,10 @@ public class TvShow : IHasIdAndOwnerId
     [BsonElement("reference_id")]
     public string? ReferenceId { get; set; }
 
-    public TvShowStatus? Status { get; set; }
+    // storage name kept as "status" deliberately - only the C# property was renamed to State (for parity
+    // with VideoGame.State), so existing documents need no migration.
+    [BsonElement("status")]
+    public TvShowStatus? State { get; set; }
 
     [BsonElement("is_favorite")]
     public bool IsFavorite { get; set; }

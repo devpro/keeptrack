@@ -6,5 +6,8 @@ namespace Keeptrack.WebApi.Contracts.Dto;
 public enum ReferenceItemType
 {
     TvShow,
-    Movie
+    Movie,
+    Book,
+    VideoGame,
+    Album
 }

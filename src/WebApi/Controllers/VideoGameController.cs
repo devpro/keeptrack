@@ -1,12 +1,60 @@
-﻿using Keeptrack.Domain.Models;
+using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
+using Keeptrack.WebApi.ReferenceData;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Keeptrack.WebApi.Controllers;
 
 [ApiController]
 [Authorize]
 [Route("api/video-games")]
-public class VideoGameController(IMapper mapper, IVideoGameRepository dataRepository)
-    : DataCrudControllerBase<VideoGameDto, VideoGameModel>(mapper, dataRepository);
+public class VideoGameController(
+    IMapper mapper,
+    IVideoGameRepository dataRepository,
+    ReferenceEnrichmentService enrichmentService,
+    IServiceScopeFactory scopeFactory,
+    ILogger<VideoGameController> logger)
+    : DataCrudControllerBase<VideoGameDto, VideoGameModel>(mapper, dataRepository)
+{
+    /// <summary>
+    /// Fires a best-effort background RAWG match for the new game - see <see cref="TvShowController.OnCreatedAsync"/>.
+    /// </summary>
+    protected override Task OnCreatedAsync(VideoGameModel model)
+    {
+        var title = model.Title;
+        var year = model.Year;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var scope = scopeFactory.CreateScope();
+                var scopedEnrichmentService = scope.ServiceProvider.GetRequiredService<ReferenceEnrichmentService>();
+                await scopedEnrichmentService.TryAutoResolveVideoGameAsync(title, year);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Background reference-data match failed for video game '{Title}'.", title);
+            }
+        });
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// User-triggered, exact-match-only re-check against the local reference collection - see
+    /// <see cref="TvShowController.RefreshReference"/>.
+    /// </summary>
+    [HttpPost("{id}/refresh-reference")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(404)]
+    public async Task<ActionResult<VideoGameDto>> RefreshReference(string id)
+    {
+        var model = await dataRepository.FindOneAsync(id, this.GetUserId());
+        if (model is null) return NotFound();
+
+        model = await enrichmentService.TryLinkExistingVideoGameReferenceAsync(model);
+        return Ok(Mapper.Map<VideoGameDto>(model));
+    }
+}

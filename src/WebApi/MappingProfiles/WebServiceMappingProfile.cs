@@ -29,9 +29,9 @@ public class WebServiceMappingProfile : Profile
             .ForMember(x => x.OwnerId, opt => opt.Ignore());
         CreateMap<Domain.Models.MovieModel, MovieDto>();
 
-        CreateMap<MusicAlbumDto, Domain.Models.MusicAlbumModel>()
+        CreateMap<AlbumDto, Domain.Models.AlbumModel>()
             .ForMember(x => x.OwnerId, opt => opt.Ignore());
-        CreateMap<Domain.Models.MusicAlbumModel, MusicAlbumDto>();
+        CreateMap<Domain.Models.AlbumModel, AlbumDto>();
 
         CreateMap<TvShowDto, Domain.Models.TvShowModel>()
             .ForMember(x => x.OwnerId, opt => opt.Ignore());
@@ -52,5 +52,16 @@ public class WebServiceMappingProfile : Profile
             .ForMember(x => x.Cast, opt => opt.Ignore());
         CreateMap<Domain.Models.MovieReferenceModel, MovieReferenceDto>()
             .ForMember(x => x.Cast, opt => opt.Ignore());
+
+        // AuthorName/ArtistName are ignored here and hydrated manually by ReferenceDataController, same
+        // reasoning as Cast above: the model only carries a *ReferenceId, the DTO needs the person's name
+        // joined in from person_reference.
+        CreateMap<Domain.Models.BookReferenceModel, BookReferenceDto>()
+            .ForMember(x => x.AuthorName, opt => opt.Ignore())
+            .ForMember(x => x.AuthorImageUrl, opt => opt.Ignore());
+        CreateMap<Domain.Models.VideoGameReferenceModel, VideoGameReferenceDto>();
+        CreateMap<Domain.Models.AlbumReferenceModel, AlbumReferenceDto>()
+            .ForMember(x => x.ArtistName, opt => opt.Ignore())
+            .ForMember(x => x.ArtistImageUrl, opt => opt.Ignore());
     }
 }

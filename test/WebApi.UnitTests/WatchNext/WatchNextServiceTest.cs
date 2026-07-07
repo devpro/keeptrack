@@ -13,7 +13,7 @@ public class WatchNextServiceTest
     private readonly WatchNextService _service = new();
 
     private static TvShowModel Show(string id, string title, TvShowStatus? status = TvShowStatus.Current, string? referenceId = null) =>
-        new() { Id = id, OwnerId = "owner", Title = title, Status = status, ReferenceId = referenceId };
+        new() { Id = id, OwnerId = "owner", Title = title, State = status, ReferenceId = referenceId };
 
     private static EpisodeModel Episode(string showId, int season, int episode, DateOnly? watchedAt = null) =>
         new() { OwnerId = "owner", TvShowId = showId, SeasonNumber = season, EpisodeNumber = episode, WatchedAt = watchedAt };

@@ -25,16 +25,19 @@ internal static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IMongoDatabase>(sp =>
             sp.GetRequiredService<IMongoClient>().GetDatabase(configuration.DatabaseName));
 
+        services.TryAddScoped<Domain.Repositories.IAlbumRepository, AlbumRepository>();
         services.TryAddScoped<Domain.Repositories.IBookRepository, BookRepository>();
         services.TryAddScoped<Domain.Repositories.ICarRepository, CarRepository>();
         services.TryAddScoped<Domain.Repositories.ICarHistoryRepository, CarHistoryRepository>();
         services.TryAddScoped<Domain.Repositories.IEpisodeRepository, EpisodeRepository>();
         services.TryAddScoped<Domain.Repositories.IMovieRepository, MovieRepository>();
-        services.TryAddScoped<Domain.Repositories.IMusicAlbumRepository, MusicAlbumRepository>();
         services.TryAddScoped<Domain.Repositories.ITvShowRepository, TvShowRepository>();
         services.TryAddScoped<Domain.Repositories.IVideoGameRepository, VideoGameRepository>();
         services.TryAddScoped<Domain.Repositories.ITvShowReferenceRepository, TvShowReferenceRepository>();
         services.TryAddScoped<Domain.Repositories.IMovieReferenceRepository, MovieReferenceRepository>();
         services.TryAddScoped<Domain.Repositories.IPersonReferenceRepository, PersonReferenceRepository>();
+        services.TryAddScoped<Domain.Repositories.IBookReferenceRepository, BookReferenceRepository>();
+        services.TryAddScoped<Domain.Repositories.IVideoGameReferenceRepository, VideoGameReferenceRepository>();
+        services.TryAddScoped<Domain.Repositories.IAlbumReferenceRepository, AlbumReferenceRepository>();
     }
 }

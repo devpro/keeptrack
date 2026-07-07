@@ -28,31 +28,61 @@
                OnSaveInline="@SaveInlineAsync"
                OnDelete="@DeleteAsync"
                OnSearchChanged="@OnSearchChanged">
+    <Filters>
+        <button class="btn btn-sm kt-toggle-btn @(_favoriteFilter ? "active" : "")" @onclick="ToggleFavoriteFilterAsync">★ Favorites</button>
+    </Filters>
     <HeaderTemplate>
         <th>Title</th>
         <th>Author</th>
         <th>Series</th>
         <th>Rating</th>
         <th>Finished at</th>
+        <th></th>
     </HeaderTemplate>
     <RowTemplate Context="book">
-        <td>@book.Title</td>
+        <td style="font-weight:500">
+            <a href="@($"/books/{book.Id}")">@book.Title</a>
+        </td>
         <td>@book.Author</td>
         <td>@book.Series</td>
         <td><span class="kt-stars"><StarRating Rating="book.Rating" /></span></td>
         <td>@book.FirstReadAt?.ToString("yyyy-MM-dd")</td>
+        <td>
+            @if (book.IsFavorite)
+            {
+                <span title="Favorite">★</span>
+            }
+        </td>
     </RowTemplate>
     <FormTemplate Context="book">
-        <input class="form-control" placeholder="Title" @bind="book.Title" />
-        <input class="form-control" placeholder="Author" @bind="book.Author" />
-        <input class="form-control" placeholder="Series" @bind="book.Series" />
-        <input class="form-control" @bind="book.Rating" type="number" min="0" max="5" step="0.1" />
-        <input class="form-control" placeholder="Finished at" @bind="book.FirstReadAt" @bind:format="yyyy-MM-dd" type="date" />
+        <div class="col-12">
+            <label class="form-label">Title</label>
+            <input class="form-control" @bind="book.Title" />
+        </div>
+        <div class="col-12">
+            <label class="form-label">Author</label>
+            <input class="form-control" @bind="book.Author" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Series</label>
+            <input class="form-control" @bind="book.Series" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Year</label>
+            <input class="form-control" @bind="book.Year" type="number" min="1400" max="2100" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Rating</label>
+            <input class="form-control" @bind="book.Rating" type="number" min="0" max="5" step="0.1" />
+        </div>
     </FormTemplate>
     <EditModalTemplate Context="book">
         <div class="col-12">
             <label class="form-label">Title</label>
-            <input class="form-control" @bind="book.Title" />
+            <AuthorizeView Policy="AdminOnly" Context="titleAdminCtx">
+                <Authorized><input class="form-control" @bind="book.Title"/></Authorized>
+                <NotAuthorized><input class="form-control" @bind="book.Title" disabled="@(!string.IsNullOrEmpty(book.ReferenceId))"/></NotAuthorized>
+            </AuthorizeView>
         </div>
         <div class="col-md-6">
             <label class="form-label">Author</label>
@@ -61,6 +91,10 @@
         <div class="col-md-6">
             <label class="form-label">Series</label>
             <input class="form-control" @bind="book.Series" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Year</label>
+            <input class="form-control" @bind="book.Year" type="number" min="1400" max="2100" />
         </div>
         <div class="col-md-6">
             <label class="form-label">Genre</label>
@@ -77,6 +111,13 @@
         <div class="col-md-6">
             <label class="form-label">First read at</label>
             <input class="form-control" type="date" @bind="book.FirstReadAt" @bind:format="yyyy-MM-dd" />
+        </div>
+        <div class="col-12">
+            <label class="form-label">Lists</label>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="book-favorite-modal" @bind="book.IsFavorite" />
+                <label class="form-check-label" for="book-favorite-modal">Favorites</label>
+            </div>
         </div>
     </EditModalTemplate>
 </InventoryList>

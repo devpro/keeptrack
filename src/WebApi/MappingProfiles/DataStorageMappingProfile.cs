@@ -18,8 +18,8 @@ public class DataStorageMappingProfile : Profile
         CreateMap<Infrastructure.MongoDb.Entities.Movie, Domain.Models.MovieModel>();
         CreateMap<Domain.Models.MovieModel, Infrastructure.MongoDb.Entities.Movie>();
 
-        CreateMap<Infrastructure.MongoDb.Entities.MusicAlbum, Domain.Models.MusicAlbumModel>();
-        CreateMap<Domain.Models.MusicAlbumModel, Infrastructure.MongoDb.Entities.MusicAlbum>();
+        CreateMap<Infrastructure.MongoDb.Entities.Album, Domain.Models.AlbumModel>();
+        CreateMap<Domain.Models.AlbumModel, Infrastructure.MongoDb.Entities.Album>();
 
         CreateMap<Infrastructure.MongoDb.Entities.TvShow, Domain.Models.TvShowModel>();
         CreateMap<Domain.Models.TvShowModel, Infrastructure.MongoDb.Entities.TvShow>();
@@ -38,6 +38,15 @@ public class DataStorageMappingProfile : Profile
 
         CreateMap<Infrastructure.MongoDb.Entities.MovieReference, Domain.Models.MovieReferenceModel>();
         CreateMap<Domain.Models.MovieReferenceModel, Infrastructure.MongoDb.Entities.MovieReference>();
+
+        CreateMap<Infrastructure.MongoDb.Entities.BookReference, Domain.Models.BookReferenceModel>();
+        CreateMap<Domain.Models.BookReferenceModel, Infrastructure.MongoDb.Entities.BookReference>();
+
+        CreateMap<Infrastructure.MongoDb.Entities.VideoGameReference, Domain.Models.VideoGameReferenceModel>();
+        CreateMap<Domain.Models.VideoGameReferenceModel, Infrastructure.MongoDb.Entities.VideoGameReference>();
+
+        CreateMap<Infrastructure.MongoDb.Entities.AlbumReference, Domain.Models.AlbumReferenceModel>();
+        CreateMap<Domain.Models.AlbumReferenceModel, Infrastructure.MongoDb.Entities.AlbumReference>();
 
         CreateMap<Infrastructure.MongoDb.Entities.CastMember, Domain.Models.CastMemberModel>();
         CreateMap<Domain.Models.CastMemberModel, Infrastructure.MongoDb.Entities.CastMember>();

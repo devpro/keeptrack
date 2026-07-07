@@ -8,7 +8,7 @@
 
             @if (!_searched)
             {
-                <button class="btn btn-sm btn-secondary" @onclick="SearchAsync">Search TMDB to link</button>
+                <button class="btn btn-sm btn-secondary" @onclick="SearchAsync">Search @ProviderName to link</button>
             }
             else if (_searching)
             {
@@ -16,20 +16,24 @@
             }
             else if (_results.Count == 0)
             {
-                <div class="alert alert-info mb-0">No TMDB results for this title/year.</div>
+                <div class="alert alert-info mb-0">No @ProviderName results for this title/year.</div>
             }
             else
             {
                 @foreach (var candidate in _results)
                 {
                     <div class="d-flex align-items-center gap-2 mb-2">
-                        @if (!string.IsNullOrEmpty(candidate.PosterUrl))
+                        @if (!string.IsNullOrEmpty(candidate.ImageUrl))
                         {
-                            <img src="@candidate.PosterUrl" alt="@candidate.Title poster"
+                            <img src="@candidate.ImageUrl" alt="@candidate.Title poster"
                                  style="width:40px;height:60px;object-fit:cover;flex-shrink:0" class="rounded"/>
                         }
                         <div>
                             <strong>@candidate.Title</strong> @(candidate.Year is not null ? $"({candidate.Year})" : "")
+                            @if (!string.IsNullOrEmpty(candidate.Creator))
+                            {
+                                <div class="kt-card-meta">@candidate.Creator</div>
+                            }
                             @if (candidate.TopCastNames.Count > 0)
                             {
                                 <div class="kt-card-meta">@string.Join(", ", candidate.TopCastNames)</div>
@@ -55,6 +59,12 @@
 
     [Parameter] public int? Year { get; set; }
 
+    /// <summary>
+    /// The book's author or the album's artist, when known - narrows the search considerably (a common
+    /// title alone often returns many unrelated candidates). Ignored for TV shows/movies/video games.
+    /// </summary>
+    [Parameter] public string? Creator { get; set; }
+
     [Parameter] public EventCallback OnLinked { get; set; }
 
     private bool _searched;
@@ -63,11 +73,20 @@
     private List<ReferenceSearchResultDto> _results = [];
     private string? _error;
 
+    private string ProviderName => Type switch
+    {
+        ReferenceItemType.TvShow or ReferenceItemType.Movie => "TMDB",
+        ReferenceItemType.Book => "Open Library",
+        ReferenceItemType.VideoGame => "RAWG",
+        ReferenceItemType.Album => "Discogs",
+        _ => "reference"
+    };
+
     private async Task SearchAsync()
     {
         _searched = true;
         _searching = true;
-        _results = await Api.SearchAsync(Type, Title, Year);
+        _results = await Api.SearchAsync(Type, Title, Year, Creator);
         _searching = false;
     }
 
@@ -77,7 +96,7 @@
         _error = null;
         try
         {
-            await Api.LinkAsync(new LinkReferenceRequestDto { Type = Type, Title = Title, Year = Year, TmdbId = candidate.TmdbId });
+            await Api.LinkAsync(new LinkReferenceRequestDto { Type = Type, Title = Title, Year = Year, ExternalId = candidate.ExternalId });
             await OnLinked.InvokeAsync();
         }
         catch (Exception ex)

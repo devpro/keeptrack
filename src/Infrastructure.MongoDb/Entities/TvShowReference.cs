@@ -36,8 +36,8 @@ public class TvShowReference
 
     public List<CastMember> Cast { get; set; } = [];
 
-    [BsonElement("poster_url")]
-    public string? PosterUrl { get; set; }
+    [BsonElement("image_url")]
+    public string? ImageUrl { get; set; }
 
     [BsonElement("last_enriched_at")]
     public DateTime? LastEnrichedAt { get; set; }

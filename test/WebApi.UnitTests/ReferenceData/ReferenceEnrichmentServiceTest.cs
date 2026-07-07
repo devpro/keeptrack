@@ -18,12 +18,24 @@ public class ReferenceEnrichmentServiceTest
     private readonly Mock<ITvShowReferenceRepository> _tvShowReferenceRepository = new();
     private readonly Mock<IMovieReferenceRepository> _movieReferenceRepository = new();
     private readonly Mock<IPersonReferenceRepository> _personReferenceRepository = new();
+    private readonly Mock<IBookReferenceRepository> _bookReferenceRepository = new();
+    private readonly Mock<IVideoGameReferenceRepository> _videoGameReferenceRepository = new();
+    private readonly Mock<IAlbumReferenceRepository> _albumReferenceRepository = new();
     private readonly Mock<ITvShowRepository> _tvShowRepository = new();
     private readonly Mock<IMovieRepository> _movieRepository = new();
+    private readonly Mock<IBookRepository> _bookRepository = new();
+    private readonly Mock<IVideoGameRepository> _videoGameRepository = new();
+    private readonly Mock<IAlbumRepository> _albumRepository = new();
 
-    private ReferenceEnrichmentService CreateService(FakeTmdbClient tmdbClient) => new(
-        tmdbClient, _tvShowReferenceRepository.Object, _movieReferenceRepository.Object, _personReferenceRepository.Object,
-        _tvShowRepository.Object, _movieRepository.Object);
+    private ReferenceEnrichmentService CreateService(
+        FakeTmdbClient tmdbClient,
+        FakeOpenLibraryClient? openLibraryClient = null,
+        FakeRawgClient? rawgClient = null,
+        FakeDiscogsClient? discogsClient = null) => new(
+        tmdbClient, openLibraryClient ?? FakeOpenLibraryClient.Empty(), rawgClient ?? FakeRawgClient.Empty(), discogsClient ?? FakeDiscogsClient.Empty(),
+        _tvShowReferenceRepository.Object, _movieReferenceRepository.Object, _personReferenceRepository.Object,
+        _bookReferenceRepository.Object, _videoGameReferenceRepository.Object, _albumReferenceRepository.Object,
+        _tvShowRepository.Object, _movieRepository.Object, _bookRepository.Object, _videoGameRepository.Object, _albumRepository.Object);
 
     [Fact]
     public async Task TryAutoResolveTvShowAsync_DoesNothing_WhenSearchReturnsNoResults()
@@ -410,6 +422,450 @@ public class ReferenceEnrichmentServiceTest
 
         changed.Should().BeTrue();
         tmdbClient.ChangesRequested.Should().NotContain("42");
+    }
+
+    [Fact]
+    public async Task TryAutoResolveBookAsync_DoesNothing_WhenSearchIsAmbiguous()
+    {
+        var openLibraryClient = FakeOpenLibraryClient.WithSearchResults(
+            new OpenLibrarySearchResult("OL1W", "Some Book", 2020, "Some Author", null),
+            new OpenLibrarySearchResult("OL2W", "Some Book", 2020, "Some Author", null));
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), openLibraryClient);
+
+        await service.TryAutoResolveBookAsync("Some Book", 2020);
+
+        _bookRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string?>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task TryAutoResolveBookAsync_ResolvesAndPropagates_WhenExactlyOneCandidate()
+    {
+        var openLibraryClient = FakeOpenLibraryClient.WithSearchResults(new OpenLibrarySearchResult("OL1W", "Some Book", 2020, "Some Author", null));
+        openLibraryClient.Details["OL1W"] = new OpenLibraryBookDetails("OL1W", "Some Book", 2020, "Synopsis", "Some Author", "OL1A", [], null);
+        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => { m.Id ??= "generated-id"; return m; });
+        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), openLibraryClient);
+
+        await service.TryAutoResolveBookAsync("Some Book", 2020);
+
+        _bookReferenceRepository.Verify(r => r.UpsertAsync(It.Is<BookReferenceModel>(m => m.ExternalIds["openlibrary"] == "OL1W")), Times.Once);
+        _bookRepository.Verify(r => r.SetReferenceLinkAsync("Some Book", 2020, It.IsAny<string>(), "Some Book", It.IsAny<int?>(), "Some Author"), Times.Once);
+    }
+
+    [Fact]
+    public async Task TryAutoResolveBookAsync_PassesTheAuthorThroughToTheOpenLibrarySearch()
+    {
+        // regression: a common title without an author hint returns many unrelated candidates - the
+        // author must reach IOpenLibraryClient.SearchBooksAsync, not just get dropped along the way.
+        var openLibraryClient = FakeOpenLibraryClient.WithSearchResults(new OpenLibrarySearchResult("OL1W", "Some Book", 2020, "Lee Child", null));
+        openLibraryClient.Details["OL1W"] = new OpenLibraryBookDetails("OL1W", "Some Book", 2020, "Synopsis", "Lee Child", "OL1A", [], null);
+        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => { m.Id ??= "generated-id"; return m; });
+        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), openLibraryClient);
+
+        await service.TryAutoResolveBookAsync("Killing Floor", 2016, "Lee Child");
+
+        openLibraryClient.LastSearchAuthor.Should().Be("Lee Child");
+    }
+
+    [Fact]
+    public async Task ResolveBookAsync_PropagatesTheUpsertedReferenceId()
+    {
+        var openLibraryClient = FakeOpenLibraryClient.Empty();
+        openLibraryClient.Details["OL1W"] = new OpenLibraryBookDetails("OL1W", "Some Book", 2020, "Synopsis", "Some Author", "OL1A", [], null);
+        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => { m.Id = "reference-1"; return m; });
+        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), openLibraryClient);
+
+        var result = await service.ResolveBookAsync("Some Book", 2020, "OL1W");
+
+        result.Id.Should().Be("reference-1");
+        result.AuthorReferenceId.Should().Be("person-1");
+        _bookRepository.Verify(r => r.SetReferenceLinkAsync("Some Book", 2020, "reference-1", "Some Book", It.IsAny<int?>(), "Some Author"), Times.Once);
+    }
+
+    [Fact]
+    public async Task TryLinkExistingBookReferenceAsync_LinksAndUpdatesTitleAndAuthor_OnTitleYearMatch()
+    {
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+        var model = new BookModel { Id = "book-1", OwnerId = "owner", Title = "Some Typo'd Book", Author = "Wrong Author", Year = 2020 };
+        _bookReferenceRepository
+            .Setup(r => r.FindByTitleYearAsync("Some Typo'd Book", 2020, "Wrong Author"))
+            .ReturnsAsync(new BookReferenceModel { Id = "reference-1", Title = "Some Book", TitleNormalized = "some book", AuthorReferenceId = "person-1", ExternalIds = [] });
+        _personReferenceRepository
+            .Setup(r => r.FindByIdAsync("person-1"))
+            .ReturnsAsync(new PersonReferenceModel { Id = "person-1", Name = "Correct Author", ExternalIds = new Dictionary<string, string> { ["openlibrary"] = "OL1A" } });
+
+        var result = await service.TryLinkExistingBookReferenceAsync(model);
+
+        result.ReferenceId.Should().Be("reference-1");
+        result.Title.Should().Be("Some Book");
+        result.Author.Should().Be("Correct Author");
+        _bookRepository.Verify(r => r.UpdateAsync("book-1", It.Is<BookModel>(m => m.ReferenceId == "reference-1"), "owner"), Times.Once);
+    }
+
+    [Fact]
+    public async Task TryLinkExistingBookReferenceAsync_UpdatesYearToTheReferencesCanonicalYear_OnLink()
+    {
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+        var model = new BookModel { Id = "book-1", OwnerId = "owner", Title = "Some Book", Author = "Some Author", Year = 2019 };
+        _bookReferenceRepository
+            .Setup(r => r.FindByTitleYearAsync("Some Book", 2019, "Some Author"))
+            .ReturnsAsync(new BookReferenceModel { Id = "reference-1", Title = "Some Book", TitleNormalized = "some book", Year = 2020, ExternalIds = [] });
+
+        var result = await service.TryLinkExistingBookReferenceAsync(model);
+
+        result.Year.Should().Be(2020);
+        _bookRepository.Verify(r => r.UpdateAsync("book-1", It.Is<BookModel>(m => m.Year == 2020), "owner"), Times.Once);
+    }
+
+    [Fact]
+    public async Task TryLinkExistingBookReferenceAsync_SetsGenreFromTheReferencesGenres_OnLink()
+    {
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+        var model = new BookModel { Id = "book-1", OwnerId = "owner", Title = "Some Book", Author = "Some Author", Year = 2020 };
+        _bookReferenceRepository
+            .Setup(r => r.FindByTitleYearAsync("Some Book", 2020, "Some Author"))
+            .ReturnsAsync(new BookReferenceModel { Id = "reference-1", Title = "Some Book", TitleNormalized = "some book", ExternalIds = [], Genres = ["Thriller", "Mystery"] });
+
+        var result = await service.TryLinkExistingBookReferenceAsync(model);
+
+        result.Genre.Should().Be("Thriller, Mystery");
+        _bookRepository.Verify(r => r.UpdateAsync("book-1", It.Is<BookModel>(m => m.Genre == "Thriller, Mystery"), "owner"), Times.Once);
+        _bookRepository.Verify(r => r.SetReferenceLinkAsync("Some Book", 2020, "reference-1", "Some Book", It.IsAny<int?>(), It.IsAny<string?>(), "Thriller, Mystery"), Times.Once);
+    }
+
+    [Fact]
+    public async Task TryLinkExistingBookReferenceAsync_Unlinks_WhenAlreadyLinkedButNoMatchFoundForTheCurrentTitle()
+    {
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+        var model = new BookModel { Id = "book-1", OwnerId = "owner", Title = "Some Book", Author = "Some Author", Year = 2020, ReferenceId = "old-reference" };
+        _bookReferenceRepository.Setup(r => r.FindByTitleYearAsync("Some Book", 2020, "Some Author")).ReturnsAsync((BookReferenceModel?)null);
+        _bookReferenceRepository.Setup(r => r.FindByTitleAsync("Some Book", "Some Author")).ReturnsAsync((BookReferenceModel?)null);
+
+        var result = await service.TryLinkExistingBookReferenceAsync(model);
+
+        result.ReferenceId.Should().BeEmpty();
+        _bookRepository.Verify(r => r.UpdateAsync("book-1", It.Is<BookModel>(m => m.ReferenceId == string.Empty), "owner"), Times.Once);
+    }
+
+    [Fact]
+    public async Task RefreshBookReferenceAsync_ReturnsUnchanged_WhenReferenceHasNoExternalId()
+    {
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+        var reference = new BookReferenceModel { Id = "reference-1", Title = "Some Book", TitleNormalized = "some book", ExternalIds = [] };
+
+        var (result, changed) = await service.RefreshBookReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        changed.Should().BeFalse();
+        result.Should().BeSameAs(reference);
+        _bookReferenceRepository.Verify(r => r.UpsertAsync(It.IsAny<BookReferenceModel>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RefreshBookReferenceAsync_AlwaysRefetches_RegardlessOfLastEnrichedAt()
+    {
+        // Open Library exposes no "changed since" endpoint (unlike TMDB) - every refresh call does a full
+        // re-fetch, even when LastEnrichedAt is very recent.
+        var openLibraryClient = FakeOpenLibraryClient.Empty();
+        openLibraryClient.Details["OL1W"] = new OpenLibraryBookDetails("OL1W", "Some Book - Updated", 2020, "New synopsis", "Some Author", "OL1A", ["Fiction"], null);
+        var reference = new BookReferenceModel
+        {
+            Id = "reference-1", Title = "Some Book", TitleNormalized = "some book",
+            ExternalIds = new Dictionary<string, string> { ["openlibrary"] = "OL1W" }, LastEnrichedAt = DateTime.UtcNow
+        };
+        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => m);
+        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), openLibraryClient);
+
+        var (result, changed) = await service.RefreshBookReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        changed.Should().BeTrue();
+        result.Title.Should().Be("Some Book - Updated");
+        result.Genres.Should().Contain("Fiction");
+    }
+
+    [Fact]
+    public async Task TryAutoResolveVideoGameAsync_DoesNothing_WhenSearchIsAmbiguous()
+    {
+        var rawgClient = FakeRawgClient.WithSearchResults(
+            new RawgSearchResult("1", "Some Game", 2020, null),
+            new RawgSearchResult("2", "Some Game", 2020, null));
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), rawgClient: rawgClient);
+
+        await service.TryAutoResolveVideoGameAsync("Some Game", 2020);
+
+        _videoGameRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task TryAutoResolveVideoGameAsync_ResolvesAndPropagates_WhenExactlyOneCandidate()
+    {
+        var rawgClient = FakeRawgClient.WithSearchResults(new RawgSearchResult("1", "Some Game", 2020, null));
+        rawgClient.Details["1"] = new RawgGameDetails("1", "Some Game", 2020, "Synopsis", [], [], null);
+        _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) => { m.Id ??= "generated-id"; return m; });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), rawgClient: rawgClient);
+
+        await service.TryAutoResolveVideoGameAsync("Some Game", 2020);
+
+        _videoGameReferenceRepository.Verify(r => r.UpsertAsync(It.Is<VideoGameReferenceModel>(m => m.ExternalIds["rawg"] == "1")), Times.Once);
+        _videoGameRepository.Verify(r => r.SetReferenceLinkAsync("Some Game", 2020, It.IsAny<string>(), "Some Game", It.IsAny<int?>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ResolveVideoGameAsync_PropagatesTheUpsertedReferenceId()
+    {
+        var rawgClient = FakeRawgClient.Empty();
+        rawgClient.Details["1"] = new RawgGameDetails("1", "Some Game", 2020, "Synopsis", [], [], null);
+        _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) => { m.Id = "reference-1"; return m; });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), rawgClient: rawgClient);
+
+        var result = await service.ResolveVideoGameAsync("Some Game", 2020, "1");
+
+        result.Id.Should().Be("reference-1");
+        _videoGameRepository.Verify(r => r.SetReferenceLinkAsync("Some Game", 2020, "reference-1", "Some Game", It.IsAny<int?>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task TryLinkExistingVideoGameReferenceAsync_LinksAndUpdatesTitle_OnTitleYearMatch()
+    {
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+        var model = new VideoGameModel { Id = "game-1", OwnerId = "owner", Title = "Some Typo'd Game", Platform = "PC", State = "Current", Year = 2020 };
+        _videoGameReferenceRepository
+            .Setup(r => r.FindByTitleYearAsync("Some Typo'd Game", 2020))
+            .ReturnsAsync(new VideoGameReferenceModel { Id = "reference-1", Title = "Some Game", TitleNormalized = "some game", ExternalIds = [] });
+
+        var result = await service.TryLinkExistingVideoGameReferenceAsync(model);
+
+        result.ReferenceId.Should().Be("reference-1");
+        result.Title.Should().Be("Some Game");
+        result.Platform.Should().Be("PC");
+        _videoGameRepository.Verify(r => r.UpdateAsync("game-1", It.Is<VideoGameModel>(m => m.ReferenceId == "reference-1"), "owner"), Times.Once);
+    }
+
+    [Fact]
+    public async Task TryLinkExistingVideoGameReferenceAsync_UpdatesYearToTheReferencesCanonicalYear_OnLink()
+    {
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+        var model = new VideoGameModel { Id = "game-1", OwnerId = "owner", Title = "Some Game", Platform = "PC", State = "Current", Year = 2019 };
+        _videoGameReferenceRepository
+            .Setup(r => r.FindByTitleYearAsync("Some Game", 2019))
+            .ReturnsAsync(new VideoGameReferenceModel { Id = "reference-1", Title = "Some Game", TitleNormalized = "some game", Year = 2020, ExternalIds = [] });
+
+        var result = await service.TryLinkExistingVideoGameReferenceAsync(model);
+
+        result.Year.Should().Be(2020);
+        _videoGameRepository.Verify(r => r.UpdateAsync("game-1", It.Is<VideoGameModel>(m => m.Year == 2020), "owner"), Times.Once);
+    }
+
+    [Fact]
+    public async Task TryLinkExistingVideoGameReferenceAsync_Unlinks_WhenAlreadyLinkedButNoMatchFoundForTheCurrentTitle()
+    {
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+        var model = new VideoGameModel { Id = "game-1", OwnerId = "owner", Title = "Some Game", Platform = "PC", State = "Current", Year = 2020, ReferenceId = "old-reference" };
+        _videoGameReferenceRepository.Setup(r => r.FindByTitleYearAsync("Some Game", 2020)).ReturnsAsync((VideoGameReferenceModel?)null);
+        _videoGameReferenceRepository.Setup(r => r.FindByTitleAsync("Some Game")).ReturnsAsync((VideoGameReferenceModel?)null);
+
+        var result = await service.TryLinkExistingVideoGameReferenceAsync(model);
+
+        result.ReferenceId.Should().BeEmpty();
+        _videoGameRepository.Verify(r => r.UpdateAsync("game-1", It.Is<VideoGameModel>(m => m.ReferenceId == string.Empty), "owner"), Times.Once);
+    }
+
+    [Fact]
+    public async Task RefreshVideoGameReferenceAsync_ReturnsUnchanged_WhenReferenceHasNoExternalId()
+    {
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+        var reference = new VideoGameReferenceModel { Id = "reference-1", Title = "Some Game", TitleNormalized = "some game", ExternalIds = [] };
+
+        var (result, changed) = await service.RefreshVideoGameReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        changed.Should().BeFalse();
+        result.Should().BeSameAs(reference);
+        _videoGameReferenceRepository.Verify(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RefreshVideoGameReferenceAsync_AlwaysRefetches_RegardlessOfLastEnrichedAt()
+    {
+        // RAWG exposes no "changed since" endpoint (unlike TMDB) - every refresh call does a full
+        // re-fetch, even when LastEnrichedAt is very recent.
+        var rawgClient = FakeRawgClient.Empty();
+        rawgClient.Details["1"] = new RawgGameDetails("1", "Some Game - Updated", 2020, "New synopsis", ["Action"], ["PC"], null);
+        var reference = new VideoGameReferenceModel
+        {
+            Id = "reference-1", Title = "Some Game", TitleNormalized = "some game",
+            ExternalIds = new Dictionary<string, string> { ["rawg"] = "1" }, LastEnrichedAt = DateTime.UtcNow
+        };
+        _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) => m);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), rawgClient: rawgClient);
+
+        var (result, changed) = await service.RefreshVideoGameReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        changed.Should().BeTrue();
+        result.Title.Should().Be("Some Game - Updated");
+        result.Platforms.Should().Contain("PC");
+    }
+
+    [Fact]
+    public async Task TryAutoResolveAlbumAsync_DoesNothing_WhenSearchIsAmbiguous()
+    {
+        var discogsClient = FakeDiscogsClient.WithSearchResults(
+            new DiscogsSearchResult("1", "Some Album", 2020, "Some Artist", null),
+            new DiscogsSearchResult("2", "Some Album", 2020, "Some Artist", null));
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), discogsClient: discogsClient);
+
+        await service.TryAutoResolveAlbumAsync("Some Album", 2020);
+
+        _albumRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string?>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task TryAutoResolveAlbumAsync_ResolvesAndPropagates_WhenExactlyOneCandidate()
+    {
+        var discogsClient = FakeDiscogsClient.WithSearchResults(new DiscogsSearchResult("1", "Some Album", 2020, "Some Artist", null));
+        discogsClient.Details["1"] = new DiscogsAlbumDetails("1", "Some Album", 2020, "Synopsis", "Some Artist", "100", [], null);
+        _albumReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<AlbumReferenceModel>())).ReturnsAsync((AlbumReferenceModel m) => { m.Id ??= "generated-id"; return m; });
+        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), discogsClient: discogsClient);
+
+        await service.TryAutoResolveAlbumAsync("Some Album", 2020);
+
+        _albumReferenceRepository.Verify(r => r.UpsertAsync(It.Is<AlbumReferenceModel>(m => m.ExternalIds["discogs"] == "1")), Times.Once);
+        _albumRepository.Verify(r => r.SetReferenceLinkAsync("Some Album", 2020, It.IsAny<string>(), "Some Album", It.IsAny<int?>(), "Some Artist"), Times.Once);
+    }
+
+    [Fact]
+    public async Task TryAutoResolveAlbumAsync_PassesTheArtistThroughToTheDiscogsSearch()
+    {
+        // regression: a common album title without an artist hint returns many unrelated candidates - the
+        // artist must reach IDiscogsClient.SearchAlbumsAsync, not just get dropped along the way.
+        var discogsClient = FakeDiscogsClient.WithSearchResults(new DiscogsSearchResult("1", "Some Album", 2020, "Pink Floyd", null));
+        discogsClient.Details["1"] = new DiscogsAlbumDetails("1", "Some Album", 2020, "Synopsis", "Pink Floyd", "100", [], null);
+        _albumReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<AlbumReferenceModel>())).ReturnsAsync((AlbumReferenceModel m) => { m.Id ??= "generated-id"; return m; });
+        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), discogsClient: discogsClient);
+
+        await service.TryAutoResolveAlbumAsync("The Dark Side of the Moon", 1973, "Pink Floyd");
+
+        discogsClient.LastSearchArtist.Should().Be("Pink Floyd");
+    }
+
+    [Fact]
+    public async Task ResolveAlbumAsync_PropagatesTheUpsertedReferenceId()
+    {
+        var discogsClient = FakeDiscogsClient.Empty();
+        discogsClient.Details["1"] = new DiscogsAlbumDetails("1", "Some Album", 2020, "Synopsis", "Some Artist", "100", [], null);
+        _albumReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<AlbumReferenceModel>())).ReturnsAsync((AlbumReferenceModel m) => { m.Id = "reference-1"; return m; });
+        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), discogsClient: discogsClient);
+
+        var result = await service.ResolveAlbumAsync("Some Album", 2020, "1");
+
+        result.Id.Should().Be("reference-1");
+        result.ArtistReferenceId.Should().Be("person-1");
+        _albumRepository.Verify(r => r.SetReferenceLinkAsync("Some Album", 2020, "reference-1", "Some Album", It.IsAny<int?>(), "Some Artist"), Times.Once);
+    }
+
+    [Fact]
+    public async Task TryLinkExistingAlbumReferenceAsync_LinksAndUpdatesTitleAndArtist_OnTitleYearMatch()
+    {
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+        var model = new AlbumModel { Id = "album-1", OwnerId = "owner", Title = "Some Typo'd Album", Artist = "Wrong Artist", Year = 2020 };
+        _albumReferenceRepository
+            .Setup(r => r.FindByTitleYearAsync("Some Typo'd Album", 2020, "Wrong Artist"))
+            .ReturnsAsync(new AlbumReferenceModel { Id = "reference-1", Title = "Some Album", TitleNormalized = "some album", ArtistReferenceId = "person-1", ExternalIds = [] });
+        _personReferenceRepository
+            .Setup(r => r.FindByIdAsync("person-1"))
+            .ReturnsAsync(new PersonReferenceModel { Id = "person-1", Name = "Correct Artist", ExternalIds = new Dictionary<string, string> { ["discogs"] = "100" } });
+
+        var result = await service.TryLinkExistingAlbumReferenceAsync(model);
+
+        result.ReferenceId.Should().Be("reference-1");
+        result.Title.Should().Be("Some Album");
+        result.Artist.Should().Be("Correct Artist");
+        _albumRepository.Verify(r => r.UpdateAsync("album-1", It.Is<AlbumModel>(m => m.ReferenceId == "reference-1"), "owner"), Times.Once);
+    }
+
+    [Fact]
+    public async Task TryLinkExistingAlbumReferenceAsync_UpdatesYearToTheReferencesCanonicalYear_OnLink()
+    {
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+        var model = new AlbumModel { Id = "album-1", OwnerId = "owner", Title = "Some Album", Artist = "Some Artist", Year = 2019 };
+        _albumReferenceRepository
+            .Setup(r => r.FindByTitleYearAsync("Some Album", 2019, "Some Artist"))
+            .ReturnsAsync(new AlbumReferenceModel { Id = "reference-1", Title = "Some Album", TitleNormalized = "some album", Year = 2020, ExternalIds = [] });
+
+        var result = await service.TryLinkExistingAlbumReferenceAsync(model);
+
+        result.Year.Should().Be(2020);
+        _albumRepository.Verify(r => r.UpdateAsync("album-1", It.Is<AlbumModel>(m => m.Year == 2020), "owner"), Times.Once);
+    }
+
+    [Fact]
+    public async Task TryLinkExistingAlbumReferenceAsync_SetsGenreFromTheReferencesGenres_OnLink()
+    {
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+        var model = new AlbumModel { Id = "album-1", OwnerId = "owner", Title = "Some Album", Artist = "Some Artist", Year = 2020 };
+        _albumReferenceRepository
+            .Setup(r => r.FindByTitleYearAsync("Some Album", 2020, "Some Artist"))
+            .ReturnsAsync(new AlbumReferenceModel { Id = "reference-1", Title = "Some Album", TitleNormalized = "some album", ExternalIds = [], Genres = ["Pop", "K-pop"] });
+
+        var result = await service.TryLinkExistingAlbumReferenceAsync(model);
+
+        result.Genre.Should().Be("Pop, K-pop");
+        _albumRepository.Verify(r => r.UpdateAsync("album-1", It.Is<AlbumModel>(m => m.Genre == "Pop, K-pop"), "owner"), Times.Once);
+        _albumRepository.Verify(r => r.SetReferenceLinkAsync("Some Album", 2020, "reference-1", "Some Album", It.IsAny<int?>(), It.IsAny<string?>(), "Pop, K-pop"), Times.Once);
+    }
+
+    [Fact]
+    public async Task TryLinkExistingAlbumReferenceAsync_Unlinks_WhenAlreadyLinkedButNoMatchFoundForTheCurrentTitle()
+    {
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+        var model = new AlbumModel { Id = "album-1", OwnerId = "owner", Title = "Some Album", Artist = "Some Artist", Year = 2020, ReferenceId = "old-reference" };
+        _albumReferenceRepository.Setup(r => r.FindByTitleYearAsync("Some Album", 2020, "Some Artist")).ReturnsAsync((AlbumReferenceModel?)null);
+        _albumReferenceRepository.Setup(r => r.FindByTitleAsync("Some Album", "Some Artist")).ReturnsAsync((AlbumReferenceModel?)null);
+
+        var result = await service.TryLinkExistingAlbumReferenceAsync(model);
+
+        result.ReferenceId.Should().BeEmpty();
+        _albumRepository.Verify(r => r.UpdateAsync("album-1", It.Is<AlbumModel>(m => m.ReferenceId == string.Empty), "owner"), Times.Once);
+    }
+
+    [Fact]
+    public async Task RefreshAlbumReferenceAsync_ReturnsUnchanged_WhenReferenceHasNoExternalId()
+    {
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+        var reference = new AlbumReferenceModel { Id = "reference-1", Title = "Some Album", TitleNormalized = "some album", ExternalIds = [] };
+
+        var (result, changed) = await service.RefreshAlbumReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        changed.Should().BeFalse();
+        result.Should().BeSameAs(reference);
+        _albumReferenceRepository.Verify(r => r.UpsertAsync(It.IsAny<AlbumReferenceModel>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RefreshAlbumReferenceAsync_AlwaysRefetches_RegardlessOfLastEnrichedAt()
+    {
+        // Discogs exposes no "changed since" endpoint (unlike TMDB) - every refresh call does a full
+        // re-fetch, even when LastEnrichedAt is very recent.
+        var discogsClient = FakeDiscogsClient.Empty();
+        discogsClient.Details["1"] = new DiscogsAlbumDetails("1", "Some Album - Updated", 2020, "New synopsis", "Some Artist", "100", ["Rock"], null);
+        var reference = new AlbumReferenceModel
+        {
+            Id = "reference-1", Title = "Some Album", TitleNormalized = "some album",
+            ExternalIds = new Dictionary<string, string> { ["discogs"] = "1" }, LastEnrichedAt = DateTime.UtcNow
+        };
+        _albumReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<AlbumReferenceModel>())).ReturnsAsync((AlbumReferenceModel m) => m);
+        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), discogsClient: discogsClient);
+
+        var (result, changed) = await service.RefreshAlbumReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        changed.Should().BeTrue();
+        result.Title.Should().Be("Some Album - Updated");
+        result.Genres.Should().Contain("Rock");
     }
 
     private sealed class FakeTmdbClient : ITmdbClient

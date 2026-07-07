@@ -9,7 +9,7 @@ public partial class TvShows : InventoryPageBase<TvShowDto>
 
     protected override InventoryApiClientBase<TvShowDto> Api => TvShowApi;
 
-    private TvShowStatus? _statusFilter;
+    private TvShowStatus? _stateFilter;
 
     private bool _favoriteFilter;
 
@@ -18,15 +18,15 @@ public partial class TvShows : InventoryPageBase<TvShowDto>
         get
         {
             var query = new Dictionary<string, string>();
-            if (_statusFilter is not null) query["Status"] = _statusFilter.ToString()!;
+            if (_stateFilter is not null) query["State"] = _stateFilter.ToString()!;
             if (_favoriteFilter) query["IsFavorite"] = "true";
             return query.Count > 0 ? query : null;
         }
     }
 
-    private async Task SetStatusFilterAsync(TvShowStatus? status)
+    private async Task SetStateFilterAsync(TvShowStatus? state)
     {
-        _statusFilter = status;
+        _stateFilter = state;
         _page = 1;
         await LoadAsync();
     }
@@ -45,7 +45,7 @@ public partial class TvShows : InventoryPageBase<TvShowDto>
         Rating = item.Rating,
         ReferenceId = item.ReferenceId,
         Notes = item.Notes,
-        Status = item.Status,
+        State = item.State,
         LastEpisodeSeen = item.LastEpisodeSeen,
         Year = item.Year,
         IsFavorite = item.IsFavorite,

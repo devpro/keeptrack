@@ -39,25 +39,25 @@ Files:
 Found on 2026-07-06 during a review of `scripts/mongodb-create-index.js` requested directly against the actual repository query code (grepped every repository for `.Text(` usage rather than assuming the script matched).
 Three separate problems, all in the same file:
 
-1. `book_text`/`movie_text`/`tvshow_text`/`videogame_text` were dead. `Book`/`Movie`/`MusicAlbum`/`TvShow`/`VideoGame` all search via `builder.Where(f => f.Title.Contains(...))`, a regex filter that a MongoDB `text` index never accelerates. The only two repositories that call `builder.Text(...)` at all are `CarRepository` (via the base class default) and `CarHistoryRepository` - confirmed by grep, not assumption.
+1. `book_text`/`movie_text`/`tvshow_text`/`videogame_text` were dead. `Book`/`Movie`/`Album`/`TvShow`/`VideoGame` all search via `builder.Where(f => f.Title.Contains(...))`, a regex filter that a MongoDB `text` index never accelerates. The only two repositories that call `builder.Text(...)` at all are `CarRepository` (via the base class default) and `CarHistoryRepository` - confirmed by grep, not assumption.
 2. Following directly from (1): `car`/`car_history` had **no** index at all despite being the only two collections whose queries actually need one - this is the other half of "Car and CarHistory search relies on a `$text` index that does not exist" below, now fixed at the index level (the `CarHistoryRepository` code bug tracked separately below is not).
-3. Beyond text search: almost every tenant-scoped collection (`book`, `car`, `car_history`, `movie`, `music-album`, `tvshow`, `videogame`) had no plain `{ owner_id: 1 }` index, even though every list/search request filters on `owner_id` first. The `movie_favorite`/`tvshow_favorite` partial indexes don't help a plain "all movies for this owner" query either - a partial index only accelerates queries the planner can prove only match documents inside its partial filter, and a plain list query has no `is_favorite` condition to prove that with.
+3. Beyond text search: almost every tenant-scoped collection (`book`, `car`, `car_history`, `movie`, `album`, `tvshow`, `videogame`) had no plain `{ owner_id: 1 }` index, even though every list/search request filters on `owner_id` first. The `movie_favorite`/`tvshow_favorite` partial indexes don't help a plain "all movies for this owner" query either - a partial index only accelerates queries the planner can prove only match documents inside its partial filter, and a plain list query has no `is_favorite` condition to prove that with.
 
 Fixed by removing the four dead text indexes, adding `car_text`/`car_history_text`, and adding a plain `owner_id` index for every collection that lacked one (`episode` and the two favorite/want-to-watch pairs already had owner_id-prefixed indexes covering it).
 
 File: `scripts/mongodb-create-index.js`
 
-### Search was a no-op for Movie and Music Album
+### Search was a no-op for Movie and Album
 
 Fixed on 2026-07-06 while building the TV Time import feature (both repositories were touched anyway to add the `IsFavorite`/`WantToWatch` filters).
-`MovieRepository.GetFilter` and `MusicAlbumRepository.GetFilter` built a MongoDB filter with `builder.Where(...)` but never combined the result back into the returned `filter`.
+`MovieRepository.GetFilter` and `MusicAlbumRepository.GetFilter` (renamed `AlbumRepository` on 2026-07-07, see "Reference data now covers five domains" below) built a MongoDB filter with `builder.Where(...)` but never combined the result back into the returned `filter`.
 Both now do `filter &= builder.Where(...)`.
-A regression test (`MovieResourceTest.MovieResourceSearch_FiltersToMatchingTitle_IsOk`) locks in the Movie fix; `MusicAlbum` still has no integration test at all (see "Thin test coverage" below), so its fix is unverified beyond the code change itself.
+A regression test (`MovieResourceTest.MovieResourceSearch_FiltersToMatchingTitle_IsOk`) locks in the Movie fix; `AlbumResourceTest.AlbumResourceSearch_FiltersToMatchingTitleOrArtist_IsOk` (added 2026-07-07) now locks in the Album fix too, closing the gap this finding originally flagged.
 
 Files:
 
 - `src/Infrastructure.MongoDb/Repositories/MovieRepository.cs`
-- `src/Infrastructure.MongoDb/Repositories/MusicAlbumRepository.cs`
+- `src/Infrastructure.MongoDb/Repositories/AlbumRepository.cs`
 
 ## Confirmed bugs
 
@@ -110,7 +110,7 @@ A very large `PageSize` forces an unbounded fetch.
 
 `Book` and `Movie` have integration tests (`BookResourceTest`, `MovieResourceTest`); `Movie`'s now also covers `?search=`.
 `Episode` and `TvShow` gained partial coverage as a side effect of `TvTimeImportResourceTest` (create/upsert/search paths, plus `Episode`'s `TvShowId` filter), but neither has a dedicated full CRUD test of its own yet.
-`CarHistory`, `MusicAlbum`, and `VideoGame` still have none.
+`Album` and `VideoGame` gained full CRUD integration tests (`AlbumResourceTest`, `VideoGameResourceTest`) on 2026-07-07 while their controllers/repositories were touched anyway to add reference-data support - closing this finding for both. `CarHistory` still has none.
 No test asserts ownership isolation (that user A cannot read, update, or delete user B's record).
 There is no test project for `BlazorApp` - `AuthenticationController`'s Firebase-custom-claim-to-cookie-claim copy (added for the admin role) has no automated coverage as a result, only manual verification.
 The reference-data admin endpoints have integration coverage for the non-admin-rejected (403) path and for the underlying Mongo queries directly (`TvShowReferenceLinkingTest`), but not for the admin-succeeds path over HTTP end-to-end, since that needs a second Firebase test user with the `role: admin` claim pre-set (see `CONTRIBUTING.md`).

@@ -20,6 +20,8 @@ public class Book : IHasIdAndOwnerId
 
     public string? Series { get; set; }
 
+    public int? Year { get; set; }
+
     public float? Rating { get; set; }
 
     public string? Genre { get; set; }
@@ -28,4 +30,10 @@ public class Book : IHasIdAndOwnerId
 
     [BsonElement("first_read_at")]
     public DateTime? FirstReadAt { get; set; }
+
+    [BsonElement("reference_id")]
+    public string? ReferenceId { get; set; }
+
+    [BsonElement("is_favorite")]
+    public bool IsFavorite { get; set; }
 }

@@ -9,4 +9,6 @@ public class ReferenceMatch
     public required string Title { get; set; }
 
     public int? Year { get; set; }
+
+    public string? Creator { get; set; }
 }

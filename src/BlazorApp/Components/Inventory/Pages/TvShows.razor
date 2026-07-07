@@ -29,15 +29,15 @@
                OnDelete="@DeleteAsync"
                OnSearchChanged="@OnSearchChanged">
     <Filters>
-        <button class="btn btn-sm @(_statusFilter is null ? "btn-primary" : "btn-secondary")" @onclick='() => SetStatusFilterAsync(null)'>All</button>
-        <button class="btn btn-sm @(_statusFilter == TvShowStatus.Current ? "btn-primary" : "btn-secondary")" @onclick='() => SetStatusFilterAsync(TvShowStatus.Current)'>Current</button>
-        <button class="btn btn-sm @(_statusFilter == TvShowStatus.Finished ? "btn-primary" : "btn-secondary")" @onclick='() => SetStatusFilterAsync(TvShowStatus.Finished)'>Finished</button>
-        <button class="btn btn-sm @(_statusFilter == TvShowStatus.Stopped ? "btn-primary" : "btn-secondary")" @onclick='() => SetStatusFilterAsync(TvShowStatus.Stopped)'>Stopped</button>
+        <button class="btn btn-sm @(_stateFilter is null ? "btn-primary" : "btn-secondary")" @onclick='() => SetStateFilterAsync(null)'>All</button>
+        <button class="btn btn-sm @(_stateFilter == TvShowStatus.Current ? "btn-primary" : "btn-secondary")" @onclick='() => SetStateFilterAsync(TvShowStatus.Current)'>Current</button>
+        <button class="btn btn-sm @(_stateFilter == TvShowStatus.Finished ? "btn-primary" : "btn-secondary")" @onclick='() => SetStateFilterAsync(TvShowStatus.Finished)'>Finished</button>
+        <button class="btn btn-sm @(_stateFilter == TvShowStatus.Stopped ? "btn-primary" : "btn-secondary")" @onclick='() => SetStateFilterAsync(TvShowStatus.Stopped)'>Stopped</button>
         <button class="btn btn-sm kt-toggle-btn @(_favoriteFilter ? "active" : "")" @onclick="ToggleFavoriteFilterAsync">★ Favorites</button>
     </Filters>
     <HeaderTemplate>
         <th>Title</th>
-        <th>Status</th>
+        <th>State</th>
         <th>Rating</th>
         <th></th>
     </HeaderTemplate>
@@ -46,9 +46,9 @@
             <a href="@($"/tv-shows/{show.Id}")">@show.Title</a>
         </td>
         <td>
-            @if (show.Status is not null)
+            @if (show.State is not null)
             {
-                <span class="kt-status-badge @show.Status.ToString()!.ToLowerInvariant()">@show.Status</span>
+                <span class="kt-status-badge @show.State.ToString()!.ToLowerInvariant()">@show.State</span>
             }
         </td>
         <td><span class="kt-stars"><StarRating Rating="show.Rating" /></span></td>
@@ -111,8 +111,8 @@
             <input class="form-control" @bind="show.Rating" type="number" step="0.1" min="0" max="5"/>
         </div>
         <div class="col-md-6">
-            <label class="form-label">Status</label>
-            <select class="form-select" @bind="show.Status">
+            <label class="form-label">State</label>
+            <select class="form-select" @bind="show.State">
                 <option value="">—</option>
                 <option value="Current">Current</option>
                 <option value="Finished">Finished</option>

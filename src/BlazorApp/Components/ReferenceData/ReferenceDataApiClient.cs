@@ -19,4 +19,22 @@ public sealed class ReferenceDataApiClient(HttpClient http)
         var response = await http.GetAsync($"/api/reference-data/movies/{referenceId}");
         return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<MovieReferenceDto>() : null;
     }
+
+    public async Task<BookReferenceDto?> GetBookAsync(string referenceId)
+    {
+        var response = await http.GetAsync($"/api/reference-data/books/{referenceId}");
+        return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<BookReferenceDto>() : null;
+    }
+
+    public async Task<VideoGameReferenceDto?> GetVideoGameAsync(string referenceId)
+    {
+        var response = await http.GetAsync($"/api/reference-data/video-games/{referenceId}");
+        return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<VideoGameReferenceDto>() : null;
+    }
+
+    public async Task<AlbumReferenceDto?> GetAlbumAsync(string referenceId)
+    {
+        var response = await http.GetAsync($"/api/reference-data/albums/{referenceId}");
+        return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<AlbumReferenceDto>() : null;
+    }
 }

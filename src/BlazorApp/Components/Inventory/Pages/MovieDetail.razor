@@ -51,10 +51,10 @@ else
             @(_movie.FirstSeenAt is not null ? "✓ Watched" : "Mark as watched")
         </span>
         <div class="row g-3">
-            @if (!string.IsNullOrEmpty(_reference?.PosterUrl))
+            @if (!string.IsNullOrEmpty(_reference?.ImageUrl))
             {
                 <div class="col-md-2">
-                    <img src="@_reference.PosterUrl" alt="@_movie.Title poster" class="img-fluid rounded"/>
+                    <img src="@_reference.ImageUrl" alt="@_movie.Title poster" class="img-fluid rounded"/>
                 </div>
             }
             <div class="col-md-4">

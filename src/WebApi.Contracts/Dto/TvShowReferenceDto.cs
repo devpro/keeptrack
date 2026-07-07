@@ -23,5 +23,5 @@ public class TvShowReferenceDto : IHasId
 
     public List<CastMemberDto> Cast { get; set; } = [];
 
-    public string? PosterUrl { get; set; }
+    public string? ImageUrl { get; set; }
 }

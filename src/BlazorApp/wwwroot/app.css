@@ -531,8 +531,8 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
 }
 .kt-toggle-btn.active:hover { background: var(--kt-accent-glow) !important; }
 
-/* TV show status: a small colored pill for the list column (setting status itself happens via the
-   explicit Current/Finished/Stopped buttons on the detail page, not by clicking this) */
+/* Status/state pill for a list column (TV show status, video game state) - setting the value itself
+   happens via the explicit buttons on the detail page, not by clicking this) */
 .kt-status-badge {
   display: inline-flex;
   align-items: center;
@@ -544,6 +544,12 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
 .kt-status-badge.current { background: var(--kt-warning-bg); color: var(--kt-warning); }
 .kt-status-badge.finished { background: var(--kt-success-bg); color: var(--kt-success); }
 .kt-status-badge.stopped { background: var(--kt-danger-bg); color: var(--kt-danger); }
+/* video game states share "current" above (same in-progress meaning); the remaining three have no
+   TV show equivalent, so get their own modifiers here. */
+.kt-status-badge.completed { background: var(--kt-success-bg); color: var(--kt-success); }
+.kt-status-badge.to-resume { background: var(--kt-warning-bg); color: var(--kt-warning); }
+.kt-status-badge.on-hold { background: var(--kt-danger-bg); color: var(--kt-danger); }
+.kt-status-badge.available { background: var(--kt-surface-2); color: var(--kt-text-muted); }
 
 /* ── Progress bar ──────────────────────────────────────────────────── */
 .progress { background-color: var(--kt-surface-3) !important; border-radius: 999px !important; }

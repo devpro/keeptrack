@@ -18,16 +18,30 @@ public class ReferenceSyncServiceTest
     private readonly Mock<ITvShowReferenceRepository> _tvShowReferenceRepository = new();
     private readonly Mock<IMovieReferenceRepository> _movieReferenceRepository = new();
     private readonly Mock<IPersonReferenceRepository> _personReferenceRepository = new();
+    private readonly Mock<IBookReferenceRepository> _bookReferenceRepository = new();
+    private readonly Mock<IVideoGameReferenceRepository> _videoGameReferenceRepository = new();
+    private readonly Mock<IAlbumReferenceRepository> _albumReferenceRepository = new();
     private readonly Mock<ITvShowRepository> _tvShowRepository = new();
     private readonly Mock<IMovieRepository> _movieRepository = new();
+    private readonly Mock<IBookRepository> _bookRepository = new();
+    private readonly Mock<IVideoGameRepository> _videoGameRepository = new();
+    private readonly Mock<IAlbumRepository> _albumRepository = new();
 
     private ReferenceSyncService CreateService(FakeTmdbClient tmdbClient)
     {
+        _bookReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync([]);
+        _videoGameReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync([]);
+        _albumReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync([]);
+
         var enrichmentService = new ReferenceEnrichmentService(
-            tmdbClient, _tvShowReferenceRepository.Object, _movieReferenceRepository.Object, _personReferenceRepository.Object,
-            _tvShowRepository.Object, _movieRepository.Object);
+            tmdbClient, FakeOpenLibraryClient.Empty(), FakeRawgClient.Empty(), FakeDiscogsClient.Empty(),
+            _tvShowReferenceRepository.Object, _movieReferenceRepository.Object, _personReferenceRepository.Object,
+            _bookReferenceRepository.Object, _videoGameReferenceRepository.Object, _albumReferenceRepository.Object,
+            _tvShowRepository.Object, _movieRepository.Object, _bookRepository.Object, _videoGameRepository.Object, _albumRepository.Object);
         return new ReferenceSyncService(
-            _tvShowReferenceRepository.Object, _movieReferenceRepository.Object, enrichmentService, NullLogger<ReferenceSyncService>.Instance);
+            _tvShowReferenceRepository.Object, _movieReferenceRepository.Object,
+            _bookReferenceRepository.Object, _videoGameReferenceRepository.Object, _albumReferenceRepository.Object,
+            enrichmentService, NullLogger<ReferenceSyncService>.Instance);
     }
 
     [Fact]

@@ -13,4 +13,15 @@ public class ReferenceMatchModel
     public required string Title { get; set; }
 
     public int? Year { get; set; }
+
+    /// <summary>
+    /// Normalized book author / album artist this (title, year) combination was confirmed under - null
+    /// for domains with no creator concept (TV show, movie, video game). Required for Book/Album matching
+    /// specifically: two different tenants' different books/albums can easily share a common (title, year)
+    /// (e.g. two different novels both titled "Echoes" published the same year) - without creator in the
+    /// match key, the second tenant's item would incorrectly latch onto the first tenant's reference
+    /// document. Deliberately generic name, not "Author"/"Artist" - see <see cref="TvShowReferenceModel.MatchedAliases"/>'s
+    /// own naming rationale, which this follows.
+    /// </summary>
+    public string? Creator { get; set; }
 }

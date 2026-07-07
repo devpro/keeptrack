@@ -10,4 +10,10 @@ public class ReferenceDataImportResultDto
     public required int MovieCount { get; set; }
 
     public required int PersonCount { get; set; }
+
+    public required int BookCount { get; set; }
+
+    public required int VideoGameCount { get; set; }
+
+    public required int AlbumCount { get; set; }
 }

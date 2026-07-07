@@ -1,16 +1,11 @@
-﻿using Keeptrack.Common.System;
-using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
+using Keeptrack.Common.System;
 
-namespace Keeptrack.Infrastructure.MongoDb.Entities;
+namespace Keeptrack.Domain.Models;
 
-public class MusicAlbum : IHasIdAndOwnerId
+public class AlbumModel : IHasIdAndOwnerId
 {
-    [BsonId]
-    [BsonRepresentation(BsonType.ObjectId)]
     public string? Id { get; set; }
 
-    [BsonElement("owner_id")]
     public required string OwnerId { get; set; }
 
     public required string Title { get; set; }
@@ -22,4 +17,8 @@ public class MusicAlbum : IHasIdAndOwnerId
     public string? Genre { get; set; }
 
     public float? Rating { get; set; }
+
+    public string? ReferenceId { get; set; }
+
+    public bool IsFavorite { get; set; }
 }

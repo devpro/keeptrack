@@ -23,7 +23,7 @@ public class WatchNextService
         IEnumerable<EpisodeModel> episodes,
         IReadOnlyDictionary<string, TvShowReferenceModel> referencesByShowId)
     {
-        var currentShows = shows.Where(s => s.Status == Domain.Models.TvShowStatus.Current).ToDictionary(s => s.Id!);
+        var currentShows = shows.Where(s => s.State == Domain.Models.TvShowStatus.Current).ToDictionary(s => s.Id!);
         var today = DateOnly.FromDateTime(DateTime.Today);
 
         return episodes

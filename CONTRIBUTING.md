@@ -72,7 +72,9 @@ Key                                       | Description
 ------------------------------------------|--------------------------
 `Infrastructure:MongoDB:ConnectionString` | MongoDB connection string
 `Infrastructure:MongoDB:DatabaseName`     | MongoDB database name
-`Tmdb:ApiKey`                             | TMDB v3 API key, used to auto-match shows/movies to episode titles and synopses (see [Reference data (TMDB)](#reference-data-tmdb) below)
+`Tmdb:ApiKey`                             | TMDB v3 API key, used to auto-match shows/movies to episode titles and synopses (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
+`Rawg:ApiKey`                             | RAWG API key, used to auto-match video games to synopses/cover art/platforms (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
+`Discogs:Token`                           | Discogs personal access token, used to auto-match albums to synopses/cover art/genres (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
 
 This values can be easily provided as environment variables (replace ":" by "__") or by configuration (json).
 
@@ -106,6 +108,12 @@ Template for `src/WebApi/appsettings.Development.json`:
   "Tmdb": {
     "ApiKey": "<your-tmdb-api-key>"
   },
+  "Rawg": {
+    "ApiKey": "<your-rawg-api-key>"
+  },
+  "Discogs": {
+    "Token": "<your-discogs-personal-access-token>"
+  },
   "Logging": {
     "LogLevel": {
       "Default": "Debug",
@@ -115,14 +123,27 @@ Template for `src/WebApi/appsettings.Development.json`:
 }
 ```
 
-### Reference data (TMDB)
+### Reference data (TMDB, Open Library, RAWG, Discogs)
 
-Episode titles, synopses, and the "what should I watch next" experience are backed by a shared reference collection, populated from [TMDB](https://www.themoviedb.org/) (The Movie Database) rather than typed in by hand.
+Episode titles, synopses, cover art, and the "what should I watch next" experience are backed by shared reference collections, one per trackable type, each populated from a different external provider rather than typed in by hand:
 
-1. Create a free TMDB account, then generate a v3 API key at [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api).
-2. Set `Tmdb:ApiKey` (or the `Tmdb__ApiKey` environment variable) to that key.
+Type        | Provider                                       | Setting            | API key required?
+------------|-------------------------------------------------|---------------------|-------------------
+TV shows / Movies | [TMDB](https://www.themoviedb.org/) (The Movie Database) | `Tmdb:ApiKey`       | Yes
+Books       | [Open Library](https://openlibrary.org/)         | *(none)*            | No
+Video Games | [RAWG](https://rawg.io/apidocs)                  | `Rawg:ApiKey`       | Yes
+Albums      | [Discogs](https://www.discogs.com/developers)    | `Discogs:Token`     | Yes (personal access token)
 
-Without a key, new shows/movies simply stay unresolved (no episode titles, no synopsis) instead of erroring - the app degrades gracefully, it just won't be able to auto-match anything.
+1. **TMDB**: create a free account, then generate a v3 API key at [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api).
+   Set `Tmdb:ApiKey` (or the `Tmdb__ApiKey` environment variable) to that key.
+2. **Open Library**: nothing to configure - its search/cover-image API is free and keyless.
+3. **RAWG**: create a free account, then generate an API key at [rawg.io/apidocs](https://rawg.io/apidocs).
+   Set `Rawg:ApiKey` (or `Rawg__ApiKey`) to that key.
+4. **Discogs**: create a free account, then generate a personal access token at [discogs.com/settings/developers](https://www.discogs.com/settings/developers).
+   Set `Discogs:Token` (or `Discogs__Token`) to that token.
+
+Without a key/token for a given provider, new items of that type simply stay unresolved (no synopsis, no cover art) instead of erroring.
+The app degrades gracefully per type - it just won't auto-match that type until the corresponding setting is provided.
 
 ### Admin role
 

@@ -38,4 +38,9 @@ public class VideoGameDto : IHasId
     /// Finished date.
     /// </summary>
     public DateOnly? FinishedAt { get; set; }
+
+    /// <summary>
+    /// Id of the linked <c>videogame_reference</c> document, when a match has been found.
+    /// </summary>
+    public string? ReferenceId { get; set; }
 }

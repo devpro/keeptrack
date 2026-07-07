@@ -23,7 +23,8 @@
     @if (_importResult is not null)
     {
         <div class="alert alert-info mt-3 mb-0">
-            Imported @_importResult.TvShowCount TV show(s), @_importResult.MovieCount movie(s), @_importResult.PersonCount person(s).
+            Imported @_importResult.TvShowCount TV show(s), @_importResult.MovieCount movie(s), @_importResult.PersonCount person(s),
+            @_importResult.BookCount book(s), @_importResult.VideoGameCount video game(s), @_importResult.AlbumCount album(s).
         </div>
     }
     @if (_importExportError is not null)
@@ -50,6 +51,9 @@
         <div class="alert alert-info mt-3 mb-0">
             TV shows: @_syncResult.TvShowsChecked checked, @_syncResult.TvShowsUpdated updated.
             Movies: @_syncResult.MoviesChecked checked, @_syncResult.MoviesUpdated updated.
+            Books: @_syncResult.BooksChecked checked, @_syncResult.BooksUpdated updated.
+            Video games: @_syncResult.VideoGamesChecked checked, @_syncResult.VideoGamesUpdated updated.
+            Albums: @_syncResult.AlbumsChecked checked, @_syncResult.AlbumsUpdated updated.
         </div>
     }
     @if (_syncError is not null)
@@ -60,12 +64,15 @@
 
 <div class="kt-form-card">
     <p style="color:var(--kt-text-muted)">
-        Titles below couldn't be automatically matched to a TMDB entry (no result, or more than one
-        candidate). Pick the right one to link every account's matching show/movie at once.
+        Titles below couldn't be automatically matched to a reference entry (no result, or more than one
+        candidate). Pick the right one to link every account's matching item at once.
     </p>
     <div class="d-flex gap-2 mb-3">
         <button class="btn btn-sm @(_type == ReferenceItemType.TvShow ? "btn-primary" : "btn-secondary")" @onclick='() => SelectTypeAsync(ReferenceItemType.TvShow)'>TV shows</button>
         <button class="btn btn-sm @(_type == ReferenceItemType.Movie ? "btn-primary" : "btn-secondary")" @onclick='() => SelectTypeAsync(ReferenceItemType.Movie)'>Movies</button>
+        <button class="btn btn-sm @(_type == ReferenceItemType.Book ? "btn-primary" : "btn-secondary")" @onclick='() => SelectTypeAsync(ReferenceItemType.Book)'>Books</button>
+        <button class="btn btn-sm @(_type == ReferenceItemType.VideoGame ? "btn-primary" : "btn-secondary")" @onclick='() => SelectTypeAsync(ReferenceItemType.VideoGame)'>Video games</button>
+        <button class="btn btn-sm @(_type == ReferenceItemType.Album ? "btn-primary" : "btn-secondary")" @onclick='() => SelectTypeAsync(ReferenceItemType.Album)'>Albums</button>
     </div>
 </div>
 
@@ -103,11 +110,20 @@
         <div class="kt-form-card">
             @if (_selected is null)
             {
-                <p class="kt-card-meta">Pick a title on the left to search TMDB for a match.</p>
+                <p class="kt-card-meta">Pick a title on the left to search @ProviderName for a match.</p>
             }
             else
             {
                 <p><strong>@_selected.Title</strong> @(_selected.Year is not null ? $"({_selected.Year})" : "")</p>
+
+                @if (_type is ReferenceItemType.Book or ReferenceItemType.Album)
+                {
+                    <div class="d-flex gap-2 mb-3">
+                        <input class="form-control form-control-sm" style="max-width:240px" placeholder="@(_type == ReferenceItemType.Book ? "Author" : "Artist")"
+                               @bind="_creator" @bind:event="oninput"/>
+                        <button class="btn btn-sm btn-secondary" @onclick="SearchAsync" disabled="@_searching">Search again</button>
+                    </div>
+                }
 
                 @if (_searching)
                 {
@@ -115,7 +131,7 @@
                 }
                 else if (_searchResults.Count == 0)
                 {
-                    <div class="alert alert-info">No TMDB results for this title/year.</div>
+                    <div class="alert alert-info">No @ProviderName results for this title/year.</div>
                 }
                 else
                 {
@@ -123,13 +139,17 @@
                     {
                         <div class="kt-form-card mb-2">
                             <div class="d-flex gap-3">
-                                @if (!string.IsNullOrEmpty(candidate.PosterUrl))
+                                @if (!string.IsNullOrEmpty(candidate.ImageUrl))
                                 {
-                                    <img src="@candidate.PosterUrl" alt="@candidate.Title poster"
+                                    <img src="@candidate.ImageUrl" alt="@candidate.Title poster"
                                          style="width:60px;height:90px;object-fit:cover;flex-shrink:0" class="rounded"/>
                                 }
                                 <div>
                                     <p class="mb-1"><strong>@candidate.Title</strong> @(candidate.Year is not null ? $"({candidate.Year})" : "")</p>
+                                    @if (!string.IsNullOrEmpty(candidate.Creator))
+                                    {
+                                        <p class="kt-card-meta mb-1">@candidate.Creator</p>
+                                    }
                                     @if (candidate.TopCastNames.Count > 0)
                                     {
                                         <p class="kt-card-meta mb-1">@string.Join(", ", candidate.TopCastNames)</p>
@@ -168,6 +188,16 @@
     private bool _searching;
     private bool _linking;
     private string? _error;
+    private string? _creator;
+
+    private string ProviderName => _type switch
+    {
+        ReferenceItemType.TvShow or ReferenceItemType.Movie => "TMDB",
+        ReferenceItemType.Book => "Open Library",
+        ReferenceItemType.VideoGame => "RAWG",
+        ReferenceItemType.Album => "Discogs",
+        _ => "reference"
+    };
 
     private bool _exporting;
     private bool _importing;
@@ -242,6 +272,7 @@
         _unresolved = await Api.GetUnresolvedAsync(_type);
         _selected = null;
         _searchResults = [];
+        _creator = null;
     }
 
     private async Task SelectTypeAsync(ReferenceItemType type)
@@ -253,9 +284,22 @@
     private async Task SelectItemAsync(UnresolvedReferenceDto item)
     {
         _selected = item;
+        _creator = null;
+        await SearchAsync();
+    }
+
+    /// <summary>
+    /// Re-run manually (via the "Search again" button) once the admin types an author/artist - the
+    /// unresolved queue itself has no creator field (it's a distinct (title, year) pair across every
+    /// tenant, not any one tenant's own record), so this is the only way to supply one for Book/Album.
+    /// </summary>
+    private async Task SearchAsync()
+    {
+        if (_selected is null) return;
+
         _searching = true;
         _error = null;
-        _searchResults = await Api.SearchAsync(_type, item.Title, item.Year);
+        _searchResults = await Api.SearchAsync(_type, _selected.Title, _selected.Year, _creator);
         _searching = false;
     }
 
@@ -267,7 +311,7 @@
         _error = null;
         try
         {
-            await Api.LinkAsync(new LinkReferenceRequestDto { Type = _type, Title = _selected.Title, Year = _selected.Year, TmdbId = candidate.TmdbId });
+            await Api.LinkAsync(new LinkReferenceRequestDto { Type = _type, Title = _selected.Title, Year = _selected.Year, ExternalId = candidate.ExternalId });
             await LoadUnresolvedAsync();
         }
         catch (Exception ex)

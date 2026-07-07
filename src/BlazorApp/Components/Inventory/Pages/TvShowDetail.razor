@@ -39,9 +39,9 @@ else
     </div>
 
     <div class="d-flex gap-2 mb-3">
-        <button class="btn btn-sm @(_show.Status == TvShowStatus.Current ? "btn-warning" : "btn-secondary")" @onclick='() => SetStatusAsync(TvShowStatus.Current)'>Current</button>
-        <button class="btn btn-sm @(_show.Status == TvShowStatus.Finished ? "btn-success" : "btn-secondary")" @onclick='() => SetStatusAsync(TvShowStatus.Finished)'>Finished</button>
-        <button class="btn btn-sm @(_show.Status == TvShowStatus.Stopped ? "btn-danger" : "btn-secondary")" @onclick='() => SetStatusAsync(TvShowStatus.Stopped)'>Stopped</button>
+        <button class="btn btn-sm @(_show.State == TvShowStatus.Current ? "btn-warning" : "btn-secondary")" @onclick='() => SetStateAsync(TvShowStatus.Current)'>Current</button>
+        <button class="btn btn-sm @(_show.State == TvShowStatus.Finished ? "btn-success" : "btn-secondary")" @onclick='() => SetStateAsync(TvShowStatus.Finished)'>Finished</button>
+        <button class="btn btn-sm @(_show.State == TvShowStatus.Stopped ? "btn-danger" : "btn-secondary")" @onclick='() => SetStateAsync(TvShowStatus.Stopped)'>Stopped</button>
     </div>
 
     @if (string.IsNullOrEmpty(_show.ReferenceId))
@@ -55,10 +55,10 @@ else
 
     <div class="kt-form-card">
         <div class="row g-3">
-            @if (!string.IsNullOrEmpty(_reference?.PosterUrl))
+            @if (!string.IsNullOrEmpty(_reference?.ImageUrl))
             {
                 <div class="col-md-2">
-                    <img src="@_reference.PosterUrl" alt="@_show.Title poster" class="img-fluid rounded"/>
+                    <img src="@_reference.ImageUrl" alt="@_show.Title poster" class="img-fluid rounded"/>
                 </div>
             }
             <div class="col-md-4">
@@ -291,14 +291,14 @@ else
     }
 
     /// <summary>
-    /// Clicking the already-active status button clears it back to unset - otherwise sets it. Explicit
+    /// Clicking the already-active state button clears it back to unset - otherwise sets it. Explicit
     /// buttons instead of a click-to-cycle flag: all three options are visible and directly selectable,
     /// nothing to guess about what a click will do.
     /// </summary>
-    private async Task SetStatusAsync(TvShowStatus status)
+    private async Task SetStateAsync(TvShowStatus state)
     {
         if (_show is null) return;
-        _show.Status = _show.Status == status ? null : status;
+        _show.State = _show.State == state ? null : state;
         await TvShowApi.UpdateAsync(_show);
     }
 

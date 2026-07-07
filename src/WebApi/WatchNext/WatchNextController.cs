@@ -34,7 +34,7 @@ public class WatchNextController(
         // only current shows with a reference link can possibly appear in the result (see WatchNextService),
         // so only those need their (small, bounded) episode guide fetched
         var referencesByShowId = new Dictionary<string, TvShowReferenceModel>();
-        foreach (var show in shows.Items.Where(s => s.Status == Domain.Models.TvShowStatus.Current && !string.IsNullOrEmpty(s.ReferenceId)))
+        foreach (var show in shows.Items.Where(s => s.State == Domain.Models.TvShowStatus.Current && !string.IsNullOrEmpty(s.ReferenceId)))
         {
             var reference = await tvShowReferenceRepository.FindByIdAsync(show.ReferenceId!);
             if (reference is not null) referencesByShowId[show.Id!] = reference;

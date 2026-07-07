@@ -20,7 +20,7 @@ public class TvShowModel : IHasIdAndOwnerId
 
     public string? ReferenceId { get; set; }
 
-    public TvShowStatus? Status { get; set; }
+    public TvShowStatus? State { get; set; }
 
     public bool IsFavorite { get; set; }
 

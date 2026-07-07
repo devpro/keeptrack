@@ -21,6 +21,22 @@ builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.ITmdbClient, Keept
 {
     client.BaseAddress = new Uri("https://api.themoviedb.org/3/");
 });
+builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.IOpenLibraryClient, Keeptrack.WebApi.ReferenceData.OpenLibraryClient>(client =>
+{
+    client.BaseAddress = new Uri("https://openlibrary.org/");
+    client.DefaultRequestHeaders.Add("User-Agent", "Keeptrack/1.0 (+https://github.com/devpro/keeptrack)");
+});
+builder.Services.AddSingleton(configuration.RawgSettings);
+builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.IRawgClient, Keeptrack.WebApi.ReferenceData.RawgClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.rawg.io/api/");
+});
+builder.Services.AddSingleton(configuration.DiscogsSettings);
+builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.IDiscogsClient, Keeptrack.WebApi.ReferenceData.DiscogsClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.discogs.com/");
+    client.DefaultRequestHeaders.Add("User-Agent", "Keeptrack/1.0 (+https://github.com/devpro/keeptrack)");
+});
 builder.Services.AddScoped<Keeptrack.WebApi.ReferenceData.ReferenceEnrichmentService>();
 builder.Services.AddScoped<Keeptrack.WebApi.ReferenceData.ReferenceSyncService>();
 builder.Services.AddHostedService<Keeptrack.WebApi.ReferenceData.ReferenceSyncBackgroundService>();

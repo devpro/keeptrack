@@ -28,6 +28,13 @@
                OnSaveInline="@SaveInlineAsync"
                OnDelete="@DeleteAsync"
                OnSearchChanged="@OnSearchChanged">
+    <Filters>
+        <button class="btn btn-sm @(_stateFilter is null ? "btn-primary" : "btn-secondary")" @onclick='() => SetStateFilterAsync(null)'>All</button>
+        @foreach (var state in VideoGameStates)
+        {
+            <button class="btn btn-sm @(_stateFilter == state ? "btn-primary" : "btn-secondary")" @onclick="() => SetStateFilterAsync(state)">@state</button>
+        }
+    </Filters>
     <HeaderTemplate>
         <th>Title</th>
         <th>Platform</th>
@@ -36,9 +43,16 @@
         <th>Finished</th>
     </HeaderTemplate>
     <RowTemplate Context="game">
-        <td style="font-weight:500">@game.Title</td>
+        <td style="font-weight:500">
+            <a href="@($"/video-games/{game.Id}")">@game.Title</a>
+        </td>
         <td>@game.Platform</td>
-        <td>@game.State</td>
+        <td>
+            @if (!string.IsNullOrEmpty(game.State))
+            {
+                <span class="kt-status-badge @StateBadgeClass(game.State)">@game.State</span>
+            }
+        </td>
         <td><span class="kt-stars"><StarRating Rating="game.Rating" /></span></td>
         <td>@game.FinishedAt?.ToString("yyyy-MM-dd")</td>
     </RowTemplate>
@@ -56,21 +70,25 @@
             <option>PS2</option>
             <option>PS1</option>
         </select>
-        <select class="form-select" @bind="game.State">
-            <option value="">— State —</option>
-            <option>Available</option>
-            <option>Completed</option>
-            <option>To resume</option>
-            <option>Current</option>
-            <option>On-hold</option>
-        </select>
+        <div class="col-12">
+            <label class="form-label">State</label>
+            <div class="d-flex gap-2 flex-wrap">
+                @foreach (var state in VideoGameStates)
+                {
+                    <button class="btn btn-sm @(game.State == state ? "btn-primary" : "btn-secondary")" @onclick="() => game.State = state">@state</button>
+                }
+            </div>
+        </div>
         <input class="form-control" placeholder="Rating" @bind="game.Rating" type="number" />
         <input class="form-control" placeholder="Finished at" @bind="game.FinishedAt" @bind:format="yyyy-MM-dd" type="date" />
     </FormTemplate>
     <EditModalTemplate Context="game">
         <div class="col-12">
             <label class="form-label">Title</label>
-            <input class="form-control" @bind="game.Title" />
+            <AuthorizeView Policy="AdminOnly" Context="titleAdminCtx">
+                <Authorized><input class="form-control" @bind="game.Title"/></Authorized>
+                <NotAuthorized><input class="form-control" @bind="game.Title" disabled="@(!string.IsNullOrEmpty(game.ReferenceId))"/></NotAuthorized>
+            </AuthorizeView>
         </div>
         <div class="col-md-6">
             <label class="form-label">Platform</label>
@@ -87,16 +105,14 @@
                 <option>PS1</option>
             </select>
         </div>
-        <div class="col-md-6">
+        <div class="col-12">
             <label class="form-label">State</label>
-            <select class="form-select" @bind="game.State">
-                <option value="">— State —</option>
-                <option>Available</option>
-                <option>Completed</option>
-                <option>To resume</option>
-                <option>Current</option>
-                <option>On-hold</option>
-            </select>
+            <div class="d-flex gap-2 flex-wrap">
+                @foreach (var state in VideoGameStates)
+                {
+                    <button class="btn btn-sm @(game.State == state ? "btn-primary" : "btn-secondary")" @onclick="() => game.State = state">@state</button>
+                }
+            </div>
         </div>
         <div class="col-md-6">
             <label class="form-label">Year</label>

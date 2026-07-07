@@ -11,10 +11,11 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
         return results ?? [];
     }
 
-    public async Task<List<ReferenceSearchResultDto>> SearchAsync(ReferenceItemType type, string title, int? year)
+    public async Task<List<ReferenceSearchResultDto>> SearchAsync(ReferenceItemType type, string title, int? year, string? creator = null)
     {
         var query = $"/api/reference-data/search?type={type}&title={Uri.EscapeDataString(title)}";
         if (year is not null) query += $"&year={year}";
+        if (!string.IsNullOrEmpty(creator)) query += $"&creator={Uri.EscapeDataString(creator)}";
 
         var results = await http.GetFromJsonAsync<List<ReferenceSearchResultDto>>(query);
         return results ?? [];
@@ -49,7 +50,7 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
         var response = await http.PostAsync("/api/reference-data/import", content);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<ReferenceDataImportResultDto>()
-               ?? new ReferenceDataImportResultDto { TvShowCount = 0, MovieCount = 0, PersonCount = 0 };
+               ?? new ReferenceDataImportResultDto { TvShowCount = 0, MovieCount = 0, PersonCount = 0, BookCount = 0, VideoGameCount = 0, AlbumCount = 0 };
     }
 
     /// <summary>

@@ -22,4 +22,6 @@ public class VideoGameModel : IHasIdAndOwnerId
     public string? Notes { get; set; }
 
     public DateOnly? FinishedAt { get; set; }
+
+    public string? ReferenceId { get; set; }
 }

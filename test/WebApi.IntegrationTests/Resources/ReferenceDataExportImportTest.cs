@@ -123,6 +123,78 @@ public class ReferenceDataExportImportTest(KestrelWebAppFactory<Program> factory
         }
     }
 
+    [Fact]
+    public async Task BookReferenceRepository_FindAllAsync_IncludesEveryDocument()
+    {
+        using var scope = factory.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IBookReferenceRepository>();
+        var title = $"Export Test Book {Guid.NewGuid()}";
+
+        var created = await repository.UpsertAsync(new BookReferenceModel
+        {
+            Title = title, TitleNormalized = title.ToLowerInvariant(), Year = 2020, ExternalIds = new Dictionary<string, string> { ["openlibrary"] = "OL1W" }
+        });
+
+        try
+        {
+            var all = await repository.FindAllAsync();
+
+            all.Should().Contain(m => m.Id == created.Id && m.Title == title);
+        }
+        finally
+        {
+            await DeleteAsync<BookReference>(scope, "book_reference", created.Id!);
+        }
+    }
+
+    [Fact]
+    public async Task VideoGameReferenceRepository_FindAllAsync_IncludesEveryDocument()
+    {
+        using var scope = factory.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IVideoGameReferenceRepository>();
+        var title = $"Export Test Game {Guid.NewGuid()}";
+
+        var created = await repository.UpsertAsync(new VideoGameReferenceModel
+        {
+            Title = title, TitleNormalized = title.ToLowerInvariant(), Year = 2020, ExternalIds = new Dictionary<string, string> { ["rawg"] = "1" }
+        });
+
+        try
+        {
+            var all = await repository.FindAllAsync();
+
+            all.Should().Contain(m => m.Id == created.Id && m.Title == title);
+        }
+        finally
+        {
+            await DeleteAsync<VideoGameReference>(scope, "videogame_reference", created.Id!);
+        }
+    }
+
+    [Fact]
+    public async Task AlbumReferenceRepository_FindAllAsync_IncludesEveryDocument()
+    {
+        using var scope = factory.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IAlbumReferenceRepository>();
+        var title = $"Export Test Album {Guid.NewGuid()}";
+
+        var created = await repository.UpsertAsync(new AlbumReferenceModel
+        {
+            Title = title, TitleNormalized = title.ToLowerInvariant(), Year = 2020, ExternalIds = new Dictionary<string, string> { ["discogs"] = "1" }
+        });
+
+        try
+        {
+            var all = await repository.FindAllAsync();
+
+            all.Should().Contain(m => m.Id == created.Id && m.Title == title);
+        }
+        finally
+        {
+            await DeleteAsync<AlbumReference>(scope, "album_reference", created.Id!);
+        }
+    }
+
     private static async Task DeleteAsync<TEntity>(IServiceScope scope, string collectionName, string id) where TEntity : class
     {
         var collection = scope.ServiceProvider.GetRequiredService<IMongoDatabase>().GetCollection<TEntity>(collectionName);

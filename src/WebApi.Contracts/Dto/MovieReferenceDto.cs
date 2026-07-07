@@ -21,5 +21,5 @@ public class MovieReferenceDto : IHasId
 
     public List<CastMemberDto> Cast { get; set; } = [];
 
-    public string? PosterUrl { get; set; }
+    public string? ImageUrl { get; set; }
 }

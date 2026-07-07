@@ -16,6 +16,9 @@ namespace Keeptrack.WebApi.ReferenceData;
 public class ReferenceSyncService(
     ITvShowReferenceRepository tvShowReferenceRepository,
     IMovieReferenceRepository movieReferenceRepository,
+    IBookReferenceRepository bookReferenceRepository,
+    IVideoGameReferenceRepository videoGameReferenceRepository,
+    IAlbumReferenceRepository albumReferenceRepository,
     ReferenceEnrichmentService enrichmentService,
     ILogger<ReferenceSyncService> logger)
 {
@@ -58,6 +61,54 @@ public class ReferenceSyncService(
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Failed to refresh movie reference {ReferenceId}", reference.Id);
+            }
+        }
+
+        foreach (var reference in await bookReferenceRepository.FindAllAsync())
+        {
+            if (reference.LastEnrichedAt is not null && reference.LastEnrichedAt > cutoff) continue;
+
+            result.BooksChecked++;
+            try
+            {
+                var (_, changed) = await enrichmentService.RefreshBookReferenceAsync(reference, cancellationToken);
+                if (changed) result.BooksUpdated++;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to refresh book reference {ReferenceId}", reference.Id);
+            }
+        }
+
+        foreach (var reference in await videoGameReferenceRepository.FindAllAsync())
+        {
+            if (reference.LastEnrichedAt is not null && reference.LastEnrichedAt > cutoff) continue;
+
+            result.VideoGamesChecked++;
+            try
+            {
+                var (_, changed) = await enrichmentService.RefreshVideoGameReferenceAsync(reference, cancellationToken);
+                if (changed) result.VideoGamesUpdated++;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to refresh video game reference {ReferenceId}", reference.Id);
+            }
+        }
+
+        foreach (var reference in await albumReferenceRepository.FindAllAsync())
+        {
+            if (reference.LastEnrichedAt is not null && reference.LastEnrichedAt > cutoff) continue;
+
+            result.AlbumsChecked++;
+            try
+            {
+                var (_, changed) = await enrichmentService.RefreshAlbumReferenceAsync(reference, cancellationToken);
+                if (changed) result.AlbumsUpdated++;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to refresh album reference {ReferenceId}", reference.Id);
             }
         }
 

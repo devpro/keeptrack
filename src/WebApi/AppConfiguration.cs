@@ -27,6 +27,10 @@ public class AppConfiguration(IConfiguration configuration)
 
     public TmdbSettings TmdbSettings { get; } = configuration.TryGetSection<TmdbSettings>("Tmdb");
 
+    public RawgSettings RawgSettings { get; } = configuration.TryGetSection<RawgSettings>("Rawg");
+
+    public DiscogsSettings DiscogsSettings { get; } = configuration.TryGetSection<DiscogsSettings>("Discogs");
+
     public string ConnectionString => configuration.TryGetSection<string>("Infrastructure:MongoDB:ConnectionString");
 
     public string DatabaseName => configuration.TryGetSection<string>("Infrastructure:MongoDB:DatabaseName");

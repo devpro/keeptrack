@@ -20,7 +20,10 @@ public class ReferenceDataController(
     IMapper mapper,
     ITvShowReferenceRepository tvShowReferenceRepository,
     IMovieReferenceRepository movieReferenceRepository,
-    IPersonReferenceRepository personReferenceRepository)
+    IPersonReferenceRepository personReferenceRepository,
+    IBookReferenceRepository bookReferenceRepository,
+    IVideoGameReferenceRepository videoGameReferenceRepository,
+    IAlbumReferenceRepository albumReferenceRepository)
     : ControllerBase
 {
     [HttpGet("tv-shows/{referenceId}")]
@@ -47,6 +50,53 @@ public class ReferenceDataController(
         var dto = mapper.Map<MovieReferenceDto>(model);
         dto.Cast = await HydrateCastAsync(model.Cast);
         return Ok(dto);
+    }
+
+    [HttpGet("books/{referenceId}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(404)]
+    public async Task<ActionResult<BookReferenceDto>> GetBook(string referenceId)
+    {
+        var model = await bookReferenceRepository.FindByIdAsync(referenceId);
+        if (model is null) return NotFound();
+
+        var dto = mapper.Map<BookReferenceDto>(model);
+        (dto.AuthorName, dto.AuthorImageUrl) = await HydratePersonAsync(model.AuthorReferenceId);
+        return Ok(dto);
+    }
+
+    [HttpGet("video-games/{referenceId}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(404)]
+    public async Task<ActionResult<VideoGameReferenceDto>> GetVideoGame(string referenceId)
+    {
+        var model = await videoGameReferenceRepository.FindByIdAsync(referenceId);
+        return model is null ? NotFound() : Ok(mapper.Map<VideoGameReferenceDto>(model));
+    }
+
+    [HttpGet("albums/{referenceId}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(404)]
+    public async Task<ActionResult<AlbumReferenceDto>> GetAlbum(string referenceId)
+    {
+        var model = await albumReferenceRepository.FindByIdAsync(referenceId);
+        if (model is null) return NotFound();
+
+        var dto = mapper.Map<AlbumReferenceDto>(model);
+        (dto.ArtistName, dto.ArtistImageUrl) = await HydratePersonAsync(model.ArtistReferenceId);
+        return Ok(dto);
+    }
+
+    /// <summary>
+    /// Joins a single <c>*ReferenceId</c> (a book's author, an album's artist) against person_reference -
+    /// the singular counterpart to <see cref="HydrateCastAsync"/>'s per-member join.
+    /// </summary>
+    private async Task<(string? Name, string? ImageUrl)> HydratePersonAsync(string? personReferenceId)
+    {
+        if (string.IsNullOrEmpty(personReferenceId)) return (null, null);
+
+        var person = await personReferenceRepository.FindByIdAsync(personReferenceId);
+        return person is null ? (null, null) : (person.Name, person.ProfileImageUrl);
     }
 
     /// <summary>

@@ -18,18 +18,18 @@ function ensureIndex(collection, keys, options) {
 // owner_id: every list/search query for every tenant-scoped collection filters by owner_id first: the
 // single most common access pattern in the app. episode/movie/tvshow already get this for free from a
 // compound index below whose leftmost field is owner_id; these collections have no such index otherwise.
+ensureIndex(db.album, { owner_id: 1 }, { name: "album_owner" });
 ensureIndex(db.book, { owner_id: 1 }, { name: "book_owner" });
 ensureIndex(db.car, { owner_id: 1 }, { name: "car_owner" });
 ensureIndex(db.car_history, { owner_id: 1 }, { name: "car_history_owner" });
 ensureIndex(db.movie, { owner_id: 1 }, { name: "movie_owner" });
-ensureIndex(db["music-album"], { owner_id: 1 }, { name: "music_album_owner" });
 ensureIndex(db.tvshow, { owner_id: 1 }, { name: "tvshow_owner" });
 ensureIndex(db.videogame, { owner_id: 1 }, { name: "videogame_owner" });
 
 // car / car_history: the only two repositories that actually issue a $text query (CarRepository has no
 // GetFilter override, so it falls back to MongoDbRepositoryBase's builder.Text(search); CarHistoryRepository
-// calls builder.Text(...) directly) - confirmed by grepping every repository for ".Text(" usage. Book,
-// Movie, MusicAlbum, TvShow, and VideoGame all search via builder.Where(f => f.Title.Contains(...)) (a
+// calls builder.Text(...) directly) - confirmed by grepping every repository for ".Text(" usage. Album, Book,
+// Movie, TvShow, and VideoGame all search via builder.Where(f => f.Title.Contains(...)) (a
 // regex filter), which a "text" index never accelerates - text indexes for those collections were removed
 // here as dead weight, not carried forward.
 // NOTE: CarHistoryRepository.GetFilter combines builder.Text(input.CarId) and builder.Text(search) with
@@ -76,6 +76,17 @@ ensureIndex(
   { owner_id: 1, want_to_watch: 1 },
   { name: "tvshow_want_to_watch", partialFilterExpression: { want_to_watch: true } }
 );
+// album / book: same sparse-flag partial-index rationale as movie/tvshow above.
+ensureIndex(
+  db.album,
+  { owner_id: 1, is_favorite: 1 },
+  { name: "album_favorite", partialFilterExpression: { is_favorite: true } }
+);
+ensureIndex(
+  db.book,
+  { owner_id: 1, is_favorite: 1 },
+  { name: "book_favorite", partialFilterExpression: { is_favorite: true } }
+);
 
 // tvshow_reference / movie_reference: shared, owner-less lookup tables (see CLAUDE.md) keyed by
 // matched_aliases (every (title, year) combination ever confirmed for that reference, not just its
@@ -93,6 +104,23 @@ ensureIndex(
   db.movie_reference,
   { "matched_aliases.title": 1, "matched_aliases.year": 1 },
   { name: "movie_reference_title_year" }
+);
+// book_reference / videogame_reference / album_reference: same shape as tvshow_reference/movie_reference
+// above, keyed by their own provider's matched_aliases (Open Library, RAWG and Discogs respectively).
+ensureIndex(
+  db.book_reference,
+  { "matched_aliases.title": 1, "matched_aliases.year": 1 },
+  { name: "book_reference_title_year" }
+);
+ensureIndex(
+  db.videogame_reference,
+  { "matched_aliases.title": 1, "matched_aliases.year": 1 },
+  { name: "videogame_reference_title_year" }
+);
+ensureIndex(
+  db.album_reference,
+  { "matched_aliases.title": 1, "matched_aliases.year": 1 },
+  { name: "album_reference_title_year" }
 );
 
 // tvshow_reference / movie_reference: also looked up by external provider id (e.g. TMDB id) when resolving
@@ -123,4 +151,22 @@ ensureIndex(
   db.person_reference,
   { "external_ids.tmdb": 1 },
   { name: "person_reference_tmdb_id", unique: true, partialFilterExpression: { "external_ids.tmdb": { $exists: true } } }
+);
+
+// book_reference / videogame_reference / album_reference: same external-provider-id dedup rationale as
+// tvshow_reference/movie_reference above, one provider each (Open Library, RAWG, Discogs).
+ensureIndex(
+  db.book_reference,
+  { "external_ids.openlibrary": 1 },
+  { name: "book_reference_openlibrary_id", unique: true, partialFilterExpression: { "external_ids.openlibrary": { $exists: true } } }
+);
+ensureIndex(
+  db.videogame_reference,
+  { "external_ids.rawg": 1 },
+  { name: "videogame_reference_rawg_id", unique: true, partialFilterExpression: { "external_ids.rawg": { $exists: true } } }
+);
+ensureIndex(
+  db.album_reference,
+  { "external_ids.discogs": 1 },
+  { name: "album_reference_discogs_id", unique: true, partialFilterExpression: { "external_ids.discogs": { $exists: true } } }
 );

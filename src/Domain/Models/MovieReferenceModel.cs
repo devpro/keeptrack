@@ -33,7 +33,7 @@ public class MovieReferenceModel : IHasId
 
     public List<CastMemberModel> Cast { get; set; } = [];
 
-    public string? PosterUrl { get; set; }
+    public string? ImageUrl { get; set; }
 
     public DateTime? LastEnrichedAt { get; set; }
 }

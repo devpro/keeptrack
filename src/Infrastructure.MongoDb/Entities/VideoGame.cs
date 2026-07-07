@@ -28,4 +28,7 @@ public class VideoGame : IHasIdAndOwnerId
 
     [BsonElement("finished_at")]
     public DateTime? FinishedAt { get; set; }
+
+    [BsonElement("reference_id")]
+    public string? ReferenceId { get; set; }
 }

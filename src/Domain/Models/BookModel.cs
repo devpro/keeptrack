@@ -15,6 +15,8 @@ public class BookModel : IHasIdAndOwnerId
 
     public string? Series { get; set; }
 
+    public int? Year { get; set; }
+
     public float? Rating { get; set; }
 
     public string? Genre { get; set; }
@@ -22,4 +24,8 @@ public class BookModel : IHasIdAndOwnerId
     public string? Notes { get; set; }
 
     public DateOnly? FirstReadAt { get; set; }
+
+    public string? ReferenceId { get; set; }
+
+    public bool IsFavorite { get; set; }
 }

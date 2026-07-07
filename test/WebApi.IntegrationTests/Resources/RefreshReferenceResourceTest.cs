@@ -101,6 +101,96 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
         }
     }
 
+    [Fact]
+    public async Task RefreshReference_LinksBook_WhenAnExistingReferenceMatchesByTitleAndYear()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var referenceRepository = scope.ServiceProvider.GetRequiredService<IBookReferenceRepository>();
+        var title = $"Refresh Reference Test Book {Guid.NewGuid()}";
+        const int year = 2019;
+
+        var reference = await referenceRepository.UpsertAsync(new BookReferenceModel
+        {
+            Title = "Canonical Book Title", TitleNormalized = "canonical book title", Year = year, ExternalIds = new Dictionary<string, string> { ["openlibrary"] = "OL1W" }
+        });
+
+        await Authenticate();
+        var created = await PostAsync("/api/books", new BookDto { Title = title, Author = "Some Author", Year = year });
+
+        try
+        {
+            var refreshed = await PostAsync<BookDto?>($"/api/books/{created.Id}/refresh-reference", null, HttpStatusCode.OK);
+
+            refreshed!.ReferenceId.Should().Be(reference.Id);
+            refreshed.Title.Should().Be("Canonical Book Title");
+        }
+        finally
+        {
+            await DeleteAsync($"/api/books/{created.Id}");
+            await DeleteReferenceAsync<BookReference>(scope, "book_reference", reference.Id!);
+        }
+    }
+
+    [Fact]
+    public async Task RefreshReference_LinksVideoGame_WhenAnExistingReferenceMatchesByTitleAndYear()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var referenceRepository = scope.ServiceProvider.GetRequiredService<IVideoGameReferenceRepository>();
+        var title = $"Refresh Reference Test Game {Guid.NewGuid()}";
+        const int year = 2019;
+
+        var reference = await referenceRepository.UpsertAsync(new VideoGameReferenceModel
+        {
+            Title = "Canonical Game Title", TitleNormalized = "canonical game title", Year = year, ExternalIds = new Dictionary<string, string> { ["rawg"] = "1" }
+        });
+
+        await Authenticate();
+        var created = await PostAsync("/api/video-games", new VideoGameDto { Title = title, Platform = "PC", State = "Current", Year = year });
+
+        try
+        {
+            var refreshed = await PostAsync<VideoGameDto?>($"/api/video-games/{created.Id}/refresh-reference", null, HttpStatusCode.OK);
+
+            refreshed!.ReferenceId.Should().Be(reference.Id);
+            refreshed.Title.Should().Be("Canonical Game Title");
+        }
+        finally
+        {
+            await DeleteAsync($"/api/video-games/{created.Id}");
+            await DeleteReferenceAsync<VideoGameReference>(scope, "videogame_reference", reference.Id!);
+        }
+    }
+
+    [Fact]
+    public async Task RefreshReference_LinksAlbum_WhenAnExistingReferenceMatchesByTitleAndYear()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var referenceRepository = scope.ServiceProvider.GetRequiredService<IAlbumReferenceRepository>();
+        var title = $"Refresh Reference Test Album {Guid.NewGuid()}";
+        const int year = 2019;
+
+        var reference = await referenceRepository.UpsertAsync(new AlbumReferenceModel
+        {
+            Title = "Canonical Album Title", TitleNormalized = "canonical album title", Year = year, ExternalIds = new Dictionary<string, string> { ["discogs"] = "1" }
+        });
+
+        await Authenticate();
+        var created = await PostAsync("/api/albums", new AlbumDto { Title = title, Artist = "Some Artist", Year = year });
+
+        try
+        {
+            var refreshed = await PostAsync<AlbumDto?>($"/api/albums/{created.Id}/refresh-reference", null, HttpStatusCode.OK);
+
+            refreshed!.ReferenceId.Should().Be(reference.Id);
+            refreshed.Title.Should().Be("Canonical Album Title");
+        }
+        finally
+        {
+            await DeleteAsync($"/api/albums/{created.Id}");
+            await DeleteReferenceAsync<AlbumReference>(scope, "album_reference", reference.Id!);
+        }
+    }
+
     private static async Task DeleteReferenceAsync<TEntity>(IServiceScope scope, string collectionName, string id) where TEntity : class
     {
         var collection = scope.ServiceProvider.GetRequiredService<IMongoDatabase>().GetCollection<TEntity>(collectionName);

@@ -31,6 +31,11 @@ public class BookDto : IHasId
     /// <example>Middle-earth Universe</example>
     public string? Series { get; set; }
 
+    /// <summary>
+    /// Publication year.
+    /// </summary>
+    public int? Year { get; set; }
+
     public float? Rating { get; set; }
 
     public string? Genre { get; set; }
@@ -41,4 +46,11 @@ public class BookDto : IHasId
     /// Book finished reading date.
     /// </summary>
     public DateOnly? FirstReadAt { get; set; }
+
+    /// <summary>
+    /// Id of the linked <c>book_reference</c> document, when a match has been found.
+    /// </summary>
+    public string? ReferenceId { get; set; }
+
+    public bool IsFavorite { get; set; }
 }

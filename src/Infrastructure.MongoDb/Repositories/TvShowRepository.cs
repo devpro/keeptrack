@@ -24,7 +24,7 @@ public class TvShowRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepos
         if (!string.IsNullOrEmpty(search)) filter &= builder.Where(f => f.Title.Contains(search, System.StringComparison.CurrentCultureIgnoreCase));
         if (input.IsFavorite) filter &= builder.Eq(f => f.IsFavorite, true);
         if (input.WantToWatch) filter &= builder.Eq(f => f.WantToWatch, true);
-        if (input.Status is not null) filter &= builder.Eq(f => f.Status, input.Status);
+        if (input.State is not null) filter &= builder.Eq(f => f.State, input.State);
         return filter;
     }
 

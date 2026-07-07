@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -14,8 +15,9 @@ using Microsoft.AspNetCore.Mvc;
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// Lets an admin/maintainer resolve titles the automatic TMDB match couldn't confidently handle
-/// (ambiguous or zero results). Not per-tenant CRUD, so this doesn't extend <see cref="Controllers.DataCrudControllerBase{TDto,TModel}"/>.
+/// Lets an admin/maintainer resolve titles the automatic match couldn't confidently handle (ambiguous or
+/// zero results), across every reference-backed domain (TV shows, movies, books, video games, albums).
+/// Not per-tenant CRUD, so this doesn't extend <see cref="Controllers.DataCrudControllerBase{TDto,TModel}"/>.
 /// </summary>
 [ApiController]
 [Authorize(Policy = "AdminOnly")]
@@ -23,20 +25,32 @@ namespace Keeptrack.WebApi.ReferenceData;
 public class ReferenceDataAdminController(
     ITvShowRepository tvShowRepository,
     IMovieRepository movieRepository,
+    IBookRepository bookRepository,
+    IVideoGameRepository videoGameRepository,
+    IAlbumRepository albumRepository,
     ITmdbClient tmdbClient,
+    IOpenLibraryClient openLibraryClient,
+    IRawgClient rawgClient,
+    IDiscogsClient discogsClient,
     ReferenceEnrichmentService enrichmentService,
     ReferenceSyncService syncService,
     ITvShowReferenceRepository tvShowReferenceRepository,
     IMovieReferenceRepository movieReferenceRepository,
-    IPersonReferenceRepository personReferenceRepository) : ControllerBase
+    IPersonReferenceRepository personReferenceRepository,
+    IBookReferenceRepository bookReferenceRepository,
+    IVideoGameReferenceRepository videoGameReferenceRepository,
+    IAlbumReferenceRepository albumReferenceRepository) : ControllerBase
 {
     private const string TvShowEntryName = "tvshow_reference.json";
     private const string MovieEntryName = "movie_reference.json";
     private const string PersonEntryName = "person_reference.json";
+    private const string BookEntryName = "book_reference.json";
+    private const string VideoGameEntryName = "videogame_reference.json";
+    private const string AlbumEntryName = "album_reference.json";
 
     /// <summary>
-    /// Every reference document (TV shows, movies, cast) as a zip, so an admin can seed a fresh
-    /// environment's reference data without re-earning every TMDB match one search at a time.
+    /// Every reference document (TV shows, movies, cast, books, video games, albums) as a zip, so an admin
+    /// can seed a fresh environment's reference data without re-earning every match one search at a time.
     /// </summary>
     [HttpGet("export")]
     [ProducesResponseType(200)]
@@ -45,6 +59,9 @@ public class ReferenceDataAdminController(
         var tvShows = await tvShowReferenceRepository.FindAllAsync();
         var movies = await movieReferenceRepository.FindAllAsync();
         var people = await personReferenceRepository.FindAllAsync();
+        var books = await bookReferenceRepository.FindAllAsync();
+        var videoGames = await videoGameReferenceRepository.FindAllAsync();
+        var albums = await albumReferenceRepository.FindAllAsync();
 
         var buffer = new MemoryStream();
         using (var archive = new ZipArchive(buffer, ZipArchiveMode.Create, leaveOpen: true))
@@ -52,6 +69,9 @@ public class ReferenceDataAdminController(
             await WriteJsonEntryAsync(archive, TvShowEntryName, tvShows);
             await WriteJsonEntryAsync(archive, MovieEntryName, movies);
             await WriteJsonEntryAsync(archive, PersonEntryName, people);
+            await WriteJsonEntryAsync(archive, BookEntryName, books);
+            await WriteJsonEntryAsync(archive, VideoGameEntryName, videoGames);
+            await WriteJsonEntryAsync(archive, AlbumEntryName, albums);
         }
 
         buffer.Position = 0;
@@ -77,6 +97,9 @@ public class ReferenceDataAdminController(
         var tvShowCount = 0;
         var movieCount = 0;
         var personCount = 0;
+        var bookCount = 0;
+        var videoGameCount = 0;
+        var albumCount = 0;
 
         foreach (var show in await ReadJsonEntryAsync<TvShowReferenceModel>(archive, TvShowEntryName))
         {
@@ -96,7 +119,33 @@ public class ReferenceDataAdminController(
             personCount++;
         }
 
-        return Ok(new ReferenceDataImportResultDto { TvShowCount = tvShowCount, MovieCount = movieCount, PersonCount = personCount });
+        foreach (var book in await ReadJsonEntryAsync<BookReferenceModel>(archive, BookEntryName))
+        {
+            await bookReferenceRepository.UpsertAsync(book);
+            bookCount++;
+        }
+
+        foreach (var videoGame in await ReadJsonEntryAsync<VideoGameReferenceModel>(archive, VideoGameEntryName))
+        {
+            await videoGameReferenceRepository.UpsertAsync(videoGame);
+            videoGameCount++;
+        }
+
+        foreach (var album in await ReadJsonEntryAsync<AlbumReferenceModel>(archive, AlbumEntryName))
+        {
+            await albumReferenceRepository.UpsertAsync(album);
+            albumCount++;
+        }
+
+        return Ok(new ReferenceDataImportResultDto
+        {
+            TvShowCount = tvShowCount,
+            MovieCount = movieCount,
+            PersonCount = personCount,
+            BookCount = bookCount,
+            VideoGameCount = videoGameCount,
+            AlbumCount = albumCount
+        });
     }
 
     private static async Task WriteJsonEntryAsync<T>(ZipArchive archive, string entryName, T value)
@@ -116,8 +165,8 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// Forces an immediate re-check of every reference document against TMDB, regardless of how recently
-    /// it was last enriched - the same logic the periodic background sync runs on a schedule (see
+    /// Forces an immediate re-check of every reference document, regardless of how recently it was last
+    /// enriched - the same logic the periodic background sync runs on a schedule (see
     /// <see cref="ReferenceSyncBackgroundService"/>), just triggered on demand instead of waiting.
     /// </summary>
     [HttpPost("sync-now")]
@@ -132,29 +181,69 @@ public class ReferenceDataAdminController(
     [ProducesResponseType(200)]
     public async Task<ActionResult<List<UnresolvedReferenceDto>>> GetUnresolved([FromQuery] ReferenceItemType type)
     {
-        var pairs = type == ReferenceItemType.TvShow
-            ? await tvShowRepository.FindDistinctUnresolvedTitleYearsAsync()
-            : await movieRepository.FindDistinctUnresolvedTitleYearsAsync();
+        var pairs = type switch
+        {
+            ReferenceItemType.TvShow => await tvShowRepository.FindDistinctUnresolvedTitleYearsAsync(),
+            ReferenceItemType.Movie => await movieRepository.FindDistinctUnresolvedTitleYearsAsync(),
+            ReferenceItemType.Book => await bookRepository.FindDistinctUnresolvedTitleYearsAsync(),
+            ReferenceItemType.VideoGame => await videoGameRepository.FindDistinctUnresolvedTitleYearsAsync(),
+            ReferenceItemType.Album => await albumRepository.FindDistinctUnresolvedTitleYearsAsync(),
+            _ => throw new ArgumentOutOfRangeException(nameof(type))
+        };
 
         return Ok(pairs.Select(p => new UnresolvedReferenceDto { Type = type, Title = p.Title, Year = p.Year }).ToList());
     }
 
     /// <summary>
-    /// How many search candidates get enriched with a poster and top cast names - bounds the extra
-    /// per-candidate credits calls to a small, admin-facing action, not the full ~20-result TMDB page.
+    /// How many search candidates get enriched with a poster and top cast names (TV/movie only) - bounds
+    /// the extra per-candidate credits calls to a small, admin-facing action, not the full result page.
     /// </summary>
     private const int MaxEnrichedCandidates = 5;
 
     private const int MaxCastNamesPerCandidate = 3;
 
     /// <summary>
-    /// Live TMDB search, for an admin to pick the right candidate for an unresolved title. The top
-    /// candidates are enriched with a poster and top-billed cast names to help tell apart near-identical
-    /// results (remakes, regional variants, sequels sharing a title).
+    /// Live external-provider search, for an admin to pick the right candidate for an unresolved title.
+    /// TV show/movie candidates are additionally enriched with top-billed cast names to help tell apart
+    /// near-identical results (remakes, regional variants, sequels sharing a title).
+    /// </summary>
+    /// <summary>
+    /// <paramref name="creator"/> is the book's author or the album's artist, when the caller has one -
+    /// passed straight through to the provider's own author/artist search field (see
+    /// <see cref="IOpenLibraryClient.SearchBooksAsync"/>/<see cref="IDiscogsClient.SearchAlbumsAsync"/>),
+    /// since a common title alone often returns many unrelated candidates. Ignored for TV shows/movies/video
+    /// games, which have no equivalent single-name creator field on this endpoint.
     /// </summary>
     [HttpGet("search")]
     [ProducesResponseType(200)]
-    public async Task<ActionResult<List<ReferenceSearchResultDto>>> Search([FromQuery] ReferenceItemType type, [FromQuery] string title, [FromQuery] int? year)
+    public async Task<ActionResult<List<ReferenceSearchResultDto>>> Search([FromQuery] ReferenceItemType type, [FromQuery] string title, [FromQuery] int? year, [FromQuery] string? creator = null)
+    {
+        switch (type)
+        {
+            case ReferenceItemType.TvShow:
+            case ReferenceItemType.Movie:
+                return Ok(await SearchTvShowOrMovieAsync(type, title, year));
+            case ReferenceItemType.Book:
+                var books = await openLibraryClient.SearchBooksAsync(title, year, creator);
+                return Ok(books.Take(MaxEnrichedCandidates)
+                    .Select(r => new ReferenceSearchResultDto { ExternalId = r.ExternalId, Title = r.Title, Year = r.Year, Creator = r.Author, ImageUrl = r.ImageUrl })
+                    .ToList());
+            case ReferenceItemType.VideoGame:
+                var games = await rawgClient.SearchGamesAsync(title, year);
+                return Ok(games.Take(MaxEnrichedCandidates)
+                    .Select(r => new ReferenceSearchResultDto { ExternalId = r.ExternalId, Title = r.Title, Year = r.Year, ImageUrl = r.ImageUrl })
+                    .ToList());
+            case ReferenceItemType.Album:
+                var albums = await discogsClient.SearchAlbumsAsync(title, year, creator);
+                return Ok(albums.Take(MaxEnrichedCandidates)
+                    .Select(r => new ReferenceSearchResultDto { ExternalId = r.ExternalId, Title = r.Title, Year = r.Year, Creator = r.Artist, ImageUrl = r.ImageUrl })
+                    .ToList());
+            default:
+                throw new ArgumentOutOfRangeException(nameof(type));
+        }
+    }
+
+    private async Task<List<ReferenceSearchResultDto>> SearchTvShowOrMovieAsync(ReferenceItemType type, string title, int? year)
     {
         var results = type == ReferenceItemType.TvShow
             ? await tmdbClient.SearchTvShowAsync(title, year)
@@ -169,32 +258,44 @@ public class ReferenceDataAdminController(
 
             dtos.Add(new ReferenceSearchResultDto
             {
-                TmdbId = result.TmdbId,
+                ExternalId = result.TmdbId,
                 Title = result.Title,
                 Year = result.Year,
                 Synopsis = result.Synopsis,
-                PosterUrl = result.PosterUrl,
+                ImageUrl = result.PosterUrl,
                 TopCastNames = cast.OrderBy(c => c.Order).Take(MaxCastNamesPerCandidate).Select(c => c.Name).ToList()
             });
         }
 
-        return Ok(dtos);
+        return dtos;
     }
 
     /// <summary>
-    /// Links every tenant's (Title, Year) match to the chosen TMDB id and fetches its full details.
+    /// Links every tenant's (Title, Year) match to the chosen external provider id and fetches its full details.
     /// </summary>
     [HttpPost("link")]
     [ProducesResponseType(204)]
     public async Task<IActionResult> Link([FromBody] LinkReferenceRequestDto request)
     {
-        if (request.Type == ReferenceItemType.TvShow)
+        switch (request.Type)
         {
-            await enrichmentService.ResolveTvShowAsync(request.Title, request.Year, request.TmdbId);
-        }
-        else
-        {
-            await enrichmentService.ResolveMovieAsync(request.Title, request.Year, request.TmdbId);
+            case ReferenceItemType.TvShow:
+                await enrichmentService.ResolveTvShowAsync(request.Title, request.Year, request.ExternalId);
+                break;
+            case ReferenceItemType.Movie:
+                await enrichmentService.ResolveMovieAsync(request.Title, request.Year, request.ExternalId);
+                break;
+            case ReferenceItemType.Book:
+                await enrichmentService.ResolveBookAsync(request.Title, request.Year, request.ExternalId);
+                break;
+            case ReferenceItemType.VideoGame:
+                await enrichmentService.ResolveVideoGameAsync(request.Title, request.Year, request.ExternalId);
+                break;
+            case ReferenceItemType.Album:
+                await enrichmentService.ResolveAlbumAsync(request.Title, request.Year, request.ExternalId);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(request));
         }
 
         return NoContent();
