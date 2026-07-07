@@ -27,8 +27,8 @@ public class MovieReference
     [BsonElement("external_ids")]
     public required Dictionary<string, string> ExternalIds { get; set; }
 
-    [BsonElement("matched_titles")]
-    public List<string> MatchedTitles { get; set; } = [];
+    [BsonElement("matched_aliases")]
+    public List<ReferenceMatch> MatchedAliases { get; set; } = [];
 
     public List<string> Genres { get; set; } = [];
 

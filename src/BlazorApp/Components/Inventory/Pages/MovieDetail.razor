@@ -24,7 +24,7 @@ else
         <div class="d-flex align-items-center gap-2" style="flex:1;min-width:0">
             <input class="kt-title-input" value="@_movie.Title" @onchange="SaveTitleAsync"/>
             <button class="kt-icon-btn" @onclick="RefreshReferenceAsync" disabled="@_refreshingReference"
-                    title="@(string.IsNullOrEmpty(_movie.ReferenceId) ? "Check for reference match. Tip: including the year in the title, like \"Dune 2021\", can help find the right match." : $"Linked to \"{_reference?.Title}\". Not right? Edit the title, then check again.")">
+                    title="@(string.IsNullOrEmpty(_movie.ReferenceId) ? "Check for reference match using the title and year below." : $"Linked to \"{_reference?.Title}\". Not right? Edit the title or year below, then check again.")">
                 <span class="@(_refreshingReference ? "kt-icon-spin" : "")">↻</span>
             </button>
             @if (_refreshMessage is not null)
@@ -60,15 +60,8 @@ else
             <div class="col-md-4">
                 <div>
                     <label class="form-label">Year</label>
-                    @if (_reference is not null)
-                    {
-                        <div>@_reference.Year</div>
-                    }
-                    else
-                    {
-                        <input class="form-control form-control-sm" style="max-width:120px" type="number" min="1970" max="2100"
-                               value="@_movie.Year" @onchange="SaveYearAsync"/>
-                    }
+                    <input class="form-control form-control-sm" style="max-width:120px" type="number" min="1970" max="2100"
+                           value="@_movie.Year" @onchange="SaveYearAsync"/>
                 </div>
                 <div class="mt-3">
                     <label class="form-label">Rating</label>

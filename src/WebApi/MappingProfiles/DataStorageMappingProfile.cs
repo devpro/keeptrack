@@ -30,6 +30,9 @@ public class DataStorageMappingProfile : Profile
         CreateMap<Infrastructure.MongoDb.Entities.ReferenceEpisode, Domain.Models.ReferenceEpisodeModel>();
         CreateMap<Domain.Models.ReferenceEpisodeModel, Infrastructure.MongoDb.Entities.ReferenceEpisode>();
 
+        CreateMap<Infrastructure.MongoDb.Entities.ReferenceMatch, Domain.Models.ReferenceMatchModel>();
+        CreateMap<Domain.Models.ReferenceMatchModel, Infrastructure.MongoDb.Entities.ReferenceMatch>();
+
         CreateMap<Infrastructure.MongoDb.Entities.TvShowReference, Domain.Models.TvShowReferenceModel>();
         CreateMap<Domain.Models.TvShowReferenceModel, Infrastructure.MongoDb.Entities.TvShowReference>();
 

@@ -29,7 +29,7 @@
 @if (ShowForm)
 {
     <div class="kt-form-card">
-        <h5>New item</h5>
+        <h5>New @(ItemName ?? "item")</h5>
         <div class="row g-3">
             @FormTemplate(Form)
         </div>
@@ -67,6 +67,10 @@ else
             @if (!string.IsNullOrEmpty(_localSearch))
             {
                 <button class="btn btn-secondary btn-sm" @onclick="HandleClear">Clear</button>
+            }
+            @if (Filters is not null)
+            {
+                <div class="kt-search-filters">@Filters</div>
             }
         </div>
         @if (Items.Count > 0)
@@ -212,6 +216,7 @@ else
     }
 
     [Parameter] public required string Title { get; set; }
+    [Parameter] public string? ItemName { get; set; }
     [Parameter] public required List<TDto> Items { get; set; }
     [Parameter] public required TDto Form { get; set; }
     [Parameter] public required TDto? EditingInline { get; set; }
@@ -227,6 +232,7 @@ else
     [Parameter] public required RenderFragment<TDto> RowTemplate { get; set; }
     [Parameter] public required RenderFragment<TDto> FormTemplate { get; set; }
     [Parameter] public required RenderFragment<TDto> EditModalTemplate { get; set; }
+    [Parameter] public RenderFragment? Filters { get; set; }
     [Parameter] public required EventCallback OnSave { get; set; }
     [Parameter] public required EventCallback OnCancelForm { get; set; }
     [Parameter] public required EventCallback OnShowAddForm { get; set; }

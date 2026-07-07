@@ -11,12 +11,29 @@ public partial class TvShows : InventoryPageBase<TvShowDto>
 
     private TvShowStatus? _statusFilter;
 
-    protected override IReadOnlyDictionary<string, string>? ExtraQuery =>
-        _statusFilter is null ? null : new Dictionary<string, string> { ["Status"] = _statusFilter.ToString()! };
+    private bool _favoriteFilter;
+
+    protected override IReadOnlyDictionary<string, string>? ExtraQuery
+    {
+        get
+        {
+            var query = new Dictionary<string, string>();
+            if (_statusFilter is not null) query["Status"] = _statusFilter.ToString()!;
+            if (_favoriteFilter) query["IsFavorite"] = "true";
+            return query.Count > 0 ? query : null;
+        }
+    }
 
     private async Task SetStatusFilterAsync(TvShowStatus? status)
     {
         _statusFilter = status;
+        _page = 1;
+        await LoadAsync();
+    }
+
+    private async Task ToggleFavoriteFilterAsync()
+    {
+        _favoriteFilter = !_favoriteFilter;
         _page = 1;
         await LoadAsync();
     }

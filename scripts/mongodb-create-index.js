@@ -78,19 +78,20 @@ ensureIndex(
 );
 
 // tvshow_reference / movie_reference: shared, owner-less lookup tables (see CLAUDE.md) keyed by
-// matched_titles (every normalized title variant ever confirmed for that reference, not just its
-// canonical one - see MatchedTitles in CLAUDE.md) + year, the primary automatic-match key. Indexing an
-// array field like matched_titles automatically creates a multikey index, so an "is this title one of the
-// known variants" lookup stays indexed same as a plain equality field would. Non-unique deliberately - two
-// genuinely different real-world titles/years colliding is exactly what the admin curation queue is for.
+// matched_aliases (every (title, year) combination ever confirmed for that reference, not just its
+// canonical one - see MatchedAliases/ReferenceMatchModel in CLAUDE.md), the primary automatic-match key.
+// Both sub-fields of the same embedded array element are indexed together (not two separate array fields,
+// which MongoDB disallows combining in one compound index) so an ElemMatch lookup on (title, year) together
+// stays indexed. Non-unique deliberately - two genuinely different real-world titles/years colliding is
+// exactly what the admin curation queue is for.
 ensureIndex(
   db.tvshow_reference,
-  { matched_titles: 1, year: 1 },
+  { "matched_aliases.title": 1, "matched_aliases.year": 1 },
   { name: "tvshow_reference_title_year" }
 );
 ensureIndex(
   db.movie_reference,
-  { matched_titles: 1, year: 1 },
+  { "matched_aliases.title": 1, "matched_aliases.year": 1 },
   { name: "movie_reference_title_year" }
 );
 

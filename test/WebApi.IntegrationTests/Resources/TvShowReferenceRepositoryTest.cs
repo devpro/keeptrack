@@ -14,10 +14,11 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
 /// Exercises <see cref="ITvShowReferenceRepository.FindByTitleYearAsync"/>/<see cref="ITvShowReferenceRepository.FindByTitleAsync"/>
-/// against real MongoDB - both now match against every entry in <c>MatchedTitles</c> (an array-contains
-/// filter via <c>Builders.Filter.AnyEq</c>, backing a multikey index), not just the document's own
-/// canonical <c>TitleNormalized</c>. This is exactly the kind of hand-written Mongo filter that has hidden
-/// real bugs before (see docs/code-quality-findings.md), so it's verified against a real database, not mocks.
+/// against real MongoDB - both now match against every entry in <c>MatchedAliases</c> (an <c>ElemMatch</c>
+/// filter over the embedded (title, year) array, backing a compound multikey index), not just the
+/// document's own canonical <c>TitleNormalized</c>/<c>Year</c>. This is exactly the kind of hand-written
+/// Mongo filter that has hidden real bugs before (see docs/code-quality-findings.md), so it's verified
+/// against a real database, not mocks.
 /// </summary>
 public class TvShowReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) : IClassFixture<KestrelWebAppFactory<Program>>
 {
@@ -35,13 +36,45 @@ public class TvShowReferenceRepositoryTest(KestrelWebAppFactory<Program> factory
             TitleNormalized = "canonical title",
             Year = year,
             ExternalIds = new Dictionary<string, string> { ["tmdb"] = "1" },
-            MatchedTitles = [alternateTitle.ToLowerInvariant()]
+            MatchedAliases = [new ReferenceMatchModel { Title = alternateTitle.ToLowerInvariant(), Year = year }]
         });
 
         try
         {
             // case-insensitive: normalization lower-cases before comparing
             var found = await repository.FindByTitleYearAsync(alternateTitle.ToUpperInvariant(), year);
+
+            found.Should().NotBeNull();
+            found!.Id.Should().Be(created.Id);
+        }
+        finally
+        {
+            await DeleteAsync(scope, created.Id!);
+        }
+    }
+
+    [Fact]
+    public async Task FindByTitleYearAsync_MatchesAnAliasWhoseConfirmedYearDiffersFromTheDocumentsOwnCanonicalYear()
+    {
+        // regression: a single top-level Year scalar AND-ed against the title-array-contains filter would
+        // reject a tenant whose recorded year genuinely differs from whichever year happens to be this
+        // document's own canonical one - year now travels with its specific title variant instead.
+        using var scope = factory.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<ITvShowReferenceRepository>();
+        var alternateTitle = $"Alternate Title {Guid.NewGuid()}";
+
+        var created = await repository.UpsertAsync(new TvShowReferenceModel
+        {
+            Title = "Canonical Title",
+            TitleNormalized = "canonical title",
+            Year = 2005,
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "1" },
+            MatchedAliases = [new ReferenceMatchModel { Title = alternateTitle.ToLowerInvariant(), Year = 2004 }]
+        });
+
+        try
+        {
+            var found = await repository.FindByTitleYearAsync(alternateTitle, 2004);
 
             found.Should().NotBeNull();
             found!.Id.Should().Be(created.Id);
@@ -65,7 +98,7 @@ public class TvShowReferenceRepositoryTest(KestrelWebAppFactory<Program> factory
             TitleNormalized = "canonical title",
             Year = 2005,
             ExternalIds = new Dictionary<string, string> { ["tmdb"] = "1" },
-            MatchedTitles = [alternateTitle.ToLowerInvariant()]
+            MatchedAliases = [new ReferenceMatchModel { Title = alternateTitle.ToLowerInvariant(), Year = 2005 }]
         });
 
         try
@@ -82,7 +115,7 @@ public class TvShowReferenceRepositoryTest(KestrelWebAppFactory<Program> factory
     }
 
     [Fact]
-    public async Task UpsertAsync_AlwaysIncludesTheCanonicalTitleInMatchedTitles_EvenIfTheCallerForgot()
+    public async Task UpsertAsync_AlwaysIncludesTheCanonicalTitleAndYearInMatchedAliases_EvenIfTheCallerForgot()
     {
         using var scope = factory.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<ITvShowReferenceRepository>();

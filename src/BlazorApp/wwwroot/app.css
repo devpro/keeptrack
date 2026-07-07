@@ -232,6 +232,23 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
   opacity: 0.8;
 }
 
+/* the signed-in user's nav row has no plain-text glyph that reads as "profile" (a person silhouette is a
+   color-emoji-only codepoint - see the Theme section in CLAUDE.md), so it's a small initial-letter avatar
+   instead of an icon - the same pattern Gmail/Slack use, and it doubles as a personalization touch */
+.kt-nav-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--kt-accent-glow);
+  color: var(--kt-accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+}
+
 .nav-link-logout:hover {
   color: var(--kt-danger) !important;
   background: rgba(199, 58, 82, 0.08) !important;
@@ -720,6 +737,17 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
   font-size: 0.85rem;
   color: var(--kt-text-subtle);
   pointer-events: none;
+}
+
+/* pushed to the far right of the search bar row via margin-left:auto - the search input/Clear button stay
+   left-aligned, filter toggles (status, favorites, ...) sit on the opposite end of the same line instead
+   of a separate row above the table */
+.kt-search-filters {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-left: auto;
 }
 
 /* ── Pagination ────────────────────────────────────────────────────── */

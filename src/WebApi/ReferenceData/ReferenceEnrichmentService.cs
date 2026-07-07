@@ -31,8 +31,8 @@ public class ReferenceEnrichmentService(
 
     /// <summary>
     /// User-triggered "check for reference match" - looks only at the local reference collection (title+year,
-    /// falling back to title-only, against every title ever confirmed for that reference - see
-    /// <see cref="TvShowReferenceModel.MatchedTitles"/>), never TMDB. Cheap enough to run on demand from a
+    /// falling back to title-only, against every (title, year) combination ever confirmed for that reference -
+    /// see <see cref="TvShowReferenceModel.MatchedAliases"/>), never TMDB. Cheap enough to run on demand from a
     /// detail page: no HTTP call, just an indexed Mongo lookup. Deliberately does NOT short-circuit when the
     /// model already has a link: the whole point is to let a tenant who isn't happy with the current match
     /// fix the title/year and re-check, replacing a wrong link - "don't guess" only applies to inventing a
@@ -40,9 +40,12 @@ public class ReferenceEnrichmentService(
     /// tenant's own document directly (not the broad cross-tenant <see cref="ITvShowRepository.SetReferenceLinkAsync"/>,
     /// which refuses to touch already-linked documents by design), but still calls that method with the
     /// pre-edit title/year afterward so any other still-unresolved tenant sharing that text benefits too.
-    /// If no match is found for the current title/year and the document WAS linked, the link is cleared
-    /// rather than left pointing at something the tenant just told us (by editing the title) is wrong -
-    /// clearing <c>ReferenceId</c> is also exactly what puts it back into the admin's unresolved queue
+    /// A successful match also sets <see cref="TvShowModel.Year"/> to the reference's own canonical year
+    /// (when it has one) - the tenant can still edit it afterward, but it's better pre-populated with a
+    /// trustworthy value than left at whatever the tenant originally guessed. If no match is found for the
+    /// current title/year and the document WAS linked, the link is cleared rather than left pointing at
+    /// something the tenant just told us (by editing the title) is wrong - clearing <c>ReferenceId</c> is
+    /// also exactly what puts it back into the admin's unresolved queue
     /// (<see cref="ITvShowRepository.FindDistinctUnresolvedTitleYearsAsync"/>) for a manual TMDB search.
     /// </summary>
     public async Task<TvShowModel> TryLinkExistingTvShowReferenceAsync(TvShowModel model)
@@ -66,8 +69,9 @@ public class ReferenceEnrichmentService(
 
         model.ReferenceId = reference.Id;
         model.Title = reference.Title;
+        if (reference.Year is not null) model.Year = reference.Year;
         await tvShowRepository.UpdateAsync(model.Id!, model, model.OwnerId);
-        await tvShowRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title);
+        await tvShowRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year);
 
         return model;
     }
@@ -96,8 +100,9 @@ public class ReferenceEnrichmentService(
 
         model.ReferenceId = reference.Id;
         model.Title = reference.Title;
+        if (reference.Year is not null) model.Year = reference.Year;
         await movieRepository.UpdateAsync(model.Id!, model, model.OwnerId);
-        await movieRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title);
+        await movieRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year);
 
         return model;
     }
@@ -150,9 +155,10 @@ public class ReferenceEnrichmentService(
             Year = details.Year ?? year,
             Synopsis = details.Synopsis,
             ExternalIds = externalIds,
-            // remembers both the canonical TMDB title and whatever text the tenant actually searched with -
-            // see MatchedTitles: this is what lets a later, differently-titled tenant match instantly
-            MatchedTitles = MergeMatchedTitles(existing?.MatchedTitles, details.Title, title),
+            // remembers both the canonical (TMDB title, TMDB year) and whatever (title, year) the tenant
+            // actually searched with - see MatchedAliases: this is what lets a later, differently-titled or
+            // differently-dated tenant match instantly
+            MatchedAliases = MergeMatchedAliases(existing?.MatchedAliases, (details.Title, details.Year ?? year), (title, year)),
             Episodes = details.Episodes
                 .Select(e => new ReferenceEpisodeModel { SeasonNumber = e.SeasonNumber, EpisodeNumber = e.EpisodeNumber, Title = e.Title, AirDate = e.AirDate })
                 .ToList(),
@@ -163,7 +169,7 @@ public class ReferenceEnrichmentService(
         };
 
         var saved = await tvShowReferenceRepository.UpsertAsync(model);
-        await tvShowRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title);
+        await tvShowRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year);
         return saved;
     }
 
@@ -193,9 +199,10 @@ public class ReferenceEnrichmentService(
             Year = details.Year ?? year,
             Synopsis = details.Synopsis,
             ExternalIds = externalIds,
-            // remembers both the canonical TMDB title and whatever text the tenant actually searched with -
-            // see MatchedTitles: this is what lets a later, differently-titled tenant match instantly
-            MatchedTitles = MergeMatchedTitles(existing?.MatchedTitles, details.Title, title),
+            // remembers both the canonical (TMDB title, TMDB year) and whatever (title, year) the tenant
+            // actually searched with - see MatchedAliases: this is what lets a later, differently-titled or
+            // differently-dated tenant match instantly
+            MatchedAliases = MergeMatchedAliases(existing?.MatchedAliases, (details.Title, details.Year ?? year), (title, year)),
             Genres = details.Genres,
             Cast = await ResolveCastAsync(cast),
             PosterUrl = details.PosterUrl,
@@ -203,7 +210,7 @@ public class ReferenceEnrichmentService(
         };
 
         var saved = await movieReferenceRepository.UpsertAsync(model);
-        await movieRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title);
+        await movieRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year);
         return saved;
     }
 
@@ -241,7 +248,7 @@ public class ReferenceEnrichmentService(
         reference.Genres = details.Genres;
         reference.Cast = await ResolveCastAsync(cast);
         reference.PosterUrl = details.PosterUrl ?? reference.PosterUrl;
-        reference.MatchedTitles = MergeMatchedTitles(reference.MatchedTitles, details.Title, details.Title);
+        reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year));
         reference.LastEnrichedAt = DateTime.UtcNow;
 
         return (await tvShowReferenceRepository.UpsertAsync(reference), true);
@@ -275,27 +282,30 @@ public class ReferenceEnrichmentService(
         reference.Genres = details.Genres;
         reference.Cast = await ResolveCastAsync(cast);
         reference.PosterUrl = details.PosterUrl ?? reference.PosterUrl;
-        reference.MatchedTitles = MergeMatchedTitles(reference.MatchedTitles, details.Title, details.Title);
+        reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year));
         reference.LastEnrichedAt = DateTime.UtcNow;
 
         return (await movieReferenceRepository.UpsertAsync(reference), true);
     }
 
     /// <summary>
-    /// Combines whatever title variants a reference document already remembered with the two new ones this
-    /// resolution just confirmed: the TMDB canonical name and the text the tenant actually searched with (which
-    /// may be a typo, a translation, or otherwise differ from canonical). Deduplicated and normalized.
+    /// Combines whatever (title, year) combinations a reference document already remembered with the new
+    /// ones just confirmed (e.g. the TMDB canonical (title, year) and the (title, year) the tenant actually
+    /// searched with, which may differ from canonical in either field). Deduplicated, with titles normalized.
     /// </summary>
-    private static List<string> MergeMatchedTitles(List<string>? existing, string canonicalTitle, string searchedTitle)
+    private static List<ReferenceMatchModel> MergeMatchedAliases(List<ReferenceMatchModel>? existing, params (string Title, int? Year)[] aliases)
     {
-        var titles = new List<string>(existing ?? []);
-        foreach (var title in new[] { canonicalTitle, searchedTitle })
+        var result = new List<ReferenceMatchModel>(existing ?? []);
+        foreach (var (title, year) in aliases)
         {
             var normalized = TitleNormalizer.Normalize(title);
-            if (!titles.Contains(normalized)) titles.Add(normalized);
+            if (!result.Any(m => m.Title == normalized && m.Year == year))
+            {
+                result.Add(new ReferenceMatchModel { Title = normalized, Year = year });
+            }
         }
 
-        return titles;
+        return result;
     }
 
     /// <summary>

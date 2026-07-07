@@ -28,7 +28,7 @@ public class TvShowRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepos
         return filter;
     }
 
-    public async Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle)
+    public async Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null)
     {
         var builder = Builders<TvShow>.Filter;
         var filter = builder.Regex(f => f.Title, new BsonRegularExpression($"^{Regex.Escape(title)}$", "i"))
@@ -36,6 +36,7 @@ public class TvShowRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepos
                      & UnresolvedFilter();
 
         var update = Builders<TvShow>.Update.Set(f => f.ReferenceId, referenceId).Set(f => f.Title, canonicalTitle);
+        if (canonicalYear is not null) update = update.Set(f => f.Year, canonicalYear);
         var result = await GetCollection().UpdateManyAsync(filter, update);
         return result.ModifiedCount;
     }

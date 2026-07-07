@@ -27,7 +27,7 @@ public class MovieRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbReposi
         return filter;
     }
 
-    public async Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle)
+    public async Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null)
     {
         var builder = Builders<Movie>.Filter;
         var filter = builder.Regex(f => f.Title, new BsonRegularExpression($"^{Regex.Escape(title)}$", "i"))
@@ -35,6 +35,7 @@ public class MovieRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbReposi
                      & UnresolvedFilter();
 
         var update = Builders<Movie>.Update.Set(f => f.ReferenceId, referenceId).Set(f => f.Title, canonicalTitle);
+        if (canonicalYear is not null) update = update.Set(f => f.Year, canonicalYear);
         var result = await GetCollection().UpdateManyAsync(filter, update);
         return result.ModifiedCount;
     }

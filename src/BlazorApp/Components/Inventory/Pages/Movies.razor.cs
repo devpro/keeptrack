@@ -9,6 +9,18 @@ public partial class Movies : InventoryPageBase<MovieDto>
 
     protected override InventoryApiClientBase<MovieDto> Api => MovieApi;
 
+    private bool _favoriteFilter;
+
+    protected override IReadOnlyDictionary<string, string>? ExtraQuery =>
+        _favoriteFilter ? new Dictionary<string, string> { ["IsFavorite"] = "true" } : null;
+
+    private async Task ToggleFavoriteFilterAsync()
+    {
+        _favoriteFilter = !_favoriteFilter;
+        _page = 1;
+        await LoadAsync();
+    }
+
     protected override MovieDto CloneItem(MovieDto item) => new()
     {
         Id = item.Id,

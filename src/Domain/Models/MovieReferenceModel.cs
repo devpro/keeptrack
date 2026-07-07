@@ -23,11 +23,11 @@ public class MovieReferenceModel : IHasId
     public required Dictionary<string, string> ExternalIds { get; set; }
 
     /// <summary>
-    /// Every normalized title string that has ever been confirmed (via TMDB resolution, automatic or
-    /// admin-picked) to mean this movie - not just <see cref="TitleNormalized"/>. See
-    /// <see cref="TvShowReferenceModel.MatchedTitles"/> for the full rationale.
+    /// Every (title, year) combination that has ever been confirmed (via TMDB resolution, automatic or
+    /// admin-picked) to mean this movie - not just <see cref="TitleNormalized"/>/<see cref="Year"/>. See
+    /// <see cref="TvShowReferenceModel.MatchedAliases"/> for the full rationale.
     /// </summary>
-    public List<string> MatchedTitles { get; set; } = [];
+    public List<ReferenceMatchModel> MatchedAliases { get; set; } = [];
 
     public List<string> Genres { get; set; } = [];
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AwesomeAssertions;
@@ -31,7 +32,7 @@ public class ReferenceEnrichmentServiceTest
 
         await service.TryAutoResolveTvShowAsync("Some Show", 2020);
 
-        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()), Times.Never);
     }
 
     [Fact]
@@ -43,7 +44,7 @@ public class ReferenceEnrichmentServiceTest
 
         await service.TryAutoResolveTvShowAsync("Some Show", 2020);
 
-        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()), Times.Never);
     }
 
     [Fact]
@@ -59,7 +60,7 @@ public class ReferenceEnrichmentServiceTest
         await service.TryAutoResolveTvShowAsync("Some Show", 2020);
 
         _tvShowReferenceRepository.Verify(r => r.UpsertAsync(It.Is<TvShowReferenceModel>(m => m.ExternalIds["tmdb"] == "42")), Times.Once);
-        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync("Some Show", 2020, It.IsAny<string>(), "Some Show"), Times.Once);
+        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync("Some Show", 2020, It.IsAny<string>(), "Some Show", It.IsAny<int?>()), Times.Once);
     }
 
     [Fact]
@@ -75,7 +76,7 @@ public class ReferenceEnrichmentServiceTest
         var result = await service.ResolveTvShowAsync("Some Show", 2020, "42");
 
         result.Id.Should().Be("reference-1");
-        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync("Some Show", 2020, "reference-1", "Some Show"), Times.Once);
+        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync("Some Show", 2020, "reference-1", "Some Show", It.IsAny<int?>()), Times.Once);
     }
 
     [Fact]
@@ -91,7 +92,8 @@ public class ReferenceEnrichmentServiceTest
             .Setup(r => r.FindByExternalIdAsync("tmdb", "42"))
             .ReturnsAsync(new TvShowReferenceModel
             {
-                Id = "reference-1", Title = "The Wire", TitleNormalized = "the wire", ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" }, MatchedTitles = ["the wire"]
+                Id = "reference-1", Title = "The Wire", TitleNormalized = "the wire", ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" },
+                MatchedAliases = [new ReferenceMatchModel { Title = "the wire", Year = 2002 }]
             });
         _tvShowReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>())).ReturnsAsync((TvShowReferenceModel m) => m);
         var service = CreateService(tmdbClient);
@@ -103,7 +105,7 @@ public class ReferenceEnrichmentServiceTest
     }
 
     [Fact]
-    public async Task ResolveTvShowAsync_RecordsBothTheSearchedAndCanonicalTitleAsMatchedTitles()
+    public async Task ResolveTvShowAsync_RecordsBothTheSearchedAndCanonicalTitleAsMatchedAliases()
     {
         var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
         tmdbClient.TvShowDetails["42"] = new TmdbTvShowDetails("42", "The Wire", 2002, "Synopsis", [], [], null);
@@ -116,11 +118,12 @@ public class ReferenceEnrichmentServiceTest
         await service.ResolveTvShowAsync("Le Fil", 2002, "42");
 
         _tvShowReferenceRepository.Verify(r => r.UpsertAsync(It.Is<TvShowReferenceModel>(
-            m => m.MatchedTitles.Contains("the wire") && m.MatchedTitles.Contains("le fil"))), Times.Once);
+            m => m.MatchedAliases.Any(a => a.Title == "the wire" && a.Year == 2002)
+                 && m.MatchedAliases.Any(a => a.Title == "le fil" && a.Year == 2002))), Times.Once);
     }
 
     [Fact]
-    public async Task ResolveTvShowAsync_PreservesPreviouslyKnownMatchedTitles_WhenReResolvingAnExistingReference()
+    public async Task ResolveTvShowAsync_PreservesPreviouslyKnownMatchedAliases_WhenReResolvingAnExistingReference()
     {
         var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
         tmdbClient.TvShowDetails["42"] = new TmdbTvShowDetails("42", "The Wire", 2002, "Synopsis", [], [], null);
@@ -128,7 +131,8 @@ public class ReferenceEnrichmentServiceTest
             .Setup(r => r.FindByTitleYearAsync("Le Fil", 2002))
             .ReturnsAsync(new TvShowReferenceModel
             {
-                Id = "reference-1", Title = "The Wire", TitleNormalized = "the wire", ExternalIds = [], MatchedTitles = ["the wire", "il filo"]
+                Id = "reference-1", Title = "The Wire", TitleNormalized = "the wire", ExternalIds = [],
+                MatchedAliases = [new ReferenceMatchModel { Title = "the wire", Year = 2002 }, new ReferenceMatchModel { Title = "il filo", Year = 2001 }]
             });
         _tvShowReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>())).ReturnsAsync((TvShowReferenceModel m) => m);
         var service = CreateService(tmdbClient);
@@ -137,7 +141,9 @@ public class ReferenceEnrichmentServiceTest
 
         // an alias contributed by a third tenant earlier (il filo) must survive a later re-resolution
         _tvShowReferenceRepository.Verify(r => r.UpsertAsync(It.Is<TvShowReferenceModel>(
-            m => m.MatchedTitles.Contains("the wire") && m.MatchedTitles.Contains("il filo") && m.MatchedTitles.Contains("le fil"))), Times.Once);
+            m => m.MatchedAliases.Any(a => a.Title == "the wire" && a.Year == 2002)
+                 && m.MatchedAliases.Any(a => a.Title == "il filo" && a.Year == 2001)
+                 && m.MatchedAliases.Any(a => a.Title == "le fil" && a.Year == 2002))), Times.Once);
     }
 
     [Fact]
@@ -229,7 +235,25 @@ public class ReferenceEnrichmentServiceTest
         result.ReferenceId.Should().Be("reference-1");
         result.Title.Should().Be("Some Show");
         _tvShowRepository.Verify(r => r.UpdateAsync("show-1", It.Is<TvShowModel>(m => m.ReferenceId == "reference-1"), "owner"), Times.Once);
-        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync("Some Typo'd Show", 2020, "reference-1", "Some Show"), Times.Once);
+        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync("Some Typo'd Show", 2020, "reference-1", "Some Show", It.IsAny<int?>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task TryLinkExistingTvShowReferenceAsync_UpdatesYearToTheReferencesCanonicalYear_OnLink()
+    {
+        // the tenant's own recorded year is pre-populated with the reference's canonical year on link -
+        // still freely editable afterward, but starts from a trustworthy value instead of the tenant's guess
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+        var model = new TvShowModel { Id = "show-1", OwnerId = "owner", Title = "Some Show", Year = 2019 };
+        _tvShowReferenceRepository
+            .Setup(r => r.FindByTitleYearAsync("Some Show", 2019))
+            .ReturnsAsync(new TvShowReferenceModel { Id = "reference-1", Title = "Some Show", TitleNormalized = "some show", Year = 2020, ExternalIds = [] });
+
+        var result = await service.TryLinkExistingTvShowReferenceAsync(model);
+
+        result.Year.Should().Be(2020);
+        _tvShowRepository.Verify(r => r.UpdateAsync("show-1", It.Is<TvShowModel>(m => m.Year == 2020), "owner"), Times.Once);
+        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync("Some Show", 2019, "reference-1", "Some Show", 2020), Times.Once);
     }
 
     [Fact]
@@ -259,7 +283,7 @@ public class ReferenceEnrichmentServiceTest
 
         // was never linked and still isn't - nothing to clear, so no write should happen at all
         result.ReferenceId.Should().BeNullOrEmpty();
-        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()), Times.Never);
         _tvShowRepository.Verify(r => r.UpdateAsync(It.IsAny<string>(), It.IsAny<TvShowModel>(), It.IsAny<string>()), Times.Never);
     }
 
@@ -277,7 +301,23 @@ public class ReferenceEnrichmentServiceTest
         result.ReferenceId.Should().Be("reference-1");
         result.Title.Should().Be("Some Movie");
         _movieRepository.Verify(r => r.UpdateAsync("movie-1", It.Is<MovieModel>(m => m.ReferenceId == "reference-1"), "owner"), Times.Once);
-        _movieRepository.Verify(r => r.SetReferenceLinkAsync("Some Typo'd Movie", 2020, "reference-1", "Some Movie"), Times.Once);
+        _movieRepository.Verify(r => r.SetReferenceLinkAsync("Some Typo'd Movie", 2020, "reference-1", "Some Movie", It.IsAny<int?>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task TryLinkExistingMovieReferenceAsync_UpdatesYearToTheReferencesCanonicalYear_OnLink()
+    {
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+        var model = new MovieModel { Id = "movie-1", OwnerId = "owner", Title = "Some Movie", Year = 2019 };
+        _movieReferenceRepository
+            .Setup(r => r.FindByTitleYearAsync("Some Movie", 2019))
+            .ReturnsAsync(new MovieReferenceModel { Id = "reference-1", Title = "Some Movie", TitleNormalized = "some movie", Year = 2020, ExternalIds = [] });
+
+        var result = await service.TryLinkExistingMovieReferenceAsync(model);
+
+        result.Year.Should().Be(2020);
+        _movieRepository.Verify(r => r.UpdateAsync("movie-1", It.Is<MovieModel>(m => m.Year == 2020), "owner"), Times.Once);
+        _movieRepository.Verify(r => r.SetReferenceLinkAsync("Some Movie", 2019, "reference-1", "Some Movie", 2020), Times.Once);
     }
 
     [Fact]

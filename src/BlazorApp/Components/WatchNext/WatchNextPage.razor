@@ -54,13 +54,13 @@ else
         <div class="kt-card-grid">
             @foreach (var movie in _data.MoviesToWatch)
             {
-                <div class="kt-card">
+                <a class="kt-card" href="@($"/movies/{movie.Id}")" style="display:block;color:inherit">
                     <p class="kt-card-title">@movie.Title</p>
                     @if (movie.Year > 0)
                     {
                         <p class="kt-card-meta">@movie.Year</p>
                     }
-                </div>
+                </a>
             }
         </div>
     }

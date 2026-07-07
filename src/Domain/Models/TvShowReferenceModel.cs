@@ -30,13 +30,17 @@ public class TvShowReferenceModel : IHasId
     public required Dictionary<string, string> ExternalIds { get; set; }
 
     /// <summary>
-    /// Every normalized title string that has ever been confirmed (via TMDB resolution, automatic or
-    /// admin-picked) to mean this show - not just <see cref="TitleNormalized"/>. A tenant typing a
-    /// different-language title, a typo, or a regional variant that an admin resolved to this same TMDB
-    /// entry gets remembered here, so the next tenant with that exact same text matches instantly without
-    /// a fresh TMDB search. Always includes <see cref="TitleNormalized"/> itself.
+    /// Every (title, year) combination that has ever been confirmed (via TMDB resolution, automatic or
+    /// admin-picked) to mean this show - not just <see cref="TitleNormalized"/>/<see cref="Year"/>. A tenant
+    /// typing a different-language title, a typo, or a regional variant that an admin resolved to this same
+    /// TMDB entry gets remembered here, so the next tenant with that exact same (title, year) matches
+    /// instantly without a fresh TMDB search. Year travels with its specific title variant rather than living
+    /// as a single scalar on this document, because two tenants (or a tenant and TMDB's own canonical value)
+    /// can legitimately disagree on the year for the same real show - a single top-level year would reject a
+    /// tenant whose recorded year genuinely differs from whichever one happens to be canonical. Always
+    /// includes <see cref="TitleNormalized"/> paired with <see cref="Year"/>.
     /// </summary>
-    public List<string> MatchedTitles { get; set; } = [];
+    public List<ReferenceMatchModel> MatchedAliases { get; set; } = [];
 
     public List<ReferenceEpisodeModel> Episodes { get; set; } = [];
 
