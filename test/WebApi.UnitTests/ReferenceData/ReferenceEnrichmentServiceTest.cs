@@ -708,21 +708,24 @@ public class ReferenceEnrichmentServiceTest
     }
 
     [Fact]
-    public async Task RefreshVideoGameReferenceAsync_DoesNotDuplicateAnAliasAlreadyPersistedWithAnEmptyCreator()
+    public async Task RefreshVideoGameReferenceAsync_DoesNotDuplicateAnAliasAlreadyPersistedWithANullCreator()
     {
-        // Regression: a null Creator (TV show/movie/video game domains have no creator dimension) round-trips
-        // through Mongo as an empty string, not null (AllowNullDestinationValues = false - see Program.cs).
-        // MergeMatchedAliases must treat that persisted "" the same as the freshly-computed null it's about
-        // to re-add, or every refresh appends a fresh, indistinguishable duplicate of the same alias forever.
-        // Confirmed against a real RAWG-backed video game reference ("God of War") that had accumulated an
-        // exact duplicate {title, year, creator: ""} entry from being resolved/refreshed more than once.
+        // Regression: MergeMatchedAliases must recognize an existing alias with Creator = null as the same
+        // alias it's about to re-add with a freshly-computed null Creator (TV show/movie/video game domains
+        // have no creator dimension), or every refresh appends a fresh, indistinguishable duplicate forever.
+        // This used to fail because a null Creator silently round-tripped through Mongo as "" (a global
+        // AllowNullDestinationValues = false default), which the in-memory comparison here didn't account
+        // for - confirmed against a real RAWG-backed video game reference ("God of War") that had
+        // accumulated an exact duplicate {title, year, creator: ""} entry from being resolved/refreshed
+        // more than once. Fixed at the mapping layer instead (DataStorageMappingProfile opts Creator out of
+        // AllowNullDestinationValues, so it stays a real null in Mongo) rather than papering over it here.
         var rawgClient = FakeRawgClient.Empty();
         rawgClient.Details["1"] = new RawgGameDetails("1", "Some Game", 2020, "Synopsis", ["Action"], ["PC"], null);
         var reference = new VideoGameReferenceModel
         {
             Id = "reference-1", Title = "Some Game", TitleNormalized = "some game",
             ExternalIds = new Dictionary<string, string> { ["rawg"] = "1" },
-            MatchedAliases = [new ReferenceMatchModel { Title = "some game", Year = 2020, Creator = "" }]
+            MatchedAliases = [new ReferenceMatchModel { Title = "some game", Year = 2020, Creator = null }]
         };
         _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) => m);
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), rawgClient: rawgClient);

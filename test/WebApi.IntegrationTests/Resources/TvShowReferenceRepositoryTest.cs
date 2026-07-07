@@ -115,6 +115,41 @@ public class TvShowReferenceRepositoryTest(KestrelWebAppFactory<Program> factory
     }
 
     [Fact]
+    public async Task UpsertAsync_PersistsANullCreator_AsAnActualBsonNullNotAnEmptyString()
+    {
+        // Regression: DataStorageMappingProfile's ReferenceMatchModel -> ReferenceMatch map opts Creator out
+        // of the profile-wide AllowNullDestinationValues = false (Program.cs), specifically so a null Creator
+        // (TV show/movie/video game have no creator dimension) round-trips as a real null, not "". Getting
+        // this wrong once let a null Creator silently become "" on save, which broke MergeMatchedAliases'
+        // in-memory dedup comparison and duplicated an alias on every re-resolve/re-refresh (confirmed
+        // against a real video game reference, RAWG's "God of War", that had accumulated an exact duplicate
+        // this way - see scripts/dedupe-matched-aliases.js). Only a real MongoDB round-trip can catch this;
+        // a mocked repository never exercises the actual AutoMapper/BSON serialization behavior.
+        using var scope = factory.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<ITvShowReferenceRepository>();
+        var title = $"Null Creator Title {Guid.NewGuid()}";
+
+        var created = await repository.UpsertAsync(new TvShowReferenceModel
+        {
+            Title = title, TitleNormalized = title.ToLowerInvariant(), Year = 2010,
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "1" },
+            MatchedAliases = [new ReferenceMatchModel { Title = title.ToLowerInvariant(), Year = 2010, Creator = null }]
+        });
+
+        try
+        {
+            var collection = scope.ServiceProvider.GetRequiredService<IMongoDatabase>().GetCollection<TvShowReference>("tvshow_reference");
+            var stored = await collection.Find(x => x.Id == created.Id).FirstOrDefaultAsync(TestContext.Current.CancellationToken);
+
+            stored.MatchedAliases.Should().ContainSingle(m => m.Creator == null);
+        }
+        finally
+        {
+            await DeleteAsync(scope, created.Id!);
+        }
+    }
+
+    [Fact]
     public async Task UpsertAsync_AlwaysIncludesTheCanonicalTitleAndYearInMatchedAliases_EvenIfTheCallerForgot()
     {
         using var scope = factory.Services.CreateScope();
