@@ -75,6 +75,7 @@ Key                                       | Description
 `Tmdb:ApiKey`                             | TMDB v3 API key, used to auto-match shows/movies to episode titles and synopses (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
 `Rawg:ApiKey`                             | RAWG API key, used to auto-match video games to synopses/cover art/platforms (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
 `Discogs:Token`                           | Discogs personal access token, used to auto-match albums to synopses/cover art/genres (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
+`ReferenceData:BookProvider`              | Which `IBookReferenceClient` implementation to use for book matching (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below). Default: `OpenLibrary`
 
 This values can be easily provided as environment variables (replace ":" by "__") or by configuration (json).
 
@@ -144,6 +145,10 @@ Albums      | [Discogs](https://www.discogs.com/developers)    | `Discogs:Token`
 
 Without a key/token for a given provider, new items of that type simply stay unresolved (no synopsis, no cover art) instead of erroring.
 The app degrades gracefully per type - it just won't auto-match that type until the corresponding setting is provided.
+
+Unlike the other three, books are resolved through a provider-agnostic `IBookReferenceClient` interface (`src/WebApi/ReferenceData/`), so which book provider is active is itself a setting: `ReferenceData:BookProvider` (or the `ReferenceData__BookProvider` environment variable), defaulting to `OpenLibrary`.
+`src/WebApi/Program.cs` switches on this value to decide which implementation to register - `OpenLibrary` is the only one that ships today.
+To add a new book provider, implement `IBookReferenceClient` (a new client class alongside `OpenLibraryClient.cs`, plus its own settings class if it needs an API key, following `RawgSettings`/`DiscogsSettings`) and add a matching `case` to that switch; nothing else in the app needs to change, since `ReferenceEnrichmentService`/`ReferenceDataAdminController` only depend on the interface and read the active provider's key from `IBookReferenceClient.ProviderKey`.
 
 ### Admin role
 

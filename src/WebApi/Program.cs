@@ -28,11 +28,20 @@ builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.ITmdbClient, Keept
 {
     client.BaseAddress = new Uri("https://api.themoviedb.org/3/");
 }).AddStandardResilienceHandler();
-builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.IOpenLibraryClient, Keeptrack.WebApi.ReferenceData.OpenLibraryClient>(client =>
+// which IBookReferenceClient implementation is registered is a deployment-time choice
+// (ReferenceData:BookProvider / ReferenceData__BookProvider) - add a case here for each new provider.
+switch (configuration.BookReferenceProvider)
 {
-    client.BaseAddress = new Uri("https://openlibrary.org/");
-    client.DefaultRequestHeaders.Add("User-Agent", "Keeptrack/1.0 (+https://github.com/devpro/keeptrack)");
-}).AddStandardResilienceHandler();
+    case "OpenLibrary":
+        builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.IBookReferenceClient, Keeptrack.WebApi.ReferenceData.OpenLibraryClient>(client =>
+        {
+            client.BaseAddress = new Uri("https://openlibrary.org/");
+            client.DefaultRequestHeaders.Add("User-Agent", "Keeptrack/1.0 (+https://github.com/devpro/keeptrack)");
+        }).AddStandardResilienceHandler();
+        break;
+    default:
+        throw new InvalidOperationException($"Unknown ReferenceData:BookProvider '{configuration.BookReferenceProvider}'. Supported providers: OpenLibrary.");
+}
 builder.Services.AddSingleton(configuration.RawgSettings);
 builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.IRawgClient, Keeptrack.WebApi.ReferenceData.RawgClient>(client =>
 {

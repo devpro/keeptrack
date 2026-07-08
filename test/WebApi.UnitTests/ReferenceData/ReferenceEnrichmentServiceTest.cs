@@ -29,10 +29,10 @@ public class ReferenceEnrichmentServiceTest
 
     private ReferenceEnrichmentService CreateService(
         FakeTmdbClient tmdbClient,
-        FakeOpenLibraryClient? openLibraryClient = null,
+        FakeBookReferenceClient? bookReferenceClient = null,
         FakeRawgClient? rawgClient = null,
         FakeDiscogsClient? discogsClient = null) => new(
-        tmdbClient, openLibraryClient ?? FakeOpenLibraryClient.Empty(), rawgClient ?? FakeRawgClient.Empty(), discogsClient ?? FakeDiscogsClient.Empty(),
+        tmdbClient, bookReferenceClient ?? FakeBookReferenceClient.Empty(), rawgClient ?? FakeRawgClient.Empty(), discogsClient ?? FakeDiscogsClient.Empty(),
         _tvShowReferenceRepository.Object, _movieReferenceRepository.Object, _personReferenceRepository.Object,
         _bookReferenceRepository.Object, _videoGameReferenceRepository.Object, _albumReferenceRepository.Object,
         _tvShowRepository.Object, _movieRepository.Object, _bookRepository.Object, _videoGameRepository.Object, _albumRepository.Object);
@@ -427,10 +427,10 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task TryAutoResolveBookAsync_DoesNothing_WhenSearchIsAmbiguous()
     {
-        var openLibraryClient = FakeOpenLibraryClient.WithSearchResults(
-            new OpenLibrarySearchResult("OL1W", "Some Book", 2020, "Some Author", null),
-            new OpenLibrarySearchResult("OL2W", "Some Book", 2020, "Some Author", null));
-        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), openLibraryClient);
+        var bookReferenceClient = FakeBookReferenceClient.WithSearchResults(
+            new BookSearchResult("OL1W", "Some Book", 2020, "Some Author", null),
+            new BookSearchResult("OL2W", "Some Book", 2020, "Some Author", null));
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bookReferenceClient);
 
         await service.TryAutoResolveBookAsync("Some Book", 2020);
 
@@ -440,11 +440,11 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task TryAutoResolveBookAsync_ResolvesAndPropagates_WhenExactlyOneCandidate()
     {
-        var openLibraryClient = FakeOpenLibraryClient.WithSearchResults(new OpenLibrarySearchResult("OL1W", "Some Book", 2020, "Some Author", null));
-        openLibraryClient.Details["OL1W"] = new OpenLibraryBookDetails("OL1W", "Some Book", 2020, "Synopsis", "Some Author", "OL1A", [], null);
+        var bookReferenceClient = FakeBookReferenceClient.WithSearchResults(new BookSearchResult("OL1W", "Some Book", 2020, "Some Author", null));
+        bookReferenceClient.Details["OL1W"] = new BookDetails("OL1W", "Some Book", 2020, "Synopsis", "Some Author", "OL1A", [], null);
         _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => { m.Id ??= "generated-id"; return m; });
         _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
-        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), openLibraryClient);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bookReferenceClient);
 
         await service.TryAutoResolveBookAsync("Some Book", 2020);
 
@@ -453,29 +453,29 @@ public class ReferenceEnrichmentServiceTest
     }
 
     [Fact]
-    public async Task TryAutoResolveBookAsync_PassesTheAuthorThroughToTheOpenLibrarySearch()
+    public async Task TryAutoResolveBookAsync_PassesTheAuthorThroughToTheBookSearch()
     {
         // regression: a common title without an author hint returns many unrelated candidates - the
-        // author must reach IOpenLibraryClient.SearchBooksAsync, not just get dropped along the way.
-        var openLibraryClient = FakeOpenLibraryClient.WithSearchResults(new OpenLibrarySearchResult("OL1W", "Some Book", 2020, "Lee Child", null));
-        openLibraryClient.Details["OL1W"] = new OpenLibraryBookDetails("OL1W", "Some Book", 2020, "Synopsis", "Lee Child", "OL1A", [], null);
+        // author must reach IBookReferenceClient.SearchBooksAsync, not just get dropped along the way.
+        var bookReferenceClient = FakeBookReferenceClient.WithSearchResults(new BookSearchResult("OL1W", "Some Book", 2020, "Lee Child", null));
+        bookReferenceClient.Details["OL1W"] = new BookDetails("OL1W", "Some Book", 2020, "Synopsis", "Lee Child", "OL1A", [], null);
         _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => { m.Id ??= "generated-id"; return m; });
         _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
-        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), openLibraryClient);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bookReferenceClient);
 
         await service.TryAutoResolveBookAsync("Killing Floor", 2016, "Lee Child");
 
-        openLibraryClient.LastSearchAuthor.Should().Be("Lee Child");
+        bookReferenceClient.LastSearchAuthor.Should().Be("Lee Child");
     }
 
     [Fact]
     public async Task ResolveBookAsync_PropagatesTheUpsertedReferenceId()
     {
-        var openLibraryClient = FakeOpenLibraryClient.Empty();
-        openLibraryClient.Details["OL1W"] = new OpenLibraryBookDetails("OL1W", "Some Book", 2020, "Synopsis", "Some Author", "OL1A", [], null);
+        var bookReferenceClient = FakeBookReferenceClient.Empty();
+        bookReferenceClient.Details["OL1W"] = new BookDetails("OL1W", "Some Book", 2020, "Synopsis", "Some Author", "OL1A", [], null);
         _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => { m.Id = "reference-1"; return m; });
         _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
-        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), openLibraryClient);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bookReferenceClient);
 
         var result = await service.ResolveBookAsync("Some Book", 2020, "OL1W");
 
@@ -567,8 +567,8 @@ public class ReferenceEnrichmentServiceTest
     {
         // Open Library exposes no "changed since" endpoint (unlike TMDB) - every refresh call does a full
         // re-fetch, even when LastEnrichedAt is very recent.
-        var openLibraryClient = FakeOpenLibraryClient.Empty();
-        openLibraryClient.Details["OL1W"] = new OpenLibraryBookDetails("OL1W", "Some Book - Updated", 2020, "New synopsis", "Some Author", "OL1A", ["Fiction"], null);
+        var bookReferenceClient = FakeBookReferenceClient.Empty();
+        bookReferenceClient.Details["OL1W"] = new BookDetails("OL1W", "Some Book - Updated", 2020, "New synopsis", "Some Author", "OL1A", ["Fiction"], null);
         var reference = new BookReferenceModel
         {
             Id = "reference-1", Title = "Some Book", TitleNormalized = "some book",
@@ -576,7 +576,7 @@ public class ReferenceEnrichmentServiceTest
         };
         _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => m);
         _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
-        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), openLibraryClient);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bookReferenceClient);
 
         var (result, changed) = await service.RefreshBookReferenceAsync(reference, TestContext.Current.CancellationToken);
 

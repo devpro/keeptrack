@@ -31,6 +31,13 @@ public class AppConfiguration(IConfiguration configuration)
 
     public DiscogsSettings DiscogsSettings { get; } = configuration.TryGetSection<DiscogsSettings>("Discogs");
 
+    /// <summary>
+    /// Selects which <see cref="ReferenceData.IBookReferenceClient"/> implementation <c>Program.cs</c>
+    /// registers - see the switch there for supported values. Overridable via the
+    /// <c>ReferenceData__BookProvider</c> environment variable, same convention as every other setting.
+    /// </summary>
+    public string BookReferenceProvider => configuration.TryGetSection<string>("ReferenceData:BookProvider");
+
     public string ConnectionString => configuration.TryGetSection<string>("Infrastructure:MongoDB:ConnectionString");
 
     public string DatabaseName => configuration.TryGetSection<string>("Infrastructure:MongoDB:DatabaseName");

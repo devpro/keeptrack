@@ -34,7 +34,7 @@ public class ReferenceSyncServiceTest
         _albumReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync([]);
 
         var enrichmentService = new ReferenceEnrichmentService(
-            tmdbClient, FakeOpenLibraryClient.Empty(), FakeRawgClient.Empty(), FakeDiscogsClient.Empty(),
+            tmdbClient, FakeBookReferenceClient.Empty(), FakeRawgClient.Empty(), FakeDiscogsClient.Empty(),
             _tvShowReferenceRepository.Object, _movieReferenceRepository.Object, _personReferenceRepository.Object,
             _bookReferenceRepository.Object, _videoGameReferenceRepository.Object, _albumReferenceRepository.Object,
             _tvShowRepository.Object, _movieRepository.Object, _bookRepository.Object, _videoGameRepository.Object, _albumRepository.Object);

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
@@ -14,9 +15,18 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// Open Library REST client. No API key required; registered as a typed <see cref="HttpClient"/> with a
 /// descriptive User-Agent header (Open Library's stated best practice for API consumers) - see Program.cs.
 /// </summary>
-public class OpenLibraryClient(HttpClient http) : IOpenLibraryClient
+public class OpenLibraryClient(HttpClient http) : IBookReferenceClient
 {
-    public async Task<IReadOnlyList<OpenLibrarySearchResult>> SearchBooksAsync(string title, int? year, string? author = null, CancellationToken cancellationToken = default)
+    public string ProviderKey => "openlibrary";
+
+    /// <summary>
+    /// Deliberately does NOT filter server-side by <paramref name="year"/>: Open Library's
+    /// <c>first_publish_year</c> is the work's ORIGINAL publication year, which routinely differs from
+    /// whatever edition/printing year a tenant recorded (e.g. a 1997 first edition vs. a 2016 reprint) -
+    /// filtering on it would silently drop the real match instead of just ranking it lower. This is an
+    /// Open-Library-specific workaround, not a rule every <see cref="IBookReferenceClient"/> must follow.
+    /// </summary>
+    public async Task<IReadOnlyList<BookSearchResult>> SearchBooksAsync(string title, int? year, string? author = null, CancellationToken cancellationToken = default)
     {
         var results = await SearchBooksCoreAsync(title, author, cancellationToken);
         if (results.Count == 0 && !string.IsNullOrEmpty(author))
@@ -31,7 +41,7 @@ public class OpenLibraryClient(HttpClient http) : IOpenLibraryClient
         return results;
     }
 
-    private async Task<IReadOnlyList<OpenLibrarySearchResult>> SearchBooksCoreAsync(string title, string? author, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<BookSearchResult>> SearchBooksCoreAsync(string title, string? author, CancellationToken cancellationToken)
     {
         // General relevance query (q=), not the title= field-scoped match: title= only matches a work's own
         // canonical title text, which misses regional title variants entirely - confirmed against the real
@@ -40,16 +50,16 @@ public class OpenLibraryClient(HttpClient http) : IOpenLibraryClient
         // "Harry Potter and the Philosopher's Stone" (the UK title) with 398 editions - q= surfaces that
         // well-populated canonical work first instead, since it ranks by relevance across alternate titles
         // too, not just an exact field match. year is intentionally never sent as a query filter here - see
-        // IOpenLibraryClient.SearchBooksAsync's doc comment.
+        // this class's own SearchBooksAsync doc comment above.
         var query = $"search.json?q={Encode(title)}" + (string.IsNullOrEmpty(author) ? "" : $"&author={Encode(author)}");
         var response = await http.GetFromJsonAsync<OpenLibrarySearchResponse>(query, cancellationToken);
         return response?.Docs
             .Where(d => !string.IsNullOrEmpty(d.Key))
-            .Select(d => new OpenLibrarySearchResult(d.Key!, d.Title ?? title, d.FirstPublishYear, d.AuthorName.FirstOrDefault(), BuildCoverUrl(d.CoverId)))
+            .Select(d => new BookSearchResult(d.Key!, d.Title ?? title, d.FirstPublishYear, d.AuthorName.FirstOrDefault(), BuildCoverUrl(d.CoverId)))
             .ToList() ?? [];
     }
 
-    public async Task<OpenLibraryBookDetails?> GetBookDetailsAsync(string externalId, CancellationToken cancellationToken = default)
+    public async Task<BookDetails?> GetBookDetailsAsync(string externalId, CancellationToken cancellationToken = default)
     {
         var work = await http.GetFromJsonAsync<OpenLibraryWorkResponse>($"{externalId}.json", cancellationToken);
         if (work is null) return null;
@@ -66,7 +76,7 @@ public class OpenLibraryClient(HttpClient http) : IOpenLibraryClient
 
         var year = ParseYear(work.FirstPublishDate) ?? await FindPublishYearViaSearchAsync(externalId, cancellationToken);
 
-        return new OpenLibraryBookDetails(
+        return new BookDetails(
             externalId,
             work.Title ?? string.Empty,
             year,
@@ -107,11 +117,21 @@ public class OpenLibraryClient(HttpClient http) : IOpenLibraryClient
 
     private static string Encode(string value) => HttpUtility.UrlEncode(value);
 
+    /// <summary>
+    /// Matches a standalone 4-digit token (word-boundary delimited, so it can't match the first 4 digits of
+    /// a longer run) - <c>first_publish_date</c> is often "Month Day, Year" (e.g. "November 12, 1972"), and
+    /// naively stripping all digits and taking the first 4 previously mis-parsed that as 1219 (day "12" then
+    /// the leading digits of "1972") instead of 1972 - confirmed against the real API for Tolkien's "The
+    /// Fellowship of the Ring" (OL27513W). The year is the last such token, since it's always what trails
+    /// the day/month when both are present, and the only token when the date is a bare year.
+    /// </summary>
+    private static readonly Regex s_yearRegex = new(@"\b\d{4}\b", RegexOptions.Compiled);
+
     private static int? ParseYear(string? date)
     {
         if (string.IsNullOrEmpty(date)) return null;
-        var digits = new string(date.Where(char.IsDigit).ToArray());
-        return digits.Length >= 4 && int.TryParse(digits[..4], NumberStyles.None, CultureInfo.InvariantCulture, out var year) ? year : null;
+        var matches = s_yearRegex.Matches(date);
+        return matches.Count > 0 && int.TryParse(matches[^1].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var year) ? year : null;
     }
 
     /// <summary>

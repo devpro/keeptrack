@@ -29,7 +29,7 @@ public class ReferenceDataAdminController(
     IVideoGameRepository videoGameRepository,
     IAlbumRepository albumRepository,
     ITmdbClient tmdbClient,
-    IOpenLibraryClient openLibraryClient,
+    IBookReferenceClient bookReferenceClient,
     IRawgClient rawgClient,
     IDiscogsClient discogsClient,
     ReferenceEnrichmentService enrichmentService,
@@ -210,7 +210,7 @@ public class ReferenceDataAdminController(
     /// <summary>
     /// <paramref name="creator"/> is the book's author or the album's artist, when the caller has one -
     /// passed straight through to the provider's own author/artist search field (see
-    /// <see cref="IOpenLibraryClient.SearchBooksAsync"/>/<see cref="IDiscogsClient.SearchAlbumsAsync"/>),
+    /// <see cref="IBookReferenceClient.SearchBooksAsync"/>/<see cref="IDiscogsClient.SearchAlbumsAsync"/>),
     /// since a common title alone often returns many unrelated candidates. Ignored for TV shows/movies/video
     /// games, which have no equivalent single-name creator field on this endpoint.
     /// </summary>
@@ -224,7 +224,7 @@ public class ReferenceDataAdminController(
             case ReferenceItemType.Movie:
                 return Ok(await SearchTvShowOrMovieAsync(type, title, year));
             case ReferenceItemType.Book:
-                var books = await openLibraryClient.SearchBooksAsync(title, year, creator);
+                var books = await bookReferenceClient.SearchBooksAsync(title, year, creator);
                 return Ok(books.Take(MaxEnrichedCandidates)
                     .Select(r => new ReferenceSearchResultDto { ExternalId = r.ExternalId, Title = r.Title, Year = r.Year, Creator = r.Author, ImageUrl = r.ImageUrl })
                     .ToList());
