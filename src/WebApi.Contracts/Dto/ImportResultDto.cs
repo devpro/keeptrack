@@ -9,15 +9,19 @@ public class ImportResultDto
 {
     public int ShowsCreated { get; set; }
 
-    public int ShowsUpdated { get; set; }
+    /// <summary>
+    /// Items already present (matched by their stable TV Time id) and therefore left untouched -
+    /// re-importing the same export never overwrites or duplicates what a previous import created.
+    /// </summary>
+    public int ShowsSkipped { get; set; }
 
     public int EpisodesCreated { get; set; }
 
-    public int EpisodesUpdated { get; set; }
+    public int EpisodesSkipped { get; set; }
 
     public int MoviesCreated { get; set; }
 
-    public int MoviesUpdated { get; set; }
+    public int MoviesSkipped { get; set; }
 
     /// <summary>
     /// Non-fatal issues encountered during the import (e.g. a movie referenced only by an unresolvable id).

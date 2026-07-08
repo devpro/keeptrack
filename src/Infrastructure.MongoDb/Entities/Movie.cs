@@ -16,6 +16,9 @@ public class Movie : IHasIdAndOwnerId
 
     public required string Title { get; set; }
 
+    [BsonElement("tv_time_id")]
+    public string? TvTimeId { get; set; }
+
     public int? Year { get; set; }
 
     public float? Rating { get; set; }

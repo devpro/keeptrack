@@ -35,9 +35,9 @@
     @if (_result is not null)
     {
         <div class="alert alert-info mt-3">
-            <p class="mb-1"><strong>Shows:</strong> @_result.ShowsCreated created, @_result.ShowsUpdated updated</p>
-            <p class="mb-1"><strong>Episodes:</strong> @_result.EpisodesCreated created, @_result.EpisodesUpdated updated</p>
-            <p class="mb-0"><strong>Movies:</strong> @_result.MoviesCreated created, @_result.MoviesUpdated updated</p>
+            <p class="mb-1"><strong>Shows:</strong> @_result.ShowsCreated created, @_result.ShowsSkipped already imported</p>
+            <p class="mb-1"><strong>Episodes:</strong> @_result.EpisodesCreated created, @_result.EpisodesSkipped already imported</p>
+            <p class="mb-0"><strong>Movies:</strong> @_result.MoviesCreated created, @_result.MoviesSkipped already imported</p>
             @if (_result.Warnings.Count > 0)
             {
                 <hr/>

@@ -42,7 +42,8 @@ public class TvTimeImportResourceTest(KestrelWebAppFactory<Program> factory)
 
             var episodes = await GetAsync<PagedResult<EpisodeDto>>($"/api/episodes?TvShowId={show.Id}");
             episodes.Items.Should().HaveCount(4);
-            episodes.Items.Should().Contain(e => e.SeasonNumber == 1 && e.EpisodeNumber == 1 && e.Notes == "Great pilot");
+            // episode notes are date-prefixed by FormatComments (same as show notes above), e.g. "2020-01-02: Great pilot"
+            episodes.Items.Should().Contain(e => e.SeasonNumber == 1 && e.EpisodeNumber == 1 && e.Notes != null && e.Notes.Contains("Great pilot"));
             episodes.Items.Should().Contain(e => e.SeasonNumber == 1 && e.EpisodeNumber == 3);
             episodes.Items.Should().Contain(e => e.SeasonNumber == 2 && e.EpisodeNumber == 1);
 
@@ -63,15 +64,16 @@ public class TvTimeImportResourceTest(KestrelWebAppFactory<Program> factory)
             // confirmed against a real export, where the rating/emotion vote files never carry one
             movie.FirstSeenAt.Should().Be(new DateOnly(2020, 1, 7));
 
-            // re-importing the same export must upsert, not duplicate
+            // re-importing the same export must recognize everything by its stable TV Time id and skip it,
+            // never duplicate
             var secondJob = await PostFileAsync<ImportJobDto>("/api/import/tv-time", "file", zip, "gdpr-data.zip", HttpStatusCode.Accepted);
             var secondResult = await PollForResultAsync(secondJob.JobId);
             secondResult.ShowsCreated.Should().Be(0);
-            secondResult.ShowsUpdated.Should().Be(2);
+            secondResult.ShowsSkipped.Should().Be(2);
             secondResult.EpisodesCreated.Should().Be(0);
-            secondResult.EpisodesUpdated.Should().Be(5);
+            secondResult.EpisodesSkipped.Should().Be(5);
             secondResult.MoviesCreated.Should().Be(0);
-            secondResult.MoviesUpdated.Should().Be(1);
+            secondResult.MoviesSkipped.Should().Be(1);
 
             var showsAfterReimport = await GetAsync<PagedResult<TvShowDto>>($"/api/tv-shows?search={Uri.EscapeDataString(TvTimeFixtureZipBuilder.ShowTitle)}");
             showsAfterReimport.Items.Should().ContainSingle();

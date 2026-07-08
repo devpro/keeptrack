@@ -12,7 +12,12 @@ public enum MovieTrackingEventType
     Followed
 }
 
-public sealed record MovieTrackingEventRecord(string MovieName, MovieTrackingEventType EventType, DateTime CreatedAt);
+/// <summary>
+/// A single movie event. <paramref name="Uuid"/> is TV Time's own per-movie tracking id: every event
+/// type (follow/watch/towatch) for the same movie shares one uuid, and two different movies that happen
+/// to share a title get distinct uuids - so it is a stable, title-independent key for the movie.
+/// </summary>
+public sealed record MovieTrackingEventRecord(string MovieName, MovieTrackingEventType EventType, DateTime CreatedAt, string? Uuid);
 
 /// <summary>
 /// Parses the movie-related rows of tracking-prod-records.csv (tracking-prod-records-v2.csv, TV Time's
@@ -49,7 +54,7 @@ public static class MovieTrackingEventsCsvParser
             var movieName = csv.GetField("movie_name");
             if (string.IsNullOrEmpty(movieName)) continue;
 
-            records.Add(new MovieTrackingEventRecord(movieName, eventType.Value, csv.GetField<DateTime>("created_at")));
+            records.Add(new MovieTrackingEventRecord(movieName, eventType.Value, csv.GetField<DateTime>("created_at"), csv.GetField("uuid")));
         }
 
         return records;

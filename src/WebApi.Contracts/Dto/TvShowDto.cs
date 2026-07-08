@@ -17,6 +17,12 @@ public class TvShowDto : IHasId
     /// </summary>
     public string? Title { get; set; }
 
+    /// <summary>
+    /// Stable id of the TV Time item this show was imported from, if any. Managed server-side by the
+    /// import; round-tripped on edits so it is never lost, but not meant to be set by clients.
+    /// </summary>
+    public string? TvTimeId { get; set; }
+
     public int? Year { get; set; }
 
     public float? Rating { get; set; }

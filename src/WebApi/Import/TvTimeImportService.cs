@@ -77,52 +77,95 @@ public class TvTimeImportService(
         var enrichment = ShowEnrichment.Build(showRatings, showStatuses, showComments);
         var result = new ImportResultDto();
 
+        // Map every TV Time title to its stable id, so the title-only source files (seen_episode_source.csv
+        // for shows; the vote files for movies) resolve to the *same* id as the id-bearing files
+        // (followed_tv_show.csv / the tracking logs) instead of being treated as a different item.
+        var showIdByTitle = BuildIdByTitle(
+            followedShows.Select(s => (s.Title, (string?)s.TvShowId))
+                .Concat(seenEpisodes.Select(e => (e.ShowTitle, e.TvShowId))));
+        var movieIdByTitle = BuildIdByTitle(movieTrackingEvents.Select(e => (e.MovieName, e.Uuid)));
+
         onStageChanged?.Invoke(ImportStage.ImportingShows);
-        var showsByTitle = await ImportShowsAsync(ownerId, followedShows, enrichment, result);
+        var showIndex = await ImportShowsAsync(ownerId, followedShows, enrichment, showIdByTitle, result);
 
         onStageChanged?.Invoke(ImportStage.ImportingEpisodes);
-        var detailedEpisodeCountByShowTitle = await ImportEpisodesAsync(ownerId, showsByTitle, seenEpisodes, episodeComments, enrichment, result);
+        var detailedEpisodeCountByShowTitle = await ImportEpisodesAsync(ownerId, showIndex, seenEpisodes, episodeComments, enrichment, showIdByTitle, result);
+        result.ShowsCreated = showIndex.CreatedCount;
+        result.ShowsSkipped = showIndex.SkippedCount;
         AnnotateWatchCompleteness(followedShows, showActivity, detailedEpisodeCountByShowTitle, result);
 
         onStageChanged?.Invoke(ImportStage.ImportingMovies);
-        await ImportMoviesAsync(ownerId, movieVotes, movieTrackingEvents, favoriteMovieUuids, result);
+        await ImportMoviesAsync(ownerId, movieVotes, movieTrackingEvents, favoriteMovieUuids, movieIdByTitle, result);
 
         return result;
     }
 
-    private async Task<Dictionary<string, TvShowModel>> ImportShowsAsync(
+    private const string TitleTvTimeIdPrefix = "tvtime_title:";
+
+    /// <summary>
+    /// Builds a normalized-title -> stable-id lookup from every (title, id) pair that carries an id,
+    /// first one wins. Used so a title appearing in a source file that has no id (seen_episode_source.csv,
+    /// the movie vote files) still resolves to the id its id-bearing counterpart established.
+    /// </summary>
+    private static Dictionary<string, string> BuildIdByTitle(IEnumerable<(string Title, string? Id)> entries)
+    {
+        var map = new Dictionary<string, string>();
+        foreach (var (title, id) in entries)
+        {
+            if (!string.IsNullOrWhiteSpace(id) && !string.IsNullOrWhiteSpace(title))
+            {
+                map.TryAdd(TitleNormalizer.Normalize(title), id);
+            }
+        }
+
+        return map;
+    }
+
+    /// <summary>
+    /// The stable TV Time id to stamp on (and match) a record: the export's own id for that title when
+    /// there is one, otherwise a deterministic title-derived fallback (<c>tvtime_title:&lt;normalized&gt;</c>).
+    /// The fallback is stable across re-imports because it is derived from the export title, which
+    /// reference enrichment never touches - unlike the record's own Title.
+    /// </summary>
+    private static string ResolveTvTimeId(string title, Dictionary<string, string> idByTitle)
+    {
+        var key = TitleNormalizer.Normalize(title);
+        return idByTitle.TryGetValue(key, out var id) ? id : TitleTvTimeIdPrefix + key;
+    }
+
+    private async Task<UpsertIndex<TvShowModel>> ImportShowsAsync(
         string ownerId,
         List<FollowedShowRecord> followedShows,
         ShowEnrichment enrichment,
+        Dictionary<string, string> showIdByTitle,
         ImportResultDto result)
     {
-        var showsByTitle = (await tvShowRepository.FindAllAsync(ownerId, 1, int.MaxValue, null, NewShow(ownerId, string.Empty)))
-            .Items
-            .ToDictionary(show => TitleNormalizer.Normalize(show.Title));
+        var existing = (await tvShowRepository.FindAllAsync(ownerId, 1, int.MaxValue, null, NewShow(ownerId, string.Empty))).Items;
+        var index = new UpsertIndex<TvShowModel>(existing, show => show.Title);
 
         foreach (var show in followedShows)
         {
-            var key = TitleNormalizer.Normalize(show.Title);
-            var isNew = !showsByTitle.TryGetValue(key, out var model);
-            model ??= NewShow(ownerId, show.Title);
+            var tvTimeId = ResolveTvTimeId(show.Title, showIdByTitle);
 
-            model.Title = show.Title;
+            if (index.TryMatch(tvTimeId, show.Title, out var existingShow))
+            {
+                await BackfillTvTimeIdAsync(tvShowRepository, index, existingShow, tvTimeId, ownerId);
+                index.MarkMatched(existingShow);
+                continue;
+            }
+
+            var model = NewShow(ownerId, show.Title);
+            model.TvTimeId = tvTimeId;
             enrichment.ApplyTo(model, show.TvShowId);
 
-            if (await SaveAsync(tvShowRepository, model, ownerId, isNew))
-            {
-                result.ShowsCreated++;
-                await TryEnrichShowAsync(model);
-            }
-            else
-            {
-                result.ShowsUpdated++;
-            }
-
-            showsByTitle[key] = model;
+            var created = await tvShowRepository.CreateAsync(model);
+            model.Id = created.Id;
+            index.MarkCreated(model);
+            index.Index(model);
+            await TryEnrichShowAsync(model);
         }
 
-        return showsByTitle;
+        return index;
     }
 
     /// <summary>
@@ -136,10 +179,11 @@ public class TvTimeImportService(
     /// </summary>
     private async Task<Dictionary<string, int>> ImportEpisodesAsync(
         string ownerId,
-        Dictionary<string, TvShowModel> showsByTitle,
+        UpsertIndex<TvShowModel> showIndex,
         List<SeenEpisodeRecord> seenEpisodes,
         List<EpisodeCommentRecord> episodeComments,
         ShowEnrichment enrichment,
+        Dictionary<string, string> showIdByTitle,
         ImportResultDto result)
     {
         var notesByEpisodeKey = episodeComments
@@ -150,19 +194,29 @@ public class TvTimeImportService(
 
         foreach (var showGroup in seenEpisodes.GroupBy(e => TitleNormalizer.Normalize(e.ShowTitle)))
         {
-            if (!showsByTitle.TryGetValue(showGroup.Key, out var show) || show.Id is null)
+            var showTitle = showGroup.First().ShowTitle;
+            var tvTimeId = ResolveTvTimeId(showTitle, showIdByTitle);
+
+            if (showIndex.TryMatch(tvTimeId, showTitle, out var show))
             {
-                var tvShowId = showGroup.Select(e => e.TvShowId).FirstOrDefault(id => !string.IsNullOrEmpty(id));
-                show = NewShow(ownerId, showGroup.First().ShowTitle);
-                enrichment.ApplyTo(show, tvShowId);
+                await BackfillTvTimeIdAsync(tvShowRepository, showIndex, show, tvTimeId, ownerId);
+                showIndex.MarkMatched(show);
+            }
+            else
+            {
+                // A show with genuine watch history but no followed_tv_show.csv row is created here rather
+                // than skipped (see ImportEpisodesAsync summary). enrichment.ApplyTo takes the raw TV Time
+                // show id (null when the export has none), not the possibly-synthesized tvTimeId.
+                var rawShowId = showGroup.Select(e => e.TvShowId).FirstOrDefault(id => !string.IsNullOrEmpty(id));
+                show = NewShow(ownerId, showTitle);
+                show.TvTimeId = tvTimeId;
+                enrichment.ApplyTo(show, rawShowId);
 
-                if (await SaveAsync(tvShowRepository, show, ownerId, isNew: true))
-                {
-                    result.ShowsCreated++;
-                    await TryEnrichShowAsync(show);
-                }
-
-                showsByTitle[showGroup.Key] = show;
+                var created = await tvShowRepository.CreateAsync(show);
+                show.Id = created.Id;
+                showIndex.MarkCreated(show);
+                showIndex.Index(show);
+                await TryEnrichShowAsync(show);
             }
 
             // de-duplicate across the merged sources: one row per (season, episode), earliest date wins
@@ -177,21 +231,24 @@ public class TvTimeImportService(
             var existingEpisodes = (await episodeRepository.FindAllAsync(ownerId, 1, int.MaxValue, null,
                     NewEpisode(ownerId, show.Id!, 0, 0)))
                 .Items
-                .ToDictionary(e => (e.SeasonNumber, e.EpisodeNumber));
+                .Select(e => (e.SeasonNumber, e.EpisodeNumber))
+                .ToHashSet();
 
             foreach (var seen in episodesWatched)
             {
-                var episodeKey = (seen.SeasonNumber, seen.EpisodeNumber);
-                var isNew = !existingEpisodes.TryGetValue(episodeKey, out var episode);
-                episode ??= NewEpisode(ownerId, show.Id!, seen.SeasonNumber, seen.EpisodeNumber);
+                // Already imported: leave it as-is (keeps the earliest date a previous import recorded).
+                if (existingEpisodes.Contains((seen.SeasonNumber, seen.EpisodeNumber)))
+                {
+                    result.EpisodesSkipped++;
+                    continue;
+                }
 
+                var episode = NewEpisode(ownerId, show.Id!, seen.SeasonNumber, seen.EpisodeNumber);
                 episode.WatchedAt = DateOnly.FromDateTime(seen.WatchedAt);
                 if (notesByEpisodeKey.TryGetValue((showGroup.Key, seen.SeasonNumber, seen.EpisodeNumber), out var notes)) episode.Notes = notes;
 
-                if (await SaveAsync(episodeRepository, episode, ownerId, isNew)) result.EpisodesCreated++;
-                else result.EpisodesUpdated++;
-
-                existingEpisodes[episodeKey] = episode;
+                await episodeRepository.CreateAsync(episode);
+                result.EpisodesCreated++;
             }
         }
 
@@ -236,11 +293,11 @@ public class TvTimeImportService(
         List<MovieVoteRecord> movieVotes,
         List<MovieTrackingEventRecord> movieTrackingEvents,
         HashSet<string> favoriteMovieUuids,
+        Dictionary<string, string> movieIdByTitle,
         ImportResultDto result)
     {
-        var moviesByTitle = (await movieRepository.FindAllAsync(ownerId, 1, int.MaxValue, null, NewMovie(ownerId, string.Empty)))
-            .Items
-            .ToDictionary(movie => TitleNormalizer.Normalize(movie.Title));
+        var existing = (await movieRepository.FindAllAsync(ownerId, 1, int.MaxValue, null, NewMovie(ownerId, string.Empty))).Items;
+        var index = new UpsertIndex<MovieModel>(existing, movie => movie.Title);
 
         var votesByTitle = movieVotes.GroupBy(v => TitleNormalizer.Normalize(v.MovieName)).ToDictionary(g => g.Key, g => g.ToList());
         var trackingByTitle = movieTrackingEvents.GroupBy(e => TitleNormalizer.Normalize(e.MovieName)).ToDictionary(g => g.Key, g => g.ToList());
@@ -252,8 +309,17 @@ public class TvTimeImportService(
 
         foreach (var (key, movieName) in titles)
         {
-            var isNew = !moviesByTitle.TryGetValue(key, out var model);
-            model ??= NewMovie(ownerId, movieName);
+            var tvTimeId = ResolveTvTimeId(movieName, movieIdByTitle);
+
+            if (index.TryMatch(tvTimeId, movieName, out var existingMovie))
+            {
+                await BackfillTvTimeIdAsync(movieRepository, index, existingMovie, tvTimeId, ownerId);
+                index.MarkMatched(existingMovie);
+                continue;
+            }
+
+            var model = NewMovie(ownerId, movieName);
+            model.TvTimeId = tvTimeId;
 
             if (votesByTitle.TryGetValue(key, out var votes) && votes.Any(v => favoriteMovieUuids.Contains(v.Uuid)))
             {
@@ -267,36 +333,31 @@ public class TvTimeImportService(
                 if (watchDates.Count == 0 && events.Any(e => e.EventType == MovieTrackingEventType.WantToWatch)) model.WantToWatch = true;
             }
 
-            if (await SaveAsync(movieRepository, model, ownerId, isNew))
-            {
-                result.MoviesCreated++;
-                await TryEnrichMovieAsync(model);
-            }
-            else
-            {
-                result.MoviesUpdated++;
-            }
-
-            moviesByTitle[key] = model;
+            var created = await movieRepository.CreateAsync(model);
+            model.Id = created.Id;
+            index.MarkCreated(model);
+            index.Index(model);
+            await TryEnrichMovieAsync(model);
         }
+
+        result.MoviesCreated = index.CreatedCount;
+        result.MoviesSkipped = index.SkippedCount;
     }
 
     /// <summary>
-    /// Creates or updates (in place, preserving fields this import doesn't touch) a single model,
-    /// shared by the show/episode/movie upserts above.
+    /// One-time adoption of a record created by an import that predated the stable-id matching: it exists
+    /// (matched by title) but has no TV Time id yet, so stamp the id on it now, without touching anything
+    /// else, so that every subsequent re-import matches it by id instead of title. A no-op for a record
+    /// that already carries an id (the steady-state re-import path, which writes nothing at all).
     /// </summary>
-    private static async Task<bool> SaveAsync<TModel>(IDataRepository<TModel> repository, TModel model, string ownerId, bool isNew)
-        where TModel : class, IHasIdAndOwnerId
+    private static async Task BackfillTvTimeIdAsync<TModel>(IDataRepository<TModel> repository, UpsertIndex<TModel> index, TModel model, string tvTimeId, string ownerId)
+        where TModel : class, IHasIdAndOwnerId, IHasTvTimeId
     {
-        if (isNew)
-        {
-            var created = await repository.CreateAsync(model);
-            model.Id = created.Id;
-            return true;
-        }
+        if (!string.IsNullOrEmpty(model.TvTimeId)) return;
 
+        model.TvTimeId = tvTimeId;
         await repository.UpdateAsync(model.Id!, model, ownerId);
-        return false;
+        index.Index(model);
     }
 
     private static TvShowModel NewShow(string ownerId, string title) => new() { OwnerId = ownerId, Title = title };
@@ -366,6 +427,67 @@ public class TvTimeImportService(
         if (entry is null) return null;
         using var stream = entry.Open();
         return parse(stream);
+    }
+
+    /// <summary>
+    /// Resolves each imported show/movie to the existing record it should update, keyed by a stable TV
+    /// Time id. This is what makes a re-import idempotent even after reference enrichment has rewritten a
+    /// record's stored Title to a provider's canonical name: matching is by the immutable id, never by the
+    /// mutable title. It also tallies how many records were created versus skipped, de-duplicated by
+    /// reference identity so a show touched in both the followed-shows and episodes phases counts once.
+    /// </summary>
+    private sealed class UpsertIndex<TModel>
+        where TModel : class, IHasTvTimeId
+    {
+        private readonly Func<TModel, string> _title;
+        private readonly Dictionary<string, TModel> _byTvTimeId = [];
+        private readonly Dictionary<string, TModel> _byTitle = [];
+        private readonly HashSet<TModel> _created = [];
+        private readonly HashSet<TModel> _skipped = [];
+
+        public UpsertIndex(IEnumerable<TModel> existing, Func<TModel, string> title)
+        {
+            _title = title;
+            foreach (var model in existing)
+            {
+                Index(model);
+            }
+        }
+
+        public int CreatedCount => _created.Count;
+
+        public int SkippedCount => _skipped.Count;
+
+        /// <summary>Registers a model under its TV Time id (if set) and its normalized title.</summary>
+        public void Index(TModel model)
+        {
+            if (!string.IsNullOrEmpty(model.TvTimeId)) _byTvTimeId[model.TvTimeId] = model;
+            _byTitle.TryAdd(TitleNormalizer.Normalize(_title(model)), model);
+        }
+
+        /// <summary>
+        /// Matches an imported item to an existing record. A hit on <paramref name="tvTimeId"/> is the
+        /// steady-state path. The title fallback fires only for a record that has no TV Time id yet - one
+        /// created by an import predating this feature - so it gets adopted (and back-filled) exactly once
+        /// rather than duplicated; a record that already carries a *different* id is left alone, so two
+        /// genuinely different items sharing a title are never collapsed into one.
+        /// </summary>
+        public bool TryMatch(string tvTimeId, string title, out TModel model)
+        {
+            if (_byTvTimeId.TryGetValue(tvTimeId, out model!)) return true;
+            if (_byTitle.TryGetValue(TitleNormalizer.Normalize(title), out model!) && string.IsNullOrEmpty(model.TvTimeId)) return true;
+
+            model = null!;
+            return false;
+        }
+
+        public void MarkCreated(TModel model) => _created.Add(model);
+
+        public void MarkMatched(TModel model)
+        {
+            // A record created earlier in this same run is not a pre-existing "skip".
+            if (!_created.Contains(model)) _skipped.Add(model);
+        }
     }
 
     /// <summary>
