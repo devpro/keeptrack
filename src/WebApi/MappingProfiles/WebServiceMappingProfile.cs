@@ -41,6 +41,10 @@ public class WebServiceMappingProfile : Profile
             .ForMember(x => x.OwnerId, opt => opt.Ignore());
         CreateMap<Domain.Models.VideoGameModel, VideoGameDto>();
 
+        // WatchNext reads are one-directional (Model -> Dto): WatchNextService is a pure Domain-level
+        // computation with no Dto dependency, so WatchNextController maps its result here.
+        CreateMap<Domain.Models.InProgressShowModel, InProgressShowDto>();
+
         // Reference-data reads are one-directional (Model -> Dto): admins submit a LinkReferenceRequestDto,
         // never a full TvShowReferenceDto/MovieReferenceDto, so there's no Dto -> Model direction to map.
         CreateMap<Domain.Models.ReferenceEpisodeModel, ReferenceEpisodeDto>();

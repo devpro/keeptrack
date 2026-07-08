@@ -32,4 +32,8 @@ public class MovieModel : IHasIdAndOwnerId, IHasTvTimeId
     public bool IsFavorite { get; set; }
 
     public bool WantToWatch { get; set; }
+
+    public bool IsOwned { get; set; }
+
+    public bool IsWishlisted { get; set; }
 }

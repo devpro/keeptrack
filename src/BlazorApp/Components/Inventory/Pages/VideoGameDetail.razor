@@ -32,6 +32,10 @@ else
                 <span class="kt-inline-toast @_refreshMessageStyle">@_refreshMessage</span>
             }
         </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm kt-toggle-btn @(_game.IsOwned ? "active" : "")" @onclick="ToggleOwnedAsync">● Owned</button>
+            <button class="btn btn-sm kt-toggle-btn @(_game.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync">○ Wishlist</button>
+        </div>
     </div>
 
     <div class="d-flex gap-2 mb-3 flex-wrap">
@@ -141,6 +145,20 @@ else
     {
         if (_game is null) return;
         _game.Rating = rating;
+        await VideoGameApi.UpdateAsync(_game);
+    }
+
+    private async Task ToggleOwnedAsync()
+    {
+        if (_game is null) return;
+        _game.IsOwned = !_game.IsOwned;
+        await VideoGameApi.UpdateAsync(_game);
+    }
+
+    private async Task ToggleWishlistedAsync()
+    {
+        if (_game is null) return;
+        _game.IsWishlisted = !_game.IsWishlisted;
         await VideoGameApi.UpdateAsync(_game);
     }
 

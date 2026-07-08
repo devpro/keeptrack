@@ -15,66 +15,83 @@
 }
 else
 {
-    <h2 class="kt-section-title">In progress</h2>
-    <p style="color:var(--kt-text-muted);margin-top:-0.5rem">
-        Current shows with a confirmed new episode ready to watch.
-    </p>
-    @if (_data.InProgressShows.Count == 0)
-    {
-        <div class="kt-empty">
-            <div class="kt-empty-icon">◈</div>
-            <p>Nothing new to watch. Shows need a "Current" status and a linked reference to appear here.</p>
-        </div>
-    }
-    else
-    {
-        <div class="kt-card-grid">
-            @foreach (var show in _data.InProgressShows)
-            {
-                <a class="kt-card" href="@($"/tv-shows/{show.TvShowId}")" style="display:block;color:inherit">
-                    <span class="kt-card-badge">Next: S@(show.NextSeasonNumber.ToString("00"))E@(show.NextEpisodeNumber.ToString("00"))</span>
-                    <p class="kt-card-title">@show.TvShowTitle</p>
-                    <p class="kt-card-meta">@show.NextEpisodeTitle</p>
-                    <p class="kt-card-meta">Last seen S@(show.LastSeasonNumber.ToString("00"))E@(show.LastEpisodeNumber.ToString("00"))</p>
-                </a>
-            }
-        </div>
-    }
+    <div class="kt-tabs">
+        <button class="kt-tab @(_tab == Tab.TvShows ? "active" : "")" @onclick="() => SelectTab(Tab.TvShows)">
+            TV shows<span class="kt-tab-count">@_data.InProgressShows.Count</span>
+        </button>
+        <button class="kt-tab @(_tab == Tab.Movies ? "active" : "")" @onclick="() => SelectTab(Tab.Movies)">
+            Movies<span class="kt-tab-count">@_data.MoviesToWatch.Count</span>
+        </button>
+    </div>
 
-    <h2 class="kt-section-title">Movies to watch</h2>
-    @if (_data.MoviesToWatch.Count == 0)
+    @if (_tab == Tab.TvShows)
     {
-        <div class="kt-empty">
-            <div class="kt-empty-icon">◈</div>
-            <p>Your movie watchlist is empty. Add a movie to your watchlist to see it here.</p>
-        </div>
+        <p style="color:var(--kt-text-muted);margin-top:-0.5rem">
+            Current shows with a confirmed new episode ready to watch.
+        </p>
+        @if (_data.InProgressShows.Count == 0)
+        {
+            <div class="kt-empty">
+                <div class="kt-empty-icon">◈</div>
+                <p>Nothing new to watch. Shows need a "Current" status and a linked reference to appear here.</p>
+            </div>
+        }
+        else
+        {
+            <div class="kt-card-grid">
+                @foreach (var show in _data.InProgressShows)
+                {
+                    <a class="kt-card" href="@($"/tv-shows/{show.TvShowId}")" style="display:block;color:inherit">
+                        <span class="kt-card-badge">Next: S@(show.NextSeasonNumber.ToString("00"))E@(show.NextEpisodeNumber.ToString("00"))</span>
+                        <p class="kt-card-title">@show.TvShowTitle</p>
+                        <p class="kt-card-meta">@show.NextEpisodeTitle</p>
+                        <p class="kt-card-meta">Last seen S@(show.LastSeasonNumber.ToString("00"))E@(show.LastEpisodeNumber.ToString("00"))</p>
+                    </a>
+                }
+            </div>
+        }
     }
     else
     {
-        <div class="kt-card-grid">
-            @foreach (var movie in _data.MoviesToWatch)
-            {
-                <a class="kt-card" href="@($"/movies/{movie.Id}")" style="display:block;color:inherit">
-                    <p class="kt-card-title">@movie.Title</p>
-                    @if (movie.Year > 0)
-                    {
-                        <p class="kt-card-meta">@movie.Year</p>
-                    }
-                </a>
-            }
-        </div>
+        @if (_data.MoviesToWatch.Count == 0)
+        {
+            <div class="kt-empty">
+                <div class="kt-empty-icon">◈</div>
+                <p>Your movie watchlist is empty. Add a movie to your watchlist to see it here.</p>
+            </div>
+        }
+        else
+        {
+            <div class="kt-card-grid">
+                @foreach (var movie in _data.MoviesToWatch)
+                {
+                    <a class="kt-card" href="@($"/movies/{movie.Id}")" style="display:block;color:inherit">
+                        <p class="kt-card-title">@movie.Title</p>
+                        @if (movie.Year > 0)
+                        {
+                            <p class="kt-card-meta">@movie.Year</p>
+                        }
+                    </a>
+                }
+            </div>
+        }
     }
 }
 
 @code {
+    private enum Tab { TvShows, Movies }
+
     [Inject] private WatchNextApiClient WatchNextApi { get; set; } = null!;
 
     private bool _loading = true;
     private WatchNextDto _data = new();
+    private Tab _tab = Tab.TvShows;
 
     protected override async Task OnInitializedAsync()
     {
         _data = await WatchNextApi.GetAsync();
         _loading = false;
     }
+
+    private void SelectTab(Tab tab) => _tab = tab;
 }

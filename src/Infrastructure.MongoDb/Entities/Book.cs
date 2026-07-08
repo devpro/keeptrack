@@ -36,4 +36,10 @@ public class Book : IHasIdAndOwnerId
 
     [BsonElement("is_favorite")]
     public bool IsFavorite { get; set; }
+
+    [BsonElement("is_owned")]
+    public bool IsOwned { get; set; }
+
+    [BsonElement("is_wishlisted")]
+    public bool IsWishlisted { get; set; }
 }

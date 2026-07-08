@@ -24,4 +24,8 @@ public class VideoGameModel : IHasIdAndOwnerId
     public DateOnly? FinishedAt { get; set; }
 
     public string? ReferenceId { get; set; }
+
+    public bool IsOwned { get; set; }
+
+    public bool IsWishlisted { get; set; }
 }

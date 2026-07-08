@@ -78,4 +78,33 @@ public class VideoGameResourceTest(KestrelWebAppFactory<Program> factory)
             await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
         }
     }
+
+    [Fact]
+    public async Task VideoGameResourceOwnedAndWishlistedFilters_OnlyReturnMatchingItems_IsOk()
+    {
+        await Authenticate();
+
+        var title = System.Guid.NewGuid().ToString();
+        var created = await PostAsync($"/{ResourceEndpoint}", new VideoGameDto
+        {
+            Title = title,
+            Platform = "PS5",
+            State = "Available",
+            IsOwned = true,
+            IsWishlisted = true
+        });
+
+        try
+        {
+            var owned = await GetAsync<PagedResult<VideoGameDto>>($"/{ResourceEndpoint}?IsOwned=true&search={title}");
+            owned.Items.Should().ContainSingle(x => x.Id == created.Id);
+
+            var wishlisted = await GetAsync<PagedResult<VideoGameDto>>($"/{ResourceEndpoint}?IsWishlisted=true&search={title}");
+            wishlisted.Items.Should().ContainSingle(x => x.Id == created.Id);
+        }
+        finally
+        {
+            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
+        }
+    }
 }

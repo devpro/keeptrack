@@ -11,12 +11,39 @@ public partial class Movies : InventoryPageBase<MovieDto>
 
     private bool _favoriteFilter;
 
-    protected override IReadOnlyDictionary<string, string>? ExtraQuery =>
-        _favoriteFilter ? new Dictionary<string, string> { ["IsFavorite"] = "true" } : null;
+    private bool _ownedFilter;
+
+    private bool _wishlistedFilter;
+
+    protected override IReadOnlyDictionary<string, string>? ExtraQuery
+    {
+        get
+        {
+            var query = new Dictionary<string, string>();
+            if (_favoriteFilter) query["IsFavorite"] = "true";
+            if (_ownedFilter) query["IsOwned"] = "true";
+            if (_wishlistedFilter) query["IsWishlisted"] = "true";
+            return query.Count > 0 ? query : null;
+        }
+    }
 
     private async Task ToggleFavoriteFilterAsync()
     {
         _favoriteFilter = !_favoriteFilter;
+        _page = 1;
+        await LoadAsync();
+    }
+
+    private async Task ToggleOwnedFilterAsync()
+    {
+        _ownedFilter = !_ownedFilter;
+        _page = 1;
+        await LoadAsync();
+    }
+
+    private async Task ToggleWishlistedFilterAsync()
+    {
+        _wishlistedFilter = !_wishlistedFilter;
         _page = 1;
         await LoadAsync();
     }
@@ -31,6 +58,8 @@ public partial class Movies : InventoryPageBase<MovieDto>
         FirstSeenAt = item.FirstSeenAt,
         ReferenceId = item.ReferenceId,
         IsFavorite = item.IsFavorite,
-        WantToWatch = item.WantToWatch
+        WantToWatch = item.WantToWatch,
+        IsOwned = item.IsOwned,
+        IsWishlisted = item.IsWishlisted
     };
 }

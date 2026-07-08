@@ -2,9 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Keeptrack.Domain.Models;
-using Keeptrack.WebApi.Contracts.Dto;
 
-namespace Keeptrack.WebApi.WatchNext;
+namespace Keeptrack.Domain.Services;
 
 /// <summary>
 /// Computes, for each in-progress TV show, whether there is a confirmed unseen episode to watch next.
@@ -18,7 +17,7 @@ public class WatchNextService
     /// further episode actually exists (the show might already be fully caught up) - so unlinked shows are
     /// excluded rather than guessed at, the same "don't guess" principle as before, now enforced by data.
     /// </summary>
-    public List<InProgressShowDto> ComputeInProgressShows(
+    public List<InProgressShowModel> ComputeInProgressShows(
         IEnumerable<TvShowModel> shows,
         IEnumerable<EpisodeModel> episodes,
         IReadOnlyDictionary<string, TvShowReferenceModel> referencesByShowId)
@@ -48,7 +47,7 @@ public class WatchNextService
                     .FirstOrDefault();
                 if (nextEpisode is null) return null;
 
-                return new InProgressShowDto
+                return new InProgressShowModel
                 {
                     TvShowId = show.Id!,
                     TvShowTitle = show.Title,
@@ -60,8 +59,8 @@ public class WatchNextService
                     NextEpisodeTitle = nextEpisode.Title
                 };
             })
-            .Where(dto => dto is not null)
-            .Select(dto => dto!)
+            .Where(model => model is not null)
+            .Select(model => model!)
             .OrderByDescending(n => n.LastWatchedAt)
             .ToList();
     }

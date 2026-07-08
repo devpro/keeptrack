@@ -73,4 +73,34 @@ public class MovieResourceTest(KestrelWebAppFactory<Program> factory)
             await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
         }
     }
+
+    [Fact]
+    public async Task MovieResourceOwnedAndWishlistedFilters_OnlyReturnMatchingItems_IsOk()
+    {
+        await Authenticate();
+
+        var uniqueTitle = $"OwnedWishlistTarget-{Guid.NewGuid():N}";
+        var input = new Faker<MovieDto>()
+            .Rules((f, o) =>
+            {
+                o.Title = uniqueTitle;
+                o.IsOwned = true;
+                o.IsWishlisted = true;
+            })
+            .Generate();
+        var created = await PostAsync($"/{ResourceEndpoint}", input);
+
+        try
+        {
+            var owned = await GetAsync<PagedResult<MovieDto>>($"/{ResourceEndpoint}?IsOwned=true&search={uniqueTitle}");
+            owned.Items.Should().ContainSingle(m => m.Id == created.Id);
+
+            var wishlisted = await GetAsync<PagedResult<MovieDto>>($"/{ResourceEndpoint}?IsWishlisted=true&search={uniqueTitle}");
+            wishlisted.Items.Should().ContainSingle(m => m.Id == created.Id);
+        }
+        finally
+        {
+            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
+        }
+    }
 }

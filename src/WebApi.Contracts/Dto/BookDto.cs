@@ -53,4 +53,8 @@ public class BookDto : IHasId
     public string? ReferenceId { get; set; }
 
     public bool IsFavorite { get; set; }
+
+    public bool IsOwned { get; set; }
+
+    public bool IsWishlisted { get; set; }
 }

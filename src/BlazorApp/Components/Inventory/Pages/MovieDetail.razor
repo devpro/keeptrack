@@ -35,6 +35,8 @@ else
         <div class="d-flex gap-2">
             <button class="btn btn-sm kt-toggle-btn @(_movie.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>
             <button class="btn btn-sm kt-toggle-btn @(_movie.WantToWatch ? "active" : "")" @onclick="ToggleWantToWatchAsync">Watchlist</button>
+            <button class="btn btn-sm kt-toggle-btn @(_movie.IsOwned ? "active" : "")" @onclick="ToggleOwnedAsync">● Owned</button>
+            <button class="btn btn-sm kt-toggle-btn @(_movie.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync">○ Wishlist</button>
         </div>
     </div>
     @if (string.IsNullOrEmpty(_movie.ReferenceId))
@@ -137,6 +139,20 @@ else
     {
         if (_movie is null) return;
         _movie.WantToWatch = !_movie.WantToWatch;
+        await MovieApi.UpdateAsync(_movie);
+    }
+
+    private async Task ToggleOwnedAsync()
+    {
+        if (_movie is null) return;
+        _movie.IsOwned = !_movie.IsOwned;
+        await MovieApi.UpdateAsync(_movie);
+    }
+
+    private async Task ToggleWishlistedAsync()
+    {
+        if (_movie is null) return;
+        _movie.IsWishlisted = !_movie.IsWishlisted;
         await MovieApi.UpdateAsync(_movie);
     }
 

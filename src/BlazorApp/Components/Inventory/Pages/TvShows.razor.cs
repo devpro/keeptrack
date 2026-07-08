@@ -13,6 +13,10 @@ public partial class TvShows : InventoryPageBase<TvShowDto>
 
     private bool _favoriteFilter;
 
+    private bool _ownedFilter;
+
+    private bool _wishlistedFilter;
+
     protected override IReadOnlyDictionary<string, string>? ExtraQuery
     {
         get
@@ -20,6 +24,8 @@ public partial class TvShows : InventoryPageBase<TvShowDto>
             var query = new Dictionary<string, string>();
             if (_stateFilter is not null) query["State"] = _stateFilter.ToString()!;
             if (_favoriteFilter) query["IsFavorite"] = "true";
+            if (_ownedFilter) query["IsOwned"] = "true";
+            if (_wishlistedFilter) query["IsWishlisted"] = "true";
             return query.Count > 0 ? query : null;
         }
     }
@@ -38,6 +44,20 @@ public partial class TvShows : InventoryPageBase<TvShowDto>
         await LoadAsync();
     }
 
+    private async Task ToggleOwnedFilterAsync()
+    {
+        _ownedFilter = !_ownedFilter;
+        _page = 1;
+        await LoadAsync();
+    }
+
+    private async Task ToggleWishlistedFilterAsync()
+    {
+        _wishlistedFilter = !_wishlistedFilter;
+        _page = 1;
+        await LoadAsync();
+    }
+
     protected override TvShowDto CloneItem(TvShowDto item) => new()
     {
         Id = item.Id,
@@ -49,6 +69,8 @@ public partial class TvShows : InventoryPageBase<TvShowDto>
         LastEpisodeSeen = item.LastEpisodeSeen,
         Year = item.Year,
         IsFavorite = item.IsFavorite,
-        WantToWatch = item.WantToWatch
+        WantToWatch = item.WantToWatch,
+        IsOwned = item.IsOwned,
+        IsWishlisted = item.IsWishlisted
     };
 }

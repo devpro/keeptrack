@@ -36,4 +36,10 @@ public class Movie : IHasIdAndOwnerId
 
     [BsonElement("want_to_watch")]
     public bool WantToWatch { get; set; }
+
+    [BsonElement("is_owned")]
+    public bool IsOwned { get; set; }
+
+    [BsonElement("is_wishlisted")]
+    public bool IsWishlisted { get; set; }
 }

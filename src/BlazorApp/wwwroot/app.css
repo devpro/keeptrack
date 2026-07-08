@@ -956,6 +956,45 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
 }
 .kt-section-title:first-child { margin-top: 0; }
 
+/* ── Tabs (page-level section switcher, e.g. Watch Next / Wishlist by type) ── */
+.kt-tabs {
+  display: flex;
+  gap: 1.5rem;
+  border-bottom: 1px solid var(--kt-border);
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.kt-tab {
+  padding: 0.65rem 0.1rem;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--kt-text-muted);
+  font-family: var(--kt-font);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color var(--kt-transition), border-color var(--kt-transition);
+  margin-bottom: -1px;
+}
+
+.kt-tab:hover {
+  color: var(--kt-text);
+}
+
+.kt-tab.active {
+  color: var(--kt-accent);
+  border-bottom-color: var(--kt-accent);
+  font-weight: 600;
+}
+
+.kt-tab-count {
+  color: var(--kt-text-subtle);
+  font-weight: 400;
+  margin-left: 0.3rem;
+}
+
 /* ── Season timeline (TV show detail) ──────────────────────────────── */
 .kt-season-picker {
   display: flex;

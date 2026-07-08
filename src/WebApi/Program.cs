@@ -13,30 +13,37 @@ builder.Services.AddAutoMapper(config =>
     },
     typeof(Program).Assembly);
 builder.Services.AddHealthChecks();
-builder.Services.AddSingleton<Keeptrack.WebApi.WatchNext.WatchNextService>();
+// a hosted BackgroundService (e.g. ReferenceSyncBackgroundService) already catches and logs every
+// exception it can anticipate, but this is a systemic safety net for whatever it doesn't: by default,
+// an unhandled exception escaping a BackgroundService.ExecuteAsync stops the whole host, taking every
+// other endpoint down with it - "Ignore" logs it instead and lets the rest of the app keep serving requests.
+builder.Services.Configure<Microsoft.Extensions.Hosting.HostOptions>(opts =>
+    opts.BackgroundServiceExceptionBehavior = Microsoft.Extensions.Hosting.BackgroundServiceExceptionBehavior.Ignore);
+builder.Services.AddSingleton<Keeptrack.Domain.Services.WatchNextService>();
+builder.Services.AddSingleton<Keeptrack.Domain.Services.WishlistService>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Import.ImportJobStore>();
 builder.Services.AddScoped<Keeptrack.WebApi.Import.TvTimeImportService>();
 builder.Services.AddSingleton(configuration.TmdbSettings);
 builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.ITmdbClient, Keeptrack.WebApi.ReferenceData.TmdbClient>(client =>
 {
     client.BaseAddress = new Uri("https://api.themoviedb.org/3/");
-});
+}).AddStandardResilienceHandler();
 builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.IOpenLibraryClient, Keeptrack.WebApi.ReferenceData.OpenLibraryClient>(client =>
 {
     client.BaseAddress = new Uri("https://openlibrary.org/");
     client.DefaultRequestHeaders.Add("User-Agent", "Keeptrack/1.0 (+https://github.com/devpro/keeptrack)");
-});
+}).AddStandardResilienceHandler();
 builder.Services.AddSingleton(configuration.RawgSettings);
 builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.IRawgClient, Keeptrack.WebApi.ReferenceData.RawgClient>(client =>
 {
     client.BaseAddress = new Uri("https://api.rawg.io/api/");
-});
+}).AddStandardResilienceHandler();
 builder.Services.AddSingleton(configuration.DiscogsSettings);
 builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.IDiscogsClient, Keeptrack.WebApi.ReferenceData.DiscogsClient>(client =>
 {
     client.BaseAddress = new Uri("https://api.discogs.com/");
     client.DefaultRequestHeaders.Add("User-Agent", "Keeptrack/1.0 (+https://github.com/devpro/keeptrack)");
-});
+}).AddStandardResilienceHandler();
 builder.Services.AddScoped<Keeptrack.WebApi.ReferenceData.ReferenceEnrichmentService>();
 builder.Services.AddScoped<Keeptrack.WebApi.ReferenceData.ReferenceSyncService>();
 builder.Services.AddHostedService<Keeptrack.WebApi.ReferenceData.ReferenceSyncBackgroundService>();

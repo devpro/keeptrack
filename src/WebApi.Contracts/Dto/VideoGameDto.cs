@@ -43,4 +43,8 @@ public class VideoGameDto : IHasId
     /// Id of the linked <c>videogame_reference</c> document, when a match has been found.
     /// </summary>
     public string? ReferenceId { get; set; }
+
+    public bool IsOwned { get; set; }
+
+    public bool IsWishlisted { get; set; }
 }

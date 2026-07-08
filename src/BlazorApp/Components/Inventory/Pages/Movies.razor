@@ -30,6 +30,8 @@
                OnSearchChanged="@OnSearchChanged">
     <Filters>
         <button class="btn btn-sm kt-toggle-btn @(_favoriteFilter ? "active" : "")" @onclick="ToggleFavoriteFilterAsync">★ Favorites</button>
+        <button class="btn btn-sm kt-toggle-btn @(_ownedFilter ? "active" : "")" @onclick="ToggleOwnedFilterAsync">● Owned</button>
+        <button class="btn btn-sm kt-toggle-btn @(_wishlistedFilter ? "active" : "")" @onclick="ToggleWishlistedFilterAsync">○ Wishlist</button>
     </Filters>
     <HeaderTemplate>
         <th>Title</th>
@@ -53,6 +55,14 @@
             @if (movie.WantToWatch)
             {
                 <span title="Watchlist">▶</span>
+            }
+            @if (movie.IsOwned)
+            {
+                <span title="Owned">●</span>
+            }
+            @if (movie.IsWishlisted)
+            {
+                <span title="Wishlist">○</span>
             }
         </td>
     </RowTemplate>
@@ -78,6 +88,14 @@
             <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="movie-want-to-watch" @bind="movie.WantToWatch" />
                 <label class="form-check-label" for="movie-want-to-watch">Watchlist</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="movie-owned" @bind="movie.IsOwned" />
+                <label class="form-check-label" for="movie-owned">Owned</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="movie-wishlisted" @bind="movie.IsWishlisted" />
+                <label class="form-check-label" for="movie-wishlisted">Wishlist</label>
             </div>
         </div>
     </FormTemplate>
@@ -120,6 +138,14 @@
             <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="movie-want-to-watch-modal" @bind="movie.WantToWatch" />
                 <label class="form-check-label" for="movie-want-to-watch-modal">Watchlist</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="movie-owned-modal" @bind="movie.IsOwned" />
+                <label class="form-check-label" for="movie-owned-modal">Owned</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="movie-wishlisted-modal" @bind="movie.IsWishlisted" />
+                <label class="form-check-label" for="movie-wishlisted-modal">Wishlist</label>
             </div>
         </div>
     </EditModalTemplate>

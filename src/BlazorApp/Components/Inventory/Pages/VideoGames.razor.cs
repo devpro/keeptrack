@@ -21,12 +21,39 @@ public partial class VideoGames : InventoryPageBase<VideoGameDto>
 
     private string? _stateFilter;
 
-    protected override IReadOnlyDictionary<string, string>? ExtraQuery =>
-        string.IsNullOrEmpty(_stateFilter) ? null : new Dictionary<string, string> { ["State"] = _stateFilter };
+    private bool _ownedFilter;
+
+    private bool _wishlistedFilter;
+
+    protected override IReadOnlyDictionary<string, string>? ExtraQuery
+    {
+        get
+        {
+            var query = new Dictionary<string, string>();
+            if (!string.IsNullOrEmpty(_stateFilter)) query["State"] = _stateFilter;
+            if (_ownedFilter) query["IsOwned"] = "true";
+            if (_wishlistedFilter) query["IsWishlisted"] = "true";
+            return query.Count > 0 ? query : null;
+        }
+    }
 
     private async Task SetStateFilterAsync(string? state)
     {
         _stateFilter = state;
+        _page = 1;
+        await LoadAsync();
+    }
+
+    private async Task ToggleOwnedFilterAsync()
+    {
+        _ownedFilter = !_ownedFilter;
+        _page = 1;
+        await LoadAsync();
+    }
+
+    private async Task ToggleWishlistedFilterAsync()
+    {
+        _wishlistedFilter = !_wishlistedFilter;
         _page = 1;
         await LoadAsync();
     }
@@ -41,6 +68,8 @@ public partial class VideoGames : InventoryPageBase<VideoGameDto>
         Notes = item.Notes,
         Rating = item.Rating,
         Year = item.Year,
-        ReferenceId = item.ReferenceId
+        ReferenceId = item.ReferenceId,
+        IsOwned = item.IsOwned,
+        IsWishlisted = item.IsWishlisted
     };
 }

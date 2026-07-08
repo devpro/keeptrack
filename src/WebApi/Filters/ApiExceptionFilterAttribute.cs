@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.Extensions.Logging;
 
 namespace Keeptrack.WebApi.Filters;
 
@@ -12,7 +13,7 @@ namespace Keeptrack.WebApi.Filters;
 /// </para>
 /// </summary>
 [AttributeUsage(AttributeTargets.Class)]
-public sealed class ApiExceptionFilterAttribute : ExceptionFilterAttribute
+public sealed class ApiExceptionFilterAttribute(ILogger<ApiExceptionFilterAttribute> logger) : ExceptionFilterAttribute
 {
     /// <inheritdoc />
     public override void OnException(ExceptionContext context)
@@ -23,6 +24,11 @@ public sealed class ApiExceptionFilterAttribute : ExceptionFilterAttribute
             ArgumentException ex => (ex.Message, StatusCodes.Status400BadRequest),
             _ => (context.Exception.Message, StatusCodes.Status500InternalServerError)
         };
+
+        // logged here (not just left to be visible client-side) so a 500 - especially one caused by a
+        // failing external provider call (TMDB/RAWG/Open Library/Discogs) - leaves a server-side trail to
+        // diagnose after the fact, instead of only ever being visible as an opaque error in the browser.
+        logger.LogError(context.Exception, "Unhandled exception in {Path}: {Message}", context.HttpContext.Request.Path, message);
 
         context.Result = new JsonResult(new { error = message });
         context.HttpContext.Response.StatusCode = statusCode;

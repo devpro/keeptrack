@@ -1,10 +1,10 @@
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
-using Keeptrack.WebApi.Controllers;
+using Keeptrack.Domain.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Keeptrack.WebApi.WatchNext;
+namespace Keeptrack.WebApi.Controllers;
 
 [ApiController]
 [Authorize]
@@ -42,7 +42,7 @@ public class WatchNextController(
 
         return Ok(new WatchNextDto
         {
-            InProgressShows = watchNextService.ComputeInProgressShows(shows.Items, episodes.Items, referencesByShowId),
+            InProgressShows = mapper.Map<List<InProgressShowDto>>(watchNextService.ComputeInProgressShows(shows.Items, episodes.Items, referencesByShowId)),
             MoviesToWatch = mapper.Map<List<MovieDto>>(watchNextService.FilterMoviesToWatch(moviesToWatch.Items))
         });
     }

@@ -24,6 +24,8 @@ public class VideoGameRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRe
         if (!string.IsNullOrEmpty(search)) filter &= builder.Where(f => f.Title.Contains(search, System.StringComparison.CurrentCultureIgnoreCase));
         if (!string.IsNullOrEmpty(input.State)) filter &= builder.Where(f => f.State == input.State);
         if (!string.IsNullOrEmpty(input.Platform)) filter &= builder.Where(f => f.Platform == input.Platform);
+        if (input.IsOwned) filter &= builder.Eq(f => f.IsOwned, true);
+        if (input.IsWishlisted) filter &= builder.Eq(f => f.IsWishlisted, true);
         return filter;
     }
 

@@ -34,6 +34,8 @@ else
         </div>
         <div class="d-flex gap-2">
             <button class="btn btn-sm kt-toggle-btn @(_book.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>
+            <button class="btn btn-sm kt-toggle-btn @(_book.IsOwned ? "active" : "")" @onclick="ToggleOwnedAsync">● Owned</button>
+            <button class="btn btn-sm kt-toggle-btn @(_book.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync">○ Wishlist</button>
         </div>
     </div>
     @if (string.IsNullOrEmpty(_book.ReferenceId))
@@ -138,6 +140,20 @@ else
     {
         if (_book is null) return;
         _book.IsFavorite = !_book.IsFavorite;
+        await BookApi.UpdateAsync(_book);
+    }
+
+    private async Task ToggleOwnedAsync()
+    {
+        if (_book is null) return;
+        _book.IsOwned = !_book.IsOwned;
+        await BookApi.UpdateAsync(_book);
+    }
+
+    private async Task ToggleWishlistedAsync()
+    {
+        if (_book is null) return;
+        _book.IsWishlisted = !_book.IsWishlisted;
         await BookApi.UpdateAsync(_book);
     }
 

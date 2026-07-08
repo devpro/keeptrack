@@ -1,0 +1,148 @@
+@page "/wishlist"
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+<div class="kt-page-header">
+    <h1>Wish<span>list</span></h1>
+</div>
+
+@if (_loading)
+{
+    <div class="kt-loading">
+        <div class="kt-spinner"></div>
+        Loading…
+    </div>
+}
+else
+{
+    <div class="kt-tabs">
+        <button class="kt-tab @(_tab == Tab.Movies ? "active" : "")" @onclick="() => SelectTab(Tab.Movies)">
+            Movies<span class="kt-tab-count">@_data.Movies.Count</span>
+        </button>
+        <button class="kt-tab @(_tab == Tab.TvShows ? "active" : "")" @onclick="() => SelectTab(Tab.TvShows)">
+            TV shows<span class="kt-tab-count">@_data.TvShows.Count</span>
+        </button>
+        <button class="kt-tab @(_tab == Tab.Books ? "active" : "")" @onclick="() => SelectTab(Tab.Books)">
+            Books<span class="kt-tab-count">@_data.Books.Count</span>
+        </button>
+        <button class="kt-tab @(_tab == Tab.VideoGames ? "active" : "")" @onclick="() => SelectTab(Tab.VideoGames)">
+            Video games<span class="kt-tab-count">@_data.VideoGames.Count</span>
+        </button>
+    </div>
+
+    @if (_tab == Tab.Movies)
+    {
+        @if (_data.Movies.Count == 0)
+        {
+            <div class="kt-empty">
+                <div class="kt-empty-icon">◈</div>
+                <p>No movies on your wishlist yet.</p>
+            </div>
+        }
+        else
+        {
+            <div class="kt-card-grid">
+                @foreach (var movie in _data.Movies)
+                {
+                    <a class="kt-card" href="@($"/movies/{movie.Id}")" style="display:block;color:inherit">
+                        <p class="kt-card-title">@movie.Title</p>
+                        @if (movie.Year > 0)
+                        {
+                            <p class="kt-card-meta">@movie.Year</p>
+                        }
+                    </a>
+                }
+            </div>
+        }
+    }
+    else if (_tab == Tab.TvShows)
+    {
+        @if (_data.TvShows.Count == 0)
+        {
+            <div class="kt-empty">
+                <div class="kt-empty-icon">◈</div>
+                <p>No TV shows on your wishlist yet.</p>
+            </div>
+        }
+        else
+        {
+            <div class="kt-card-grid">
+                @foreach (var show in _data.TvShows)
+                {
+                    <a class="kt-card" href="@($"/tv-shows/{show.Id}")" style="display:block;color:inherit">
+                        <p class="kt-card-title">@show.Title</p>
+                        @if (show.Year > 0)
+                        {
+                            <p class="kt-card-meta">@show.Year</p>
+                        }
+                    </a>
+                }
+            </div>
+        }
+    }
+    else if (_tab == Tab.Books)
+    {
+        @if (_data.Books.Count == 0)
+        {
+            <div class="kt-empty">
+                <div class="kt-empty-icon">◈</div>
+                <p>No books on your wishlist yet.</p>
+            </div>
+        }
+        else
+        {
+            <div class="kt-card-grid">
+                @foreach (var book in _data.Books)
+                {
+                    <a class="kt-card" href="@($"/books/{book.Id}")" style="display:block;color:inherit">
+                        <p class="kt-card-title">@book.Title</p>
+                        <p class="kt-card-meta">@book.Author</p>
+                    </a>
+                }
+            </div>
+        }
+    }
+    else
+    {
+        @if (_data.VideoGames.Count == 0)
+        {
+            <div class="kt-empty">
+                <div class="kt-empty-icon">◈</div>
+                <p>No video games on your wishlist yet.</p>
+            </div>
+        }
+        else
+        {
+            <div class="kt-card-grid">
+                @foreach (var game in _data.VideoGames)
+                {
+                    <a class="kt-card" href="@($"/video-games/{game.Id}")" style="display:block;color:inherit">
+                        <p class="kt-card-title">@game.Title</p>
+                        @if (!string.IsNullOrEmpty(game.Platform))
+                        {
+                            <p class="kt-card-meta">@game.Platform</p>
+                        }
+                    </a>
+                }
+            </div>
+        }
+    }
+}
+
+@code {
+    private enum Tab { Movies, TvShows, Books, VideoGames }
+
+    [Inject] private WishlistApiClient WishlistApi { get; set; } = null!;
+
+    private bool _loading = true;
+    private WishlistDto _data = new();
+    private Tab _tab = Tab.Movies;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _data = await WishlistApi.GetAsync();
+        _loading = false;
+    }
+
+    private void SelectTab(Tab tab) => _tab = tab;
+}

@@ -30,6 +30,8 @@
                OnSearchChanged="@OnSearchChanged">
     <Filters>
         <button class="btn btn-sm kt-toggle-btn @(_favoriteFilter ? "active" : "")" @onclick="ToggleFavoriteFilterAsync">★ Favorites</button>
+        <button class="btn btn-sm kt-toggle-btn @(_ownedFilter ? "active" : "")" @onclick="ToggleOwnedFilterAsync">● Owned</button>
+        <button class="btn btn-sm kt-toggle-btn @(_wishlistedFilter ? "active" : "")" @onclick="ToggleWishlistedFilterAsync">○ Wishlist</button>
     </Filters>
     <HeaderTemplate>
         <th>Title</th>
@@ -51,6 +53,14 @@
             @if (book.IsFavorite)
             {
                 <span title="Favorite">★</span>
+            }
+            @if (book.IsOwned)
+            {
+                <span title="Owned">●</span>
+            }
+            @if (book.IsWishlisted)
+            {
+                <span title="Wishlist">○</span>
             }
         </td>
     </RowTemplate>
@@ -117,6 +127,14 @@
             <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="book-favorite-modal" @bind="book.IsFavorite" />
                 <label class="form-check-label" for="book-favorite-modal">Favorites</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="book-owned-modal" @bind="book.IsOwned" />
+                <label class="form-check-label" for="book-owned-modal">Owned</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="book-wishlisted-modal" @bind="book.IsWishlisted" />
+                <label class="form-check-label" for="book-wishlisted-modal">Wishlist</label>
             </div>
         </div>
     </EditModalTemplate>

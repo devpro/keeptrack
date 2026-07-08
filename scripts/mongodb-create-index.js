@@ -88,6 +88,50 @@ ensureIndex(
   { name: "book_favorite", partialFilterExpression: { is_favorite: true } }
 );
 
+// movie / tvshow / book / videogame: same sparse-flag partial-index rationale as the favorite/want-to-watch
+// indexes above, for the is_owned/is_wishlisted flags. VideoGame has no favorite/want-to-watch flags, so
+// these are its first two flag indexes.
+ensureIndex(
+  db.movie,
+  { owner_id: 1, is_owned: 1 },
+  { name: "movie_owned", partialFilterExpression: { is_owned: true } }
+);
+ensureIndex(
+  db.movie,
+  { owner_id: 1, is_wishlisted: 1 },
+  { name: "movie_wishlisted", partialFilterExpression: { is_wishlisted: true } }
+);
+ensureIndex(
+  db.tvshow,
+  { owner_id: 1, is_owned: 1 },
+  { name: "tvshow_owned", partialFilterExpression: { is_owned: true } }
+);
+ensureIndex(
+  db.tvshow,
+  { owner_id: 1, is_wishlisted: 1 },
+  { name: "tvshow_wishlisted", partialFilterExpression: { is_wishlisted: true } }
+);
+ensureIndex(
+  db.book,
+  { owner_id: 1, is_owned: 1 },
+  { name: "book_owned", partialFilterExpression: { is_owned: true } }
+);
+ensureIndex(
+  db.book,
+  { owner_id: 1, is_wishlisted: 1 },
+  { name: "book_wishlisted", partialFilterExpression: { is_wishlisted: true } }
+);
+ensureIndex(
+  db.videogame,
+  { owner_id: 1, is_owned: 1 },
+  { name: "videogame_owned", partialFilterExpression: { is_owned: true } }
+);
+ensureIndex(
+  db.videogame,
+  { owner_id: 1, is_wishlisted: 1 },
+  { name: "videogame_wishlisted", partialFilterExpression: { is_wishlisted: true } }
+);
+
 // tvshow_reference / movie_reference: shared, owner-less lookup tables (see CLAUDE.md) keyed by
 // matched_aliases (every (title, year) combination ever confirmed for that reference, not just its
 // canonical one - see MatchedAliases/ReferenceMatchModel in CLAUDE.md), the primary automatic-match key.

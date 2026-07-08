@@ -34,6 +34,8 @@
         <button class="btn btn-sm @(_stateFilter == TvShowStatus.Finished ? "btn-primary" : "btn-secondary")" @onclick='() => SetStateFilterAsync(TvShowStatus.Finished)'>Finished</button>
         <button class="btn btn-sm @(_stateFilter == TvShowStatus.Stopped ? "btn-primary" : "btn-secondary")" @onclick='() => SetStateFilterAsync(TvShowStatus.Stopped)'>Stopped</button>
         <button class="btn btn-sm kt-toggle-btn @(_favoriteFilter ? "active" : "")" @onclick="ToggleFavoriteFilterAsync">★ Favorites</button>
+        <button class="btn btn-sm kt-toggle-btn @(_ownedFilter ? "active" : "")" @onclick="ToggleOwnedFilterAsync">● Owned</button>
+        <button class="btn btn-sm kt-toggle-btn @(_wishlistedFilter ? "active" : "")" @onclick="ToggleWishlistedFilterAsync">○ Wishlist</button>
     </Filters>
     <HeaderTemplate>
         <th>Title</th>
@@ -61,6 +63,14 @@
             {
                 <span title="Watchlist">▶</span>
             }
+            @if (show.IsOwned)
+            {
+                <span title="Owned">●</span>
+            }
+            @if (show.IsWishlisted)
+            {
+                <span title="Wishlist">○</span>
+            }
         </td>
     </RowTemplate>
     <FormTemplate Context="show">
@@ -85,6 +95,14 @@
             <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="show-want-to-watch" @bind="show.WantToWatch" />
                 <label class="form-check-label" for="show-want-to-watch">Watchlist</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="show-owned" @bind="show.IsOwned" />
+                <label class="form-check-label" for="show-owned">Owned</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="show-wishlisted" @bind="show.IsWishlisted" />
+                <label class="form-check-label" for="show-wishlisted">Wishlist</label>
             </div>
         </div>
     </FormTemplate>
@@ -136,6 +154,14 @@
             <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="show-want-to-watch-modal" @bind="show.WantToWatch" />
                 <label class="form-check-label" for="show-want-to-watch-modal">Watchlist</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="show-owned-modal" @bind="show.IsOwned" />
+                <label class="form-check-label" for="show-owned-modal">Owned</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="show-wishlisted-modal" @bind="show.IsWishlisted" />
+                <label class="form-check-label" for="show-wishlisted-modal">Wishlist</label>
             </div>
         </div>
     </EditModalTemplate>

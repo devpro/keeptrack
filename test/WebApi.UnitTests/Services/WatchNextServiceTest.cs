@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using AwesomeAssertions;
 using Keeptrack.Domain.Models;
-using Keeptrack.WebApi.WatchNext;
+using Keeptrack.Domain.Services;
 using Xunit;
 
-namespace Keeptrack.WebApi.UnitTests.WatchNext;
+namespace Keeptrack.WebApi.UnitTests.Services;
 
 [Trait("Category", "UnitTests")]
 public class WatchNextServiceTest
