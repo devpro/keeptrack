@@ -34,9 +34,11 @@ public abstract class InventoryApiClientBase<TDto>(HttpClient http)
         return await http.GetFromJsonAsync<TDto>($"{ApiResourceName}/{id}");
     }
 
-    public async Task AddAsync(TDto movie)
+    public async Task<TDto> AddAsync(TDto movie)
     {
-        (await http.PostAsJsonAsync($"{ApiResourceName}", movie)).EnsureSuccessStatusCode();
+        var response = await http.PostAsJsonAsync($"{ApiResourceName}", movie);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<TDto>())!;
     }
 
     public async Task UpdateAsync(TDto movie)

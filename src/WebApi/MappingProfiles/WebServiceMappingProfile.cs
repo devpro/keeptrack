@@ -41,6 +41,12 @@ public class WebServiceMappingProfile : Profile
             .ForMember(x => x.OwnerId, opt => opt.Ignore());
         CreateMap<Domain.Models.VideoGameModel, VideoGameDto>();
 
+        CreateMap<PlaythroughDto, Domain.Models.PlaythroughModel>();
+        CreateMap<Domain.Models.PlaythroughModel, PlaythroughDto>();
+
+        CreateMap<VideoGamePlatformDto, Domain.Models.VideoGamePlatformModel>();
+        CreateMap<Domain.Models.VideoGamePlatformModel, VideoGamePlatformDto>();
+
         // WatchNext reads are one-directional (Model -> Dto): WatchNextService is a pure Domain-level
         // computation with no Dto dependency, so WatchNextController maps its result here.
         CreateMap<Domain.Models.InProgressShowModel, InProgressShowDto>();

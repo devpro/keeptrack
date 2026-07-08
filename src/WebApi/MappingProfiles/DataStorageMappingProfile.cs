@@ -24,8 +24,16 @@ public class DataStorageMappingProfile : Profile
         CreateMap<Infrastructure.MongoDb.Entities.TvShow, Domain.Models.TvShowModel>();
         CreateMap<Domain.Models.TvShowModel, Infrastructure.MongoDb.Entities.TvShow>();
 
-        CreateMap<Infrastructure.MongoDb.Entities.VideoGame, Domain.Models.VideoGameModel>();
+        CreateMap<Infrastructure.MongoDb.Entities.VideoGame, Domain.Models.VideoGameModel>()
+            .ForMember(x => x.Platform, opt => opt.Ignore())
+            .ForMember(x => x.State, opt => opt.Ignore());
         CreateMap<Domain.Models.VideoGameModel, Infrastructure.MongoDb.Entities.VideoGame>();
+
+        CreateMap<Infrastructure.MongoDb.Entities.Playthrough, Domain.Models.PlaythroughModel>();
+        CreateMap<Domain.Models.PlaythroughModel, Infrastructure.MongoDb.Entities.Playthrough>();
+
+        CreateMap<Infrastructure.MongoDb.Entities.VideoGamePlatform, Domain.Models.VideoGamePlatformModel>();
+        CreateMap<Domain.Models.VideoGamePlatformModel, Infrastructure.MongoDb.Entities.VideoGamePlatform>();
 
         CreateMap<Infrastructure.MongoDb.Entities.ReferenceEpisode, Domain.Models.ReferenceEpisodeModel>();
         CreateMap<Domain.Models.ReferenceEpisodeModel, Infrastructure.MongoDb.Entities.ReferenceEpisode>();

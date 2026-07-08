@@ -80,7 +80,7 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
         _error = null;
     }
 
-    protected async Task SaveAsync()
+    protected virtual async Task SaveAsync()
     {
         try
         {

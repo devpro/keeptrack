@@ -13,8 +13,9 @@ public partial class ReferenceEnrichmentService
     /// User-triggered "check for reference match" for video games - see
     /// <see cref="TryLinkExistingTvShowReferenceAsync"/> for the full rationale (this is the same local-only,
     /// no-HTTP-call lookup, just against <c>videogame_reference</c>). A successful match also sets
-    /// <see cref="VideoGameModel.Year"/> to the reference's canonical year. <see cref="VideoGameModel.Platform"/>/
-    /// <see cref="VideoGameModel.State"/> are never overwritten - they describe this tenant's own copy/progress.
+    /// <see cref="VideoGameModel.Year"/> to the reference's canonical year. <see cref="VideoGameModel.Platforms"/>
+    /// is never touched - each entry describes this tenant's own copy/progress on that platform, not the
+    /// canonical release.
     /// </summary>
     public async Task<VideoGameModel> TryLinkExistingVideoGameReferenceAsync(VideoGameModel model)
     {

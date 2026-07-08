@@ -63,8 +63,8 @@ public class WishlistServiceTest
     {
         var games = new[]
         {
-            new VideoGameModel { Id = "1", OwnerId = "owner", Title = "Zelda", Platform = "Switch", State = "Available" },
-            new VideoGameModel { Id = "2", OwnerId = "owner", Title = "Elden Ring", Platform = "PS5", State = "Available" }
+            new VideoGameModel { Id = "1", OwnerId = "owner", Title = "Zelda", Platforms = [new VideoGamePlatformModel { Platform = "Switch", State = "Available" }] },
+            new VideoGameModel { Id = "2", OwnerId = "owner", Title = "Elden Ring", Platforms = [new VideoGamePlatformModel { Platform = "PS5", State = "Available" }] }
         };
 
         var result = _service.SortVideoGames(games);

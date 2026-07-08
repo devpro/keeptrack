@@ -5,8 +5,14 @@ namespace Keeptrack.BlazorApp.Components.Inventory.Pages;
 
 public partial class VideoGames : InventoryPageBase<VideoGameDto>
 {
-    /// <summary>Shared by the list's Filters buttons and the Add/Edit forms' State button group.</summary>
+    /// <summary>Shared by the list's Filters buttons, the detail page's per-platform State buttons, and
+    /// the (now-removed from the list page) Add/Edit forms' old State button group.</summary>
     internal static readonly string[] VideoGameStates = ["Available", "Current", "Completed", "To resume", "On-hold"];
+
+    /// <summary>Shared by the detail page's platform picker - previously duplicated as a literal
+    /// &lt;select&gt; in three places (list add form, list edit modal, detail page).</summary>
+    internal static readonly string[] VideoGamePlatforms =
+        ["Xbox Series X", "PS5", "PC", "Xbox One X", "PS4", "WII", "Xbox 360", "PS2", "PS1"];
 
     /// <summary>
     /// The <c>kt-status-badge</c> modifier class for a state value (see app.css) - same badge/color
@@ -16,6 +22,8 @@ public partial class VideoGames : InventoryPageBase<VideoGameDto>
     internal static string StateBadgeClass(string state) => state.ToLowerInvariant().Replace(" ", "-");
 
     [Inject] private VideoGameApiClient VideoGameApi { get; set; } = null!;
+
+    [Inject] private NavigationManager Nav { get; set; } = null!;
 
     protected override InventoryApiClientBase<VideoGameDto> Api => VideoGameApi;
 
@@ -58,13 +66,47 @@ public partial class VideoGames : InventoryPageBase<VideoGameDto>
         await LoadAsync();
     }
 
+    /// <summary>
+    /// Creating a game only ever captures Title+Year here (see <c>FormTemplate</c>) - platforms, state
+    /// and playthroughs are added on the detail page, so a successful create navigates straight there
+    /// instead of closing the form and staying on the list.
+    /// </summary>
+    protected override async Task SaveAsync()
+    {
+        try
+        {
+            if (_form.Id is null)
+            {
+                var created = await VideoGameApi.AddAsync(_form);
+                _showForm = false;
+                Nav.NavigateTo($"/video-games/{created.Id}");
+            }
+            else
+            {
+                await VideoGameApi.UpdateAsync(_form);
+                _showForm = false;
+                await LoadAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
     protected override VideoGameDto CloneItem(VideoGameDto item) => new()
     {
         Id = item.Id,
         Title = item.Title,
-        Platform = item.Platform,
-        State = item.State,
-        FinishedAt = item.FinishedAt,
+        Platforms = item.Platforms.Select(p => new VideoGamePlatformDto
+        {
+            Platform = p.Platform,
+            CopyType = p.CopyType,
+            State = p.State,
+            Playthroughs = p.Playthroughs.Select(pt => new PlaythroughDto { Label = pt.Label, CompletedAt = pt.CompletedAt }).ToList(),
+            IsFullyCompleted = p.IsFullyCompleted,
+            FullyCompletedAt = p.FullyCompletedAt
+        }).ToList(),
         Notes = item.Notes,
         Rating = item.Rating,
         Year = item.Year,

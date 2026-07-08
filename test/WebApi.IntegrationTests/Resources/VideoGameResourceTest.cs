@@ -32,8 +32,7 @@ public class VideoGameResourceTest(KestrelWebAppFactory<Program> factory)
             .Rules((f, o) =>
             {
                 o.Title = f.Random.AlphaNumeric(14);
-                o.Platform = "PC";
-                o.State = "Current";
+                o.Platforms = [new VideoGamePlatformDto { Platform = "PC", CopyType = VideoGameCopyType.Physical, State = "Current" }];
             })
             .Generate();
         var created = await PostAsync($"/{ResourceEndpoint}", input);
@@ -45,7 +44,7 @@ public class VideoGameResourceTest(KestrelWebAppFactory<Program> factory)
             await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
 
             var updated = await GetAsync<VideoGameDto>($"/{ResourceEndpoint}/{created.Id}");
-            updated.Should().BeEquivalentTo(created, x => x.Excluding(item => item.FinishedAt)); // issue with DateTime and MongoDB
+            updated.Should().BeEquivalentTo(created);
 
             var finalItems = await GetAsync<PagedResult<VideoGameDto>>($"/{ResourceEndpoint}");
             finalItems.TotalCount.Should().BeGreaterThan(initialItems.TotalCount);
@@ -65,7 +64,11 @@ public class VideoGameResourceTest(KestrelWebAppFactory<Program> factory)
         await Authenticate();
 
         var title = System.Guid.NewGuid().ToString();
-        var created = await PostAsync($"/{ResourceEndpoint}", new VideoGameDto { Title = title, Platform = "PS5", State = "Available" });
+        var created = await PostAsync($"/{ResourceEndpoint}", new VideoGameDto
+        {
+            Title = title,
+            Platforms = [new VideoGamePlatformDto { Platform = "PS5", CopyType = VideoGameCopyType.Physical, State = "Available" }]
+        });
 
         try
         {
@@ -88,8 +91,7 @@ public class VideoGameResourceTest(KestrelWebAppFactory<Program> factory)
         var created = await PostAsync($"/{ResourceEndpoint}", new VideoGameDto
         {
             Title = title,
-            Platform = "PS5",
-            State = "Available",
+            Platforms = [new VideoGamePlatformDto { Platform = "PS5", CopyType = VideoGameCopyType.Physical, State = "Available" }],
             IsOwned = true,
             IsWishlisted = true
         });

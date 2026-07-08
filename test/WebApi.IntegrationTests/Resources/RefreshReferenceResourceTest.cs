@@ -153,7 +153,7 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
         });
 
         await Authenticate();
-        var created = await PostAsync("/api/video-games", new VideoGameDto { Title = title, Platform = "PC", State = "Current", Year = year });
+        var created = await PostAsync("/api/video-games", new VideoGameDto { Title = title, Year = year });
 
         try
         {

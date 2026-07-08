@@ -118,9 +118,9 @@ else
                 {
                     <a class="kt-card" href="@($"/video-games/{game.Id}")" style="display:block;color:inherit">
                         <p class="kt-card-title">@game.Title</p>
-                        @if (!string.IsNullOrEmpty(game.Platform))
+                        @if (game.Year > 0)
                         {
-                            <p class="kt-card-meta">@game.Platform</p>
+                            <p class="kt-card-meta">@game.Year</p>
                         }
                     </a>
                 }

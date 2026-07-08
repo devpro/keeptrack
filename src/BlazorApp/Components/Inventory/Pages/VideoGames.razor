@@ -39,25 +39,23 @@
     </Filters>
     <HeaderTemplate>
         <th>Title</th>
-        <th>Platform</th>
-        <th>State</th>
+        <th>Platforms</th>
         <th>Rating</th>
-        <th>Finished</th>
         <th></th>
     </HeaderTemplate>
     <RowTemplate Context="game">
         <td style="font-weight:500">
             <a href="@($"/video-games/{game.Id}")">@game.Title</a>
         </td>
-        <td>@game.Platform</td>
         <td>
-            @if (!string.IsNullOrEmpty(game.State))
+            @foreach (var entry in game.Platforms)
             {
-                <span class="kt-status-badge @StateBadgeClass(game.State)">@game.State</span>
+                <span class="kt-status-badge @StateBadgeClass(entry.State ?? "")" style="margin-right:4px">
+                    @entry.Platform@(string.IsNullOrEmpty(entry.State) ? "" : $" ({entry.State})")
+                </span>
             }
         </td>
         <td><span class="kt-stars"><StarRating Rating="game.Rating" /></span></td>
-        <td>@game.FinishedAt?.ToString("yyyy-MM-dd")</td>
         <td>
             @if (game.IsOwned)
             {
@@ -71,40 +69,7 @@
     </RowTemplate>
     <FormTemplate Context="game">
         <input class="form-control" placeholder="Title" @bind="game.Title" />
-        <select class="form-select" @bind="game.Platform">
-            <option value="">— Platform —</option>
-            <option>Xbox Series X</option>
-            <option>PS5</option>
-            <option>PC</option>
-            <option>Xbox One X</option>
-            <option>PS4</option>
-            <option>WII</option>
-            <option>Xbox 360</option>
-            <option>PS2</option>
-            <option>PS1</option>
-        </select>
-        <div class="col-12">
-            <label class="form-label">State</label>
-            <div class="d-flex gap-2 flex-wrap">
-                @foreach (var state in VideoGameStates)
-                {
-                    <button class="btn btn-sm @(game.State == state ? "btn-primary" : "btn-secondary")" @onclick="() => game.State = state">@state</button>
-                }
-            </div>
-        </div>
-        <input class="form-control" placeholder="Rating" @bind="game.Rating" type="number" />
-        <input class="form-control" placeholder="Finished at" @bind="game.FinishedAt" @bind:format="yyyy-MM-dd" type="date" />
-        <div class="col-12">
-            <label class="form-label">Lists</label>
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="game-owned" @bind="game.IsOwned" />
-                <label class="form-check-label" for="game-owned">Owned</label>
-            </div>
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="game-wishlisted" @bind="game.IsWishlisted" />
-                <label class="form-check-label" for="game-wishlisted">Wishlist</label>
-            </div>
-        </div>
+        <input class="form-control" placeholder="Year" @bind="game.Year" type="number" />
     </FormTemplate>
     <EditModalTemplate Context="game">
         <div class="col-12">
@@ -115,30 +80,6 @@
             </AuthorizeView>
         </div>
         <div class="col-md-6">
-            <label class="form-label">Platform</label>
-            <select class="form-select form-select-sm" @bind="game.Platform">
-                <option value="">—</option>
-                <option>Xbox Series X</option>
-                <option>PS5</option>
-                <option>PC</option>
-                <option>Xbox One X</option>
-                <option>PS4</option>
-                <option>WII</option>
-                <option>Xbox 360</option>
-                <option>PS2</option>
-                <option>PS1</option>
-            </select>
-        </div>
-        <div class="col-12">
-            <label class="form-label">State</label>
-            <div class="d-flex gap-2 flex-wrap">
-                @foreach (var state in VideoGameStates)
-                {
-                    <button class="btn btn-sm @(game.State == state ? "btn-primary" : "btn-secondary")" @onclick="() => game.State = state">@state</button>
-                }
-            </div>
-        </div>
-        <div class="col-md-6">
             <label class="form-label">Year</label>
             <input class="form-control" @bind="game.Year" type="number" />
         </div>
@@ -146,11 +87,7 @@
             <label class="form-label">Rating</label>
             <input class="form-control" @bind="game.Rating" type="number" />
         </div>
-        <div class="col-md-6">
-            <label class="form-label">Finished at</label>
-            <input class="form-control" @bind="game.FinishedAt" @bind:format="yyyy-MM-dd" type="date" />
-        </div>
-        <div class="col-md-6">
+        <div class="col-12">
             <label class="form-label">Notes</label>
             <input class="form-control" @bind="game.Notes" />
         </div>
@@ -165,5 +102,6 @@
                 <label class="form-check-label" for="game-wishlisted-modal">Wishlist</label>
             </div>
         </div>
+        <p class="kt-card-meta">Manage platforms, state and playthroughs from the game's detail page.</p>
     </EditModalTemplate>
 </InventoryList>

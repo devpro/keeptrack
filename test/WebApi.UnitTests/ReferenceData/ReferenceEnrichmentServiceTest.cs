@@ -630,7 +630,11 @@ public class ReferenceEnrichmentServiceTest
     public async Task TryLinkExistingVideoGameReferenceAsync_LinksAndUpdatesTitle_OnTitleYearMatch()
     {
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
-        var model = new VideoGameModel { Id = "game-1", OwnerId = "owner", Title = "Some Typo'd Game", Platform = "PC", State = "Current", Year = 2020 };
+        var model = new VideoGameModel
+        {
+            Id = "game-1", OwnerId = "owner", Title = "Some Typo'd Game", Year = 2020,
+            Platforms = [new VideoGamePlatformModel { Platform = "PC", State = "Current" }]
+        };
         _videoGameReferenceRepository
             .Setup(r => r.FindByTitleYearAsync("Some Typo'd Game", 2020))
             .ReturnsAsync(new VideoGameReferenceModel { Id = "reference-1", Title = "Some Game", TitleNormalized = "some game", ExternalIds = [] });
@@ -639,7 +643,7 @@ public class ReferenceEnrichmentServiceTest
 
         result.ReferenceId.Should().Be("reference-1");
         result.Title.Should().Be("Some Game");
-        result.Platform.Should().Be("PC");
+        result.Platforms.Should().ContainSingle(p => p.Platform == "PC");
         _videoGameRepository.Verify(r => r.UpdateAsync("game-1", It.Is<VideoGameModel>(m => m.ReferenceId == "reference-1"), "owner"), Times.Once);
     }
 
@@ -647,7 +651,11 @@ public class ReferenceEnrichmentServiceTest
     public async Task TryLinkExistingVideoGameReferenceAsync_UpdatesYearToTheReferencesCanonicalYear_OnLink()
     {
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
-        var model = new VideoGameModel { Id = "game-1", OwnerId = "owner", Title = "Some Game", Platform = "PC", State = "Current", Year = 2019 };
+        var model = new VideoGameModel
+        {
+            Id = "game-1", OwnerId = "owner", Title = "Some Game", Year = 2019,
+            Platforms = [new VideoGamePlatformModel { Platform = "PC", State = "Current" }]
+        };
         _videoGameReferenceRepository
             .Setup(r => r.FindByTitleYearAsync("Some Game", 2019))
             .ReturnsAsync(new VideoGameReferenceModel { Id = "reference-1", Title = "Some Game", TitleNormalized = "some game", Year = 2020, ExternalIds = [] });
@@ -662,7 +670,11 @@ public class ReferenceEnrichmentServiceTest
     public async Task TryLinkExistingVideoGameReferenceAsync_Unlinks_WhenAlreadyLinkedButNoMatchFoundForTheCurrentTitle()
     {
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
-        var model = new VideoGameModel { Id = "game-1", OwnerId = "owner", Title = "Some Game", Platform = "PC", State = "Current", Year = 2020, ReferenceId = "old-reference" };
+        var model = new VideoGameModel
+        {
+            Id = "game-1", OwnerId = "owner", Title = "Some Game", Year = 2020, ReferenceId = "old-reference",
+            Platforms = [new VideoGamePlatformModel { Platform = "PC", State = "Current" }]
+        };
         _videoGameReferenceRepository.Setup(r => r.FindByTitleYearAsync("Some Game", 2020)).ReturnsAsync((VideoGameReferenceModel?)null);
         _videoGameReferenceRepository.Setup(r => r.FindByTitleAsync("Some Game")).ReturnsAsync((VideoGameReferenceModel?)null);
 

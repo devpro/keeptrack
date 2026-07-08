@@ -31,7 +31,7 @@ public class WishlistController(
         var books = await bookRepository.FindAllAsync(ownerId, 1, int.MaxValue, null,
             new BookModel { OwnerId = ownerId, Title = string.Empty, Author = string.Empty, IsWishlisted = true });
         var videoGames = await videoGameRepository.FindAllAsync(ownerId, 1, int.MaxValue, null,
-            new VideoGameModel { OwnerId = ownerId, Title = string.Empty, Platform = string.Empty, State = string.Empty, IsWishlisted = true });
+            new VideoGameModel { OwnerId = ownerId, Title = string.Empty, IsWishlisted = true });
 
         return Ok(new WishlistDto
         {
