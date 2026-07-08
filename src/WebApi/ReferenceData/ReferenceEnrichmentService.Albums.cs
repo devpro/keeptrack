@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Keeptrack.Common.System;
@@ -92,6 +93,7 @@ public partial class ReferenceEnrichmentService
             ExternalIds = externalIds,
             MatchedAliases = MergeMatchedAliases(existing?.MatchedAliases, (details.Title, details.Year ?? year, details.Artist), (title, year, details.Artist)),
             Genres = details.Genres,
+            Tracks = MapTracks(details.Tracks),
             ImageUrl = details.ImageUrl,
             LastEnrichedAt = DateTime.UtcNow
         };
@@ -123,10 +125,14 @@ public partial class ReferenceEnrichmentService
             reference.ArtistReferenceId = await ResolvePersonReferenceIdAsync("discogs", details.ArtistExternalId, details.Artist ?? "Unknown", null);
         }
         reference.Genres = details.Genres;
+        reference.Tracks = MapTracks(details.Tracks);
         reference.ImageUrl = details.ImageUrl ?? reference.ImageUrl;
         reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, details.Artist));
         reference.LastEnrichedAt = DateTime.UtcNow;
 
         return (await albumReferenceRepository.UpsertAsync(reference), true);
     }
+
+    private static List<ReferenceTrackModel> MapTracks(List<DiscogsTrack> tracks) =>
+        tracks.Select(t => new ReferenceTrackModel { Position = t.Position, Title = t.Title, Duration = t.Duration }).ToList();
 }

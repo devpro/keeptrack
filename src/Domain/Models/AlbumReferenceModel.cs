@@ -38,6 +38,8 @@ public class AlbumReferenceModel : IHasId
 
     public List<string> Genres { get; set; } = [];
 
+    public List<ReferenceTrackModel> Tracks { get; set; } = [];
+
     public string? ImageUrl { get; set; }
 
     public DateTime? LastEnrichedAt { get; set; }

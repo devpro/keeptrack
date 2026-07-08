@@ -26,6 +26,8 @@ internal static class InfrastructureServiceCollectionExtensions
             sp.GetRequiredService<IMongoClient>().GetDatabase(configuration.DatabaseName));
 
         services.TryAddScoped<Domain.Repositories.IAlbumRepository, AlbumRepository>();
+        services.TryAddScoped<Domain.Repositories.ISongRepository, SongRepository>();
+        services.TryAddScoped<Domain.Repositories.IPlaylistRepository, PlaylistRepository>();
         services.TryAddScoped<Domain.Repositories.IBookRepository, BookRepository>();
         services.TryAddScoped<Domain.Repositories.ICarRepository, CarRepository>();
         services.TryAddScoped<Domain.Repositories.ICarHistoryRepository, CarHistoryRepository>();

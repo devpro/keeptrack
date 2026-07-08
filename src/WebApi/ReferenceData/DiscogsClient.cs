@@ -56,10 +56,14 @@ public class DiscogsClient(HttpClient http, DiscogsSettings settings) : IDiscogs
         var genres = details.Genres.Concat(details.Styles).ToList();
         var image = details.Images.FirstOrDefault()?.Uri;
         var primaryArtist = details.Artists.FirstOrDefault();
+        var tracks = details.Tracklist
+            .Where(t => t.Type == "track")
+            .Select(t => new DiscogsTrack(t.Position ?? "", t.Title ?? "", t.Duration))
+            .ToList();
 
         return new DiscogsAlbumDetails(
             externalId, details.Title ?? string.Empty, details.Year, details.Notes,
-            primaryArtist?.Name, primaryArtist?.Id.ToString(System.Globalization.CultureInfo.InvariantCulture), genres, image);
+            primaryArtist?.Name, primaryArtist?.Id.ToString(System.Globalization.CultureInfo.InvariantCulture), genres, image, tracks);
     }
 
     private string Token => settings.Token;
@@ -124,6 +128,28 @@ public class DiscogsClient(HttpClient http, DiscogsSettings settings) : IDiscogs
 
         [JsonPropertyName("artists")]
         public List<DiscogsArtist> Artists { get; set; } = [];
+
+        [JsonPropertyName("tracklist")]
+        public List<DiscogsTracklistItem> Tracklist { get; set; } = [];
+    }
+
+    /// <summary>
+    /// <c>type_</c> distinguishes an actual track from a section heading some multi-part releases use
+    /// (e.g. "index") - only entries with <c>type_ == "track"</c> are real songs.
+    /// </summary>
+    private sealed class DiscogsTracklistItem
+    {
+        [JsonPropertyName("position")]
+        public string? Position { get; set; }
+
+        [JsonPropertyName("type_")]
+        public string? Type { get; set; }
+
+        [JsonPropertyName("title")]
+        public string? Title { get; set; }
+
+        [JsonPropertyName("duration")]
+        public string? Duration { get; set; }
     }
 
     private sealed class DiscogsImage

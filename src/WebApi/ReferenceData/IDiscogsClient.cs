@@ -10,7 +10,14 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// </summary>
 public record DiscogsSearchResult(string ExternalId, string Title, int? Year, string? Artist, string? ImageUrl);
 
-public record DiscogsAlbumDetails(string ExternalId, string Title, int? Year, string? Synopsis, string? Artist, string? ArtistExternalId, List<string> Genres, string? ImageUrl);
+public record DiscogsAlbumDetails(string ExternalId, string Title, int? Year, string? Synopsis, string? Artist, string? ArtistExternalId, List<string> Genres, string? ImageUrl, List<DiscogsTrack> Tracks);
+
+/// <summary>
+/// One tracklist entry from Discogs' <c>/masters/{id}</c> response - <paramref name="Position"/> isn't
+/// always numeric (vinyl releases use side+track like "A1"/"B2"), and <paramref name="Duration"/> is
+/// Discogs' own "M:SS" text, often absent.
+/// </summary>
+public record DiscogsTrack(string Position, string Title, string? Duration);
 
 /// <summary>
 /// Thin wrapper over the Discogs REST API. Interface exists so tests use a fake - never call the real

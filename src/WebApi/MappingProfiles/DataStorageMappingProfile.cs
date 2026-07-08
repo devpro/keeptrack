@@ -24,6 +24,12 @@ public class DataStorageMappingProfile : Profile
         CreateMap<Infrastructure.MongoDb.Entities.TvShow, Domain.Models.TvShowModel>();
         CreateMap<Domain.Models.TvShowModel, Infrastructure.MongoDb.Entities.TvShow>();
 
+        CreateMap<Infrastructure.MongoDb.Entities.Song, Domain.Models.SongModel>();
+        CreateMap<Domain.Models.SongModel, Infrastructure.MongoDb.Entities.Song>();
+
+        CreateMap<Infrastructure.MongoDb.Entities.Playlist, Domain.Models.PlaylistModel>();
+        CreateMap<Domain.Models.PlaylistModel, Infrastructure.MongoDb.Entities.Playlist>();
+
         CreateMap<Infrastructure.MongoDb.Entities.VideoGame, Domain.Models.VideoGameModel>()
             .ForMember(x => x.Platform, opt => opt.Ignore())
             .ForMember(x => x.State, opt => opt.Ignore());
@@ -37,6 +43,9 @@ public class DataStorageMappingProfile : Profile
 
         CreateMap<Infrastructure.MongoDb.Entities.ReferenceEpisode, Domain.Models.ReferenceEpisodeModel>();
         CreateMap<Domain.Models.ReferenceEpisodeModel, Infrastructure.MongoDb.Entities.ReferenceEpisode>();
+
+        CreateMap<Infrastructure.MongoDb.Entities.ReferenceTrack, Domain.Models.ReferenceTrackModel>();
+        CreateMap<Domain.Models.ReferenceTrackModel, Infrastructure.MongoDb.Entities.ReferenceTrack>();
 
         CreateMap<Infrastructure.MongoDb.Entities.ReferenceMatch, Domain.Models.ReferenceMatchModel>();
 

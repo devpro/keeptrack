@@ -764,7 +764,7 @@ public class ReferenceEnrichmentServiceTest
     public async Task TryAutoResolveAlbumAsync_ResolvesAndPropagates_WhenExactlyOneCandidate()
     {
         var discogsClient = FakeDiscogsClient.WithSearchResults(new DiscogsSearchResult("1", "Some Album", 2020, "Some Artist", null));
-        discogsClient.Details["1"] = new DiscogsAlbumDetails("1", "Some Album", 2020, "Synopsis", "Some Artist", "100", [], null);
+        discogsClient.Details["1"] = new DiscogsAlbumDetails("1", "Some Album", 2020, "Synopsis", "Some Artist", "100", [], null, []);
         _albumReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<AlbumReferenceModel>())).ReturnsAsync((AlbumReferenceModel m) => { m.Id ??= "generated-id"; return m; });
         _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), discogsClient: discogsClient);
@@ -781,7 +781,7 @@ public class ReferenceEnrichmentServiceTest
         // regression: a common album title without an artist hint returns many unrelated candidates - the
         // artist must reach IDiscogsClient.SearchAlbumsAsync, not just get dropped along the way.
         var discogsClient = FakeDiscogsClient.WithSearchResults(new DiscogsSearchResult("1", "Some Album", 2020, "Pink Floyd", null));
-        discogsClient.Details["1"] = new DiscogsAlbumDetails("1", "Some Album", 2020, "Synopsis", "Pink Floyd", "100", [], null);
+        discogsClient.Details["1"] = new DiscogsAlbumDetails("1", "Some Album", 2020, "Synopsis", "Pink Floyd", "100", [], null, []);
         _albumReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<AlbumReferenceModel>())).ReturnsAsync((AlbumReferenceModel m) => { m.Id ??= "generated-id"; return m; });
         _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), discogsClient: discogsClient);
@@ -795,7 +795,7 @@ public class ReferenceEnrichmentServiceTest
     public async Task ResolveAlbumAsync_PropagatesTheUpsertedReferenceId()
     {
         var discogsClient = FakeDiscogsClient.Empty();
-        discogsClient.Details["1"] = new DiscogsAlbumDetails("1", "Some Album", 2020, "Synopsis", "Some Artist", "100", [], null);
+        discogsClient.Details["1"] = new DiscogsAlbumDetails("1", "Some Album", 2020, "Synopsis", "Some Artist", "100", [], null, []);
         _albumReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<AlbumReferenceModel>())).ReturnsAsync((AlbumReferenceModel m) => { m.Id = "reference-1"; return m; });
         _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), discogsClient: discogsClient);
@@ -891,7 +891,8 @@ public class ReferenceEnrichmentServiceTest
         // Discogs exposes no "changed since" endpoint (unlike TMDB) - every refresh call does a full
         // re-fetch, even when LastEnrichedAt is very recent.
         var discogsClient = FakeDiscogsClient.Empty();
-        discogsClient.Details["1"] = new DiscogsAlbumDetails("1", "Some Album - Updated", 2020, "New synopsis", "Some Artist", "100", ["Rock"], null);
+        discogsClient.Details["1"] = new DiscogsAlbumDetails("1", "Some Album - Updated", 2020, "New synopsis", "Some Artist", "100", ["Rock"], null,
+            [new DiscogsTrack("1", "Intro", "0:22"), new DiscogsTrack("2", "Apocalypse Please", "4:12")]);
         var reference = new AlbumReferenceModel
         {
             Id = "reference-1", Title = "Some Album", TitleNormalized = "some album",
@@ -906,6 +907,9 @@ public class ReferenceEnrichmentServiceTest
         changed.Should().BeTrue();
         result.Title.Should().Be("Some Album - Updated");
         result.Genres.Should().Contain("Rock");
+        result.Tracks.Should().SatisfyRespectively(
+            t => { t.Position.Should().Be("1"); t.Title.Should().Be("Intro"); t.Duration.Should().Be("0:22"); },
+            t => { t.Position.Should().Be("2"); t.Title.Should().Be("Apocalypse Please"); t.Duration.Should().Be("4:12"); });
     }
 
     private sealed class FakeTmdbClient : ITmdbClient

@@ -9,8 +9,11 @@ using System.Threading.Tasks;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.WebApi.Contracts.Dto;
+using Keeptrack.WebApi.Controllers;
+using Keeptrack.WebApi.Jobs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Keeptrack.WebApi.ReferenceData;
 
@@ -33,7 +36,8 @@ public class ReferenceDataAdminController(
     IRawgClient rawgClient,
     IDiscogsClient discogsClient,
     ReferenceEnrichmentService enrichmentService,
-    ReferenceSyncService syncService,
+    JobStore<ReferenceSyncStage, ReferenceSyncResultDto> syncJobStore,
+    IServiceScopeFactory scopeFactory,
     ITvShowReferenceRepository tvShowReferenceRepository,
     IMovieReferenceRepository movieReferenceRepository,
     IPersonReferenceRepository personReferenceRepository,
@@ -165,14 +169,57 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// Forces an immediate re-check of every reference document, regardless of how recently it was last
+    /// Starts an immediate re-check of every reference document, regardless of how recently it was last
     /// enriched - the same logic the periodic background sync runs on a schedule (see
-    /// <see cref="ReferenceSyncBackgroundService"/>), just triggered on demand instead of waiting.
+    /// <see cref="ReferenceSyncBackgroundService"/>), just triggered on demand instead of waiting. Runs in
+    /// the background; poll <see cref="GetSyncStatus"/> with the returned job id for progress - a full
+    /// re-check across five domains can easily exceed a single request/response's own timeout.
     /// </summary>
     [HttpPost("sync-now")]
+    [ProducesResponseType(202)]
+    public ActionResult<ReferenceSyncJobDto> SyncNow()
+    {
+        var jobId = syncJobStore.Create(this.GetUserId(), ReferenceSyncStage.SyncingTvShows);
+
+        _ = RunSyncJobAsync(jobId);
+
+        return Accepted(new ReferenceSyncJobDto { JobId = jobId });
+    }
+
+    /// <summary>
+    /// Current status of a previously started sync job.
+    /// </summary>
+    [HttpGet("sync-now/{jobId:guid}")]
     [ProducesResponseType(200)]
-    public async Task<ActionResult<ReferenceSyncResultDto>> SyncNow(CancellationToken cancellationToken) =>
-        Ok(await syncService.SyncStaleReferencesAsync(TimeSpan.Zero, cancellationToken));
+    [ProducesResponseType(404)]
+    public ActionResult<ReferenceSyncJobStatusDto> GetSyncStatus(Guid jobId)
+    {
+        var status = syncJobStore.GetStatus(jobId, this.GetUserId());
+        if (status is null) return NotFound();
+
+        return Ok(new ReferenceSyncJobStatusDto { Stage = status.Value.Stage, Result = status.Value.Result, ErrorMessage = status.Value.ErrorMessage });
+    }
+
+    /// <summary>
+    /// Runs the sync on a background task using its own DI scope - the request that started it has
+    /// already completed by the time this runs, so it can't reuse the request's scoped
+    /// <see cref="ReferenceSyncService"/> instance.
+    /// </summary>
+    private async Task RunSyncJobAsync(Guid jobId)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var scopedSyncService = scope.ServiceProvider.GetRequiredService<ReferenceSyncService>();
+
+        try
+        {
+            var result = await scopedSyncService.SyncStaleReferencesAsync(TimeSpan.Zero, stage => syncJobStore.UpdateStage(jobId, stage));
+            syncJobStore.Complete(jobId, ReferenceSyncStage.Completed, result);
+        }
+        catch (Exception ex)
+        {
+            syncJobStore.Fail(jobId, ReferenceSyncStage.Failed, ex.Message);
+        }
+    }
 
     /// <summary>
     /// Distinct (title, year) pairs, across every tenant, still missing a reference-data link.

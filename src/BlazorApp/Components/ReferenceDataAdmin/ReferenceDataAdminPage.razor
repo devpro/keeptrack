@@ -41,11 +41,14 @@
     </p>
     <div class="d-flex align-items-center gap-3">
         <button class="btn btn-sm btn-secondary" @onclick="SyncNowAsync" disabled="@_syncing">Sync now</button>
-        @if (_syncing)
-        {
-            <div class="kt-spinner" style="width:1rem;height:1rem"></div>
-        }
     </div>
+    @if (_syncing)
+    {
+        <div class="progress mt-3" style="height:8px;">
+            <div class="progress-bar" role="progressbar" style="width:@(SyncProgressPercent(_syncStage))%"></div>
+        </div>
+        <p class="kt-card-meta mt-2">@SyncStageLabel(_syncStage)</p>
+    }
     @if (_syncResult is not null)
     {
         <div class="alert alert-info mt-3 mb-0">
@@ -204,17 +207,44 @@
     private ReferenceDataImportResultDto? _importResult;
     private string? _importExportError;
 
+    private static readonly TimeSpan SyncPollInterval = TimeSpan.FromMilliseconds(600);
+
     private bool _syncing;
     private ReferenceSyncResultDto? _syncResult;
     private string? _syncError;
+    private ReferenceSyncStage _syncStage;
 
     private async Task SyncNowAsync()
     {
         _syncing = true;
         _syncError = null;
+        _syncResult = null;
+        _syncStage = ReferenceSyncStage.SyncingTvShows;
+
         try
         {
-            _syncResult = await Api.SyncNowAsync();
+            var jobId = await Api.StartSyncAsync();
+
+            while (true)
+            {
+                var status = await Api.GetSyncStatusAsync(jobId);
+                _syncStage = status.Stage;
+
+                if (status.Stage == ReferenceSyncStage.Completed)
+                {
+                    _syncResult = status.Result;
+                    break;
+                }
+
+                if (status.Stage == ReferenceSyncStage.Failed)
+                {
+                    _syncError = status.ErrorMessage ?? "The sync failed.";
+                    break;
+                }
+
+                StateHasChanged();
+                await Task.Delay(SyncPollInterval);
+            }
         }
         catch (Exception ex)
         {
@@ -225,6 +255,28 @@
             _syncing = false;
         }
     }
+
+    private static int SyncProgressPercent(ReferenceSyncStage stage) => stage switch
+    {
+        ReferenceSyncStage.SyncingTvShows => 15,
+        ReferenceSyncStage.SyncingMovies => 35,
+        ReferenceSyncStage.SyncingBooks => 55,
+        ReferenceSyncStage.SyncingVideoGames => 75,
+        ReferenceSyncStage.SyncingAlbums => 90,
+        ReferenceSyncStage.Completed => 100,
+        _ => 0
+    };
+
+    private static string SyncStageLabel(ReferenceSyncStage stage) => stage switch
+    {
+        ReferenceSyncStage.SyncingTvShows => "Checking TV shows…",
+        ReferenceSyncStage.SyncingMovies => "Checking movies…",
+        ReferenceSyncStage.SyncingBooks => "Checking books…",
+        ReferenceSyncStage.SyncingVideoGames => "Checking video games…",
+        ReferenceSyncStage.SyncingAlbums => "Checking albums…",
+        ReferenceSyncStage.Completed => "Done",
+        _ => ""
+    };
 
     private async Task ExportAsync()
     {

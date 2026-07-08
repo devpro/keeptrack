@@ -17,6 +17,10 @@ internal static class InfrastructureServiceCollectionExtensions
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
         services.AddHttpClient<VideoGameApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
+        services.AddHttpClient<SongApiClient>(client => client.BaseAddress = webApiUri)
+            .AddHttpMessageHandler<AuthenticationTokenHandler>();
+        services.AddHttpClient<PlaylistApiClient>(client => client.BaseAddress = webApiUri)
+            .AddHttpMessageHandler<AuthenticationTokenHandler>();
         services.AddHttpClient<Components.WatchNext.WatchNextApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
         services.AddHttpClient<Components.Wishlist.WishlistApiClient>(client => client.BaseAddress = webApiUri)

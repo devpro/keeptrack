@@ -37,6 +37,14 @@ public class WebServiceMappingProfile : Profile
             .ForMember(x => x.OwnerId, opt => opt.Ignore());
         CreateMap<Domain.Models.TvShowModel, TvShowDto>();
 
+        CreateMap<SongDto, Domain.Models.SongModel>()
+            .ForMember(x => x.OwnerId, opt => opt.Ignore());
+        CreateMap<Domain.Models.SongModel, SongDto>();
+
+        CreateMap<PlaylistDto, Domain.Models.PlaylistModel>()
+            .ForMember(x => x.OwnerId, opt => opt.Ignore());
+        CreateMap<Domain.Models.PlaylistModel, PlaylistDto>();
+
         CreateMap<VideoGameDto, Domain.Models.VideoGameModel>()
             .ForMember(x => x.OwnerId, opt => opt.Ignore());
         CreateMap<Domain.Models.VideoGameModel, VideoGameDto>();
@@ -54,6 +62,7 @@ public class WebServiceMappingProfile : Profile
         // Reference-data reads are one-directional (Model -> Dto): admins submit a LinkReferenceRequestDto,
         // never a full TvShowReferenceDto/MovieReferenceDto, so there's no Dto -> Model direction to map.
         CreateMap<Domain.Models.ReferenceEpisodeModel, ReferenceEpisodeDto>();
+        CreateMap<Domain.Models.ReferenceTrackModel, ReferenceTrackDto>();
 
         // Cast is ignored here and hydrated manually by ReferenceDataController: CastMemberModel only
         // carries a PersonReferenceId, while CastMemberDto needs the person's name/photo joined in from

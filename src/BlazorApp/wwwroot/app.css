@@ -474,6 +474,70 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
 .kt-inline-toast.danger  { background: var(--kt-danger-bg); color: var(--kt-danger); }
 @keyframes kt-toast-in { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: translateY(0); } }
 
+/* small "more options" popup anchored under a kt-icon-btn (e.g. a track row's "⋮" menu) - the row it's
+   anchored to needs position:relative so this absolute box lands directly under the button, not the page. */
+.kt-menu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 10;
+  background: var(--kt-surface);
+  border: 1px solid var(--kt-border);
+  border-radius: var(--kt-radius-lg);
+  box-shadow: var(--kt-shadow-lg);
+  padding: 0.4rem;
+  min-width: 180px;
+}
+.kt-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--kt-radius);
+  color: var(--kt-text);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.kt-menu-item:hover { background: var(--kt-surface-3); }
+
+/* Album/Book/VideoGame detail hero: cover + fields side by side. A fixed grid (not flex-wrap) so the
+   layout never depends on how much horizontal space the field values happen to need - relying on
+   flex-wrap's intrinsic-sizing heuristics caused the cover to intermittently land alone on its own row
+   for some albums (long genre text, etc.) while others stayed side-by-side, with no clear pattern from
+   the markup alone. */
+.kt-album-hero {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 480px);
+  gap: 1.5rem;
+  align-items: start;
+}
+.kt-album-hero.kt-album-hero-no-cover { grid-template-columns: minmax(0, 480px); }
+.kt-album-cover {
+  width: 300px;
+  height: 300px;
+  object-fit: cover;
+  border-radius: var(--kt-radius-lg);
+}
+@media (max-width: 767px) {
+  .kt-album-hero, .kt-album-hero.kt-album-hero-no-cover { grid-template-columns: 1fr; }
+  .kt-album-cover { width: 200px; height: 200px; }
+}
+
+/* compact aligned row for a list of tracks/songs inside a .kt-form-card (e.g. a playlist's song list) -
+   a CSS grid so title/artist/album line up in columns across rows without resorting to a full
+   .kt-table-wrap/<table>, which reads as a top-level list page rather than a detail-page sub-section. */
+.kt-track-row {
+  display: grid;
+  grid-template-columns: 1fr 180px 180px auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0;
+  border-top: 1px solid var(--kt-border);
+}
+.kt-track-row:first-of-type { border-top: none; }
+
 /* ── Form card ─────────────────────────────────────────────────────── */
 .kt-form-card {
   position: relative;

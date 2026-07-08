@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using AwesomeAssertions;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
+using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.ReferenceData;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -57,7 +58,7 @@ public class ReferenceSyncServiceTest
         _movieReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync([]);
         var service = CreateService(FakeTmdbClient.Empty());
 
-        var result = await service.SyncStaleReferencesAsync(TimeSpan.FromDays(3), TestContext.Current.CancellationToken);
+        var result = await service.SyncStaleReferencesAsync(TimeSpan.FromDays(3), cancellationToken: TestContext.Current.CancellationToken);
 
         result.TvShowsChecked.Should().Be(0);
         _tvShowReferenceRepository.Verify(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>()), Times.Never);
@@ -79,7 +80,7 @@ public class ReferenceSyncServiceTest
         _tvShowReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>())).ReturnsAsync((TvShowReferenceModel m) => m);
         var service = CreateService(tmdbClient);
 
-        var result = await service.SyncStaleReferencesAsync(TimeSpan.FromDays(3), TestContext.Current.CancellationToken);
+        var result = await service.SyncStaleReferencesAsync(TimeSpan.FromDays(3), cancellationToken: TestContext.Current.CancellationToken);
 
         result.TvShowsChecked.Should().Be(1);
         result.TvShowsUpdated.Should().Be(1);
@@ -107,10 +108,33 @@ public class ReferenceSyncServiceTest
         _tvShowReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>())).ReturnsAsync((TvShowReferenceModel m) => m);
         var service = CreateService(tmdbClient);
 
-        var result = await service.SyncStaleReferencesAsync(TimeSpan.FromDays(3), TestContext.Current.CancellationToken);
+        var result = await service.SyncStaleReferencesAsync(TimeSpan.FromDays(3), cancellationToken: TestContext.Current.CancellationToken);
 
         result.TvShowsChecked.Should().Be(2);
         result.TvShowsUpdated.Should().Be(1);
+    }
+
+    /// <summary>
+    /// Backs the admin "sync now" progress bar (<c>ReferenceDataAdminController.SyncNow</c>/
+    /// <c>ReferenceDataAdminPage.razor</c>'s polling loop) - confirms the stage callback fires once per
+    /// domain, in the same order the UI's progress-percent mapping assumes.
+    /// </summary>
+    [Fact]
+    public async Task SyncStaleReferencesAsync_InvokesOnStageChanged_OncePerDomainInOrder()
+    {
+        _tvShowReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync([]);
+        _movieReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync([]);
+        var service = CreateService(FakeTmdbClient.Empty());
+        var stages = new List<ReferenceSyncStage>();
+
+        await service.SyncStaleReferencesAsync(TimeSpan.FromDays(3), stages.Add, TestContext.Current.CancellationToken);
+
+        stages.Should().ContainInOrder(
+            ReferenceSyncStage.SyncingTvShows,
+            ReferenceSyncStage.SyncingMovies,
+            ReferenceSyncStage.SyncingBooks,
+            ReferenceSyncStage.SyncingVideoGames,
+            ReferenceSyncStage.SyncingAlbums);
     }
 
     private sealed class FakeTmdbClient : ITmdbClient

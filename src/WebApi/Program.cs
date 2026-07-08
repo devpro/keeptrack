@@ -21,12 +21,20 @@ builder.Services.Configure<Microsoft.Extensions.Hosting.HostOptions>(opts =>
     opts.BackgroundServiceExceptionBehavior = Microsoft.Extensions.Hosting.BackgroundServiceExceptionBehavior.Ignore);
 builder.Services.AddSingleton<Keeptrack.Domain.Services.WatchNextService>();
 builder.Services.AddSingleton<Keeptrack.Domain.Services.WishlistService>();
-builder.Services.AddSingleton<Keeptrack.WebApi.Import.ImportJobStore>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Jobs.JobStore<Keeptrack.WebApi.Contracts.Dto.ImportStage, Keeptrack.WebApi.Contracts.Dto.ImportResultDto>>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Jobs.JobStore<Keeptrack.WebApi.Contracts.Dto.ReferenceSyncStage, Keeptrack.WebApi.Contracts.Dto.ReferenceSyncResultDto>>();
 builder.Services.AddScoped<Keeptrack.WebApi.Import.TvTimeImportService>();
 builder.Services.AddSingleton(configuration.TmdbSettings);
 builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.ITmdbClient, Keeptrack.WebApi.ReferenceData.TmdbClient>(client =>
 {
     client.BaseAddress = new Uri("https://api.themoviedb.org/3/");
+    // AddStandardResilienceHandler's own TotalRequestTimeout (30s default) is meant to be the real bound
+    // on a call - but HttpClient's own Timeout (100s default, never otherwise touched here) wraps the
+    // whole pipeline including every retry, and silently wins whenever it's shorter than however long the
+    // resilience pipeline actually takes to give up. Disabling it lets the resilience handler's own
+    // timeout be authoritative instead of a stuck call hanging for a full 100s - see
+    // https://github.com/dotnet/extensions/issues/4770 (confirmed against this exact symptom on Discogs).
+    client.Timeout = Timeout.InfiniteTimeSpan;
 }).AddStandardResilienceHandler();
 // which IBookReferenceClient implementation is registered is a deployment-time choice
 // (ReferenceData:BookProvider / ReferenceData__BookProvider) - add a case here for each new provider.
@@ -37,6 +45,7 @@ switch (configuration.BookReferenceProvider)
         {
             client.BaseAddress = new Uri("https://openlibrary.org/");
             client.DefaultRequestHeaders.Add("User-Agent", "Keeptrack/1.0 (+https://github.com/devpro/keeptrack)");
+            client.Timeout = Timeout.InfiniteTimeSpan;
         }).AddStandardResilienceHandler();
         break;
     default:
@@ -46,12 +55,14 @@ builder.Services.AddSingleton(configuration.RawgSettings);
 builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.IRawgClient, Keeptrack.WebApi.ReferenceData.RawgClient>(client =>
 {
     client.BaseAddress = new Uri("https://api.rawg.io/api/");
+    client.Timeout = Timeout.InfiniteTimeSpan;
 }).AddStandardResilienceHandler();
 builder.Services.AddSingleton(configuration.DiscogsSettings);
 builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.IDiscogsClient, Keeptrack.WebApi.ReferenceData.DiscogsClient>(client =>
 {
     client.BaseAddress = new Uri("https://api.discogs.com/");
     client.DefaultRequestHeaders.Add("User-Agent", "Keeptrack/1.0 (+https://github.com/devpro/keeptrack)");
+    client.Timeout = Timeout.InfiniteTimeSpan;
 }).AddStandardResilienceHandler();
 builder.Services.AddScoped<Keeptrack.WebApi.ReferenceData.ReferenceEnrichmentService>();
 builder.Services.AddScoped<Keeptrack.WebApi.ReferenceData.ReferenceSyncService>();

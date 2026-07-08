@@ -35,6 +35,8 @@ public class AlbumReference
 
     public List<string> Genres { get; set; } = [];
 
+    public List<ReferenceTrack> Tracks { get; set; } = [];
+
     [BsonElement("image_url")]
     public string? ImageUrl { get; set; }
 

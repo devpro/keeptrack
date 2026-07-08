@@ -36,7 +36,7 @@ public class ReferenceSyncBackgroundService(
             {
                 using var scope = scopeFactory.CreateScope();
                 var syncService = scope.ServiceProvider.GetRequiredService<ReferenceSyncService>();
-                var result = await syncService.SyncStaleReferencesAsync(StaleAfter, stoppingToken);
+                var result = await syncService.SyncStaleReferencesAsync(StaleAfter, cancellationToken: stoppingToken);
                 logger.LogInformation(
                     "Reference sync: {TvShowsChecked} TV show(s) checked ({TvShowsUpdated} updated), {MoviesChecked} movie(s) checked ({MoviesUpdated} updated).",
                     result.TvShowsChecked, result.TvShowsUpdated, result.MoviesChecked, result.MoviesUpdated);

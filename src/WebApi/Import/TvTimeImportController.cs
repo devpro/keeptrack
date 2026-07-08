@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading.Tasks;
 using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.Controllers;
+using Keeptrack.WebApi.Jobs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,7 +13,7 @@ namespace Keeptrack.WebApi.Import;
 [ApiController]
 [Authorize]
 [Route("api/import")]
-public class TvTimeImportController(ImportJobStore jobStore, IServiceScopeFactory scopeFactory) : ControllerBase
+public class TvTimeImportController(JobStore<ImportStage, ImportResultDto> jobStore, IServiceScopeFactory scopeFactory) : ControllerBase
 {
     /// <summary>
     /// Starts importing a TV Time GDPR export (the zip you get from TV Time's "Download my data" request)
@@ -40,7 +41,7 @@ public class TvTimeImportController(ImportJobStore jobStore, IServiceScopeFactor
 
         buffer.Position = 0;
         var ownerId = this.GetUserId();
-        var jobId = jobStore.Create(ownerId);
+        var jobId = jobStore.Create(ownerId, ImportStage.Parsing);
 
         _ = RunImportJobAsync(jobId, buffer, ownerId);
 
@@ -56,7 +57,9 @@ public class TvTimeImportController(ImportJobStore jobStore, IServiceScopeFactor
     public ActionResult<ImportJobStatusDto> GetStatus(Guid jobId)
     {
         var status = jobStore.GetStatus(jobId, this.GetUserId());
-        return status is null ? NotFound() : Ok(status);
+        if (status is null) return NotFound();
+
+        return Ok(new ImportJobStatusDto { Stage = status.Value.Stage, Result = status.Value.Result, ErrorMessage = status.Value.ErrorMessage });
     }
 
     /// <summary>
@@ -73,11 +76,11 @@ public class TvTimeImportController(ImportJobStore jobStore, IServiceScopeFactor
             try
             {
                 var result = await importService.ImportAsync(buffer, ownerId, stage => jobStore.UpdateStage(jobId, stage));
-                jobStore.Complete(jobId, result);
+                jobStore.Complete(jobId, ImportStage.Completed, result);
             }
             catch (Exception ex)
             {
-                jobStore.Fail(jobId, ex.Message);
+                jobStore.Fail(jobId, ImportStage.Failed, ex.Message);
             }
         }
     }

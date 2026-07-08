@@ -23,5 +23,7 @@ public class AlbumReferenceDto : IHasId
 
     public List<string> Genres { get; set; } = [];
 
+    public List<ReferenceTrackDto> Tracks { get; set; } = [];
+
     public string? ImageUrl { get; set; }
 }

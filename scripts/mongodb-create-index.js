@@ -25,6 +25,8 @@ ensureIndex(db.car_history, { owner_id: 1 }, { name: "car_history_owner" });
 ensureIndex(db.movie, { owner_id: 1 }, { name: "movie_owner" });
 ensureIndex(db.tvshow, { owner_id: 1 }, { name: "tvshow_owner" });
 ensureIndex(db.videogame, { owner_id: 1 }, { name: "videogame_owner" });
+ensureIndex(db.song, { owner_id: 1 }, { name: "song_owner" });
+ensureIndex(db.playlist, { owner_id: 1 }, { name: "playlist_owner" });
 
 // car / car_history: the only two repositories that actually issue a $text query (CarRepository has no
 // GetFilter override, so it falls back to MongoDbRepositoryBase's builder.Text(search); CarHistoryRepository

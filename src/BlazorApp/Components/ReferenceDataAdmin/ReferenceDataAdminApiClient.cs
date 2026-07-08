@@ -54,13 +54,22 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
     }
 
     /// <summary>
-    /// Forces an immediate re-check of every reference document against TMDB (see
+    /// Starts an immediate re-check of every reference document against its provider (see
     /// <c>ReferenceDataAdminController.SyncNow</c>), instead of waiting for the periodic background sync.
+    /// Runs in the background; poll <see cref="GetSyncStatusAsync"/> with the returned job id for progress.
     /// </summary>
-    public async Task<ReferenceSyncResultDto> SyncNowAsync()
+    public async Task<Guid> StartSyncAsync()
     {
         var response = await http.PostAsync("/api/reference-data/sync-now", null);
         response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<ReferenceSyncResultDto>())!;
+
+        var job = await response.Content.ReadFromJsonAsync<ReferenceSyncJobDto>();
+        return job!.JobId;
+    }
+
+    public async Task<ReferenceSyncJobStatusDto> GetSyncStatusAsync(Guid jobId)
+    {
+        var status = await http.GetFromJsonAsync<ReferenceSyncJobStatusDto>($"/api/reference-data/sync-now/{jobId}");
+        return status ?? new ReferenceSyncJobStatusDto { Stage = ReferenceSyncStage.Failed, ErrorMessage = "Lost track of the sync job." };
     }
 }
