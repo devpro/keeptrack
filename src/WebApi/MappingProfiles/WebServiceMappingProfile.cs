@@ -21,6 +21,14 @@ public class WebServiceMappingProfile : Profile
             .ForMember(x => x.OwnerId, opt => opt.Ignore());
         CreateMap<Domain.Models.CarHistoryModel, CarHistoryDto>();
 
+        CreateMap<HouseDto, Domain.Models.HouseModel>()
+            .ForMember(x => x.OwnerId, opt => opt.Ignore());
+        CreateMap<Domain.Models.HouseModel, HouseDto>();
+
+        CreateMap<HouseHistoryDto, Domain.Models.HouseHistoryModel>()
+            .ForMember(x => x.OwnerId, opt => opt.Ignore());
+        CreateMap<Domain.Models.HouseHistoryModel, HouseHistoryDto>();
+
         CreateMap<EpisodeDto, Domain.Models.EpisodeModel>()
             .ForMember(x => x.OwnerId, opt => opt.Ignore());
         CreateMap<Domain.Models.EpisodeModel, EpisodeDto>();
@@ -71,6 +79,12 @@ public class WebServiceMappingProfile : Profile
         CreateMap<Domain.Models.CarCostHistoryPointModel, CarCostHistoryPointDto>();
         CreateMap<Domain.Models.CarMileageWarningModel, CarMileageWarningDto>();
         CreateMap<Domain.Models.NextMaintenanceModel, NextMaintenanceDto>();
+
+        // House metrics reads are one-directional (Model -> Dto), same reasoning as Car metrics above:
+        // HouseMetricsService is a pure Domain-level computation with no Dto dependency.
+        CreateMap<Domain.Models.HouseMetricsModel, HouseMetricsDto>();
+        CreateMap<Domain.Models.HouseCostHistoryPointModel, HouseCostHistoryPointDto>();
+        CreateMap<Domain.Models.HouseCategoryCostModel, HouseCategoryCostDto>();
 
         // Reference-data reads are one-directional (Model -> Dto): admins submit a LinkReferenceRequestDto,
         // never a full TvShowReferenceDto/MovieReferenceDto, so there's no Dto -> Model direction to map.

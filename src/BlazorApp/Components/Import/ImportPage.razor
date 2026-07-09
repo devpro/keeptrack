@@ -53,16 +53,66 @@
     }
 </div>
 
+<div class="kt-page-header mt-4">
+    <h1>Import <span>car history</span></h1>
+</div>
+
+<div class="kt-form-card">
+    <p style="color:var(--kt-text-muted)">
+        Upload the personal "Voitures.xlsx" spreadsheet (fuel/maintenance history per car).
+        Only run this once per car - re-uploading the same file will duplicate the history entries.
+    </p>
+
+    <div class="kt-dropzone">
+        <span class="kt-dropzone-icon">⬆</span>
+        <InputFile OnChange="OnCarFileSelectedAsync" accept=".xlsx" disabled="@_carImporting"/>
+    </div>
+
+    @if (_carImporting)
+    {
+        <p class="kt-card-meta mt-2">Importing…</p>
+    }
+
+    @if (_carError is not null)
+    {
+        <div class="alert alert-danger mt-3">@_carError</div>
+    }
+
+    @if (_carResult is not null)
+    {
+        <div class="alert alert-info mt-3">
+            <p class="mb-1"><strong>Cars:</strong> @_carResult.CarsCreated created, @_carResult.CarsSkipped already existed</p>
+            <p class="mb-0"><strong>History entries created:</strong> @_carResult.HistoryEntriesCreated</p>
+            @if (_carResult.Warnings.Count > 0)
+            {
+                <hr/>
+                <p class="mb-1"><strong>Good to know:</strong></p>
+                <ul class="mb-0">
+                    @foreach (var warning in _carResult.Warnings)
+                    {
+                        <li>@warning</li>
+                    }
+                </ul>
+            }
+        </div>
+    }
+</div>
+
 @code {
     private const long MaxFileSize = 50_000_000;
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(600);
 
     [Inject] private TvTimeImportApiClient ImportApi { get; set; } = null!;
+    [Inject] private CarHistoryImportApiClient CarImportApi { get; set; } = null!;
 
     private bool _importing;
     private string? _error;
     private ImportResultDto? _result;
     private ImportStage _stage;
+
+    private bool _carImporting;
+    private string? _carError;
+    private CarHistoryImportResultDto? _carResult;
 
     private async Task OnFileSelectedAsync(InputFileChangeEventArgs e)
     {
@@ -107,6 +157,27 @@
         finally
         {
             _importing = false;
+        }
+    }
+
+    private async Task OnCarFileSelectedAsync(InputFileChangeEventArgs e)
+    {
+        _carImporting = true;
+        _carError = null;
+        _carResult = null;
+
+        try
+        {
+            await using var stream = e.File.OpenReadStream(MaxFileSize);
+            _carResult = await CarImportApi.ImportAsync(stream, e.File.Name);
+        }
+        catch (Exception ex)
+        {
+            _carError = ex.Message;
+        }
+        finally
+        {
+            _carImporting = false;
         }
     }
 

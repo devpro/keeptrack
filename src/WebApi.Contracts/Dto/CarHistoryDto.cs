@@ -19,9 +19,10 @@ public class CarHistoryDto : IHasId
     public required string CarId { get; set; }
 
     /// <summary>
-    /// History date.
+    /// History date and time. Several entries can share the same date (e.g. multiple refuels on a road
+    /// trip); the time is what lets them sort correctly. Defaults to midnight when the time isn't known.
     /// </summary>
-    public required DateOnly HistoryDate { get; set; }
+    public required DateTime HistoryDate { get; set; }
 
     /// <summary>
     /// Mileage indicated on the car.
@@ -47,6 +48,16 @@ public class CarHistoryDto : IHasId
     /// City.
     /// </summary>
     public string? City { get; set; }
+
+    /// <summary>
+    /// Postal code.
+    /// </summary>
+    public string? PostalCode { get; set; }
+
+    /// <summary>
+    /// Country.
+    /// </summary>
+    public string? Country { get; set; }
 
     /// <summary>
     /// Longitude.
@@ -98,4 +109,9 @@ public class CarHistoryDto : IHasId
     /// Station brand name.
     /// </summary>
     public string? StationBrandName { get; set; }
+
+    /// <summary>
+    /// Garage/auto shop name - the Maintenance/Other-event counterpart of <see cref="StationBrandName"/>.
+    /// </summary>
+    public string? Garage { get; set; }
 }

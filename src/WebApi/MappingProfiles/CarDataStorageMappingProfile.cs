@@ -24,6 +24,10 @@ public class CarDataStorageMappingProfile : Profile
         CreateMap<CarHistory, CarHistoryModel>()
             .ForMember(x => x.City, opt => opt.MapFrom(
                 x => x.Location != null ? x.Location.City : null))
+            .ForMember(x => x.PostalCode, opt => opt.MapFrom(
+                x => x.Location != null ? x.Location.PostalCode : null))
+            .ForMember(x => x.Country, opt => opt.MapFrom(
+                x => x.Location != null ? x.Location.Country : null))
             .ForMember(x => x.Longitude, opt => opt.MapFrom(
                 x => x.Location != null && x.Location.Coordinates != null ? x.Location.Coordinates[0] : (double?)null))
             .ForMember(x => x.Latitude, opt => opt.MapFrom(
@@ -49,6 +53,12 @@ public class CarDataStorageMappingProfile : Profile
     private void MapCarHistory()
     {
         CreateMap<CarHistoryModel, CarHistory>()
+            // HistoryDate is a plain DateTime on both sides (unlike every other Date field in this codebase,
+            // which is DateOnly on the model and goes through DataStorageMappingProfile's DateOnly<->DateTime
+            // converter - that converter is what normally stamps DateTimeKind.Utc), so nothing upstream
+            // guarantees a Utc Kind here. The Mongo driver's default DateTimeSerializer requires it.
+            .ForMember(x => x.HistoryDate, opt => opt.MapFrom(
+                x => DateTime.SpecifyKind(x.HistoryDate, DateTimeKind.Utc)))
             .ForMember(x => x.Location, opt => opt.MapFrom(
                 x => x))
             .ForMember(x => x.Fuel, opt => opt.MapFrom(

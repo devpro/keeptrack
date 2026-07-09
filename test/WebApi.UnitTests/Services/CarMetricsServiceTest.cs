@@ -12,7 +12,7 @@ public class CarMetricsServiceTest
     private readonly CarMetricsService _service = new();
 
     private static CarHistoryModel Refuel(
-        string id, DateOnly date, int mileage,
+        string id, DateTime date, int mileage,
         double? fuelVolume = null, double? electricVolume = null, bool isFullRefill = true,
         double? deltaMileage = null, double? cost = null) =>
         new()
@@ -30,7 +30,7 @@ public class CarMetricsServiceTest
             Cost = cost
         };
 
-    private static CarHistoryModel Maintenance(string id, DateOnly date, int? mileage = null, double? cost = null) =>
+    private static CarHistoryModel Maintenance(string id, DateTime date, int? mileage = null, double? cost = null) =>
         new() { Id = id, OwnerId = "owner", CarId = "car-1", HistoryDate = date, Mileage = mileage, EventType = CarHistoryType.Maintenance, Cost = cost };
 
     [Fact]
@@ -38,9 +38,9 @@ public class CarMetricsServiceTest
     {
         var history = new[]
         {
-            Refuel("h1", new DateOnly(2024, 1, 1), 1000, fuelVolume: 40, isFullRefill: true),
-            Refuel("h2", new DateOnly(2024, 1, 15), 1200, fuelVolume: 20, isFullRefill: false),
-            Refuel("h3", new DateOnly(2024, 2, 1), 1400, fuelVolume: 25, isFullRefill: true)
+            Refuel("h1", new DateTime(2024, 1, 1), 1000, fuelVolume: 40, isFullRefill: true),
+            Refuel("h2", new DateTime(2024, 1, 15), 1200, fuelVolume: 20, isFullRefill: false),
+            Refuel("h3", new DateTime(2024, 2, 1), 1400, fuelVolume: 25, isFullRefill: true)
         };
 
         var result = _service.ComputeMetrics(history);
@@ -55,10 +55,10 @@ public class CarMetricsServiceTest
     {
         var history = new[]
         {
-            Refuel("f1", new DateOnly(2024, 1, 1), 1000, fuelVolume: 40, isFullRefill: true),
-            Refuel("f2", new DateOnly(2024, 2, 1), 1500, fuelVolume: 35, isFullRefill: true),
-            Refuel("e1", new DateOnly(2024, 1, 10), 1100, electricVolume: 15, isFullRefill: true),
-            Refuel("e2", new DateOnly(2024, 1, 20), 1300, electricVolume: 30, isFullRefill: true)
+            Refuel("f1", new DateTime(2024, 1, 1), 1000, fuelVolume: 40, isFullRefill: true),
+            Refuel("f2", new DateTime(2024, 2, 1), 1500, fuelVolume: 35, isFullRefill: true),
+            Refuel("e1", new DateTime(2024, 1, 10), 1100, electricVolume: 15, isFullRefill: true),
+            Refuel("e2", new DateTime(2024, 1, 20), 1300, electricVolume: 30, isFullRefill: true)
         };
 
         var result = _service.ComputeMetrics(history);
@@ -75,9 +75,9 @@ public class CarMetricsServiceTest
     {
         var history = new[]
         {
-            Refuel("h1", new DateOnly(2024, 1, 5), 1000, fuelVolume: 40, cost: 60),
-            Maintenance("h2", new DateOnly(2024, 1, 20), 1050, cost: 150),
-            Refuel("h3", new DateOnly(2024, 2, 5), 1500, fuelVolume: 40, cost: 65)
+            Refuel("h1", new DateTime(2024, 1, 5), 1000, fuelVolume: 40, cost: 60),
+            Maintenance("h2", new DateTime(2024, 1, 20), 1050, cost: 150),
+            Refuel("h3", new DateTime(2024, 2, 5), 1500, fuelVolume: 40, cost: 65)
         };
 
         var result = _service.ComputeMetrics(history);
@@ -95,7 +95,7 @@ public class CarMetricsServiceTest
     [Fact]
     public void ComputeMetrics_NextMaintenance_IsNullWhenNoMaintenanceHistoryExists()
     {
-        var history = new[] { Refuel("h1", new DateOnly(2024, 1, 1), 1000, fuelVolume: 40) };
+        var history = new[] { Refuel("h1", new DateTime(2024, 1, 1), 1000, fuelVolume: 40) };
 
         var result = _service.ComputeMetrics(history);
 
@@ -106,7 +106,7 @@ public class CarMetricsServiceTest
     public void ComputeMetrics_NextMaintenance_IsOneYearAfterTheLastMaintenanceEvent()
     {
         var lastMaintenance = DateOnly.FromDateTime(DateTime.Today).AddMonths(-10);
-        var history = new[] { Maintenance("h1", lastMaintenance) };
+        var history = new[] { Maintenance("h1", lastMaintenance.ToDateTime(TimeOnly.MinValue)) };
 
         var result = _service.ComputeMetrics(history);
 
@@ -120,7 +120,7 @@ public class CarMetricsServiceTest
     public void ComputeMetrics_NextMaintenance_ReportsNegativeMonthsWhenOverdue()
     {
         var lastMaintenance = DateOnly.FromDateTime(DateTime.Today).AddMonths(-14);
-        var history = new[] { Maintenance("h1", lastMaintenance) };
+        var history = new[] { Maintenance("h1", lastMaintenance.ToDateTime(TimeOnly.MinValue)) };
 
         var result = _service.ComputeMetrics(history);
 
@@ -132,8 +132,8 @@ public class CarMetricsServiceTest
     {
         var history = new[]
         {
-            Refuel("h1", new DateOnly(2024, 1, 1), 5000, fuelVolume: 40),
-            Refuel("h2", new DateOnly(2024, 2, 1), 4800, fuelVolume: 40)
+            Refuel("h1", new DateTime(2024, 1, 1), 5000, fuelVolume: 40),
+            Refuel("h2", new DateTime(2024, 2, 1), 4800, fuelVolume: 40)
         };
 
         var result = _service.ComputeMetrics(history);
@@ -148,8 +148,8 @@ public class CarMetricsServiceTest
         // previous entry in the app - a refuel was very likely never logged in between
         var history = new[]
         {
-            Refuel("h1", new DateOnly(2024, 1, 1), 1000, fuelVolume: 40),
-            Refuel("h2", new DateOnly(2024, 2, 1), 1900, fuelVolume: 40, deltaMileage: 300)
+            Refuel("h1", new DateTime(2024, 1, 1), 1000, fuelVolume: 40),
+            Refuel("h2", new DateTime(2024, 2, 1), 1900, fuelVolume: 40, deltaMileage: 300)
         };
 
         var result = _service.ComputeMetrics(history);
@@ -163,8 +163,8 @@ public class CarMetricsServiceTest
     {
         var history = new[]
         {
-            Refuel("h1", new DateOnly(2024, 1, 1), 1000, fuelVolume: 40),
-            Refuel("h2", new DateOnly(2024, 2, 1), 1300, fuelVolume: 40, deltaMileage: 500)
+            Refuel("h1", new DateTime(2024, 1, 1), 1000, fuelVolume: 40),
+            Refuel("h2", new DateTime(2024, 2, 1), 1300, fuelVolume: 40, deltaMileage: 500)
         };
 
         var result = _service.ComputeMetrics(history);
@@ -178,8 +178,8 @@ public class CarMetricsServiceTest
     {
         var history = new[]
         {
-            Refuel("h1", new DateOnly(2024, 1, 1), 1000, fuelVolume: 40),
-            Refuel("h2", new DateOnly(2024, 2, 1), 1500, fuelVolume: 40, deltaMileage: 500.4)
+            Refuel("h1", new DateTime(2024, 1, 1), 1000, fuelVolume: 40),
+            Refuel("h2", new DateTime(2024, 2, 1), 1500, fuelVolume: 40, deltaMileage: 500.4)
         };
 
         var result = _service.ComputeMetrics(history);

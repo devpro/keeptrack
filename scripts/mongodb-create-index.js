@@ -22,6 +22,8 @@ ensureIndex(db.album, { owner_id: 1 }, { name: "album_owner" });
 ensureIndex(db.book, { owner_id: 1 }, { name: "book_owner" });
 ensureIndex(db.car, { owner_id: 1 }, { name: "car_owner" });
 ensureIndex(db.car_history, { owner_id: 1 }, { name: "car_history_owner" });
+ensureIndex(db.house, { owner_id: 1 }, { name: "house_owner" });
+ensureIndex(db.house_history, { owner_id: 1 }, { name: "house_history_owner" });
 ensureIndex(db.movie, { owner_id: 1 }, { name: "movie_owner" });
 ensureIndex(db.tvshow, { owner_id: 1 }, { name: "tvshow_owner" });
 ensureIndex(db.videogame, { owner_id: 1 }, { name: "videogame_owner" });
@@ -35,6 +37,9 @@ ensureIndex(db.playlist, { owner_id: 1 }, { name: "playlist_owner" });
 // `title` field at all (Car's searchable field is `commercial_name`; CarHistory's is `description`) - that
 // index never covered anything and CarRepository/CarHistoryRepository no longer fall back to $text, so it
 // was removed rather than repointed.
+
+// house / house_history: same regex-filter search shape as car/car_history above - no text index needed here
+// either, for the same reason.
 
 // episode: enforces the (show, season, episode) natural key and makes re-imports idempotent at the database level
 ensureIndex(

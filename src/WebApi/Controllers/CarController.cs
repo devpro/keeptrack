@@ -35,4 +35,11 @@ public class CarController(
 
         return Ok(Mapper.Map<CarMetricsDto>(metricsService.ComputeMetrics(history.Items)));
     }
+
+    /// <summary>
+    /// CarHistory is a separate top-level collection referencing its car by id, not an embedded array
+    /// (see CLAUDE.md's "Child entities" section) - without this, deleting a car would leave its fuel/
+    /// maintenance history orphaned in MongoDB forever, since it's only ever reachable via the car's own id.
+    /// </summary>
+    protected override async Task OnDeletedAsync(string id, string ownerId) => await carHistoryRepository.DeleteAllForCarAsync(id, ownerId);
 }

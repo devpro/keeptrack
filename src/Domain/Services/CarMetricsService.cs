@@ -63,7 +63,7 @@ public class CarMetricsService
                 {
                     points.Add(new ConsumptionPointModel
                     {
-                        Date = refuel.HistoryDate,
+                        Date = DateOnly.FromDateTime(refuel.HistoryDate),
                         ValuePer100Km = quantitySinceLastFullRefill / distance * 100
                     });
                 }
@@ -117,8 +117,8 @@ public class CarMetricsService
                 warnings.Add(new CarMileageWarningModel
                 {
                     CarHistoryId = current.Id!,
-                    Message = $"Mileage {current.Mileage} on {current.HistoryDate} is lower than {previous.Mileage} " +
-                              $"recorded on {previous.HistoryDate}."
+                    Message = $"Mileage {current.Mileage} on {current.HistoryDate:yyyy-MM-dd} is lower than {previous.Mileage} " +
+                              $"recorded on {previous.HistoryDate:yyyy-MM-dd}."
                 });
                 continue;
             }
@@ -134,7 +134,7 @@ public class CarMetricsService
                 CarHistoryId = current.Id!,
                 Message = $"Entered delta mileage ({current.DeltaMileage}) doesn't match the {computedDelta} " +
                           $"difference between this entry's mileage ({current.Mileage}) and the previous entry's " +
-                          $"({previous.Mileage} on {previous.HistoryDate})." +
+                          $"({previous.Mileage} on {previous.HistoryDate:yyyy-MM-dd})." +
                           (suggestsMissingEntry ? " An entry may be missing in between." : " Check both entries for a typo.")
             });
         }
@@ -156,13 +156,14 @@ public class CarMetricsService
 
         if (lastMaintenance is null) return null;
 
-        var dueDate = lastMaintenance.HistoryDate.AddYears(1);
+        var lastMaintenanceDate = DateOnly.FromDateTime(lastMaintenance.HistoryDate);
+        var dueDate = lastMaintenanceDate.AddYears(1);
         var today = DateOnly.FromDateTime(DateTime.Today);
         var monthsRemaining = ((dueDate.Year - today.Year) * 12) + (dueDate.Month - today.Month);
 
         return new NextMaintenanceModel
         {
-            LastMaintenanceDate = lastMaintenance.HistoryDate,
+            LastMaintenanceDate = lastMaintenanceDate,
             DueDate = dueDate,
             MonthsRemaining = monthsRemaining
         };

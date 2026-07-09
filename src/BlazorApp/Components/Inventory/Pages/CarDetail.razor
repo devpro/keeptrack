@@ -1,6 +1,7 @@
 @page "/cars/{Id}"
 @rendermode InteractiveServer
 @attribute [Authorize]
+@using System.Globalization
 
 @if (_loading)
 {
@@ -76,23 +77,33 @@ else
                 </p>
             }
 
+            @{
+                var showFuelChart = ShowFuel && metrics.FuelConsumption.Count > 0;
+                var showElectricChart = ShowElectric && metrics.ElectricConsumption.Count > 0;
+                // Side-by-side (half width each) only when both charts actually render, e.g. a hybrid -
+                // a combustion-only or electric-only car has just one chart, which should take the full row
+                // instead of leaving the other half empty.
+                var bothConsumptionCharts = showFuelChart && showElectricChart;
+                var consumptionColClass = bothConsumptionCharts ? "col-md-6" : "col-12";
+                var consumptionGeometry = bothConsumptionCharts ? SvgChartHelpers.HalfWidthGeometry : SvgChartHelpers.FullWidthGeometry;
+            }
             <div class="row g-4">
-                @if (ShowFuel && metrics.FuelConsumption.Count > 0)
+                @if (showFuelChart)
                 {
-                    <div class="col-md-6">
+                    <div class="@consumptionColClass">
                         <p class="kt-card-meta mb-1">
                             Fuel consumption (L/100km) - avg @metrics.AverageFuelConsumptionPer100Km?.ToString("F1")
                         </p>
-                        @RenderConsumptionChart(metrics.FuelConsumption, "var(--kt-accent)")
+                        @RenderConsumptionChart(metrics.FuelConsumption, "var(--kt-accent)", "L/100km", "fuel", consumptionGeometry)
                     </div>
                 }
-                @if (ShowElectric && metrics.ElectricConsumption.Count > 0)
+                @if (showElectricChart)
                 {
-                    <div class="col-md-6">
+                    <div class="@consumptionColClass">
                         <p class="kt-card-meta mb-1">
                             Electric consumption (kWh/100km) - avg @metrics.AverageElectricConsumptionPer100Km?.ToString("F1")
                         </p>
-                        @RenderConsumptionChart(metrics.ElectricConsumption, "var(--kt-chart-secondary)")
+                        @RenderConsumptionChart(metrics.ElectricConsumption, "var(--kt-chart-secondary)", "kWh/100km", "electric", consumptionGeometry)
                     </div>
                 }
             </div>
@@ -120,24 +131,9 @@ else
                 <tr>
                     <th>Date</th>
                     <th>Mileage</th>
-                    <th>Δ Mileage</th>
                     <th>Event</th>
-                    @if (ShowFuel)
-                    {
-                        <th>Fuel (L)</th>
-                        <th>Fuel (€/L)</th>
-                    }
-                    @if (ShowElectric)
-                    {
-                        <th>Electric (kWh)</th>
-                        <th>Electric (€/kWh)</th>
-                    }
-                    <th>Full?</th>
                     <th>Cost</th>
-                    <th>Station</th>
                     <th>City</th>
-                    <th>Longitude</th>
-                    <th>Latitude</th>
                     <th>Description</th>
                     <th></th>
                     <th></th>
@@ -146,112 +142,132 @@ else
                 <tbody>
                 @if (_history.Count == 0)
                 {
-                    <tr><td colspan="20" class="text-center kt-card-meta">No history yet - add the first entry above.</td></tr>
+                    <tr><td colspan="8" class="text-center kt-card-meta">No history yet - add the first entry above.</td></tr>
                 }
                 @foreach (var entry in _history)
                 {
-                    <CarHistoryRow Entry="entry" ShowFuel="ShowFuel" ShowElectric="ShowElectric"
+                    <CarHistoryRow Entry="entry"
                                    HasWarning="_warningsByEntryId.ContainsKey(entry.Id!)"
                                    WarningMessage="@(_warningsByEntryId.GetValueOrDefault(entry.Id!))"
-                                   OnSave="SaveEntryAsync" OnDelete="DeleteEntryAsync"/>
+                                   OnEdit="ShowEditModal" OnDelete="DeleteEntryAsync"/>
                 }
                 </tbody>
             </table>
         </div>
     </div>
 
-    @if (_showAddModal)
+    @if (_showModal)
     {
-        <div class="kt-modal-backdrop" @onclick="CancelAddModal">
+        <div class="kt-modal-backdrop" @onclick="CancelModal">
             <div class="kt-modal" @onclick:stopPropagation>
                 <div class="kt-modal-header">
-                    <h5>Add history entry</h5>
-                    <button class="kt-modal-close" @onclick="CancelAddModal">✕</button>
+                    <h5>@(IsEditMode ? "Edit" : "Add") history entry</h5>
+                    <button class="kt-modal-close" @onclick="CancelModal">✕</button>
                 </div>
                 <div class="kt-modal-body">
                     <div class="row g-3">
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label">Date</label>
-                            <input class="form-control" type="date" @bind="_newEntry.HistoryDate" @bind:format="yyyy-MM-dd"/>
+                            <input class="form-control" type="date" @bind="ModalDate" @bind:format="yyyy-MM-dd"/>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
+                            <label class="form-label">Time (24h)</label>
+                            <input class="form-control" type="text" inputmode="numeric" placeholder="HH:mm"
+                                   pattern="[0-2][0-9]:[0-5][0-9]" @bind="ModalTimeText" @bind:event="onchange"/>
+                        </div>
+                        <div class="col-md-3">
                             <label class="form-label">Mileage</label>
-                            <input class="form-control" type="number" @bind="_newEntry.Mileage"/>
+                            <input class="form-control" type="number" @bind="_modalEntry.Mileage"/>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Δ Mileage since last entry</label>
-                            <input class="form-control" type="number" @bind="_newEntry.DeltaMileage"/>
+                        <div class="col-md-3">
+                            <label class="form-label">Δ Mileage</label>
+                            <input class="form-control" type="number" @bind="_modalEntry.DeltaMileage"/>
                         </div>
                         <div class="col-12">
                             <label class="form-label d-block">Event type</label>
                             <div class="d-flex gap-2">
                                 @foreach (var eventType in Enum.GetValues<CarHistoryType>())
                                 {
-                                    <button type="button" class="btn btn-sm @(_newEntry.EventType == eventType ? "btn-primary" : "btn-secondary")"
-                                            @onclick="() => _newEntry.EventType = eventType">@eventType</button>
+                                    <button type="button" class="btn btn-sm @(_modalEntry.EventType == eventType ? "btn-primary" : "btn-secondary")"
+                                            @onclick="() => _modalEntry.EventType = eventType">@eventType</button>
                                 }
                             </div>
                         </div>
-                        @if (_newEntry.EventType == CarHistoryType.Refuel)
+                        @if (_modalEntry.EventType == CarHistoryType.Refuel)
                         {
                             @if (ShowFuel)
                             {
                                 <div class="col-md-6">
                                     <label class="form-label">Fuel volume (L)</label>
-                                    <input class="form-control" type="number" step="0.01" @bind="_newEntry.FuelVolume"/>
+                                    <input class="form-control" type="number" step="0.01" @bind="_modalEntry.FuelVolume"/>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Fuel unit price (€/L)</label>
-                                    <input class="form-control" type="number" step="0.001" @bind="_newEntry.FuelUnitPrice"/>
+                                    <input class="form-control" type="number" step="0.001" @bind="_modalEntry.FuelUnitPrice"/>
                                 </div>
                             }
                             @if (ShowElectric)
                             {
                                 <div class="col-md-6">
                                     <label class="form-label">Electric energy (kWh)</label>
-                                    <input class="form-control" type="number" step="0.01" @bind="_newEntry.ElectricVolume"/>
+                                    <input class="form-control" type="number" step="0.01" @bind="_modalEntry.ElectricVolume"/>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Electric unit price (€/kWh)</label>
-                                    <input class="form-control" type="number" step="0.001" @bind="_newEntry.ElectricUnitPrice"/>
+                                    <input class="form-control" type="number" step="0.001" @bind="_modalEntry.ElectricUnitPrice"/>
                                 </div>
                             }
                             <div class="col-md-6">
                                 <label class="form-label">Station</label>
-                                <input class="form-control" @bind="_newEntry.StationBrandName"/>
+                                <input class="form-control" @bind="_modalEntry.StationBrandName"/>
                             </div>
                             <div class="col-12">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="new-entry-full-refill" @bind="_newEntry.IsFullRefill"/>
-                                    <label class="form-check-label" for="new-entry-full-refill">Full tank / full charge</label>
+                                    <input class="form-check-input" type="checkbox" id="modal-entry-full-refill" @bind="_modalEntry.IsFullRefill"/>
+                                    <label class="form-check-label" for="modal-entry-full-refill">Full tank / full charge</label>
                                 </div>
                             </div>
                         }
+                        else
+                        {
+                            <div class="col-md-6">
+                                <label class="form-label">Garage / auto shop</label>
+                                <input class="form-control" @bind="_modalEntry.Garage"/>
+                            </div>
+                        }
                         <!-- Every history entry happens somewhere, not just refuels - location isn't gated by event type. -->
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label">City</label>
-                            <input class="form-control" @bind="_newEntry.City"/>
+                            <input class="form-control" @bind="_modalEntry.City"/>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Postal code</label>
+                            <input class="form-control" @bind="_modalEntry.PostalCode"/>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Country</label>
+                            <input class="form-control" @bind="_modalEntry.Country"/>
                         </div>
                         <div class="col-12">
                             <label class="form-label d-block">Coordinates</label>
                             <div class="d-flex gap-2">
-                                <input class="form-control" type="number" step="0.000001" placeholder="Longitude" @bind="_newEntry.Longitude"/>
-                                <input class="form-control" type="number" step="0.000001" placeholder="Latitude" @bind="_newEntry.Latitude"/>
+                                <input class="form-control" type="number" step="0.000001" placeholder="Longitude" @bind="_modalEntry.Longitude"/>
+                                <input class="form-control" type="number" step="0.000001" placeholder="Latitude" @bind="_modalEntry.Latitude"/>
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Cost</label>
-                            <input class="form-control" type="number" step="0.01" @bind="_newEntry.Cost"/>
+                            <label class="form-label">Cost (€)</label>
+                            <input class="form-control" type="number" step="0.01" @bind="_modalEntry.Cost"/>
                         </div>
                         <div class="col-12">
                             <label class="form-label">Description</label>
-                            <textarea class="form-control" rows="3" @bind="_newEntry.Description"></textarea>
+                            <textarea class="form-control" rows="3" @bind="_modalEntry.Description"></textarea>
                         </div>
                     </div>
                 </div>
                 <div class="kt-modal-footer">
-                    <button class="btn btn-secondary" @onclick="CancelAddModal">Cancel</button>
-                    <button class="btn btn-success" @onclick="SaveNewEntryAsync">Save</button>
+                    <button class="btn btn-secondary" @onclick="CancelModal">Cancel</button>
+                    <button class="btn btn-success" @onclick="SaveModalEntryAsync">Save</button>
                 </div>
             </div>
         </div>
@@ -269,9 +285,38 @@ else
     private CarDto? _car;
     private List<CarHistoryDto> _history = [];
     private CarMetricsDto? _metrics;
-    private CarHistoryDto _newEntry = NewEntry("");
-    private bool _showAddModal;
+    private CarHistoryDto _modalEntry = NewEntry("");
+    private bool _showModal;
     private Dictionary<string, string> _warningsByEntryId = [];
+
+    private bool IsEditMode => !string.IsNullOrEmpty(_modalEntry.Id);
+
+    /// <summary>Separate Date/Time proxies over the single _modalEntry.HistoryDate, so editing one doesn't
+    /// reset the other back to midnight - a plain @bind straight to HistoryDate would lose the time
+    /// whenever the date input fires (its built-in converter always parses a bare yyyy-MM-dd).</summary>
+    private DateOnly ModalDate
+    {
+        get => DateOnly.FromDateTime(_modalEntry.HistoryDate);
+        set => _modalEntry.HistoryDate = value.ToDateTime(TimeOnly.FromDateTime(_modalEntry.HistoryDate));
+    }
+
+    /// <summary>
+    /// A plain text "HH:mm" field rather than &lt;input type="time"&gt; - the native time picker's 12h/24h
+    /// display is decided by the browser from the OS region format, not anything this page controls (Chrome
+    /// and Firefox both ignore the page's own language/culture for it), so it can't be forced to 24h that
+    /// way. A free-text field sidesteps the native widget entirely and always reads/writes 24h.
+    /// </summary>
+    private string ModalTimeText
+    {
+        get => TimeOnly.FromDateTime(_modalEntry.HistoryDate).ToString("HH:mm");
+        set
+        {
+            if (TimeOnly.TryParseExact(value, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var time))
+            {
+                _modalEntry.HistoryDate = DateOnly.FromDateTime(_modalEntry.HistoryDate).ToDateTime(time);
+            }
+        }
+    }
 
     private bool ShowFuel => _car?.EnergyType != CarEnergyType.Electric;
 
@@ -292,7 +337,7 @@ else
     private static CarHistoryDto NewEntry(string carId) => new()
     {
         CarId = carId,
-        HistoryDate = DateOnly.FromDateTime(DateTime.Today),
+        HistoryDate = DateTime.Now,
         EventType = CarHistoryType.Refuel
     };
 
@@ -308,7 +353,6 @@ else
             _warningsByEntryId = _metrics.MileageWarnings
                 .GroupBy(w => w.CarHistoryId)
                 .ToDictionary(g => g.Key, g => string.Join(" ", g.Select(w => w.Message)));
-            _newEntry = NewEntry(Id);
         }
         _loading = false;
     }
@@ -363,31 +407,60 @@ else
         await SaveCarAsync();
     }
 
+    private void ShowAddModal()
+    {
+        _modalEntry = NewEntry(Id);
+        _showModal = true;
+    }
+
+    /// <summary>Edits a copy, not the row's own object, so Cancel discards changes instead of leaving the
+    /// table showing edits that were never saved.</summary>
+    private void ShowEditModal(CarHistoryDto entry)
+    {
+        _modalEntry = CloneEntry(entry);
+        _showModal = true;
+    }
+
+    private void CancelModal() => _showModal = false;
+
     /// <summary>
     /// Every history mutation reloads the whole car (history + metrics) rather than patching local state -
     /// an edit can change mileage-warning results and chronological order, so recomputing from the server is
     /// simpler and safer than trying to keep local derived state in sync by hand.
     /// </summary>
-    private async Task SaveEntryAsync(CarHistoryDto entry)
+    private async Task SaveModalEntryAsync()
     {
-        await CarHistoryApi.UpdateAsync(entry);
+        if (IsEditMode) await CarHistoryApi.UpdateAsync(_modalEntry);
+        else await CarHistoryApi.AddAsync(_modalEntry);
+
+        _showModal = false;
         await LoadAsync();
     }
 
-    private void ShowAddModal()
+    private static CarHistoryDto CloneEntry(CarHistoryDto entry) => new()
     {
-        _newEntry = NewEntry(Id);
-        _showAddModal = true;
-    }
-
-    private void CancelAddModal() => _showAddModal = false;
-
-    private async Task SaveNewEntryAsync()
-    {
-        await CarHistoryApi.AddAsync(_newEntry);
-        _showAddModal = false;
-        await LoadAsync();
-    }
+        Id = entry.Id,
+        CarId = entry.CarId,
+        HistoryDate = entry.HistoryDate,
+        Mileage = entry.Mileage,
+        EventType = entry.EventType,
+        Description = entry.Description,
+        Cost = entry.Cost,
+        City = entry.City,
+        PostalCode = entry.PostalCode,
+        Country = entry.Country,
+        Longitude = entry.Longitude,
+        Latitude = entry.Latitude,
+        FuelCategory = entry.FuelCategory,
+        FuelVolume = entry.FuelVolume,
+        FuelUnitPrice = entry.FuelUnitPrice,
+        ElectricVolume = entry.ElectricVolume,
+        ElectricUnitPrice = entry.ElectricUnitPrice,
+        IsFullRefill = entry.IsFullRefill,
+        DeltaMileage = entry.DeltaMileage,
+        StationBrandName = entry.StationBrandName,
+        Garage = entry.Garage
+    };
 
     private async Task DeleteEntryAsync(string id)
     {
@@ -397,29 +470,38 @@ else
 
     /// <summary>Thin hand-rolled SVG line chart - this app has no charting dependency, and one isn't worth
     /// adding for a couple of small, single-series trend lines. A single series needs no legend (the label
-    /// above the chart already names it); each point carries a native &lt;title&gt; tooltip.</summary>
-    private static RenderFragment RenderConsumptionChart(List<ConsumptionPointDto> points, string color) => builder =>
+    /// above the chart already names it); each point carries a native &lt;title&gt; tooltip. Axis drawing
+    /// (arrowheads, ticks, titles) lives in <see cref="SvgChartHelpers"/>, shared with HouseDetail.razor's
+    /// own chart.</summary>
+    private static RenderFragment RenderConsumptionChart(List<ConsumptionPointDto> points, string color, string yLabel, string chartId, SvgChartHelpers.ChartGeometry geometry) => builder =>
     {
-        const double width = 100;
-        const double height = 36;
-        const double padding = 4;
+        var (viewWidth, viewHeight, plotLeft, plotRight, plotTop, plotBottom) = geometry;
 
         var values = points.Select(p => p.ValuePer100Km).ToList();
         var min = values.Min();
         var max = values.Max();
         var range = max - min == 0 ? 1 : max - min;
-        var stepX = points.Count > 1 ? (width - 2 * padding) / (points.Count - 1) : 0;
+        var stepX = points.Count > 1 ? (plotRight - plotLeft) / (points.Count - 1) : 0;
 
-        double X(int i) => padding + i * stepX;
-        double Y(double v) => height - padding - (v - min) / range * (height - 2 * padding);
+        double X(int i) => plotLeft + i * stepX;
+        double Y(double v) => plotBottom - (v - min) / range * (plotBottom - plotTop);
 
         var linePoints = string.Join(" ", points.Select((p, i) => $"{X(i):F1},{Y(p.ValuePer100Km):F1}"));
 
+        var yTicks = Enumerable.Range(0, 4)
+            .Select(i => min + range * i / 3.0)
+            .Select(v => (Y(v), v.ToString("F1")))
+            .ToList();
+        var xTicks = SvgChartHelpers.EvenlySpacedIndices(points.Count, 4)
+            .Select(i => (X(i), points[i].Date.ToString("MMM yy")))
+            .ToList();
+
         var seq = 0;
         builder.OpenElement(seq++, "svg");
-        builder.AddAttribute(seq++, "viewBox", $"0 0 {width} {height}");
-        builder.AddAttribute(seq++, "preserveAspectRatio", "none");
-        builder.AddAttribute(seq++, "class", "kt-consumption-chart");
+        builder.AddAttribute(seq++, "viewBox", $"0 0 {viewWidth} {viewHeight}");
+        builder.AddAttribute(seq++, "class", "kt-chart-svg");
+
+        SvgChartHelpers.RenderAxes(builder, ref seq, geometry, $"kt-chart-arrow-{chartId}", "Date", yLabel, yTicks, xTicks);
 
         builder.OpenElement(seq++, "polyline");
         builder.AddAttribute(seq++, "points", linePoints);
@@ -452,33 +534,42 @@ else
     /// stacked segments so they read as distinct marks rather than one solid bar.</summary>
     private static RenderFragment RenderCostHistoryChart(List<CarCostHistoryPointDto> points) => builder =>
     {
-        const double width = 100;
-        const double height = 36;
-        const double padding = 2;
+        var geometry = SvgChartHelpers.FullWidthGeometry;
+        var (viewWidth, viewHeight, plotLeft, plotRight, plotTop, plotBottom) = geometry;
 
         var maxTotal = points.Max(p => p.TotalCost);
         if (maxTotal <= 0) maxTotal = 1;
 
-        var barWidth = (width - 2 * padding) / points.Count * 0.7;
-        var gap = (width - 2 * padding) / points.Count * 0.3;
+        var plotWidth = plotRight - plotLeft;
+        var barWidth = plotWidth / points.Count * 0.7;
+        var gap = plotWidth / points.Count * 0.3;
 
-        double ScaleHeight(double value) => value / maxTotal * (height - 2 * padding);
+        double ScaleHeight(double value) => value / maxTotal * (plotBottom - plotTop);
+
+        var yTicks = Enumerable.Range(0, 4)
+            .Select(i => maxTotal * i / 3.0)
+            .Select(v => (plotBottom - ScaleHeight(v), v.ToString("F0")))
+            .ToList();
+        var xTicks = SvgChartHelpers.EvenlySpacedIndices(points.Count, 5)
+            .Select(i => (plotLeft + i * (barWidth + gap) + barWidth / 2, points[i].Period.ToString("MMM yy")))
+            .ToList();
 
         var seq = 0;
         builder.OpenElement(seq++, "svg");
-        builder.AddAttribute(seq++, "viewBox", $"0 0 {width} {height}");
-        builder.AddAttribute(seq++, "preserveAspectRatio", "none");
-        builder.AddAttribute(seq++, "class", "kt-cost-chart");
+        builder.AddAttribute(seq++, "viewBox", $"0 0 {viewWidth} {viewHeight}");
+        builder.AddAttribute(seq++, "class", "kt-chart-svg");
+
+        SvgChartHelpers.RenderAxes(builder, ref seq, geometry, "kt-chart-arrow-cost", "Month", "€", yTicks, xTicks);
 
         for (var i = 0; i < points.Count; i++)
         {
             var point = points[i];
-            var x = padding + i * (barWidth + gap);
+            var x = plotLeft + i * (barWidth + gap);
             var fuelHeight = ScaleHeight(point.FuelCost);
             var maintenanceHeight = ScaleHeight(point.MaintenanceCost);
             var stackGap = point.FuelCost > 0 && point.MaintenanceCost > 0 ? 0.6 : 0;
 
-            var maintenanceY = height - padding - maintenanceHeight;
+            var maintenanceY = plotBottom - maintenanceHeight;
             builder.OpenElement(seq++, "rect");
             builder.AddAttribute(seq++, "x", x.ToString("F1"));
             builder.AddAttribute(seq++, "y", maintenanceY.ToString("F1"));

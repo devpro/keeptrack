@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using AutoMapper;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
@@ -11,6 +12,13 @@ public class CarHistoryRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbR
     : MongoDbRepositoryBase<CarHistoryModel, CarHistory>(mongoDatabase, logger, mapper), ICarHistoryRepository
 {
     protected override string CollectionName => "car_history";
+
+    public async Task<long> DeleteAllForCarAsync(string carId, string ownerId)
+    {
+        var filter = Builders<CarHistory>.Filter.Eq(f => f.OwnerId, ownerId) & Builders<CarHistory>.Filter.Eq(f => f.CarId, carId);
+        var result = await GetCollection().DeleteManyAsync(filter);
+        return result.DeletedCount;
+    }
 
     protected override FilterDefinition<CarHistory> GetFilter(string ownerId, string? search, CarHistoryModel input)
     {

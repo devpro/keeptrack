@@ -11,7 +11,12 @@ public class CarHistoryModel : IHasIdAndOwnerId
 
     public required string CarId { get; set; }
 
-    public required DateOnly HistoryDate { get; set; }
+    /// <summary>
+    /// When this event happened. Carries a real time-of-day, not just a calendar day - several entries
+    /// (e.g. multiple refuels on a long road trip) can share the same date, and only the time lets them
+    /// sort in the order they actually happened. Defaults to midnight when the time isn't known.
+    /// </summary>
+    public required DateTime HistoryDate { get; set; }
 
     public int? Mileage { get; set; }
 
@@ -22,6 +27,10 @@ public class CarHistoryModel : IHasIdAndOwnerId
     public double? Cost { get; set; }
 
     public string? City { get; set; }
+
+    public string? PostalCode { get; set; }
+
+    public string? Country { get; set; }
 
     public double? Longitude { get; set; }
 
@@ -49,4 +58,10 @@ public class CarHistoryModel : IHasIdAndOwnerId
     public double? DeltaMileage { get; set; }
 
     public string? StationBrandName { get; set; }
+
+    /// <summary>
+    /// Garage/auto shop name - the Maintenance/Other-event counterpart of <see cref="StationBrandName"/>
+    /// (which only applies to Refuel events).
+    /// </summary>
+    public string? Garage { get; set; }
 }

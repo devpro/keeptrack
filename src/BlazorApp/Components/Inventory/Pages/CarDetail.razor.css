@@ -1,37 +1,7 @@
-/* Sheet-style history grid: compact, always-editable cells so it reads as a spreadsheet rather than the
-   app's usual click-to-open-a-modal pattern - the user explicitly asked for something close to the Excel
-   sheet they used to track this in. */
-.kt-car-sheet .kt-sheet-table {
-    font-size: 0.85rem;
-}
-
-.kt-car-sheet .kt-sheet-table th {
-    white-space: nowrap;
-    color: var(--kt-text-muted);
-    font-weight: 600;
-}
-
-/* Rows/cells below are rendered by the child CarHistoryRow component, not this file's own markup - CSS
-   isolation scopes stop at a component boundary, so these need ::deep to reach in. */
-.kt-car-sheet ::deep td {
-    padding: 0.25rem 0.4rem;
-    vertical-align: middle;
-}
-
-.kt-car-sheet ::deep input:not([type="checkbox"]),
-.kt-car-sheet ::deep select {
-    min-width: 5.5rem;
-}
-
-/* Without this, the checkbox inherits Bootstrap's .form-check-input full-width block sizing inside a table
-   cell with no surrounding .form-check wrapper, stretching into a giant pill instead of a small square. */
-.kt-car-sheet ::deep input[type="checkbox"] {
-    width: 1rem;
-    height: 1rem;
-    min-width: 0;
-    margin: 0;
-}
-
+/* Mileage-inconsistency row highlighting - Car-specific (CarMetricsService.ComputeMileageWarnings has no
+   House equivalent), so this stays here rather than in the shared rules in app.css. Rows/cells are rendered
+   by the child CarHistoryRow component, not this file's own markup - CSS isolation scopes stop at a
+   component boundary, so this needs ::deep to reach in. */
 .kt-car-sheet ::deep .kt-history-row-warning td {
     background: var(--kt-warning-bg);
 }
@@ -39,49 +9,4 @@
 .kt-car-sheet ::deep .kt-history-warning-icon {
     color: var(--kt-warning);
     cursor: help;
-}
-
-.kt-callout {
-    background: var(--kt-surface-2);
-    border-radius: var(--kt-radius);
-    padding: 0.6rem 0.9rem;
-    margin: 0 0 0.75rem 0;
-    font-size: 0.9rem;
-}
-
-.kt-callout-warning {
-    background: var(--kt-warning-bg);
-    color: var(--kt-warning);
-}
-
-.kt-callout-danger {
-    background: var(--kt-danger-bg);
-    color: var(--kt-danger);
-}
-
-/* Built via RenderTreeBuilder (RenderConsumptionChart/RenderCostHistoryChart), not literal markup in this
-   file, so these elements never receive this component's CSS-isolation scope attribute either - ::deep
-   again, for the same reason as the sheet rows above. */
-::deep .kt-consumption-chart,
-::deep .kt-cost-chart {
-    width: 100%;
-    height: 100px;
-    display: block;
-}
-
-.kt-chart-legend {
-    display: flex;
-    gap: 1rem;
-    font-size: 0.8rem;
-    color: var(--kt-text-muted);
-    margin-bottom: 0.4rem;
-}
-
-.kt-legend-swatch {
-    display: inline-block;
-    width: 0.7rem;
-    height: 0.7rem;
-    border-radius: 2px;
-    margin-right: 0.3rem;
-    vertical-align: middle;
 }

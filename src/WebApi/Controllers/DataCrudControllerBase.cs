@@ -103,7 +103,15 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IMapper mapper, IData
             return BadRequest();
         }
 
-        await dataRepository.DeleteAsync(id, this.GetUserId());
+        var ownerId = this.GetUserId();
+        await dataRepository.DeleteAsync(id, ownerId);
+        await OnDeletedAsync(id, ownerId);
         return NoContent();
     }
+
+    /// <summary>
+    /// Hook for subclasses that need to react to an item being deleted (e.g. cascading the delete to a
+    /// child collection such as CarHistory). No-op by default, same shape as <see cref="OnCreatedAsync"/>.
+    /// </summary>
+    protected virtual Task OnDeletedAsync(string id, string ownerId) => Task.CompletedTask;
 }

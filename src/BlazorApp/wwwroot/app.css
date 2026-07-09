@@ -1022,6 +1022,83 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
 }
 .kt-section-title:first-child { margin-top: 0; }
 
+/* ── Callouts, sheet tables and hand-rolled SVG charts (shared by CarDetail.razor/HouseDetail.razor) ──
+   Global (not component-scoped) on purpose: a per-item history table/chart is built from a RenderFragment via
+   RenderTreeBuilder or a child *Row component, so its markup never receives the page's own CSS-isolation
+   scope attribute - putting these rules here avoids every consumer having to redeclare them with ::deep. */
+.kt-callout {
+  background: var(--kt-surface-2);
+  border-radius: var(--kt-radius);
+  padding: 0.6rem 0.9rem;
+  margin: 0 0 0.75rem 0;
+  font-size: 0.9rem;
+}
+
+.kt-callout-warning {
+  background: var(--kt-warning-bg);
+  color: var(--kt-warning);
+}
+
+.kt-callout-danger {
+  background: var(--kt-danger-bg);
+  color: var(--kt-danger);
+}
+
+/* Compact history table: a handful of summary columns per row, with the full field set only shown in the
+   add/edit modal - too many always-visible editable columns read as a spreadsheet dump rather than a
+   browsable history. */
+.kt-sheet-table {
+  font-size: 0.85rem;
+}
+
+.kt-sheet-table th {
+  white-space: nowrap;
+  color: var(--kt-text-muted);
+  font-weight: 600;
+}
+
+.kt-sheet-table td {
+  padding: 0.4rem 0.6rem;
+  vertical-align: middle;
+}
+
+/* width: 100%, height: auto (not a fixed px height) lets each SVG's own viewBox aspect ratio drive the
+   rendered height - required since the charts have real axis text, and preserveAspectRatio="none" would
+   stretch that text unreadably. */
+.kt-chart-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.kt-chart-axis-text {
+  font-size: 8px;
+  fill: var(--kt-text-muted);
+}
+
+.kt-chart-axis-title {
+  font-size: 9px;
+  font-weight: 600;
+  fill: var(--kt-text-muted);
+}
+
+.kt-chart-legend {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.8rem;
+  color: var(--kt-text-muted);
+  margin-bottom: 0.4rem;
+}
+
+.kt-legend-swatch {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 2px;
+  margin-right: 0.3rem;
+  vertical-align: middle;
+}
+
 /* ── Tabs (page-level section switcher, e.g. Watch Next / Wishlist by type) ── */
 .kt-tabs {
   display: flex;

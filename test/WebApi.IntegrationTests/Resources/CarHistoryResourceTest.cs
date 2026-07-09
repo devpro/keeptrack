@@ -24,7 +24,7 @@ public class CarHistoryResourceTest(KestrelWebAppFactory<Program> factory)
     private static CarHistoryDto NewEntry(string carId, CarHistoryType eventType = CarHistoryType.Refuel) => new()
     {
         CarId = carId,
-        HistoryDate = DateOnly.FromDateTime(DateTime.Today),
+        HistoryDate = DateTime.Today,
         EventType = eventType,
         Mileage = 1000,
         Cost = 42.5,

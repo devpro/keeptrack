@@ -22,9 +22,11 @@ builder.Services.Configure<Microsoft.Extensions.Hosting.HostOptions>(opts =>
 builder.Services.AddSingleton<Keeptrack.Domain.Services.WatchNextService>();
 builder.Services.AddSingleton<Keeptrack.Domain.Services.WishlistService>();
 builder.Services.AddSingleton<Keeptrack.Domain.Services.CarMetricsService>();
+builder.Services.AddSingleton<Keeptrack.Domain.Services.HouseMetricsService>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Jobs.JobStore<Keeptrack.WebApi.Contracts.Dto.ImportStage, Keeptrack.WebApi.Contracts.Dto.ImportResultDto>>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Jobs.JobStore<Keeptrack.WebApi.Contracts.Dto.ReferenceSyncStage, Keeptrack.WebApi.Contracts.Dto.ReferenceSyncResultDto>>();
 builder.Services.AddScoped<Keeptrack.WebApi.Import.TvTimeImportService>();
+builder.Services.AddScoped<Keeptrack.WebApi.Import.CarHistoryImportService>();
 builder.Services.AddSingleton(configuration.TmdbSettings);
 builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.ITmdbClient, Keeptrack.WebApi.ReferenceData.TmdbClient>(client =>
 {

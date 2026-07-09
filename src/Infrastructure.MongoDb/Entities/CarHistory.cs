@@ -35,4 +35,6 @@ public class CarHistory : IHasIdAndOwnerId
     public CarHistoryFuel? Fuel { get; set; }
 
     public CarHistoryStation? Station { get; set; }
+
+    public string? Garage { get; set; }
 }

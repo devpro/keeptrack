@@ -1,61 +1,13 @@
-@* One row of the car history sheet. New entries are added via a modal (CarDetail.razor), not an inline row
-   here, so every row rendered by this component is already persisted and edits commit immediately. *@
+@* One row of the car history sheet - a compact summary of the most important fields. Editing happens
+   through the same modal used to add a new entry (CarDetail.razor), opened via the Edit button below. *@
 
 <tr class="@(HasWarning ? "kt-history-row-warning" : "")">
-    <td><input class="form-control form-control-sm" type="date" @bind="Entry.HistoryDate" @bind:format="yyyy-MM-dd" @bind:after="SaveAsync" /></td>
-    <td><input class="form-control form-control-sm" type="number" @bind="Entry.Mileage" @bind:after="SaveAsync" /></td>
-    <td><input class="form-control form-control-sm" type="number" @bind="Entry.DeltaMileage" @bind:after="SaveAsync" /></td>
-    <td>
-        <select class="form-select form-select-sm" @bind="Entry.EventType" @bind:after="SaveAsync">
-            @foreach (var type in Enum.GetValues<CarHistoryType>())
-            {
-                <option value="@type">@type</option>
-            }
-        </select>
-    </td>
-    @if (ShowFuel)
-    {
-        @if (Entry.EventType == CarHistoryType.Refuel)
-        {
-            <td><input class="form-control form-control-sm" type="number" step="0.01" placeholder="L" @bind="Entry.FuelVolume" @bind:after="SaveAsync" /></td>
-            <td><input class="form-control form-control-sm" type="number" step="0.001" placeholder="€/L" @bind="Entry.FuelUnitPrice" @bind:after="SaveAsync" /></td>
-        }
-        else
-        {
-            <td></td>
-            <td></td>
-        }
-    }
-    @if (ShowElectric)
-    {
-        @if (Entry.EventType == CarHistoryType.Refuel)
-        {
-            <td><input class="form-control form-control-sm" type="number" step="0.01" placeholder="kWh" @bind="Entry.ElectricVolume" @bind:after="SaveAsync" /></td>
-            <td><input class="form-control form-control-sm" type="number" step="0.001" placeholder="€/kWh" @bind="Entry.ElectricUnitPrice" @bind:after="SaveAsync" /></td>
-        }
-        else
-        {
-            <td></td>
-            <td></td>
-        }
-    }
-    <td class="text-center">
-        @if (Entry.EventType == CarHistoryType.Refuel)
-        {
-            <input type="checkbox" class="form-check-input" title="Full tank / full charge" @bind="Entry.IsFullRefill" @bind:after="SaveAsync" />
-        }
-    </td>
-    <td><input class="form-control form-control-sm" type="number" step="0.01" @bind="Entry.Cost" @bind:after="SaveAsync" /></td>
-    <td>
-        @if (Entry.EventType == CarHistoryType.Refuel)
-        {
-            <input class="form-control form-control-sm" placeholder="Station" @bind="Entry.StationBrandName" @bind:after="SaveAsync" />
-        }
-    </td>
-    <td><input class="form-control form-control-sm" placeholder="City" @bind="Entry.City" @bind:after="SaveAsync" /></td>
-    <td><input class="form-control form-control-sm" type="number" step="0.000001" placeholder="Long." @bind="Entry.Longitude" @bind:after="SaveAsync" /></td>
-    <td><input class="form-control form-control-sm" type="number" step="0.000001" placeholder="Lat." @bind="Entry.Latitude" @bind:after="SaveAsync" /></td>
-    <td><input class="form-control form-control-sm" @bind="Entry.Description" @bind:after="SaveAsync" /></td>
+    <td>@Entry.HistoryDate.ToString(Entry.HistoryDate.TimeOfDay == TimeSpan.Zero ? "yyyy-MM-dd" : "yyyy-MM-dd HH:mm")</td>
+    <td>@Entry.Mileage</td>
+    <td>@Entry.EventType</td>
+    <td>@Entry.Cost?.ToString("F2")</td>
+    <td>@Entry.City</td>
+    <td>@Entry.Description</td>
     <td>
         @if (HasWarning)
         {
@@ -63,24 +15,21 @@
         }
     </td>
     <td>
-        <button class="kt-icon-btn" title="Delete this entry" @onclick="() => OnDelete.InvokeAsync(Entry.Id!)">✕</button>
+        <div class="d-flex gap-1">
+            <button class="btn btn-sm btn-outline-primary" @onclick="() => OnEdit.InvokeAsync(Entry)">Edit</button>
+            <button class="btn btn-sm btn-outline-danger" @onclick="() => OnDelete.InvokeAsync(Entry.Id!)">Del</button>
+        </div>
     </td>
 </tr>
 
 @code {
     [Parameter] public required CarHistoryDto Entry { get; set; }
 
-    [Parameter] public required bool ShowFuel { get; set; }
-
-    [Parameter] public required bool ShowElectric { get; set; }
-
     [Parameter] public bool HasWarning { get; set; }
 
     [Parameter] public string? WarningMessage { get; set; }
 
-    [Parameter] public EventCallback<CarHistoryDto> OnSave { get; set; }
+    [Parameter] public EventCallback<CarHistoryDto> OnEdit { get; set; }
 
     [Parameter] public EventCallback<string> OnDelete { get; set; }
-
-    private async Task SaveAsync() => await OnSave.InvokeAsync(Entry);
 }
