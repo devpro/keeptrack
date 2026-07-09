@@ -6,6 +6,23 @@ Update this file as items are fixed or as new reviews are performed.
 
 ## Fixed
 
+### `mapper.Map<T>(null)` returned a fake empty object instead of null - also affected the shared base repository, not just the reference-data ones
+
+Found again on 2026-07-09 while building the Car/CarHistory feature and its `CarResourceTest` integration coverage: `MongoDbRepositoryBase.FindOneAsync` (the base class every entity's repository extends) had the exact same shape as the bug described just below - `Mapper.Map<TModel>(await entities.FirstOrDefaultAsync())` - and hit the exact same `AllowNullDestinationValues = false` gotcha, silently returning a blank default model instead of `null` for a nonexistent id.
+This meant `DataCrudControllerBase.GetById`'s `model == null` 404 check was broken for **every** entity type in the app (Book, Movie, TvShow, VideoGame, Album, Song, Playlist, Episode - not just the newly-added Car), returning 200 with an empty object instead of 404.
+A mocked-repository unit test can't catch this (a mock never exercises real AutoMapper config); confirmed via a real MongoDB integration test (`CarResourceTest.CarResourceMetrics_ReturnsNotFound_ForACarThatDoesNotExist`) and cross-checked against `Book` directly.
+Fixed the same way as the reference repositories below: check `entity is null` before calling `mapper.Map`, in the one shared base method rather than per-repository.
+
+File: `src/Infrastructure.MongoDb/Repositories/MongoDbRepositoryBase.cs`
+
+### `AllowNullDestinationValues = false` also substitutes an empty collection for a null reference-type member, not just an empty string
+
+Found on 2026-07-09 while adding `CarHistoryResourceTest`: `CarHistoryModel -> CarHistory`'s `Coordinates` (`List<double>`) `ForMember` mapped to `null` when `Longitude`/`Latitude` were unset, but `AllowNullDestinationValues = false` substituted a new **empty list** instead - the same class of bug as the `Creator`/empty-string gotchas already documented here and in CLAUDE.md, just for a `List<T>` member instead of `string`.
+The reverse mapping (`CarHistory -> CarHistoryModel`) read it back with `x.Coordinates != null ? x.Coordinates[0] : null`, which an empty-but-non-null list defeats - `x.Coordinates[0]` threw `IndexOutOfRangeException` on every `POST`/`PUT` of a `CarHistory` entry with no location set.
+Fixed with `.AllowNull()` on that `ForMember`, same fix shape as the `Creator` case in CLAUDE.md.
+
+File: `src/WebApi/MappingProfiles/CarDataStorageMappingProfile.cs`
+
 ### `mapper.Map<T>(null)` returned a fake empty object instead of null
 
 Found on 2026-07-06 while adding the cast/actors integration test (`PersonReferenceRepositoryTest`), in `TvShowReferenceRepository`/`MovieReferenceRepository`/`PersonReferenceRepository`'s `Find*Async` methods.
@@ -59,20 +76,22 @@ Files:
 - `src/Infrastructure.MongoDb/Repositories/MovieRepository.cs`
 - `src/Infrastructure.MongoDb/Repositories/AlbumRepository.cs`
 
-## Confirmed bugs
+### CarHistory treated a car ID as free text, and CarRepository's search never covered the field that actually exists on a Car document
 
-These are true defects. They should be fixed.
+Fixed on 2026-07-09 while building the full Car/CarHistory feature (controller, Blazor pages, metrics, tests).
+Two related bugs, both in search:
 
-### CarHistory treats a car ID as free text
+1. `CarHistoryRepository.GetFilter` called `builder.Text(input.CarId)` - a car ID is an exact identifier, not a free-text search term, and MongoDB only allows one `$text` expression per query, so supplying both `CarId` and a free-text `search` at the same time threw ("only one $text expression allowed per query").
+2. `CarRepository` had no `GetFilter` override at all, so it fell back to `MongoDbRepositoryBase`'s default `builder.Text(search)`, which queried the `car_text` index (`{ title: "text" }`) - but `Car`'s BSON field is `commercial_name` (`[BsonElement("commercial_name")]` on `Name`), not `title`. The index never covered the field that exists on the document, so `Car` search had silently never worked at all, on top of (1) never being documented before this session.
 
-`CarHistoryRepository.GetFilter` calls `builder.Text(input.CarId)`.
-A car ID is an exact identifier, not a free-text search term, so this is the wrong filter type - the `car_history_text` index (see "Fixed" above) makes the collection searchable again, but doesn't fix this.
-MongoDB also only allows one `$text` expression per query.
-If both `input.CarId` and `search` are non-empty at the same time, the query throws ("only one $text expression allowed per query").
+Fixed by moving both repositories to the same `builder.Where(f => f.X.Contains(search, ...))` regex-search approach already used by Book/Movie/TvShow/VideoGame (`CarRepository` on `Name`, `CarHistoryRepository` on `Description`), filtering `CarId` with a plain `Eq`, and removing the now-unused `car_text`/`car_history_text` indexes from `scripts/mongodb-create-index.js` - closing out the last two exceptions that script's own comments used to call out.
+Regression-tested against a real MongoDB instance: `CarHistoryResourceTest.CarHistoryResourceFilter_ByCarIdAndSearch_DoesNotThrow_IsOk` (the specific dual-filter case) and `CarResourceTest.CarResourceSearch_FiltersByName_IsOk`.
 
-File: `src/Infrastructure.MongoDb/Repositories/CarHistoryRepository.cs`
+Files:
 
-Fix: filter `CarId` with an equality filter (`builder.Eq(f => f.CarId, input.CarId)`), not `Text`.
+- `src/Infrastructure.MongoDb/Repositories/CarRepository.cs`
+- `src/Infrastructure.MongoDb/Repositories/CarHistoryRepository.cs`
+- `scripts/mongodb-create-index.js`
 
 ## Confirmed by design
 
@@ -88,11 +107,6 @@ This is intentional: each entity type exposes the search behavior that fits its 
 ## Known gaps (not yet implemented)
 
 These are acknowledged as incomplete rather than deliberately permanent. Track and prioritize separately.
-
-### `Car` has no controller or Blazor page
-
-`ICarRepository`, `CarRepository`, and their DI registration exist, but there is no `CarController` and no Blazor Inventory page for `Car`.
-Only `CarHistoryController` exists, and it references a `CarId` that currently cannot be created through the app.
 
 ### No `CancellationToken` propagation
 
@@ -110,7 +124,7 @@ A very large `PageSize` forces an unbounded fetch.
 
 `Book` and `Movie` have integration tests (`BookResourceTest`, `MovieResourceTest`); `Movie`'s now also covers `?search=`.
 `Episode` and `TvShow` gained partial coverage as a side effect of `TvTimeImportResourceTest` (create/upsert/search paths, plus `Episode`'s `TvShowId` filter), but neither has a dedicated full CRUD test of its own yet.
-`Album` and `VideoGame` gained full CRUD integration tests (`AlbumResourceTest`, `VideoGameResourceTest`) on 2026-07-07 while their controllers/repositories were touched anyway to add reference-data support - closing this finding for both. `CarHistory` still has none.
+`Album` and `VideoGame` gained full CRUD integration tests (`AlbumResourceTest`, `VideoGameResourceTest`) on 2026-07-07 while their controllers/repositories were touched anyway to add reference-data support - closing this finding for both. `Car` and `CarHistory` gained full CRUD integration tests (`CarResourceTest`, `CarHistoryResourceTest`) plus dedicated unit coverage for `CarMetricsService` on 2026-07-09, when the whole Car/CarHistory feature was built out (controller, Blazor pages, metrics) - closing this finding for both as well.
 No test asserts ownership isolation (that user A cannot read, update, or delete user B's record).
 There is no test project for `BlazorApp` - `AuthenticationController`'s Firebase-custom-claim-to-cookie-claim copy (added for the admin role) has no automated coverage as a result, only manual verification.
 The reference-data admin endpoints have integration coverage for the non-admin-rejected (403) path and for the underlying Mongo queries directly (`TvShowReferenceLinkingTest`), but not for the admin-succeeds path over HTTP end-to-end, since that needs a second Firebase test user with the `role: admin` claim pre-set (see `CONTRIBUTING.md`).

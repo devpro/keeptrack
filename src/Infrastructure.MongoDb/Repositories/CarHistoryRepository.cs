@@ -16,8 +16,12 @@ public class CarHistoryRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbR
     {
         var builder = Builders<CarHistory>.Filter;
         var filter = builder.Eq(f => f.OwnerId, ownerId);
-        if (!string.IsNullOrEmpty(input.CarId)) filter &= builder.Text(input.CarId);
-        if (!string.IsNullOrEmpty(search)) filter &= builder.Text(search);
+        if (!string.IsNullOrEmpty(input.CarId)) filter &= builder.Eq(f => f.CarId, input.CarId);
+        if (!string.IsNullOrEmpty(search))
+        {
+            filter &= builder.Where(f => f.Description != null
+                                          && f.Description.Contains(search, System.StringComparison.CurrentCultureIgnoreCase));
+        }
         return filter;
     }
 }

@@ -1,0 +1,508 @@
+@page "/cars/{Id}"
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+@if (_loading)
+{
+    <div class="kt-loading">
+        <div class="kt-spinner"></div>
+        Loading…
+    </div>
+}
+else if (_car is null)
+{
+    <div class="kt-empty">
+        <div class="kt-empty-icon">◈</div>
+        <p>Car not found.</p>
+    </div>
+}
+else
+{
+    <div class="kt-page-header">
+        <div class="d-flex align-items-center gap-2" style="flex:1;min-width:0">
+            <input class="kt-title-input" value="@_car.Name" @onchange="SaveNameAsync"/>
+        </div>
+    </div>
+
+    <div class="kt-form-card">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Manufacturer</label>
+                <input class="form-control form-control-sm" value="@_car.Manufacturer" @onchange="SaveManufacturerAsync"/>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Model</label>
+                <input class="form-control form-control-sm" value="@_car.Model" @onchange="SaveModelAsync"/>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Year</label>
+                <input class="form-control form-control-sm" type="number" min="1900" max="2100" value="@_car.Year" @onchange="SaveYearAsync"/>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">License plate</label>
+                <input class="form-control form-control-sm" value="@_car.LicensePlate" @onchange="SaveLicensePlateAsync"/>
+            </div>
+        </div>
+        <div class="mt-3">
+            <label class="form-label d-block">Energy type</label>
+            <div class="d-flex gap-2">
+                @foreach (var energyType in Enum.GetValues<CarEnergyType>())
+                {
+                    <button class="btn btn-sm @(_car.EnergyType == energyType ? "btn-primary" : "btn-secondary")"
+                            @onclick="() => SetEnergyTypeAsync(energyType)">@energyType</button>
+                }
+            </div>
+        </div>
+    </div>
+
+    @if (HasMetricsToShow)
+    {
+        var metrics = _metrics!;
+        <h2 class="kt-section-title">Metrics</h2>
+        <div class="kt-form-card kt-car-metrics">
+            @if (metrics.NextMaintenance is { } next)
+            {
+                <p class="@(next.MonthsRemaining < 0 ? "kt-callout kt-callout-danger" : "kt-callout")">
+                    @(next.MonthsRemaining < 0
+                        ? $"Maintenance overdue by {-next.MonthsRemaining} month(s) - last done {next.LastMaintenanceDate:yyyy-MM-dd}."
+                        : $"Next maintenance due in {next.MonthsRemaining} month(s) ({next.DueDate:yyyy-MM-dd}).")
+                </p>
+            }
+
+            @if (metrics.MileageWarnings.Count > 0)
+            {
+                <p class="kt-callout kt-callout-warning">
+                    ⚠ @metrics.MileageWarnings.Count mileage inconsistenc@(metrics.MileageWarnings.Count == 1 ? "y" : "ies") found - check the highlighted row(s) below.
+                </p>
+            }
+
+            <div class="row g-4">
+                @if (ShowFuel && metrics.FuelConsumption.Count > 0)
+                {
+                    <div class="col-md-6">
+                        <p class="kt-card-meta mb-1">
+                            Fuel consumption (L/100km) - avg @metrics.AverageFuelConsumptionPer100Km?.ToString("F1")
+                        </p>
+                        @RenderConsumptionChart(metrics.FuelConsumption, "var(--kt-accent)")
+                    </div>
+                }
+                @if (ShowElectric && metrics.ElectricConsumption.Count > 0)
+                {
+                    <div class="col-md-6">
+                        <p class="kt-card-meta mb-1">
+                            Electric consumption (kWh/100km) - avg @metrics.AverageElectricConsumptionPer100Km?.ToString("F1")
+                        </p>
+                        @RenderConsumptionChart(metrics.ElectricConsumption, "var(--kt-chart-secondary)")
+                    </div>
+                }
+            </div>
+
+            @if (metrics.CostHistory.Count > 0)
+            {
+                <p class="kt-card-meta mt-4 mb-1">Cost history - total @metrics.TotalCost.ToString("F2")</p>
+                <div class="kt-chart-legend">
+                    <span><span class="kt-legend-swatch" style="background:var(--kt-accent)"></span> Fuel</span>
+                    <span><span class="kt-legend-swatch" style="background:var(--kt-chart-secondary)"></span> Maintenance</span>
+                </div>
+                @RenderCostHistoryChart(metrics.CostHistory)
+            }
+        </div>
+    }
+
+    <div class="d-flex justify-content-between align-items-center">
+        <h2 class="kt-section-title">History</h2>
+        <button class="btn btn-sm btn-primary" @onclick="ShowAddModal">+ Add entry</button>
+    </div>
+    <div class="kt-table-wrap kt-car-sheet">
+        <div class="table-responsive">
+            <table class="table kt-sheet-table">
+                <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Mileage</th>
+                    <th>Δ Mileage</th>
+                    <th>Event</th>
+                    @if (ShowFuel)
+                    {
+                        <th>Fuel (L)</th>
+                        <th>Fuel (€/L)</th>
+                    }
+                    @if (ShowElectric)
+                    {
+                        <th>Electric (kWh)</th>
+                        <th>Electric (€/kWh)</th>
+                    }
+                    <th>Full?</th>
+                    <th>Cost</th>
+                    <th>Station</th>
+                    <th>City</th>
+                    <th>Longitude</th>
+                    <th>Latitude</th>
+                    <th>Description</th>
+                    <th></th>
+                    <th></th>
+                </tr>
+                </thead>
+                <tbody>
+                @if (_history.Count == 0)
+                {
+                    <tr><td colspan="20" class="text-center kt-card-meta">No history yet - add the first entry above.</td></tr>
+                }
+                @foreach (var entry in _history)
+                {
+                    <CarHistoryRow Entry="entry" ShowFuel="ShowFuel" ShowElectric="ShowElectric"
+                                   HasWarning="_warningsByEntryId.ContainsKey(entry.Id!)"
+                                   WarningMessage="@(_warningsByEntryId.GetValueOrDefault(entry.Id!))"
+                                   OnSave="SaveEntryAsync" OnDelete="DeleteEntryAsync"/>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @if (_showAddModal)
+    {
+        <div class="kt-modal-backdrop" @onclick="CancelAddModal">
+            <div class="kt-modal" @onclick:stopPropagation>
+                <div class="kt-modal-header">
+                    <h5>Add history entry</h5>
+                    <button class="kt-modal-close" @onclick="CancelAddModal">✕</button>
+                </div>
+                <div class="kt-modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Date</label>
+                            <input class="form-control" type="date" @bind="_newEntry.HistoryDate" @bind:format="yyyy-MM-dd"/>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Mileage</label>
+                            <input class="form-control" type="number" @bind="_newEntry.Mileage"/>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Δ Mileage since last entry</label>
+                            <input class="form-control" type="number" @bind="_newEntry.DeltaMileage"/>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label d-block">Event type</label>
+                            <div class="d-flex gap-2">
+                                @foreach (var eventType in Enum.GetValues<CarHistoryType>())
+                                {
+                                    <button type="button" class="btn btn-sm @(_newEntry.EventType == eventType ? "btn-primary" : "btn-secondary")"
+                                            @onclick="() => _newEntry.EventType = eventType">@eventType</button>
+                                }
+                            </div>
+                        </div>
+                        @if (_newEntry.EventType == CarHistoryType.Refuel)
+                        {
+                            @if (ShowFuel)
+                            {
+                                <div class="col-md-6">
+                                    <label class="form-label">Fuel volume (L)</label>
+                                    <input class="form-control" type="number" step="0.01" @bind="_newEntry.FuelVolume"/>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Fuel unit price (€/L)</label>
+                                    <input class="form-control" type="number" step="0.001" @bind="_newEntry.FuelUnitPrice"/>
+                                </div>
+                            }
+                            @if (ShowElectric)
+                            {
+                                <div class="col-md-6">
+                                    <label class="form-label">Electric energy (kWh)</label>
+                                    <input class="form-control" type="number" step="0.01" @bind="_newEntry.ElectricVolume"/>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Electric unit price (€/kWh)</label>
+                                    <input class="form-control" type="number" step="0.001" @bind="_newEntry.ElectricUnitPrice"/>
+                                </div>
+                            }
+                            <div class="col-md-6">
+                                <label class="form-label">Station</label>
+                                <input class="form-control" @bind="_newEntry.StationBrandName"/>
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="new-entry-full-refill" @bind="_newEntry.IsFullRefill"/>
+                                    <label class="form-check-label" for="new-entry-full-refill">Full tank / full charge</label>
+                                </div>
+                            </div>
+                        }
+                        <!-- Every history entry happens somewhere, not just refuels - location isn't gated by event type. -->
+                        <div class="col-md-6">
+                            <label class="form-label">City</label>
+                            <input class="form-control" @bind="_newEntry.City"/>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label d-block">Coordinates</label>
+                            <div class="d-flex gap-2">
+                                <input class="form-control" type="number" step="0.000001" placeholder="Longitude" @bind="_newEntry.Longitude"/>
+                                <input class="form-control" type="number" step="0.000001" placeholder="Latitude" @bind="_newEntry.Latitude"/>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Cost</label>
+                            <input class="form-control" type="number" step="0.01" @bind="_newEntry.Cost"/>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" rows="3" @bind="_newEntry.Description"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="kt-modal-footer">
+                    <button class="btn btn-secondary" @onclick="CancelAddModal">Cancel</button>
+                    <button class="btn btn-success" @onclick="SaveNewEntryAsync">Save</button>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public required string Id { get; set; }
+
+    [Inject] private CarApiClient CarApi { get; set; } = null!;
+
+    [Inject] private CarHistoryApiClient CarHistoryApi { get; set; } = null!;
+
+    private bool _loading = true;
+    private CarDto? _car;
+    private List<CarHistoryDto> _history = [];
+    private CarMetricsDto? _metrics;
+    private CarHistoryDto _newEntry = NewEntry("");
+    private bool _showAddModal;
+    private Dictionary<string, string> _warningsByEntryId = [];
+
+    private bool ShowFuel => _car?.EnergyType != CarEnergyType.Electric;
+
+    private bool ShowElectric => _car?.EnergyType is CarEnergyType.Electric or CarEnergyType.Hybrid;
+
+    /// <summary>`ComputeMetrics` always returns a non-null result, even for a brand-new car with no history
+    /// at all (empty lists, null averages/next-maintenance) - the metrics panel should only render once
+    /// there's actually something in it to show, not just because the object itself isn't null.</summary>
+    private bool HasMetricsToShow => _metrics is not null && (
+        _metrics.FuelConsumption.Count > 0 ||
+        _metrics.ElectricConsumption.Count > 0 ||
+        _metrics.CostHistory.Count > 0 ||
+        _metrics.MileageWarnings.Count > 0 ||
+        _metrics.NextMaintenance is not null);
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private static CarHistoryDto NewEntry(string carId) => new()
+    {
+        CarId = carId,
+        HistoryDate = DateOnly.FromDateTime(DateTime.Today),
+        EventType = CarHistoryType.Refuel
+    };
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _car = await CarApi.GetOneAsync(Id);
+        if (_car is not null)
+        {
+            var result = await CarHistoryApi.GetAsync("", 1, int.MaxValue, new Dictionary<string, string> { ["CarId"] = Id });
+            _history = result.Items.OrderBy(h => h.HistoryDate).ToList();
+            _metrics = await CarApi.GetMetricsAsync(Id);
+            _warningsByEntryId = _metrics.MileageWarnings
+                .GroupBy(w => w.CarHistoryId)
+                .ToDictionary(g => g.Key, g => string.Join(" ", g.Select(w => w.Message)));
+            _newEntry = NewEntry(Id);
+        }
+        _loading = false;
+    }
+
+    private async Task SaveCarAsync()
+    {
+        if (_car is null) return;
+        await CarApi.UpdateAsync(_car);
+    }
+
+    private async Task SaveNameAsync(ChangeEventArgs e)
+    {
+        if (_car is null) return;
+        var name = e.Value?.ToString();
+        if (string.IsNullOrWhiteSpace(name)) return;
+        _car.Name = name;
+        await SaveCarAsync();
+    }
+
+    private async Task SaveManufacturerAsync(ChangeEventArgs e)
+    {
+        if (_car is null) return;
+        _car.Manufacturer = e.Value?.ToString();
+        await SaveCarAsync();
+    }
+
+    private async Task SaveModelAsync(ChangeEventArgs e)
+    {
+        if (_car is null) return;
+        _car.Model = e.Value?.ToString();
+        await SaveCarAsync();
+    }
+
+    private async Task SaveYearAsync(ChangeEventArgs e)
+    {
+        if (_car is null) return;
+        _car.Year = int.TryParse(e.Value?.ToString(), out var year) ? year : null;
+        await SaveCarAsync();
+    }
+
+    private async Task SaveLicensePlateAsync(ChangeEventArgs e)
+    {
+        if (_car is null) return;
+        _car.LicensePlate = e.Value?.ToString();
+        await SaveCarAsync();
+    }
+
+    private async Task SetEnergyTypeAsync(CarEnergyType energyType)
+    {
+        if (_car is null) return;
+        _car.EnergyType = energyType;
+        await SaveCarAsync();
+    }
+
+    /// <summary>
+    /// Every history mutation reloads the whole car (history + metrics) rather than patching local state -
+    /// an edit can change mileage-warning results and chronological order, so recomputing from the server is
+    /// simpler and safer than trying to keep local derived state in sync by hand.
+    /// </summary>
+    private async Task SaveEntryAsync(CarHistoryDto entry)
+    {
+        await CarHistoryApi.UpdateAsync(entry);
+        await LoadAsync();
+    }
+
+    private void ShowAddModal()
+    {
+        _newEntry = NewEntry(Id);
+        _showAddModal = true;
+    }
+
+    private void CancelAddModal() => _showAddModal = false;
+
+    private async Task SaveNewEntryAsync()
+    {
+        await CarHistoryApi.AddAsync(_newEntry);
+        _showAddModal = false;
+        await LoadAsync();
+    }
+
+    private async Task DeleteEntryAsync(string id)
+    {
+        await CarHistoryApi.DeleteAsync(id);
+        await LoadAsync();
+    }
+
+    /// <summary>Thin hand-rolled SVG line chart - this app has no charting dependency, and one isn't worth
+    /// adding for a couple of small, single-series trend lines. A single series needs no legend (the label
+    /// above the chart already names it); each point carries a native &lt;title&gt; tooltip.</summary>
+    private static RenderFragment RenderConsumptionChart(List<ConsumptionPointDto> points, string color) => builder =>
+    {
+        const double width = 100;
+        const double height = 36;
+        const double padding = 4;
+
+        var values = points.Select(p => p.ValuePer100Km).ToList();
+        var min = values.Min();
+        var max = values.Max();
+        var range = max - min == 0 ? 1 : max - min;
+        var stepX = points.Count > 1 ? (width - 2 * padding) / (points.Count - 1) : 0;
+
+        double X(int i) => padding + i * stepX;
+        double Y(double v) => height - padding - (v - min) / range * (height - 2 * padding);
+
+        var linePoints = string.Join(" ", points.Select((p, i) => $"{X(i):F1},{Y(p.ValuePer100Km):F1}"));
+
+        var seq = 0;
+        builder.OpenElement(seq++, "svg");
+        builder.AddAttribute(seq++, "viewBox", $"0 0 {width} {height}");
+        builder.AddAttribute(seq++, "preserveAspectRatio", "none");
+        builder.AddAttribute(seq++, "class", "kt-consumption-chart");
+
+        builder.OpenElement(seq++, "polyline");
+        builder.AddAttribute(seq++, "points", linePoints);
+        builder.AddAttribute(seq++, "fill", "none");
+        builder.AddAttribute(seq++, "stroke", color);
+        builder.AddAttribute(seq++, "stroke-width", "2");
+        builder.AddAttribute(seq++, "stroke-linecap", "round");
+        builder.AddAttribute(seq++, "stroke-linejoin", "round");
+        builder.AddAttribute(seq++, "vector-effect", "non-scaling-stroke");
+        builder.CloseElement();
+
+        for (var i = 0; i < points.Count; i++)
+        {
+            builder.OpenElement(seq++, "circle");
+            builder.AddAttribute(seq++, "cx", X(i).ToString("F1"));
+            builder.AddAttribute(seq++, "cy", Y(points[i].ValuePer100Km).ToString("F1"));
+            builder.AddAttribute(seq++, "r", "1.6");
+            builder.AddAttribute(seq++, "fill", color);
+            builder.OpenElement(seq++, "title");
+            builder.AddContent(seq++, $"{points[i].Date:yyyy-MM-dd}: {points[i].ValuePer100Km:F1}");
+            builder.CloseElement();
+            builder.CloseElement();
+        }
+
+        builder.CloseElement();
+    };
+
+    /// <summary>Hand-rolled SVG stacked bar chart - fuel vs. maintenance cost per month, each bar segment
+    /// carrying a native &lt;title&gt; tooltip with the exact figure, and a 2px surface gap between the two
+    /// stacked segments so they read as distinct marks rather than one solid bar.</summary>
+    private static RenderFragment RenderCostHistoryChart(List<CarCostHistoryPointDto> points) => builder =>
+    {
+        const double width = 100;
+        const double height = 36;
+        const double padding = 2;
+
+        var maxTotal = points.Max(p => p.TotalCost);
+        if (maxTotal <= 0) maxTotal = 1;
+
+        var barWidth = (width - 2 * padding) / points.Count * 0.7;
+        var gap = (width - 2 * padding) / points.Count * 0.3;
+
+        double ScaleHeight(double value) => value / maxTotal * (height - 2 * padding);
+
+        var seq = 0;
+        builder.OpenElement(seq++, "svg");
+        builder.AddAttribute(seq++, "viewBox", $"0 0 {width} {height}");
+        builder.AddAttribute(seq++, "preserveAspectRatio", "none");
+        builder.AddAttribute(seq++, "class", "kt-cost-chart");
+
+        for (var i = 0; i < points.Count; i++)
+        {
+            var point = points[i];
+            var x = padding + i * (barWidth + gap);
+            var fuelHeight = ScaleHeight(point.FuelCost);
+            var maintenanceHeight = ScaleHeight(point.MaintenanceCost);
+            var stackGap = point.FuelCost > 0 && point.MaintenanceCost > 0 ? 0.6 : 0;
+
+            var maintenanceY = height - padding - maintenanceHeight;
+            builder.OpenElement(seq++, "rect");
+            builder.AddAttribute(seq++, "x", x.ToString("F1"));
+            builder.AddAttribute(seq++, "y", maintenanceY.ToString("F1"));
+            builder.AddAttribute(seq++, "width", barWidth.ToString("F1"));
+            builder.AddAttribute(seq++, "height", maintenanceHeight.ToString("F1"));
+            builder.AddAttribute(seq++, "fill", "var(--kt-chart-secondary)");
+            builder.OpenElement(seq++, "title");
+            builder.AddContent(seq++, $"{point.Period:yyyy-MM}: maintenance {point.MaintenanceCost:F2}");
+            builder.CloseElement();
+            builder.CloseElement();
+
+            var fuelY = maintenanceY - stackGap - fuelHeight;
+            builder.OpenElement(seq++, "rect");
+            builder.AddAttribute(seq++, "x", x.ToString("F1"));
+            builder.AddAttribute(seq++, "y", fuelY.ToString("F1"));
+            builder.AddAttribute(seq++, "width", barWidth.ToString("F1"));
+            builder.AddAttribute(seq++, "height", fuelHeight.ToString("F1"));
+            builder.AddAttribute(seq++, "fill", "var(--kt-accent)");
+            builder.OpenElement(seq++, "title");
+            builder.AddContent(seq++, $"{point.Period:yyyy-MM}: fuel {point.FuelCost:F2}");
+            builder.CloseElement();
+            builder.CloseElement();
+        }
+
+        builder.CloseElement();
+    };
+}

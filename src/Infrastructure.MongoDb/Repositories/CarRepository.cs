@@ -11,4 +11,12 @@ public class CarRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbReposito
     : MongoDbRepositoryBase<CarModel, Car>(mongoDatabase, logger, mapper), ICarRepository
 {
     protected override string CollectionName => "car";
+
+    protected override FilterDefinition<Car> GetFilter(string ownerId, string? search, CarModel input)
+    {
+        var builder = Builders<Car>.Filter;
+        var filter = builder.Eq(f => f.OwnerId, ownerId);
+        if (!string.IsNullOrEmpty(search)) filter &= builder.Where(f => f.Name.Contains(search, System.StringComparison.CurrentCultureIgnoreCase));
+        return filter;
+    }
 }

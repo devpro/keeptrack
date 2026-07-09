@@ -21,6 +21,7 @@ builder.Services.Configure<Microsoft.Extensions.Hosting.HostOptions>(opts =>
     opts.BackgroundServiceExceptionBehavior = Microsoft.Extensions.Hosting.BackgroundServiceExceptionBehavior.Ignore);
 builder.Services.AddSingleton<Keeptrack.Domain.Services.WatchNextService>();
 builder.Services.AddSingleton<Keeptrack.Domain.Services.WishlistService>();
+builder.Services.AddSingleton<Keeptrack.Domain.Services.CarMetricsService>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Jobs.JobStore<Keeptrack.WebApi.Contracts.Dto.ImportStage, Keeptrack.WebApi.Contracts.Dto.ImportResultDto>>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Jobs.JobStore<Keeptrack.WebApi.Contracts.Dto.ReferenceSyncStage, Keeptrack.WebApi.Contracts.Dto.ReferenceSyncResultDto>>();
 builder.Services.AddScoped<Keeptrack.WebApi.Import.TvTimeImportService>();

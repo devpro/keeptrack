@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Keeptrack.Common.System;
 
 namespace Keeptrack.Domain.Models;
@@ -11,11 +11,15 @@ public class CarHistoryModel : IHasIdAndOwnerId
 
     public required string CarId { get; set; }
 
-    public DateOnly HistoryDate { get; set; }
+    public required DateOnly HistoryDate { get; set; }
 
     public int? Mileage { get; set; }
 
-    public required string Action { get; set; }
+    public required CarHistoryType EventType { get; set; }
+
+    public string? Description { get; set; }
+
+    public double? Cost { get; set; }
 
     public string? City { get; set; }
 
@@ -29,13 +33,20 @@ public class CarHistoryModel : IHasIdAndOwnerId
 
     public double? FuelUnitPrice { get; set; }
 
-    public double? Amount { get; set; }
+    public double? ElectricVolume { get; set; }
 
-    public bool? IsFullTank { get; set; }
+    public double? ElectricUnitPrice { get; set; }
 
+    public bool? IsFullRefill { get; set; }
+
+    /// <summary>
+    /// Distance driven since the previous history entry, as recorded by the user directly (typically read off
+    /// the car's own trip computer at refuel time) - independent of the odometer reading in <see cref="Mileage"/>.
+    /// Kept deliberately as real input, not derived: <see cref="Domain.Services.CarMetricsService"/> cross-checks
+    /// it against consecutive <see cref="Mileage"/> readings to catch a mistyped entry or a refuel that was never
+    /// logged at all - the same manual check the user used to do by hand in a spreadsheet.
+    /// </summary>
     public double? DeltaMileage { get; set; }
-
-    public string? LastRefuelHistoryId { get; set; }
 
     public string? StationBrandName { get; set; }
 }

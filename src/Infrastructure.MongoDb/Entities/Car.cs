@@ -1,4 +1,5 @@
-﻿using Keeptrack.Common.System;
+using Keeptrack.Common.System;
+using Keeptrack.Domain.Models;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
@@ -15,4 +16,16 @@ public class Car : IHasIdAndOwnerId
 
     [BsonElement("commercial_name")]
     public required string Name { get; set; }
+
+    public string? Manufacturer { get; set; }
+
+    public string? Model { get; set; }
+
+    public int? Year { get; set; }
+
+    [BsonElement("license_plate")]
+    public string? LicensePlate { get; set; }
+
+    [BsonElement("energy_type")]
+    public required CarEnergyType EnergyType { get; set; }
 }

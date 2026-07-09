@@ -28,18 +28,13 @@ ensureIndex(db.videogame, { owner_id: 1 }, { name: "videogame_owner" });
 ensureIndex(db.song, { owner_id: 1 }, { name: "song_owner" });
 ensureIndex(db.playlist, { owner_id: 1 }, { name: "playlist_owner" });
 
-// car / car_history: the only two repositories that actually issue a $text query (CarRepository has no
-// GetFilter override, so it falls back to MongoDbRepositoryBase's builder.Text(search); CarHistoryRepository
-// calls builder.Text(...) directly) - confirmed by grepping every repository for ".Text(" usage. Album, Book,
-// Movie, TvShow, and VideoGame all search via builder.Where(f => f.Title.Contains(...)) (a
-// regex filter), which a "text" index never accelerates - text indexes for those collections were removed
-// here as dead weight, not carried forward.
-// NOTE: CarHistoryRepository.GetFilter combines builder.Text(input.CarId) and builder.Text(search) with
-// "&", and MongoDB only allows one $text expression per query - this index makes car_history searchable
-// again, but a request supplying both CarId and a free-text search will still throw. That's a C# bug
-// (already tracked in docs/code-quality-findings.md), not an indexing gap; fix it there, not here.
-ensureIndex(db.car, { title: "text" }, { name: "car_text" });
-ensureIndex(db.car_history, { title: "text" }, { name: "car_history_text" });
+// car / car_history: both repositories now search via builder.Where(f => f.Name/Description.Contains(...)),
+// the same regex-filter approach as Album/Book/Movie/TvShow/VideoGame, none of which use a text index either
+// - a "text" index never accelerates a regex filter, so one isn't declared here. car/car_history previously
+// had a car_text/car_history_text index (`{ title: "text" }`), but Car's/CarHistory's BSON documents have no
+// `title` field at all (Car's searchable field is `commercial_name`; CarHistory's is `description`) - that
+// index never covered anything and CarRepository/CarHistoryRepository no longer fall back to $text, so it
+// was removed rather than repointed.
 
 // episode: enforces the (show, season, episode) natural key and makes re-imports idempotent at the database level
 ensureIndex(

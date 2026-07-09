@@ -1,0 +1,96 @@
+@page "/cars"
+@inherits InventoryPageBase<CarDto>
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+<InventoryList TDto="CarDto"
+               Title="Cars"
+               ItemName="Car"
+               Items="@_items"
+               Loading="@_loading"
+               Error="@_error"
+               Search="@_search"
+               Page="@_page"
+               TotalPages="@TotalPages"
+               TotalCount="@_totalCount"
+               ShowForm="@_showForm"
+               EditingInline="@_editingInline"
+               Form="@_form"
+               InlineForm="@_inlineForm"
+               OnSearchKeyUp="@OnSearchKeyUp"
+               OnClearSearch="@ClearSearch"
+               OnGoToPage="@GoToPage"
+               OnShowAddForm="@ShowAddForm"
+               OnCancelForm="@CancelForm"
+               OnSave="@SaveAsync"
+               OnStartInlineEdit="@StartInlineEdit"
+               OnCancelInline="@CancelInline"
+               OnSaveInline="@SaveInlineAsync"
+               OnDelete="@DeleteAsync"
+               OnSearchChanged="@OnSearchChanged">
+    <HeaderTemplate>
+        <th>Name</th>
+        <th>Manufacturer</th>
+        <th>Model</th>
+        <th>Year</th>
+        <th>License plate</th>
+        <th>Energy</th>
+        <th></th>
+    </HeaderTemplate>
+    <RowTemplate Context="car">
+        <td style="font-weight:500">
+            <a href="@($"/cars/{car.Id}")">@car.Name</a>
+        </td>
+        <td>@car.Manufacturer</td>
+        <td>@car.Model</td>
+        <td>@car.Year</td>
+        <td>@car.LicensePlate</td>
+        <td>@car.EnergyType</td>
+        <td></td>
+    </RowTemplate>
+    <FormTemplate Context="car">
+        <div class="col-12">
+            <label class="form-label">Name</label>
+            <input class="form-control" @bind="car.Name" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Manufacturer</label>
+            <input class="form-control" @bind="car.Manufacturer" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Model</label>
+            <input class="form-control" @bind="car.Model" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Year</label>
+            <input class="form-control" @bind="car.Year" type="number" min="1900" max="2100" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">License plate</label>
+            <input class="form-control" @bind="car.LicensePlate" />
+        </div>
+    </FormTemplate>
+    <EditModalTemplate Context="car">
+        <div class="col-12">
+            <label class="form-label">Name</label>
+            <input class="form-control" @bind="car.Name" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Manufacturer</label>
+            <input class="form-control" @bind="car.Manufacturer" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Model</label>
+            <input class="form-control" @bind="car.Model" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Year</label>
+            <input class="form-control" @bind="car.Year" type="number" min="1900" max="2100" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">License plate</label>
+            <input class="form-control" @bind="car.LicensePlate" />
+        </div>
+        <p class="kt-card-meta">Manage energy type and history from the car's detail page.</p>
+    </EditModalTemplate>
+</InventoryList>

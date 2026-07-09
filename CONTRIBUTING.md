@@ -229,6 +229,8 @@ Run a single test by fully qualified name (works for either project):
 dotnet test --filter-method "Keeptrack.WebApi.UnitTests.MappingProfiles.AutoMapperConfigurationTest.WebApiAutoMapperProfile_ShouldBeValid"
 ```
 
+`--filter-method` also accepts a wildcard, e.g. `--filter-method "*CarResourceTest*"` to run every test in a class - but it's a single glob pattern, not a real filter expression: it does not support `|`/`,` alternation to combine multiple patterns in one run (that just prints the CLI help instead of running anything), so run each pattern as its own `dotnet test` invocation. This project's test runner is `Microsoft.Testing.Platform` (`UseMicrosoftTestingPlatformRunner`, xunit v3), which does **not** understand the classic VSTest `--settings <file>.runsettings` flag - passing it also just prints the help. `Local.runsettings` (below) is read automatically by Rider/Visual Studio for IDE-driven runs; for a CLI run, export the same values as environment variables instead (see "Integration tests" below).
+
 ### Unit tests
 
 No configuration needed - `dotnet test test/WebApi.UnitTests/WebApi.UnitTests.csproj` works as soon as the solution restores.

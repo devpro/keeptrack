@@ -59,6 +59,19 @@ public class WebServiceMappingProfile : Profile
         // computation with no Dto dependency, so WatchNextController maps its result here.
         CreateMap<Domain.Models.InProgressShowModel, InProgressShowDto>();
 
+        // Car metrics reads are one-directional (Model -> Dto), same reasoning as WatchNext above:
+        // CarMetricsService is a pure Domain-level computation with no Dto dependency.
+        // NextMaintenance needs AllowNull() for the same reason ReferenceMatchModel.Creator does (see
+        // Program.cs's AllowNullDestinationValues = false): without it, a null NextMaintenance model (no
+        // maintenance recorded yet) maps to a new, all-default NextMaintenanceDto instead of staying null -
+        // caught by CarResourceTest against a real car with no history, not by a mocked unit test.
+        CreateMap<Domain.Models.CarMetricsModel, CarMetricsDto>()
+            .ForMember(x => x.NextMaintenance, opt => opt.AllowNull());
+        CreateMap<Domain.Models.ConsumptionPointModel, ConsumptionPointDto>();
+        CreateMap<Domain.Models.CarCostHistoryPointModel, CarCostHistoryPointDto>();
+        CreateMap<Domain.Models.CarMileageWarningModel, CarMileageWarningDto>();
+        CreateMap<Domain.Models.NextMaintenanceModel, NextMaintenanceDto>();
+
         // Reference-data reads are one-directional (Model -> Dto): admins submit a LinkReferenceRequestDto,
         // never a full TvShowReferenceDto/MovieReferenceDto, so there's no Dto -> Model direction to map.
         CreateMap<Domain.Models.ReferenceEpisodeModel, ReferenceEpisodeDto>();

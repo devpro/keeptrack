@@ -25,6 +25,7 @@
   --kt-success-bg:   #dcefe4;
   --kt-warning:      #9a6b00;
   --kt-warning-bg:   #f7ecd2;
+  --kt-chart-secondary: #8a5fd1;
   --kt-radius:       10px;
   --kt-radius-lg:    14px;
   --kt-shadow:       0 2px 10px rgba(15, 18, 25, 0.06);
@@ -65,6 +66,7 @@
   --kt-success-bg:   rgba(76, 180, 137, 0.16);
   --kt-warning:      #e0be5b;
   --kt-warning-bg:   rgba(224, 190, 91, 0.16);
+  --kt-chart-secondary: #b39ce8;
   --kt-shadow:       0 4px 20px rgba(0, 0, 0, 0.35);
   --kt-shadow-lg:    0 16px 48px rgba(0, 0, 0, 0.5);
 

@@ -25,10 +25,19 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
 
     private IMapper Mapper { get; } = mapper;
 
+    /// <summary>
+    /// "Not found" must stay a real <c>null</c>, not a mapped default instance: <c>AllowNullDestinationValues
+    /// = false</c> (Program.cs) makes <c>Mapper.Map&lt;TModel&gt;(entity)</c> return a new, all-default
+    /// <typeparamref name="TModel"/> instead of null when <paramref name="entity"/> itself is null - the same
+    /// gotcha already guarded against in the reference-data repositories' own Find* methods, just not here
+    /// yet. Without this guard, every controller's <c>GetById</c> "not found" check silently returned 200
+    /// with a blank object instead of 404 for any entity type - caught via <c>CarResourceTest</c>, not a
+    /// mocked unit test, since a mocked repository never exercises the real mapping configuration.
+    /// </summary>
     public async Task<TModel?> FindOneAsync(string id, string ownerId)
     {
-        var entities = await GetCollection().FindAsync(x => x.Id == id && x.OwnerId == ownerId);
-        return Mapper.Map<TModel>(await entities.FirstOrDefaultAsync());
+        var entity = await GetCollection().Find(x => x.Id == id && x.OwnerId == ownerId).FirstOrDefaultAsync();
+        return entity is null ? default : Mapper.Map<TModel>(entity);
     }
 
     public async Task<PagedResult<TModel>> FindAllAsync(string ownerId, int page, int pageSize, string? search, TModel input)

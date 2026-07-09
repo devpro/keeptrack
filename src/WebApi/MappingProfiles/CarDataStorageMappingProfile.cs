@@ -25,17 +25,25 @@ public class CarDataStorageMappingProfile : Profile
             .ForMember(x => x.City, opt => opt.MapFrom(
                 x => x.Location != null ? x.Location.City : null))
             .ForMember(x => x.Longitude, opt => opt.MapFrom(
-                x => x.Coordinates != null ? x.Coordinates[0] : (double?)null))
+                x => x.Location != null && x.Location.Coordinates != null ? x.Location.Coordinates[0] : (double?)null))
             .ForMember(x => x.Latitude, opt => opt.MapFrom(
-                x => x.Coordinates != null ? x.Coordinates[1] : (double?)null))
-            .ForMember(x => x.Amount, opt => opt.MapFrom(
-                x => x.Fuel != null ? x.Fuel.Amount : null))
-            .ForMember(x => x.IsFullTank, opt => opt.MapFrom(
-                x => x.Fuel != null ? x.Fuel.IsFullTank : null))
+                x => x.Location != null && x.Location.Coordinates != null ? x.Location.Coordinates[1] : (double?)null))
+            .ForMember(x => x.FuelCategory, opt => opt.MapFrom(
+                x => x.Fuel != null ? x.Fuel.Category : null))
+            .ForMember(x => x.FuelVolume, opt => opt.MapFrom(
+                x => x.Fuel != null ? x.Fuel.Volume : null))
+            .ForMember(x => x.FuelUnitPrice, opt => opt.MapFrom(
+                x => x.Fuel != null ? x.Fuel.UnitPrice : null))
+            .ForMember(x => x.ElectricVolume, opt => opt.MapFrom(
+                x => x.Fuel != null ? x.Fuel.ElectricVolume : null))
+            .ForMember(x => x.ElectricUnitPrice, opt => opt.MapFrom(
+                x => x.Fuel != null ? x.Fuel.ElectricUnitPrice : null))
+            .ForMember(x => x.IsFullRefill, opt => opt.MapFrom(
+                x => x.Fuel != null ? x.Fuel.IsFullRefill : null))
             .ForMember(x => x.DeltaMileage, opt => opt.MapFrom(
                 x => x.Fuel != null ? x.Fuel.DeltaMileage : null))
-            .ForMember(x => x.LastRefuelHistoryId, opt => opt.MapFrom(
-                x => x.Fuel != null ? x.Fuel.LastRefuelHistoryId : null));
+            .ForMember(x => x.StationBrandName, opt => opt.MapFrom(
+                x => x.Station != null ? x.Station.BrandName : null));
     }
 
     private void MapCarHistory()
@@ -43,14 +51,26 @@ public class CarDataStorageMappingProfile : Profile
         CreateMap<CarHistoryModel, CarHistory>()
             .ForMember(x => x.Location, opt => opt.MapFrom(
                 x => x))
-            .ForMember(x => x.Coordinates, opt => opt.MapFrom(
-                x => (x.Longitude.HasValue && x.Latitude.HasValue) ? new List<double> { x.Longitude.Value, x.Latitude.Value } : null))
             .ForMember(x => x.Fuel, opt => opt.MapFrom(
                 x => x))
             .ForMember(x => x.Station, opt => opt.MapFrom(
                 x => x));
 
-        CreateMap<CarHistoryModel, CarHistoryLocation>();
+        // Coordinates lives inside CarHistoryLocation (alongside City) - both are location data, so both
+        // belong in the one sub-document instead of Coordinates sitting as a separate sibling field on
+        // CarHistory itself, which was the original (unreviewed) shape.
+        CreateMap<CarHistoryModel, CarHistoryLocation>()
+            .ForMember(x => x.Coordinates, opt =>
+            {
+                // AllowNull() is required here: AllowNullDestinationValues = false (Program.cs) otherwise
+                // substitutes a new empty List<double> for a null MapFrom result (same class of gotcha as
+                // ReferenceMatchModel.Creator, documented in CLAUDE.md) - MapCarHistoryModel's reverse mapping
+                // reads Coordinates[0]/[1] guarded by "!= null", which an empty (not null) list defeats,
+                // throwing IndexOutOfRange the moment Longitude/Latitude are unset. Caught by a real-MongoDB
+                // CarHistoryResourceTest create/read round-trip, not by a mocked unit test.
+                opt.MapFrom(x => (x.Longitude.HasValue && x.Latitude.HasValue) ? new List<double> { x.Longitude.Value, x.Latitude.Value } : null);
+                opt.AllowNull();
+            });
 
         CreateMap<CarHistoryModel, CarHistoryFuel>()
             .ForMember(x => x.Category, opt => opt.MapFrom(
