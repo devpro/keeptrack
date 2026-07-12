@@ -2,17 +2,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using AutoMapper;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.Infrastructure.MongoDb.Entities;
+using Keeptrack.Infrastructure.MongoDb.Mappers;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
-public class AlbumRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepositoryBase<AlbumModel, Album>> logger, IMapper mapper)
+public class AlbumRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepositoryBase<AlbumModel, Album>> logger, IStorageMapper<AlbumModel, Album> mapper)
     : MongoDbRepositoryBase<AlbumModel, Album>(mongoDatabase, logger, mapper), IAlbumRepository
 {
     protected override string CollectionName => "album";
@@ -53,8 +53,9 @@ public class AlbumRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbReposi
 
     /// <summary>
     /// "Has no reference link yet" means <see cref="Album.ReferenceId"/> is null OR empty string, not
-    /// just null: AutoMapper is configured with <c>AllowNullDestinationValues = false</c> (see Program.cs),
-    /// so mapping a model with a null string property stores an empty string, never an actual null.
+    /// just null: old documents (written before the AutoMapper -> Mapperly migration) can still store ""
+    /// for an unset field; new writes store a real null instead (Mapperly preserves nulls, and the Mongo
+    /// driver's IgnoreIfNullConvention then omits it entirely). Both generations must match.
     /// </summary>
     private static FilterDefinition<Album> UnresolvedFilter()
     {

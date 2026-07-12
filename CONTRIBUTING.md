@@ -237,7 +237,7 @@ dotnet test test/WebApi.IntegrationTests/WebApi.IntegrationTests.csproj
 Run a single test by fully qualified name (works for either project):
 
 ```bash
-dotnet test --filter-method "Keeptrack.WebApi.UnitTests.MappingProfiles.AutoMapperConfigurationTest.WebApiAutoMapperProfile_ShouldBeValid"
+dotnet test --filter-method "Keeptrack.WebApi.UnitTests.Services.WatchNextServiceTest.ComputeInProgressShows_IncludesShowWithAConfirmedAiredUnwatchedNextEpisode"
 ```
 
 `--filter-method` also accepts a wildcard, e.g. `--filter-method "*CarResourceTest*"` to run every test in a class - but it's a single glob pattern, not a real filter expression: it does not support `|`/`,` alternation to combine multiple patterns in one run (that just prints the CLI help instead of running anything), so run each pattern as its own `dotnet test` invocation.

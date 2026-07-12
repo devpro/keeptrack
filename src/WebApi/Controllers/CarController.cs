@@ -1,6 +1,7 @@
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.Domain.Services;
+using Keeptrack.WebApi.Mappers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,10 +11,11 @@ namespace Keeptrack.WebApi.Controllers;
 [Authorize]
 [Route("api/cars")]
 public class CarController(
-    IMapper mapper,
+    IDtoMapper<CarDto, CarModel> mapper,
     ICarRepository dataRepository,
     ICarHistoryRepository carHistoryRepository,
-    CarMetricsService metricsService)
+    CarMetricsService metricsService,
+    CarMetricsDtoMapper metricsMapper)
     : DataCrudControllerBase<CarDto, CarModel>(mapper, dataRepository)
 {
     /// <summary>
@@ -33,7 +35,7 @@ public class CarController(
         var history = await carHistoryRepository.FindAllAsync(ownerId, 1, int.MaxValue, null,
             new CarHistoryModel { OwnerId = ownerId, CarId = id, EventType = default, HistoryDate = default });
 
-        return Ok(Mapper.Map<CarMetricsDto>(metricsService.ComputeMetrics(history.Items)));
+        return Ok(metricsMapper.ToDto(metricsService.ComputeMetrics(history.Items)));
     }
 
     /// <summary>

@@ -1,16 +1,16 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using AutoMapper;
 using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.Infrastructure.MongoDb.Entities;
+using Keeptrack.Infrastructure.MongoDb.Mappers;
 using MongoDB.Driver;
 
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
-public class BookReferenceRepository(IMongoDatabase mongoDatabase, IMapper mapper) : IBookReferenceRepository
+public class BookReferenceRepository(IMongoDatabase mongoDatabase, BookReferenceStorageMapper mapper) : IBookReferenceRepository
 {
     private const string CollectionName = "book_reference";
 
@@ -19,7 +19,7 @@ public class BookReferenceRepository(IMongoDatabase mongoDatabase, IMapper mappe
     public async Task<BookReferenceModel?> FindByIdAsync(string id)
     {
         var entity = await Collection.Find(x => x.Id == id).FirstOrDefaultAsync();
-        return entity is null ? null : mapper.Map<BookReferenceModel>(entity);
+        return entity is null ? null : mapper.ToModel(entity);
     }
 
     public async Task<BookReferenceModel?> FindByTitleYearAsync(string title, int? year, string author)
@@ -31,7 +31,7 @@ public class BookReferenceRepository(IMongoDatabase mongoDatabase, IMapper mappe
             & Builders<ReferenceMatch>.Filter.Eq(m => m.Year, year)
             & Builders<ReferenceMatch>.Filter.Eq(m => m.Creator, normalizedAuthor));
         var entity = await Collection.Find(filter).FirstOrDefaultAsync();
-        return entity is null ? null : mapper.Map<BookReferenceModel>(entity);
+        return entity is null ? null : mapper.ToModel(entity);
     }
 
     public async Task<BookReferenceModel?> FindByTitleAsync(string title, string author)
@@ -42,20 +42,20 @@ public class BookReferenceRepository(IMongoDatabase mongoDatabase, IMapper mappe
             Builders<ReferenceMatch>.Filter.Eq(m => m.Title, normalized)
             & Builders<ReferenceMatch>.Filter.Eq(m => m.Creator, normalizedAuthor));
         var entity = await Collection.Find(filter).FirstOrDefaultAsync();
-        return entity is null ? null : mapper.Map<BookReferenceModel>(entity);
+        return entity is null ? null : mapper.ToModel(entity);
     }
 
     public async Task<BookReferenceModel?> FindByExternalIdAsync(string provider, string externalId)
     {
         var filter = Builders<BookReference>.Filter.Eq($"external_ids.{provider}", externalId);
         var entity = await Collection.Find(filter).FirstOrDefaultAsync();
-        return entity is null ? null : mapper.Map<BookReferenceModel>(entity);
+        return entity is null ? null : mapper.ToModel(entity);
     }
 
     public async Task<List<BookReferenceModel>> FindAllAsync()
     {
         var entities = await Collection.Find(FilterDefinition<BookReference>.Empty).ToListAsync();
-        return entities.Select(mapper.Map<BookReferenceModel>).ToList();
+        return entities.Select(mapper.ToModel).ToList();
     }
 
     public async Task<BookReferenceModel> UpsertAsync(BookReferenceModel model)
@@ -70,7 +70,7 @@ public class BookReferenceRepository(IMongoDatabase mongoDatabase, IMapper mappe
         {
             model.MatchedAliases.Add(new ReferenceMatchModel { Title = model.TitleNormalized, Year = model.Year });
         }
-        var entity = mapper.Map<BookReference>(model);
+        var entity = mapper.ToEntity(model);
 
         if (string.IsNullOrEmpty(entity.Id))
         {
@@ -81,6 +81,6 @@ public class BookReferenceRepository(IMongoDatabase mongoDatabase, IMapper mappe
             await Collection.ReplaceOneAsync(x => x.Id == entity.Id, entity, new ReplaceOptions { IsUpsert = true });
         }
 
-        return mapper.Map<BookReferenceModel>(entity);
+        return mapper.ToModel(entity);
     }
 }

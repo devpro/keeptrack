@@ -1,13 +1,13 @@
-using AutoMapper;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.Infrastructure.MongoDb.Entities;
+using Keeptrack.Infrastructure.MongoDb.Mappers;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
-public class EpisodeRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepositoryBase<EpisodeModel, Episode>> logger, IMapper mapper)
+public class EpisodeRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepositoryBase<EpisodeModel, Episode>> logger, IStorageMapper<EpisodeModel, Episode> mapper)
     : MongoDbRepositoryBase<EpisodeModel, Episode>(mongoDatabase, logger, mapper), IEpisodeRepository
 {
     protected override string CollectionName => "episode";

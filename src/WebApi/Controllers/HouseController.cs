@@ -1,6 +1,7 @@
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.Domain.Services;
+using Keeptrack.WebApi.Mappers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,10 +11,11 @@ namespace Keeptrack.WebApi.Controllers;
 [Authorize]
 [Route("api/houses")]
 public class HouseController(
-    IMapper mapper,
+    IDtoMapper<HouseDto, HouseModel> mapper,
     IHouseRepository dataRepository,
     IHouseHistoryRepository houseHistoryRepository,
-    HouseMetricsService metricsService)
+    HouseMetricsService metricsService,
+    HouseMetricsDtoMapper metricsMapper)
     : DataCrudControllerBase<HouseDto, HouseModel>(mapper, dataRepository)
 {
     /// <summary>
@@ -32,7 +34,7 @@ public class HouseController(
         var history = await houseHistoryRepository.FindAllAsync(ownerId, 1, int.MaxValue, null,
             new HouseHistoryModel { OwnerId = ownerId, HouseId = id, EventType = default, HistoryDate = default });
 
-        return Ok(Mapper.Map<HouseMetricsDto>(metricsService.ComputeMetrics(history.Items)));
+        return Ok(metricsMapper.ToDto(metricsService.ComputeMetrics(history.Items)));
     }
 
     /// <summary>

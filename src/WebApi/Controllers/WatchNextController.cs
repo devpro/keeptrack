@@ -1,6 +1,7 @@
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.Domain.Services;
+using Keeptrack.WebApi.Mappers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,7 +16,8 @@ public class WatchNextController(
     IMovieRepository movieRepository,
     ITvShowReferenceRepository tvShowReferenceRepository,
     WatchNextService watchNextService,
-    IMapper mapper) : ControllerBase
+    InProgressShowDtoMapper inProgressShowMapper,
+    IDtoMapper<MovieDto, MovieModel> movieMapper) : ControllerBase
 {
     [HttpGet]
     [ProducesResponseType(200)]
@@ -42,8 +44,9 @@ public class WatchNextController(
 
         return Ok(new WatchNextDto
         {
-            InProgressShows = mapper.Map<List<InProgressShowDto>>(watchNextService.ComputeInProgressShows(shows.Items, episodes.Items, referencesByShowId)),
-            MoviesToWatch = mapper.Map<List<MovieDto>>(watchNextService.FilterMoviesToWatch(moviesToWatch.Items))
+            InProgressShows = watchNextService.ComputeInProgressShows(shows.Items, episodes.Items, referencesByShowId)
+                .Select(inProgressShowMapper.ToDto).ToList(),
+            MoviesToWatch = watchNextService.FilterMoviesToWatch(moviesToWatch.Items).Select(movieMapper.ToDto).ToList()
         });
     }
 }

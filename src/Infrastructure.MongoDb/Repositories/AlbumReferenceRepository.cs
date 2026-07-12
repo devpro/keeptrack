@@ -1,16 +1,16 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using AutoMapper;
 using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.Infrastructure.MongoDb.Entities;
+using Keeptrack.Infrastructure.MongoDb.Mappers;
 using MongoDB.Driver;
 
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
-public class AlbumReferenceRepository(IMongoDatabase mongoDatabase, IMapper mapper) : IAlbumReferenceRepository
+public class AlbumReferenceRepository(IMongoDatabase mongoDatabase, AlbumReferenceStorageMapper mapper) : IAlbumReferenceRepository
 {
     private const string CollectionName = "album_reference";
 
@@ -19,7 +19,7 @@ public class AlbumReferenceRepository(IMongoDatabase mongoDatabase, IMapper mapp
     public async Task<AlbumReferenceModel?> FindByIdAsync(string id)
     {
         var entity = await Collection.Find(x => x.Id == id).FirstOrDefaultAsync();
-        return entity is null ? null : mapper.Map<AlbumReferenceModel>(entity);
+        return entity is null ? null : mapper.ToModel(entity);
     }
 
     public async Task<AlbumReferenceModel?> FindByTitleYearAsync(string title, int? year, string artist)
@@ -31,7 +31,7 @@ public class AlbumReferenceRepository(IMongoDatabase mongoDatabase, IMapper mapp
             & Builders<ReferenceMatch>.Filter.Eq(m => m.Year, year)
             & Builders<ReferenceMatch>.Filter.Eq(m => m.Creator, normalizedArtist));
         var entity = await Collection.Find(filter).FirstOrDefaultAsync();
-        return entity is null ? null : mapper.Map<AlbumReferenceModel>(entity);
+        return entity is null ? null : mapper.ToModel(entity);
     }
 
     public async Task<AlbumReferenceModel?> FindByTitleAsync(string title, string artist)
@@ -42,20 +42,20 @@ public class AlbumReferenceRepository(IMongoDatabase mongoDatabase, IMapper mapp
             Builders<ReferenceMatch>.Filter.Eq(m => m.Title, normalized)
             & Builders<ReferenceMatch>.Filter.Eq(m => m.Creator, normalizedArtist));
         var entity = await Collection.Find(filter).FirstOrDefaultAsync();
-        return entity is null ? null : mapper.Map<AlbumReferenceModel>(entity);
+        return entity is null ? null : mapper.ToModel(entity);
     }
 
     public async Task<AlbumReferenceModel?> FindByExternalIdAsync(string provider, string externalId)
     {
         var filter = Builders<AlbumReference>.Filter.Eq($"external_ids.{provider}", externalId);
         var entity = await Collection.Find(filter).FirstOrDefaultAsync();
-        return entity is null ? null : mapper.Map<AlbumReferenceModel>(entity);
+        return entity is null ? null : mapper.ToModel(entity);
     }
 
     public async Task<List<AlbumReferenceModel>> FindAllAsync()
     {
         var entities = await Collection.Find(FilterDefinition<AlbumReference>.Empty).ToListAsync();
-        return entities.Select(mapper.Map<AlbumReferenceModel>).ToList();
+        return entities.Select(mapper.ToModel).ToList();
     }
 
     public async Task<AlbumReferenceModel> UpsertAsync(AlbumReferenceModel model)
@@ -68,7 +68,7 @@ public class AlbumReferenceRepository(IMongoDatabase mongoDatabase, IMapper mapp
         {
             model.MatchedAliases.Add(new ReferenceMatchModel { Title = model.TitleNormalized, Year = model.Year });
         }
-        var entity = mapper.Map<AlbumReference>(model);
+        var entity = mapper.ToEntity(model);
 
         if (string.IsNullOrEmpty(entity.Id))
         {
@@ -79,6 +79,6 @@ public class AlbumReferenceRepository(IMongoDatabase mongoDatabase, IMapper mapp
             await Collection.ReplaceOneAsync(x => x.Id == entity.Id, entity, new ReplaceOptions { IsUpsert = true });
         }
 
-        return mapper.Map<AlbumReferenceModel>(entity);
+        return mapper.ToModel(entity);
     }
 }

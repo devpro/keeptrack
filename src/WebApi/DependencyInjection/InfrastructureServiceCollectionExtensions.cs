@@ -1,4 +1,6 @@
-﻿using Keeptrack.Infrastructure.MongoDb.Repositories;
+﻿using Keeptrack.Infrastructure.MongoDb.Entities;
+using Keeptrack.Infrastructure.MongoDb.Mappers;
+using Keeptrack.Infrastructure.MongoDb.Repositories;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using MongoDB.Bson.Serialization.Conventions;
 using MongoDB.Driver;
@@ -24,6 +26,26 @@ internal static class InfrastructureServiceCollectionExtensions
 
         services.AddSingleton<IMongoDatabase>(sp =>
             sp.GetRequiredService<IMongoClient>().GetDatabase(configuration.DatabaseName));
+
+        services.AddSingleton<IStorageMapper<Domain.Models.BookModel, Book>, BookStorageMapper>();
+        services.AddSingleton<IStorageMapper<Domain.Models.MovieModel, Movie>, MovieStorageMapper>();
+        services.AddSingleton<IStorageMapper<Domain.Models.TvShowModel, TvShow>, TvShowStorageMapper>();
+        services.AddSingleton<IStorageMapper<Domain.Models.AlbumModel, Album>, AlbumStorageMapper>();
+        services.AddSingleton<IStorageMapper<Domain.Models.EpisodeModel, Episode>, EpisodeStorageMapper>();
+        services.AddSingleton<IStorageMapper<Domain.Models.SongModel, Song>, SongStorageMapper>();
+        services.AddSingleton<IStorageMapper<Domain.Models.PlaylistModel, Playlist>, PlaylistStorageMapper>();
+        services.AddSingleton<IStorageMapper<Domain.Models.VideoGameModel, VideoGame>, VideoGameStorageMapper>();
+        services.AddSingleton<IStorageMapper<Domain.Models.CarModel, Car>, CarStorageMapper>();
+        services.AddSingleton<IStorageMapper<Domain.Models.CarHistoryModel, CarHistory>, CarHistoryStorageMapper>();
+        services.AddSingleton<IStorageMapper<Domain.Models.HouseModel, House>, HouseStorageMapper>();
+        services.AddSingleton<IStorageMapper<Domain.Models.HouseHistoryModel, HouseHistory>, HouseHistoryStorageMapper>();
+
+        services.AddSingleton<TvShowReferenceStorageMapper>();
+        services.AddSingleton<MovieReferenceStorageMapper>();
+        services.AddSingleton<PersonReferenceStorageMapper>();
+        services.AddSingleton<BookReferenceStorageMapper>();
+        services.AddSingleton<VideoGameReferenceStorageMapper>();
+        services.AddSingleton<AlbumReferenceStorageMapper>();
 
         services.TryAddScoped<Domain.Repositories.IAlbumRepository, AlbumRepository>();
         services.TryAddScoped<Domain.Repositories.ISongRepository, SongRepository>();

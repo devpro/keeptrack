@@ -6,6 +6,10 @@ Update this file as items are fixed or as new reviews are performed.
 
 ## Fixed
 
+Several findings below trace back to AutoMapper's profile-wide `AllowNullDestinationValues = false` (a null source string/collection/object silently substituted with `""`/an empty collection/a blank instance).
+AutoMapper itself was removed in favor of Riok.Mapperly (see `docs/automapper-removal-plan.md`), which preserves nulls by default - the entire class of gotcha these findings patched around is now structurally impossible, not just individually fixed.
+The `entity is null` guards these findings added stay in place regardless: Mapperly throws on a null source, so checking before mapping is still the only correct way to turn "no document matched" into a `null` return value.
+
 ### `mapper.Map<T>(null)` returned a fake empty object instead of null - also affected the shared base repository, not just the reference-data ones
 
 Found again on 2026-07-09 while building the Car/CarHistory feature and its `CarResourceTest` integration coverage: `MongoDbRepositoryBase.FindOneAsync` (the base class every entity's repository extends) had the exact same shape as the bug described just below - `Mapper.Map<TModel>(await entities.FirstOrDefaultAsync())` - and hit the exact same `AllowNullDestinationValues = false` gotcha, silently returning a blank default model instead of `null` for a nonexistent id.
@@ -20,8 +24,9 @@ File: `src/Infrastructure.MongoDb/Repositories/MongoDbRepositoryBase.cs`
 Found on 2026-07-09 while adding `CarHistoryResourceTest`: `CarHistoryModel -> CarHistory`'s `Coordinates` (`List<double>`) `ForMember` mapped to `null` when `Longitude`/`Latitude` were unset, but `AllowNullDestinationValues = false` substituted a new **empty list** instead - the same class of bug as the `Creator`/empty-string gotchas already documented here and in CLAUDE.md, just for a `List<T>` member instead of `string`.
 The reverse mapping (`CarHistory -> CarHistoryModel`) read it back with `x.Coordinates != null ? x.Coordinates[0] : null`, which an empty-but-non-null list defeats - `x.Coordinates[0]` threw `IndexOutOfRangeException` on every `POST`/`PUT` of a `CarHistory` entry with no location set.
 Fixed with `.AllowNull()` on that `ForMember`, same fix shape as the `Creator` case in CLAUDE.md.
+The `AllowNull()` opt-out itself no longer exists - the AutoMapper -> Mapperly migration deleted `CarDataStorageMappingProfile` entirely; the same null-vs-empty-list handling now lives, hand-written, in `CarHistoryStorageMapper.BuildLocation`.
 
-File: `src/WebApi/MappingProfiles/CarDataStorageMappingProfile.cs`
+File (at the time of the fix): `src/WebApi/MappingProfiles/CarDataStorageMappingProfile.cs`, now `src/Infrastructure.MongoDb/Mappers/CarHistoryStorageMapper.cs`
 
 ### `mapper.Map<T>(null)` returned a fake empty object instead of null
 

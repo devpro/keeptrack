@@ -1,6 +1,7 @@
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.Domain.Services;
+using Keeptrack.WebApi.Mappers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,7 +16,10 @@ public class WishlistController(
     IBookRepository bookRepository,
     IVideoGameRepository videoGameRepository,
     WishlistService wishlistService,
-    IMapper mapper) : ControllerBase
+    IDtoMapper<MovieDto, MovieModel> movieMapper,
+    IDtoMapper<TvShowDto, TvShowModel> tvShowMapper,
+    IDtoMapper<BookDto, BookModel> bookMapper,
+    IDtoMapper<VideoGameDto, VideoGameModel> videoGameMapper) : ControllerBase
 {
     [HttpGet]
     [ProducesResponseType(200)]
@@ -35,10 +39,10 @@ public class WishlistController(
 
         return Ok(new WishlistDto
         {
-            Movies = mapper.Map<List<MovieDto>>(wishlistService.SortMovies(movies.Items)),
-            TvShows = mapper.Map<List<TvShowDto>>(wishlistService.SortTvShows(tvShows.Items)),
-            Books = mapper.Map<List<BookDto>>(wishlistService.SortBooks(books.Items)),
-            VideoGames = mapper.Map<List<VideoGameDto>>(wishlistService.SortVideoGames(videoGames.Items))
+            Movies = wishlistService.SortMovies(movies.Items).Select(movieMapper.ToDto).ToList(),
+            TvShows = wishlistService.SortTvShows(tvShows.Items).Select(tvShowMapper.ToDto).ToList(),
+            Books = wishlistService.SortBooks(books.Items).Select(bookMapper.ToDto).ToList(),
+            VideoGames = wishlistService.SortVideoGames(videoGames.Items).Select(videoGameMapper.ToDto).ToList()
         });
     }
 }

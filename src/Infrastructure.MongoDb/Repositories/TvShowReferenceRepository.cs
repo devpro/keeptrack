@@ -1,16 +1,16 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using AutoMapper;
 using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.Infrastructure.MongoDb.Entities;
+using Keeptrack.Infrastructure.MongoDb.Mappers;
 using MongoDB.Driver;
 
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
-public class TvShowReferenceRepository(IMongoDatabase mongoDatabase, IMapper mapper) : ITvShowReferenceRepository
+public class TvShowReferenceRepository(IMongoDatabase mongoDatabase, TvShowReferenceStorageMapper mapper) : ITvShowReferenceRepository
 {
     private const string CollectionName = "tvshow_reference";
 
@@ -19,9 +19,9 @@ public class TvShowReferenceRepository(IMongoDatabase mongoDatabase, IMapper map
     public async Task<TvShowReferenceModel?> FindByIdAsync(string id)
     {
         var entity = await Collection.Find(x => x.Id == id).FirstOrDefaultAsync();
-        // AutoMapper's AllowNullDestinationValues = false (Program.cs) makes Map<T>(null) return a new,
-        // all-default instance instead of null - checking for a missing document must happen before mapping.
-        return entity is null ? null : mapper.Map<TvShowReferenceModel>(entity);
+        // Mapperly throws on a null source rather than substituting a default instance - checking for a
+        // missing document must happen before mapping regardless.
+        return entity is null ? null : mapper.ToModel(entity);
     }
 
     public async Task<TvShowReferenceModel?> FindByTitleYearAsync(string title, int? year)
@@ -35,7 +35,7 @@ public class TvShowReferenceRepository(IMongoDatabase mongoDatabase, IMapper map
         var filter = Builders<TvShowReference>.Filter.ElemMatch(x => x.MatchedAliases,
             Builders<ReferenceMatch>.Filter.Eq(m => m.Title, normalized) & Builders<ReferenceMatch>.Filter.Eq(m => m.Year, year));
         var entity = await Collection.Find(filter).FirstOrDefaultAsync();
-        return entity is null ? null : mapper.Map<TvShowReferenceModel>(entity);
+        return entity is null ? null : mapper.ToModel(entity);
     }
 
     public async Task<TvShowReferenceModel?> FindByTitleAsync(string title)
@@ -44,7 +44,7 @@ public class TvShowReferenceRepository(IMongoDatabase mongoDatabase, IMapper map
         var filter = Builders<TvShowReference>.Filter.ElemMatch(x => x.MatchedAliases,
             Builders<ReferenceMatch>.Filter.Eq(m => m.Title, normalized));
         var entity = await Collection.Find(filter).FirstOrDefaultAsync();
-        return entity is null ? null : mapper.Map<TvShowReferenceModel>(entity);
+        return entity is null ? null : mapper.ToModel(entity);
     }
 
     public async Task<TvShowReferenceModel?> FindByExternalIdAsync(string provider, string externalId)
@@ -53,13 +53,13 @@ public class TvShowReferenceRepository(IMongoDatabase mongoDatabase, IMapper map
         // translation doesn't support indexing a Dictionary<TKey,TValue> by a runtime key.
         var filter = Builders<TvShowReference>.Filter.Eq($"external_ids.{provider}", externalId);
         var entity = await Collection.Find(filter).FirstOrDefaultAsync();
-        return entity is null ? null : mapper.Map<TvShowReferenceModel>(entity);
+        return entity is null ? null : mapper.ToModel(entity);
     }
 
     public async Task<List<TvShowReferenceModel>> FindAllAsync()
     {
         var entities = await Collection.Find(FilterDefinition<TvShowReference>.Empty).ToListAsync();
-        return entities.Select(mapper.Map<TvShowReferenceModel>).ToList();
+        return entities.Select(mapper.ToModel).ToList();
     }
 
     public async Task<TvShowReferenceModel> UpsertAsync(TvShowReferenceModel model)
@@ -71,7 +71,7 @@ public class TvShowReferenceRepository(IMongoDatabase mongoDatabase, IMapper map
         {
             model.MatchedAliases.Add(new ReferenceMatchModel { Title = model.TitleNormalized, Year = model.Year });
         }
-        var entity = mapper.Map<TvShowReference>(model);
+        var entity = mapper.ToEntity(model);
 
         if (string.IsNullOrEmpty(entity.Id))
         {
@@ -82,6 +82,6 @@ public class TvShowReferenceRepository(IMongoDatabase mongoDatabase, IMapper map
             await Collection.ReplaceOneAsync(x => x.Id == entity.Id, entity, new ReplaceOptions { IsUpsert = true });
         }
 
-        return mapper.Map<TvShowReferenceModel>(entity);
+        return mapper.ToModel(entity);
     }
 }

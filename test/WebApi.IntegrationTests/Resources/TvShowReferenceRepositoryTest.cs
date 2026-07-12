@@ -124,7 +124,7 @@ public class TvShowReferenceRepositoryTest(KestrelWebAppFactory<Program> factory
         // in-memory dedup comparison and duplicated an alias on every re-resolve/re-refresh (confirmed
         // against a real video game reference, RAWG's "God of War", that had accumulated an exact duplicate
         // this way - see scripts/dedupe-matched-aliases.js). Only a real MongoDB round-trip can catch this;
-        // a mocked repository never exercises the actual AutoMapper/BSON serialization behavior.
+        // a mocked repository never exercises the actual mapper/BSON serialization behavior.
         using var scope = factory.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<ITvShowReferenceRepository>();
         var title = $"Null Creator Title {Guid.NewGuid()}";

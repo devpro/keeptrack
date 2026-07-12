@@ -1,16 +1,16 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using AutoMapper;
 using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.Infrastructure.MongoDb.Entities;
+using Keeptrack.Infrastructure.MongoDb.Mappers;
 using MongoDB.Driver;
 
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
-public class MovieReferenceRepository(IMongoDatabase mongoDatabase, IMapper mapper) : IMovieReferenceRepository
+public class MovieReferenceRepository(IMongoDatabase mongoDatabase, MovieReferenceStorageMapper mapper) : IMovieReferenceRepository
 {
     private const string CollectionName = "movie_reference";
 
@@ -19,9 +19,9 @@ public class MovieReferenceRepository(IMongoDatabase mongoDatabase, IMapper mapp
     public async Task<MovieReferenceModel?> FindByIdAsync(string id)
     {
         var entity = await Collection.Find(x => x.Id == id).FirstOrDefaultAsync();
-        // AutoMapper's AllowNullDestinationValues = false (Program.cs) makes Map<T>(null) return a new,
-        // all-default instance instead of null - checking for a missing document must happen before mapping.
-        return entity is null ? null : mapper.Map<MovieReferenceModel>(entity);
+        // Mapperly throws on a null source rather than substituting a default instance - checking for a
+        // missing document must happen before mapping regardless.
+        return entity is null ? null : mapper.ToModel(entity);
     }
 
     public async Task<MovieReferenceModel?> FindByTitleYearAsync(string title, int? year)
@@ -35,7 +35,7 @@ public class MovieReferenceRepository(IMongoDatabase mongoDatabase, IMapper mapp
         var filter = Builders<MovieReference>.Filter.ElemMatch(x => x.MatchedAliases,
             Builders<ReferenceMatch>.Filter.Eq(m => m.Title, normalized) & Builders<ReferenceMatch>.Filter.Eq(m => m.Year, year));
         var entity = await Collection.Find(filter).FirstOrDefaultAsync();
-        return entity is null ? null : mapper.Map<MovieReferenceModel>(entity);
+        return entity is null ? null : mapper.ToModel(entity);
     }
 
     public async Task<MovieReferenceModel?> FindByTitleAsync(string title)
@@ -44,7 +44,7 @@ public class MovieReferenceRepository(IMongoDatabase mongoDatabase, IMapper mapp
         var filter = Builders<MovieReference>.Filter.ElemMatch(x => x.MatchedAliases,
             Builders<ReferenceMatch>.Filter.Eq(m => m.Title, normalized));
         var entity = await Collection.Find(filter).FirstOrDefaultAsync();
-        return entity is null ? null : mapper.Map<MovieReferenceModel>(entity);
+        return entity is null ? null : mapper.ToModel(entity);
     }
 
     public async Task<MovieReferenceModel?> FindByExternalIdAsync(string provider, string externalId)
@@ -53,13 +53,13 @@ public class MovieReferenceRepository(IMongoDatabase mongoDatabase, IMapper mapp
         // translation doesn't support indexing a Dictionary<TKey,TValue> by a runtime key.
         var filter = Builders<MovieReference>.Filter.Eq($"external_ids.{provider}", externalId);
         var entity = await Collection.Find(filter).FirstOrDefaultAsync();
-        return entity is null ? null : mapper.Map<MovieReferenceModel>(entity);
+        return entity is null ? null : mapper.ToModel(entity);
     }
 
     public async Task<List<MovieReferenceModel>> FindAllAsync()
     {
         var entities = await Collection.Find(FilterDefinition<MovieReference>.Empty).ToListAsync();
-        return entities.Select(mapper.Map<MovieReferenceModel>).ToList();
+        return entities.Select(mapper.ToModel).ToList();
     }
 
     public async Task<MovieReferenceModel> UpsertAsync(MovieReferenceModel model)
@@ -71,7 +71,7 @@ public class MovieReferenceRepository(IMongoDatabase mongoDatabase, IMapper mapp
         {
             model.MatchedAliases.Add(new ReferenceMatchModel { Title = model.TitleNormalized, Year = model.Year });
         }
-        var entity = mapper.Map<MovieReference>(model);
+        var entity = mapper.ToEntity(model);
 
         if (string.IsNullOrEmpty(entity.Id))
         {
@@ -82,6 +82,6 @@ public class MovieReferenceRepository(IMongoDatabase mongoDatabase, IMapper mapp
             await Collection.ReplaceOneAsync(x => x.Id == entity.Id, entity, new ReplaceOptions { IsUpsert = true });
         }
 
-        return mapper.Map<MovieReferenceModel>(entity);
+        return mapper.ToModel(entity);
     }
 }

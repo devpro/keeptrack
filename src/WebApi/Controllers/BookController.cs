@@ -1,5 +1,6 @@
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
+using Keeptrack.WebApi.Mappers;
 using Keeptrack.WebApi.ReferenceData;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,7 +13,7 @@ namespace Keeptrack.WebApi.Controllers;
 [Authorize]
 [Route("api/books")]
 public class BookController(
-    IMapper mapper,
+    IDtoMapper<BookDto, BookModel> mapper,
     IBookRepository dataRepository,
     ReferenceEnrichmentService enrichmentService,
     IServiceScopeFactory scopeFactory,
@@ -56,6 +57,6 @@ public class BookController(
         if (model is null) return NotFound();
 
         model = await enrichmentService.TryLinkExistingBookReferenceAsync(model);
-        return Ok(Mapper.Map<BookDto>(model));
+        return Ok(Mapper.ToDto(model));
     }
 }

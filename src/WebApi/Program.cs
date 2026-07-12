@@ -7,22 +7,36 @@ var configuration = new AppConfiguration(builder.Configuration);
 // adds services to the container
 builder.Services.AddControllers(opts => { opts.Filters.Add<ApiExceptionFilterAttribute>(); });
 builder.Services.AddOpenApi();
-builder.Services.AddAutoMapper(config =>
-    {
-        config.AllowNullDestinationValues = false;
-    },
-    typeof(Program).Assembly);
 builder.Services.AddHealthChecks();
-// a hosted BackgroundService (e.g. ReferenceSyncBackgroundService) already catches and logs every
-// exception it can anticipate, but this is a systemic safety net for whatever it doesn't: by default,
-// an unhandled exception escaping a BackgroundService.ExecuteAsync stops the whole host, taking every
-// other endpoint down with it - "Ignore" logs it instead and lets the rest of the app keep serving requests.
-builder.Services.Configure<Microsoft.Extensions.Hosting.HostOptions>(opts =>
-    opts.BackgroundServiceExceptionBehavior = Microsoft.Extensions.Hosting.BackgroundServiceExceptionBehavior.Ignore);
+// a hosted BackgroundService (e.g. ReferenceSyncBackgroundService) already catches and logs every exception it can anticipate,
+// but this is a systemic safety net for whatever it doesn't: by default, an unhandled exception escaping a BackgroundService.ExecuteAsync stops the whole host,
+// taking every other endpoint down with it - "Ignore" logs it instead and lets the rest of the app keep serving requests.
+builder.Services.Configure<HostOptions>(opts =>
+    opts.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore);
 builder.Services.AddSingleton<Keeptrack.Domain.Services.WatchNextService>();
 builder.Services.AddSingleton<Keeptrack.Domain.Services.WishlistService>();
 builder.Services.AddSingleton<Keeptrack.Domain.Services.CarMetricsService>();
 builder.Services.AddSingleton<Keeptrack.Domain.Services.HouseMetricsService>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<BookDto, Keeptrack.Domain.Models.BookModel>, Keeptrack.WebApi.Mappers.BookDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<CarDto, Keeptrack.Domain.Models.CarModel>, Keeptrack.WebApi.Mappers.CarDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<CarHistoryDto, Keeptrack.Domain.Models.CarHistoryModel>, Keeptrack.WebApi.Mappers.CarHistoryDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<HouseDto, Keeptrack.Domain.Models.HouseModel>, Keeptrack.WebApi.Mappers.HouseDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<HouseHistoryDto, Keeptrack.Domain.Models.HouseHistoryModel>, Keeptrack.WebApi.Mappers.HouseHistoryDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<EpisodeDto, Keeptrack.Domain.Models.EpisodeModel>, Keeptrack.WebApi.Mappers.EpisodeDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<MovieDto, Keeptrack.Domain.Models.MovieModel>, Keeptrack.WebApi.Mappers.MovieDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<AlbumDto, Keeptrack.Domain.Models.AlbumModel>, Keeptrack.WebApi.Mappers.AlbumDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<TvShowDto, Keeptrack.Domain.Models.TvShowModel>, Keeptrack.WebApi.Mappers.TvShowDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<SongDto, Keeptrack.Domain.Models.SongModel>, Keeptrack.WebApi.Mappers.SongDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<PlaylistDto, Keeptrack.Domain.Models.PlaylistModel>, Keeptrack.WebApi.Mappers.PlaylistDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<VideoGameDto, Keeptrack.Domain.Models.VideoGameModel>, Keeptrack.WebApi.Mappers.VideoGameDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.InProgressShowDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.CarMetricsDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.HouseMetricsDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.TvShowReferenceDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.MovieReferenceDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.BookReferenceDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.VideoGameReferenceDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.AlbumReferenceDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Jobs.JobStore<Keeptrack.WebApi.Contracts.Dto.ImportStage, Keeptrack.WebApi.Contracts.Dto.ImportResultDto>>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Jobs.JobStore<Keeptrack.WebApi.Contracts.Dto.ReferenceSyncStage, Keeptrack.WebApi.Contracts.Dto.ReferenceSyncResultDto>>();
 builder.Services.AddScoped<Keeptrack.WebApi.Import.TvTimeImportService>();

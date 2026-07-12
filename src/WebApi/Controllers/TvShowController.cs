@@ -1,5 +1,6 @@
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
+using Keeptrack.WebApi.Mappers;
 using Keeptrack.WebApi.ReferenceData;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,7 +13,7 @@ namespace Keeptrack.WebApi.Controllers;
 [Authorize]
 [Route("api/tv-shows")]
 public class TvShowController(
-    IMapper mapper,
+    IDtoMapper<TvShowDto, TvShowModel> mapper,
     ITvShowRepository dataRepository,
     ReferenceEnrichmentService enrichmentService,
     IServiceScopeFactory scopeFactory,
@@ -57,6 +58,6 @@ public class TvShowController(
         if (model is null) return NotFound();
 
         model = await enrichmentService.TryLinkExistingTvShowReferenceAsync(model);
-        return Ok(Mapper.Map<TvShowDto>(model));
+        return Ok(Mapper.ToDto(model));
     }
 }

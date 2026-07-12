@@ -1,13 +1,13 @@
-using AutoMapper;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.Infrastructure.MongoDb.Entities;
+using Keeptrack.Infrastructure.MongoDb.Mappers;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
-public class HouseRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepositoryBase<HouseModel, House>> logger, IMapper mapper)
+public class HouseRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepositoryBase<HouseModel, House>> logger, IStorageMapper<HouseModel, House> mapper)
     : MongoDbRepositoryBase<HouseModel, House>(mongoDatabase, logger, mapper), IHouseRepository
 {
     protected override string CollectionName => "house";

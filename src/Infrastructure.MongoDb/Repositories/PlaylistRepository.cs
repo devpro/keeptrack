@@ -1,13 +1,13 @@
-using AutoMapper;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.Infrastructure.MongoDb.Entities;
+using Keeptrack.Infrastructure.MongoDb.Mappers;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
-public class PlaylistRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepositoryBase<PlaylistModel, Playlist>> logger, IMapper mapper)
+public class PlaylistRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepositoryBase<PlaylistModel, Playlist>> logger, IStorageMapper<PlaylistModel, Playlist> mapper)
     : MongoDbRepositoryBase<PlaylistModel, Playlist>(mongoDatabase, logger, mapper), IPlaylistRepository
 {
     protected override string CollectionName => "playlist";

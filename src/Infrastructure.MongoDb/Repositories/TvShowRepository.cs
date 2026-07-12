@@ -2,17 +2,17 @@
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using AutoMapper;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.Infrastructure.MongoDb.Entities;
+using Keeptrack.Infrastructure.MongoDb.Mappers;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
-public class TvShowRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepositoryBase<TvShowModel, TvShow>> logger, IMapper mapper)
+public class TvShowRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepositoryBase<TvShowModel, TvShow>> logger, IStorageMapper<TvShowModel, TvShow> mapper)
     : MongoDbRepositoryBase<TvShowModel, TvShow>(mongoDatabase, logger, mapper), ITvShowRepository
 {
     protected override string CollectionName => "tvshow";
@@ -54,8 +54,9 @@ public class TvShowRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepos
 
     /// <summary>
     /// "Has no reference link yet" means <see cref="TvShow.ReferenceId"/> is null OR empty string, not
-    /// just null: AutoMapper is configured with <c>AllowNullDestinationValues = false</c> (see Program.cs),
-    /// so mapping a model with a null string property stores an empty string, never an actual null.
+    /// just null: old documents (written before the AutoMapper -> Mapperly migration) can still store ""
+    /// for an unset field; new writes store a real null instead (Mapperly preserves nulls, and the Mongo
+    /// driver's IgnoreIfNullConvention then omits it entirely). Both generations must match.
     /// </summary>
     private static FilterDefinition<TvShow> UnresolvedFilter()
     {

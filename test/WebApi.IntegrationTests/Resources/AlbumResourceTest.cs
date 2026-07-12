@@ -59,7 +59,7 @@ public class AlbumResourceTest(KestrelWebAppFactory<Program> factory)
     public async Task AlbumResourceUpdate_PersistsArtistChange_IsOk()
     {
         // regression test for a reported "editing the artist doesn't update the data" bug - full review of
-        // AlbumDetail.razor/Albums.razor/AlbumApiClient/DataCrudControllerBase/both AutoMapper profiles found
+        // AlbumDetail.razor/Albums.razor/AlbumApiClient/DataCrudControllerBase/both mapper layers found
         // no code-level cause (identical shape to Book's Author editing, which isn't reported as broken); this
         // locks in that a PUT changing only Artist persists correctly end-to-end.
         await Authenticate();

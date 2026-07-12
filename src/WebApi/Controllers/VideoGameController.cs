@@ -1,5 +1,6 @@
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
+using Keeptrack.WebApi.Mappers;
 using Keeptrack.WebApi.ReferenceData;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,7 +13,7 @@ namespace Keeptrack.WebApi.Controllers;
 [Authorize]
 [Route("api/video-games")]
 public class VideoGameController(
-    IMapper mapper,
+    IDtoMapper<VideoGameDto, VideoGameModel> mapper,
     IVideoGameRepository dataRepository,
     ReferenceEnrichmentService enrichmentService,
     IServiceScopeFactory scopeFactory,
@@ -55,6 +56,6 @@ public class VideoGameController(
         if (model is null) return NotFound();
 
         model = await enrichmentService.TryLinkExistingVideoGameReferenceAsync(model);
-        return Ok(Mapper.Map<VideoGameDto>(model));
+        return Ok(Mapper.ToDto(model));
     }
 }

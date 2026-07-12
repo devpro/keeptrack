@@ -152,3 +152,7 @@ csharp_space_between_square_brackets = false
 csharp_prefer_braces = true:silent
 csharp_preserve_single_line_blocks = true
 csharp_preserve_single_line_statements = true
+# Mapperly configuration drift (an unmapped source or target member on a [Mapper] class) must fail the build, the way AutoMapperConfigurationTest's AssertConfigurationIsValid() used to fail the test run
+# before it was deleted - see docs/automapper-removal-plan.md.
+dotnet_diagnostic.RMG012.severity = error
+dotnet_diagnostic.RMG020.severity = error

@@ -49,8 +49,9 @@ public class TvShowReferenceLinkingTest(KestrelWebAppFactory<Program> factory) :
             // the tenant's own title is replaced with the reference's canonical name, not just the id
             tenantAResult.Title.Should().Be(canonicalTitle);
             (await repository.FindOneAsync(tenantBShow.Id!, "reference-link-tenant-b"))!.ReferenceId.Should().Be("reference-123");
-            // AutoMapper's AllowNullDestinationValues=false (see Program.cs) means an unset ReferenceId
-            // round-trips as "" rather than null - BeNullOrEmpty is the correct "still unresolved" check.
+            // An unset ReferenceId can round-trip as either "" (documents written before the
+            // AutoMapper -> Mapperly migration) or null (new writes) - BeNullOrEmpty is the correct
+            // "still unresolved" check that covers both generations.
             (await repository.FindOneAsync(differentYearShow.Id!, "reference-link-tenant-a"))!.ReferenceId.Should().BeNullOrEmpty();
             // a show that already has a link is never clobbered by a later automatic/admin resolution
             var alreadyLinkedResult = (await repository.FindOneAsync(alreadyLinkedShow.Id!, "reference-link-tenant-c"))!;

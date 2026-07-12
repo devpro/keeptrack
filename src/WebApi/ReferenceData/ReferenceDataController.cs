@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
+using Keeptrack.WebApi.Mappers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,7 +18,11 @@ namespace Keeptrack.WebApi.ReferenceData;
 [Authorize]
 [Route("api/reference-data")]
 public class ReferenceDataController(
-    IMapper mapper,
+    TvShowReferenceDtoMapper tvShowReferenceMapper,
+    MovieReferenceDtoMapper movieReferenceMapper,
+    BookReferenceDtoMapper bookReferenceMapper,
+    VideoGameReferenceDtoMapper videoGameReferenceMapper,
+    AlbumReferenceDtoMapper albumReferenceMapper,
     ITvShowReferenceRepository tvShowReferenceRepository,
     IMovieReferenceRepository movieReferenceRepository,
     IPersonReferenceRepository personReferenceRepository,
@@ -34,7 +39,7 @@ public class ReferenceDataController(
         var model = await tvShowReferenceRepository.FindByIdAsync(referenceId);
         if (model is null) return NotFound();
 
-        var dto = mapper.Map<TvShowReferenceDto>(model);
+        var dto = tvShowReferenceMapper.ToDto(model);
         dto.Cast = await HydrateCastAsync(model.Cast);
         return Ok(dto);
     }
@@ -47,7 +52,7 @@ public class ReferenceDataController(
         var model = await movieReferenceRepository.FindByIdAsync(referenceId);
         if (model is null) return NotFound();
 
-        var dto = mapper.Map<MovieReferenceDto>(model);
+        var dto = movieReferenceMapper.ToDto(model);
         dto.Cast = await HydrateCastAsync(model.Cast);
         return Ok(dto);
     }
@@ -60,7 +65,7 @@ public class ReferenceDataController(
         var model = await bookReferenceRepository.FindByIdAsync(referenceId);
         if (model is null) return NotFound();
 
-        var dto = mapper.Map<BookReferenceDto>(model);
+        var dto = bookReferenceMapper.ToDto(model);
         (dto.AuthorName, dto.AuthorImageUrl) = await HydratePersonAsync(model.AuthorReferenceId);
         return Ok(dto);
     }
@@ -71,7 +76,7 @@ public class ReferenceDataController(
     public async Task<ActionResult<VideoGameReferenceDto>> GetVideoGame(string referenceId)
     {
         var model = await videoGameReferenceRepository.FindByIdAsync(referenceId);
-        return model is null ? NotFound() : Ok(mapper.Map<VideoGameReferenceDto>(model));
+        return model is null ? NotFound() : Ok(videoGameReferenceMapper.ToDto(model));
     }
 
     [HttpGet("albums/{referenceId}")]
@@ -82,7 +87,7 @@ public class ReferenceDataController(
         var model = await albumReferenceRepository.FindByIdAsync(referenceId);
         if (model is null) return NotFound();
 
-        var dto = mapper.Map<AlbumReferenceDto>(model);
+        var dto = albumReferenceMapper.ToDto(model);
         (dto.ArtistName, dto.ArtistImageUrl) = await HydratePersonAsync(model.ArtistReferenceId);
         return Ok(dto);
     }
@@ -101,8 +106,8 @@ public class ReferenceDataController(
 
     /// <summary>
     /// Joins the embedded cast list against person_reference to build the fully-hydrated DTO the client
-    /// renders directly - see <see cref="Keeptrack.WebApi.MappingProfiles.WebServiceMappingProfile"/> for
-    /// why this can't just be an AutoMapper member mapping.
+    /// renders directly - see <see cref="TvShowReferenceDtoMapper"/>'s <c>Cast</c> ignore for why this
+    /// can't just be a generated mapper member mapping.
     /// </summary>
     private async Task<List<CastMemberDto>> HydrateCastAsync(List<CastMemberModel> cast)
     {

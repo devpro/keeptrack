@@ -1,5 +1,6 @@
 ﻿using Keeptrack.Common.System;
 using Keeptrack.Domain.Repositories;
+using Keeptrack.WebApi.Mappers;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Keeptrack.WebApi.Controllers;
@@ -10,16 +11,16 @@ namespace Keeptrack.WebApi.Controllers;
 /// <typeparam name="TDto">Data Transfer Object</typeparam>
 /// <typeparam name="TModel">Domain Model</typeparam>
 [ApiController]
-public abstract class DataCrudControllerBase<TDto, TModel>(IMapper mapper, IDataRepository<TModel> dataRepository)
+public abstract class DataCrudControllerBase<TDto, TModel>(IDtoMapper<TDto, TModel> mapper, IDataRepository<TModel> dataRepository)
     : ControllerBase
     where TModel : class, IHasIdAndOwnerId
 {
     /// <summary>
     /// Exposes the mapper to subclasses that add their own actions (e.g. a refresh-reference endpoint) -
-    /// lets them reuse this instance instead of capturing their own <c>IMapper</c> primary-constructor
+    /// lets them reuse this instance instead of capturing their own <c>IDtoMapper</c> primary-constructor
     /// parameter as a second field holding the same reference.
     /// </summary>
-    protected IMapper Mapper => mapper;
+    protected IDtoMapper<TDto, TModel> Mapper => mapper;
 
     [HttpGet]
     [ProducesResponseType(200)]
@@ -31,8 +32,8 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IMapper mapper, IData
             pagedRequest.Page,
             pagedRequest.PageSize,
             pagedRequest.Search,
-            mapper.Map<TModel>(input));
-        return Ok(models.Map(mapper.Map<TDto>));
+            mapper.ToModel(input));
+        return Ok(models.Map(mapper.ToDto));
     }
 
     [HttpGet("{id}")]
@@ -53,7 +54,7 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IMapper mapper, IData
             return NotFound();
         }
 
-        return Ok(mapper.Map<TDto>(model));
+        return Ok(mapper.ToDto(model));
     }
 
     [HttpPost]
@@ -62,11 +63,11 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IMapper mapper, IData
     [ProducesResponseType(201)]
     public async Task<IActionResult> Post([FromBody] TDto dto)
     {
-        var input = mapper.Map<TModel>(dto);
+        var input = mapper.ToModel(dto);
         input.OwnerId = this.GetUserId();
         var model = await dataRepository.CreateAsync(input);
         await OnCreatedAsync(model);
-        return CreatedAtAction(nameof(GetById), new { id = model.Id }, mapper.Map<TDto>(model));
+        return CreatedAtAction(nameof(GetById), new { id = model.Id }, mapper.ToDto(model));
     }
 
     /// <summary>
@@ -86,7 +87,7 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IMapper mapper, IData
             return BadRequest();
         }
 
-        var input = mapper.Map<TModel>(dto);
+        var input = mapper.ToModel(dto);
         input.OwnerId = this.GetUserId();
         await dataRepository.UpdateAsync(id, input, this.GetUserId());
         return NoContent();
