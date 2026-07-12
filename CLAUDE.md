@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-Keeptrack is an open source application that lets users save and review everything they read, watch, listen to or play (books, movies, TV shows, music albums, video games, cars/car history).
+Keeptrack is a source-available application (PolyForm Strict 1.0.0, see `LICENSE` - not open source) that lets users save and review everything they read, watch, listen to or play (books, movies, TV shows, music albums, video games, cars/car history).
 
 It is a three-tier .NET 10 / C# solution:
 

@@ -12,6 +12,7 @@
     <File Path="README.md" />
   </Folder>
   <Folder Name="/Solution Items/docs/">
+    <File Path="docs/automapper-removal-plan.md" />
     <File Path="docs/code-quality-findings.md" />
     <File Path="docs/operations.md" />
   </Folder>

@@ -7,6 +7,17 @@ Follow this steps to run/debug/develop the application on your machine.
 
 For an environment, look at [operations.md](docs/operations.md).
 
+## License and contribution terms
+
+Keeptrack is licensed under the [PolyForm Strict License 1.0.0](LICENSE), which by itself does not allow making changes or new works based on the software.
+As an exception, the licensor grants you permission to modify the software solely for the purpose of developing, testing, and submitting contributions to the official repository (<https://github.com/devpro/keeptrack>).
+Running the application locally while developing a contribution is covered by the license's personal-use permission.
+
+By submitting a contribution in any form, you grant Bertrand THOMAS a perpetual, worldwide, irrevocable, royalty-free, sublicensable license over that contribution.
+This grant covers using, reproducing, modifying, distributing, and relicensing it as part of Keeptrack, under any terms, including commercial ones.
+You confirm that you have the right to grant this license for your contribution.
+If you do not agree with these terms, do not submit a contribution.
+
 ## Design
 
 The application source code is in the following .NET projects:
@@ -229,7 +240,9 @@ Run a single test by fully qualified name (works for either project):
 dotnet test --filter-method "Keeptrack.WebApi.UnitTests.MappingProfiles.AutoMapperConfigurationTest.WebApiAutoMapperProfile_ShouldBeValid"
 ```
 
-`--filter-method` also accepts a wildcard, e.g. `--filter-method "*CarResourceTest*"` to run every test in a class - but it's a single glob pattern, not a real filter expression: it does not support `|`/`,` alternation to combine multiple patterns in one run (that just prints the CLI help instead of running anything), so run each pattern as its own `dotnet test` invocation. This project's test runner is `Microsoft.Testing.Platform` (`UseMicrosoftTestingPlatformRunner`, xunit v3), which does **not** understand the classic VSTest `--settings <file>.runsettings` flag - passing it also just prints the help. `Local.runsettings` (below) is read automatically by Rider/Visual Studio for IDE-driven runs; for a CLI run, export the same values as environment variables instead (see "Integration tests" below).
+`--filter-method` also accepts a wildcard, e.g. `--filter-method "*CarResourceTest*"` to run every test in a class - but it's a single glob pattern, not a real filter expression: it does not support `|`/`,` alternation to combine multiple patterns in one run (that just prints the CLI help instead of running anything), so run each pattern as its own `dotnet test` invocation.
+This project's test runner is `Microsoft.Testing.Platform` (`UseMicrosoftTestingPlatformRunner`, xunit v3), which does **not** understand the classic VSTest `--settings <file>.runsettings` flag - passing it also just prints the help.
+`Local.runsettings` (below) is read automatically by Rider/Visual Studio for IDE-driven runs; for a CLI run, export the same values as environment variables instead (see "Integration tests" below).
 
 ### Unit tests
 
