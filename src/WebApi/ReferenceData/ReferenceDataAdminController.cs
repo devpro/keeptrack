@@ -1,19 +1,11 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.IO.Compression;
-using System.Linq;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
-using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.Controllers;
 using Keeptrack.WebApi.Jobs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Keeptrack.WebApi.ReferenceData;
 
@@ -68,7 +60,7 @@ public class ReferenceDataAdminController(
         var albums = await albumReferenceRepository.FindAllAsync();
 
         var buffer = new MemoryStream();
-        using (var archive = new ZipArchive(buffer, ZipArchiveMode.Create, leaveOpen: true))
+        await using (var archive = new ZipArchive(buffer, ZipArchiveMode.Create, leaveOpen: true))
         {
             await WriteJsonEntryAsync(archive, TvShowEntryName, tvShows);
             await WriteJsonEntryAsync(archive, MovieEntryName, movies);
@@ -96,7 +88,7 @@ public class ReferenceDataAdminController(
         if (file.Length == 0) return BadRequest();
 
         await using var uploadStream = file.OpenReadStream();
-        using var archive = new ZipArchive(uploadStream, ZipArchiveMode.Read);
+        await using var archive = new ZipArchive(uploadStream, ZipArchiveMode.Read);
 
         var tvShowCount = 0;
         var movieCount = 0;
@@ -155,7 +147,7 @@ public class ReferenceDataAdminController(
     private static async Task WriteJsonEntryAsync<T>(ZipArchive archive, string entryName, T value)
     {
         var entry = archive.CreateEntry(entryName, CompressionLevel.Optimal);
-        await using var entryStream = entry.Open();
+        await using var entryStream = await entry.OpenAsync();
         await JsonSerializer.SerializeAsync(entryStream, value);
     }
 
@@ -164,7 +156,7 @@ public class ReferenceDataAdminController(
         var entry = archive.GetEntry(entryName);
         if (entry is null) return [];
 
-        await using var entryStream = entry.Open();
+        await using var entryStream = await entry.OpenAsync();
         return await JsonSerializer.DeserializeAsync<List<T>>(entryStream) ?? [];
     }
 

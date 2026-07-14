@@ -13,8 +13,6 @@ builder.Services.AddHealthChecks();
 // taking every other endpoint down with it - "Ignore" logs it instead and lets the rest of the app keep serving requests.
 builder.Services.Configure<HostOptions>(opts =>
     opts.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore);
-builder.Services.AddSingleton<Keeptrack.Domain.Services.WatchNextService>();
-builder.Services.AddSingleton<Keeptrack.Domain.Services.WishlistService>();
 builder.Services.AddSingleton<Keeptrack.Domain.Services.CarMetricsService>();
 builder.Services.AddSingleton<Keeptrack.Domain.Services.HouseMetricsService>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<BookDto, Keeptrack.Domain.Models.BookModel>, Keeptrack.WebApi.Mappers.BookDtoMapper>();

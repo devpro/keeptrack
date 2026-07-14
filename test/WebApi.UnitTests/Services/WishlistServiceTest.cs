@@ -8,8 +8,6 @@ namespace Keeptrack.WebApi.UnitTests.Services;
 [Trait("Category", "UnitTests")]
 public class WishlistServiceTest
 {
-    private readonly WishlistService _service = new();
-
     [Fact]
     public void SortMovies_OrdersByTitleAscending()
     {

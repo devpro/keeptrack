@@ -10,8 +10,6 @@ namespace Keeptrack.WebApi.UnitTests.Services;
 [Trait("Category", "UnitTests")]
 public class WatchNextServiceTest
 {
-    private readonly WatchNextService _service = new();
-
     private static TvShowModel Show(string id, string title, TvShowStatus? status = TvShowStatus.Current, string? referenceId = null) =>
         new() { Id = id, OwnerId = "owner", Title = title, State = status, ReferenceId = referenceId };
 
@@ -39,7 +37,7 @@ public class WatchNextServiceTest
             ["show-1"] = Reference(RefEpisode(1, 1, "Ep1"), RefEpisode(1, 2, "Ep2", new DateOnly(2024, 1, 8)))
         };
 
-        var result = _service.ComputeInProgressShows(shows, episodes, references);
+        var result = WatchNextService.ComputeInProgressShows(shows, episodes, references);
 
         result.Should().ContainSingle();
         result[0].TvShowTitle.Should().Be("Dark");
@@ -60,7 +58,7 @@ public class WatchNextServiceTest
             ["show-1"] = Reference(RefEpisode(1, 2, "Ep2"))
         };
 
-        var result = _service.ComputeInProgressShows(shows, episodes, references);
+        var result = WatchNextService.ComputeInProgressShows(shows, episodes, references);
 
         result.Should().BeEmpty();
     }
@@ -75,7 +73,7 @@ public class WatchNextServiceTest
             ["show-1"] = Reference(RefEpisode(1, 2, "Ep2"))
         };
 
-        var result = _service.ComputeInProgressShows(shows, episodes, references);
+        var result = WatchNextService.ComputeInProgressShows(shows, episodes, references);
 
         result.Should().BeEmpty();
     }
@@ -90,7 +88,7 @@ public class WatchNextServiceTest
             ["show-1"] = Reference(RefEpisode(1, 2, "Ep2"))
         };
 
-        var result = _service.ComputeInProgressShows(shows, episodes, references);
+        var result = WatchNextService.ComputeInProgressShows(shows, episodes, references);
 
         result.Should().BeEmpty();
     }
@@ -101,7 +99,7 @@ public class WatchNextServiceTest
         var shows = new[] { Show("show-1", "Dark", referenceId: "ref-1") };
         var references = new Dictionary<string, TvShowReferenceModel> { ["show-1"] = Reference(RefEpisode(1, 1, "Ep1")) };
 
-        var result = _service.ComputeInProgressShows(shows, [], references);
+        var result = WatchNextService.ComputeInProgressShows(shows, [], references);
 
         result.Should().BeEmpty();
     }
@@ -112,7 +110,7 @@ public class WatchNextServiceTest
         var shows = new[] { Show("show-1", "Dark", referenceId: null) };
         var episodes = new[] { Episode("show-1", 1, 1) };
 
-        var result = _service.ComputeInProgressShows(shows, episodes, new Dictionary<string, TvShowReferenceModel>());
+        var result = WatchNextService.ComputeInProgressShows(shows, episodes, new Dictionary<string, TvShowReferenceModel>());
 
         result.Should().BeEmpty();
     }
@@ -128,7 +126,7 @@ public class WatchNextServiceTest
             ["show-1"] = Reference(RefEpisode(1, 1, "Ep1"), RefEpisode(1, 2, "Ep2"))
         };
 
-        var result = _service.ComputeInProgressShows(shows, episodes, references);
+        var result = WatchNextService.ComputeInProgressShows(shows, episodes, references);
 
         result.Should().BeEmpty();
     }
@@ -143,7 +141,7 @@ public class WatchNextServiceTest
             ["show-1"] = Reference(RefEpisode(1, 1, "Ep1"), RefEpisode(1, 2, "Ep2", DateOnly.FromDateTime(DateTime.Today.AddDays(30))))
         };
 
-        var result = _service.ComputeInProgressShows(shows, episodes, references);
+        var result = WatchNextService.ComputeInProgressShows(shows, episodes, references);
 
         result.Should().BeEmpty();
     }
@@ -163,7 +161,7 @@ public class WatchNextServiceTest
             ["show-2"] = Reference(RefEpisode(1, 1, "Ep1"), RefEpisode(1, 2, "Ep2"))
         };
 
-        var result = _service.ComputeInProgressShows(shows, episodes, references);
+        var result = WatchNextService.ComputeInProgressShows(shows, episodes, references);
 
         result.Should().HaveCount(2);
         result[0].TvShowTitle.Should().Be("Newer");
@@ -178,7 +176,7 @@ public class WatchNextServiceTest
     {
         var movies = new[] { Movie("movie-1", "Dune") };
 
-        var result = _service.FilterMoviesToWatch(movies);
+        var result = WatchNextService.FilterMoviesToWatch(movies);
 
         result.Should().ContainSingle(m => m.Id == "movie-1");
     }
@@ -190,7 +188,7 @@ public class WatchNextServiceTest
         // an already-seen movie shouldn't linger in the watchlist regardless
         var movies = new[] { Movie("movie-1", "Dune", new DateOnly(2024, 1, 1)) };
 
-        var result = _service.FilterMoviesToWatch(movies);
+        var result = WatchNextService.FilterMoviesToWatch(movies);
 
         result.Should().BeEmpty();
     }

@@ -15,7 +15,6 @@ public class WatchNextController(
     IEpisodeRepository episodeRepository,
     IMovieRepository movieRepository,
     ITvShowReferenceRepository tvShowReferenceRepository,
-    WatchNextService watchNextService,
     InProgressShowDtoMapper inProgressShowMapper,
     IDtoMapper<MovieDto, MovieModel> movieMapper) : ControllerBase
 {
@@ -44,9 +43,9 @@ public class WatchNextController(
 
         return Ok(new WatchNextDto
         {
-            InProgressShows = watchNextService.ComputeInProgressShows(shows.Items, episodes.Items, referencesByShowId)
+            InProgressShows = WatchNextService.ComputeInProgressShows(shows.Items, episodes.Items, referencesByShowId)
                 .Select(inProgressShowMapper.ToDto).ToList(),
-            MoviesToWatch = watchNextService.FilterMoviesToWatch(moviesToWatch.Items).Select(movieMapper.ToDto).ToList()
+            MoviesToWatch = WatchNextService.FilterMoviesToWatch(moviesToWatch.Items).Select(movieMapper.ToDto).ToList()
         });
     }
 }

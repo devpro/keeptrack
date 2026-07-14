@@ -1,7 +1,3 @@
-using System.Collections.Generic;
-using System.IO;
-using CsvHelper;
-
 namespace Keeptrack.WebApi.Import.Parsers;
 
 /// <summary>

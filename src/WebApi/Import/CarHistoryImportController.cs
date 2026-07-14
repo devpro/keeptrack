@@ -1,6 +1,3 @@
-using System.IO;
-using System.Threading.Tasks;
-using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.Controllers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

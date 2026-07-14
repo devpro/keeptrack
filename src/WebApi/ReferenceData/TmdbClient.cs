@@ -1,19 +1,13 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
-using System.Net.Http.Json;
 using System.Text.Json.Serialization;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Web;
 
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// TMDB v3 REST client. The first server-side outbound third-party HTTP call in the repo - configured
-/// as a typed <see cref="HttpClient"/> (see <c>Program.cs</c>), with the api key appended as a query
-/// parameter on every request, matching TMDB's v3 authentication scheme.
+/// TMDB v3 REST client. The first server-side outbound third-party HTTP call in the repo -
+/// configured as a typed <see cref="HttpClient"/> (see <c>Program.cs</c>),
+/// with the api key appended as a query parameter on every request, matching TMDB's v3 authentication scheme.
 /// </summary>
 public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
 {

@@ -1,16 +1,9 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.IO.Compression;
-using System.Linq;
 using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
-using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.Import.Parsers;
 using Keeptrack.WebApi.ReferenceData;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 
 namespace Keeptrack.WebApi.Import;
 
@@ -28,7 +21,7 @@ public class TvTimeImportService(
     IServiceScopeFactory scopeFactory,
     ILogger<TvTimeImportService> logger)
 {
-    private static readonly string[] MovieVoteFileNames =
+    private static readonly string[] s_movieVoteFileNames =
     [
         "ratings-v2-prod-votes.csv",
         "ratings-live-votes.csv",
@@ -40,7 +33,7 @@ public class TvTimeImportService(
     {
         onStageChanged?.Invoke(ImportStage.Parsing);
 
-        using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
+        await using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
 
         // followed_tv_show.csv is NOT a complete list of shows the user has a relationship with - it's
         // just one signal among several (confirmed against real export data: shows with real watch
@@ -64,7 +57,7 @@ public class TvTimeImportService(
         var showActivity = ReadCsvEntry(archive, "user_tv_show_data.csv", ShowActivityCsvParser.Parse) ?? [];
         var favoriteMovieUuids = ReadCsvEntry(archive, "lists-prod-lists.csv", FavoriteMoviesListParser.Parse) ?? [];
 
-        var movieVotes = MovieVoteFileNames
+        var movieVotes = s_movieVoteFileNames
             .Select(fileName => ReadCsvEntry(archive, fileName, MovieVotesCsvParser.Parse))
             .Where(votes => votes is not null)
             .SelectMany(votes => votes!)
@@ -86,7 +79,7 @@ public class TvTimeImportService(
         var movieIdByTitle = BuildIdByTitle(movieTrackingEvents.Select(e => (e.MovieName, e.Uuid)));
 
         onStageChanged?.Invoke(ImportStage.ImportingShows);
-        var showIndex = await ImportShowsAsync(ownerId, followedShows, enrichment, showIdByTitle, result);
+        var showIndex = await ImportShowsAsync(ownerId, followedShows, enrichment, showIdByTitle);
 
         onStageChanged?.Invoke(ImportStage.ImportingEpisodes);
         var detailedEpisodeCountByShowTitle = await ImportEpisodesAsync(ownerId, showIndex, seenEpisodes, episodeComments, enrichment, showIdByTitle, result);
@@ -137,8 +130,7 @@ public class TvTimeImportService(
         string ownerId,
         List<FollowedShowRecord> followedShows,
         ShowEnrichment enrichment,
-        Dictionary<string, string> showIdByTitle,
-        ImportResultDto result)
+        Dictionary<string, string> showIdByTitle)
     {
         var existing = (await tvShowRepository.FindAllAsync(ownerId, 1, int.MaxValue, null, NewShow(ownerId, string.Empty))).Items;
         var index = new UpsertIndex<TvShowModel>(existing, show => show.Title);

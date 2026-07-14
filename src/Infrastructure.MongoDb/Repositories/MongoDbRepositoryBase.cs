@@ -1,7 +1,5 @@
-﻿using System.Collections.Generic;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Keeptrack.Common.System;
-using Keeptrack.Infrastructure.MongoDb.Entities;
 using Keeptrack.Infrastructure.MongoDb.Mappers;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;

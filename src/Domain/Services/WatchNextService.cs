@@ -8,16 +8,15 @@ namespace Keeptrack.Domain.Services;
 /// <summary>
 /// Computes, for each in-progress TV show, whether there is a confirmed unseen episode to watch next.
 /// </summary>
-public class WatchNextService
+public static class WatchNextService
 {
     /// <summary>
-    /// A show only appears here if it's marked <see cref="Domain.Models.TvShowStatus.Current"/> AND has a resolved TMDB
-    /// episode guide (<paramref name="referencesByShowId"/>) confirming an aired episode exists after the
-    /// last one watched. Without a reference, Keeptrack has no episode-guide data and can't tell whether a
-    /// further episode actually exists (the show might already be fully caught up) - so unlinked shows are
-    /// excluded rather than guessed at, the same "don't guess" principle as before, now enforced by data.
+    /// A show only appears here if it's marked <see cref="Domain.Models.TvShowStatus.Current"/>
+    /// AND has a resolved TMDB episode guide (<paramref name="referencesByShowId"/>) confirming an aired episode exists after the last one watched.
+    /// Without a reference, Keeptrack has no episode-guide data and can't tell whether a further episode actually exists (the show might already be fully caught up) -
+    /// so unlinked shows are excluded rather than guessed at, the same "don't guess" principle as before, now enforced by data.
     /// </summary>
-    public List<InProgressShowModel> ComputeInProgressShows(
+    public static List<InProgressShowModel> ComputeInProgressShows(
         IEnumerable<TvShowModel> shows,
         IEnumerable<EpisodeModel> episodes,
         IReadOnlyDictionary<string, TvShowReferenceModel> referencesByShowId)
@@ -67,10 +66,9 @@ public class WatchNextService
 
     /// <summary>
     /// A movie flagged "want to watch" that has since been marked seen shouldn't linger in the watchlist -
-    /// mirrors <c>MovieTrackingEventsCsvParser</c>'s "towatch" handling, which never flags an already-watched
-    /// movie in the first place. Toggling "want to watch" directly on a movie's own detail page doesn't clear
-    /// the flag on watch, so this is filtered here rather than relying on the flag never going stale.
+    /// mirrors <c>MovieTrackingEventsCsvParser</c>'s "towatch" handling, which never flags an already-watched movie in the first place.
+    /// Toggling "want to watch" directly on a movie's own detail page doesn't clear the flag on watch, so this is filtered here rather than relying on the flag never going stale.
     /// </summary>
-    public List<MovieModel> FilterMoviesToWatch(IEnumerable<MovieModel> movies) =>
+    public static List<MovieModel> FilterMoviesToWatch(IEnumerable<MovieModel> movies) =>
         movies.Where(m => m.FirstSeenAt is null).ToList();
 }

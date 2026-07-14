@@ -4,8 +4,6 @@ using Keeptrack.WebApi.Mappers;
 using Keeptrack.WebApi.ReferenceData;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 
 namespace Keeptrack.WebApi.Controllers;
 

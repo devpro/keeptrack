@@ -5,11 +5,10 @@ using Keeptrack.Domain.Models;
 namespace Keeptrack.Domain.Services;
 
 /// <summary>
-/// Assembles the cross-type wishlist view: each list is expected to already be filtered to
-/// <c>IsWishlisted == true</c> by the repository query (see <c>WishlistController</c>), so this only
-/// sorts each type's results alphabetically by title for a stable, scannable display order.
+/// Assembles the cross-type wishlist view: each list is expected to already be filtered to <c>IsWishlisted == true</c> by the repository query (see <c>WishlistController</c>),
+/// so this only sorts each type's results alphabetically by title for a stable, scannable display order.
 /// </summary>
-public class WishlistService
+public static class WishlistService
 {
     public static List<MovieModel> SortMovies(IEnumerable<MovieModel> movies) =>
         movies.OrderBy(m => m.Title).ToList();
