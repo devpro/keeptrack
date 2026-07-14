@@ -69,12 +69,14 @@ Project                  | Depends on                                           
 Every entity that belongs to a user implements `IHasIdAndOwnerId` (`Id` + `OwnerId`) at all three layers (`Domain` model, MongoDB entity, contract DTO), each with its own class.
 Mapping between them is generated at compile time by [Riok.Mapperly](https://github.com/riok/mapperly) (a source generator, no runtime reflection) rather than AutoMapper - see `docs/automapper-removal-plan.md` for the removal history:
 
-- `Infrastructure.MongoDb/Mappers/`: one `[Mapper]` partial class per entity pair (e.g. `BookStorageMapper`), implementing `IStorageMapper<TModel, TEntity>` (`Infrastructure.MongoDb/Mappers/IStorageMapper.cs`) - MongoDB entity <-> Domain model.
+- `Infrastructure.MongoDb/Mappers/`: one `[Mapper]` partial class per entity pair (e.g. `BookStorageMapper`), implementing `IStorageMapper<TModel, TEntity>` (`Infrastructure.MongoDb/Mappers/IStorageMapper.cs`) -
+  MongoDB entity <-> Domain model.
   Injected into `MongoDbRepositoryBase<TModel, TEntity>` and the six owner-less reference repositories.
 - `WebApi/Mappers/`: one `[Mapper]` partial class per CRUD pair (e.g. `BookDtoMapper`), implementing `IDtoMapper<TDto, TModel>` (`WebApi/Mappers/IDtoMapper.cs`) - DTO <-> Domain model.
-  `OwnerId` is always set via `[MapValue(nameof(Model.OwnerId), "")]` on the DTO -> model direction (not `[MapperIgnoreTarget]` - `OwnerId` is `required` on the model, so a plain ignore would fail to compile the generated object initializer).
+  `OwnerId` is always set via `[MapValue(nameof(Model.OwnerId), "")]` on the DTO -> model direction (not `[MapperIgnoreTarget]` -
+  `OwnerId` is `required` on the model, so a plain ignore would fail to compile the generated object initializer).
   The placeholder value is immediately overwritten server-side from the authenticated user's claims in `DataCrudControllerBase`, never trusted from client input.
-  Read-only feature controllers (`WatchNextController`, `WishlistController`, `CarController`/`HouseController`'s metrics, `ReferenceDataController`) use a small one-directional Model-to-DTO mapper class instead (e.g. `CarMetricsDtoMapper`).
+  Read-only feature controllers (`WatchNextController`, `WishlistController`, `CarController`/`HouseController`'s metrics, `ReferenceDataController`) use a small one-directional Model-to-DTO mapper class instead.
   It's injected as its concrete type rather than through `IDtoMapper`, since it has no DTO -> Model direction to speak of.
 
 Unmapped members are build errors, not a runtime assertion: `RMG012`/`RMG020` (Mapperly's unmapped-target/unmapped-source diagnostics) are escalated to `error` severity in `.editorconfig`.
@@ -153,7 +155,7 @@ It's exposed via `CarController.GetMetrics` the same way `VideoGameController.Re
 The priority (confirmed with the owner) is an exhaustive, browsable action log for insurance purposes plus a yearly cost review, not fuel/mileage tracking or reminders.
 The owner tracks recurring bills/maintenance schedules elsewhere and explicitly asked for reminders to stay out of scope ("keep it simple, not important, I manage it elsewhere").
 Concretely: `HouseHistoryModel` has no `Mileage`/`DeltaMileage`/fuel fields, no location sub-fields (a house doesn't move, unlike a car's refuel stops).
-`Domain/Services/HouseMetricsService.cs` has no `ComputeNextMaintenanceDue`-style due-date engine - it only computes `ComputeAnnualCostHistory` (cost per year, broken down by `HouseEventType`: `Maintenance`/`Installation`/`Rework`/`Purchase`/`Bill`/`Other`).
+`Domain/Services/HouseMetricsService.cs` has no `ComputeNextMaintenanceDue`-style due-date engine - it only computes `ComputeAnnualCostHistory` (cost per year, broken down by `HouseEventType`).
 `HouseHistoryModel.HistoryDate` stays `DateOnly` (not `DateTime` like `CarHistoryModel.HistoryDate`) - House has no Car-style same-day-multiple-entries ordering need (a road trip's several refuel stops).
 So it reuses `CommonStorageMappings` (`Infrastructure.MongoDb/Mappers/`), the shared `DateOnly<->DateTime` UTC-stamping conversion every other date field in the app attaches via `[UseStaticMapper(typeof(CommonStorageMappings))]`, for free.
 This avoids Car's bespoke hand-written `DateTime.SpecifyKind`/`ModalTimeText` "HH:mm" proxy machinery.
@@ -172,7 +174,7 @@ As a side benefit, they no longer need `::deep` to reach into child `*Row` compo
 
 ### Reference data (shared, owner-less)
 
-`tvshow_reference` and `movie_reference` (`Domain/Models/TvShowReferenceModel.cs`/`MovieReferenceModel.cs`, `Infrastructure.MongoDb/Entities/TvShowReference.cs`/`MovieReference.cs`) hold metadata (synopsis, episode titles) fetched from TMDB.
+`tvshow_reference` and `movie_reference` (`MovieReferenceModel.cs`, `MovieReference.cs`) hold metadata (synopsis, episode titles) fetched from TMDB.
 They are the one deliberate exception to "every collection has `owner_id`": this data is public facts about a real show/movie, not user content.
 So storing it once and pointing every tenant's `TvShowModel.ReferenceId`/`MovieModel.ReferenceId` at it avoids duplicating the same show across every user who tracks it.
 Matching key is normalized title + year (`TitleNormalizer.Normalize`, `Common.System/TitleNormalizer.cs` — shared with `TvTimeImportService` so the two never drift on what counts as "the same title").
@@ -230,7 +232,8 @@ But it still also calls `SetReferenceLinkAsync` with the pre-edit title/year aft
 When **no** match is found for the current title/year and the document *was* linked, the link is cleared (`ReferenceId` set to `""`) rather than left pointing at something the tenant just told us, by editing the title, is wrong.
 Clearing it is also exactly what puts the item back into the admin's unresolved queue (`FindDistinctUnresolvedTitleYearsAsync`) for a manual TMDB search.
 This is deliberately explicit/user-triggered rather than automatic on every page view (no `GetById` side effect), so the behavior stays visible and predictable.
-It's also why `Title`/`Year` are unconditionally editable on both `MovieDetail.razor`/`TvShowDetail.razor` regardless of link status - free editing is what makes "fix a typo or a wrong year (or pick a different match), then hit refresh" work.
+It's also why `Title`/`Year` are unconditionally editable on both `MovieDetail.razor`/`TvShowDetail.razor` regardless of link status -
+free editing is what makes "fix a typo or a wrong year (or pick a different match), then hit refresh" work.
 `Year` matters here specifically because TMDB search results embedding a year into the title text (e.g. "Dune 2021") is unreliable - the tip that used to suggest doing that was wrong and has been removed.
 The actual matching (both this local lookup and the live TMDB search behind `InlineReferenceLinker`) always takes year as its own separate field/parameter, never parsed out of title text.
 The list edit modal (`Movies.razor`/`TvShows.razor`) still locks `Title` for non-admins once linked - that's a separate, intentionally stricter surface for bulk-editing, not an inconsistency to reconcile.
@@ -275,7 +278,8 @@ A real-MongoDB integration test (`TvShowReferenceLinkingTest`) is what caught it
 **Second instance of the same gotcha (also historical - see `docs/automapper-removal-plan.md`):** AutoMapper's `AllowNullDestinationValues = false` used to also change `mapper.Map<TDestination>(source)`.
 This happened even when `source` itself (not just one of its properties) was `null`.
 Instead of returning `null`, it returned a new, all-default instance of `TDestination`.
-Mapperly (the current mapper) takes the opposite, honest approach: it *throws* on a null source rather than fabricating a default instance, which is exactly why the `entity is null` guard below still matters, just for a different reason now.
+Mapperly (the current mapper) takes the opposite, honest approach: it *throws* on a null source rather than fabricating a default instance, which is exactly why the `entity is null` guard below still matters,
+just for a different reason now.
 Every `Find*Async` method on `TvShowReferenceRepository`/`MovieReferenceRepository`/`PersonReferenceRepository` does `var entity = await Collection.Find(...).FirstOrDefaultAsync();`.
 `entity` can legitimately be null (nothing matched).
 Mapping it directly would either fabricate a fake found-but-empty model (old AutoMapper behavior) or throw (current Mapperly behavior).
@@ -293,7 +297,8 @@ This is confirmed to be TMDB's own sanctioned, standard usage pattern (a separat
 `CastMemberDto` is fully hydrated server-side (`ReferenceDataController` joins the embedded cast list against `person_reference`) specifically because that join needs repository access a generated mapper doesn't have.
 `TvShowReferenceDtoMapper`/`MovieReferenceDtoMapper` (`WebApi/Mappers/`) ignore `Cast` via `[MapperIgnoreTarget]` for exactly this reason; don't try to make it a plain mapped member.
 
-`TvShowDetail.razor`'s episode list is a full watch-through checklist (every reference episode, checkbox = watched) once the show has a `ReferenceId`, falling back to the original recorded-episodes-only view with a manual add form when it doesn't.
+`TvShowDetail.razor`'s episode list is a full watch-through checklist (every reference episode, checkbox = watched) once the show has a `ReferenceId`,
+falling back to the original recorded-episodes-only view with a manual add form when it doesn't.
 There's no way to know the full episode count without reference data, so that fallback is a deliberate scope boundary, not a bug.
 Checking a box creates an `Episode` with `WatchedAt = today`; unchecking deletes it - there's no way to set an arbitrary watched date from this view once a show is resolved.
 
@@ -350,7 +355,8 @@ Don't extend the older feature-folder shape to new code; follow `WatchNextContro
 `seen_episode_source.csv` alone is a drastically incomplete picture of a user's episode history (it's only written when an episode is marked watched via TV Time's episode-detail screen) - confirmed against real export data, not assumed.
 `TvTimeImportService` also reads `tracking-prod-records.csv` and `tracking-prod-records-v2.csv`, TV Time's generic event logs, which capture episodes marked watched any other way (bulk/season actions).
 All three are merged and de-duplicated per (show, season, episode), earliest date wins, before upserting `Episode`s.
-If a future TV Time export field looks suspiciously sparse, check the raw export files directly (`grep` the show name across every `*.csv`) before assuming the current parser set is complete - this is exactly how the tracking files were found.
+If a future TV Time export field looks suspiciously sparse, check the raw export files directly (`grep` the show name across every `*.csv`) before assuming the current parser set is complete -
+this is exactly how the tracking files were found.
 
 `followed_tv_show.csv` is not a complete list of shows either - confirmed with a real show ("The Pitt") that has genuine watch history in the tracking files but no row in `followed_tv_show.csv` at all.
 `ImportEpisodesAsync` creates a show on the fly from watch-event data (title, plus the show's TV Time id when the source file has one) rather than skipping shows that aren't already known.
@@ -361,7 +367,8 @@ The import is idempotent by matching on a stable, enrichment-immutable id, **not
 Re-running an import used to duplicate every show/movie (and, via the new show id, all their episodes).
 Shows/movies were matched by normalized `Title`, but reference enrichment rewrites `Title` to the provider's canonical name after the first import (`SetReferenceLinkAsync`).
 So on the second import the export's original title no longer matched and a duplicate was created - confirmed by a real re-import.
-The fix stamps every imported show/movie with `TvTimeId` (`IHasTvTimeId`, a real Domain field on `TvShowModel`/`MovieModel` carried through entity/DTO like `ReferenceId`, and round-tripped on edits since `UpdateAsync` is a full `ReplaceOneAsync`).
+The fix stamps every imported show/movie with `TvTimeId` (`IHasTvTimeId`, a real Domain field on `TvShowModel`/`MovieModel` carried through entity/DTO like `ReferenceId`,
+and round-tripped on edits since `UpdateAsync` is a full `ReplaceOneAsync`).
 This is TV Time's own show id for shows (`followed_tv_show.csv`/the tracking logs), and the per-movie tracking `uuid` for movies (every follow/watch/towatch row for one movie shares it).
 Movies do have a stable id after all, contrary to the older "movies have no stable id" note, which was only ever true of the per-vote uuid in the rating files.
 When the export carries no id for a title (a movie known only from the vote files; a show seen only in `seen_episode_source.csv`), `ResolveTvTimeId` synthesizes a fallback.
@@ -484,14 +491,16 @@ Book authors and album artists are deduplicated the same way TV/movie cast is: `
 "Person" already meant "a named individual or group identified by an external provider id," not "actor" specifically.
 So extending it to a book's author (Open Library author id) or an album's artist (Discogs artist id, which can be a group/band) needed no rename, just reuse.
 `BookReferenceModel.AuthorReferenceId`/`AlbumReferenceModel.ArtistReferenceId` point at a `PersonReferenceModel` document instead of embedding a plain name string.
-`ReferenceEnrichmentService.ResolvePersonReferenceIdAsync` (shared helper in the core partial-class file) is the single dedup-by-external-id path used by cast resolution (`ResolveCastAsync`, refactored to call it per member) and by `ResolveBookAsync`/`ResolveAlbumAsync`.
+`ReferenceEnrichmentService.ResolvePersonReferenceIdAsync` (shared helper in the core partial-class file) is the single dedup-by-external-id path used by cast resolution (`ResolveCastAsync`, refactored to call it per member)
+and by `ResolveBookAsync`/`ResolveAlbumAsync`.
 `BookReferenceDto.AuthorName`/`AlbumReferenceDto.ArtistName` are hydrated by `ReferenceDataController` joining `person_reference` by id (same `[MapperIgnoreTarget]` + manual join pattern as `Cast`).
 The model only carries the id, never a denormalized name, so there's nothing to keep in sync.
 When linking (`TryLinkExistingBookReferenceAsync`/`TryLinkExistingAlbumReferenceAsync`), the tenant's own plain-string `BookModel.Author`/`AlbumModel.Artist` is still populated.
 This works by resolving the reference's `*ReferenceId` to a name at link time (`ResolvePersonNameAsync`).
 The tenant-facing field stays a free-text string editable like `Title`, only the shared reference document uses the dedup'd id.
 
-`ReferenceEnrichmentService` is a single `partial class` split across `.TvShowsAndMovies.cs`/`.Books.cs`/`.VideoGames.cs`/`.Albums.cs` files (one class, same constructor, same five-method-per-domain template: `TryLinkExisting<X>ReferenceAsync`/`TryAutoResolve<X>Async`/`Resolve<X>Async`/`Refresh<X>ReferenceAsync`).
+`ReferenceEnrichmentService` is a single `partial class` split across `.TvShowsAndMovies.cs`/`.Books.cs`/`.VideoGames.cs`/`.Albums.cs` files (one class, same constructor, same five-method-per-domain template:
+`TryLinkExisting<X>ReferenceAsync`/`TryAutoResolve<X>Async`/`Resolve<X>Async`/`Refresh<X>ReferenceAsync`).
 Splitting by file rather than by class keeps the shared helpers (`MergeMatchedAliases`, `TitleNormalizer.Normalize`) in one place without one file growing to cover six domains' worth of logic.
 `ReferenceMatchModel`/`MatchedAliases` needed no changes at all to support the new domains - it was already generic, not TMDB-specific, per its original naming decision.
 
@@ -506,7 +515,8 @@ Cover art, synopsis and genres render when linked, plus the same refresh-referen
 None of the three have a cast/credits concept, so there's no `CastGrid` equivalent for them.
 
 **Gotcha:** `OpenLibraryClient.GetBookDetailsAsync` fetches a work's year from `first_publish_date` on `/works/{id}.json`, but that field is routinely absent from the work document itself.
-This was confirmed against the real API for a book as well-known as Lee Child's "Killing Floor" (`/works/OL24477958W.json` has no `first_publish_date` at all), while the search index's computed `first_publish_year` for the same work is reliable.
+This was confirmed against the real API for a book as well-known as Lee Child's "Killing Floor" (`/works/OL24477958W.json` has no `first_publish_date` at all),
+while the search index's computed `first_publish_year` for the same work is reliable.
 `GetBookDetailsAsync` falls back to `FindPublishYearViaSearchAsync` (a single-document `q=key:{workKey}` search re-query) whenever the work-level parse comes back null.
 This is rather than silently leaving `BookReferenceModel.Year`/the tenant's own `BookModel.Year` unset after a link.
 
@@ -515,81 +525,200 @@ The closest available signal is the search index's `person`/`subject_people` fac
 It doesn't generalize (many series aren't named after - or don't have - a recurring eponymous character, and a standalone book can still feature a named character).
 It's not wired up to `BookModel.Series`/`BookReferenceModel` for that reason - auto-filling `Series` from it would be right by coincidence for character-titled franchises and wrong or absent otherwise.
 
-`Album`/`Book` gained `IsFavorite` (`AlbumModel`/`Album`/`AlbumDto`, `BookModel`/`Book`/`BookDto`), same shape as `Movie`/`TvShow`'s existing flag: a partial Mongo index (`album_favorite`/`book_favorite`, `scripts/mongodb-create-index.js`), a `Favorites` filter button in each list page's `Filters` slot, and a toggle button on `AlbumDetail.razor`/`BookDetail.razor`'s page header (same `kt-toggle-btn`/`active` pattern as `MovieDetail.razor`).
+`Album`/`Book` gained `IsFavorite` (`AlbumModel`/`Album`/`AlbumDto`, `BookModel`/`Book`/`BookDto`), same shape as `Movie`/`TvShow`'s existing flag:
+a partial Mongo index (`album_favorite`/`book_favorite`, `scripts/mongodb-create-index.js`), a `Favorites` filter button in each list page's `Filters` slot,
+and a toggle button on `AlbumDetail.razor`/`BookDetail.razor`'s page header (same `kt-toggle-btn`/`active` pattern as `MovieDetail.razor`).
 
 `VideoGameModel.State` stays a plain free-text string (not an enum like `TvShowModel.State`) deliberately.
 Real tenant data already has values like `"To resume"`/`"On-hold"` that aren't valid C# enum member names, and MongoDB's `EnumRepresentationConvention(BsonType.String)` deserializes by matching the enum member name exactly.
 So converting would require a data migration with real breakage risk for existing documents.
-Filtering by state (`VideoGameRepository.GetFilter` already supported exact-match filtering by `input.State`) is instead exposed as list-page filter buttons (`VideoGames.razor`'s `Filters` slot, same visual pattern as `TvShows.razor`'s `TvShowStatus` filter buttons) over the existing string values.
-The Add/Edit forms' State `<select>` was replaced with a button group (`VideoGames.VideoGameStates`, the shared array both the filter and the form buttons iterate over) for the same reason TvShow's own state buttons exist - clicking a value is faster than a dropdown for a small fixed set.
+Filtering by state (`VideoGameRepository.GetFilter` already supported exact-match filtering by `input.State`) is instead exposed as list-page filter buttons (`VideoGames.razor`'s `Filters` slot,
+same visual pattern as `TvShows.razor`'s `TvShowStatus` filter buttons) over the existing string values.
+The Add/Edit forms' State `<select>` was replaced with a button group (`VideoGames.VideoGameStates`, the shared array both the filter and the form buttons iterate over) for the same reason TvShow's own state buttons exist -
+clicking a value is faster than a dropdown for a small fixed set.
 `FinishedAt` is a plain, always-visible date field on `VideoGameDetail.razor`'s card (not a corner-flag toggle like `MovieDetail.razor`'s "Mark as watched"/`BookDetail.razor`'s "Mark as read").
 It was previously only editable once already set elsewhere, with no way to set it from scratch on the detail page.
 Unlike Movie/Book, "finished" already has its own explicit `State` value ("Completed") to toggle, so `FinishedAt` doesn't need a second boolean-flag affordance layered on top.
 
-**`VideoGameDetail.razor`'s own State editor follows `TvShowDetail.razor`'s per-item State pattern exactly, not the list page's filter-button pattern.** These look superficially similar (both are button rows) but behave differently, and the two were conflated once already.
+**`VideoGameDetail.razor`'s own State editor follows `TvShowDetail.razor`'s per-item State pattern exactly, not the list page's filter-button pattern.** These look superficially similar (both are button rows) but behave differently,
+and the two were conflated once already.
 The per-item editor buttons live in their own row directly below the page header (not inside the `kt-form-card` next to Year/Rating).
 Clicking the already-active value clears it back to unset (`SetStateAsync`: `_game.State = _game.State == state ? "" : state`, mirroring `TvShowDetail.razor`'s own `SetStateAsync`).
 The list page's filter buttons are a different control with different semantics (an explicit "All" option to clear, since a filter and a per-item value aren't the same kind of state).
 
-**`TvShowModel.Status` was renamed to `TvShowModel.State`** for naming parity with `VideoGameModel.State` (`TvShowDto.State`, `TvShow.State` entity property, `TvShowRepository.GetFilter`'s `input.State`, `TvShows.razor`'s `_stateFilter`/`SetStateFilterAsync`/`ExtraQuery["State"]`, `TvShowDetail.razor`'s `SetStateAsync` all renamed to match). The enum type itself keeps its `TvShowStatus` name - only the property that holds it moved to `State`, since `VideoGameModel.State` has no equivalent enum to rename against. Unlike the `PosterUrl`→`ImageUrl` rename below, this one needed **no** data migration: `TvShow`'s entity property kept an explicit `[BsonElement("status")]` pointing at the unchanged storage name, so existing documents (confirmed directly against the real dev database - `status: 'Finished'` reads back correctly through the renamed `State` property) deserialize with no script required. `TvTimeImportService`/`ShowStatusCsvParser`'s `ShowStatusRecord.Status` is a same-named but *entirely unrelated* field - TV Time's own CSV column for favorite/for_later, mapped to `IsFavorite`/`WantToWatch`, never to this enum - so the import pipeline needed no changes at all for this rename; verified by tracing every consumer before renaming, not just running the test suite. `WatchNextService`/`WatchNextController`'s `Status == TvShowStatus.Current` checks were updated to `State == TvShowStatus.Current` and covered by `WatchNextServiceTest`, which still passes.
+**`TvShowModel.Status` was renamed to `TvShowModel.State`** for naming parity with `VideoGameModel.State`
+(`TvShowDto.State`, `TvShow.State` entity property, `TvShowRepository.GetFilter`'s `input.State`, `TvShows.razor`'s `_stateFilter`/`SetStateFilterAsync`/`ExtraQuery["State"]`, `TvShowDetail.razor`'s `SetStateAsync` all renamed to match).
+The enum type itself keeps its `TvShowStatus` name - only the property that holds it moved to `State`, since `VideoGameModel.State` has no equivalent enum to rename against.
+Unlike the `PosterUrl`→`ImageUrl` rename below, this one needed **no** data migration: `TvShow`'s entity property kept an explicit `[BsonElement("status")]` pointing at the unchanged storage name,
+so existing documents (confirmed directly against the real dev database - `status: 'Finished'` reads back correctly through the renamed `State` property) deserialize with no script required.
+`TvTimeImportService`/`ShowStatusCsvParser`'s `ShowStatusRecord.Status` is a same-named but *entirely unrelated* field - TV Time's own CSV column for favorite/for_later, mapped to `IsFavorite`/`WantToWatch`,never to this enum -
+so the import pipeline needed no changes at all for this rename; verified by tracing every consumer before renaming, not just running the test suite.
+`WatchNextService`/`WatchNextController`'s `Status == TvShowStatus.Current` checks were updated to `State == TvShowStatus.Current` and covered by `WatchNextServiceTest`, which still passes.
 
-**Gotcha:** an optional narrowing parameter on an external search must never be allowed to silently zero out results that a broader search would find - this bit both the Open Library year filter (see above) and, separately, `IDiscogsClient.SearchAlbumsAsync`'s `artist` parameter: a tenant's own `AlbumModel.Artist` text passed straight through as Discogs' `artist=` query field can fail to match Discogs' own exact indexing (a disambiguation suffix like `"Artist (2)"`, different capitalization/formatting), returning zero candidates even though the title alone finds the album - confirmed with a real title ("Born Pink") that returned nothing via `AlbumDetail.razor`'s `InlineReferenceLinker` (which always passes the tracked album's own `Artist`) but succeeded via the admin page (whose first search per selected item always passes no creator). Both `DiscogsClient.SearchAlbumsAsync` and `OpenLibraryClient.SearchBooksAsync` now retry once without the narrowing author/artist parameter whenever the constrained search comes back empty, rather than reporting a false "not found."
+**Gotcha:** an optional narrowing parameter on an external search must never be allowed to silently zero out results that a broader search would find -
+this bit both the Open Library year filter (see above) and, separately, `IDiscogsClient.SearchAlbumsAsync`'s `artist` parameter:
+a tenant's own `AlbumModel.Artist` text passed straight through as Discogs' `artist=` query field can fail to match Discogs' own exact indexing (a disambiguation suffix like `"Artist (2)"`, different capitalization/formatting),
+returning zero candidates even though the title alone finds the album - confirmed with a real title ("Born Pink") that returned nothing via `AlbumDetail.razor`'s `InlineReferenceLinker`
+(which always passes the tracked album's own `Artist`) but succeeded via the admin page (whose first search per selected item always passes no creator).
+Both `DiscogsClient.SearchAlbumsAsync` and `OpenLibraryClient.SearchBooksAsync` now retry once without the narrowing author/artist parameter whenever the constrained search comes back empty, rather than reporting a false "not found."
 
-**Gotcha:** `OpenLibraryClient` searched via `search.json?title=...` (a field-scoped exact match against the work's own canonical title), which misses regional title variants entirely - confirmed against the real API that "Harry Potter and the Sorcerer's Stone" (the US title) only matches a handful of near-empty, 1-edition work stubs this way, because Open Library's actual canonical work for this book is titled "Harry Potter and the Philosopher's Stone" (the UK title) and carries 398 editions. Switched to `search.json?q=...` (a general relevance-ranked query across title, alternate titles, etc.), which correctly surfaces the well-populated canonical work first in this case while still returning the same top result as before for titles that don't have this regional-variant problem (e.g. "The Return of the King"). This also explains why some resolved covers can look like a plain, uninteresting library rebinding rather than an illustrated dust jacket even once the *correct* work is matched (confirmed for "The Return of the King", `OL27455W`) - Open Library's own `covers` array for a work is whatever has been scanned/contributed, not curated by "which looks best," and the first entry there is already identical to the search index's own `cover_i` in the cases checked; there's no metadata signal (short of actual image content analysis, out of scope here) to pick a nicer-looking alternative from the same array.
+**Gotcha:** `OpenLibraryClient` searched via `search.json?title=...` (a field-scoped exact match against the work's own canonical title), which misses regional title variants entirely -
+confirmed against the real API that "Harry Potter and the Sorcerer's Stone" (the US title) only matches a handful of near-empty, 1-edition work stubs this way,
+because Open Library's actual canonical work for this book is titled "Harry Potter and the Philosopher's Stone" (the UK title) and carries 398 editions.
+Switched to `search.json?q=...` (a general relevance-ranked query across title, alternate titles, etc.),
+which correctly surfaces the well-populated canonical work first in this case while still returning the same top result as before for titles that don't have this regional-variant problem (e.g. "The Return of the King").
+This also explains why some resolved covers can look like a plain, uninteresting library rebinding rather than an illustrated dust jacket even once the *correct* work is matched (confirmed for "The Return of the King", `OL27455W`) -
+Open Library's own `covers` array for a work is whatever has been scanned/contributed, not curated by "which looks best," and the first entry there is already identical to the search index's own `cover_i` in the cases checked;
+there's no metadata signal (short of actual image content analysis, out of scope here) to pick a nicer-looking alternative from the same array.
 
-**Gotcha:** when `PosterUrl` was renamed to `ImageUrl` on `TvShowReferenceModel`/`MovieReferenceModel`, existing `tvshow_reference`/`movie_reference` documents created before the rename kept their data under the old `poster_url` BSON field - the new entity class only ever reads `image_url`, so every pre-existing reference document silently lost its cover image (confirmed against a real dev database: 72/87 TV show references and 343/353 movie references still had the old field name). Fixed with a one-off migration, `scripts/migrate-poster-url-to-image-url.js` (idempotent `$rename`, safe to re-run) - run it once against any environment with reference data older than the rename. This is the same class of risk as the earlier `music-album` → `album` collection rename (see "Reference data now covers five domains" above): a data-shape rename in code needs an explicit, documented migration step for whatever already exists in Mongo, not just updated `[BsonElement]` attributes.
+**Gotcha:** when `PosterUrl` was renamed to `ImageUrl` on `TvShowReferenceModel`/`MovieReferenceModel`,
+existing `tvshow_reference`/`movie_reference` documents created before the rename kept their data under the old `poster_url` BSON field - the new entity class only ever reads `image_url`,
+so every pre-existing reference document silently lost its cover image (confirmed against a real dev database: 72/87 TV show references and 343/353 movie references still had the old field name).
+Fixed with a one-off migration, `scripts/migrate-poster-url-to-image-url.js` (idempotent `$rename`, safe to re-run) - run it once against any environment with reference data older than the rename.
+This is the same class of risk as the earlier `music-album` → `album` collection rename (see "Reference data now covers five domains" above):
+a data-shape rename in code needs an explicit, documented migration step for whatever already exists in Mongo, not just updated `[BsonElement]` attributes.
 
-`ReferenceMatchModel.Creator` (nullable `string`) extends the `MatchedAliases` match key beyond just (title, year) - a title+year match alone risks silently linking a tenant's book/album to a *different* tenant's unrelated one that happens to share a common title and year (a generic name re-published/re-released the same year is common; TV/movie titles almost never collide this hard, which is why they don't need this). `IBookReferenceRepository`/`IAlbumReferenceRepository`'s `FindByTitleYearAsync`/`FindByTitleAsync` now take a required `author`/`artist` parameter and add a `Creator` equality condition to the same `ElemMatch` filter (both title and creator normalized via `TitleNormalizer.Normalize`) - `Creator` is always derived from the **canonical** resolved `details.Author`/`details.Artist` (the external API's own response), never from whatever text the tenant/admin originally typed, since that let the design avoid adding a new parameter to `ResolveBookAsync`/`ResolveAlbumAsync`, `LinkReferenceRequestDto`, or the admin linking UI. TvShow/Movie/VideoGame's `MergeMatchedAliases` calls all pass `null` for `Creator` (no creator dimension in those domains' match key) - the shared helper's third tuple element is `null` for them, not omitted, since `ReferenceMatchModel` stays one generic shape across every domain rather than growing a Book/Album-only subtype. `BookReferenceRepository`/`AlbumReferenceRepository.UpsertAsync`'s defensive "always include the canonical title/year alias" safety net can't set `Creator` (the model only carries `AuthorReferenceId`/`ArtistReferenceId`, a dedup'd link, not denormalized text) - that alias is simply unreachable via the creator-required find methods, which is harmless (the normal Resolve/Refresh path always adds a proper creator-bearing alias first) rather than a false-positive risk; a real-MongoDB integration test (`BookReferenceRepositoryTest`/`AlbumReferenceRepositoryTest`) asserts on the stored alias directly for this specific case rather than through the creator-required lookup, since that lookup can no longer find it by design.
+`ReferenceMatchModel.Creator` (nullable `string`) extends the `MatchedAliases` match key beyond just (title, year) -
+a title+year match alone risks silently linking a tenant's book/album to a *different* tenant's unrelated one that happens to share a common title and year
+(a generic name re-published/re-released the same year is common; TV/movie titles almost never collide this hard, which is why they don't need this).
+`IBookReferenceRepository`/`IAlbumReferenceRepository`'s `FindByTitleYearAsync`/`FindByTitleAsync` now take a required `author`/`artist` parameter and add a `Creator` equality condition to the same `ElemMatch` filter
+(both title and creator normalized via `TitleNormalizer.Normalize`) - `Creator` is always derived from the **canonical** resolved `details.Author`/`details.Artist` (the external API's own response),
+never from whatever text the tenant/admin originally typed, since that let the design avoid adding a new parameter to `ResolveBookAsync`/`ResolveAlbumAsync`, `LinkReferenceRequestDto`, or the admin linking UI.
+TvShow/Movie/VideoGame's `MergeMatchedAliases` calls all pass `null` for `Creator` (no creator dimension in those domains' match key) - the shared helper's third tuple element is `null` for them, not omitted,
+since `ReferenceMatchModel` stays one generic shape across every domain rather than growing a Book/Album-only subtype.
+`BookReferenceRepository`/`AlbumReferenceRepository.UpsertAsync`'s defensive "always include the canonical title/year alias" safety net can't set `Creator` (the model only carries `AuthorReferenceId`/`ArtistReferenceId`, a dedup'd link,
+not denormalized text) - that alias is simply unreachable via the creator-required find methods, which is harmless (the normal Resolve/Refresh path always adds a proper creator-bearing alias first) rather than a false-positive risk;
+a real-MongoDB integration test (`BookReferenceRepositoryTest`/`AlbumReferenceRepositoryTest`) asserts on the stored alias directly for this specific case rather than through the creator-required lookup,
+since that lookup can no longer find it by design.
 
-**Gotcha (historical - structurally fixed by the AutoMapper -> Mapperly migration):** `MergeMatchedAliases`' dedup check compares a freshly-computed `Creator` against an existing alias's `Creator` (`m.Creator == normalizedCreator`), which used to silently duplicate aliases on every re-resolve/re-refresh for TV show/movie/video game (the three domains that always pass `null` for `Creator`, having no creator dimension). The reason: `AllowNullDestinationValues = false` (a profile-wide AutoMapper default, since removed along with AutoMapper itself) substituted `""` for a null *string* member during model → entity mapping - so a freshly-built alias with `Creator = null` got persisted as `Creator = ""`, and on the *next* resolve/refresh the freshly computed `normalizedCreator` (still literally `null`) never equalled that already-persisted `""`, so the dedup check saw no existing match and appended an exact duplicate `{title, year, creator: ""}` entry. Confirmed against a real video game reference (RAWG's "God of War", resolved/refreshed more than once) that had accumulated a literal duplicate alias this way.
+**Gotcha (historical - structurally fixed by the AutoMapper -> Mapperly migration):** `MergeMatchedAliases`' dedup check compares a freshly-computed `Creator` against an existing alias's `Creator` (`m.Creator == normalizedCreator`),
+which used to silently duplicate aliases on every re-resolve/re-refresh for TV show/movie/video game (the three domains that always pass `null` for `Creator`, having no creator dimension).
+The reason: `AllowNullDestinationValues = false` (a profile-wide AutoMapper default, since removed along with AutoMapper itself) substituted `""` for a null *string* member during model → entity mapping -
+so a freshly-built alias with `Creator = null` got persisted as `Creator = ""`, and on the *next* resolve/refresh the freshly computed `normalizedCreator` (still literally `null`) never equalled that already-persisted `""`,
+so the dedup check saw no existing match and appended an exact duplicate `{title, year, creator: ""}` entry.
+Confirmed against a real video game reference (RAWG's "God of War", resolved/refreshed more than once) that had accumulated a literal duplicate alias this way.
 
-The fix belonged at the mapping/entity layer, not as a comparison workaround in `MergeMatchedAliases` (an `(m.Creator ?? "") == (normalizedCreator ?? "")` patch was tried first and reverted) - at the time, `DataStorageMappingProfile`'s `ReferenceMatchModel` → `ReferenceMatch` map opted `Creator` out of the profile-wide default with `.ForMember(x => x.Creator, opt => opt.AllowNull())`, so a null `Creator` reached Mongo as an actual null again, and `MergeMatchedAliases` stayed a plain, honest `m.Creator == normalizedCreator`. That per-member opt-out is gone now, not just moved: Mapperly (the current mapper) preserves nulls by default, so every storage mapper's `Creator` mapping is a real null with no configuration needed at all - this entire class of bug is structurally impossible today, not merely patched. From there, the *already-registered*, codebase-wide `IgnoreIfNullConvention(true)` (`InfrastructureServiceCollectionExtensions.AddMongoDbInfrastructure`) does the rest for free - it omits any null property from the stored document, which is why `Year` (also nullable on `ReferenceMatch`) was never affected by this bug in the first place and needed no equivalent per-property `[BsonIgnoreIfNull]` fix; that attribute doesn't appear anywhere in this codebase, and shouldn't - "is this field omitted when unset" is a driver-convention-level answer here, not a per-entity one. Was covered by `RefreshVideoGameReferenceAsync_DoesNotDuplicateAnAliasAlreadyPersistedWithANullCreator` (unit, mocked) and `TvShowReferenceRepositoryTest.UpsertAsync_PersistsANullCreator_AsAnActualBsonNullNotAnEmptyString` (integration, real MongoDB - the only way to actually catch a serialization-level regression like this one); both still pass under Mapperly as a regression guard, even though the bug they were written for can no longer occur. A scan of the real dev database found only the one "God of War" document actually duplicated, cleaned up with the idempotent `scripts/dedupe-matched-aliases.js` (same "run once per environment" pattern as `migrate-poster-url-to-image-url.js`).
+The fix belonged at the mapping/entity layer, not as a comparison workaround in `MergeMatchedAliases` (an `(m.Creator ?? "") == (normalizedCreator ?? "")` patch was tried first and reverted) -
+at the time, `DataStorageMappingProfile`'s `ReferenceMatchModel` → `ReferenceMatch` map opted `Creator` out of the profile-wide default with `.ForMember(x => x.Creator, opt => opt.AllowNull())`,
+so a null `Creator` reached Mongo as an actual null again, and `MergeMatchedAliases` stayed a plain, honest `m.Creator == normalizedCreator`.
+That per-member opt-out is gone now, not just moved: Mapperly (the current mapper) preserves nulls by default, so every storage mapper's `Creator` mapping is a real null with no configuration needed at all -
+this entire class of bug is structurally impossible today, not merely patched.
+From there, the *already-registered*, codebase-wide `IgnoreIfNullConvention(true)` (`InfrastructureServiceCollectionExtensions.AddMongoDbInfrastructure`) does the rest for free -
+it omits any null property from the stored document, which is why `Year` (also nullable on `ReferenceMatch`) was never affected by this bug in the first place and needed no equivalent per-property `[BsonIgnoreIfNull]` fix;
+that attribute doesn't appear anywhere in this codebase, and shouldn't - "is this field omitted when unset" is a driver-convention-level answer here, not a per-entity one.
+Was covered by `RefreshVideoGameReferenceAsync_DoesNotDuplicateAnAliasAlreadyPersistedWithANullCreator` (unit, mocked) and `TvShowReferenceRepositoryTest.UpsertAsync_PersistsANullCreator_AsAnActualBsonNullNotAnEmptyString`
+(integration, real MongoDB - the only way to actually catch a serialization-level regression like this one); both still pass under Mapperly as a regression guard, even though the bug they were written for can no longer occur.
+A scan of the real dev database found only the one "God of War" document actually duplicated, cleaned up with the idempotent `scripts/dedupe-matched-aliases.js`
+(same "run once per environment" pattern as `migrate-poster-url-to-image-url.js`).
 
-`BookModel`/`AlbumModel.Genre` (a single free-text field, not a list - it predates the reference-data feature, same as `Author`/`Artist` before `PersonReferenceModel` existed) is now propagated on link the same way `Title`/`Year`/`Author`/`Artist` already are: `TryLinkExistingBookReferenceAsync`/`TryLinkExistingAlbumReferenceAsync` and `ResolveBookAsync`/`ResolveAlbumAsync` join the reference's `Genres` list (`JoinGenres`, a shared helper in `ReferenceEnrichmentService.cs`) into that single field, both on the tenant's own document and via `IBookRepository`/`IAlbumRepository.SetReferenceLinkAsync`'s new `canonicalGenre` parameter (cross-tenant propagation, same incremental-parameter pattern already used for `canonicalAuthor`/`canonicalArtist`) - null (not overwritten) when the reference has no genres, same "don't overwrite with nothing" rule the other propagated fields already follow. `BookDetail.razor`/`AlbumDetail.razor` previously displayed the *reference's* raw `Genres` list directly (a read-only comma-joined paragraph) but never touched the tenant's own `Genre` field at all - that display was replaced with a plain editable `Genre` input (same shape as `Author`/`Series`/`Artist`), matching how `Author`/`Artist` already work: the reference data flows into the one tenant-owned field on link, there's no separate "raw reference value" display once linked.
+`BookModel`/`AlbumModel.Genre` (a single free-text field, not a list -
+it predates the reference-data feature, same as `Author`/`Artist` before `PersonReferenceModel` existed) is now propagated on link the same way `Title`/`Year`/`Author`/`Artist` already are:
+`TryLinkExistingBookReferenceAsync`/`TryLinkExistingAlbumReferenceAsync` and `ResolveBookAsync`/`ResolveAlbumAsync` join the reference's `Genres` list
+(`JoinGenres`, a shared helper in `ReferenceEnrichmentService.cs`) into that single field,
+both on the tenant's own document and via `IBookRepository`/`IAlbumRepository.SetReferenceLinkAsync`'s new `canonicalenre` parameter
+(cross-tenant propagation, same incremental-parameter pattern already used for `canonicalAuthor`/`canonicalArtist`) -
+null (not overwritten) when the reference has no genres, same "don't overwrite with nothing" rule the other propagated fields already follow.
+`BookDetail.razor`/`AlbumDetail.razor` previously displayed the *reference's* raw `Genres` list directly (a read-only comma-joined paragraph) but never touched the tenant's own `Genre` field at all -
+that display was replaced with a plain editable `Genre` input (same shape as `Author`/`Series`/`Artist`), matching how `Author`/`Artist` already work: the reference data flows into the one tenant-owned field on link,
+there's no separate "raw reference value" display once linked.
 
-Books are the one reference domain behind a provider-agnostic interface rather than a provider-named one: `IBookReferenceClient` (`BookSearchResult`/`BookDetails` DTOs, an `IBookReferenceClient.ProviderKey` string) instead of `IOpenLibraryClient`. TV show/movie/video game/album stay hard-wired to TMDB/RAWG/Discogs directly (their DTOs and hardcoded `"tmdb"`/`"rawg"`/`"discogs"` `ExternalIds` keys are provider-named on purpose - swapping any of those would be a bigger redesign, not a config change). Which implementation of `IBookReferenceClient` is registered is a deployment-time choice, `ReferenceData:BookProvider` (`ReferenceData__BookProvider` as an environment variable, `Program.cs` switches on it), defaulting to `OpenLibrary` - the only implementation that ships today. `ReferenceEnrichmentService.Books.cs` never hardcodes a provider name; every `ExternalIds`/person-reference lookup keys off the injected `IBookReferenceClient.ProviderKey` instead, so a second implementation only needs its own class (`OpenLibraryClient`-shaped: base address, optional settings class, `ProviderKey`) plus one new `case` in `Program.cs` - no changes to the enrichment service or admin controller.
+Books are the one reference domain behind a provider-agnostic interface rather than a provider-named one: `IBookReferenceClient` (`BookSearchResult`/`BookDetails` DTOs,
+an `IBookReferenceClient.ProviderKey` string) instead of `IOpenLibraryClient`.
+TV show/movie/video game/album stay hard-wired to TMDB/RAWG/Discogs directly (their DTOs and hardcoded `"tmdb"`/`"rawg"`/`"discogs"` `ExternalIds` keys are provider-named on purpose -
+swapping any of those would be a bigger redesign, not a config change).
+Which implementation of `IBookReferenceClient` is registered is a deployment-time choice, `ReferenceData:BookProvider` (`ReferenceData__BookProvider` as an environment variable, `Program.cs` switches on it), defaulting to `OpenLibrary` -
+the only implementation that ships today.
+`ReferenceEnrichmentService.Books.cs` never hardcodes a provider name; every `ExternalIds`/person-reference lookup keys off the injected `IBookReferenceClient.ProviderKey` instead,
+so a second implementation only needs its own class (`OpenLibraryClient`-shaped: base address, optional settings class, `ProviderKey`) plus one new `case` in `Program.cs` - no changes to the enrichment service or admin controller.
 
 ### Blazor app
 
-`InventoryPageBase<TDto>` (`BlazorApp/Components/Inventory/InventoryPageBase.cs`) centralizes list/paging/search/inline-edit state and calls into `InventoryApiClientBase<TDto>`, which wraps the typed `HttpClient` calls to the Web API (its `GetAsync` takes an optional extra-query-parameters dictionary, used by features that filter on more than search/page/pageSize). Each concrete page (`Books.razor.cs`, `Movies.razor.cs`, ...) only supplies its `Api` instance and `CloneItem`. A page that needs its own filter beyond search (e.g. `TvShows.razor.cs`'s state filter) overrides the base's `protected virtual ExtraQuery` property instead of reimplementing paging/search - `LoadAsync` is `protected` for exactly this reason, so the page can trigger a reload after changing its own filter state. Authentication uses Firebase (cookie auth in the Blazor app, JWT bearer validated against Firebase in the Web API); `AuthenticationTokenHandler` attaches the bearer token to outgoing API calls.
+`InventoryPageBase<TDto>` (`BlazorApp/Components/Inventory/InventoryPageBase.cs`) centralizes list/paging/search/inline-edit state and calls into `InventoryApiClientBase<TDto>`,
+which wraps the typed `HttpClient` calls to the Web API (its `GetAsync` takes an optional extra-query-parameters dictionary, used by features that filter on more than search/page/pageSize).
+Each concrete page (`Books.razor.cs`, `Movies.razor.cs`, ...) only supplies its `Api` instance and `CloneItem`.
+A page that needs its own filter beyond search (e.g. `TvShows.razor.cs`'s state filter) overrides the base's `protected virtual ExtraQuery` property instead of reimplementing paging/search -
+`LoadAsync` is `protected` for exactly this reason, so the page can trigger a reload after changing its own filter state.
+Authentication uses Firebase (cookie auth in the Blazor app, JWT bearer validated against Firebase in the Web API); `AuthenticationTokenHandler` attaches the bearer token to outgoing API calls.
 
-Pages that aren't a generic CRUD list (`TvShowDetail.razor`, `WatchNext/WatchNextPage.razor`, `Import/ImportPage.razor`) don't extend `InventoryPageBase`/`InventoryList` — they're free to build their own layout on top of the shared `kt-*` CSS classes in `app.css`. Their API clients live next to them in a feature folder rather than in `Inventory/Clients/`.
+Pages that aren't a generic CRUD list (`TvShowDetail.razor`, `WatchNext/WatchNextPage.razor`, `Import/ImportPage.razor`) don't extend `InventoryPageBase`/`InventoryList` —
+they're free to build their own layout on top of the shared `kt-*` CSS classes in `app.css`.
+Their API clients live next to them in a feature folder rather than in `Inventory/Clients/`.
 
-**Gotcha:** passing a field to a `string`-typed component `[Parameter]` needs the `@` prefix - `Title="_movie.Title"` binds the **literal text** `"_movie.Title"`, not the property's value. Razor only auto-detects that an attribute value must be C# code when the parameter's type couldn't otherwise accept a string literal (e.g. `Year="_movie.Year"` on an `int?` parameter works unprefixed, because a bare identifier can't type-check as one); a `string` parameter can always accept a literal, so Razor takes it at face value instead. This compiles and renders with no error - the bug only shows up in the *data*, not the markup - which is exactly what happened when `InlineReferenceLinker`'s `Title="_movie.Title"` sent the literal string `_movie.Title` to TMDB's search instead of the movie's actual title, returning an unrelated result. Always write `Title="@_movie.Title"` for string parameters bound to a field/property.
+**Gotcha:** passing a field to a `string`-typed component `[Parameter]` needs the `@` prefix - `Title="_movie.Title"` binds the **literal text** `"_movie.Title"`, not the property's value.
+Razor only auto-detects that an attribute value must be C# code when the parameter's type couldn't otherwise accept a string literal
+(e.g. `Year="_movie.Year"` on an `int?` parameter works unprefixed, because a bare identifier can't type-check as one); a `string` parameter can always accept a literal, so Razor takes it at face value instead.
+This compiles and renders with no error - the bug only shows up in the *data*, not the markup -
+which is exactly what happened when `InlineReferenceLinker`'s `Title="_movie.Title"` sent the literal string `_movie.Title` to TMDB's search instead of the movie's actual title, returning an unrelated result.
+Always write `Title="@_movie.Title"` for string parameters bound to a field/property.
 
 ### Theme
 
-`app.css` is a light+dark theme driven by `data-bs-theme` on `<html>` (Bootstrap 5.3's native color-mode support), with Keeptrack's own `--kt-*` tokens layered on top for custom components (sidebar, `kt-table-wrap`, `kt-modal`, etc.). `wwwroot/theme.js` sets the initial theme from `localStorage`/`prefers-color-scheme` before first paint (avoiding a flash of the wrong theme) and exposes `ktToggleTheme()`, called directly from a plain button in `NavMenu.razor` — no Blazor/JS interop needed for the toggle itself. Use system-ui fonts only; no decorative/display webfonts.
+`app.css` is a light+dark theme driven by `data-bs-theme` on `<html>` (Bootstrap 5.3's native color-mode support), with Keeptrack's own `--kt-*` tokens layered on top for custom components (sidebar, `kt-table-wrap`, `kt-modal`, etc.).
+`wwwroot/theme.js` sets the initial theme from `localStorage`/`prefers-color-scheme` before first paint (avoiding a flash of the wrong theme) and exposes `ktToggleTheme()`, called directly from a plain button in `NavMenu.razor` —
+no Blazor/JS interop needed for the toggle itself.
+Use system-ui fonts only; no decorative/display webfonts.
 
-Icons throughout the app are plain Unicode symbols with no default emoji presentation (`◈`, `✓`, `✕`, `★`, `▶`, `↻`, `⌂`, `⚙`, `♪`, and the Geometric Shapes block generally: `◼ ▭ ▬ ◆`), never a codepoint whose default rendering is a full-color emoji glyph (`⭐`, `👁`, `🔄`, `⏳`, `🏠`, `📚`, `🎬`, ...) - a color emoji reads as an inconsistent, slightly unpolished note among otherwise monochrome UI that follows `--kt-text`/`--kt-accent` like everything else. **Gotcha:** a codepoint isn't safe just because it "looks like" a plain symbol - `⭐` (U+2B50) and `👁` (U+1F441) were originally used as the "Best of"/"Want to watch" icons on the assumption they were plain stars/eyes, but both have `Emoji_Presentation=Yes` by default (Unicode's `emoji-data.txt`) and render as full-color glyphs on every mainstream platform; they were replaced with `★` (U+2605, Black Star, default text presentation) and `▶` (U+25B6, default text presentation) respectively. Before adding a new symbol, check whether its default presentation is text or emoji - don't assume from how it looks in this file. Appending a trailing variation selector (`️`, U+FE0F) forces emoji presentation even on an otherwise-safe codepoint, so never add one; some codepoints (`🌙`, `🚪`, `🔑`, `👤`, `📦`) have no text-presentation form at all and were simply dropped rather than replaced with an approximate glyph, since a semantically-forced match is worse than no icon when the row's label text already carries the meaning. `.kt-icon-spin` (reuses the same `spin` keyframes as `.kt-spinner`) makes a plain glyph rotate in place for a small inline action's "in progress" state, instead of swapping to an hourglass emoji.
+Icons throughout the app are plain Unicode symbols with no default emoji presentation (`◈`, `✓`, `✕`, `★`, `▶`, `↻`, `⌂`, `⚙`, `♪`, and the Geometric Shapes block generally: `◼ ▭ ▬ ◆`),
+never a codepoint whose default rendering is a full-color emoji glyph (`⭐`, `👁`, `🔄`, `⏳`, `🏠`, `📚`, `🎬`, ...) - a color emoji reads as an inconsistent,
+slightly unpolished note among otherwise monochrome UI that follows `--kt-text`/`--kt-accent` like everything else.
+**Gotcha:** a codepoint isn't safe just because it "looks like" a plain symbol - `⭐` (U+2B50) and `👁` (U+1F441) were originally used as the "Best of"/"Want to watch" icons on the assumption they were plain stars/eyes,
+but both have `Emoji_Presentation=Yes` by default (Unicode's `emoji-data.txt`) and render as full-color glyphs on every mainstream platform; they were replaced with `★` (U+2605, Black Star, default text presentation)
+and `▶` (U+25B6, default text presentation) respectively.
+Before adding a new symbol, check whether its default presentation is text or emoji - don't assume from how it looks in this file.
+Appending a trailing variation selector (`️`, U+FE0F) forces emoji presentation even on an otherwise-safe codepoint, so never add one; some codepoints (`🌙`, `🚪`, `🔑`, `👤`, `📦`) have no text-presentation form at all
+and were simply dropped rather than replaced with an approximate glyph, since a semantically-forced match is worse than no icon when the row's label text already carries the meaning.
+`.kt-icon-spin` (reuses the same `spin` keyframes as `.kt-spinner`) makes a plain glyph rotate in place for a small inline action's "in progress" state, instead of swapping to an hourglass emoji.
 
-Enhanced navigation re-fetches and diffs the whole document on every in-app link click; anything set on `<html>`/`<body>` by client-side JS rather than server-rendered markup (like `data-bs-theme`) gets stripped back out unless it's explicitly re-applied. `wwwroot/Keeptrack.BlazorApp.lib.module.js` is a JS initializer (auto-loaded by Blazor because its name matches the assembly - don't add a manual `<script>` tag for it) that re-applies the theme via `blazor.addEventListener('enhancedload', ...)`. Any future client-side DOM state that isn't part of the Razor render tree needs the same treatment.
+Enhanced navigation re-fetches and diffs the whole document on every in-app link click; anything set on `<html>`/`<body>` by client-side JS
+rather than server-rendered markup (like `data-bs-theme`) gets stripped back out unless it's explicitly re-applied.
+`wwwroot/Keeptrack.BlazorApp.lib.module.js` is a JS initializer (autoloaded by Blazor because its name matches the assembly -
+don't add a manual `<script>` tag for it) that re-applies the theme via `blazor.addEventListener('enhancedload', ...)`.
+Any future client-side DOM state that isn't part of the Razor render tree needs the same treatment.
 
-Before assuming a rule in `app.css` will style something, check whether that element has its own scoped `{ComponentName}.razor.css` file (Blazor CSS isolation) - a scoped selector always wins the cascade over an equally-specific one in the shared stylesheet, since it's compiled with an extra scope attribute. This is exactly what caused the reconnect-modal (`ReconnectModal.razor.css`) to render with the original scaffolded white/blue colors despite an app.css override that looked like it should have applied; the scoped file itself has to be edited.
+Before assuming a rule in `app.css` will style something, check whether that element has its own scoped `{ComponentName}.razor.css` file (Blazor CSS isolation) -
+a scoped selector always wins the cascade over an equally-specific one in the shared stylesheet, since it's compiled with an extra scope attribute.
+This is exactly what caused the reconnect-modal (`ReconnectModal.razor.css`) to render with the original scaffolded white/blue colors despite an app.css override that looked like it should have applied;
+the scoped file itself has to be edited.
 
 ## Code style
 
-- Enforced by `.editorconfig`: 4-space indent for C#/Razor, LF line endings, `var` preferred everywhere, braces required, `_camelCase` for private instance fields, `s_camelCase` for private static fields, PascalCase for everything else. Avoid `this.` qualification.
+- Enforced by `.editorconfig`: 4-space indent for C#/Razor, LF line endings, `var` preferred everywhere, braces required, `_camelCase` for private instance fields, `s_camelCase` for private static fields, PascalCase for everything else.
+- Avoid `this.` qualification.
 - Primary constructors are the norm for controllers, repositories and API clients (see `BookController`, `BookRepository`, `BookApiClient` above).
 - Nullable reference types are enabled across all `src` projects; use `required` for non-nullable properties that have no sensible default (e.g. `BookModel.Title`).
 - Public WebApi.Contracts DTOs and WebApi controllers carry XML doc comments (`GenerateDocumentationFile` is enabled) because they feed the generated OpenAPI/Scalar documentation.
-- Markdown files: 2-space indent, no trailing-whitespace trimming, max line length 240 (`.markdownlint-cli2.yaml`). In addition, write one sentence per line inside multi-sentence paragraphs: never cut a sentence, keep each sentence as short as possible, and start a new line right after the period that ends it. Single-sentence paragraphs/list items don't need to be split further.
+- Markdown files: 2-space indent, no trailing-whitespace trimming, max line length 240 (`.markdownlint-cli2.yaml`).
+- In addition, write one sentence per line inside multi-sentence paragraphs: never cut a sentence, keep each sentence as short as possible, and start a new line right after the period that ends it.
+- Single-sentence paragraphs/list items don't need to be split further.
 
 ## Tests
 
-- `test/WebApi.UnitTests`: xunit v3 unit tests, e.g. the TV Time import parsers (`Import/Parsers/`, pure stream-in/records-out, no I/O beyond an in-memory stream), and `WatchNextService` (pure next-episode computation). Mapper configuration validation is a compile-time concern now (Mapperly's `RMG012`/`RMG020` diagnostics, escalated to build errors in `.editorconfig`), not a unit test - there's no equivalent of the old `AutoMapperConfigurationTest` to run here anymore.
-- `test/WebApi.IntegrationTests`: xunit v3 tests booted against a real Kestrel host (`KestrelWebAppFactory<Program>`) and a real MongoDB instance. `ResourceTestBase` provides typed `GetAsync`/`PostAsync`/`PutAsync`/`DeleteAsync`/`PostFileAsync` helpers and an `Authenticate()` helper that logs in against Firebase to obtain a bearer token. Resource tests (`BookResourceTest`, `MovieResourceTest`, `TvTimeImportResourceTest`) exercise a full create/read/update/delete (or upsert) cycle against the live API and clean up what they create. `TvTimeFixtureZipBuilder` builds a small synthetic TV Time export in memory for the import test — never commit a real personal export as a test fixture.
+- `test/WebApi.UnitTests`: xunit v3 unit tests, e.g. the TV Time import parsers (`Import/Parsers/`, pure stream-in/records-out, no I/O beyond an in-memory stream), and `WatchNextService` (pure next-episode computation).
+  Mapper configuration validation is a compile-time concern now (Mapperly's `RMG012`/`RMG020` diagnostics, escalated to build errors in `.editorconfig`), not a unit test -
+  there's no equivalent of the old `AutoMapperConfigurationTest` to run here anymore.
+- `test/WebApi.IntegrationTests`: xunit v3 tests booted against a real Kestrel host (`KestrelWebAppFactory<Program>`) and a real MongoDB instance.
+  `ResourceTestBase` provides typed `GetAsync`/`PostAsync`/`PutAsync`/`DeleteAsync`/`PostFileAsync` helpers and an `Authenticate()` helper that logs in against Firebase to obtain a bearer token.
+  Resource tests (`BookResourceTest`, `MovieResourceTest`, `TvTimeImportResourceTest`) exercise a full create/read/update/delete (or upsert) cycle against the live API and clean up what they create.
+  `TvTimeFixtureZipBuilder` builds a small synthetic TV Time export in memory for the import test — never commit a real personal export as a test fixture.
 - Assertions use `AwesomeAssertions` (a `FluentAssertions`-compatible API); test data is generated with `Bogus`.
 
 ## CI
 
-GitHub Actions (`.github/workflows/ci.yaml`) runs, on push/PR to `main`: a git/markup lint job, a .NET quality job (build, test with coverage, SonarCloud, FOSSA license/security scan) gated on app changes, and a container image scan for both Dockerfiles. Equivalent pipelines exist for GitLab CI and Azure DevOps.
+GitHub Actions (`.github/workflows/ci.yaml`) runs, on push/PR to `main`:
+a git/markup lint job, a .NET quality job (build, test with coverage, SonarCloud, FOSSA license/security scan) gated on app changes, and a container image scan for both Dockerfiles.
+Equivalent pipelines exist for GitLab CI and Azure DevOps.
 
 ## Quality bar
 
-The owner has zero tolerance for bad design or duplicated algorithms. Hold every change to this standard, not just new code.
+The owner has zero tolerance for bad design or duplicated algorithms.
+Hold every change to this standard, not just new code.
 
-- No duplicated algorithms or logic. Duplicated data shapes (a `Model`, an `Entity`, and a `Dto` that mirror the same fields) are fine and expected; duplicating the logic that operates on them is not. If two repositories, controllers, or components need the same behavior, it belongs in a shared base class or method, following the existing `DataCrudControllerBase<TDto, TModel>` / `MongoDbRepositoryBase<TModel, TEntity>` / `InventoryPageBase<TDto>` pattern.
-- Every non-trivial piece of logic needs a test, especially per-type overrides like `GetFilter`. These are the most duplicated, least-reused pieces of code in the solution, and history has already shown they are where bugs hide (see `docs/code-quality-findings.md`).
+- No duplicated algorithms or logic.
+  Duplicated data shapes (a `Model`, an `Entity`, and a `Dto` that mirror the same fields) are fine and expected; duplicating the logic that operates on them is not.
+  If two repositories, controllers, or components need the same behavior, it belongs in a shared base class or method,
+  following the existing `DataCrudControllerBase<TDto, TModel>` / `MongoDbRepositoryBase<TModel, TEntity>` / `InventoryPageBase<TDto>` pattern.
+- Every non-trivial piece of logic needs a test, especially per-type overrides like `GetFilter`.
+  These are the most duplicated, least-reused pieces of code in the solution, and history has already shown they are where bugs hide (see `docs/code-quality-findings.md`).
 - Before proposing a fix, verify the current best-practice for the specific library/framework version in use (e.g. MongoDB driver filter semantics, current ASP.NET Core guidance) rather than relying on older patterns from training data.
-- Known findings from past reviews, including which items are confirmed bugs versus intentional by-design behavior, are tracked in `docs/code-quality-findings.md`. Check it before re-reporting something already triaged there, and update it when a listed item is fixed.
+- Known findings from past reviews, including which items are confirmed bugs versus intentional by-design behavior, are tracked in `docs/code-quality-findings.md`.
+  Check it before re-reporting something already triaged there, and update it when a listed item is fixed.
