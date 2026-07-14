@@ -44,6 +44,7 @@
   <Project Path="src/Infrastructure.MongoDb/Infrastructure.MongoDb.csproj" />
   <Project Path="src/WebApi.Contracts/WebApi.Contracts.csproj" />
   <Project Path="src/WebApi/WebApi.csproj" />
+  <Project Path="test/BlazorApp.E2eTests/BlazorApp.E2eTests.csproj" />
   <Project Path="test/BlazorApp.UnitTests/BlazorApp.UnitTests.csproj" />
   <Project Path="test/Testing.Shared/Testing.Shared.csproj" />
   <Project Path="test/WebApi.IntegrationTests/WebApi.IntegrationTests.csproj" />
