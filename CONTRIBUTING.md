@@ -219,10 +219,13 @@ dotnet run --project src/BlazorApp
 
 ## Tests
 
-The solution has two test projects:
+The solution has three test projects:
 
 - `test/WebApi.UnitTests` has no external dependencies.
 - `test/WebApi.IntegrationTests` needs a running MongoDB and a Firebase test user, since it boots the real Web API and calls it like a real client would.
+- `test/BlazorApp.PlaywrightTests` is a Playwright end-to-end suite; it self-skips unless `E2E_ENABLED=true` (see [End-to-end (Playwright) tests](#end-to-end-playwright-tests) below), so it needs nothing extra for a plain `dotnet test`.
+
+`test/Testing.Shared` is not a test project itself - it's the shared hosting/Firebase-auth infrastructure `WebApi.IntegrationTests` and `BlazorApp.PlaywrightTests` both build on, so neither duplicates it.
 
 Run everything:
 
@@ -316,6 +319,78 @@ So `ReferenceDataAdminResourceTest` and any other admin-gated endpoint can be ex
 There's no separate non-admin test account, so there's no automated coverage of the "AdminOnly" policy actually rejecting a non-admin caller; that would need a second Firebase test user without the claim.
 The underlying Mongo query logic (`SetReferenceIdForTitleYearAsync`, `FindDistinctUnresolvedTitleYearsAsync`) is still covered directly against a real database in `TvShowReferenceLinkingTest`.
 This test resolves repositories from the test host's DI container instead of going over HTTP.
+
+### End-to-end (Playwright) tests
+
+`test/BlazorApp.PlaywrightTests` drives the real Blazor Server app in a real browser (Chromium by default) through Microsoft Playwright.
+It self-skips entirely unless `E2E_ENABLED=true`.
+So it needs no extra setup for a plain `dotnet test`.
+
+One-time browser install, after the project has been built at least once:
+
+```bash
+pwsh test/BlazorApp.PlaywrightTests/bin/Debug/net10.0/playwright.ps1 install chromium
+```
+
+The suite runs three ways from the same code, controlled by environment variables:
+
+Mode        | Trigger                          | Hosting
+------------|-----------------------------------|--------
+Integration | `E2E_ENABLED=true`, no target URL | Both apps self-hosted in-process on dynamic ports, same MongoDB/Firebase settings as the integration tests above
+Live        | `E2E_TARGET_URL` set              | Nothing hosted; the browser drives an already-running deployment
+Read-only   | `E2E_READONLY=true`               | No provisioning, no seeding, every mutating test skips - pair with `E2E_TARGET_URL` against a real environment
+
+Variable         | Default      | Purpose
+-----------------|--------------|--------
+`E2E_ENABLED`    | `false`      | Master switch; every e2e test dynamically skips unless this is `true`
+`E2E_TARGET_URL` | *(empty)*    | Live mode: base URL of an already-running BlazorApp
+`E2E_WEBAPI_URL` | *(empty)*    | Live mode: base URL of the matching WebApi, required for seeding/cleanup unless read-only
+`E2E_READONLY`   | `false`      | Skips every mutating test, user creation, and seeding
+`E2E_USERNAME`   | *(empty)*    | Existing account email; empty triggers ephemeral admin user creation (integration mode only)
+`E2E_PASSWORD`   | *(empty)*    | Password for `E2E_USERNAME`
+`E2E_HEADLESS`   | `true`       | `false` shows the browser window
+`E2E_SLOWMO_MS`  | `0`          | Milliseconds of delay injected before each Playwright action
+`E2E_BROWSER`    | `chromium`   | `chromium`, `firefox` or `webkit`
+`E2E_TRACE`      | `on-failure` | `off`, `on` or `on-failure`; traces/screenshots land in `bin/<config>/net10.0/e2e-diagnostics`
+
+Integration mode (the common local/CI case) reuses the same MongoDB/Firebase variables as the integration tests above, pointed at a dedicated database (e.g. `keeptrack_e2e`), plus `E2E_ENABLED=true`:
+
+```bash
+export E2E_ENABLED=true
+export Infrastructure__MongoDB__ConnectionString=mongodb://localhost:27017
+export Infrastructure__MongoDB__DatabaseName=keeptrack_e2e
+export Authentication__JwtBearer__Authority=https://securetoken.google.com/<firebase-project-id>
+export Authentication__JwtBearer__TokenValidation__Issuer=https://securetoken.google.com/<firebase-project-id>
+export Authentication__JwtBearer__TokenValidation__Audience=<firebase-project-id>
+export FIREBASE_APIKEY=<web-api-key>
+
+dotnet test test/BlazorApp.PlaywrightTests/BlazorApp.PlaywrightTests.csproj
+```
+
+No `FIREBASE_USERNAME`/`FIREBASE_PASSWORD` is needed for this mode.
+An ephemeral admin user is created via the Firebase Admin SDK (reusing the Blazor host's own `Firebase:ServiceAccount`, already present in `appsettings.Development.json`) and deleted again at teardown.
+Set `E2E_USERNAME`/`E2E_PASSWORD` instead to reuse an existing account.
+
+For an IDE-driven workflow, add the same variables to the `Local.runsettings` file described above, for example:
+
+```xml
+<E2E_ENABLED>true</E2E_ENABLED>
+<Infrastructure__MongoDB__DatabaseName>keeptrack_e2e</Infrastructure__MongoDB__DatabaseName>
+<!-- <E2E_HEADLESS>false</E2E_HEADLESS> -->
+<!-- <E2E_SLOWMO_MS>250</E2E_SLOWMO_MS> -->
+```
+
+In integration mode both apps run inside the test process, so breakpoints hit in `BlazorApp`/`WebApi` source during a browser click, not just in test code.
+Set `E2E_HEADLESS=false` plus `E2E_SLOWMO_MS=250` to watch the run, or `PWDEBUG=1` to open the Playwright inspector.
+
+Live run against a real deployment, read-only:
+
+```bash
+export E2E_ENABLED=true E2E_TARGET_URL=https://keeptrack.example.com E2E_READONLY=true
+export E2E_USERNAME=... E2E_PASSWORD=... FIREBASE_APIKEY=...
+
+dotnet test test/BlazorApp.PlaywrightTests/BlazorApp.PlaywrightTests.csproj
+```
 
 ## Container images
 

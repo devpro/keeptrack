@@ -700,6 +700,18 @@ the scoped file itself has to be edited.
   `ResourceTestBase` provides typed `GetAsync`/`PostAsync`/`PutAsync`/`DeleteAsync`/`PostFileAsync` helpers and an `Authenticate()` helper that logs in against Firebase to obtain a bearer token.
   Resource tests (`BookResourceTest`, `MovieResourceTest`, `TvTimeImportResourceTest`) exercise a full create/read/update/delete (or upsert) cycle against the live API and clean up what they create.
   `TvTimeFixtureZipBuilder` builds a small synthetic TV Time export in memory for the import test — never commit a real personal export as a test fixture.
+- `test/Testing.Shared`: not a test project itself, but the shared hosting/Firebase-auth infrastructure both `WebApi.IntegrationTests` and `BlazorApp.PlaywrightTests` build on, so neither duplicates it.
+  `KestrelWebAppFactory<TEntryPoint>`'s env-var override name and in-memory config overrides are constructor parameters for exactly this reason - each host (WebApi, BlazorApp) supplies its own.
+  `WebApi.IntegrationTests` keeps its exact pre-extraction behavior through a thin subclass in its own namespace.
+- `test/BlazorApp.PlaywrightTests`: a Playwright end-to-end suite (`Microsoft.Playwright.Xunit.v3`'s `PageTest`, plain xunit v3 facts, no Gherkin/aspect framework - see `docs/playwright-e2e-tests-plan.md`).
+  Every test dynamically self-skips (`Assert.SkipUnless`) unless `E2E_ENABLED=true`, so a plain solution-wide `dotnet test` stays green without Playwright browsers installed.
+  `E2eFixture` (an xunit v3 `[AssemblyFixture]`) hosts both `WebApi` and `BlazorApp` in-process via the shared `KestrelWebAppFactory` (extern-alias wiring for their two generated `Program` classes).
+  It signs in exactly once for the whole run (`POST /auth/callback` + saved Playwright storage state, reusing `Testing.Shared`'s `AccountRepository` sign-in cache).
+  It also seeds a synthetic book reference via `POST /api/reference-data/import` so "check for reference match" never calls a real provider.
+  `Pages/PageBase` holds the sidebar nav locators and typed `Open<X>Async()` helpers that return the next page object.
+  `ListPage` is one class parameterized by route/title covering all ten inventory list pages, since `InventoryList` renders them all identically.
+  A handful of `Books.razor`/`BookDetail.razor` fields got a minimal `data-testid` added because their `<label>`/`<input>` pairs have no `for`/`id` association, so `GetByLabel` can't resolve them - confirmed against a real run, not assumed.
+  See `CONTRIBUTING.md`'s "End-to-end (Playwright) tests" section for the full `E2E_*` configuration surface and the three run modes (self-hosted integration, live, read-only).
 - Assertions use `AwesomeAssertions` (a `FluentAssertions`-compatible API); test data is generated with `Bogus`.
 
 ## CI
