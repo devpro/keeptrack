@@ -12,12 +12,16 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
         options.SlidingExpiration = true;
     });
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy => policy.RequireClaim("role", "admin"));
+});
 builder.Services.AddControllers();
 builder.Services.AddSingleton(builder.Configuration.TryGetSection<FirebaseClientSettings>("Firebase:WebAppConfiguration"));
 if (FirebaseApp.DefaultInstance is null)
 {
     var firebaseJson = builder.Configuration.TryGetSection<string>("Firebase:ServiceAccount");
-    var googleCredential = GoogleCredential.FromJson(firebaseJson);
+    var googleCredential = CredentialFactory.FromJson<ServiceAccountCredential>(firebaseJson).ToGoogleCredential();
     FirebaseApp.Create(new AppOptions { Credential = googleCredential });
 }
 builder.Services.AddHttpContextAccessor();

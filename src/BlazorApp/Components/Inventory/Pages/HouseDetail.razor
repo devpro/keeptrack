@@ -1,0 +1,361 @@
+@page "/houses/{Id}"
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+@if (_loading)
+{
+    <div class="kt-loading">
+        <div class="kt-spinner"></div>
+        Loading…
+    </div>
+}
+else if (_house is null)
+{
+    <div class="kt-empty">
+        <div class="kt-empty-icon">◈</div>
+        <p>House not found.</p>
+    </div>
+}
+else
+{
+    <div class="kt-page-header">
+        <div class="d-flex align-items-center gap-2" style="flex:1;min-width:0">
+            <input class="kt-title-input" value="@_house.Name" @onchange="SaveNameAsync"/>
+        </div>
+    </div>
+
+    <div class="kt-form-card">
+        <div class="row g-3">
+            <div class="col-12">
+                <label class="form-label">Address</label>
+                <input class="form-control form-control-sm" value="@_house.Address" @onchange="SaveAddressAsync"/>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">City</label>
+                <input class="form-control form-control-sm" value="@_house.City" @onchange="SaveCityAsync"/>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Postal code</label>
+                <input class="form-control form-control-sm" value="@_house.PostalCode" @onchange="SavePostalCodeAsync"/>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Country</label>
+                <input class="form-control form-control-sm" value="@_house.Country" @onchange="SaveCountryAsync"/>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Notes</label>
+                <textarea class="form-control form-control-sm" rows="2" @onchange="SaveNotesAsync">@_house.Notes</textarea>
+            </div>
+        </div>
+    </div>
+
+    @if (HasMetricsToShow)
+    {
+        var metrics = _metrics!;
+        <h2 class="kt-section-title">Yearly cost review</h2>
+        <div class="kt-form-card">
+            <p class="kt-card-meta mb-1">Total cost by year - @metrics.CostHistory.Sum(p => p.TotalCost).ToString("F2") across the whole history</p>
+            @RenderYearlyCostChart(metrics.CostHistory)
+
+            <div class="table-responsive mt-3">
+                <table class="table kt-sheet-table">
+                    <thead>
+                    <tr>
+                        <th>Year</th>
+                        @foreach (var eventType in Enum.GetValues<HouseEventType>())
+                        {
+                            <th>@eventType</th>
+                        }
+                        <th>Total</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var point in metrics.CostHistory)
+                    {
+                        <tr>
+                            <td style="font-weight:500">@point.Year</td>
+                            @foreach (var eventType in Enum.GetValues<HouseEventType>())
+                            {
+                                <td>@(point.CostByCategory.FirstOrDefault(c => c.EventType == eventType)?.Cost.ToString("F2") ?? "-")</td>
+                            }
+                            <td style="font-weight:600">@point.TotalCost.ToString("F2")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    <div class="d-flex justify-content-between align-items-center">
+        <h2 class="kt-section-title">History</h2>
+        <button class="btn btn-sm btn-primary" @onclick="ShowAddModal">+ Add entry</button>
+    </div>
+    <div class="kt-table-wrap">
+        <div class="table-responsive">
+            <table class="table kt-sheet-table">
+                <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Event</th>
+                    <th>Cost</th>
+                    <th>Provider</th>
+                    <th>Description</th>
+                    <th></th>
+                </tr>
+                </thead>
+                <tbody>
+                @if (_history.Count == 0)
+                {
+                    <tr><td colspan="6" class="text-center kt-card-meta">No history yet - add the first entry above.</td></tr>
+                }
+                @foreach (var entry in _history)
+                {
+                    <HouseHistoryRow Entry="entry" OnEdit="ShowEditModal" OnDelete="DeleteEntryAsync"/>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @if (_showModal)
+    {
+        <div class="kt-modal-backdrop" @onclick="CancelModal">
+            <div class="kt-modal" @onclick:stopPropagation>
+                <div class="kt-modal-header">
+                    <h5>@(IsEditMode ? "Edit" : "Add") history entry</h5>
+                    <button class="kt-modal-close" @onclick="CancelModal">✕</button>
+                </div>
+                <div class="kt-modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Date</label>
+                            <input class="form-control" type="date" @bind="_modalEntry.HistoryDate" @bind:format="yyyy-MM-dd"/>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">Cost (€)</label>
+                            <input class="form-control" type="number" step="0.01" @bind="_modalEntry.Cost"/>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label d-block">Event type</label>
+                            <div class="d-flex gap-2 flex-wrap">
+                                @foreach (var eventType in Enum.GetValues<HouseEventType>())
+                                {
+                                    <button type="button" class="btn btn-sm @(_modalEntry.EventType == eventType ? "btn-primary" : "btn-secondary")"
+                                            @onclick="() => _modalEntry.EventType = eventType">@eventType</button>
+                                }
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Provider (contractor / technician / utility / store)</label>
+                            <input class="form-control" @bind="_modalEntry.Provider"/>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" rows="3" @bind="_modalEntry.Description"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="kt-modal-footer">
+                    <button class="btn btn-secondary" @onclick="CancelModal">Cancel</button>
+                    <button class="btn btn-success" @onclick="SaveModalEntryAsync">Save</button>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public required string Id { get; set; }
+
+    [Inject] private HouseApiClient HouseApi { get; set; } = null!;
+
+    [Inject] private HouseHistoryApiClient HouseHistoryApi { get; set; } = null!;
+
+    private bool _loading = true;
+    private HouseDto? _house;
+    private List<HouseHistoryDto> _history = [];
+    private HouseMetricsDto? _metrics;
+    private HouseHistoryDto _modalEntry = NewEntry("");
+    private bool _showModal;
+
+    private bool IsEditMode => !string.IsNullOrEmpty(_modalEntry.Id);
+
+    /// <summary>`ComputeMetrics` always returns a non-null result, even for a brand-new house with no history
+    /// at all (an empty list) - the metrics panel should only render once there's actually something in it
+    /// to show, not just because the object itself isn't null.</summary>
+    private bool HasMetricsToShow => _metrics is { CostHistory.Count: > 0 };
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private static HouseHistoryDto NewEntry(string houseId) => new()
+    {
+        HouseId = houseId,
+        HistoryDate = DateOnly.FromDateTime(DateTime.Now),
+        EventType = HouseEventType.Maintenance
+    };
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _house = await HouseApi.GetOneAsync(Id);
+        if (_house is not null)
+        {
+            var result = await HouseHistoryApi.GetAsync("", 1, int.MaxValue, new Dictionary<string, string> { ["HouseId"] = Id });
+            // Most recent first - unlike CarDetail's chronological (ascending) order, House has no mileage-style
+            // ordering dependency, and a browsable insurance/maintenance log reads better with the newest entry on top.
+            _history = result.Items.OrderByDescending(h => h.HistoryDate).ToList();
+            _metrics = await HouseApi.GetMetricsAsync(Id);
+        }
+        _loading = false;
+    }
+
+    private async Task SaveHouseAsync()
+    {
+        if (_house is null) return;
+        await HouseApi.UpdateAsync(_house);
+    }
+
+    private async Task SaveNameAsync(ChangeEventArgs e)
+    {
+        if (_house is null) return;
+        var name = e.Value?.ToString();
+        if (string.IsNullOrWhiteSpace(name)) return;
+        _house.Name = name;
+        await SaveHouseAsync();
+    }
+
+    private async Task SaveAddressAsync(ChangeEventArgs e)
+    {
+        if (_house is null) return;
+        _house.Address = e.Value?.ToString();
+        await SaveHouseAsync();
+    }
+
+    private async Task SaveCityAsync(ChangeEventArgs e)
+    {
+        if (_house is null) return;
+        _house.City = e.Value?.ToString();
+        await SaveHouseAsync();
+    }
+
+    private async Task SavePostalCodeAsync(ChangeEventArgs e)
+    {
+        if (_house is null) return;
+        _house.PostalCode = e.Value?.ToString();
+        await SaveHouseAsync();
+    }
+
+    private async Task SaveCountryAsync(ChangeEventArgs e)
+    {
+        if (_house is null) return;
+        _house.Country = e.Value?.ToString();
+        await SaveHouseAsync();
+    }
+
+    private async Task SaveNotesAsync(ChangeEventArgs e)
+    {
+        if (_house is null) return;
+        _house.Notes = e.Value?.ToString();
+        await SaveHouseAsync();
+    }
+
+    private void ShowAddModal()
+    {
+        _modalEntry = NewEntry(Id);
+        _showModal = true;
+    }
+
+    /// <summary>Edits a copy, not the row's own object, so Cancel discards changes instead of leaving the
+    /// table showing edits that were never saved.</summary>
+    private void ShowEditModal(HouseHistoryDto entry)
+    {
+        _modalEntry = CloneEntry(entry);
+        _showModal = true;
+    }
+
+    private void CancelModal() => _showModal = false;
+
+    /// <summary>Every history mutation reloads the whole house (history + metrics) rather than patching local
+    /// state - an edit can change the yearly cost breakdown, so recomputing from the server is simpler and
+    /// safer than trying to keep local derived state in sync by hand.</summary>
+    private async Task SaveModalEntryAsync()
+    {
+        if (IsEditMode) await HouseHistoryApi.UpdateAsync(_modalEntry);
+        else await HouseHistoryApi.AddAsync(_modalEntry);
+
+        _showModal = false;
+        await LoadAsync();
+    }
+
+    private static HouseHistoryDto CloneEntry(HouseHistoryDto entry) => new()
+    {
+        Id = entry.Id,
+        HouseId = entry.HouseId,
+        HistoryDate = entry.HistoryDate,
+        EventType = entry.EventType,
+        Description = entry.Description,
+        Cost = entry.Cost,
+        Provider = entry.Provider
+    };
+
+    private async Task DeleteEntryAsync(string id)
+    {
+        await HouseHistoryApi.DeleteAsync(id);
+        await LoadAsync();
+    }
+
+    /// <summary>Hand-rolled SVG bar chart - total cost per year, one bar each. Simpler than a stacked chart
+    /// (which would need 6 colors for House's event categories): the breakdown table right below already
+    /// carries the per-category precision an insurance review actually needs, so the chart only needs to
+    /// answer "what did this cost, year by year" at a glance. Axis drawing lives in <see cref="SvgChartHelpers"/>,
+    /// shared with CarDetail.razor's own charts.</summary>
+    private static RenderFragment RenderYearlyCostChart(List<HouseCostHistoryPointDto> points) => builder =>
+    {
+        var geometry = SvgChartHelpers.FullWidthGeometry;
+        var (viewWidth, viewHeight, plotLeft, plotRight, plotTop, plotBottom) = geometry;
+
+        var maxTotal = points.Max(p => p.TotalCost);
+        if (maxTotal <= 0) maxTotal = 1;
+
+        var plotWidth = plotRight - plotLeft;
+        var barWidth = plotWidth / points.Count * 0.6;
+        var gap = plotWidth / points.Count * 0.4;
+
+        double ScaleHeight(double value) => value / maxTotal * (plotBottom - plotTop);
+
+        var yTicks = Enumerable.Range(0, 4)
+            .Select(i => maxTotal * i / 3.0)
+            .Select(v => (plotBottom - ScaleHeight(v), v.ToString("F0")))
+            .ToList();
+        var xTicks = points.Select((p, i) => (plotLeft + i * (barWidth + gap) + barWidth / 2, p.Year.ToString())).ToList();
+
+        var seq = 0;
+        builder.OpenElement(seq++, "svg");
+        builder.AddAttribute(seq++, "viewBox", $"0 0 {viewWidth} {viewHeight}");
+        builder.AddAttribute(seq++, "class", "kt-chart-svg");
+
+        SvgChartHelpers.RenderAxes(builder, ref seq, geometry, "kt-chart-arrow-house-cost", "Year", "€", yTicks, xTicks);
+
+        for (var i = 0; i < points.Count; i++)
+        {
+            var point = points[i];
+            var x = plotLeft + i * (barWidth + gap);
+            var height = ScaleHeight(point.TotalCost);
+            var y = plotBottom - height;
+
+            builder.OpenElement(seq++, "rect");
+            builder.AddAttribute(seq++, "x", x.ToString("F1"));
+            builder.AddAttribute(seq++, "y", y.ToString("F1"));
+            builder.AddAttribute(seq++, "width", barWidth.ToString("F1"));
+            builder.AddAttribute(seq++, "height", height.ToString("F1"));
+            builder.AddAttribute(seq++, "fill", "var(--kt-accent)");
+            builder.OpenElement(seq++, "title");
+            builder.AddContent(seq++, $"{point.Year}: {point.TotalCost:F2}");
+            builder.CloseElement();
+            builder.CloseElement();
+        }
+
+        builder.CloseElement();
+    };
+}

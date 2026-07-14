@@ -1,0 +1,24 @@
+<div class="d-flex align-items-center gap-2">
+    <div class="kt-stars"><StarRating Rating="Rating"/></div>
+    <input type="number" step="0.1" min="0" max="5" class="form-control form-control-sm" style="width:70px"
+           value="@Rating" @onchange="HandleChangeAsync"/>
+</div>
+
+@code {
+    /// <summary>
+    /// Stars are an accurate live preview (see StarRating's percentage fill) - clicking a star can only
+    /// ever express a handful of fixed positions, nowhere near enough precision for an exact rating like
+    /// 4.8, so the number field next to it is the actual editing surface.
+    /// </summary>
+    [Parameter] public float? Rating { get; set; }
+
+    [Parameter] public EventCallback<float> RatingChanged { get; set; }
+
+    private async Task HandleChangeAsync(ChangeEventArgs e)
+    {
+        if (float.TryParse(e.Value?.ToString(), out var value))
+        {
+            await RatingChanged.InvokeAsync(MathF.Round(Math.Clamp(value, 0, 5), 1));
+        }
+    }
+}

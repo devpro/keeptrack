@@ -17,6 +17,13 @@ public abstract class ResourceTestBase(KestrelWebAppFactory<Program> factory)
 {
     private const string MediaTypeJson = "application/json";
 
+    /// <summary>
+    /// Exposes the factory to subclasses that also need a DI scope (e.g. to seed data directly via a
+    /// repository) alongside the HTTP helpers below - avoids a second, redundant capture of the same
+    /// constructor parameter as its own field.
+    /// </summary>
+    protected KestrelWebAppFactory<Program> Factory => factory;
+
     private HttpClient _httpClient = null!;
 
     public ValueTask InitializeAsync()
@@ -67,6 +74,21 @@ public abstract class ResourceTestBase(KestrelWebAppFactory<Program> factory)
         var bodyContent = new StringContent(JsonSerializer.Serialize(body, JsonSerializerOptions.Web), Encoding.UTF8, MediaTypeJson);
         var response = await _httpClient.PutAsync(url, bodyContent);
         response.StatusCode.Should().Be(httpStatusCode);
+    }
+
+    protected async Task<T> PostFileAsync<T>(string url, string fieldName, byte[] fileContent, string fileName, HttpStatusCode httpStatusCode = HttpStatusCode.OK)
+    {
+        using var content = new MultipartFormDataContent();
+        using var byteContent = new ByteArrayContent(fileContent);
+        content.Add(byteContent, fieldName, fileName);
+
+        var response = await _httpClient.PostAsync(url, content);
+        response.StatusCode.Should().Be(httpStatusCode);
+
+        var stringResponse = await response.Content.ReadAsStringAsync();
+        var output = JsonSerializer.Deserialize<T>(stringResponse, JsonSerializerOptions.Web);
+        output.Should().NotBeNull();
+        return output;
     }
 
     protected async Task DeleteAsync(string url, HttpStatusCode httpStatusCode = HttpStatusCode.NoContent)

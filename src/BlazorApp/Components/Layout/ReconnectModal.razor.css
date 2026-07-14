@@ -21,13 +21,15 @@
 
 
 #components-reconnect-modal {
-    background-color: white;
+    background-color: var(--kt-surface);
+    color: var(--kt-text);
     width: 20rem;
     margin: 20vh auto;
     padding: 2rem;
-    border: 0;
-    border-radius: 0.5rem;
-    box-shadow: 0 3px 6px 2px rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--kt-border);
+    border-top: 2px solid var(--kt-accent);
+    border-radius: var(--kt-radius-lg);
+    box-shadow: var(--kt-shadow-lg);
     opacity: 0;
     transition: display 0.5s allow-discrete, overlay 0.5s allow-discrete;
     animation: components-reconnect-modal-fadeOutOpacity 0.5s both;
@@ -41,7 +43,7 @@
 }
 
 #components-reconnect-modal::backdrop {
-    background-color: rgba(0, 0, 0, 0.4);
+    background-color: rgba(0, 0, 0, 0.5);
     animation: components-reconnect-modal-fadeInOpacity 0.5s ease-in-out;
     opacity: 1;
 }
@@ -86,22 +88,30 @@
 #components-reconnect-modal p {
     margin: 0;
     text-align: center;
+    color: var(--kt-text-muted);
+    font-family: var(--kt-font);
+    font-size: 0.85rem;
 }
 
 #components-reconnect-modal button {
-    border: 0;
-    background-color: #6b9ed2;
-    color: white;
-    padding: 4px 24px;
-    border-radius: 4px;
+    border: 1px solid var(--kt-accent);
+    background-color: var(--kt-accent);
+    color: #fff;
+    font-family: var(--kt-font);
+    font-weight: 500;
+    padding: 0.4rem 1.2rem;
+    border-radius: 8px;
+    cursor: pointer;
 }
 
     #components-reconnect-modal button:hover {
-        background-color: #3b6ea2;
+        background-color: var(--kt-accent-dim);
+        border-color: var(--kt-accent-dim);
     }
 
     #components-reconnect-modal button:active {
-        background-color: #6b9ed2;
+        background-color: var(--kt-accent);
+        border-color: var(--kt-accent);
     }
 
 .components-rejoining-animation {
@@ -112,7 +122,7 @@
 
     .components-rejoining-animation div {
         position: absolute;
-        border: 3px solid #0087ff;
+        border: 3px solid var(--kt-accent);
         opacity: 1;
         border-radius: 50%;
         animation: components-rejoining-animation 1.5s cubic-bezier(0, 0.2, 0.8, 1) infinite;

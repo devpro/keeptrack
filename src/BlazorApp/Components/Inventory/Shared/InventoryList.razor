@@ -26,10 +26,15 @@
     </div>
 }
 
+<ConfirmModal Show="_pendingDeleteId is not null"
+              Title="Delete this item?"
+              Message="@($"This will permanently delete this {ItemName ?? "item"}. This can't be undone.")"
+              OnConfirm="ConfirmDeleteAsync" OnCancel="CancelDelete"/>
+
 @if (ShowForm)
 {
     <div class="kt-form-card">
-        <h5>New item</h5>
+        <h5>New @(ItemName ?? "item")</h5>
         <div class="row g-3">
             @FormTemplate(Form)
         </div>
@@ -68,6 +73,10 @@ else
             {
                 <button class="btn btn-secondary btn-sm" @onclick="HandleClear">Clear</button>
             }
+            @if (Filters is not null)
+            {
+                <div class="kt-search-filters">@Filters</div>
+            }
         </div>
         @if (Items.Count > 0)
         {
@@ -86,7 +95,7 @@ else
                         <td>
                             <div class="d-flex gap-1">
                                 <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenEditModal(item)">Edit</button>
-                                <button class="btn btn-sm btn-outline-danger" @onclick="() => OnDelete.InvokeAsync(item.Id!)">Del</button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => RequestDelete(item)">Del</button>
                             </div>
                         </td>
                     </tr>
@@ -154,6 +163,7 @@ else
 
 @code {
     private bool _initialized;
+    private string? _pendingDeleteId;
     private string _localSearch = "";
     private bool _showModal;
     private bool _mouseDownOnBackdrop;
@@ -176,6 +186,17 @@ else
         _localSearch = "";
         await OnSearchChanged.InvokeAsync("");
         await OnClearSearch.InvokeAsync();
+    }
+
+    private void RequestDelete(TDto item) => _pendingDeleteId = item.Id;
+
+    private void CancelDelete() => _pendingDeleteId = null;
+
+    private async Task ConfirmDeleteAsync()
+    {
+        var id = _pendingDeleteId;
+        _pendingDeleteId = null;
+        if (id is not null) await OnDelete.InvokeAsync(id);
     }
 
     private async Task OpenEditModal(TDto item)
@@ -212,6 +233,7 @@ else
     }
 
     [Parameter] public required string Title { get; set; }
+    [Parameter] public string? ItemName { get; set; }
     [Parameter] public required List<TDto> Items { get; set; }
     [Parameter] public required TDto Form { get; set; }
     [Parameter] public required TDto? EditingInline { get; set; }
@@ -227,6 +249,7 @@ else
     [Parameter] public required RenderFragment<TDto> RowTemplate { get; set; }
     [Parameter] public required RenderFragment<TDto> FormTemplate { get; set; }
     [Parameter] public required RenderFragment<TDto> EditModalTemplate { get; set; }
+    [Parameter] public RenderFragment? Filters { get; set; }
     [Parameter] public required EventCallback OnSave { get; set; }
     [Parameter] public required EventCallback OnCancelForm { get; set; }
     [Parameter] public required EventCallback OnShowAddForm { get; set; }

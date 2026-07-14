@@ -7,17 +7,91 @@ var configuration = new AppConfiguration(builder.Configuration);
 // adds services to the container
 builder.Services.AddControllers(opts => { opts.Filters.Add<ApiExceptionFilterAttribute>(); });
 builder.Services.AddOpenApi();
-builder.Services.AddAutoMapper(config =>
-    {
-        config.AllowNullDestinationValues = false;
-    },
-    typeof(Program).Assembly);
 builder.Services.AddHealthChecks();
+// a hosted BackgroundService (e.g. ReferenceSyncBackgroundService) already catches and logs every exception it can anticipate,
+// but this is a systemic safety net for whatever it doesn't: by default, an unhandled exception escaping a BackgroundService.ExecuteAsync stops the whole host,
+// taking every other endpoint down with it - "Ignore" logs it instead and lets the rest of the app keep serving requests.
+builder.Services.Configure<HostOptions>(opts =>
+    opts.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore);
+builder.Services.AddSingleton<Keeptrack.Domain.Services.CarMetricsService>();
+builder.Services.AddSingleton<Keeptrack.Domain.Services.HouseMetricsService>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<BookDto, Keeptrack.Domain.Models.BookModel>, Keeptrack.WebApi.Mappers.BookDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<CarDto, Keeptrack.Domain.Models.CarModel>, Keeptrack.WebApi.Mappers.CarDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<CarHistoryDto, Keeptrack.Domain.Models.CarHistoryModel>, Keeptrack.WebApi.Mappers.CarHistoryDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<HouseDto, Keeptrack.Domain.Models.HouseModel>, Keeptrack.WebApi.Mappers.HouseDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<HouseHistoryDto, Keeptrack.Domain.Models.HouseHistoryModel>, Keeptrack.WebApi.Mappers.HouseHistoryDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<EpisodeDto, Keeptrack.Domain.Models.EpisodeModel>, Keeptrack.WebApi.Mappers.EpisodeDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<MovieDto, Keeptrack.Domain.Models.MovieModel>, Keeptrack.WebApi.Mappers.MovieDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<AlbumDto, Keeptrack.Domain.Models.AlbumModel>, Keeptrack.WebApi.Mappers.AlbumDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<TvShowDto, Keeptrack.Domain.Models.TvShowModel>, Keeptrack.WebApi.Mappers.TvShowDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<SongDto, Keeptrack.Domain.Models.SongModel>, Keeptrack.WebApi.Mappers.SongDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<PlaylistDto, Keeptrack.Domain.Models.PlaylistModel>, Keeptrack.WebApi.Mappers.PlaylistDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<VideoGameDto, Keeptrack.Domain.Models.VideoGameModel>, Keeptrack.WebApi.Mappers.VideoGameDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.InProgressShowDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.CarMetricsDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.HouseMetricsDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.TvShowReferenceDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.MovieReferenceDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.BookReferenceDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.VideoGameReferenceDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.AlbumReferenceDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Jobs.JobStore<Keeptrack.WebApi.Contracts.Dto.ImportStage, Keeptrack.WebApi.Contracts.Dto.ImportResultDto>>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Jobs.JobStore<Keeptrack.WebApi.Contracts.Dto.ReferenceSyncStage, Keeptrack.WebApi.Contracts.Dto.ReferenceSyncResultDto>>();
+builder.Services.AddScoped<Keeptrack.WebApi.Import.TvTimeImportService>();
+builder.Services.AddScoped<Keeptrack.WebApi.Import.CarHistoryImportService>();
+builder.Services.AddSingleton(configuration.TmdbSettings);
+builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.ITmdbClient, Keeptrack.WebApi.ReferenceData.TmdbClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.themoviedb.org/3/");
+    // AddStandardResilienceHandler's own TotalRequestTimeout (30s default) is meant to be the real bound
+    // on a call - but HttpClient's own Timeout (100s default, never otherwise touched here) wraps the
+    // whole pipeline including every retry, and silently wins whenever it's shorter than however long the
+    // resilience pipeline actually takes to give up. Disabling it lets the resilience handler's own
+    // timeout be authoritative instead of a stuck call hanging for a full 100s - see
+    // https://github.com/dotnet/extensions/issues/4770 (confirmed against this exact symptom on Discogs).
+    client.Timeout = Timeout.InfiniteTimeSpan;
+}).AddStandardResilienceHandler();
+// which IBookReferenceClient implementation is registered is a deployment-time choice
+// (ReferenceData:BookProvider / ReferenceData__BookProvider) - add a case here for each new provider.
+switch (configuration.BookReferenceProvider)
+{
+    case "OpenLibrary":
+        builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.IBookReferenceClient, Keeptrack.WebApi.ReferenceData.OpenLibraryClient>(client =>
+        {
+            client.BaseAddress = new Uri("https://openlibrary.org/");
+            client.DefaultRequestHeaders.Add("User-Agent", "Keeptrack/1.0 (+https://github.com/devpro/keeptrack)");
+            client.Timeout = Timeout.InfiniteTimeSpan;
+        }).AddStandardResilienceHandler();
+        break;
+    default:
+        throw new InvalidOperationException($"Unknown ReferenceData:BookProvider '{configuration.BookReferenceProvider}'. Supported providers: OpenLibrary.");
+}
+builder.Services.AddSingleton(configuration.RawgSettings);
+builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.IRawgClient, Keeptrack.WebApi.ReferenceData.RawgClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.rawg.io/api/");
+    client.Timeout = Timeout.InfiniteTimeSpan;
+}).AddStandardResilienceHandler();
+builder.Services.AddSingleton(configuration.DiscogsSettings);
+builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.IDiscogsClient, Keeptrack.WebApi.ReferenceData.DiscogsClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.discogs.com/");
+    client.DefaultRequestHeaders.Add("User-Agent", "Keeptrack/1.0 (+https://github.com/devpro/keeptrack)");
+    client.Timeout = Timeout.InfiniteTimeSpan;
+}).AddStandardResilienceHandler();
+builder.Services.AddScoped<Keeptrack.WebApi.ReferenceData.ReferenceEnrichmentService>();
+builder.Services.AddScoped<Keeptrack.WebApi.ReferenceData.ReferenceSyncService>();
+builder.Services.AddHostedService<Keeptrack.WebApi.ReferenceData.ReferenceSyncBackgroundService>();
 builder.Services.AddMongoDbInfrastructure(configuration);
 builder.Services.AddOpenApiWithBearerAuth(configuration);
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        // Firebase's own claim names ("user_id", "role", ...) must stay exactly as issued - without this,
+        // some claim types (short JWT claim names like "role") get silently renamed to legacy ClaimTypes.*
+        // URIs by the token handler's inbound claim mapping, breaking RequireClaim("role", ...) checks
+        // that look for the literal type "role".
+        options.MapInboundClaims = false;
         options.Authority = configuration.JwtBearerSettings.Authority;
         options.TokenValidationParameters = new TokenValidationParameters
         {
@@ -28,6 +102,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateLifetime = true
         };
     });
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy => policy.RequireClaim("role", "admin"));
+});
 if (configuration.CorsAllowedOrigin.Count != 0)
 {
     builder.Services.AddCors(options =>

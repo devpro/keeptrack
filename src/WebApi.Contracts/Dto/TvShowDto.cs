@@ -1,5 +1,4 @@
-﻿using System;
-using Keeptrack.Common.System;
+﻿using Keeptrack.Common.System;
 
 namespace Keeptrack.WebApi.Contracts.Dto;
 
@@ -18,6 +17,12 @@ public class TvShowDto : IHasId
     /// </summary>
     public string? Title { get; set; }
 
+    /// <summary>
+    /// Stable id of the TV Time item this show was imported from, if any. Managed server-side by the
+    /// import; round-tripped on edits so it is never lost, but not meant to be set by clients.
+    /// </summary>
+    public string? TvTimeId { get; set; }
+
     public int? Year { get; set; }
 
     public float? Rating { get; set; }
@@ -26,9 +31,18 @@ public class TvShowDto : IHasId
 
     public string? LastEpisodeSeen { get; set; }
 
-    public string? ImdbPageId { get; set; }
+    /// <summary>
+    /// Id of the shared reference-data document (episode titles, synopsis) for this show, once resolved.
+    /// </summary>
+    public string? ReferenceId { get; set; }
 
-    public string? AllocineId { get; set; }
+    public TvShowStatus? State { get; set; }
 
-    public DateOnly? FinishedAt { get; set; }
+    public bool IsFavorite { get; set; }
+
+    public bool WantToWatch { get; set; }
+
+    public bool IsOwned { get; set; }
+
+    public bool IsWishlisted { get; set; }
 }

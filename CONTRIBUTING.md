@@ -1,4 +1,4 @@
-﻿# Contributor guide
+# Contributor guide
 
 [![GitLab Pipeline Status](https://gitlab.com/devpro-labs/software/keeptrack/badges/main/pipeline.svg)](https://gitlab.com/devpro-labs/software/keeptrack/-/pipelines)
 [![Build Status](https://dev.azure.com/devprofr/open-source/_apis/build/status/keeptrack-ci?branchName=main)](https://dev.azure.com/devprofr/open-source/_build/latest?definitionId=26&branchName=main)
@@ -6,6 +6,17 @@
 Follow this steps to run/debug/develop the application on your machine.
 
 For an environment, look at [operations.md](docs/operations.md).
+
+## License and contribution terms
+
+Keeptrack is licensed under the [PolyForm Strict License 1.0.0](LICENSE), which by itself does not allow making changes or new works based on the software.
+As an exception, the licensor grants you permission to modify the software solely for the purpose of developing, testing, and submitting contributions to the official repository (<https://github.com/devpro/keeptrack>).
+Running the application locally while developing a contribution is covered by the license's personal-use permission.
+
+By submitting a contribution in any form, you grant Bertrand THOMAS a perpetual, worldwide, irrevocable, royalty-free, sublicensable license over that contribution.
+This grant covers using, reproducing, modifying, distributing, and relicensing it as part of Keeptrack, under any terms, including commercial ones.
+You confirm that you have the right to grant this license for your contribution.
+If you do not agree with these terms, do not submit a contribution.
 
 ## Design
 
@@ -54,16 +65,28 @@ Name                | Description
   
     - [MongoDB Atlas](https://cloud.mongodb.com/) cluster
 
+    Once it's running, create the app's indexes with [`mongosh`](https://www.mongodb.com/docs/mongodb-shell/), pointed at the database you're using (`keeptrack_dev` by default - see [Web API settings](#web-api-settings) below):
+
+    ```bash
+    mongosh "mongodb://localhost:27017/keeptrack_dev" scripts/mongodb-create-index.js
+    ```
+
+    `scripts/mongodb-create-index.js` is idempotent, so it's safe to run again after pulling changes to it or against a database that already has these indexes.
+
 3. IDE: Rider, Visual Studio, Visual Studio Code
 
 ## Configuration
 
-### Web API appsettings
+### Web API settings
 
 Key                                       | Description
 ------------------------------------------|--------------------------
 `Infrastructure:MongoDB:ConnectionString` | MongoDB connection string
 `Infrastructure:MongoDB:DatabaseName`     | MongoDB database name
+`Tmdb:ApiKey`                             | TMDB v3 API key, used to auto-match shows/movies to episode titles and synopses (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
+`Rawg:ApiKey`                             | RAWG API key, used to auto-match video games to synopses/cover art/platforms (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
+`Discogs:Token`                           | Discogs personal access token, used to auto-match albums to synopses/cover art/genres (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
+`ReferenceData:BookProvider`              | Which `IBookReferenceClient` implementation to use for book matching (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below). Default: `OpenLibrary`
 
 This values can be easily provided as environment variables (replace ":" by "__") or by configuration (json).
 
@@ -94,6 +117,15 @@ Template for `src/WebApi/appsettings.Development.json`:
       "DatabaseName": "keeptrack_dev"
     }
   },
+  "Tmdb": {
+    "ApiKey": "<your-tmdb-api-key>"
+  },
+  "Rawg": {
+    "ApiKey": "<your-rawg-api-key>"
+  },
+  "Discogs": {
+    "Token": "<your-discogs-personal-access-token>"
+  },
   "Logging": {
     "LogLevel": {
       "Default": "Debug",
@@ -103,7 +135,61 @@ Template for `src/WebApi/appsettings.Development.json`:
 }
 ```
 
-### Blazor Server App appsettings
+### Reference data (TMDB, Open Library, RAWG, Discogs)
+
+Episode titles, synopses, cover art, and the "what should I watch next" experience are backed by shared reference collections, one per trackable type, each populated from a different external provider rather than typed in by hand:
+
+Type              | Provider                                                 | Setting         | API key required?
+------------------|----------------------------------------------------------|-----------------|------------------
+TV shows / Movies | [TMDB](https://www.themoviedb.org/) (The Movie Database) | `Tmdb:ApiKey`   | Yes
+Books             | [Open Library](https://openlibrary.org/)                 | *(none)*        | No
+Video Games       | [RAWG](https://rawg.io/apidocs)                          | `Rawg:ApiKey`   | Yes
+Albums            | [Discogs](https://www.discogs.com/developers)            | `Discogs:Token` | Yes (personal access token)
+
+1. **TMDB**: create a free account, then generate a v3 API key at [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api).
+   Set `Tmdb:ApiKey` (or the `Tmdb__ApiKey` environment variable) to that key.
+2. **Open Library**: nothing to configure - its search/cover-image API is free and keyless.
+3. **RAWG**: create a free account, then generate an API key at [rawg.io/apidocs](https://rawg.io/apidocs).
+   Set `Rawg:ApiKey` (or `Rawg__ApiKey`) to that key.
+4. **Discogs**: create a free account, then generate a personal access token at [discogs.com/settings/developers](https://www.discogs.com/settings/developers).
+   Set `Discogs:Token` (or `Discogs__Token`) to that token.
+
+Without a key/token for a given provider, new items of that type simply stay unresolved (no synopsis, no cover art) instead of erroring.
+The app degrades gracefully per type - it just won't auto-match that type until the corresponding setting is provided.
+
+Unlike the other three, books are resolved through a provider-agnostic `IBookReferenceClient` interface (`src/WebApi/ReferenceData/`).
+Which book provider is active is itself a setting: `ReferenceData:BookProvider` (or the `ReferenceData__BookProvider` environment variable), defaulting to `OpenLibrary`.
+`src/WebApi/Program.cs` switches on this value to decide which implementation to register - `OpenLibrary` is the only one that ships today.
+To add a new book provider, implement `IBookReferenceClient` (a new client class alongside `OpenLibraryClient.cs`, plus its own settings class if it needs an API key, following `RawgSettings`/`DiscogsSettings`).
+Also add a matching `case` to that switch.
+Nothing else in the app needs to change, since `ReferenceEnrichmentService`/`ReferenceDataAdminController` only depend on the interface and read the active provider's key from `IBookReferenceClient.ProviderKey`.
+
+### Admin role
+
+The reference-data curation page (`/admin/reference-data`, and its underlying `api/reference-data/*` admin endpoints) is restricted to users carrying a Firebase custom claim `role: "admin"`.
+There's no in-app way to grant this - it's a one-off action against your own Firebase project, e.g. with the [Firebase Admin SDK](https://firebase.google.com/docs/auth/admin/custom-claims) for Node:
+
+```javascript
+const admin = require("firebase-admin");
+admin.initializeApp();
+admin.auth().setCustomUserClaims("<firebase-user-uid>", { role: "admin" });
+```
+
+The claim is embedded directly in that user's ID token on their next sign-in (existing sessions need to sign out/in again to pick it up).
+
+[Install Deno](https://docs.deno.com/runtime/getting_started/installation/):
+
+```cmd
+winget install DenoLand.Deno
+```
+
+Run the script:
+
+```cmd
+deno run -A scripts/firebase-set-admin.js ./path/to/serviceAccount.json user@example.com
+```
+
+### Blazor Server App settings
 
 Key                                     | Required | Default value
 ----------------------------------------|----------|--------------
@@ -133,7 +219,73 @@ dotnet run --project src/BlazorApp
 
 ## Tests
 
-For integration tests, to manage the configuration (secrets) you can create a file at the root directory called `Local.runsettings` or define them as environment variables:
+The solution has two test projects:
+
+- `test/WebApi.UnitTests` has no external dependencies.
+- `test/WebApi.IntegrationTests` needs a running MongoDB and a Firebase test user, since it boots the real Web API and calls it like a real client would.
+
+Run everything:
+
+```bash
+dotnet test
+```
+
+Run just one project:
+
+```bash
+dotnet test test/WebApi.UnitTests/WebApi.UnitTests.csproj
+dotnet test test/WebApi.IntegrationTests/WebApi.IntegrationTests.csproj
+```
+
+Run a single test by fully qualified name (works for either project):
+
+```bash
+dotnet test --filter-method "Keeptrack.WebApi.UnitTests.Services.WatchNextServiceTest.ComputeInProgressShows_IncludesShowWithAConfirmedAiredUnwatchedNextEpisode"
+```
+
+`--filter-method` also accepts a wildcard, e.g. `--filter-method "*CarResourceTest*"` to run every test in a class.
+It's a single glob pattern, not a real filter expression: it does not support `|`/`,` alternation to combine multiple patterns in one run (that just prints the CLI help instead of running anything).
+So run each pattern as its own `dotnet test` invocation.
+This project's test runner is `Microsoft.Testing.Platform` (`UseMicrosoftTestingPlatformRunner`, xunit v3), which does **not** understand the classic VSTest `--settings <file>.runsettings` flag - passing it also just prints the help.
+`Local.runsettings` (below) is read automatically by Rider/Visual Studio for IDE-driven runs; for a CLI run, export the same values as environment variables instead (see "Integration tests" below).
+
+### Unit tests
+
+No configuration needed - `dotnet test test/WebApi.UnitTests/WebApi.UnitTests.csproj` works as soon as the solution restores.
+
+### Integration tests
+
+These need two things configured before they'll pass:
+
+1. **A MongoDB instance** (see [Requirements](#requirements) above), pointed at by `Infrastructure__MongoDB__ConnectionString`/`Infrastructure__MongoDB__DatabaseName`.
+   Use a dedicated database (e.g. `keeptrack_integrationtests`), not your dev database - tests create and delete real documents.
+   Running `scripts/mongodb-create-index.js` against it first is recommended (keeps behavior closest to production) but not required for the tests themselves to pass.
+   See [Requirements](#requirements) above for the exact `mongosh` command (swap in `keeptrack_integrationtests` for the database name).
+2. **A Firebase test user**, since `ResourceTestBase.Authenticate()` performs a real Firebase sign-in to obtain a bearer token:
+   - `FIREBASE_APIKEY`: the Firebase project's Web API key (Firebase Console → Project settings → General → Web API Key).
+   - `FIREBASE_USERNAME` / `FIREBASE_PASSWORD`: the email/password of a real user created in that project (Firebase Console → Authentication → Users → Add user).
+     Use a dedicated test account, not a personal one.
+   - `Authentication__JwtBearer__Authority`, `..__TokenValidation__Issuer`, `..__TokenValidation__Audience`: all `https://securetoken.google.com/<firebase-project-id>`.
+     See the [Web API settings](#web-api-settings) above for the Issuer/Audience split.
+     This is what lets the API-under-test validate the token issued by that same Firebase project.
+
+Provide all of this as environment variables (works everywhere, including CI - see `.github/workflows/ci.yaml` for how the pipeline supplies its own test account), for example:
+
+```bash
+export AllowedOrigins__0=http://localhost:5207
+export Infrastructure__MongoDB__ConnectionString=mongodb://localhost:27017
+export Infrastructure__MongoDB__DatabaseName=keeptrack_integrationtests
+export Authentication__JwtBearer__Authority=https://securetoken.google.com/<firebase-project-id>
+export Authentication__JwtBearer__TokenValidation__Issuer=https://securetoken.google.com/<firebase-project-id>
+export Authentication__JwtBearer__TokenValidation__Audience=<firebase-project-id>
+export FIREBASE_APIKEY=<web-api-key>
+export FIREBASE_USERNAME=<test-user-email>
+export FIREBASE_PASSWORD=<test-user-password>
+
+dotnet test test/WebApi.IntegrationTests/WebApi.IntegrationTests.csproj
+```
+
+Or, for an IDE-driven workflow, put the same values in a `Local.runsettings` file at the repository root (gitignored - never commit it) so Rider/Visual Studio pick them up automatically for test runs:
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -155,13 +307,15 @@ For integration tests, to manage the configuration (secrets) you can create a fi
 </RunSettings>
 ```
 
-Or in Rider, in "File | Settings | Build, Execution, Deployment | Unit Testing | Test Runner"
+Or in Rider, in "File | Settings | Build, Execution, Deployment | Unit Testing | Test Runner", set the same three Firebase variables directly so they apply to every test run in the IDE without a file.
 
-- FIREBASE_APIKEY
-- FIREBASE_USERNAME
-- FIREBASE_PASSWORD
+Set `KESTREL_WEBAPP_URL` to target a specific already-running instance instead of letting the tests spin up their own.
 
-Set KESTREL_WEBAPP_URL to target a specific instance (not use web app test instance).
+The standard test user above now carries the `role: admin` custom claim (set via `scripts/firebase-set-admin.js`, see [Admin role](#admin-role) above).
+So `ReferenceDataAdminResourceTest` and any other admin-gated endpoint can be exercised end-to-end over HTTP with the same single test account.
+There's no separate non-admin test account, so there's no automated coverage of the "AdminOnly" policy actually rejecting a non-admin caller; that would need a second Firebase test user without the claim.
+The underlying Mongo query logic (`SetReferenceIdForTitleYearAsync`, `FindDistinctUnresolvedTitleYearsAsync`) is still covered directly against a real database in `TvShowReferenceLinkingTest`.
+This test resolves repositories from the test host's DI container instead of going over HTTP.
 
 ## Container images
 

@@ -1,4 +1,4 @@
-﻿gitignore: true
+gitignore: true
 ignores:
   - "**/node_modules/**"
 config:

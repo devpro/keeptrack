@@ -45,14 +45,17 @@
 </div>
 
 <script type="module">
-    import {initializeApp} from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js';
+    import {initializeApp, getApp, getApps} from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js';
     import {getAuth, GithubAuthProvider, GoogleAuthProvider, signInWithPopup} from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js';
 
-    const app = initializeApp({
+    // Reuse the default app if FirebaseSessionRefresh (also on this page, via App.razor) already created it;
+    // calling initializeApp twice with the same default name throws.
+    const config = {
         apiKey: "@FirebaseConfig.ApiKey",
         authDomain: "@FirebaseConfig.AuthDomain",
         projectId: "@FirebaseConfig.ProjectId"
-    });
+    };
+    const app = getApps().length ? getApp() : initializeApp(config);
     const auth = getAuth(app);
     const errorDiv = document.getElementById('error-msg');
 
@@ -61,10 +64,18 @@
         try {
             const result = await signInWithPopup(auth, provider);
             const idToken = await result.user.getIdToken();
+            // Land the user back on the page they were bounced from, if any. The server validates this
+            // value (open-redirect protection) before echoing it back as the redirect target. The param
+            // casing differs by source - ASP.NET's cookie challenge uses "ReturnUrl", Blazor's own
+            // RedirectToLogin uses "returnUrl" - so read it case-insensitively to catch both.
+            let returnUrl = null;
+            for (const [key, value] of new URLSearchParams(window.location.search)) {
+                if (key.toLowerCase() === 'returnurl') { returnUrl = value; break; }
+            }
             const res = await fetch('/auth/callback', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({idToken})
+                body: JSON.stringify({idToken, returnUrl})
             });
             if (!res.ok) throw new Error('Authentication failed. Please try again.');
             const data = await res.json();

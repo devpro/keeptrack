@@ -5,6 +5,7 @@
 
 <InventoryList TDto="VideoGameDto"
                Title="Video Games"
+               ItemName="Video Game"
                Items="@_items"
                Loading="@_loading"
                Error="@_error"
@@ -27,75 +28,56 @@
                OnSaveInline="@SaveInlineAsync"
                OnDelete="@DeleteAsync"
                OnSearchChanged="@OnSearchChanged">
+    <Filters>
+        <button class="btn btn-sm @(_stateFilter is null ? "btn-primary" : "btn-secondary")" @onclick='() => SetStateFilterAsync(null)'>All</button>
+        @foreach (var state in VideoGameStates)
+        {
+            <button class="btn btn-sm @(_stateFilter == state ? "btn-primary" : "btn-secondary")" @onclick="() => SetStateFilterAsync(state)">@state</button>
+        }
+        <button class="btn btn-sm kt-toggle-btn @(_ownedFilter ? "active" : "")" @onclick="ToggleOwnedFilterAsync">● Owned</button>
+        <button class="btn btn-sm kt-toggle-btn @(_wishlistedFilter ? "active" : "")" @onclick="ToggleWishlistedFilterAsync">○ Wishlist</button>
+    </Filters>
     <HeaderTemplate>
         <th>Title</th>
-        <th>Platform</th>
-        <th>State</th>
+        <th>Platforms</th>
         <th>Rating</th>
-        <th>Finished</th>
+        <th></th>
     </HeaderTemplate>
     <RowTemplate Context="game">
-        <td style="font-weight:500">@game.Title</td>
-        <td>@game.Platform</td>
-        <td>@game.State</td>
+        <td style="font-weight:500">
+            <a href="@($"/video-games/{game.Id}")">@game.Title</a>
+        </td>
+        <td>
+            @foreach (var entry in game.Platforms)
+            {
+                <span class="kt-status-badge @StateBadgeClass(entry.State ?? "")" style="margin-right:4px">
+                    @entry.Platform@(string.IsNullOrEmpty(entry.State) ? "" : $" ({entry.State})")
+                </span>
+            }
+        </td>
         <td><span class="kt-stars"><StarRating Rating="game.Rating" /></span></td>
-        <td>@game.FinishedAt?.ToString("yyyy-MM-dd")</td>
+        <td>
+            @if (game.IsOwned)
+            {
+                <span title="Owned">●</span>
+            }
+            @if (game.IsWishlisted)
+            {
+                <span title="Wishlist">○</span>
+            }
+        </td>
     </RowTemplate>
     <FormTemplate Context="game">
         <input class="form-control" placeholder="Title" @bind="game.Title" />
-        <select class="form-select" @bind="game.Platform">
-            <option value="">— Platform —</option>
-            <option>Xbox Series X</option>
-            <option>PS5</option>
-            <option>PC</option>
-            <option>Xbox One X</option>
-            <option>PS4</option>
-            <option>WII</option>
-            <option>Xbox 360</option>
-            <option>PS2</option>
-            <option>PS1</option>
-        </select>
-        <select class="form-select" @bind="game.State">
-            <option value="">— State —</option>
-            <option>Available</option>
-            <option>Completed</option>
-            <option>To resume</option>
-            <option>Current</option>
-            <option>On-hold</option>
-        </select>
-        <input class="form-control" placeholder="Rating" @bind="game.Rating" type="number" />
-        <input class="form-control" placeholder="Finished at" @bind="game.FinishedAt" @bind:format="yyyy-MM-dd" type="date" />
+        <input class="form-control" placeholder="Year" @bind="game.Year" type="number" />
     </FormTemplate>
     <EditModalTemplate Context="game">
         <div class="col-12">
             <label class="form-label">Title</label>
-            <input class="form-control" @bind="game.Title" />
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">Platform</label>
-            <select class="form-select form-select-sm" @bind="game.Platform">
-                <option value="">—</option>
-                <option>Xbox Series X</option>
-                <option>PS5</option>
-                <option>PC</option>
-                <option>Xbox One X</option>
-                <option>PS4</option>
-                <option>WII</option>
-                <option>Xbox 360</option>
-                <option>PS2</option>
-                <option>PS1</option>
-            </select>
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">State</label>
-            <select class="form-select" @bind="game.State">
-                <option value="">— State —</option>
-                <option>Available</option>
-                <option>Completed</option>
-                <option>To resume</option>
-                <option>Current</option>
-                <option>On-hold</option>
-            </select>
+            <AuthorizeView Policy="AdminOnly" Context="titleAdminCtx">
+                <Authorized><input class="form-control" @bind="game.Title"/></Authorized>
+                <NotAuthorized><input class="form-control" @bind="game.Title" disabled="@(!string.IsNullOrEmpty(game.ReferenceId))"/></NotAuthorized>
+            </AuthorizeView>
         </div>
         <div class="col-md-6">
             <label class="form-label">Year</label>
@@ -105,13 +87,21 @@
             <label class="form-label">Rating</label>
             <input class="form-control" @bind="game.Rating" type="number" />
         </div>
-        <div class="col-md-6">
-            <label class="form-label">Finished at</label>
-            <input class="form-control" @bind="game.FinishedAt" @bind:format="yyyy-MM-dd" type="date" />
-        </div>
-        <div class="col-md-6">
+        <div class="col-12">
             <label class="form-label">Notes</label>
             <input class="form-control" @bind="game.Notes" />
         </div>
+        <div class="col-md-6">
+            <label class="form-label">Lists</label>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="game-owned-modal" @bind="game.IsOwned" />
+                <label class="form-check-label" for="game-owned-modal">Owned</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="game-wishlisted-modal" @bind="game.IsWishlisted" />
+                <label class="form-check-label" for="game-wishlisted-modal">Wishlist</label>
+            </div>
+        </div>
+        <p class="kt-card-meta">Manage platforms, state and playthroughs from the game's detail page.</p>
     </EditModalTemplate>
 </InventoryList>

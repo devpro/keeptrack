@@ -1,8 +1,6 @@
-﻿using System.Collections.Generic;
-using System.Threading.Tasks;
-using AutoMapper;
+﻿using System.Threading.Tasks;
 using Keeptrack.Common.System;
-using Keeptrack.Infrastructure.MongoDb.Entities;
+using Keeptrack.Infrastructure.MongoDb.Mappers;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 
@@ -16,19 +14,25 @@ namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 public abstract class MongoDbRepositoryBase<TModel, TEntity>(
     IMongoDatabase mongoDatabase,
     ILogger<MongoDbRepositoryBase<TModel, TEntity>> logger,
-    IMapper mapper)
+    IStorageMapper<TModel, TEntity> mapper)
     where TEntity : IHasIdAndOwnerId
 {
     protected abstract string CollectionName { get; }
 
     protected ILogger<MongoDbRepositoryBase<TModel, TEntity>> Logger { get; } = logger;
 
-    private IMapper Mapper { get; } = mapper;
+    private IStorageMapper<TModel, TEntity> Mapper { get; } = mapper;
 
+    /// <summary>
+    /// "Not found" must stay a real <c>null</c>, not a mapped default instance: Mapperly throws on a null
+    /// source rather than substituting a default instance, so the missing-document check has to happen
+    /// before mapping regardless - this guard is what makes that "not found" case behave as null instead
+    /// of propagating an exception.
+    /// </summary>
     public async Task<TModel?> FindOneAsync(string id, string ownerId)
     {
-        var entities = await GetCollection().FindAsync(x => x.Id == id && x.OwnerId == ownerId);
-        return Mapper.Map<TModel>(await entities.FirstOrDefaultAsync());
+        var entity = await GetCollection().Find(x => x.Id == id && x.OwnerId == ownerId).FirstOrDefaultAsync();
+        return entity is null ? default : Mapper.ToModel(entity);
     }
 
     public async Task<PagedResult<TModel>> FindAllAsync(string ownerId, int page, int pageSize, string? search, TModel input)
@@ -45,7 +49,7 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
             .ToListAsync();
 
         return new PagedResult<TModel>(
-            Mapper.Map<List<TModel>>(entities),
+            Mapper.ToModels(entities),
             totalCount,
             page,
             pageSize
@@ -54,14 +58,14 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
 
     public async Task<TModel> CreateAsync(TModel model)
     {
-        var entity = Mapper.Map<TEntity>(model);
+        var entity = Mapper.ToEntity(model);
         await GetCollection().InsertOneAsync(entity);
-        return Mapper.Map<TModel>(entity);
+        return Mapper.ToModel(entity);
     }
 
     public async Task<long> UpdateAsync(string id, TModel model, string ownerId)
     {
-        var entity = Mapper.Map<TEntity>(model);
+        var entity = Mapper.ToEntity(model);
         var result = await GetCollection().ReplaceOneAsync(x => x.Id == id && x.OwnerId == ownerId, entity);
         return result.ModifiedCount;
     }
@@ -80,7 +84,7 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
         return filter;
     }
 
-    private IMongoCollection<TEntity> GetCollection()
+    protected IMongoCollection<TEntity> GetCollection()
     {
         return mongoDatabase.GetCollection<TEntity>(CollectionName);
     }

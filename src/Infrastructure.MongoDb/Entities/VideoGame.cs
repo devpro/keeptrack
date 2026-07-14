@@ -1,4 +1,4 @@
-﻿using System;
+using System.Collections.Generic;
 using Keeptrack.Common.System;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
@@ -16,9 +16,7 @@ public class VideoGame : IHasIdAndOwnerId
 
     public required string Title { get; set; }
 
-    public required string Platform { get; set; }
-
-    public required string State { get; set; }
+    public List<VideoGamePlatform> Platforms { get; set; } = [];
 
     public int? Year { get; set; }
 
@@ -26,6 +24,12 @@ public class VideoGame : IHasIdAndOwnerId
 
     public string? Notes { get; set; }
 
-    [BsonElement("finished_at")]
-    public DateTime? FinishedAt { get; set; }
+    [BsonElement("reference_id")]
+    public string? ReferenceId { get; set; }
+
+    [BsonElement("is_owned")]
+    public bool IsOwned { get; set; }
+
+    [BsonElement("is_wishlisted")]
+    public bool IsWishlisted { get; set; }
 }

@@ -1,5 +1,6 @@
 ﻿using Keeptrack.Common.System;
 using Keeptrack.Domain.Repositories;
+using Keeptrack.WebApi.Mappers;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Keeptrack.WebApi.Controllers;
@@ -10,22 +11,29 @@ namespace Keeptrack.WebApi.Controllers;
 /// <typeparam name="TDto">Data Transfer Object</typeparam>
 /// <typeparam name="TModel">Domain Model</typeparam>
 [ApiController]
-public abstract class DataCrudControllerBase<TDto, TModel>(IMapper mapper, IDataRepository<TModel> dataRepository)
+public abstract class DataCrudControllerBase<TDto, TModel>(IDtoMapper<TDto, TModel> mapper, IDataRepository<TModel> dataRepository)
     : ControllerBase
     where TModel : class, IHasIdAndOwnerId
 {
+    /// <summary>
+    /// Exposes the mapper to subclasses that add their own actions (e.g. a refresh-reference endpoint) -
+    /// lets them reuse this instance instead of capturing their own <c>IDtoMapper</c> primary-constructor
+    /// parameter as a second field holding the same reference.
+    /// </summary>
+    protected IDtoMapper<TDto, TModel> Mapper => mapper;
+
     [HttpGet]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     [ProducesResponseType(500)]
     public async Task<ActionResult<PagedResult<TDto>>> Get([FromQuery] PagedRequest pagedRequest, [FromQuery] TDto input)
     {
-        var models = await dataRepository.FindAllAsync(GetUserId(),
+        var models = await dataRepository.FindAllAsync(this.GetUserId(),
             pagedRequest.Page,
             pagedRequest.PageSize,
             pagedRequest.Search,
-            mapper.Map<TModel>(input));
-        return Ok(models.Map(mapper.Map<TDto>));
+            mapper.ToModel(input));
+        return Ok(models.Map(mapper.ToDto));
     }
 
     [HttpGet("{id}")]
@@ -40,13 +48,13 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IMapper mapper, IData
             return BadRequest();
         }
 
-        var model = await dataRepository.FindOneAsync(id, GetUserId());
+        var model = await dataRepository.FindOneAsync(id, this.GetUserId());
         if (model == null)
         {
             return NotFound();
         }
 
-        return Ok(mapper.Map<TDto>(model));
+        return Ok(mapper.ToDto(model));
     }
 
     [HttpPost]
@@ -55,11 +63,18 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IMapper mapper, IData
     [ProducesResponseType(201)]
     public async Task<IActionResult> Post([FromBody] TDto dto)
     {
-        var input = mapper.Map<TModel>(dto);
-        input.OwnerId = GetUserId();
+        var input = mapper.ToModel(dto);
+        input.OwnerId = this.GetUserId();
         var model = await dataRepository.CreateAsync(input);
-        return CreatedAtAction(nameof(GetById), new { id = model.Id }, mapper.Map<TDto>(model));
+        await OnCreatedAsync(model);
+        return CreatedAtAction(nameof(GetById), new { id = model.Id }, mapper.ToDto(model));
     }
+
+    /// <summary>
+    /// Hook for subclasses that need to react to a new item being created (e.g. triggering background
+    /// reference-data enrichment). No-op by default.
+    /// </summary>
+    protected virtual Task OnCreatedAsync(TModel model) => Task.CompletedTask;
 
     [HttpPut("{id}")]
     [ProducesResponseType(204)]
@@ -72,9 +87,9 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IMapper mapper, IData
             return BadRequest();
         }
 
-        var input = mapper.Map<TModel>(dto);
-        input.OwnerId = GetUserId();
-        await dataRepository.UpdateAsync(id, input, GetUserId());
+        var input = mapper.ToModel(dto);
+        input.OwnerId = this.GetUserId();
+        await dataRepository.UpdateAsync(id, input, this.GetUserId());
         return NoContent();
     }
 
@@ -89,17 +104,15 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IMapper mapper, IData
             return BadRequest();
         }
 
-        await dataRepository.DeleteAsync(id, GetUserId());
+        var ownerId = this.GetUserId();
+        await dataRepository.DeleteAsync(id, ownerId);
+        await OnDeletedAsync(id, ownerId);
         return NoContent();
     }
 
     /// <summary>
-    /// Get authenticated user id.
+    /// Hook for subclasses that need to react to an item being deleted (e.g. cascading the delete to a
+    /// child collection such as CarHistory). No-op by default, same shape as <see cref="OnCreatedAsync"/>.
     /// </summary>
-    /// <returns></returns>
-    private string GetUserId()
-    {
-        var userId = User.Claims.FirstOrDefault(x => x.Type == "user_id")?.Value;
-        return string.IsNullOrEmpty(userId) ? throw new UnauthorizedAccessException() : userId;
-    }
+    protected virtual Task OnDeletedAsync(string id, string ownerId) => Task.CompletedTask;
 }

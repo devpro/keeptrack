@@ -16,18 +16,30 @@ public class Movie : IHasIdAndOwnerId
 
     public required string Title { get; set; }
 
+    [BsonElement("tv_time_id")]
+    public string? TvTimeId { get; set; }
+
     public int? Year { get; set; }
 
     public float? Rating { get; set; }
 
-    public string? Genre { get; set; }
-
     public string? Notes { get; set; }
 
-    public Imdb? Imdb { get; set; }
-
-    public Allocine? Allocine { get; set; }
+    [BsonElement("reference_id")]
+    public string? ReferenceId { get; set; }
 
     [BsonElement("first_seen_at")]
     public DateTime? FirstSeenAt { get; set; }
+
+    [BsonElement("is_favorite")]
+    public bool IsFavorite { get; set; }
+
+    [BsonElement("want_to_watch")]
+    public bool WantToWatch { get; set; }
+
+    [BsonElement("is_owned")]
+    public bool IsOwned { get; set; }
+
+    [BsonElement("is_wishlisted")]
+    public bool IsWishlisted { get; set; }
 }

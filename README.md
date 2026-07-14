@@ -9,7 +9,7 @@
 [![FOSSA Status](https://app.fossa.com/api/projects/custom%2B60068%2Fgithub.com%2Fdevpro%2Fkeeptrack.svg?type=shield&issueType=license)](https://app.fossa.com/projects/custom%2B60068%2Fgithub.com%2Fdevpro%2Fkeeptrack?ref=badge_shield&issueType=license)
 [![FOSSA Status](https://app.fossa.com/api/projects/custom%2B60068%2Fgithub.com%2Fdevpro%2Fkeeptrack.svg?type=shield&issueType=security)](https://app.fossa.com/projects/custom%2B60068%2Fgithub.com%2Fdevpro%2Fkeeptrack?ref=badge_shield&issueType=security)
 
-Keeptrack is an open source application that let you save and review everything you read, watch, listen or play.
+Keeptrack is a source-available application that let you save and review everything you read, watch, listen or play.
 
 ## Hosting
 
@@ -27,3 +27,12 @@ Three-tier application:
 
 For more details, see [CONTRIBUTING.md](CONTRIBUTING.md).
 Any help is more than welcome 🙂
+
+## License
+
+Keeptrack is licensed under the [PolyForm Strict License 1.0.0](LICENSE) - it is source-available, not open source.
+You may read the code, run it for personal noncommercial purposes, and submit contributions (see [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution terms).
+Any other use - in particular any commercial use, distribution, or hosting the application for others - requires prior written permission from the repository owner.
+Contact the repository owner to ask for permission.
+
+Versions of this repository published before this license change remain available under their original MIT license terms.

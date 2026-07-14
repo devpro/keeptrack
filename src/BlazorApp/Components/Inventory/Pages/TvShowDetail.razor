@@ -1,0 +1,470 @@
+@page "/tv-shows/{Id}"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using Keeptrack.BlazorApp.Components.ReferenceData
+@using Keeptrack.BlazorApp.Components.ReferenceDataAdmin
+
+@if (_loading)
+{
+    <div class="kt-loading">
+        <div class="kt-spinner"></div>
+        Loading…
+    </div>
+}
+else if (_show is null)
+{
+    <div class="kt-empty">
+        <div class="kt-empty-icon">◈</div>
+        <p>Show not found.</p>
+    </div>
+}
+else
+{
+    <div class="kt-page-header">
+        <div class="d-flex align-items-center gap-2" style="flex:1;min-width:0">
+            <input class="kt-title-input" value="@_show.Title" @onchange="SaveTitleAsync"/>
+            <button class="kt-icon-btn" @onclick="RefreshReferenceAsync" disabled="@_refreshingReference"
+                    title="@(string.IsNullOrEmpty(_show.ReferenceId) ? "Check for reference match using the title and year below." : $"Linked to \"{_reference?.Title}\". Not right? Edit the title or year below, then check again.")">
+                <span class="@(_refreshingReference ? "kt-icon-spin" : "")">↻</span>
+            </button>
+            @if (_refreshMessage is not null)
+            {
+                <span class="kt-inline-toast @_refreshMessageStyle">@_refreshMessage</span>
+            }
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm kt-toggle-btn @(_show.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>
+            <button class="btn btn-sm kt-toggle-btn @(_show.WantToWatch ? "active" : "")" @onclick="ToggleWantToWatchAsync">Watchlist</button>
+            <button class="btn btn-sm kt-toggle-btn @(_show.IsOwned ? "active" : "")" @onclick="ToggleOwnedAsync">● Owned</button>
+            <button class="btn btn-sm kt-toggle-btn @(_show.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync">○ Wishlist</button>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mb-3">
+        <button class="btn btn-sm @(_show.State == TvShowStatus.Current ? "btn-warning" : "btn-secondary")" @onclick='() => SetStateAsync(TvShowStatus.Current)'>Current</button>
+        <button class="btn btn-sm @(_show.State == TvShowStatus.Finished ? "btn-success" : "btn-secondary")" @onclick='() => SetStateAsync(TvShowStatus.Finished)'>Finished</button>
+        <button class="btn btn-sm @(_show.State == TvShowStatus.Stopped ? "btn-danger" : "btn-secondary")" @onclick='() => SetStateAsync(TvShowStatus.Stopped)'>Stopped</button>
+    </div>
+
+    @if (string.IsNullOrEmpty(_show.ReferenceId))
+    {
+        <AuthorizeView Policy="AdminOnly">
+            <Authorized>
+                <InlineReferenceLinker Type="ReferenceItemType.TvShow" Title="@_show.Title" Year="_show.Year" OnLinked="LoadAsync"/>
+            </Authorized>
+        </AuthorizeView>
+    }
+
+    <div class="kt-form-card">
+        <div class="row g-3">
+            @if (!string.IsNullOrEmpty(_reference?.ImageUrl))
+            {
+                <div class="col-md-2">
+                    <img src="@_reference.ImageUrl" alt="@_show.Title poster" class="img-fluid rounded"/>
+                </div>
+            }
+            <div class="col-md-4">
+                <div>
+                    <label class="form-label">Year</label>
+                    <input class="form-control form-control-sm" style="max-width:120px" type="number" min="1970" max="2100"
+                           value="@_show.Year" @onchange="SaveYearAsync"/>
+                </div>
+                <div class="mt-3">
+                    <label class="form-label">Rating</label>
+                    <StarRatingInput Rating="_show.Rating" RatingChanged="SetRatingAsync"/>
+                </div>
+                @if (_reference?.Genres.Count > 0)
+                {
+                    <p class="kt-card-meta mt-3 mb-0">@string.Join(", ", _reference.Genres)</p>
+                }
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Notes</label>
+                <textarea class="form-control" rows="3" @onchange="SaveNotesAsync">@_show.Notes</textarea>
+            </div>
+        </div>
+        @if (!string.IsNullOrEmpty(_reference?.Synopsis))
+        {
+            <hr/>
+            <p class="mb-0" style="color:var(--kt-text-muted)">@_reference.Synopsis</p>
+        }
+    </div>
+
+    @if (_reference?.Cast.Count > 0)
+    {
+        <h2 class="kt-section-title">Cast</h2>
+        <CastGrid Cast="_reference.Cast"/>
+    }
+
+    @if (_reference is not null)
+    {
+        @if (_seasons.Count == 0)
+        {
+            <div class="kt-empty">
+                <div class="kt-empty-icon">◈</div>
+                <p>No episode data available for this show yet.</p>
+            </div>
+        }
+        else
+        {
+            <h2 class="kt-section-title">Episodes</h2>
+            <div class="kt-season-picker">
+                @foreach (var season in _seasons)
+                {
+                    <button class="kt-page-btn @(season == _selectedSeason ? "active" : "")" @onclick="() => SelectSeason(season)">S@(season.ToString("00"))</button>
+                }
+            </div>
+
+            <div class="kt-season">
+                <div class="kt-season-header d-flex justify-content-between align-items-center">
+                    <span>Season @_selectedSeason</span>
+                    <label class="d-flex align-items-center gap-2" style="font-size:0.8rem;font-weight:400;cursor:pointer">
+                        <input class="form-check-input" type="checkbox" checked="@IsSelectedSeasonFullyWatched()"
+                               @onchange="e => ToggleSeasonAsync((bool)e.Value!)"/>
+                        Mark whole season
+                    </label>
+                </div>
+                @foreach (var episode in _referenceEpisodesBySeason[_selectedSeason])
+                {
+                    var watched = _watchedByKey.GetValueOrDefault((episode.SeasonNumber, episode.EpisodeNumber));
+                    <div class="kt-episode-row @(watched is not null ? "watched" : "")">
+                        <input class="form-check-input" type="checkbox" checked="@(watched is not null)"
+                               @onchange="e => ToggleEpisodeAsync(episode, (bool)e.Value!)"/>
+                        <span class="kt-episode-number">E@(episode.EpisodeNumber.ToString("00"))</span>
+                        <span>@episode.Title</span>
+                        <span class="kt-episode-date">@watched?.WatchedAt?.ToString("yyyy-MM-dd")</span>
+                    </div>
+                }
+            </div>
+        }
+        @if (_error is not null)
+        {
+            <div class="alert alert-danger mt-3">@_error</div>
+        }
+    }
+    else
+    {
+        <h2 class="kt-section-title">Add episode watched</h2>
+        <div class="kt-form-card">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Season</label>
+                    <input class="form-control" type="number" min="0" @bind="_newSeason"/>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Episode</label>
+                    <input class="form-control" type="number" min="0" @bind="_newEpisode"/>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Watched at</label>
+                    <input class="form-control" type="date" @bind="_newWatchedAt" @bind:format="yyyy-MM-dd"/>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button class="btn btn-success" @onclick="AddEpisodeAsync">Add</button>
+                </div>
+            </div>
+            @if (_error is not null)
+            {
+                <div class="alert alert-danger mt-3 mb-0">@_error</div>
+            }
+        </div>
+
+        @if (_unresolvedSeasons.Count == 0)
+        {
+            <div class="kt-empty">
+                <div class="kt-empty-icon">◈</div>
+                <p>No episodes tracked yet. This show hasn't been matched to a reference source yet, so the full episode list isn't available - add episodes manually above.</p>
+            </div>
+        }
+        else
+        {
+            <div class="kt-season-picker">
+                @foreach (var season in _unresolvedSeasons)
+                {
+                    <button class="kt-page-btn @(season == _selectedSeason ? "active" : "")" @onclick="() => SelectSeason(season)">S@(season.ToString("00"))</button>
+                }
+            </div>
+
+            <div class="kt-season">
+                <div class="kt-season-header">Season @_selectedSeason</div>
+                @foreach (var episode in _unresolvedEpisodesBySeason[_selectedSeason])
+                {
+                    <div class="kt-episode-row watched">
+                        <span class="kt-episode-number">E@(episode.EpisodeNumber.ToString("00"))</span>
+                        <span>@episode.Notes</span>
+                        <span class="kt-episode-date">@episode.WatchedAt?.ToString("yyyy-MM-dd")</span>
+                    </div>
+                }
+            </div>
+        }
+    }
+}
+
+@code {
+    [Parameter] public required string Id { get; set; }
+
+    [Inject] private TvShowApiClient TvShowApi { get; set; } = null!;
+
+    [Inject] private EpisodeApiClient EpisodeApi { get; set; } = null!;
+
+    [Inject] private ReferenceDataApiClient ReferenceDataApi { get; set; } = null!;
+
+    private bool _loading = true;
+    private TvShowDto? _show;
+    private TvShowReferenceDto? _reference;
+    private Dictionary<(int Season, int Episode), EpisodeDto> _watchedByKey = new();
+    private Dictionary<int, List<ReferenceEpisodeDto>> _referenceEpisodesBySeason = new();
+    private List<int> _seasons = [];
+    private Dictionary<int, List<EpisodeDto>> _unresolvedEpisodesBySeason = new();
+    private List<int> _unresolvedSeasons = [];
+    private int _selectedSeason;
+    private string? _error;
+    private static readonly TimeSpan RefreshMessageDuration = TimeSpan.FromSeconds(4);
+    private bool _refreshingReference;
+    private string? _refreshMessage;
+    private string _refreshMessageStyle = "neutral";
+    private object? _refreshMessageToken;
+
+    private int _newSeason = 1;
+    private int _newEpisode = 1;
+    private DateOnly? _newWatchedAt = DateOnly.FromDateTime(DateTime.Today);
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _show = await TvShowApi.GetOneAsync(Id);
+        var episodes = await EpisodeApi.GetAsync(string.Empty, 1, 5000, new Dictionary<string, string> { ["TvShowId"] = Id });
+
+        // reference data (synopsis, real episode titles, cast, poster) is a progressive enhancement: it
+        // may not exist yet (background match still pending, or genuinely unresolved), so the page never
+        // blocks on it - see the two very different rendering branches below.
+        _reference = string.IsNullOrEmpty(_show?.ReferenceId) ? null : await ReferenceDataApi.GetTvShowAsync(_show.ReferenceId);
+        _watchedByKey = episodes.Items.ToDictionary(e => (e.SeasonNumber, e.EpisodeNumber));
+
+        if (_reference is not null)
+        {
+            // full checklist, in natural watch-through order - an episode TMDB lists with a future air date
+            // hasn't aired yet, so it isn't "unseen and ready to watch", it doesn't exist yet from the
+            // viewer's perspective (same air-date filter WatchNextService applies for the "next episode" calc)
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            _referenceEpisodesBySeason = _reference.Episodes
+                .Where(e => e.AirDate is null || e.AirDate <= today)
+                .GroupBy(e => e.SeasonNumber)
+                .ToDictionary(g => g.Key, g => g.OrderBy(e => e.EpisodeNumber).ToList());
+            _seasons = _referenceEpisodesBySeason.Keys.OrderByDescending(s => s).ToList();
+            if (!_seasons.Contains(_selectedSeason)) _selectedSeason = _seasons.Count > 0 ? _seasons[0] : 0;
+        }
+        else
+        {
+            // unresolved: only what's actually been recorded, most recently aired first
+            _unresolvedEpisodesBySeason = episodes.Items
+                .GroupBy(e => e.SeasonNumber)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(e => e.EpisodeNumber).ToList());
+            _unresolvedSeasons = _unresolvedEpisodesBySeason.Keys.OrderByDescending(s => s).ToList();
+            if (!_unresolvedSeasons.Contains(_selectedSeason)) _selectedSeason = _unresolvedSeasons.Count > 0 ? _unresolvedSeasons[0] : 0;
+        }
+
+        _loading = false;
+    }
+
+    private void SelectSeason(int season) => _selectedSeason = season;
+
+    private async Task ToggleFavoriteAsync()
+    {
+        if (_show is null) return;
+        _show.IsFavorite = !_show.IsFavorite;
+        await TvShowApi.UpdateAsync(_show);
+    }
+
+    private async Task ToggleWantToWatchAsync()
+    {
+        if (_show is null) return;
+        _show.WantToWatch = !_show.WantToWatch;
+        await TvShowApi.UpdateAsync(_show);
+    }
+
+    private async Task ToggleOwnedAsync()
+    {
+        if (_show is null) return;
+        _show.IsOwned = !_show.IsOwned;
+        await TvShowApi.UpdateAsync(_show);
+    }
+
+    private async Task ToggleWishlistedAsync()
+    {
+        if (_show is null) return;
+        _show.IsWishlisted = !_show.IsWishlisted;
+        await TvShowApi.UpdateAsync(_show);
+    }
+
+    private async Task SetRatingAsync(float rating)
+    {
+        if (_show is null) return;
+        _show.Rating = rating;
+        await TvShowApi.UpdateAsync(_show);
+    }
+
+    /// <summary>
+    /// Clicking the already-active state button clears it back to unset - otherwise sets it. Explicit
+    /// buttons instead of a click-to-cycle flag: all three options are visible and directly selectable,
+    /// nothing to guess about what a click will do.
+    /// </summary>
+    private async Task SetStateAsync(TvShowStatus state)
+    {
+        if (_show is null) return;
+        _show.State = _show.State == state ? null : state;
+        await TvShowApi.UpdateAsync(_show);
+    }
+
+    private async Task SaveTitleAsync(ChangeEventArgs e)
+    {
+        if (_show is null) return;
+        var title = e.Value?.ToString();
+        if (string.IsNullOrWhiteSpace(title)) return;
+        _show.Title = title;
+        await TvShowApi.UpdateAsync(_show);
+    }
+
+    private async Task RefreshReferenceAsync()
+    {
+        if (_show?.Id is null) return;
+
+        var previousReferenceId = _show.ReferenceId;
+        _refreshingReference = true;
+        _refreshMessage = null;
+        try
+        {
+            var refreshed = await TvShowApi.RefreshReferenceAsync(_show.Id);
+            await LoadAsync();
+
+            (_refreshMessage, _refreshMessageStyle) = string.IsNullOrEmpty(refreshed.ReferenceId)
+                ? string.IsNullOrEmpty(previousReferenceId) ? ("No match found", "neutral") : ("Unlinked - no match", "danger")
+                : refreshed.ReferenceId == previousReferenceId ? ("Already linked", "neutral") : ("Linked!", "success");
+        }
+        catch (Exception ex)
+        {
+            _refreshMessage = $"Error: {ex.Message}";
+            _refreshMessageStyle = "danger";
+        }
+        finally
+        {
+            _refreshingReference = false;
+        }
+
+        ScheduleRefreshMessageClear();
+    }
+
+    /// <summary>
+    /// The toast is a small, auto-dismissing pill next to the refresh icon, not a permanent line of text -
+    /// a token guards against an in-flight delay from a previous click clearing a newer message.
+    /// </summary>
+    private void ScheduleRefreshMessageClear()
+    {
+        var token = new object();
+        _refreshMessageToken = token;
+        _ = ClearRefreshMessageAfterDelayAsync(token);
+    }
+
+    private async Task ClearRefreshMessageAfterDelayAsync(object token)
+    {
+        await Task.Delay(RefreshMessageDuration);
+        if (!ReferenceEquals(_refreshMessageToken, token)) return;
+        _refreshMessage = null;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SaveYearAsync(ChangeEventArgs e)
+    {
+        if (_show is null) return;
+        _show.Year = int.TryParse(e.Value?.ToString(), out var year) ? year : null;
+        await TvShowApi.UpdateAsync(_show);
+    }
+
+    private async Task SaveNotesAsync(ChangeEventArgs e)
+    {
+        if (_show is null) return;
+        _show.Notes = e.Value?.ToString();
+        await TvShowApi.UpdateAsync(_show);
+    }
+
+    private bool IsSelectedSeasonFullyWatched() =>
+        _referenceEpisodesBySeason.TryGetValue(_selectedSeason, out var episodes) && episodes.Count > 0
+        && episodes.All(e => _watchedByKey.ContainsKey((e.SeasonNumber, e.EpisodeNumber)));
+
+    private async Task ToggleEpisodeAsync(ReferenceEpisodeDto episode, bool isWatched)
+    {
+        try
+        {
+            await SetEpisodeWatchedAsync(episode, isWatched);
+            _error = null;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task ToggleSeasonAsync(bool markWatched)
+    {
+        if (!_referenceEpisodesBySeason.TryGetValue(_selectedSeason, out var episodes)) return;
+
+        try
+        {
+            foreach (var episode in episodes)
+            {
+                await SetEpisodeWatchedAsync(episode, markWatched);
+            }
+
+            _error = null;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task SetEpisodeWatchedAsync(ReferenceEpisodeDto episode, bool isWatched)
+    {
+        var key = (episode.SeasonNumber, episode.EpisodeNumber);
+        var existing = _watchedByKey.GetValueOrDefault(key);
+
+        if (isWatched && existing is null)
+        {
+            await EpisodeApi.AddAsync(new EpisodeDto
+            {
+                TvShowId = Id,
+                SeasonNumber = episode.SeasonNumber,
+                EpisodeNumber = episode.EpisodeNumber,
+                WatchedAt = DateOnly.FromDateTime(DateTime.Today)
+            });
+        }
+        else if (!isWatched && existing?.Id is not null)
+        {
+            await EpisodeApi.DeleteAsync(existing.Id);
+        }
+    }
+
+    private async Task AddEpisodeAsync()
+    {
+        try
+        {
+            await EpisodeApi.AddAsync(new EpisodeDto
+            {
+                TvShowId = Id,
+                SeasonNumber = _newSeason,
+                EpisodeNumber = _newEpisode,
+                WatchedAt = _newWatchedAt
+            });
+            _error = null;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}

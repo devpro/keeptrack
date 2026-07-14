@@ -1,6 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
 using Keeptrack.Common.System;
+using Keeptrack.Domain.Models;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
@@ -19,17 +19,22 @@ public class CarHistory : IHasIdAndOwnerId
     public required string CarId { get; set; }
 
     [BsonElement("history_date")]
-    public DateTime HistoryDate { get; set; }
+    public required DateTime HistoryDate { get; set; }
 
     public double? Mileage { get; set; }
 
-    public required string Action { get; set; }
+    [BsonElement("event_type")]
+    public required CarHistoryType EventType { get; set; }
+
+    public string? Description { get; set; }
+
+    public double? Cost { get; set; }
 
     public CarHistoryLocation? Location { get; set; }
-
-    public List<double>? Coordinates { get; set; }
 
     public CarHistoryFuel? Fuel { get; set; }
 
     public CarHistoryStation? Station { get; set; }
+
+    public string? Garage { get; set; }
 }

@@ -1,0 +1,267 @@
+@page "/books/{Id}"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using Keeptrack.BlazorApp.Components.ReferenceData
+@using Keeptrack.BlazorApp.Components.ReferenceDataAdmin
+
+@if (_loading)
+{
+    <div class="kt-loading">
+        <div class="kt-spinner"></div>
+        Loading…
+    </div>
+}
+else if (_book is null)
+{
+    <div class="kt-empty">
+        <div class="kt-empty-icon">◈</div>
+        <p>Book not found.</p>
+    </div>
+}
+else
+{
+    <div class="kt-page-header">
+        <div class="d-flex align-items-center gap-2" style="flex:1;min-width:0">
+            <input class="kt-title-input" value="@_book.Title" @onchange="SaveTitleAsync"/>
+            <button class="kt-icon-btn" @onclick="RefreshReferenceAsync" disabled="@_refreshingReference"
+                    title="@(string.IsNullOrEmpty(_book.ReferenceId) ? "Check for reference match using the title and year below." : $"Linked to \"{_reference?.Title}\". Not right? Edit the title or year below, then check again.")">
+                <span class="@(_refreshingReference ? "kt-icon-spin" : "")">↻</span>
+            </button>
+            @if (_refreshMessage is not null)
+            {
+                <span class="kt-inline-toast @_refreshMessageStyle">@_refreshMessage</span>
+            }
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm kt-toggle-btn @(_book.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>
+            <button class="btn btn-sm kt-toggle-btn @(_book.IsOwned ? "active" : "")" @onclick="ToggleOwnedAsync">● Owned</button>
+            <button class="btn btn-sm kt-toggle-btn @(_book.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync">○ Wishlist</button>
+        </div>
+    </div>
+    @if (string.IsNullOrEmpty(_book.ReferenceId))
+    {
+        <AuthorizeView Policy="AdminOnly">
+            <Authorized>
+                <InlineReferenceLinker Type="ReferenceItemType.Book" Title="@_book.Title" Year="_book.Year" Creator="@_book.Author" OnLinked="LoadAsync"/>
+            </Authorized>
+        </AuthorizeView>
+    }
+
+    <div class="kt-form-card">
+        <span class="kt-corner-flag @(_book.FirstReadAt is not null ? "active" : "")" @onclick="ToggleReadAsync">
+            @(_book.FirstReadAt is not null ? "✓ Read" : "Mark as read")
+        </span>
+        <div class="row g-3">
+            @if (!string.IsNullOrEmpty(_reference?.ImageUrl))
+            {
+                <div class="col-md-2">
+                    <img src="@_reference.ImageUrl" alt="@_book.Title cover" class="img-fluid rounded"/>
+                </div>
+            }
+            <div class="col-md-4">
+                <div>
+                    <label class="form-label">Author</label>
+                    <input class="form-control form-control-sm" value="@_book.Author" @onchange="SaveAuthorAsync"/>
+                </div>
+                <div class="mt-3">
+                    <label class="form-label">Series</label>
+                    <input class="form-control form-control-sm" value="@_book.Series" @onchange="SaveSeriesAsync"/>
+                </div>
+                <div class="mt-3">
+                    <label class="form-label">Year</label>
+                    <input class="form-control form-control-sm" style="max-width:120px" type="number" min="1400" max="2100"
+                           value="@_book.Year" @onchange="SaveYearAsync"/>
+                </div>
+                <div class="mt-3">
+                    <label class="form-label">Rating</label>
+                    <StarRatingInput Rating="_book.Rating" RatingChanged="SetRatingAsync"/>
+                </div>
+                @if (_book.FirstReadAt is not null)
+                {
+                    <div class="mt-3">
+                        <label class="form-label">Read on</label>
+                        <input class="form-control form-control-sm" style="max-width:160px" type="date"
+                               value="@_book.FirstReadAt?.ToString("yyyy-MM-dd")" @onchange="SetReadDateAsync"/>
+                    </div>
+                }
+                <div class="mt-3">
+                    <label class="form-label">Genre</label>
+                    <input class="form-control form-control-sm" value="@_book.Genre" @onchange="SaveGenreAsync"/>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Notes</label>
+                <textarea class="form-control" rows="3" @onchange="SaveNotesAsync">@_book.Notes</textarea>
+            </div>
+        </div>
+        @if (!string.IsNullOrEmpty(_reference?.Synopsis))
+        {
+            <hr/>
+            <p class="mb-0" style="color:var(--kt-text-muted)">@_reference.Synopsis</p>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public required string Id { get; set; }
+
+    [Inject] private BookApiClient BookApi { get; set; } = null!;
+
+    [Inject] private ReferenceDataApiClient ReferenceDataApi { get; set; } = null!;
+
+    private static readonly TimeSpan RefreshMessageDuration = TimeSpan.FromSeconds(4);
+
+    private bool _loading = true;
+    private BookDto? _book;
+    private BookReferenceDto? _reference;
+    private bool _refreshingReference;
+    private string? _refreshMessage;
+    private string _refreshMessageStyle = "neutral";
+    private object? _refreshMessageToken;
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _book = await BookApi.GetOneAsync(Id);
+        _reference = string.IsNullOrEmpty(_book?.ReferenceId) ? null : await ReferenceDataApi.GetBookAsync(_book.ReferenceId);
+        _loading = false;
+    }
+
+    private async Task SetRatingAsync(float rating)
+    {
+        if (_book is null) return;
+        _book.Rating = rating;
+        await BookApi.UpdateAsync(_book);
+    }
+
+    private async Task ToggleFavoriteAsync()
+    {
+        if (_book is null) return;
+        _book.IsFavorite = !_book.IsFavorite;
+        await BookApi.UpdateAsync(_book);
+    }
+
+    private async Task ToggleOwnedAsync()
+    {
+        if (_book is null) return;
+        _book.IsOwned = !_book.IsOwned;
+        await BookApi.UpdateAsync(_book);
+    }
+
+    private async Task ToggleWishlistedAsync()
+    {
+        if (_book is null) return;
+        _book.IsWishlisted = !_book.IsWishlisted;
+        await BookApi.UpdateAsync(_book);
+    }
+
+    private async Task ToggleReadAsync()
+    {
+        if (_book is null) return;
+        _book.FirstReadAt = _book.FirstReadAt is null ? DateOnly.FromDateTime(DateTime.Today) : null;
+        await BookApi.UpdateAsync(_book);
+    }
+
+    private async Task SetReadDateAsync(ChangeEventArgs e)
+    {
+        if (_book is null) return;
+        _book.FirstReadAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
+        await BookApi.UpdateAsync(_book);
+    }
+
+    private async Task SaveTitleAsync(ChangeEventArgs e)
+    {
+        if (_book is null) return;
+        var title = e.Value?.ToString();
+        if (string.IsNullOrWhiteSpace(title)) return;
+        _book.Title = title;
+        await BookApi.UpdateAsync(_book);
+    }
+
+    private async Task SaveAuthorAsync(ChangeEventArgs e)
+    {
+        if (_book is null) return;
+        var author = e.Value?.ToString();
+        if (string.IsNullOrWhiteSpace(author)) return;
+        _book.Author = author;
+        await BookApi.UpdateAsync(_book);
+    }
+
+    private async Task SaveSeriesAsync(ChangeEventArgs e)
+    {
+        if (_book is null) return;
+        _book.Series = e.Value?.ToString();
+        await BookApi.UpdateAsync(_book);
+    }
+
+    private async Task SaveGenreAsync(ChangeEventArgs e)
+    {
+        if (_book is null) return;
+        _book.Genre = e.Value?.ToString();
+        await BookApi.UpdateAsync(_book);
+    }
+
+    private async Task RefreshReferenceAsync()
+    {
+        if (_book?.Id is null) return;
+
+        var previousReferenceId = _book.ReferenceId;
+        _refreshingReference = true;
+        _refreshMessage = null;
+        try
+        {
+            var refreshed = await BookApi.RefreshReferenceAsync(_book.Id);
+            await LoadAsync();
+
+            (_refreshMessage, _refreshMessageStyle) = string.IsNullOrEmpty(refreshed.ReferenceId)
+                ? string.IsNullOrEmpty(previousReferenceId) ? ("No match found", "neutral") : ("Unlinked - no match", "danger")
+                : refreshed.ReferenceId == previousReferenceId ? ("Already linked", "neutral") : ("Linked!", "success");
+        }
+        catch (Exception ex)
+        {
+            _refreshMessage = $"Error: {ex.Message}";
+            _refreshMessageStyle = "danger";
+        }
+        finally
+        {
+            _refreshingReference = false;
+        }
+
+        ScheduleRefreshMessageClear();
+    }
+
+    /// <summary>
+    /// The toast is a small, auto-dismissing pill next to the refresh icon, not a permanent line of text -
+    /// a token guards against an in-flight delay from a previous click clearing a newer message.
+    /// </summary>
+    private void ScheduleRefreshMessageClear()
+    {
+        var token = new object();
+        _refreshMessageToken = token;
+        _ = ClearRefreshMessageAfterDelayAsync(token);
+    }
+
+    private async Task ClearRefreshMessageAfterDelayAsync(object token)
+    {
+        await Task.Delay(RefreshMessageDuration);
+        if (!ReferenceEquals(_refreshMessageToken, token)) return;
+        _refreshMessage = null;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SaveYearAsync(ChangeEventArgs e)
+    {
+        if (_book is null) return;
+        _book.Year = int.TryParse(e.Value?.ToString(), out var year) ? year : null;
+        await BookApi.UpdateAsync(_book);
+    }
+
+    private async Task SaveNotesAsync(ChangeEventArgs e)
+    {
+        if (_book is null) return;
+        _book.Notes = e.Value?.ToString();
+        await BookApi.UpdateAsync(_book);
+    }
+}

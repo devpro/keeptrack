@@ -1,0 +1,24 @@
+@* One row of the house history sheet - a compact summary of the most important fields. Editing happens
+   through the same modal used to add a new entry (HouseDetail.razor), opened via the Edit button below. *@
+
+<tr>
+    <td>@Entry.HistoryDate.ToString("yyyy-MM-dd")</td>
+    <td>@Entry.EventType</td>
+    <td>@Entry.Cost?.ToString("F2")</td>
+    <td>@Entry.Provider</td>
+    <td>@Entry.Description</td>
+    <td>
+        <div class="d-flex gap-1">
+            <button class="btn btn-sm btn-outline-primary" @onclick="() => OnEdit.InvokeAsync(Entry)">Edit</button>
+            <button class="btn btn-sm btn-outline-danger" @onclick="() => OnDelete.InvokeAsync(Entry.Id!)">Del</button>
+        </div>
+    </td>
+</tr>
+
+@code {
+    [Parameter] public required HouseHistoryDto Entry { get; set; }
+
+    [Parameter] public EventCallback<HouseHistoryDto> OnEdit { get; set; }
+
+    [Parameter] public EventCallback<string> OnDelete { get; set; }
+}

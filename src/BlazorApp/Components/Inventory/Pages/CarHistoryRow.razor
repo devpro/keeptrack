@@ -1,0 +1,35 @@
+@* One row of the car history sheet - a compact summary of the most important fields. Editing happens
+   through the same modal used to add a new entry (CarDetail.razor), opened via the Edit button below. *@
+
+<tr class="@(HasWarning ? "kt-history-row-warning" : "")">
+    <td>@Entry.HistoryDate.ToString(Entry.HistoryDate.TimeOfDay == TimeSpan.Zero ? "yyyy-MM-dd" : "yyyy-MM-dd HH:mm")</td>
+    <td>@Entry.Mileage</td>
+    <td>@Entry.EventType</td>
+    <td>@Entry.Cost?.ToString("F2")</td>
+    <td>@Entry.City</td>
+    <td>@Entry.Description</td>
+    <td>
+        @if (HasWarning)
+        {
+            <span class="kt-history-warning-icon" title="@WarningMessage">⚠</span>
+        }
+    </td>
+    <td>
+        <div class="d-flex gap-1">
+            <button class="btn btn-sm btn-outline-primary" @onclick="() => OnEdit.InvokeAsync(Entry)">Edit</button>
+            <button class="btn btn-sm btn-outline-danger" @onclick="() => OnDelete.InvokeAsync(Entry.Id!)">Del</button>
+        </div>
+    </td>
+</tr>
+
+@code {
+    [Parameter] public required CarHistoryDto Entry { get; set; }
+
+    [Parameter] public bool HasWarning { get; set; }
+
+    [Parameter] public string? WarningMessage { get; set; }
+
+    [Parameter] public EventCallback<CarHistoryDto> OnEdit { get; set; }
+
+    [Parameter] public EventCallback<string> OnDelete { get; set; }
+}

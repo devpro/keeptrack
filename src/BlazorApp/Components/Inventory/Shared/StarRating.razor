@@ -1,15 +1,25 @@
-﻿@for (var i = 1; i <= 5; i++)
+@for (var i = 1; i <= 5; i++)
 {
-    <span class="star @GetStarClass(i)">★</span>
+    var fillPercent = GetFillPercent(i);
+    <span class="star">
+        ★
+        @if (fillPercent > 0)
+        {
+            <span class="star-fill" style="width:@(fillPercent)%">★</span>
+        }
+    </span>
 }
 
 @code {
     [Parameter] public float? Rating { get; set; }
 
-    private string GetStarClass(int position)
+    /// <summary>
+    /// How much of this star is filled, as a percentage - not just full/half/empty, so a precise
+    /// rating like 4.8 shows visually as the 5th star ~80% filled, not rounded down to a half-star look.
+    /// </summary>
+    private int GetFillPercent(int position)
     {
-        var rating = Rating ?? 0;
-        if (rating >= position) return "full";
-        return rating >= position - 0.5f ? "half" : "empty";
+        var fill = (Rating ?? 0) - (position - 1);
+        return (int)(Math.Clamp(fill, 0, 1) * 100);
     }
 }

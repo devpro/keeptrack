@@ -1,5 +1,5 @@
-﻿using System;
-using Keeptrack.Common.System;
+﻿using Keeptrack.Common.System;
+using Keeptrack.Domain.Models;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
@@ -16,6 +16,9 @@ public class TvShow : IHasIdAndOwnerId
 
     public required string Title { get; set; }
 
+    [BsonElement("tv_time_id")]
+    public string? TvTimeId { get; set; }
+
     public int? Year { get; set; }
 
     public float? Rating { get; set; }
@@ -25,10 +28,23 @@ public class TvShow : IHasIdAndOwnerId
     [BsonElement("last_episode_seen")]
     public string? LastEpisodeSeen { get; set; }
 
-    public Imdb? Imdb { get; set; }
+    [BsonElement("reference_id")]
+    public string? ReferenceId { get; set; }
 
-    public Allocine? Allocine { get; set; }
+    // storage name kept as "status" deliberately - only the C# property was renamed to State (for parity
+    // with VideoGame.State), so existing documents need no migration.
+    [BsonElement("status")]
+    public TvShowStatus? State { get; set; }
 
-    [BsonElement("finished_at")]
-    public DateTime? FinishedAt { get; set; }
+    [BsonElement("is_favorite")]
+    public bool IsFavorite { get; set; }
+
+    [BsonElement("want_to_watch")]
+    public bool WantToWatch { get; set; }
+
+    [BsonElement("is_owned")]
+    public bool IsOwned { get; set; }
+
+    [BsonElement("is_wishlisted")]
+    public bool IsWishlisted { get; set; }
 }

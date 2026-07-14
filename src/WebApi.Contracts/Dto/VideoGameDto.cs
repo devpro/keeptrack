@@ -1,4 +1,4 @@
-﻿using System;
+using System.Collections.Generic;
 using Keeptrack.Common.System;
 
 namespace Keeptrack.WebApi.Contracts.Dto;
@@ -19,14 +19,9 @@ public class VideoGameDto : IHasId
     public string? Title { get; set; }
 
     /// <summary>
-    /// Latest plaform the game has been played on.
+    /// Every platform this game is tracked on - one entry per platform, not per physical copy.
     /// </summary>
-    public string? Platform { get; set; }
-
-    /// <summary>
-    /// Current payling state.
-    /// </summary>
-    public string? State { get; set; }
+    public List<VideoGamePlatformDto> Platforms { get; set; } = [];
 
     public int? Year { get; set; }
 
@@ -35,7 +30,24 @@ public class VideoGameDto : IHasId
     public string? Notes { get; set; }
 
     /// <summary>
-    /// Finished date.
+    /// Id of the linked <c>videogame_reference</c> document, when a match has been found.
     /// </summary>
-    public DateOnly? FinishedAt { get; set; }
+    public string? ReferenceId { get; set; }
+
+    public bool IsOwned { get; set; }
+
+    public bool IsWishlisted { get; set; }
+
+    /// <summary>
+    /// Filter-only query parameter: matches if any entry in <see cref="Platforms"/> has this platform.
+    /// Never populated on a returned game - the list endpoint binds query-string filters onto this DTO
+    /// before mapping to the Domain model, so this property exists purely to receive <c>?platform=</c>.
+    /// </summary>
+    public string? Platform { get; set; }
+
+    /// <summary>
+    /// Filter-only query parameter: matches if any entry in <see cref="Platforms"/> has this state. Never
+    /// populated on a returned game - see <see cref="Platform"/>.
+    /// </summary>
+    public string? State { get; set; }
 }

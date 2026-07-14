@@ -1,58 +1,92 @@
 /* ═══════════════════════════════════════════════════════════════════
-   KEEPTRACK — Cinema-grade dark theme  v3
-   Bootstrap 5.3.3 override layer
+   KEEPTRACK — theme layer (light + dark)
+   Bootstrap 5.3 override layer, driven by [data-bs-theme] on <html>
    ═══════════════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=DM+Sans:wght@300;400;500;600&display=swap');
-
-/* ── Variables ─────────────────────────────────────────────────────── */
+/* ── Tokens: light (default) ──────────────────────────────────────── */
 :root {
-  --kt-bg:           #0d0f14;
-  --kt-surface:      #13161e;
-  --kt-surface-2:    #1a1e28;
-  --kt-surface-3:    #222636;
-  --kt-border:       rgba(255,255,255,0.08);
-  --kt-border-hover: rgba(255,255,255,0.16);
-  --kt-amber:        #e8a045;
-  --kt-amber-dim:    #c4843a;
-  --kt-amber-glow:   rgba(232,160,69,0.12);
-  --kt-text:         #e8e6e1;
-  --kt-text-muted:   #7a7d8a;
-  --kt-text-subtle:  #3e414e;
-  --kt-danger:       #c0485a;
-  --kt-success:      #3d9970;
+  color-scheme: light;
+
+  --kt-bg:           #f6f7f9;
+  --kt-surface:      #ffffff;
+  --kt-surface-2:    #f1f2f5;
+  --kt-surface-3:    #eceef1;
+  --kt-border:       rgba(15, 18, 25, 0.10);
+  --kt-border-hover: rgba(15, 18, 25, 0.18);
+  --kt-accent:       #2f6fed;
+  --kt-accent-dim:   #1f56c4;
+  --kt-accent-glow:  rgba(47, 111, 237, 0.10);
+  --kt-text:         #1a1d23;
+  --kt-text-muted:   #5f6570;
+  --kt-text-subtle:  #b1b6bd;
+  --kt-danger:       #c73a52;
+  --kt-danger-bg:    #f5dde1;
+  --kt-success:      #2b8a5e;
+  --kt-success-bg:   #dcefe4;
+  --kt-warning:      #9a6b00;
+  --kt-warning-bg:   #f7ecd2;
+  --kt-chart-secondary: #8a5fd1;
   --kt-radius:       10px;
   --kt-radius-lg:    14px;
-  --kt-shadow:       0 4px 24px rgba(0,0,0,0.5);
-  --kt-shadow-lg:    0 12px 48px rgba(0,0,0,0.7);
-  --kt-font-display: 'Playfair Display', Georgia, serif;
-  --kt-font-ui:      'DM Sans', system-ui, sans-serif;
-  --kt-transition:   0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  --kt-shadow:       0 2px 10px rgba(15, 18, 25, 0.06);
+  --kt-shadow-lg:    0 12px 36px rgba(15, 18, 25, 0.14);
+  --kt-font:         system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --kt-transition:   0.15s ease;
 
-  /* Bootstrap overrides */
-  --bs-body-bg:            #0d0f14;
-  --bs-body-color:         #e8e6e1;
-  --bs-border-color:       rgba(255,255,255,0.08);
+  --bs-body-bg:            var(--kt-bg);
+  --bs-body-color:         var(--kt-text);
+  --bs-border-color:       var(--kt-border);
   --bs-table-bg:           transparent;
-  --bs-table-color:        #e8e6e1;
-  --bs-table-border-color: rgba(255,255,255,0.08);
+  --bs-table-color:        var(--kt-text);
+  --bs-table-border-color: var(--kt-border);
   --bs-table-striped-bg:   transparent;
-  --bs-table-hover-bg:     #1a1e28;
-  --bs-table-active-bg:    #1a1e28;
+  --bs-table-hover-bg:     var(--kt-surface-2);
+  --bs-table-active-bg:    var(--kt-surface-2);
+}
+
+/* ── Tokens: dark ──────────────────────────────────────────────────── */
+:root[data-bs-theme="dark"] {
+  color-scheme: dark;
+
+  --kt-bg:           #14161a;
+  --kt-surface:      #1b1e24;
+  --kt-surface-2:    #23262d;
+  --kt-surface-3:    #2b2f37;
+  --kt-border:       rgba(255, 255, 255, 0.08);
+  --kt-border-hover: rgba(255, 255, 255, 0.16);
+  --kt-accent:       #5b9dff;
+  --kt-accent-dim:   #3f7fe0;
+  --kt-accent-glow:  rgba(91, 157, 255, 0.14);
+  --kt-text:         #e6e8eb;
+  --kt-text-muted:   #9aa0aa;
+  --kt-text-subtle:  #565c66;
+  --kt-danger:       #e0687a;
+  --kt-danger-bg:    rgba(224, 104, 122, 0.16);
+  --kt-success:      #4cb489;
+  --kt-success-bg:   rgba(76, 180, 137, 0.16);
+  --kt-warning:      #e0be5b;
+  --kt-warning-bg:   rgba(224, 190, 91, 0.16);
+  --kt-chart-secondary: #b39ce8;
+  --kt-shadow:       0 4px 20px rgba(0, 0, 0, 0.35);
+  --kt-shadow-lg:    0 16px 48px rgba(0, 0, 0, 0.5);
+
+  --bs-body-bg:            var(--kt-bg);
+  --bs-body-color:         var(--kt-text);
+  --bs-border-color:       var(--kt-border);
+  --bs-table-hover-bg:     var(--kt-surface-2);
+  --bs-table-active-bg:    var(--kt-surface-2);
 }
 
 /* ── Base ──────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
 
-html { color-scheme: dark; }
-
 html, body {
   height: 100%;
   margin: 0;
   padding: 0;
-  background-color: var(--kt-bg) !important;
-  color: var(--kt-text) !important;
-  font-family: var(--kt-font-ui);
+  background-color: var(--kt-bg);
+  color: var(--kt-text);
+  font-family: var(--kt-font);
   font-size: 15px;
   font-weight: 400;
   line-height: 1.6;
@@ -60,14 +94,18 @@ html, body {
 }
 
 h1, h2, h3, h4 {
-  font-family: var(--kt-font-display);
+  font-family: var(--kt-font);
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   color: var(--kt-text);
 }
 
-a { color: var(--kt-amber); text-decoration: none; transition: color var(--kt-transition); }
-a:hover { color: var(--kt-text); }
+a { color: var(--kt-accent); text-decoration: none; transition: color var(--kt-transition); }
+a:hover { color: var(--kt-accent-dim); }
+
+/* Routes.razor's <FocusOnNavigate Selector="h1"> programmatically focuses the page's h1 after
+   navigation for screen readers; suppress the resulting focus ring since h1 isn't interactive. */
+h1:focus { outline: none; }
 
 /* ── Layout ────────────────────────────────────────────────────────── */
 .page {
@@ -76,7 +114,6 @@ a:hover { color: var(--kt-text); }
   background: var(--kt-bg);
 }
 
-/* The main column fills all remaining space */
 .main {
   flex: 1 1 0%;
   min-width: 0;
@@ -85,8 +122,6 @@ a:hover { color: var(--kt-text); }
   overflow-x: hidden;
 }
 
-/* Content area — covers both article.content (our layout) and
-   div.content (Blazor default template). Centered with max-width. */
 article.content,
 div.content,
 .content {
@@ -119,21 +154,19 @@ div.content,
   border-bottom: 1px solid var(--kt-border);
 }
 
-/* Hide the default Blazor top-row inside .main (About link etc) */
 .main > .top-row { display: none; }
 
 .navbar-brand {
-  font-family: var(--kt-font-display);
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   font-weight: 700;
   color: var(--kt-text) !important;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   text-decoration: none !important;
 }
-.navbar-brand::before { content: '◈'; color: var(--kt-amber); font-size: 0.95rem; }
+.navbar-brand::before { content: '◈'; color: var(--kt-accent); font-size: 0.95rem; }
 
 .navbar-toggler {
   display: none;
@@ -147,12 +180,10 @@ div.content,
   line-height: 1;
 }
 
-/* Hide the checkbox input, show only the label */
 #nav-toggle {
   display: none !important;
 }
 
-/* Hamburger label — visible on mobile */
 .navbar-toggler-label {
   display: none;
   background: none;
@@ -192,24 +223,37 @@ div.content,
   line-height: 1.4;
 }
 .nav-link:hover   { color: var(--kt-text) !important; background: var(--kt-surface-2) !important; }
-.nav-link.active  { color: var(--kt-amber) !important; background: var(--kt-amber-glow) !important; }
-button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.08) !important; }
+.nav-link.active  { color: var(--kt-accent) !important; background: var(--kt-accent-glow) !important; }
+button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199, 58, 82, 0.08) !important; }
 
-/* nav-icon span used instead of pseudo-elements to avoid encoding issues */
 .nav-icon {
   width: 16px;
   text-align: center;
   flex-shrink: 0;
   font-style: normal;
-  opacity: 0.7;
+  opacity: 0.8;
 }
 
-.nav-link-user {
+/* the signed-in user's nav row has no plain-text glyph that reads as "profile" (a person silhouette is a
+   color-emoji-only codepoint - see the Theme section in CLAUDE.md), so it's a small initial-letter avatar
+   instead of an icon - the same pattern Gmail/Slack use, and it doubles as a personalization touch */
+.kt-nav-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--kt-accent-glow);
+  color: var(--kt-accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
 }
 
 .nav-link-logout:hover {
-  color: #e07070 !important;
-  background: rgba(192,72,90,0.08) !important;
+  color: var(--kt-danger) !important;
+  background: rgba(199, 58, 82, 0.08) !important;
 }
 
 .nav-username {
@@ -222,27 +266,49 @@ button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.
 
 .nav-divider { border-top: 1px solid var(--kt-border); margin: 0.75rem 0; }
 
+/* ── Theme toggle ──────────────────────────────────────────────────── */
+.kt-theme-toggle {
+  display: flex !important;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 7px;
+  border: none;
+  background: none;
+  color: var(--kt-text-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: var(--kt-font);
+  cursor: pointer;
+  text-align: left;
+}
+.kt-theme-toggle:hover { color: var(--kt-text); background: var(--kt-surface-2); }
+.kt-theme-toggle .nav-icon { opacity: 1; }
+[data-bs-theme="dark"] .kt-theme-toggle .kt-theme-icon-dark { display: none; }
+[data-bs-theme="light"] .kt-theme-toggle .kt-theme-icon-light { display: none; }
+:root:not([data-bs-theme]) .kt-theme-toggle .kt-theme-icon-light { display: none; }
+
 /* ── Buttons ───────────────────────────────────────────────────────── */
 .btn {
-  font-family: var(--kt-font-ui) !important;
+  font-family: var(--kt-font) !important;
   font-weight: 500 !important;
   font-size: 0.85rem !important;
   border-radius: 8px !important;
   padding: 0.5rem 1.1rem !important;
   transition: all var(--kt-transition) !important;
-  letter-spacing: 0.01em;
   line-height: 1.4;
 }
-.btn-primary  { background: var(--kt-amber) !important; color: #0d0f14 !important; border-color: var(--kt-amber) !important; }
-.btn-primary:hover  { background: #f0b060 !important; border-color: #f0b060 !important; color: #0d0f14 !important; box-shadow: 0 0 0 3px rgba(232,160,69,0.22) !important; }
+.btn-primary  { background: var(--kt-accent) !important; color: #fff !important; border-color: var(--kt-accent) !important; }
+.btn-primary:hover  { background: var(--kt-accent-dim) !important; border-color: var(--kt-accent-dim) !important; color: #fff !important; box-shadow: 0 0 0 3px var(--kt-accent-glow) !important; }
 .btn-secondary { background: var(--kt-surface-3) !important; color: var(--kt-text-muted) !important; border-color: var(--kt-border) !important; }
-.btn-secondary:hover { background: #2a2f40 !important; color: var(--kt-text) !important; border-color: var(--kt-border-hover) !important; box-shadow: none !important; }
+.btn-secondary:hover { background: var(--kt-surface-2) !important; color: var(--kt-text) !important; border-color: var(--kt-border-hover) !important; box-shadow: none !important; }
 .btn-success  { background: var(--kt-success) !important; color: #fff !important; border-color: var(--kt-success) !important; }
-.btn-success:hover { background: #4aad82 !important; border-color: #4aad82 !important; }
-.btn-outline-danger  { background: transparent !important; color: var(--kt-danger) !important; border-color: rgba(192,72,90,0.35) !important; }
-.btn-outline-danger:hover  { background: rgba(192,72,90,0.12) !important; color: #d45a6c !important; border-color: var(--kt-danger) !important; box-shadow: none !important; }
-.btn-outline-primary { background: transparent !important; color: var(--kt-amber) !important; border-color: rgba(232,160,69,0.35) !important; }
-.btn-outline-primary:hover { background: var(--kt-amber-glow) !important; color: var(--kt-amber) !important; border-color: rgba(232,160,69,0.6) !important; box-shadow: none !important; }
+.btn-success:hover { filter: brightness(1.08); border-color: var(--kt-success) !important; }
+.btn-outline-danger  { background: transparent !important; color: var(--kt-danger) !important; border-color: rgba(199, 58, 82, 0.35) !important; }
+.btn-outline-danger:hover  { background: rgba(199, 58, 82, 0.10) !important; color: var(--kt-danger) !important; border-color: var(--kt-danger) !important; box-shadow: none !important; }
+.btn-outline-primary { background: transparent !important; color: var(--kt-accent) !important; border-color: rgba(47, 111, 237, 0.35) !important; }
+.btn-outline-primary:hover { background: var(--kt-accent-glow) !important; color: var(--kt-accent) !important; border-color: var(--kt-accent) !important; box-shadow: none !important; }
 .btn-sm { padding: 0.28rem 0.65rem !important; font-size: 0.78rem !important; border-radius: 6px !important; }
 
 /* ── Form controls ─────────────────────────────────────────────────── */
@@ -254,20 +320,21 @@ button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.
   border-radius: 8px !important;
   padding: 0.5rem 0.85rem !important;
   font-size: 0.875rem !important;
-  font-family: var(--kt-font-ui) !important;
+  font-family: var(--kt-font) !important;
   transition: border-color var(--kt-transition), box-shadow var(--kt-transition) !important;
 }
 .form-control:focus, .form-select:focus {
   background-color: var(--kt-surface-3) !important;
-  border-color: var(--kt-amber) !important;
+  border-color: var(--kt-accent) !important;
   color: var(--kt-text) !important;
-  box-shadow: 0 0 0 3px rgba(232,160,69,0.12) !important;
+  box-shadow: 0 0 0 3px var(--kt-accent-glow) !important;
   outline: none !important;
 }
 .form-control::placeholder { color: var(--kt-text-subtle) !important; }
 .form-select option { background: var(--kt-surface-3); color: var(--kt-text); }
 .form-control-sm, .form-select-sm { padding: 0.3rem 0.65rem !important; font-size: 0.82rem !important; border-radius: 6px !important; }
-.form-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--kt-text-muted); margin-bottom: 0.35rem; }
+.form-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--kt-text-muted); margin-bottom: 0.35rem; }
+.form-check-input:checked { background-color: var(--kt-accent) !important; border-color: var(--kt-accent) !important; }
 
 /* ── TABLE ─────────────────────────────────────────────────────────── */
 .table {
@@ -283,7 +350,6 @@ button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.
   border-spacing: 0 !important;
 }
 
-/* Override Bootstrap's per-cell bg injection */
 .table > :not(caption) > * > * {
   background-color: transparent !important;
   color: var(--kt-text) !important;
@@ -297,7 +363,7 @@ button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.
   font-size: 0.7rem !important;
   font-weight: 600 !important;
   text-transform: uppercase !important;
-  letter-spacing: 0.1em !important;
+  letter-spacing: 0.08em !important;
   color: var(--kt-text-muted) !important;
   border-bottom: 1px solid var(--kt-border) !important;
   white-space: nowrap;
@@ -307,9 +373,9 @@ button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.
 .table tbody tr:hover td { background-color: var(--kt-surface-2) !important; }
 
 .table tbody tr.kt-editing td {
-  background-color: rgba(232,160,69,0.04) !important;
-  border-top: 1px solid rgba(232,160,69,0.2) !important;
-  border-bottom: 1px solid rgba(232,160,69,0.2) !important;
+  background-color: var(--kt-accent-glow) !important;
+  border-top: 1px solid var(--kt-accent) !important;
+  border-bottom: 1px solid var(--kt-accent) !important;
 }
 
 .kt-table-wrap {
@@ -321,7 +387,6 @@ button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.
   width: 100%;
 }
 
-/* Header bar inside the table card — title left, button right */
 .kt-table-header {
   display: flex;
   align-items: center;
@@ -331,13 +396,13 @@ button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.
 }
 
 .kt-table-title {
-  font-size: 1.75rem;
+  font-size: 1.6rem;
   margin: 0;
   line-height: 1;
   padding-bottom: 1.25rem;
 }
 
-.kt-table-title span { color: var(--kt-amber); }
+.kt-table-title span { color: var(--kt-accent); }
 
 /* ── Page header ───────────────────────────────────────────────────── */
 .kt-page-header {
@@ -348,46 +413,244 @@ button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.
   gap: 1rem;
   flex-wrap: wrap;
 }
-.kt-page-header h1 { font-size: 2.2rem; color: var(--kt-text); margin: 0; line-height: 1; }
-.kt-page-header h1 span { color: var(--kt-amber); }
+.kt-page-header h1 { font-size: 2rem; color: var(--kt-text); margin: 0; line-height: 1; }
+.kt-page-header h1 span { color: var(--kt-accent); }
+
+/* editable "title" input on a detail page, styled to read as a heading until you interact with it.
+   flex/min-width let it fill its row (rather than a fixed browser-default input width), so a button placed
+   right after it (e.g. the reference-refresh icon) sits at a predictable spot instead of trailing right
+   after wherever the visible text happens to end. */
+.kt-title-input {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--kt-text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--kt-radius);
+  padding: 0.1rem 0.5rem;
+  margin: 0 0 0 -0.5rem;
+  max-width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--kt-font);
+}
+.kt-title-input:hover:not(:disabled) { border-color: var(--kt-border); }
+.kt-title-input:focus { border-color: var(--kt-accent); outline: none; background: var(--kt-surface); }
+.kt-title-input:disabled { cursor: not-allowed; }
+
+/* small icon-only button next to the title (e.g. "check for reference match") - borderless/transparent
+   until hover, matching the title input's own minimal look, instead of standing out as a heavy bordered button */
+.kt-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  border-radius: var(--kt-radius);
+  color: var(--kt-text-muted);
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+.kt-icon-btn:hover:not(:disabled) { background: var(--kt-surface-3); color: var(--kt-text); }
+.kt-icon-btn:disabled { cursor: not-allowed; opacity: 0.5; }
+
+/* small transient pill next to an inline action button (e.g. the refresh-reference result), instead of a
+   plain unstyled paragraph that reads like leftover debug output. Same pill shape as .kt-status-badge, with
+   generic semantic colors instead of TvShowStatus-specific ones. Auto-dismissed from code-behind after a
+   few seconds - see RefreshReferenceAsync in MovieDetail.razor/TvShowDetail.razor. */
+.kt-inline-toast {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 20px;
+  white-space: nowrap;
+  animation: kt-toast-in 0.15s ease-out;
+}
+.kt-inline-toast.success { background: var(--kt-success-bg); color: var(--kt-success); }
+.kt-inline-toast.neutral { background: var(--kt-surface-3); color: var(--kt-text-muted); }
+.kt-inline-toast.danger  { background: var(--kt-danger-bg); color: var(--kt-danger); }
+@keyframes kt-toast-in { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: translateY(0); } }
+
+/* small "more options" popup anchored under a kt-icon-btn (e.g. a track row's "⋮" menu) - the row it's
+   anchored to needs position:relative so this absolute box lands directly under the button, not the page. */
+.kt-menu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 10;
+  background: var(--kt-surface);
+  border: 1px solid var(--kt-border);
+  border-radius: var(--kt-radius-lg);
+  box-shadow: var(--kt-shadow-lg);
+  padding: 0.4rem;
+  min-width: 180px;
+}
+.kt-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--kt-radius);
+  color: var(--kt-text);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.kt-menu-item:hover { background: var(--kt-surface-3); }
+
+/* Album/Book/VideoGame detail hero: cover + fields side by side. A fixed grid (not flex-wrap) so the
+   layout never depends on how much horizontal space the field values happen to need - relying on
+   flex-wrap's intrinsic-sizing heuristics caused the cover to intermittently land alone on its own row
+   for some albums (long genre text, etc.) while others stayed side-by-side, with no clear pattern from
+   the markup alone. */
+.kt-album-hero {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 480px);
+  gap: 1.5rem;
+  align-items: start;
+}
+.kt-album-hero.kt-album-hero-no-cover { grid-template-columns: minmax(0, 480px); }
+.kt-album-cover {
+  width: 300px;
+  height: 300px;
+  object-fit: cover;
+  border-radius: var(--kt-radius-lg);
+}
+@media (max-width: 767px) {
+  .kt-album-hero, .kt-album-hero.kt-album-hero-no-cover { grid-template-columns: 1fr; }
+  .kt-album-cover { width: 200px; height: 200px; }
+}
+
+/* compact aligned row for a list of tracks/songs inside a .kt-form-card (e.g. a playlist's song list) -
+   a CSS grid so title/artist/album line up in columns across rows without resorting to a full
+   .kt-table-wrap/<table>, which reads as a top-level list page rather than a detail-page sub-section. */
+.kt-track-row {
+  display: grid;
+  grid-template-columns: 1fr 180px 180px auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0;
+  border-top: 1px solid var(--kt-border);
+}
+.kt-track-row:first-of-type { border-top: none; }
 
 /* ── Form card ─────────────────────────────────────────────────────── */
 .kt-form-card {
+  position: relative;
   background: var(--kt-surface);
   border: 1px solid var(--kt-border);
-  border-top: 1px solid rgba(232,160,69,0.3);
+  border-top: 2px solid var(--kt-accent);
   border-radius: var(--kt-radius-lg);
   padding: 1.5rem 1.75rem;
   margin-bottom: 1.75rem;
   box-shadow: var(--kt-shadow);
 }
 .kt-form-card h5 {
-  font-family: var(--kt-font-display);
-  font-style: italic;
-  color: var(--kt-amber);
-  font-size: 0.9rem;
+  color: var(--kt-accent);
+  font-size: 0.85rem;
   font-weight: 600;
   margin-bottom: 1.25rem;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
 }
+
+/* corner flag: e.g. "watched" status on a movie/show presentation card */
+.kt-corner-flag {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 0.35rem 0.9rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 0 var(--kt-radius-lg) 0 var(--kt-radius);
+  cursor: pointer;
+  background: var(--kt-surface-3);
+  color: var(--kt-text-muted);
+  transition: background var(--kt-transition), color var(--kt-transition);
+  user-select: none;
+}
+.kt-corner-flag:hover { background: var(--kt-border-hover); }
+.kt-corner-flag.active {
+  background: var(--kt-success-bg);
+  color: var(--kt-success);
+}
+
+/* favorite/watchlist toggle buttons on a detail page: a soft tinted "selected" state instead of the
+   solid btn-primary blue/white block, which read as unnecessarily aggressive, especially in dark mode -
+   same accent-glow treatment already used for .kt-page-btn.active. */
+.kt-toggle-btn {
+  background: var(--kt-surface-3) !important;
+  color: var(--kt-text-muted) !important;
+  border: 1px solid var(--kt-border) !important;
+}
+.kt-toggle-btn:hover { background: var(--kt-surface-2) !important; color: var(--kt-text) !important; }
+.kt-toggle-btn.active {
+  background: var(--kt-accent-glow) !important;
+  color: var(--kt-accent) !important;
+  border-color: rgba(47, 111, 237, 0.35) !important;
+}
+.kt-toggle-btn.active:hover { background: var(--kt-accent-glow) !important; }
+
+/* Status/state pill for a list column (TV show status, video game state) - setting the value itself
+   happens via the explicit buttons on the detail page, not by clicking this) */
+.kt-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 20px;
+}
+.kt-status-badge.current { background: var(--kt-warning-bg); color: var(--kt-warning); }
+.kt-status-badge.finished { background: var(--kt-success-bg); color: var(--kt-success); }
+.kt-status-badge.stopped { background: var(--kt-danger-bg); color: var(--kt-danger); }
+/* video game states share "current" above (same in-progress meaning); the remaining three have no
+   TV show equivalent, so get their own modifiers here. */
+.kt-status-badge.completed { background: var(--kt-success-bg); color: var(--kt-success); }
+.kt-status-badge.to-resume { background: var(--kt-warning-bg); color: var(--kt-warning); }
+.kt-status-badge.on-hold { background: var(--kt-danger-bg); color: var(--kt-danger); }
+.kt-status-badge.available { background: var(--kt-surface-2); color: var(--kt-text-muted); }
+
+/* ── Progress bar ──────────────────────────────────────────────────── */
+.progress { background-color: var(--kt-surface-3) !important; border-radius: 999px !important; }
+.progress-bar { background-color: var(--kt-accent) !important; transition: width 0.3s ease !important; }
 
 /* ── Alerts ────────────────────────────────────────────────────────── */
 .alert { border-radius: var(--kt-radius) !important; font-size: 0.875rem; padding: 0.8rem 1.1rem !important; }
-.alert-danger { background: rgba(192,72,90,0.1) !important; border-color: rgba(192,72,90,0.3) !important; color: #e07080 !important; }
-.alert-info   { background: rgba(232,160,69,0.06) !important; border-color: rgba(232,160,69,0.18) !important; color: var(--kt-text-muted) !important; }
+.alert-danger { background: rgba(199, 58, 82, 0.10) !important; border-color: rgba(199, 58, 82, 0.3) !important; color: var(--kt-danger) !important; }
+.alert-info   { background: var(--kt-accent-glow) !important; border-color: rgba(47, 111, 237, 0.2) !important; color: var(--kt-text-muted) !important; }
 
 /* ── Loading / empty ───────────────────────────────────────────────── */
 .kt-loading { display: flex; align-items: center; gap: 0.75rem; color: var(--kt-text-muted); font-size: 0.9rem; padding: 4rem 0; justify-content: center; }
-.kt-spinner { width: 18px; height: 18px; border: 2px solid var(--kt-surface-3); border-top-color: var(--kt-amber); border-radius: 50%; animation: spin 0.75s linear infinite; flex-shrink: 0; }
+.kt-spinner { width: 18px; height: 18px; border: 2px solid var(--kt-surface-3); border-top-color: var(--kt-accent); border-radius: 50%; animation: spin 0.75s linear infinite; flex-shrink: 0; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* plain monochrome glyph (not a color emoji) for a small inline action button, e.g. "check for reference
+   match" - spins in place using the same animation as .kt-spinner while the action is running */
+.kt-icon-spin { display: inline-block; animation: spin 0.75s linear infinite; }
 .kt-empty { text-align: center; padding: 5rem 2rem; }
 .kt-empty-icon { font-size: 2.5rem; color: var(--kt-text-subtle); display: block; margin-bottom: 1rem; }
 .kt-empty p { font-size: 0.9rem; color: var(--kt-text-muted); margin: 0; line-height: 1.8; }
 
 /* ── Stars ─────────────────────────────────────────────────────────── */
-.kt-stars { color: var(--kt-amber); letter-spacing: 0; font-size: 0.85rem; }
-.kt-stars .empty { color: var(--kt-text-subtle); }
+.kt-stars { color: var(--kt-accent); letter-spacing: 0; font-size: 0.85rem; }
+
+/* each star is the empty glyph with a precisely-widthed filled glyph overlaid on top, so any decimal
+   rating (e.g. 4.8) renders as an accurate partial fill, not rounded to the nearest half star */
+.star { position: relative; display: inline-block; font-size: 1.2rem; color: var(--kt-text-subtle); }
+.star-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: hidden;
+  color: var(--kt-accent);
+}
 
 /* ── Home ──────────────────────────────────────────────────────────── */
 .kt-home {
@@ -400,9 +663,9 @@ button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.
   margin-right: auto;
   padding-top: 5vh;
 }
-.kt-home-eyebrow { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.2em; color: var(--kt-amber); margin-bottom: 1.1rem; }
-.kt-home h1 { font-size: clamp(2.4rem, 4.5vw, 3.8rem); line-height: 1.12; margin-bottom: 1.25rem; }
-.kt-home h1 em { font-style: italic; color: var(--kt-amber); }
+.kt-home-eyebrow { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.16em; color: var(--kt-accent); margin-bottom: 1.1rem; }
+.kt-home h1 { font-size: clamp(2.2rem, 4.2vw, 3.4rem); line-height: 1.15; margin-bottom: 1.25rem; }
+.kt-home h1 em { font-style: normal; color: var(--kt-accent); }
 .kt-home-sub { font-size: 1rem; color: var(--kt-text-muted); line-height: 1.75; margin-bottom: 2.5rem; }
 .kt-home-cta { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
 
@@ -422,7 +685,7 @@ button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.
   border: 1px solid var(--kt-border);
   border-radius: 20px;
   padding: 0.3rem 0.85rem;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
 }
 
 /* ── Login ─────────────────────────────────────────────────────────── */
@@ -437,7 +700,7 @@ button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.
 .kt-login-card {
   background: var(--kt-surface);
   border: 1px solid var(--kt-border);
-  border-top: 2px solid var(--kt-amber);
+  border-top: 2px solid var(--kt-accent);
   border-radius: var(--kt-radius-lg);
   padding: 2.25rem 2rem 2rem;
   width: 100%;
@@ -445,8 +708,8 @@ button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.
   box-shadow: var(--kt-shadow-lg);
 }
 
-.kt-login-logo { font-family: var(--kt-font-display); font-size: 1.5rem; font-weight: 700; color: var(--kt-text); margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.45rem; }
-.kt-login-logo::before { content: '◈'; color: var(--kt-amber); font-size: 1rem; }
+.kt-login-logo { font-size: 1.4rem; font-weight: 700; color: var(--kt-text); margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.45rem; }
+.kt-login-logo::before { content: '◈'; color: var(--kt-accent); font-size: 1rem; }
 .kt-login-tagline { font-size: 0.82rem; color: var(--kt-text-muted); margin-bottom: 1.75rem; }
 
 /* OAuth buttons — flex, icon left, text centered in remaining space */
@@ -461,7 +724,7 @@ button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.
   margin-bottom: 0.65rem;
   transition: all var(--kt-transition);
   cursor: pointer;
-  font-family: var(--kt-font-ui);
+  font-family: var(--kt-font);
   border: 1px solid var(--kt-border);
   background: var(--kt-surface-2);
   color: var(--kt-text);
@@ -470,7 +733,6 @@ button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.
   position: relative;
 }
 
-/* Icon sits at fixed left position */
 .btn-oauth svg,
 .btn-oauth img {
   position: absolute;
@@ -478,7 +740,6 @@ button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.
   flex-shrink: 0;
 }
 
-/* Label fills the button and centers itself */
 .btn-oauth span.btn-label {
   flex: 1;
   text-align: center;
@@ -493,9 +754,10 @@ button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.
 ::-webkit-scrollbar-thumb { background: var(--kt-surface-3); border-radius: 10px; }
 
 /* ── Blazor internals ──────────────────────────────────────────────── */
-#blazor-error-ui { background: var(--kt-surface); border-top: 1px solid var(--kt-border); color: var(--kt-text-muted); font-family: var(--kt-font-ui); font-size: 0.82rem; padding: 0.75rem 1.25rem; position: fixed; bottom: 0; width: 100%; z-index: 1000; display: none; }
+#blazor-error-ui { background: var(--kt-surface); border-top: 1px solid var(--kt-border); color: var(--kt-text-muted); font-family: var(--kt-font); font-size: 0.82rem; padding: 0.75rem 1.25rem; position: fixed; bottom: 0; width: 100%; z-index: 1000; display: none; }
 #blazor-error-ui .dismiss { cursor: pointer; float: right; font-weight: 600; }
-#components-reconnect-modal { background: var(--kt-surface); border: 1px solid var(--kt-border); border-radius: var(--kt-radius); padding: 0.85rem 1.25rem; position: fixed; bottom: 1.5rem; right: 1.5rem; color: var(--kt-text-muted); font-size: 0.82rem; z-index: 1001; box-shadow: var(--kt-shadow-lg); }
+/* Reconnect modal theming lives in Components/Layout/ReconnectModal.razor.css - it's Blazor CSS
+   isolation, so a scoped selector there always wins the cascade over anything declared here. */
 
 /* ── Responsive ────────────────────────────────────────────────────── */
 @media (max-width: 767px) {
@@ -506,7 +768,7 @@ button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.
   .nav-scrollable { display: none; }
   #nav-toggle:checked ~ .nav-scrollable { display: block; }
   article.content { padding: 1.5rem 1rem; }
-  .kt-page-header h1 { font-size: 1.75rem; }
+  .kt-page-header h1 { font-size: 1.6rem; }
   .kt-table-wrap { border-radius: var(--kt-radius); }
   .table thead { display: none; }
   .table, .table tbody, .table tr, .table td { display: block; width: 100%; }
@@ -549,6 +811,17 @@ button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.
   pointer-events: none;
 }
 
+/* pushed to the far right of the search bar row via margin-left:auto - the search input/Clear button stay
+   left-aligned, filter toggles (status, favorites, ...) sit on the opposite end of the same line instead
+   of a separate row above the table */
+.kt-search-filters {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
 /* ── Pagination ────────────────────────────────────────────────────── */
 .kt-pagination {
   display: flex;
@@ -576,7 +849,7 @@ button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.
   border: 1px solid var(--kt-border);
   background: transparent;
   color: var(--kt-text-muted);
-  font-family: var(--kt-font-ui);
+  font-family: var(--kt-font);
   font-size: 0.82rem;
   font-weight: 500;
   cursor: pointer;
@@ -593,9 +866,9 @@ button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.
 }
 
 .kt-page-btn.active {
-  background: var(--kt-amber-glow);
-  border-color: rgba(232,160,69,0.4);
-  color: var(--kt-amber);
+  background: var(--kt-accent-glow);
+  border-color: rgba(47, 111, 237, 0.4);
+  color: var(--kt-accent);
   font-weight: 600;
 }
 
@@ -610,29 +883,11 @@ button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.
   color: var(--kt-text-subtle);
 }
 
-/* ── Stars ────────────────────────────────────────────────────── */
-.star { font-size: 1.2rem; }
-.star.full  { color: gold; }
-.star.empty { color: lightgray; }
-.star.half  {
-  position: relative;
-  display: inline-block;
-  color: lightgray;
-}
-.star.half::before {
-  content: '★';
-  position: absolute;
-  left: 0;
-  width: 50%;
-  overflow: hidden;
-  color: gold;
-}
-
 /* ── Modal ─────────────────────────────────────────────────────────── */
 .kt-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.65);
+  background: rgba(10, 12, 16, 0.5);
   backdrop-filter: blur(3px);
   z-index: 500;
   display: flex;
@@ -645,7 +900,7 @@ button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.
 .kt-modal {
   background: var(--kt-surface);
   border: 1px solid var(--kt-border);
-  border-top: 2px solid var(--kt-amber);
+  border-top: 2px solid var(--kt-accent);
   border-radius: var(--kt-radius-lg);
   box-shadow: var(--kt-shadow-lg);
   width: 100%;
@@ -666,14 +921,12 @@ button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.
 }
 
 .kt-modal-header h5 {
-  font-family: var(--kt-font-display);
-  font-style: italic;
-  color: var(--kt-amber);
-  font-size: 0.9rem;
+  color: var(--kt-accent);
+  font-size: 0.85rem;
   font-weight: 600;
   margin: 0;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
 }
 
 .kt-modal-close {
@@ -707,13 +960,228 @@ button.nav-link:hover { color: #e07070 !important; background: rgba(192,72,90,0.
 @keyframes kt-fade-in  { from { opacity: 0; } to { opacity: 1; } }
 @keyframes kt-slide-up { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-/* Mobile: slide up from bottom as a sheet */
 @media (max-width: 767px) {
   .kt-modal-backdrop { align-items: flex-end; padding: 0; }
   .kt-modal {
     max-width: 100%;
     max-height: 95vh;
     border-radius: var(--kt-radius-lg) var(--kt-radius-lg) 0 0;
-    border-top: 2px solid var(--kt-amber);
+    border-top: 2px solid var(--kt-accent);
   }
 }
+
+/* ── Dashboard cards (Watch Next) ──────────────────────────────────── */
+.kt-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.kt-card {
+  background: var(--kt-surface);
+  border: 1px solid var(--kt-border);
+  border-radius: var(--kt-radius-lg);
+  padding: 1.25rem;
+  box-shadow: var(--kt-shadow);
+  transition: border-color var(--kt-transition), box-shadow var(--kt-transition);
+}
+.kt-card:hover { border-color: var(--kt-border-hover); }
+
+.kt-card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--kt-text);
+  margin: 0 0 0.6rem;
+}
+
+.kt-card-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--kt-accent);
+  background: var(--kt-accent-glow);
+  border-radius: 20px;
+  padding: 0.25rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.kt-card-meta {
+  font-size: 0.78rem;
+  color: var(--kt-text-muted);
+}
+
+.kt-section-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--kt-text-muted);
+  margin: 2rem 0 1rem;
+}
+.kt-section-title:first-child { margin-top: 0; }
+
+/* ── Callouts, sheet tables and hand-rolled SVG charts (shared by CarDetail.razor/HouseDetail.razor) ──
+   Global (not component-scoped) on purpose: a per-item history table/chart is built from a RenderFragment via
+   RenderTreeBuilder or a child *Row component, so its markup never receives the page's own CSS-isolation
+   scope attribute - putting these rules here avoids every consumer having to redeclare them with ::deep. */
+.kt-callout {
+  background: var(--kt-surface-2);
+  border-radius: var(--kt-radius);
+  padding: 0.6rem 0.9rem;
+  margin: 0 0 0.75rem 0;
+  font-size: 0.9rem;
+}
+
+.kt-callout-warning {
+  background: var(--kt-warning-bg);
+  color: var(--kt-warning);
+}
+
+.kt-callout-danger {
+  background: var(--kt-danger-bg);
+  color: var(--kt-danger);
+}
+
+/* Compact history table: a handful of summary columns per row, with the full field set only shown in the
+   add/edit modal - too many always-visible editable columns read as a spreadsheet dump rather than a
+   browsable history. */
+.kt-sheet-table {
+  font-size: 0.85rem;
+}
+
+.kt-sheet-table th {
+  white-space: nowrap;
+  color: var(--kt-text-muted);
+  font-weight: 600;
+}
+
+.kt-sheet-table td {
+  padding: 0.4rem 0.6rem;
+  vertical-align: middle;
+}
+
+/* width: 100%, height: auto (not a fixed px height) lets each SVG's own viewBox aspect ratio drive the
+   rendered height - required since the charts have real axis text, and preserveAspectRatio="none" would
+   stretch that text unreadably. */
+.kt-chart-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.kt-chart-axis-text {
+  font-size: 8px;
+  fill: var(--kt-text-muted);
+}
+
+.kt-chart-axis-title {
+  font-size: 9px;
+  font-weight: 600;
+  fill: var(--kt-text-muted);
+}
+
+.kt-chart-legend {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.8rem;
+  color: var(--kt-text-muted);
+  margin-bottom: 0.4rem;
+}
+
+.kt-legend-swatch {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 2px;
+  margin-right: 0.3rem;
+  vertical-align: middle;
+}
+
+/* ── Tabs (page-level section switcher, e.g. Watch Next / Wishlist by type) ── */
+.kt-tabs {
+  display: flex;
+  gap: 1.5rem;
+  border-bottom: 1px solid var(--kt-border);
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.kt-tab {
+  padding: 0.65rem 0.1rem;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--kt-text-muted);
+  font-family: var(--kt-font);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color var(--kt-transition), border-color var(--kt-transition);
+  margin-bottom: -1px;
+}
+
+.kt-tab:hover {
+  color: var(--kt-text);
+}
+
+.kt-tab.active {
+  color: var(--kt-accent);
+  border-bottom-color: var(--kt-accent);
+  font-weight: 600;
+}
+
+.kt-tab-count {
+  color: var(--kt-text-subtle);
+  font-weight: 400;
+  margin-left: 0.3rem;
+}
+
+/* ── Season timeline (TV show detail) ──────────────────────────────── */
+.kt-season-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+.kt-season {
+  background: var(--kt-surface);
+  border: 1px solid var(--kt-border);
+  border-radius: var(--kt-radius-lg);
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.kt-season-header {
+  padding: 0.9rem 1.25rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-bottom: 1px solid var(--kt-border);
+}
+
+.kt-episode-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.65rem 1.25rem;
+  border-top: 1px solid var(--kt-border);
+  font-size: 0.85rem;
+}
+.kt-episode-row:first-of-type { border-top: none; }
+.kt-episode-row.watched { color: var(--kt-text); }
+.kt-episode-row.unwatched { color: var(--kt-text-muted); }
+.kt-episode-number { font-variant-numeric: tabular-nums; color: var(--kt-text-muted); min-width: 2.5rem; }
+.kt-episode-date { margin-left: auto; font-size: 0.78rem; color: var(--kt-text-subtle); }
+
+/* ── Upload dropzone (Import) ──────────────────────────────────────── */
+.kt-dropzone {
+  border: 2px dashed var(--kt-border);
+  border-radius: var(--kt-radius-lg);
+  padding: 3rem 2rem;
+  text-align: center;
+  color: var(--kt-text-muted);
+  background: var(--kt-surface);
+}
+.kt-dropzone-icon { font-size: 2.25rem; display: block; margin-bottom: 1rem; color: var(--kt-text-subtle); }

@@ -1,14 +1,14 @@
 ﻿using System.Net;
 using System.Threading.Tasks;
 using AwesomeAssertions;
-using Microsoft.AspNetCore.Mvc.Testing;
+using Keeptrack.WebApi.IntegrationTests.Hosting;
 using Xunit;
 
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 [Trait("Category", "IntegrationTests")]
-public class AuxiliaryResourceTest(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
+public class AuxiliaryResourceTest(KestrelWebAppFactory<Program> factory)
+    : IClassFixture<KestrelWebAppFactory<Program>>
 {
     [Trait("Mode", "Readonly")]
     [Theory]

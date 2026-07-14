@@ -1,0 +1,360 @@
+@page "/video-games/{Id}"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using Keeptrack.BlazorApp.Components.ReferenceData
+@using Keeptrack.BlazorApp.Components.ReferenceDataAdmin
+
+@if (_loading)
+{
+    <div class="kt-loading">
+        <div class="kt-spinner"></div>
+        Loading…
+    </div>
+}
+else if (_game is null)
+{
+    <div class="kt-empty">
+        <div class="kt-empty-icon">◈</div>
+        <p>Video game not found.</p>
+    </div>
+}
+else
+{
+    <div class="kt-page-header">
+        <div class="d-flex align-items-center gap-2" style="flex:1;min-width:0">
+            <input class="kt-title-input" value="@_game.Title" @onchange="SaveTitleAsync"/>
+            <button class="kt-icon-btn" @onclick="RefreshReferenceAsync" disabled="@_refreshingReference"
+                    title="@(string.IsNullOrEmpty(_game.ReferenceId) ? "Check for reference match using the title and year below." : $"Linked to \"{_reference?.Title}\". Not right? Edit the title or year below, then check again.")">
+                <span class="@(_refreshingReference ? "kt-icon-spin" : "")">↻</span>
+            </button>
+            @if (_refreshMessage is not null)
+            {
+                <span class="kt-inline-toast @_refreshMessageStyle">@_refreshMessage</span>
+            }
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm kt-toggle-btn @(_game.IsOwned ? "active" : "")" @onclick="ToggleOwnedAsync">● Owned</button>
+            <button class="btn btn-sm kt-toggle-btn @(_game.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync">○ Wishlist</button>
+        </div>
+    </div>
+
+    @if (string.IsNullOrEmpty(_game.ReferenceId))
+    {
+        <AuthorizeView Policy="AdminOnly">
+            <Authorized>
+                <InlineReferenceLinker Type="ReferenceItemType.VideoGame" Title="@_game.Title" Year="_game.Year" OnLinked="LoadAsync"/>
+            </Authorized>
+        </AuthorizeView>
+    }
+
+    @if (!string.IsNullOrEmpty(_reference?.ImageUrl))
+    {
+        <div class="kt-form-card p-0 mb-3" style="overflow:hidden">
+            <img src="@_reference.ImageUrl" alt="@_game.Title cover" style="width:100%;max-height:320px;object-fit:cover;display:block"/>
+        </div>
+    }
+
+    <div class="kt-form-card">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div>
+                    <label class="form-label">Year</label>
+                    <input class="form-control form-control-sm" style="max-width:120px" type="number" min="1970" max="2100"
+                           value="@_game.Year" @onchange="SaveYearAsync"/>
+                </div>
+                <div class="mt-3">
+                    <label class="form-label">Rating</label>
+                    <StarRatingInput Rating="_game.Rating" RatingChanged="SetRatingAsync"/>
+                </div>
+                @if (_reference?.Platforms.Count > 0)
+                {
+                    <p class="kt-card-meta mt-3 mb-0">Available on: @string.Join(", ", _reference.Platforms)</p>
+                }
+                @if (_reference?.Genres.Count > 0)
+                {
+                    <p class="kt-card-meta mb-0">@string.Join(", ", _reference.Genres)</p>
+                }
+            </div>
+            <div class="col-md-8">
+                <label class="form-label">Notes</label>
+                <textarea class="form-control" rows="3" @onchange="SaveNotesAsync">@_game.Notes</textarea>
+            </div>
+        </div>
+        @if (!string.IsNullOrEmpty(_reference?.Synopsis))
+        {
+            <hr/>
+            <p class="mb-0" style="color:var(--kt-text-muted)">@_reference.Synopsis</p>
+        }
+    </div>
+
+    <h2 class="kt-section-title">Platforms</h2>
+
+    @if (_game.Platforms.Count == 0)
+    {
+        <p class="kt-card-meta">No platforms tracked yet - add one below.</p>
+    }
+
+    @foreach (var entry in _game.Platforms)
+    {
+        <div class="kt-form-card mb-3">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                <div>
+                    <h3 class="mb-2">@entry.Platform</h3>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm @(entry.CopyType == VideoGameCopyType.Physical ? "btn-primary" : "btn-secondary")" @onclick="() => SetCopyTypeAsync(entry, VideoGameCopyType.Physical)">Physical</button>
+                        <button class="btn btn-sm @(entry.CopyType == VideoGameCopyType.Digital ? "btn-primary" : "btn-secondary")" @onclick="() => SetCopyTypeAsync(entry, VideoGameCopyType.Digital)">Digital</button>
+                    </div>
+                </div>
+                <button class="kt-icon-btn" title="Remove this platform" @onclick="() => RemovePlatformAsync(entry)">✕</button>
+            </div>
+
+            <div class="d-flex gap-2 mt-3 flex-wrap">
+                @foreach (var state in VideoGames.VideoGameStates)
+                {
+                    <button class="btn btn-sm @(entry.State == state ? "btn-primary" : "btn-secondary")" @onclick="() => SetPlatformStateAsync(entry, state)">@state</button>
+                }
+            </div>
+
+            <div class="mt-3 d-flex gap-2 align-items-center">
+                <button class="btn btn-sm @(entry.IsFullyCompleted ? "btn-primary" : "btn-secondary")" @onclick="() => ToggleFullyCompletedAsync(entry)">
+                    @(entry.IsFullyCompleted ? "✓ Fully completed" : "Mark fully completed")
+                </button>
+                @if (entry.IsFullyCompleted)
+                {
+                    <input class="form-control form-control-sm" style="max-width:160px" type="date"
+                           value="@entry.FullyCompletedAt?.ToString("yyyy-MM-dd")" @onchange="e => SetFullyCompletedDateAsync(entry, e)"/>
+                }
+            </div>
+
+            <div class="mt-3">
+                <label class="form-label">Playthroughs</label>
+                @foreach (var playthrough in entry.Playthroughs)
+                {
+                    <div class="d-flex gap-2 mb-2 align-items-center">
+                        <input class="form-control form-control-sm" placeholder="Label (e.g. NG+1)"
+                               value="@playthrough.Label" @onchange="e => UpdatePlaythroughLabelAsync(playthrough, e)"/>
+                        <input class="form-control form-control-sm" style="max-width:160px" type="date"
+                               value="@playthrough.CompletedAt?.ToString("yyyy-MM-dd")" @onchange="e => UpdatePlaythroughDateAsync(playthrough, e)"/>
+                        <button class="kt-icon-btn" title="Remove this playthrough" @onclick="() => RemovePlaythroughAsync(entry, playthrough)">✕</button>
+                    </div>
+                }
+                <button class="btn btn-sm btn-secondary" @onclick="() => AddPlaythroughAsync(entry)">+ Add playthrough</button>
+            </div>
+        </div>
+    }
+
+    <div class="kt-form-card">
+        <label class="form-label">Add a platform</label>
+        <div class="d-flex gap-2 flex-wrap align-items-center">
+            <select class="form-select form-select-sm" style="max-width:200px" @bind="_newPlatform">
+                <option value="">— Platform —</option>
+                @foreach (var platform in VideoGames.VideoGamePlatforms)
+                {
+                    <option>@platform</option>
+                }
+            </select>
+            <button class="btn btn-sm @(_newCopyType == VideoGameCopyType.Physical ? "btn-primary" : "btn-secondary")" @onclick="() => _newCopyType = VideoGameCopyType.Physical">Physical</button>
+            <button class="btn btn-sm @(_newCopyType == VideoGameCopyType.Digital ? "btn-primary" : "btn-secondary")" @onclick="() => _newCopyType = VideoGameCopyType.Digital">Digital</button>
+            <button class="btn btn-sm btn-primary" disabled="@string.IsNullOrEmpty(_newPlatform)" @onclick="AddPlatformAsync">+ Add</button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public required string Id { get; set; }
+
+    [Inject] private VideoGameApiClient VideoGameApi { get; set; } = null!;
+
+    [Inject] private ReferenceDataApiClient ReferenceDataApi { get; set; } = null!;
+
+    private static readonly TimeSpan RefreshMessageDuration = TimeSpan.FromSeconds(4);
+
+    private bool _loading = true;
+    private VideoGameDto? _game;
+    private VideoGameReferenceDto? _reference;
+    private bool _refreshingReference;
+    private string? _refreshMessage;
+    private string _refreshMessageStyle = "neutral";
+    private object? _refreshMessageToken;
+    private string _newPlatform = "";
+    private VideoGameCopyType _newCopyType;
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _game = await VideoGameApi.GetOneAsync(Id);
+        _reference = string.IsNullOrEmpty(_game?.ReferenceId) ? null : await ReferenceDataApi.GetVideoGameAsync(_game.ReferenceId);
+        _loading = false;
+    }
+
+    /// <summary>Every mutation on this page follows the same shape: mutate <c>_game</c> locally, then PUT
+    /// the whole DTO - shared here since the per-platform/per-playthrough editors below call it often.</summary>
+    private async Task SaveGameAsync()
+    {
+        if (_game is null) return;
+        await VideoGameApi.UpdateAsync(_game);
+    }
+
+    private async Task SetRatingAsync(float rating)
+    {
+        if (_game is null) return;
+        _game.Rating = rating;
+        await SaveGameAsync();
+    }
+
+    private async Task ToggleOwnedAsync()
+    {
+        if (_game is null) return;
+        _game.IsOwned = !_game.IsOwned;
+        await SaveGameAsync();
+    }
+
+    private async Task ToggleWishlistedAsync()
+    {
+        if (_game is null) return;
+        _game.IsWishlisted = !_game.IsWishlisted;
+        await SaveGameAsync();
+    }
+
+    private async Task SaveTitleAsync(ChangeEventArgs e)
+    {
+        if (_game is null) return;
+        var title = e.Value?.ToString();
+        if (string.IsNullOrWhiteSpace(title)) return;
+        _game.Title = title;
+        await SaveGameAsync();
+    }
+
+    private async Task SaveYearAsync(ChangeEventArgs e)
+    {
+        if (_game is null) return;
+        _game.Year = int.TryParse(e.Value?.ToString(), out var year) ? year : null;
+        await SaveGameAsync();
+    }
+
+    private async Task SaveNotesAsync(ChangeEventArgs e)
+    {
+        if (_game is null) return;
+        _game.Notes = e.Value?.ToString();
+        await SaveGameAsync();
+    }
+
+    private async Task AddPlatformAsync()
+    {
+        if (_game is null || string.IsNullOrEmpty(_newPlatform)) return;
+        _game.Platforms.Add(new VideoGamePlatformDto { Platform = _newPlatform, CopyType = _newCopyType });
+        _newPlatform = "";
+        _newCopyType = VideoGameCopyType.Physical;
+        await SaveGameAsync();
+    }
+
+    private async Task RemovePlatformAsync(VideoGamePlatformDto entry)
+    {
+        if (_game is null) return;
+        _game.Platforms.Remove(entry);
+        await SaveGameAsync();
+    }
+
+    private async Task SetCopyTypeAsync(VideoGamePlatformDto entry, VideoGameCopyType copyType)
+    {
+        entry.CopyType = copyType;
+        await SaveGameAsync();
+    }
+
+    /// <summary>
+    /// Clicking the already-active state button clears it back to unset - same toggle-off-on-reclick
+    /// pattern as <c>TvShowDetail.razor</c>'s <c>SetStatusAsync</c>, now applied per platform entry.
+    /// </summary>
+    private async Task SetPlatformStateAsync(VideoGamePlatformDto entry, string state)
+    {
+        entry.State = entry.State == state ? "" : state;
+        await SaveGameAsync();
+    }
+
+    private async Task ToggleFullyCompletedAsync(VideoGamePlatformDto entry)
+    {
+        entry.IsFullyCompleted = !entry.IsFullyCompleted;
+        entry.FullyCompletedAt = entry.IsFullyCompleted ? entry.FullyCompletedAt ?? DateOnly.FromDateTime(DateTime.Today) : null;
+        await SaveGameAsync();
+    }
+
+    private async Task SetFullyCompletedDateAsync(VideoGamePlatformDto entry, ChangeEventArgs e)
+    {
+        entry.FullyCompletedAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
+        await SaveGameAsync();
+    }
+
+    private async Task AddPlaythroughAsync(VideoGamePlatformDto entry)
+    {
+        entry.Playthroughs.Add(new PlaythroughDto { Label = "" });
+        await SaveGameAsync();
+    }
+
+    private async Task RemovePlaythroughAsync(VideoGamePlatformDto entry, PlaythroughDto playthrough)
+    {
+        entry.Playthroughs.Remove(playthrough);
+        await SaveGameAsync();
+    }
+
+    private async Task UpdatePlaythroughLabelAsync(PlaythroughDto playthrough, ChangeEventArgs e)
+    {
+        playthrough.Label = e.Value?.ToString() ?? "";
+        await SaveGameAsync();
+    }
+
+    private async Task UpdatePlaythroughDateAsync(PlaythroughDto playthrough, ChangeEventArgs e)
+    {
+        playthrough.CompletedAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
+        await SaveGameAsync();
+    }
+
+    private async Task RefreshReferenceAsync()
+    {
+        if (_game?.Id is null) return;
+
+        var previousReferenceId = _game.ReferenceId;
+        _refreshingReference = true;
+        _refreshMessage = null;
+        try
+        {
+            var refreshed = await VideoGameApi.RefreshReferenceAsync(_game.Id);
+            await LoadAsync();
+
+            (_refreshMessage, _refreshMessageStyle) = string.IsNullOrEmpty(refreshed.ReferenceId)
+                ? string.IsNullOrEmpty(previousReferenceId) ? ("No match found", "neutral") : ("Unlinked - no match", "danger")
+                : refreshed.ReferenceId == previousReferenceId ? ("Already linked", "neutral") : ("Linked!", "success");
+        }
+        catch (Exception ex)
+        {
+            _refreshMessage = $"Error: {ex.Message}";
+            _refreshMessageStyle = "danger";
+        }
+        finally
+        {
+            _refreshingReference = false;
+        }
+
+        ScheduleRefreshMessageClear();
+    }
+
+    /// <summary>
+    /// The toast is a small, auto-dismissing pill next to the refresh icon, not a permanent line of text -
+    /// a token guards against an in-flight delay from a previous click clearing a newer message.
+    /// </summary>
+    private void ScheduleRefreshMessageClear()
+    {
+        var token = new object();
+        _refreshMessageToken = token;
+        _ = ClearRefreshMessageAfterDelayAsync(token);
+    }
+
+    private async Task ClearRefreshMessageAfterDelayAsync(object token)
+    {
+        await Task.Delay(RefreshMessageDuration);
+        if (!ReferenceEquals(_refreshMessageToken, token)) return;
+        _refreshMessage = null;
+        await InvokeAsync(StateHasChanged);
+    }
+}

@@ -1,0 +1,39 @@
+@inject FirebaseClientSettings FirebaseConfig
+
+@* Rendered once, statically, from App.razor so this <script> actually lands in the initial document and
+   runs (scripts injected by interactive components don't execute). Firebase's SDK auto-rotates the ID token
+   roughly hourly; each fresh token is pushed to /auth/refresh so the auth cookie's stored token stays current
+   and API calls stop coming back 401 mid-session. Harmless for signed-out visitors - onIdTokenChanged simply
+   never fires with a user. *@
+<script type="module">
+    import { initializeApp, getApp, getApps } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js';
+    import { getAuth, onIdTokenChanged } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js';
+
+    // Reuse the default app if the login page already created it (both run on /account/login); otherwise
+    // create it. Sharing the default app name is required so this listener sees the session persisted by
+    // the sign-in flow - a differently-named app has its own separate auth persistence.
+    const config = {
+        apiKey: "@FirebaseConfig.ApiKey",
+        authDomain: "@FirebaseConfig.AuthDomain",
+        projectId: "@FirebaseConfig.ProjectId"
+    };
+    const app = getApps().length ? getApp() : initializeApp(config);
+    const auth = getAuth(app);
+
+    let lastPushed = null;
+    onIdTokenChanged(auth, async (user) => {
+        if (!user) return;
+        const idToken = await user.getIdToken();
+        if (idToken === lastPushed) return;
+        lastPushed = idToken;
+        try {
+            await fetch('/auth/refresh', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idToken })
+            });
+        } catch {
+            // A network hiccup pushing the refreshed token is non-fatal; the next onIdTokenChanged retries.
+        }
+    });
+</script>

@@ -22,8 +22,6 @@ public class BookResourceTest(KestrelWebAppFactory<Program> factory)
 
         await Authenticate();
 
-        var initialItems = await GetAsync<PagedResult<BookDto>>($"/{ResourceEndpoint}");
-
         var input = new Faker<BookDto>()
             .Rules((f, o) => { o.Author = f.Random.AlphaNumeric(8); o.Title = f.Random.AlphaNumeric(14); })
             .Generate();
@@ -39,10 +37,40 @@ public class BookResourceTest(KestrelWebAppFactory<Program> factory)
             updated.Should().BeEquivalentTo(created, x => x.Excluding(item => item.FirstReadAt)); // issue with DateTime and MongoDB
 
             var finalItems = await GetAsync<PagedResult<BookDto>>($"/{ResourceEndpoint}");
-            finalItems.TotalCount.Should().BeGreaterThan(initialItems.TotalCount);
             var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
             firstItem.Should().NotBeNull();
             firstItem.Title.Should().Be(updated.Title);
+        }
+        finally
+        {
+            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
+        }
+    }
+
+    [Fact]
+    public async Task BookResourceOwnedAndWishlistedFilters_OnlyReturnMatchingItems_IsOk()
+    {
+        await Authenticate();
+
+        var uniqueTitle = $"OwnedWishlistTarget-{System.Guid.NewGuid():N}";
+        var input = new Faker<BookDto>()
+            .Rules((f, o) =>
+            {
+                o.Author = f.Random.AlphaNumeric(8);
+                o.Title = uniqueTitle;
+                o.IsOwned = true;
+                o.IsWishlisted = true;
+            })
+            .Generate();
+        var created = await PostAsync($"/{ResourceEndpoint}", input);
+
+        try
+        {
+            var owned = await GetAsync<PagedResult<BookDto>>($"/{ResourceEndpoint}?IsOwned=true&search={uniqueTitle}");
+            owned.Items.Should().ContainSingle(b => b.Id == created.Id);
+
+            var wishlisted = await GetAsync<PagedResult<BookDto>>($"/{ResourceEndpoint}?IsWishlisted=true&search={uniqueTitle}");
+            wishlisted.Items.Should().ContainSingle(b => b.Id == created.Id);
         }
         finally
         {

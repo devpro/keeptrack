@@ -1,4 +1,4 @@
-﻿using Keeptrack.Common.System;
+using Keeptrack.Common.System;
 
 namespace Keeptrack.WebApi.Contracts.Dto;
 
@@ -16,4 +16,29 @@ public class CarDto : IHasId
     /// Car name.
     /// </summary>
     public string? Name { get; set; }
+
+    /// <summary>
+    /// Manufacturer.
+    /// </summary>
+    public string? Manufacturer { get; set; }
+
+    /// <summary>
+    /// Model.
+    /// </summary>
+    public string? Model { get; set; }
+
+    /// <summary>
+    /// Year.
+    /// </summary>
+    public int? Year { get; set; }
+
+    /// <summary>
+    /// License plate.
+    /// </summary>
+    public string? LicensePlate { get; set; }
+
+    /// <summary>
+    /// Energy type (Combustion, Hybrid, Electric).
+    /// </summary>
+    public CarEnergyType? EnergyType { get; set; }
 }

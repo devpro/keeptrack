@@ -5,6 +5,7 @@
 
 <InventoryList TDto="MovieDto"
                Title="Movies"
+               ItemName="Movie"
                Items="@_items"
                Loading="@_loading"
                Error="@_error"
@@ -27,41 +28,98 @@
                OnSaveInline="@SaveInlineAsync"
                OnDelete="@DeleteAsync"
                OnSearchChanged="@OnSearchChanged">
+    <Filters>
+        <button class="btn btn-sm kt-toggle-btn @(_favoriteFilter ? "active" : "")" @onclick="ToggleFavoriteFilterAsync">★ Favorites</button>
+        <button class="btn btn-sm kt-toggle-btn @(_ownedFilter ? "active" : "")" @onclick="ToggleOwnedFilterAsync">● Owned</button>
+        <button class="btn btn-sm kt-toggle-btn @(_wishlistedFilter ? "active" : "")" @onclick="ToggleWishlistedFilterAsync">○ Wishlist</button>
+    </Filters>
     <HeaderTemplate>
         <th>Title</th>
         <th>Year</th>
         <th>Rating</th>
         <td>First seen</td>
+        <th></th>
     </HeaderTemplate>
     <RowTemplate Context="movie">
-        <td style="font-weight:500">@movie.Title</td>
+        <td style="font-weight:500">
+            <a href="@($"/movies/{movie.Id}")">@movie.Title</a>
+        </td>
         <td style="color:var(--kt-text-muted)">@(movie.Year > 0 ? movie.Year : "")</td>
         <td><span class="kt-stars"><StarRating Rating="movie.Rating" /></span></td>
         <td>@movie.FirstSeenAt?.ToString("yyyy-MM-dd")</td>
+        <td>
+            @if (movie.IsFavorite)
+            {
+                <span title="Favorite">★</span>
+            }
+            @if (movie.WantToWatch)
+            {
+                <span title="Watchlist">▶</span>
+            }
+            @if (movie.IsOwned)
+            {
+                <span title="Owned">●</span>
+            }
+            @if (movie.IsWishlisted)
+            {
+                <span title="Wishlist">○</span>
+            }
+        </td>
     </RowTemplate>
     <FormTemplate Context="movie">
-        <input class="form-control" placeholder="Title" @bind="movie.Title"/>
-        <input class="form-control" @bind="movie.Year" type="number" min="1970" max="2100" />
-        <input class="form-control" placeholder="Genre" @bind="movie.Genre"/>
-        <input class="form-control" placeholder="Rating" @bind="movie.Rating" type="number" />
-        <textarea class="form-control" rows="4" @bind="movie.Notes"></textarea>
+        <div class="col-12">
+            <label class="form-label">Title</label>
+            <input class="form-control" @bind="movie.Title"/>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Year</label>
+            <input class="form-control" @bind="movie.Year" type="number" min="1970" max="2100"/>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Rating</label>
+            <input class="form-control" @bind="movie.Rating" type="number" step="0.1" min="0" max="5"/>
+        </div>
+        <div class="col-12">
+            <label class="form-label">Lists</label>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="movie-favorite" @bind="movie.IsFavorite" />
+                <label class="form-check-label" for="movie-favorite">Favorites</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="movie-want-to-watch" @bind="movie.WantToWatch" />
+                <label class="form-check-label" for="movie-want-to-watch">Watchlist</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="movie-owned" @bind="movie.IsOwned" />
+                <label class="form-check-label" for="movie-owned">Owned</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="movie-wishlisted" @bind="movie.IsWishlisted" />
+                <label class="form-check-label" for="movie-wishlisted">Wishlist</label>
+            </div>
+        </div>
     </FormTemplate>
     <EditModalTemplate Context="movie">
         <div class="col-12">
             <label class="form-label">Title</label>
-            <input class="form-control" @bind="movie.Title" />
+            <AuthorizeView Policy="AdminOnly" Context="titleAdminCtx">
+                <Authorized><input class="form-control" @bind="movie.Title"/></Authorized>
+                <NotAuthorized><input class="form-control" @bind="movie.Title" disabled="@(!string.IsNullOrEmpty(movie.ReferenceId))"/></NotAuthorized>
+            </AuthorizeView>
         </div>
         <div class="col-md-6">
             <label class="form-label">Year</label>
-            <input class="form-control" @bind="movie.Year" type="number" min="1970" max="2100" />
+            <input class="form-control" @bind="movie.Year" type="number" min="1970" max="2100" disabled="@(!string.IsNullOrEmpty(movie.ReferenceId))"/>
         </div>
-        <div class="col-md-6">
-            <label class="form-label">Genre</label>
-            <input class="form-control" @bind="movie.Genre" />
-        </div>
+        @if (!string.IsNullOrEmpty(movie.ReferenceId))
+        {
+            <div class="col-12">
+                <p class="kt-card-meta mb-0">Year is matched to a reference source and can't be edited here.</p>
+            </div>
+        }
         <div class="col-md-6">
             <label class="form-label">Rating</label>
-            <input class="form-control" @bind="movie.Rating" type="number" />
+            <input class="form-control" @bind="movie.Rating" type="number" step="0.1" min="0" max="5"/>
         </div>
         <div class="col-md-6">
             <label class="form-label">Notes</label>
@@ -70,6 +128,25 @@
         <div class="col-md-6">
             <label class="form-label">First seen at</label>
             <input class="form-control" type="date" @bind="movie.FirstSeenAt" @bind:format="yyyy-MM-dd" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Lists</label>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="movie-favorite-modal" @bind="movie.IsFavorite" />
+                <label class="form-check-label" for="movie-favorite-modal">Favorites</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="movie-want-to-watch-modal" @bind="movie.WantToWatch" />
+                <label class="form-check-label" for="movie-want-to-watch-modal">Watchlist</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="movie-owned-modal" @bind="movie.IsOwned" />
+                <label class="form-check-label" for="movie-owned-modal">Owned</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="movie-wishlisted-modal" @bind="movie.IsWishlisted" />
+                <label class="form-check-label" for="movie-wishlisted-modal">Wishlist</label>
+            </div>
         </div>
     </EditModalTemplate>
 </InventoryList>

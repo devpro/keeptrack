@@ -1,0 +1,217 @@
+@page "/playlists/{Id}"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using Keeptrack.BlazorApp.Components.ReferenceData
+
+@if (_loading)
+{
+    <div class="kt-loading">
+        <div class="kt-spinner"></div>
+        Loading…
+    </div>
+}
+else if (_playlist is null)
+{
+    <div class="kt-empty">
+        <div class="kt-empty-icon">◈</div>
+        <p>Playlist not found.</p>
+    </div>
+}
+else
+{
+    <div class="kt-page-header">
+        <div class="d-flex align-items-center gap-2" style="flex:1;min-width:0">
+            <input class="kt-title-input" value="@_playlist.Title" @onchange="SaveTitleAsync"/>
+        </div>
+    </div>
+
+    <h2 class="kt-section-title">Songs</h2>
+
+    @if (PlaylistSongs.Count == 0)
+    {
+        <p class="kt-card-meta">No songs yet - add one from an album below.</p>
+    }
+    else
+    {
+        <div class="kt-form-card">
+            @foreach (var (song, index) in PlaylistSongs)
+            {
+                <div class="kt-track-row">
+                    <span>@song.Title</span>
+                    <span class="kt-card-meta">@song.Artist</span>
+                    <span class="kt-card-meta">
+                        @if (!string.IsNullOrEmpty(song.AlbumId) && _albumTitlesById.TryGetValue(song.AlbumId, out var albumTitle))
+                        {
+                            <a href="@($"/albums/{song.AlbumId}")">@albumTitle</a>
+                        }
+                    </span>
+                    <div class="d-flex align-items-center gap-1">
+                        <button class="kt-icon-btn" title="Move up" disabled="@(index == 0)" @onclick="() => MoveUpAsync(index)">↑</button>
+                        <button class="kt-icon-btn" title="Move down" disabled="@(index == _playlist.SongIds.Count - 1)" @onclick="() => MoveDownAsync(index)">↓</button>
+                        <button class="kt-icon-btn" title="Remove from playlist" @onclick="() => RemoveSongAsync(index)">✕</button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <div class="kt-form-card mt-3">
+        <label class="form-label">Add from an album</label>
+        <select class="form-select form-select-sm" @onchange="SelectAlbumAsync">
+            <option value="">— Choose an album —</option>
+            @foreach (var album in _albums)
+            {
+                <option value="@album.Id">@album.Title</option>
+            }
+        </select>
+
+        @if (!string.IsNullOrEmpty(_selectedAlbumId))
+        {
+            @if (_selectedAlbumTracks.Count == 0)
+            {
+                <p class="kt-card-meta mt-2 mb-0">
+                    No tracklist available - <a href="@($"/albums/{_selectedAlbumId}")">link this album to Discogs first</a>.
+                </p>
+            }
+            else
+            {
+                <div class="mt-2">
+                    @foreach (var track in _selectedAlbumTracks)
+                    {
+                        <div class="d-flex justify-content-between align-items-center py-1">
+                            <span><span class="kt-card-meta" style="display:inline-block;width:2.5rem">@track.Position</span> @track.Title</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="kt-card-meta">@track.Duration</span>
+                                <button class="btn btn-sm btn-secondary" @onclick="() => AddTrackAsync(track)">+ Add</button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public required string Id { get; set; }
+
+    [Inject] private PlaylistApiClient PlaylistApi { get; set; } = null!;
+
+    [Inject] private SongApiClient SongApi { get; set; } = null!;
+
+    [Inject] private AlbumApiClient AlbumApi { get; set; } = null!;
+
+    [Inject] private ReferenceDataApiClient ReferenceDataApi { get; set; } = null!;
+
+    private bool _loading = true;
+    private PlaylistDto? _playlist;
+    private List<AlbumDto> _albums = [];
+    private Dictionary<string, SongDto> _songsById = [];
+    private Dictionary<string, string> _albumTitlesById = [];
+    private string _selectedAlbumId = "";
+    private List<ReferenceTrackDto> _selectedAlbumTracks = [];
+
+    /// <summary>
+    /// Every song in the playlist paired with its position - a dangling <c>SongId</c> (the song was
+    /// deleted separately) is silently skipped rather than shown as a broken row, the same soft-reference
+    /// tolerance already used for a missing reference-link elsewhere in the app.
+    /// </summary>
+    private List<(SongDto Song, int Index)> PlaylistSongs =>
+        _playlist is null
+            ? []
+            : _playlist.SongIds
+                .Select((id, index) => (Song: _songsById.GetValueOrDefault(id), Index: index))
+                .Where(x => x.Song is not null)
+                .Select(x => (x.Song!, x.Index))
+                .ToList();
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _playlist = await PlaylistApi.GetOneAsync(Id);
+        var songs = await SongApi.GetAsync("", 1, 5000);
+        _songsById = songs.Items.Where(s => s.Id is not null).ToDictionary(s => s.Id!, s => s);
+        var albums = await AlbumApi.GetAsync("", 1, 5000);
+        _albums = albums.Items;
+        _albumTitlesById = _albums.Where(a => a.Id is not null).ToDictionary(a => a.Id!, a => a.Title ?? "");
+        _loading = false;
+    }
+
+    private async Task SavePlaylistAsync()
+    {
+        if (_playlist is null) return;
+        await PlaylistApi.UpdateAsync(_playlist);
+    }
+
+    private async Task SaveTitleAsync(ChangeEventArgs e)
+    {
+        if (_playlist is null) return;
+        var title = e.Value?.ToString();
+        if (string.IsNullOrWhiteSpace(title)) return;
+        _playlist.Title = title;
+        await SavePlaylistAsync();
+    }
+
+    private async Task MoveUpAsync(int index)
+    {
+        if (_playlist is null || index <= 0) return;
+        (_playlist.SongIds[index - 1], _playlist.SongIds[index]) = (_playlist.SongIds[index], _playlist.SongIds[index - 1]);
+        await SavePlaylistAsync();
+    }
+
+    private async Task MoveDownAsync(int index)
+    {
+        if (_playlist is null || index >= _playlist.SongIds.Count - 1) return;
+        (_playlist.SongIds[index], _playlist.SongIds[index + 1]) = (_playlist.SongIds[index + 1], _playlist.SongIds[index]);
+        await SavePlaylistAsync();
+    }
+
+    private async Task RemoveSongAsync(int index)
+    {
+        if (_playlist is null) return;
+        _playlist.SongIds.RemoveAt(index);
+        await SavePlaylistAsync();
+    }
+
+    private async Task SelectAlbumAsync(ChangeEventArgs e)
+    {
+        _selectedAlbumId = e.Value?.ToString() ?? "";
+        await LoadSelectedAlbumTracksAsync();
+    }
+
+    private async Task LoadSelectedAlbumTracksAsync()
+    {
+        _selectedAlbumTracks = [];
+        if (string.IsNullOrEmpty(_selectedAlbumId)) return;
+
+        var album = _albums.FirstOrDefault(a => a.Id == _selectedAlbumId);
+        if (string.IsNullOrEmpty(album?.ReferenceId)) return;
+
+        var reference = await ReferenceDataApi.GetAlbumAsync(album.ReferenceId);
+        _selectedAlbumTracks = reference?.Tracks ?? [];
+    }
+
+    /// <summary>
+    /// The shared "add a real track" operation (<see cref="SongApiClient.GetOrCreateForTrackAsync"/>) -
+    /// reuses the same <see cref="SongDto"/> if this exact track was already added elsewhere, instead of
+    /// creating a duplicate.
+    /// </summary>
+    private async Task AddTrackAsync(ReferenceTrackDto track)
+    {
+        if (_playlist is null) return;
+        var album = _albums.FirstOrDefault(a => a.Id == _selectedAlbumId);
+        if (album?.Id is null) return;
+
+        var song = await SongApi.GetOrCreateForTrackAsync(album.Id, track.Position, track.Title, track.Duration, album.Artist);
+        if (song.Id is null) return;
+
+        _songsById[song.Id] = song;
+        if (!_playlist.SongIds.Contains(song.Id))
+        {
+            _playlist.SongIds.Add(song.Id);
+            await SavePlaylistAsync();
+        }
+    }
+}

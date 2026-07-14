@@ -1,0 +1,41 @@
+@if (Show)
+{
+    <div class="kt-modal-backdrop" @onclick="HandleBackdropClick" @onmousedown="HandleBackdropMouseDown">
+        <div class="kt-modal" style="max-width:420px" @onclick:stopPropagation @onmousedown:stopPropagation>
+            <div class="kt-modal-header">
+                <h5>@Title</h5>
+                <button class="kt-modal-close" @onclick="() => OnCancel.InvokeAsync()">✕</button>
+            </div>
+            <div class="kt-modal-body">
+                <p class="mb-0">@Message</p>
+            </div>
+            <div class="kt-modal-footer">
+                <button class="btn btn-secondary" @onclick="() => OnCancel.InvokeAsync()">Cancel</button>
+                <button class="btn btn-danger" @onclick="() => OnConfirm.InvokeAsync()">@ConfirmLabel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _mouseDownOnBackdrop;
+
+    [Parameter] public required bool Show { get; set; }
+    [Parameter] public required string Title { get; set; }
+    [Parameter] public required string Message { get; set; }
+    [Parameter] public string ConfirmLabel { get; set; } = "Delete";
+    [Parameter] public required EventCallback OnConfirm { get; set; }
+    [Parameter] public required EventCallback OnCancel { get; set; }
+
+    private void HandleBackdropMouseDown() => _mouseDownOnBackdrop = true;
+
+    private async Task HandleBackdropClick()
+    {
+        if (_mouseDownOnBackdrop)
+        {
+            _mouseDownOnBackdrop = false;
+            await OnCancel.InvokeAsync();
+        }
+        _mouseDownOnBackdrop = false;
+    }
+}

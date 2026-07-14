@@ -1,0 +1,12 @@
+/* Mileage-inconsistency row highlighting - Car-specific (CarMetricsService.ComputeMileageWarnings has no
+   House equivalent), so this stays here rather than in the shared rules in app.css. Rows/cells are rendered
+   by the child CarHistoryRow component, not this file's own markup - CSS isolation scopes stop at a
+   component boundary, so this needs ::deep to reach in. */
+.kt-car-sheet ::deep .kt-history-row-warning td {
+    background: var(--kt-warning-bg);
+}
+
+.kt-car-sheet ::deep .kt-history-warning-icon {
+    color: var(--kt-warning);
+    cursor: help;
+}
