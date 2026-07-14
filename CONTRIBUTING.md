@@ -157,9 +157,12 @@ Albums            | [Discogs](https://www.discogs.com/developers)            | `
 Without a key/token for a given provider, new items of that type simply stay unresolved (no synopsis, no cover art) instead of erroring.
 The app degrades gracefully per type - it just won't auto-match that type until the corresponding setting is provided.
 
-Unlike the other three, books are resolved through a provider-agnostic `IBookReferenceClient` interface (`src/WebApi/ReferenceData/`), so which book provider is active is itself a setting: `ReferenceData:BookProvider` (or the `ReferenceData__BookProvider` environment variable), defaulting to `OpenLibrary`.
+Unlike the other three, books are resolved through a provider-agnostic `IBookReferenceClient` interface (`src/WebApi/ReferenceData/`).
+Which book provider is active is itself a setting: `ReferenceData:BookProvider` (or the `ReferenceData__BookProvider` environment variable), defaulting to `OpenLibrary`.
 `src/WebApi/Program.cs` switches on this value to decide which implementation to register - `OpenLibrary` is the only one that ships today.
-To add a new book provider, implement `IBookReferenceClient` (a new client class alongside `OpenLibraryClient.cs`, plus its own settings class if it needs an API key, following `RawgSettings`/`DiscogsSettings`) and add a matching `case` to that switch; nothing else in the app needs to change, since `ReferenceEnrichmentService`/`ReferenceDataAdminController` only depend on the interface and read the active provider's key from `IBookReferenceClient.ProviderKey`.
+To add a new book provider, implement `IBookReferenceClient` (a new client class alongside `OpenLibraryClient.cs`, plus its own settings class if it needs an API key, following `RawgSettings`/`DiscogsSettings`).
+Also add a matching `case` to that switch.
+Nothing else in the app needs to change, since `ReferenceEnrichmentService`/`ReferenceDataAdminController` only depend on the interface and read the active provider's key from `IBookReferenceClient.ProviderKey`.
 
 ### Admin role
 
@@ -240,7 +243,9 @@ Run a single test by fully qualified name (works for either project):
 dotnet test --filter-method "Keeptrack.WebApi.UnitTests.Services.WatchNextServiceTest.ComputeInProgressShows_IncludesShowWithAConfirmedAiredUnwatchedNextEpisode"
 ```
 
-`--filter-method` also accepts a wildcard, e.g. `--filter-method "*CarResourceTest*"` to run every test in a class - but it's a single glob pattern, not a real filter expression: it does not support `|`/`,` alternation to combine multiple patterns in one run (that just prints the CLI help instead of running anything), so run each pattern as its own `dotnet test` invocation.
+`--filter-method` also accepts a wildcard, e.g. `--filter-method "*CarResourceTest*"` to run every test in a class.
+It's a single glob pattern, not a real filter expression: it does not support `|`/`,` alternation to combine multiple patterns in one run (that just prints the CLI help instead of running anything).
+So run each pattern as its own `dotnet test` invocation.
 This project's test runner is `Microsoft.Testing.Platform` (`UseMicrosoftTestingPlatformRunner`, xunit v3), which does **not** understand the classic VSTest `--settings <file>.runsettings` flag - passing it also just prints the help.
 `Local.runsettings` (below) is read automatically by Rider/Visual Studio for IDE-driven runs; for a CLI run, export the same values as environment variables instead (see "Integration tests" below).
 
@@ -254,7 +259,8 @@ These need two things configured before they'll pass:
 
 1. **A MongoDB instance** (see [Requirements](#requirements) above), pointed at by `Infrastructure__MongoDB__ConnectionString`/`Infrastructure__MongoDB__DatabaseName`.
    Use a dedicated database (e.g. `keeptrack_integrationtests`), not your dev database - tests create and delete real documents.
-   Running `scripts/mongodb-create-index.js` against it first is recommended (keeps behavior closest to production) but not required for the tests themselves to pass - see [Requirements](#requirements) above for the exact `mongosh` command (swap in `keeptrack_integrationtests` for the database name).
+   Running `scripts/mongodb-create-index.js` against it first is recommended (keeps behavior closest to production) but not required for the tests themselves to pass.
+   See [Requirements](#requirements) above for the exact `mongosh` command (swap in `keeptrack_integrationtests` for the database name).
 2. **A Firebase test user**, since `ResourceTestBase.Authenticate()` performs a real Firebase sign-in to obtain a bearer token:
    - `FIREBASE_APIKEY`: the Firebase project's Web API key (Firebase Console → Project settings → General → Web API Key).
    - `FIREBASE_USERNAME` / `FIREBASE_PASSWORD`: the email/password of a real user created in that project (Firebase Console → Authentication → Users → Add user).
@@ -305,7 +311,11 @@ Or in Rider, in "File | Settings | Build, Execution, Deployment | Unit Testing |
 
 Set `KESTREL_WEBAPP_URL` to target a specific already-running instance instead of letting the tests spin up their own.
 
-The standard test user above now carries the `role: admin` custom claim (set via `scripts/firebase-set-admin.js`, see [Admin role](#admin-role) above), so `ReferenceDataAdminResourceTest` and any other admin-gated endpoint can be exercised end-to-end over HTTP with the same single test account - there's no separate non-admin test account, so there's no automated coverage of the "AdminOnly" policy actually rejecting a non-admin caller; that would need a second Firebase test user without the claim. The underlying Mongo query logic (`SetReferenceIdForTitleYearAsync`, `FindDistinctUnresolvedTitleYearsAsync`) is still covered directly against a real database in `TvShowReferenceLinkingTest`, which resolves repositories from the test host's DI container instead of going over HTTP.
+The standard test user above now carries the `role: admin` custom claim (set via `scripts/firebase-set-admin.js`, see [Admin role](#admin-role) above).
+So `ReferenceDataAdminResourceTest` and any other admin-gated endpoint can be exercised end-to-end over HTTP with the same single test account.
+There's no separate non-admin test account, so there's no automated coverage of the "AdminOnly" policy actually rejecting a non-admin caller; that would need a second Firebase test user without the claim.
+The underlying Mongo query logic (`SetReferenceIdForTitleYearAsync`, `FindDistinctUnresolvedTitleYearsAsync`) is still covered directly against a real database in `TvShowReferenceLinkingTest`.
+This test resolves repositories from the test host's DI container instead of going over HTTP.
 
 ## Container images
 
