@@ -15,10 +15,19 @@ public static class SvgChartHelpers
     /// Not every chart shares a single fixed viewBox: a chart rendered at full row width needs a proportionally wider viewBox than a half-width one -
     /// matching ViewWidth to actual on-screen width keeps the rendered scale (and therefore axis text/arrow/tick size) the same across every chart instead of the wider ones blowing up.
     /// </summary>
-    public readonly record struct ChartGeometry(double ViewWidth, double ViewHeight, double PlotLeft, double PlotRight, double PlotTop, double PlotBottom);
+    public readonly record struct ChartGeometry(
+        double ViewWidth,
+        double ViewHeight,
+        double PlotLeft,
+        double PlotRight,
+        double PlotTop,
+        double PlotBottom);
 
-    public static readonly ChartGeometry HalfWidthGeometry = new(ViewWidth: 300, ViewHeight: 170, PlotLeft: 40, PlotRight: 288, PlotTop: 14, PlotBottom: 132);
-    public static readonly ChartGeometry FullWidthGeometry = new(ViewWidth: 600, ViewHeight: 170, PlotLeft: 40, PlotRight: 588, PlotTop: 14, PlotBottom: 132);
+    public static readonly ChartGeometry HalfWidthGeometry =
+        new(ViewWidth: 300, ViewHeight: 170, PlotLeft: 40, PlotRight: 288, PlotTop: 14, PlotBottom: 132);
+
+    public static readonly ChartGeometry FullWidthGeometry =
+        new(ViewWidth: 600, ViewHeight: 170, PlotLeft: 40, PlotRight: 588, PlotTop: 14, PlotBottom: 132);
 
     /// <summary>
     /// Draws a graduated X/Y axis pair (arrowhead, tick marks, tick labels, axis title).
@@ -135,7 +144,7 @@ public static class SvgChartHelpers
         builder.CloseElement();
     }
 #pragma warning restore ASP0006
-    
+
     /// <summary>
     /// Picks up to <paramref name="count"/> evenly-spaced indices from a 0-based range, always including the first and last -
     /// shared by every chart's X-axis tick placement.
