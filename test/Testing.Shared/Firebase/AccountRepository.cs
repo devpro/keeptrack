@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -7,7 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AwesomeAssertions;
 
-namespace Keeptrack.WebApi.IntegrationTests.Firebase;
+namespace Keeptrack.Testing.Shared.Firebase;
 
 /// <summary>
 /// Firebase account repository, uses Firebase API client.

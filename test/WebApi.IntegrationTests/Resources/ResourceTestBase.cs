@@ -6,7 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using AwesomeAssertions;
-using Keeptrack.WebApi.IntegrationTests.Firebase;
+using Keeptrack.Testing.Shared.Firebase;
 using Keeptrack.WebApi.IntegrationTests.Hosting;
 using Xunit;
 
