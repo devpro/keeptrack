@@ -33,7 +33,10 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
 
         var reference = await referenceRepository.UpsertAsync(new TvShowReferenceModel
         {
-            Title = "Canonical Title", TitleNormalized = "canonical title", Year = year, ExternalIds = new Dictionary<string, string> { ["tmdb"] = "1" },
+            Title = "Canonical Title",
+            TitleNormalized = "canonical title",
+            Year = year,
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "1" },
             // the reference is only found by the show's own (title, year) via its aliases - a real reference
             // resolved from this show would carry exactly this alias (see MatchedAliases / TryLinkExisting...)
             MatchedAliases = [new ReferenceMatchModel { Title = TitleNormalizer.Normalize(title), Year = year }]
@@ -85,7 +88,10 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
 
         var reference = await referenceRepository.UpsertAsync(new MovieReferenceModel
         {
-            Title = "Canonical Movie Title", TitleNormalized = "canonical movie title", Year = year, ExternalIds = new Dictionary<string, string> { ["tmdb"] = "1" },
+            Title = "Canonical Movie Title",
+            TitleNormalized = "canonical movie title",
+            Year = year,
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "1" },
             MatchedAliases = [new ReferenceMatchModel { Title = TitleNormalizer.Normalize(title), Year = year }]
         });
 
@@ -116,7 +122,10 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
 
         var reference = await referenceRepository.UpsertAsync(new BookReferenceModel
         {
-            Title = "Canonical Book Title", TitleNormalized = "canonical book title", Year = year, ExternalIds = new Dictionary<string, string> { ["openlibrary"] = "OL1W" },
+            Title = "Canonical Book Title",
+            TitleNormalized = "canonical book title",
+            Year = year,
+            ExternalIds = new Dictionary<string, string> { ["openlibrary"] = "OL1W" },
             // book/album aliases also carry the normalized creator - the lookup matches title+year+creator
             MatchedAliases = [new ReferenceMatchModel { Title = TitleNormalizer.Normalize(title), Year = year, Creator = TitleNormalizer.Normalize("Some Author") }]
         });
@@ -148,7 +157,10 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
 
         var reference = await referenceRepository.UpsertAsync(new VideoGameReferenceModel
         {
-            Title = "Canonical Game Title", TitleNormalized = "canonical game title", Year = year, ExternalIds = new Dictionary<string, string> { ["rawg"] = "1" },
+            Title = "Canonical Game Title",
+            TitleNormalized = "canonical game title",
+            Year = year,
+            ExternalIds = new Dictionary<string, string> { ["rawg"] = "1" },
             MatchedAliases = [new ReferenceMatchModel { Title = TitleNormalizer.Normalize(title), Year = year }]
         });
 
@@ -179,7 +191,10 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
 
         var reference = await referenceRepository.UpsertAsync(new AlbumReferenceModel
         {
-            Title = "Canonical Album Title", TitleNormalized = "canonical album title", Year = year, ExternalIds = new Dictionary<string, string> { ["discogs"] = "1" },
+            Title = "Canonical Album Title",
+            TitleNormalized = "canonical album title",
+            Year = year,
+            ExternalIds = new Dictionary<string, string> { ["discogs"] = "1" },
             MatchedAliases = [new ReferenceMatchModel { Title = TitleNormalizer.Normalize(title), Year = year, Creator = TitleNormalizer.Normalize("Some Artist") }]
         });
 

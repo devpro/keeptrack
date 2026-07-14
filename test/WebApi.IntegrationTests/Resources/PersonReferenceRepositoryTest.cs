@@ -27,7 +27,8 @@ public class PersonReferenceRepositoryTest(KestrelWebAppFactory<Program> factory
 
         var created = await repository.UpsertAsync(new PersonReferenceModel
         {
-            Name = "Test Actor", ExternalIds = new Dictionary<string, string> { ["tmdb"] = tmdbId }
+            Name = "Test Actor",
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = tmdbId }
         });
 
         try
@@ -41,7 +42,9 @@ public class PersonReferenceRepositoryTest(KestrelWebAppFactory<Program> factory
             // update the existing document, not create a second one
             var updated = await repository.UpsertAsync(new PersonReferenceModel
             {
-                Id = created.Id, Name = "Test Actor (updated)", ExternalIds = new Dictionary<string, string> { ["tmdb"] = tmdbId }
+                Id = created.Id,
+                Name = "Test Actor (updated)",
+                ExternalIds = new Dictionary<string, string> { ["tmdb"] = tmdbId }
             });
 
             updated.Id.Should().Be(created.Id);

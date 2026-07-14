@@ -29,7 +29,10 @@ public class ReferenceDataExportImportTest(KestrelWebAppFactory<Program> factory
 
         var created = await repository.UpsertAsync(new TvShowReferenceModel
         {
-            Title = title, TitleNormalized = title.ToLowerInvariant(), Year = 2020, ExternalIds = new Dictionary<string, string> { ["tmdb"] = "1" }
+            Title = title,
+            TitleNormalized = title.ToLowerInvariant(),
+            Year = 2020,
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "1" }
         });
 
         try
@@ -53,7 +56,10 @@ public class ReferenceDataExportImportTest(KestrelWebAppFactory<Program> factory
 
         var created = await repository.UpsertAsync(new TvShowReferenceModel
         {
-            Title = title, TitleNormalized = title.ToLowerInvariant(), Year = 2020, ExternalIds = new Dictionary<string, string> { ["tmdb"] = "1" }
+            Title = title,
+            TitleNormalized = title.ToLowerInvariant(),
+            Year = 2020,
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "1" }
         });
 
         try
@@ -61,7 +67,10 @@ public class ReferenceDataExportImportTest(KestrelWebAppFactory<Program> factory
             // simulates re-running an import of a previously exported document: same id, same content
             await repository.UpsertAsync(new TvShowReferenceModel
             {
-                Id = created.Id, Title = title, TitleNormalized = title.ToLowerInvariant(), Year = 2020,
+                Id = created.Id,
+                Title = title,
+                TitleNormalized = title.ToLowerInvariant(),
+                Year = 2020,
                 ExternalIds = new Dictionary<string, string> { ["tmdb"] = "1" }
             });
 
@@ -84,7 +93,10 @@ public class ReferenceDataExportImportTest(KestrelWebAppFactory<Program> factory
 
         var created = await repository.UpsertAsync(new MovieReferenceModel
         {
-            Title = title, TitleNormalized = title.ToLowerInvariant(), Year = 2020, ExternalIds = new Dictionary<string, string> { ["tmdb"] = "1" }
+            Title = title,
+            TitleNormalized = title.ToLowerInvariant(),
+            Year = 2020,
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "1" }
         });
 
         try
@@ -108,7 +120,8 @@ public class ReferenceDataExportImportTest(KestrelWebAppFactory<Program> factory
 
         var created = await repository.UpsertAsync(new PersonReferenceModel
         {
-            Name = "Export Test Actor", ExternalIds = new Dictionary<string, string> { ["tmdb"] = tmdbId }
+            Name = "Export Test Actor",
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = tmdbId }
         });
 
         try
@@ -132,7 +145,10 @@ public class ReferenceDataExportImportTest(KestrelWebAppFactory<Program> factory
 
         var created = await repository.UpsertAsync(new BookReferenceModel
         {
-            Title = title, TitleNormalized = title.ToLowerInvariant(), Year = 2020, ExternalIds = new Dictionary<string, string> { ["openlibrary"] = "OL1W" }
+            Title = title,
+            TitleNormalized = title.ToLowerInvariant(),
+            Year = 2020,
+            ExternalIds = new Dictionary<string, string> { ["openlibrary"] = "OL1W" }
         });
 
         try
@@ -156,7 +172,10 @@ public class ReferenceDataExportImportTest(KestrelWebAppFactory<Program> factory
 
         var created = await repository.UpsertAsync(new VideoGameReferenceModel
         {
-            Title = title, TitleNormalized = title.ToLowerInvariant(), Year = 2020, ExternalIds = new Dictionary<string, string> { ["rawg"] = "1" }
+            Title = title,
+            TitleNormalized = title.ToLowerInvariant(),
+            Year = 2020,
+            ExternalIds = new Dictionary<string, string> { ["rawg"] = "1" }
         });
 
         try
@@ -180,7 +199,10 @@ public class ReferenceDataExportImportTest(KestrelWebAppFactory<Program> factory
 
         var created = await repository.UpsertAsync(new AlbumReferenceModel
         {
-            Title = title, TitleNormalized = title.ToLowerInvariant(), Year = 2020, ExternalIds = new Dictionary<string, string> { ["discogs"] = "1" }
+            Title = title,
+            TitleNormalized = title.ToLowerInvariant(),
+            Year = 2020,
+            ExternalIds = new Dictionary<string, string> { ["discogs"] = "1" }
         });
 
         try

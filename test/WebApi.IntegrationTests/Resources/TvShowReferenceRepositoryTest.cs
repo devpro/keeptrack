@@ -131,7 +131,9 @@ public class TvShowReferenceRepositoryTest(KestrelWebAppFactory<Program> factory
 
         var created = await repository.UpsertAsync(new TvShowReferenceModel
         {
-            Title = title, TitleNormalized = title.ToLowerInvariant(), Year = 2010,
+            Title = title,
+            TitleNormalized = title.ToLowerInvariant(),
+            Year = 2010,
             ExternalIds = new Dictionary<string, string> { ["tmdb"] = "1" },
             MatchedAliases = [new ReferenceMatchModel { Title = title.ToLowerInvariant(), Year = 2010, Creator = null }]
         });
@@ -158,7 +160,10 @@ public class TvShowReferenceRepositoryTest(KestrelWebAppFactory<Program> factory
 
         var created = await repository.UpsertAsync(new TvShowReferenceModel
         {
-            Title = title, TitleNormalized = title.ToLowerInvariant(), Year = 2010, ExternalIds = new Dictionary<string, string> { ["tmdb"] = "1" }
+            Title = title,
+            TitleNormalized = title.ToLowerInvariant(),
+            Year = 2010,
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "1" }
         });
 
         try

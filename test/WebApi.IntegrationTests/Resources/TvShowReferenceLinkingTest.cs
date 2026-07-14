@@ -36,7 +36,10 @@ public class TvShowReferenceLinkingTest(KestrelWebAppFactory<Program> factory) :
         var differentYearShow = await repository.CreateAsync(new TvShowModel { OwnerId = "reference-link-tenant-a", Title = title, Year = year + 1 });
         var alreadyLinkedShow = await repository.CreateAsync(new TvShowModel
         {
-            OwnerId = "reference-link-tenant-c", Title = title, Year = year, ReferenceId = "pre-existing-link"
+            OwnerId = "reference-link-tenant-c",
+            Title = title,
+            Year = year,
+            ReferenceId = "pre-existing-link"
         });
 
         try
@@ -78,7 +81,10 @@ public class TvShowReferenceLinkingTest(KestrelWebAppFactory<Program> factory) :
         var showB = await repository.CreateAsync(new TvShowModel { OwnerId = "unresolved-tenant-b", Title = title, Year = 2022 });
         var linkedShow = await repository.CreateAsync(new TvShowModel
         {
-            OwnerId = "unresolved-tenant-c", Title = title, Year = 2022, ReferenceId = "already-linked"
+            OwnerId = "unresolved-tenant-c",
+            Title = title,
+            Year = 2022,
+            ReferenceId = "already-linked"
         });
 
         try

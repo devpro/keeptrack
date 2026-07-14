@@ -50,21 +50,37 @@ internal static class TvTimeFixtureZipBuilder
                     "watched_episode_range_key", "watch_date_range_key", "unitarian"],
                 new Dictionary<string, string>
                 {
-                    ["series_name"] = ShowTitle, ["uuid"] = "aaaa", ["type-uuid-n"] = "count-watch-episode-series-aaaa",
-                    ["type"] = "count-watch-episode-series", ["created_at"] = "2020-01-04 00:00:00", ["series_id"] = "999001", ["user_id"] = "999"
+                    ["series_name"] = ShowTitle,
+                    ["uuid"] = "aaaa",
+                    ["type-uuid-n"] = "count-watch-episode-series-aaaa",
+                    ["type"] = "count-watch-episode-series",
+                    ["created_at"] = "2020-01-04 00:00:00",
+                    ["series_id"] = "999001",
+                    ["user_id"] = "999"
                 },
                 new Dictionary<string, string>
                 {
-                    ["series_name"] = ShowTitle, ["uuid"] = "bbbb", ["type-uuid-n"] = "watch-bbbb-0", ["type"] = "watch",
-                    ["created_at"] = "2020-01-04 00:00:00", ["series_id"] = "999001", ["user_id"] = "999", ["entity_type"] = "episode",
-                    ["season_number"] = "1", ["episode_number"] = "3"
+                    ["series_name"] = ShowTitle,
+                    ["uuid"] = "bbbb",
+                    ["type-uuid-n"] = "watch-bbbb-0",
+                    ["type"] = "watch",
+                    ["created_at"] = "2020-01-04 00:00:00",
+                    ["series_id"] = "999001",
+                    ["user_id"] = "999",
+                    ["entity_type"] = "episode",
+                    ["season_number"] = "1",
+                    ["episode_number"] = "3"
                 },
                 // movie watch event: the only source of a movie's watched date (confirmed against a real
                 // export - the rating/emotion vote files never carry one)
                 new Dictionary<string, string>
                 {
-                    ["uuid"] = "movie-watch-1", ["type"] = "watch", ["created_at"] = "2020-01-07 00:00:00",
-                    ["user_id"] = "999", ["movie_name"] = MovieTitle, ["entity_type"] = "movie"
+                    ["uuid"] = "movie-watch-1",
+                    ["type"] = "watch",
+                    ["created_at"] = "2020-01-07 00:00:00",
+                    ["user_id"] = "999",
+                    ["movie_name"] = MovieTitle,
+                    ["entity_type"] = "movie"
                 }),
             ["tracking-prod-records-v2.csv"] = BuildCsv(
                 ["s_id", "user_id", "episode_id", "series_name", "gsi", "runtime", "created_at", "season_number", "episode_number",
@@ -73,22 +89,45 @@ internal static class TvTimeFixtureZipBuilder
                     "uuid", "followed_at", "is_archived", "is_unitary", "rewatch_count", "bulk_type", "is_special"],
                 new Dictionary<string, string>
                 {
-                    ["s_id"] = "999001", ["user_id"] = "999", ["series_name"] = ShowTitle, ["created_at"] = "2020-01-01 00:00:00",
-                    ["key"] = "user-series-999001", ["ep_watch_count"] = "4", ["updated_at"] = "2020-01-05 00:00:00", ["is_followed"] = "true",
-                    ["uuid"] = "999001-summary", ["is_archived"] = "false"
+                    ["s_id"] = "999001",
+                    ["user_id"] = "999",
+                    ["series_name"] = ShowTitle,
+                    ["created_at"] = "2020-01-01 00:00:00",
+                    ["key"] = "user-series-999001",
+                    ["ep_watch_count"] = "4",
+                    ["updated_at"] = "2020-01-05 00:00:00",
+                    ["is_followed"] = "true",
+                    ["uuid"] = "999001-summary",
+                    ["is_archived"] = "false"
                 },
                 new Dictionary<string, string>
                 {
-                    ["s_id"] = "999001", ["user_id"] = "999", ["episode_id"] = "4", ["series_name"] = ShowTitle,
-                    ["gsi"] = "watch-episode-1578182400", ["created_at"] = "2020-01-05 00:00:00", ["season_number"] = "2",
-                    ["episode_number"] = "1", ["key"] = "watch-episode-999001-cccc", ["updated_at"] = "2020-01-05 00:00:00", ["is_unitary"] = "true"
+                    ["s_id"] = "999001",
+                    ["user_id"] = "999",
+                    ["episode_id"] = "4",
+                    ["series_name"] = ShowTitle,
+                    ["gsi"] = "watch-episode-1578182400",
+                    ["created_at"] = "2020-01-05 00:00:00",
+                    ["season_number"] = "2",
+                    ["episode_number"] = "1",
+                    ["key"] = "watch-episode-999001-cccc",
+                    ["updated_at"] = "2020-01-05 00:00:00",
+                    ["is_unitary"] = "true"
                 },
                 // OrphanShowTitle: deliberately has NO row in followed_tv_show.csv
                 new Dictionary<string, string>
                 {
-                    ["s_id"] = "999003", ["user_id"] = "999", ["episode_id"] = "5", ["series_name"] = OrphanShowTitle,
-                    ["gsi"] = "watch-episode-1578268800", ["created_at"] = "2020-01-06 00:00:00", ["season_number"] = "1",
-                    ["episode_number"] = "1", ["key"] = "watch-episode-999003-dddd", ["updated_at"] = "2020-01-06 00:00:00", ["is_unitary"] = "true"
+                    ["s_id"] = "999003",
+                    ["user_id"] = "999",
+                    ["episode_id"] = "5",
+                    ["series_name"] = OrphanShowTitle,
+                    ["gsi"] = "watch-episode-1578268800",
+                    ["created_at"] = "2020-01-06 00:00:00",
+                    ["season_number"] = "1",
+                    ["episode_number"] = "1",
+                    ["key"] = "watch-episode-999003-dddd",
+                    ["updated_at"] = "2020-01-06 00:00:00",
+                    ["is_unitary"] = "true"
                 }),
             ["user_tv_show_data.csv"] = $"""
                                          user_id,tv_show_id,is_followed,is_favorited,nb_episodes_seen,tv_show_name
@@ -99,13 +138,21 @@ internal static class TvTimeFixtureZipBuilder
                 ["created_at", "updated_at", "tv_show_name", "user_id", "tv_show_id", "rating"],
                 new Dictionary<string, string>
                 {
-                    ["created_at"] = "2020-01-01 00:00:00", ["updated_at"] = "2020-01-01 00:00:00", ["tv_show_name"] = ShowTitle,
-                    ["user_id"] = "999", ["tv_show_id"] = "999001", ["rating"] = "4.5"
+                    ["created_at"] = "2020-01-01 00:00:00",
+                    ["updated_at"] = "2020-01-01 00:00:00",
+                    ["tv_show_name"] = ShowTitle,
+                    ["user_id"] = "999",
+                    ["tv_show_id"] = "999001",
+                    ["rating"] = "4.5"
                 },
                 new Dictionary<string, string>
                 {
-                    ["created_at"] = "2020-01-06 00:00:00", ["updated_at"] = "2020-01-06 00:00:00", ["tv_show_name"] = OrphanShowTitle,
-                    ["user_id"] = "999", ["tv_show_id"] = "999003", ["rating"] = "3.5"
+                    ["created_at"] = "2020-01-06 00:00:00",
+                    ["updated_at"] = "2020-01-06 00:00:00",
+                    ["tv_show_name"] = OrphanShowTitle,
+                    ["user_id"] = "999",
+                    ["tv_show_id"] = "999003",
+                    ["rating"] = "3.5"
                 }),
             ["user_show_special_status.csv"] = $"""
                                                 created_at,updated_at,tv_show_name,user_id,tv_show_id,status

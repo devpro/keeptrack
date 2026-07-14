@@ -28,7 +28,9 @@ public class VideoGameReferenceRepositoryTest(KestrelWebAppFactory<Program> fact
 
         var created = await repository.UpsertAsync(new VideoGameReferenceModel
         {
-            Title = "Canonical Game Title", TitleNormalized = "canonical game title", Year = 2005,
+            Title = "Canonical Game Title",
+            TitleNormalized = "canonical game title",
+            Year = 2005,
             ExternalIds = new Dictionary<string, string> { ["rawg"] = "1" },
             MatchedAliases = [new ReferenceMatchModel { Title = alternateTitle.ToLowerInvariant(), Year = 2004 }]
         });
@@ -55,7 +57,9 @@ public class VideoGameReferenceRepositoryTest(KestrelWebAppFactory<Program> fact
 
         var created = await repository.UpsertAsync(new VideoGameReferenceModel
         {
-            Title = "Canonical Game Title", TitleNormalized = "canonical game title", Year = 2005,
+            Title = "Canonical Game Title",
+            TitleNormalized = "canonical game title",
+            Year = 2005,
             ExternalIds = new Dictionary<string, string> { ["rawg"] = "1" },
             MatchedAliases = [new ReferenceMatchModel { Title = alternateTitle.ToLowerInvariant(), Year = 2005 }]
         });
@@ -82,7 +86,10 @@ public class VideoGameReferenceRepositoryTest(KestrelWebAppFactory<Program> fact
 
         var created = await repository.UpsertAsync(new VideoGameReferenceModel
         {
-            Title = title, TitleNormalized = title.ToLowerInvariant(), Year = 2010, ExternalIds = new Dictionary<string, string> { ["rawg"] = "1" }
+            Title = title,
+            TitleNormalized = title.ToLowerInvariant(),
+            Year = 2010,
+            ExternalIds = new Dictionary<string, string> { ["rawg"] = "1" }
         });
 
         try

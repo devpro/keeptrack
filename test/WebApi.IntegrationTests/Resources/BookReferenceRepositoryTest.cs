@@ -28,7 +28,9 @@ public class BookReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) 
 
         var created = await repository.UpsertAsync(new BookReferenceModel
         {
-            Title = "Canonical Book Title", TitleNormalized = "canonical book title", Year = 2005,
+            Title = "Canonical Book Title",
+            TitleNormalized = "canonical book title",
+            Year = 2005,
             ExternalIds = new Dictionary<string, string> { ["openlibrary"] = "OL1W" },
             MatchedAliases = [new ReferenceMatchModel { Title = alternateTitle.ToLowerInvariant(), Year = 2004, Creator = "some author" }]
         });
@@ -55,7 +57,9 @@ public class BookReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) 
 
         var created = await repository.UpsertAsync(new BookReferenceModel
         {
-            Title = "Canonical Book Title", TitleNormalized = "canonical book title", Year = 2005,
+            Title = "Canonical Book Title",
+            TitleNormalized = "canonical book title",
+            Year = 2005,
             ExternalIds = new Dictionary<string, string> { ["openlibrary"] = "OL1W" },
             MatchedAliases = [new ReferenceMatchModel { Title = alternateTitle.ToLowerInvariant(), Year = 2005, Creator = "some author" }]
         });
@@ -82,7 +86,10 @@ public class BookReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) 
 
         var created = await repository.UpsertAsync(new BookReferenceModel
         {
-            Title = title, TitleNormalized = title.ToLowerInvariant(), Year = 2010, ExternalIds = new Dictionary<string, string> { ["openlibrary"] = "OL1W" }
+            Title = title,
+            TitleNormalized = title.ToLowerInvariant(),
+            Year = 2010,
+            ExternalIds = new Dictionary<string, string> { ["openlibrary"] = "OL1W" }
         });
 
         try

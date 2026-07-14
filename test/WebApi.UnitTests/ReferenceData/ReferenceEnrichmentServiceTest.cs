@@ -104,7 +104,10 @@ public class ReferenceEnrichmentServiceTest
             .Setup(r => r.FindByExternalIdAsync("tmdb", "42"))
             .ReturnsAsync(new TvShowReferenceModel
             {
-                Id = "reference-1", Title = "The Wire", TitleNormalized = "the wire", ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" },
+                Id = "reference-1",
+                Title = "The Wire",
+                TitleNormalized = "the wire",
+                ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" },
                 MatchedAliases = [new ReferenceMatchModel { Title = "the wire", Year = 2002 }]
             });
         _tvShowReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>())).ReturnsAsync((TvShowReferenceModel m) => m);
@@ -143,7 +146,10 @@ public class ReferenceEnrichmentServiceTest
             .Setup(r => r.FindByTitleYearAsync("Le Fil", 2002))
             .ReturnsAsync(new TvShowReferenceModel
             {
-                Id = "reference-1", Title = "The Wire", TitleNormalized = "the wire", ExternalIds = [],
+                Id = "reference-1",
+                Title = "The Wire",
+                TitleNormalized = "the wire",
+                ExternalIds = [],
                 MatchedAliases = [new ReferenceMatchModel { Title = "the wire", Year = 2002 }, new ReferenceMatchModel { Title = "il filo", Year = 2001 }]
             });
         _tvShowReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>())).ReturnsAsync((TvShowReferenceModel m) => m);
@@ -368,8 +374,11 @@ public class ReferenceEnrichmentServiceTest
         var lastEnrichedAt = DateTime.UtcNow.AddDays(-5);
         var reference = new TvShowReferenceModel
         {
-            Id = "reference-1", Title = "Some Show", TitleNormalized = "some show",
-            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" }, LastEnrichedAt = lastEnrichedAt
+            Id = "reference-1",
+            Title = "Some Show",
+            TitleNormalized = "some show",
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" },
+            LastEnrichedAt = lastEnrichedAt
         };
         _tvShowReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>())).ReturnsAsync((TvShowReferenceModel m) => m);
         var service = CreateService(tmdbClient);
@@ -390,8 +399,11 @@ public class ReferenceEnrichmentServiceTest
         tmdbClient.TvShowDetails["42"] = new TmdbTvShowDetails("42", "Some Show - Updated", 2020, "New synopsis", [], ["Drama"], null);
         var reference = new TvShowReferenceModel
         {
-            Id = "reference-1", Title = "Some Show", TitleNormalized = "some show",
-            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" }, LastEnrichedAt = DateTime.UtcNow.AddDays(-5)
+            Id = "reference-1",
+            Title = "Some Show",
+            TitleNormalized = "some show",
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" },
+            LastEnrichedAt = DateTime.UtcNow.AddDays(-5)
         };
         _tvShowReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>())).ReturnsAsync((TvShowReferenceModel m) => m);
         var service = CreateService(tmdbClient);
@@ -412,8 +424,11 @@ public class ReferenceEnrichmentServiceTest
         tmdbClient.TvShowDetails["42"] = new TmdbTvShowDetails("42", "Some Show", 2020, "Synopsis", [], [], null);
         var reference = new TvShowReferenceModel
         {
-            Id = "reference-1", Title = "Some Show", TitleNormalized = "some show",
-            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" }, LastEnrichedAt = null
+            Id = "reference-1",
+            Title = "Some Show",
+            TitleNormalized = "some show",
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" },
+            LastEnrichedAt = null
         };
         _tvShowReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>())).ReturnsAsync((TvShowReferenceModel m) => m);
         var service = CreateService(tmdbClient);
@@ -571,8 +586,11 @@ public class ReferenceEnrichmentServiceTest
         bookReferenceClient.Details["OL1W"] = new BookDetails("OL1W", "Some Book - Updated", 2020, "New synopsis", "Some Author", "OL1A", ["Fiction"], null);
         var reference = new BookReferenceModel
         {
-            Id = "reference-1", Title = "Some Book", TitleNormalized = "some book",
-            ExternalIds = new Dictionary<string, string> { ["openlibrary"] = "OL1W" }, LastEnrichedAt = DateTime.UtcNow
+            Id = "reference-1",
+            Title = "Some Book",
+            TitleNormalized = "some book",
+            ExternalIds = new Dictionary<string, string> { ["openlibrary"] = "OL1W" },
+            LastEnrichedAt = DateTime.UtcNow
         };
         _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => m);
         _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
@@ -632,7 +650,10 @@ public class ReferenceEnrichmentServiceTest
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
         var model = new VideoGameModel
         {
-            Id = "game-1", OwnerId = "owner", Title = "Some Typo'd Game", Year = 2020,
+            Id = "game-1",
+            OwnerId = "owner",
+            Title = "Some Typo'd Game",
+            Year = 2020,
             Platforms = [new VideoGamePlatformModel { Platform = "PC", State = "Current" }]
         };
         _videoGameReferenceRepository
@@ -653,7 +674,10 @@ public class ReferenceEnrichmentServiceTest
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
         var model = new VideoGameModel
         {
-            Id = "game-1", OwnerId = "owner", Title = "Some Game", Year = 2019,
+            Id = "game-1",
+            OwnerId = "owner",
+            Title = "Some Game",
+            Year = 2019,
             Platforms = [new VideoGamePlatformModel { Platform = "PC", State = "Current" }]
         };
         _videoGameReferenceRepository
@@ -672,7 +696,11 @@ public class ReferenceEnrichmentServiceTest
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
         var model = new VideoGameModel
         {
-            Id = "game-1", OwnerId = "owner", Title = "Some Game", Year = 2020, ReferenceId = "old-reference",
+            Id = "game-1",
+            OwnerId = "owner",
+            Title = "Some Game",
+            Year = 2020,
+            ReferenceId = "old-reference",
             Platforms = [new VideoGamePlatformModel { Platform = "PC", State = "Current" }]
         };
         _videoGameReferenceRepository.Setup(r => r.FindByTitleYearAsync("Some Game", 2020)).ReturnsAsync((VideoGameReferenceModel?)null);
@@ -706,8 +734,11 @@ public class ReferenceEnrichmentServiceTest
         rawgClient.Details["1"] = new RawgGameDetails("1", "Some Game - Updated", 2020, "New synopsis", ["Action"], ["PC"], null);
         var reference = new VideoGameReferenceModel
         {
-            Id = "reference-1", Title = "Some Game", TitleNormalized = "some game",
-            ExternalIds = new Dictionary<string, string> { ["rawg"] = "1" }, LastEnrichedAt = DateTime.UtcNow
+            Id = "reference-1",
+            Title = "Some Game",
+            TitleNormalized = "some game",
+            ExternalIds = new Dictionary<string, string> { ["rawg"] = "1" },
+            LastEnrichedAt = DateTime.UtcNow
         };
         _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) => m);
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), rawgClient: rawgClient);
@@ -735,7 +766,9 @@ public class ReferenceEnrichmentServiceTest
         rawgClient.Details["1"] = new RawgGameDetails("1", "Some Game", 2020, "Synopsis", ["Action"], ["PC"], null);
         var reference = new VideoGameReferenceModel
         {
-            Id = "reference-1", Title = "Some Game", TitleNormalized = "some game",
+            Id = "reference-1",
+            Title = "Some Game",
+            TitleNormalized = "some game",
             ExternalIds = new Dictionary<string, string> { ["rawg"] = "1" },
             MatchedAliases = [new ReferenceMatchModel { Title = "some game", Year = 2020, Creator = null }]
         };
@@ -895,8 +928,11 @@ public class ReferenceEnrichmentServiceTest
             [new DiscogsTrack("1", "Intro", "0:22"), new DiscogsTrack("2", "Apocalypse Please", "4:12")]);
         var reference = new AlbumReferenceModel
         {
-            Id = "reference-1", Title = "Some Album", TitleNormalized = "some album",
-            ExternalIds = new Dictionary<string, string> { ["discogs"] = "1" }, LastEnrichedAt = DateTime.UtcNow
+            Id = "reference-1",
+            Title = "Some Album",
+            TitleNormalized = "some album",
+            ExternalIds = new Dictionary<string, string> { ["discogs"] = "1" },
+            LastEnrichedAt = DateTime.UtcNow
         };
         _albumReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<AlbumReferenceModel>())).ReturnsAsync((AlbumReferenceModel m) => m);
         _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
