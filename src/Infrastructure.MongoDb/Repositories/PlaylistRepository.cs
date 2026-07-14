@@ -7,7 +7,7 @@ using MongoDB.Driver;
 
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
-public class PlaylistRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepositoryBase<PlaylistModel, Playlist>> logger, IStorageMapper<PlaylistModel, Playlist> mapper)
+public class PlaylistRepository(IMongoDatabase mongoDatabase, ILogger<PlaylistRepository> logger, IStorageMapper<PlaylistModel, Playlist> mapper)
     : MongoDbRepositoryBase<PlaylistModel, Playlist>(mongoDatabase, logger, mapper), IPlaylistRepository
 {
     protected override string CollectionName => "playlist";

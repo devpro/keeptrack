@@ -15,7 +15,6 @@ public class WishlistController(
     ITvShowRepository tvShowRepository,
     IBookRepository bookRepository,
     IVideoGameRepository videoGameRepository,
-    WishlistService wishlistService,
     IDtoMapper<MovieDto, MovieModel> movieMapper,
     IDtoMapper<TvShowDto, TvShowModel> tvShowMapper,
     IDtoMapper<BookDto, BookModel> bookMapper,
@@ -39,10 +38,10 @@ public class WishlistController(
 
         return Ok(new WishlistDto
         {
-            Movies = wishlistService.SortMovies(movies.Items).Select(movieMapper.ToDto).ToList(),
-            TvShows = wishlistService.SortTvShows(tvShows.Items).Select(tvShowMapper.ToDto).ToList(),
-            Books = wishlistService.SortBooks(books.Items).Select(bookMapper.ToDto).ToList(),
-            VideoGames = wishlistService.SortVideoGames(videoGames.Items).Select(videoGameMapper.ToDto).ToList()
+            Movies = WishlistService.SortMovies(movies.Items).Select(movieMapper.ToDto).ToList(),
+            TvShows = WishlistService.SortTvShows(tvShows.Items).Select(tvShowMapper.ToDto).ToList(),
+            Books = WishlistService.SortBooks(books.Items).Select(bookMapper.ToDto).ToList(),
+            VideoGames = WishlistService.SortVideoGames(videoGames.Items).Select(videoGameMapper.ToDto).ToList()
         });
     }
 }

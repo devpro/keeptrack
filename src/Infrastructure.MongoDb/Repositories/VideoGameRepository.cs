@@ -12,7 +12,7 @@ using MongoDB.Driver;
 
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
-public class VideoGameRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepositoryBase<VideoGameModel, VideoGame>> logger, IStorageMapper<VideoGameModel, VideoGame> mapper)
+public class VideoGameRepository(IMongoDatabase mongoDatabase, ILogger<VideoGameRepository> logger, IStorageMapper<VideoGameModel, VideoGame> mapper)
     : MongoDbRepositoryBase<VideoGameModel, VideoGame>(mongoDatabase, logger, mapper), IVideoGameRepository
 {
     protected override string CollectionName => "videogame";

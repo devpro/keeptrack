@@ -11,15 +11,15 @@ namespace Keeptrack.Domain.Services;
 /// </summary>
 public class WishlistService
 {
-    public List<MovieModel> SortMovies(IEnumerable<MovieModel> movies) =>
+    public static List<MovieModel> SortMovies(IEnumerable<MovieModel> movies) =>
         movies.OrderBy(m => m.Title).ToList();
 
-    public List<TvShowModel> SortTvShows(IEnumerable<TvShowModel> tvShows) =>
+    public static List<TvShowModel> SortTvShows(IEnumerable<TvShowModel> tvShows) =>
         tvShows.OrderBy(s => s.Title).ToList();
 
-    public List<BookModel> SortBooks(IEnumerable<BookModel> books) =>
+    public static List<BookModel> SortBooks(IEnumerable<BookModel> books) =>
         books.OrderBy(b => b.Title).ToList();
 
-    public List<VideoGameModel> SortVideoGames(IEnumerable<VideoGameModel> videoGames) =>
+    public static List<VideoGameModel> SortVideoGames(IEnumerable<VideoGameModel> videoGames) =>
         videoGames.OrderBy(g => g.Title).ToList();
 }

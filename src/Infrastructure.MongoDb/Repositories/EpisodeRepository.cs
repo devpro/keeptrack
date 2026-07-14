@@ -7,7 +7,7 @@ using MongoDB.Driver;
 
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
-public class EpisodeRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepositoryBase<EpisodeModel, Episode>> logger, IStorageMapper<EpisodeModel, Episode> mapper)
+public class EpisodeRepository(IMongoDatabase mongoDatabase, ILogger<EpisodeRepository> logger, IStorageMapper<EpisodeModel, Episode> mapper)
     : MongoDbRepositoryBase<EpisodeModel, Episode>(mongoDatabase, logger, mapper), IEpisodeRepository
 {
     protected override string CollectionName => "episode";

@@ -7,7 +7,7 @@ using MongoDB.Driver;
 
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
-public class HouseRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepositoryBase<HouseModel, House>> logger, IStorageMapper<HouseModel, House> mapper)
+public class HouseRepository(IMongoDatabase mongoDatabase, ILogger<HouseRepository> logger, IStorageMapper<HouseModel, House> mapper)
     : MongoDbRepositoryBase<HouseModel, House>(mongoDatabase, logger, mapper), IHouseRepository
 {
     protected override string CollectionName => "house";

@@ -19,7 +19,7 @@ public class WishlistServiceTest
             new MovieModel { Id = "2", OwnerId = "owner", Title = "Arrival" }
         };
 
-        var result = _service.SortMovies(movies);
+        var result = WishlistService.SortMovies(movies);
 
         result.Should().HaveCount(2);
         result[0].Title.Should().Be("Arrival");
@@ -35,7 +35,7 @@ public class WishlistServiceTest
             new TvShowModel { Id = "2", OwnerId = "owner", Title = "Dark" }
         };
 
-        var result = _service.SortTvShows(shows);
+        var result = WishlistService.SortTvShows(shows);
 
         result.Should().HaveCount(2);
         result[0].Title.Should().Be("Dark");
@@ -51,7 +51,7 @@ public class WishlistServiceTest
             new BookModel { Id = "2", OwnerId = "owner", Title = "Dune", Author = "Herbert" }
         };
 
-        var result = _service.SortBooks(books);
+        var result = WishlistService.SortBooks(books);
 
         result.Should().HaveCount(2);
         result[0].Title.Should().Be("Dune");
@@ -67,7 +67,7 @@ public class WishlistServiceTest
             new VideoGameModel { Id = "2", OwnerId = "owner", Title = "Elden Ring", Platforms = [new VideoGamePlatformModel { Platform = "PS5", State = "Available" }] }
         };
 
-        var result = _service.SortVideoGames(games);
+        var result = WishlistService.SortVideoGames(games);
 
         result.Should().HaveCount(2);
         result[0].Title.Should().Be("Elden Ring");
@@ -77,7 +77,7 @@ public class WishlistServiceTest
     [Fact]
     public void SortMovies_ReturnsEmptyListWhenNoMoviesWishlisted()
     {
-        var result = _service.SortMovies([]);
+        var result = WishlistService.SortMovies([]);
 
         result.Should().BeEmpty();
     }

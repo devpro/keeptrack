@@ -7,7 +7,7 @@ using MongoDB.Driver;
 
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
-public class SongRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepositoryBase<SongModel, Song>> logger, IStorageMapper<SongModel, Song> mapper)
+public class SongRepository(IMongoDatabase mongoDatabase, ILogger<SongRepository> logger, IStorageMapper<SongModel, Song> mapper)
     : MongoDbRepositoryBase<SongModel, Song>(mongoDatabase, logger, mapper), ISongRepository
 {
     protected override string CollectionName => "song";

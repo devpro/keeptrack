@@ -12,7 +12,7 @@ using MongoDB.Driver;
 
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
-public class AlbumRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepositoryBase<AlbumModel, Album>> logger, IStorageMapper<AlbumModel, Album> mapper)
+public class AlbumRepository(IMongoDatabase mongoDatabase, ILogger<AlbumRepository> logger, IStorageMapper<AlbumModel, Album> mapper)
     : MongoDbRepositoryBase<AlbumModel, Album>(mongoDatabase, logger, mapper), IAlbumRepository
 {
     protected override string CollectionName => "album";

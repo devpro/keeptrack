@@ -12,7 +12,7 @@ using MongoDB.Driver;
 
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
-public class MovieRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepositoryBase<MovieModel, Movie>> logger, IStorageMapper<MovieModel, Movie> mapper)
+public class MovieRepository(IMongoDatabase mongoDatabase, ILogger<MovieRepository> logger, IStorageMapper<MovieModel, Movie> mapper)
     : MongoDbRepositoryBase<MovieModel, Movie>(mongoDatabase, logger, mapper), IMovieRepository
 {
     protected override string CollectionName => "movie";

@@ -12,7 +12,7 @@ using MongoDB.Driver;
 
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
-public class TvShowRepository(IMongoDatabase mongoDatabase, ILogger<MongoDbRepositoryBase<TvShowModel, TvShow>> logger, IStorageMapper<TvShowModel, TvShow> mapper)
+public class TvShowRepository(IMongoDatabase mongoDatabase, ILogger<TvShowRepository> logger, IStorageMapper<TvShowModel, TvShow> mapper)
     : MongoDbRepositoryBase<TvShowModel, TvShow>(mongoDatabase, logger, mapper), ITvShowRepository
 {
     protected override string CollectionName => "tvshow";
