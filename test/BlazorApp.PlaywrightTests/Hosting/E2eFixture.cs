@@ -8,13 +8,13 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using FirebaseAdmin.Auth;
-using Keeptrack.BlazorApp.E2eTests.Support;
+using Keeptrack.BlazorApp.PlaywrightTests.Support;
 using Keeptrack.Testing.Shared.Firebase;
 using Keeptrack.Testing.Shared.Hosting;
 using Microsoft.Playwright;
 using Xunit;
 
-namespace Keeptrack.BlazorApp.E2eTests.Hosting;
+namespace Keeptrack.BlazorApp.PlaywrightTests.Hosting;
 
 /// <summary>
 /// Assembly-wide setup for the whole e2e run (xunit v3 <c>[assembly: AssemblyFixture(typeof(E2eFixture))]</c>,
@@ -48,11 +48,6 @@ public sealed class E2eFixture : IAsyncLifetime
 
     public string StorageStatePath { get; private set; } = "";
 
-    /// <summary>
-    /// Null when running with <see cref="E2eConfiguration.ReadOnly"/>, since nothing gets seeded then.
-    /// </summary>
-    public string? SeededBookReferenceId { get; private set; }
-
     public async ValueTask InitializeAsync()
     {
         // Nothing here matters when disabled - every test's own SmokeTestBase.InitializeAsync dynamically
@@ -76,10 +71,17 @@ public sealed class E2eFixture : IAsyncLifetime
                 new KeyValuePair<string, string?>("Features:IsReferenceSyncEnabled", "false"));
             WebApiBaseUrl = _webApiFactory.ServerAddress;
 
-            // the hosted Blazor app needs WebApi:BaseUrl injected with the WebApi host's own dynamic address.
-            _blazorFactory = new KestrelWebAppFactory<BlazorHost::Program>(
-                BlazorKestrelUrlOverride,
-                new KeyValuePair<string, string?>("WebApi:BaseUrl", WebApiBaseUrl));
+            // The hosted Blazor app needs WebApi:BaseUrl injected with the WebApi host's own dynamic address -
+            // but BlazorApp's Program.cs reads it via builder.Configuration.TryGetSection(...) *before*
+            // WebApplicationBuilder.Build() runs, which is earlier than WebApplicationFactory's own
+            // ConfigureWebHost/ConfigureAppConfiguration override can reach (that override only affects the
+            // configuration used *after* Build()). Confirmed against a real run: passing this the same way
+            // as the WebApi factory's Features:IsReferenceSyncEnabled override below left the Blazor host
+            // silently dialing its static appsettings.Development.json WebApi:BaseUrl instead. A real process
+            // environment variable is read synchronously by WebApplication.CreateBuilder itself, so it's
+            // visible in time.
+            Environment.SetEnvironmentVariable("WebApi__BaseUrl", WebApiBaseUrl);
+            _blazorFactory = new KestrelWebAppFactory<BlazorHost::Program>(BlazorKestrelUrlOverride);
             BlazorBaseUrl = _blazorFactory.ServerAddress;
         }
 
@@ -172,7 +174,6 @@ public sealed class E2eFixture : IAsyncLifetime
     private async Task SeedReferenceDataAsync()
     {
         var zip = ReferenceFixtureZipBuilder.Build();
-        SeededBookReferenceId = ReferenceFixtureZipBuilder.BookReferenceId;
 
         using var httpClient = new HttpClient { BaseAddress = new Uri(WebApiBaseUrl) };
         httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _idToken);

@@ -1,6 +1,6 @@
 using System;
 
-namespace Keeptrack.BlazorApp.E2eTests.Support;
+namespace Keeptrack.BlazorApp.PlaywrightTests.Support;
 
 public enum TraceMode
 {

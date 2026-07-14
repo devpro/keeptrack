@@ -1,11 +1,11 @@
 using System.Threading.Tasks;
-using Keeptrack.BlazorApp.E2eTests.Hosting;
-using Keeptrack.BlazorApp.E2eTests.Pages;
-using Keeptrack.BlazorApp.E2eTests.Support;
+using Keeptrack.BlazorApp.PlaywrightTests.Hosting;
+using Keeptrack.BlazorApp.PlaywrightTests.Pages;
+using Keeptrack.BlazorApp.PlaywrightTests.Support;
 using Microsoft.Playwright;
 using Xunit;
 
-namespace Keeptrack.BlazorApp.E2eTests.Smoke;
+namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
 /// With <see cref="E2eFixture"/>'s synthetic book reference already imported, adding a book with the exact
@@ -21,25 +21,26 @@ public class ReferenceSmokeTest(E2eFixture fixture) : SmokeTestBase(fixture)
     {
         SkipIfReadOnly();
 
-        var list = await new ListPage(Page, "/books", "Books").OpenAsync();
+        var home = await new HomePage(Page).OpenAsync();
+        var list = await home.OpenBooksAsync();
         await list.ClickAddAsync();
-        await list.FillAsync("Title", ReferenceFixtureZipBuilder.BookTitle);
-        await list.FillAsync("Author", ReferenceFixtureZipBuilder.BookAuthor);
+        await list.FillAsync("title-input", ReferenceFixtureZipBuilder.BookTitle);
+        await list.FillAsync("author-input", ReferenceFixtureZipBuilder.BookAuthor);
         await list.SaveNewAsync();
         await Assertions.Expect(list.Row(ReferenceFixtureZipBuilder.BookTitle)).ToBeVisibleAsync();
 
         await list.OpenItemAsync(ReferenceFixtureZipBuilder.BookTitle);
-        var detail = await new BookDetailPage(Page).WaitForReadyAsync();
+        var detail = new BookDetailPage(Page);
+        await detail.WaitForReadyAsync();
 
         await detail.ClickCheckReferenceMatchAsync();
 
         await Assertions.Expect(detail.TitleInput).ToHaveValueAsync(ReferenceFixtureZipBuilder.BookTitle);
-        await Assertions.Expect(detail.FieldInput("Author")).ToHaveValueAsync(ReferenceFixtureZipBuilder.BookAuthor);
+        await Assertions.Expect(detail.AuthorInput).ToHaveValueAsync(ReferenceFixtureZipBuilder.BookAuthor);
         await Assertions.Expect(detail.CoverImage).ToBeVisibleAsync();
         await Assertions.Expect(detail.CoverImage).ToHaveAttributeAsync("src", ReferenceFixtureZipBuilder.BookImageUrl);
 
-        await Page.GotoAsync("/books");
-        await list.WaitForReadyAsync();
+        list = await detail.OpenBooksAsync();
         await list.DeleteAsync(ReferenceFixtureZipBuilder.BookTitle);
     }
 }

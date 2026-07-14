@@ -1,13 +1,13 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using Keeptrack.BlazorApp.E2eTests.Hosting;
-using Keeptrack.BlazorApp.E2eTests.Support;
+using Keeptrack.BlazorApp.PlaywrightTests.Hosting;
+using Keeptrack.BlazorApp.PlaywrightTests.Support;
 using Microsoft.Playwright;
 using Microsoft.Playwright.Xunit.v3;
 using Xunit;
 
-namespace Keeptrack.BlazorApp.E2eTests.Smoke;
+namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
 /// Shared setup for every smoke test class: the E2E_ENABLED skip guard, a pre-authenticated browser context

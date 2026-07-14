@@ -3,8 +3,8 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <OutputType>Exe</OutputType>
-    <AssemblyName>Keeptrack.BlazorApp.E2eTests</AssemblyName>
-    <RootNamespace>Keeptrack.BlazorApp.E2eTests</RootNamespace>
+    <AssemblyName>Keeptrack.BlazorApp.PlaywrightTests</AssemblyName>
+    <RootNamespace>Keeptrack.BlazorApp.PlaywrightTests</RootNamespace>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>

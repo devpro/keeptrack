@@ -67,11 +67,11 @@
     <FormTemplate Context="book">
         <div class="col-12">
             <label class="form-label">Title</label>
-            <input class="form-control" @bind="book.Title" />
+            <input class="form-control" data-testid="title-input" @bind="book.Title" />
         </div>
         <div class="col-12">
             <label class="form-label">Author</label>
-            <input class="form-control" @bind="book.Author" />
+            <input class="form-control" data-testid="author-input" @bind="book.Author" />
         </div>
         <div class="col-md-6">
             <label class="form-label">Series</label>
@@ -90,17 +90,17 @@
         <div class="col-12">
             <label class="form-label">Title</label>
             <AuthorizeView Policy="AdminOnly" Context="titleAdminCtx">
-                <Authorized><input class="form-control" @bind="book.Title"/></Authorized>
-                <NotAuthorized><input class="form-control" @bind="book.Title" disabled="@(!string.IsNullOrEmpty(book.ReferenceId))"/></NotAuthorized>
+                <Authorized><input class="form-control" data-testid="title-input" @bind="book.Title"/></Authorized>
+                <NotAuthorized><input class="form-control" data-testid="title-input" @bind="book.Title" disabled="@(!string.IsNullOrEmpty(book.ReferenceId))"/></NotAuthorized>
             </AuthorizeView>
         </div>
         <div class="col-md-6">
             <label class="form-label">Author</label>
-            <input class="form-control" @bind="book.Author" />
+            <input class="form-control" data-testid="author-input" @bind="book.Author" />
         </div>
         <div class="col-md-6">
             <label class="form-label">Series</label>
-            <input class="form-control" @bind="book.Series" />
+            <input class="form-control" data-testid="series-input" @bind="book.Series" />
         </div>
         <div class="col-md-6">
             <label class="form-label">Year</label>

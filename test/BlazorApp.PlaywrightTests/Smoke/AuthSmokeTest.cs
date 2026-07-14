@@ -1,10 +1,10 @@
 using System.Threading.Tasks;
-using Keeptrack.BlazorApp.E2eTests.Hosting;
-using Keeptrack.BlazorApp.E2eTests.Pages;
+using Keeptrack.BlazorApp.PlaywrightTests.Hosting;
+using Keeptrack.BlazorApp.PlaywrightTests.Pages;
 using Microsoft.Playwright;
 using Xunit;
 
-namespace Keeptrack.BlazorApp.E2eTests.Smoke;
+namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Readonly")]
@@ -31,8 +31,8 @@ public class AuthSmokeTest(E2eFixture fixture) : SmokeTestBase(fixture)
     [Fact]
     public async Task Logout_EndsTheSession()
     {
-        await Page.GotoAsync("/");
-        await Page.GetByRole(AriaRole.Link, new() { Name = "Log out" }).ClickAsync();
+        var home = await new HomePage(Page).OpenAsync();
+        await home.LogoutAsync();
 
         await Page.GotoAsync("/books");
 

@@ -22,7 +22,7 @@ else
 {
     <div class="kt-page-header">
         <div class="d-flex align-items-center gap-2" style="flex:1;min-width:0">
-            <input class="kt-title-input" value="@_book.Title" @onchange="SaveTitleAsync"/>
+            <input class="kt-title-input" data-testid="title-input" value="@_book.Title" @onchange="SaveTitleAsync"/>
             <button class="kt-icon-btn" @onclick="RefreshReferenceAsync" disabled="@_refreshingReference"
                     title="@(string.IsNullOrEmpty(_book.ReferenceId) ? "Check for reference match using the title and year below." : $"Linked to \"{_reference?.Title}\". Not right? Edit the title or year below, then check again.")">
                 <span class="@(_refreshingReference ? "kt-icon-spin" : "")">↻</span>
@@ -61,11 +61,11 @@ else
             <div class="col-md-4">
                 <div>
                     <label class="form-label">Author</label>
-                    <input class="form-control form-control-sm" value="@_book.Author" @onchange="SaveAuthorAsync"/>
+                    <input class="form-control form-control-sm" data-testid="author-input" value="@_book.Author" @onchange="SaveAuthorAsync"/>
                 </div>
                 <div class="mt-3">
                     <label class="form-label">Series</label>
-                    <input class="form-control form-control-sm" value="@_book.Series" @onchange="SaveSeriesAsync"/>
+                    <input class="form-control form-control-sm" data-testid="series-input" value="@_book.Series" @onchange="SaveSeriesAsync"/>
                 </div>
                 <div class="mt-3">
                     <label class="form-label">Year</label>

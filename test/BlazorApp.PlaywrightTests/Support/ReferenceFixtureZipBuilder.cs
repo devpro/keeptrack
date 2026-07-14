@@ -6,7 +6,7 @@ using System.Text.Json;
 using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
 
-namespace Keeptrack.BlazorApp.E2eTests.Support;
+namespace Keeptrack.BlazorApp.PlaywrightTests.Support;
 
 /// <summary>
 /// Builds a small, synthetic reference-data export zip for <c>ReferenceSmokeTest</c>: a single book, in the
@@ -21,8 +21,6 @@ namespace Keeptrack.BlazorApp.E2eTests.Support;
 /// </summary>
 public static class ReferenceFixtureZipBuilder
 {
-    public const string BookReferenceId = "e2e-book-reference";
-
     public const string BookTitle = "The Playwright Chronicles";
 
     public const string BookAuthor = "Keeptrack E2e Author";
@@ -33,9 +31,13 @@ public static class ReferenceFixtureZipBuilder
 
     public static byte[] Build()
     {
+        // No Id: BookReferenceRepository.UpsertAsync inserts (rather than replaces) a document with no id,
+        // letting MongoDB assign a real ObjectId - same as every other create path in the app. A hand-picked
+        // string like "e2e-book-reference" isn't a valid 24-hex-digit ObjectId, which the driver requires
+        // for a string Id field stored with ObjectId representation (confirmed against the real host: it
+        // throws FormatException server-side rather than silently accepting an arbitrary string).
         var reference = new BookReferenceModel
         {
-            Id = BookReferenceId,
             Title = BookTitle,
             TitleNormalized = TitleNormalizer.Normalize(BookTitle),
             Year = BookYear,
