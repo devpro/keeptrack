@@ -13,6 +13,7 @@
   </Folder>
   <Folder Name="/Solution Items/docs/">
     <File Path="docs/automapper-removal-plan.md" />
+    <File Path="docs/backlog.md" />
     <File Path="docs/code-quality-findings.md" />
     <File Path="docs/operations.md" />
   </Folder>
@@ -29,7 +30,11 @@
     <File Path=".gitlab-ci.yml" />
   </Folder>
   <Folder Name="/Solution Items/scripts/">
+    <File Path="scripts/align_table.js" />
+    <File Path="scripts/dedupe-matched-aliases.js" />
     <File Path="scripts/firebase-set-admin.js" />
+    <File Path="scripts/migrate-poster-url-to-image-url.js" />
+    <File Path="scripts/migrate-videogame-to-embedded-platforms.js" />
     <File Path="scripts/mongodb-create-index.js" />
     <File Path="scripts/mongodb-install.sh" />
   </Folder>

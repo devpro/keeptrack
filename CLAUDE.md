@@ -52,14 +52,14 @@ Integration tests also need Firebase test-user credentials and MongoDB connectio
 
 The solution follows a layered / clean-architecture style split across small, single-purpose projects (`src/*`), with `Domain` at the center and no project referencing "outward":
 
-| Project | Depends on | Responsibility |
-|---|---|---|
-| `Common.System` | — | Cross-cutting primitives shared by every layer: `IHasId`, `IHasIdAndOwnerId`, `PagedRequest`, `PagedResult<T>`. |
-| `Domain` | `Common.System` | Business models (`*Model` in `Models/`) and repository interfaces (`I*Repository` in `Repositories/`). No persistence or web concerns. |
-| `Infrastructure.MongoDb` | `Domain` | MongoDB implementation: BSON `Entities/` and `Repositories/` implementing the `Domain` interfaces. |
-| `WebApi.Contracts` | `Common.System` | Public REST DTOs (`Dto/`), shared between `WebApi` and `BlazorApp` so the Blazor client can deserialize API responses without duplicating classes. |
-| `WebApi` | `Infrastructure.MongoDb`, `Domain`, `WebApi.Contracts` | ASP.NET Web API: controllers, DTO mappers, DI wiring, JWT authentication, OpenAPI/Scalar docs. |
-| `BlazorApp` | `Common.System`, `WebApi.Contracts` | Blazor Server UI. Talks to `WebApi` over HTTP using the shared DTOs; it never references `Domain` or `Infrastructure.MongoDb` directly. |
+Project                  | Depends on                                             | Responsibility
+-------------------------|--------------------------------------------------------|---------------
+`Common.System`          | —                                                      | Cross-cutting primitives shared by every layer: `IHasId`, `IHasIdAndOwnerId`, `PagedRequest`, `PagedResult<T>`.
+`Domain`                 | `Common.System`                                        | Business models (`*Model` in `Models/`) and repository interfaces (`I*Repository` in `Repositories/`). No persistence or web concerns.
+`Infrastructure.MongoDb` | `Domain`                                               | MongoDB implementation: BSON `Entities/` and `Repositories/` implementing the `Domain` interfaces.
+`WebApi.Contracts`       | `Common.System`                                        | Public REST DTOs (`Dto/`), shared between `WebApi` and `BlazorApp` so the Blazor client can deserialize API responses without duplicating classes.
+`WebApi`                 | `Infrastructure.MongoDb`, `Domain`, `WebApi.Contracts` | ASP.NET Web API: controllers, DTO mappers, DI wiring, JWT authentication, OpenAPI/Scalar docs.
+`BlazorApp`              | `Common.System`, `WebApi.Contracts`                    | Blazor Server UI. Talks to `WebApi` over HTTP using the shared DTOs; it never references `Domain` or `Infrastructure.MongoDb` directly.
 
 ### Data model conventions
 
