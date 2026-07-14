@@ -60,7 +60,7 @@ jobs:
         Infrastructure__MongoDB__DatabaseName=keeptrack_ci
       fossa-enabled: true
       sonar-enabled: true
-      sonar-exclusions: "samples/**"
+      sonar-exclusions: "samples/**,**/*.g.cs,**/*.generated.cs"
       sonar-organization: ${{ vars.SONAR_ORG }}
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
       sonar-project-name: Keeptrack
