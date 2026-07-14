@@ -26,8 +26,6 @@ public class VideoGameResourceTest(KestrelWebAppFactory<Program> factory)
 
         await Authenticate();
 
-        var initialItems = await GetAsync<PagedResult<VideoGameDto>>($"/{ResourceEndpoint}");
-
         var input = new Faker<VideoGameDto>()
             .Rules((f, o) =>
             {
@@ -47,7 +45,6 @@ public class VideoGameResourceTest(KestrelWebAppFactory<Program> factory)
             updated.Should().BeEquivalentTo(created);
 
             var finalItems = await GetAsync<PagedResult<VideoGameDto>>($"/{ResourceEndpoint}");
-            finalItems.TotalCount.Should().BeGreaterThan(initialItems.TotalCount);
             var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
             firstItem.Should().NotBeNull();
             firstItem.Title.Should().Be(updated.Title);

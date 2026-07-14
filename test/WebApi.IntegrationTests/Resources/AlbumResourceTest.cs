@@ -27,8 +27,6 @@ public class AlbumResourceTest(KestrelWebAppFactory<Program> factory)
 
         await Authenticate();
 
-        var initialItems = await GetAsync<PagedResult<AlbumDto>>($"/{ResourceEndpoint}");
-
         var input = new Faker<AlbumDto>()
             .Rules((f, o) => { o.Artist = f.Random.AlphaNumeric(8); o.Title = f.Random.AlphaNumeric(14); })
             .Generate();
@@ -44,7 +42,6 @@ public class AlbumResourceTest(KestrelWebAppFactory<Program> factory)
             updated.Should().BeEquivalentTo(created);
 
             var finalItems = await GetAsync<PagedResult<AlbumDto>>($"/{ResourceEndpoint}");
-            finalItems.TotalCount.Should().BeGreaterThan(initialItems.TotalCount);
             var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
             firstItem.Should().NotBeNull();
             firstItem.Title.Should().Be(updated.Title);

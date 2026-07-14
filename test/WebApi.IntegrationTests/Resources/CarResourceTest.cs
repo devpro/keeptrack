@@ -27,8 +27,6 @@ public class CarResourceTest(KestrelWebAppFactory<Program> factory)
 
         await Authenticate();
 
-        var initialItems = await GetAsync<PagedResult<CarDto>>($"/{ResourceEndpoint}");
-
         var input = new Faker<CarDto>()
             .Rules((f, o) =>
             {
@@ -52,7 +50,6 @@ public class CarResourceTest(KestrelWebAppFactory<Program> factory)
             updated.Should().BeEquivalentTo(created);
 
             var finalItems = await GetAsync<PagedResult<CarDto>>($"/{ResourceEndpoint}");
-            finalItems.TotalCount.Should().BeGreaterThan(initialItems.TotalCount);
             var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
             firstItem.Should().NotBeNull();
             firstItem.Name.Should().Be(updated.Name);

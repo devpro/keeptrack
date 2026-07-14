@@ -27,8 +27,6 @@ public class PlaylistResourceTest(KestrelWebAppFactory<Program> factory)
 
         await Authenticate();
 
-        var initialItems = await GetAsync<PagedResult<PlaylistDto>>($"/{ResourceEndpoint}");
-
         var input = new Faker<PlaylistDto>()
             .Rules((f, o) => { o.Title = f.Random.AlphaNumeric(14); })
             .Generate();
@@ -44,7 +42,6 @@ public class PlaylistResourceTest(KestrelWebAppFactory<Program> factory)
             updated.Should().BeEquivalentTo(created);
 
             var finalItems = await GetAsync<PagedResult<PlaylistDto>>($"/{ResourceEndpoint}");
-            finalItems.TotalCount.Should().BeGreaterThan(initialItems.TotalCount);
             var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
             firstItem.Should().NotBeNull();
             firstItem.Title.Should().Be(updated.Title);

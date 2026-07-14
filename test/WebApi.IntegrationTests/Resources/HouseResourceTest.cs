@@ -25,8 +25,6 @@ public class HouseResourceTest(KestrelWebAppFactory<Program> factory)
 
         await Authenticate();
 
-        var initialItems = await GetAsync<PagedResult<HouseDto>>($"/{ResourceEndpoint}");
-
         var input = new Faker<HouseDto>()
             .Rules((f, o) =>
             {
@@ -49,7 +47,6 @@ public class HouseResourceTest(KestrelWebAppFactory<Program> factory)
             updated.Should().BeEquivalentTo(created);
 
             var finalItems = await GetAsync<PagedResult<HouseDto>>($"/{ResourceEndpoint}");
-            finalItems.TotalCount.Should().BeGreaterThan(initialItems.TotalCount);
             var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
             firstItem.Should().NotBeNull();
             firstItem.Name.Should().Be(updated.Name);

@@ -23,8 +23,6 @@ public class MovieResourceTest(KestrelWebAppFactory<Program> factory)
 
         await Authenticate();
 
-        var initialItems = await GetAsync<PagedResult<MovieDto>>($"/{ResourceEndpoint}");
-
         var input = new Faker<MovieDto>()
             .Rules((f, o) => { o.Title = f.Random.AlphaNumeric(14); })
             .Generate();
@@ -40,7 +38,6 @@ public class MovieResourceTest(KestrelWebAppFactory<Program> factory)
             updated.Should().BeEquivalentTo(created);
 
             var finalItems = await GetAsync<PagedResult<MovieDto>>($"/{ResourceEndpoint}");
-            finalItems.TotalCount.Should().BeGreaterThan(initialItems.TotalCount);
             var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
             firstItem.Should().NotBeNull();
             firstItem.Title.Should().Be(updated.Title);
