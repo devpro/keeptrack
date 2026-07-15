@@ -45,11 +45,11 @@
         <td style="font-weight:500">
             <a href="@($"/books/{book.Id}")">@book.Title</a>
         </td>
-        <td>@book.Author</td>
-        <td>@book.Series</td>
-        <td><span class="kt-stars"><StarRating Rating="book.Rating" /></span></td>
-        <td>@book.FirstReadAt?.ToString("yyyy-MM-dd")</td>
-        <td>
+        <td data-label="Author">@book.Author</td>
+        <td data-label="Series">@book.Series</td>
+        <td data-label="Rating"><span class="kt-stars"><StarRating Rating="book.Rating" /></span></td>
+        <td data-label="Finished">@book.FirstReadAt?.ToString("yyyy-MM-dd")</td>
+        <td data-label="Lists">
             @if (book.IsFavorite)
             {
                 <span title="Favorite">★</span>

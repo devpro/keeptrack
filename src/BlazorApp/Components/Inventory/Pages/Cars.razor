@@ -41,11 +41,11 @@
         <td style="font-weight:500">
             <a href="@($"/cars/{car.Id}")">@car.Name</a>
         </td>
-        <td>@car.Manufacturer</td>
-        <td>@car.Model</td>
-        <td>@car.Year</td>
-        <td>@car.LicensePlate</td>
-        <td>@car.EnergyType</td>
+        <td data-label="Manufacturer">@car.Manufacturer</td>
+        <td data-label="Model">@car.Model</td>
+        <td data-label="Year">@car.Year</td>
+        <td data-label="Plate">@car.LicensePlate</td>
+        <td data-label="Energy">@car.EnergyType</td>
         <td></td>
     </RowTemplate>
     <FormTemplate Context="car">

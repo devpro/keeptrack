@@ -36,7 +36,7 @@
         <td style="font-weight:500">
             <a href="@($"/playlists/{playlist.Id}")">@playlist.Title</a>
         </td>
-        <td>@playlist.SongIds.Count</td>
+        <td data-label="Songs">@playlist.SongIds.Count</td>
     </RowTemplate>
     <FormTemplate Context="playlist">
         <input class="form-control" placeholder="Title" @bind="playlist.Title" />

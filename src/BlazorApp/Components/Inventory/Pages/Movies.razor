@@ -37,17 +37,17 @@
         <th>Title</th>
         <th>Year</th>
         <th>Rating</th>
-        <td>First seen</td>
+        <th>First seen</th>
         <th></th>
     </HeaderTemplate>
     <RowTemplate Context="movie">
         <td style="font-weight:500">
             <a href="@($"/movies/{movie.Id}")">@movie.Title</a>
         </td>
-        <td style="color:var(--kt-text-muted)">@(movie.Year > 0 ? movie.Year : "")</td>
-        <td><span class="kt-stars"><StarRating Rating="movie.Rating" /></span></td>
-        <td>@movie.FirstSeenAt?.ToString("yyyy-MM-dd")</td>
-        <td>
+        <td data-label="Year" style="color:var(--kt-text-muted)">@(movie.Year > 0 ? movie.Year : "")</td>
+        <td data-label="Rating"><span class="kt-stars"><StarRating Rating="movie.Rating" /></span></td>
+        <td data-label="First seen">@movie.FirstSeenAt?.ToString("yyyy-MM-dd")</td>
+        <td data-label="Lists">
             @if (movie.IsFavorite)
             {
                 <span title="Favorite">★</span>

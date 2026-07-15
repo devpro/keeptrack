@@ -41,9 +41,9 @@
         <td style="font-weight:500">
             <a href="@($"/albums/{album.Id}")">@album.Title</a>
         </td>
-        <td>@album.Artist</td>
-        <td><span class="kt-stars"><StarRating Rating="album.Rating" /></span></td>
-        <td>
+        <td data-label="Artist">@album.Artist</td>
+        <td data-label="Rating"><span class="kt-stars"><StarRating Rating="album.Rating" /></span></td>
+        <td data-label="Lists">
             @if (album.IsFavorite)
             {
                 <span title="Favorite">★</span>

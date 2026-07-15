@@ -39,9 +39,9 @@
         <td style="font-weight:500">
             <a href="@($"/houses/{house.Id}")">@house.Name</a>
         </td>
-        <td>@house.Address</td>
-        <td>@house.City</td>
-        <td>@house.Country</td>
+        <td data-label="Address">@house.Address</td>
+        <td data-label="City">@house.City</td>
+        <td data-label="Country">@house.Country</td>
         <td></td>
     </RowTemplate>
     <FormTemplate Context="house">

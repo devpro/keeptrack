@@ -47,7 +47,7 @@
         <td style="font-weight:500">
             <a href="@($"/video-games/{game.Id}")">@game.Title</a>
         </td>
-        <td>
+        <td data-label="Platforms">
             @foreach (var entry in game.Platforms)
             {
                 <span class="kt-status-badge @StateBadgeClass(entry.State ?? "")" style="margin-right:4px">
@@ -55,8 +55,8 @@
                 </span>
             }
         </td>
-        <td><span class="kt-stars"><StarRating Rating="game.Rating" /></span></td>
-        <td>
+        <td data-label="Rating"><span class="kt-stars"><StarRating Rating="game.Rating" /></span></td>
+        <td data-label="Lists">
             @if (game.IsOwned)
             {
                 <span title="Owned">●</span>

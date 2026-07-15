@@ -88,7 +88,7 @@ public abstract class PageBase(IPage page)
 
     public Task<ListPage> OpenPlaylistsAsync() => NavigateAsync("Playlists", new ListPage(Page, "/playlists", "Playlists"));
 
-    public Task<ListPage> OpenTvShowsAsync() => NavigateAsync("TV shows", new ListPage(Page, "/tv-shows", "Tv Shows"));
+    public Task<ListPage> OpenTvShowsAsync() => NavigateAsync("TV shows", new ListPage(Page, "/tv-shows", "TV Shows"));
 
     public Task<ListPage> OpenVideoGamesAsync() => NavigateAsync("Video games", new ListPage(Page, "/video-games", "Video Games"));
 

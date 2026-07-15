@@ -21,7 +21,7 @@ else if (_album is null)
 else
 {
     <div class="kt-page-header">
-        <div class="d-flex align-items-center gap-2" style="flex:1;min-width:0">
+        <div class="kt-title-row">
             <input class="kt-title-input" value="@_album.Title" @onchange="SaveTitleAsync"/>
             <button class="kt-icon-btn" @onclick="RefreshReferenceAsync" disabled="@_refreshingReference"
                     title="@(string.IsNullOrEmpty(_album.ReferenceId) ? "Check for reference match using the title and year below." : $"Linked to \"{_reference?.Title}\". Not right? Edit the title or year below, then check again.")">

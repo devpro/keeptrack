@@ -4,7 +4,7 @@
 @attribute [Authorize]
 
 <InventoryList TDto="TvShowDto"
-               Title="Tv Shows"
+               Title="TV Shows"
                ItemName="TV Show"
                Items="@_items"
                Loading="@_loading"
@@ -47,14 +47,14 @@
         <td style="font-weight:500">
             <a href="@($"/tv-shows/{show.Id}")">@show.Title</a>
         </td>
-        <td>
+        <td data-label="State">
             @if (show.State is not null)
             {
                 <span class="kt-status-badge @show.State.ToString()!.ToLowerInvariant()">@show.State</span>
             }
         </td>
-        <td><span class="kt-stars"><StarRating Rating="show.Rating" /></span></td>
-        <td>
+        <td data-label="Rating"><span class="kt-stars"><StarRating Rating="show.Rating" /></span></td>
+        <td data-label="Lists">
             @if (show.IsFavorite)
             {
                 <span title="Favorite">★</span>

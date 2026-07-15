@@ -3,11 +3,11 @@
 
 <tr class="@(HasWarning ? "kt-history-row-warning" : "")">
     <td>@Entry.HistoryDate.ToString(Entry.HistoryDate.TimeOfDay == TimeSpan.Zero ? "yyyy-MM-dd" : "yyyy-MM-dd HH:mm")</td>
-    <td>@Entry.Mileage</td>
-    <td>@Entry.EventType</td>
-    <td>@Entry.Cost?.ToString("F2")</td>
-    <td>@Entry.City</td>
-    <td>@Entry.Description</td>
+    <td data-label="Mileage">@Entry.Mileage</td>
+    <td data-label="Event">@Entry.EventType</td>
+    <td data-label="Cost">@Entry.Cost?.ToString("F2")</td>
+    <td data-label="City">@Entry.City</td>
+    <td data-label="Description">@Entry.Description</td>
     <td>
         @if (HasWarning)
         {
