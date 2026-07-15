@@ -17,5 +17,5 @@ public interface IMovieRepository : IDataRepository<MovieModel>
     /// Distinct (title, year) pairs across every tenant's movies that have no <see cref="MovieModel.ReferenceId"/>
     /// yet - feeds the admin curation queue.
     /// </summary>
-    Task<IReadOnlyList<(string Title, int? Year)>> FindDistinctUnresolvedTitleYearsAsync();
+    Task<IReadOnlyList<(string Title, int? Year, string? Creator)>> FindDistinctUnresolvedTitleYearsAsync();
 }

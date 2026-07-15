@@ -17,5 +17,5 @@ public interface IVideoGameRepository : IDataRepository<VideoGameModel>
     /// Distinct (title, year) pairs across every tenant's games that have no <see cref="VideoGameModel.ReferenceId"/>
     /// yet - feeds the admin curation queue.
     /// </summary>
-    Task<IReadOnlyList<(string Title, int? Year)>> FindDistinctUnresolvedTitleYearsAsync();
+    Task<IReadOnlyList<(string Title, int? Year, string? Creator)>> FindDistinctUnresolvedTitleYearsAsync();
 }

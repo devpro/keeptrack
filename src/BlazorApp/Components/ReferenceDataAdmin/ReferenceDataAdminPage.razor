@@ -344,16 +344,15 @@
         _selected = item;
         _queryTitle = item.Title;
         _queryYear = item.Year;
-        _creator = null;
+        _creator = item.Creator;
         await SearchAsync();
     }
 
     /// <summary>
     /// Searches the provider with the freely-editable query fields (prefilled from the selected unresolved
-    /// pair) rather than the stored title/year verbatim - a typo or regional title variant otherwise dead-ends
-    /// with zero results and no way to adjust from this page. The unresolved queue itself has no creator field
-    /// (it's a distinct (title, year) pair across every tenant, not any one tenant's own record), so the
-    /// author/artist box is the only way to supply one for Book/Album.
+    /// entry, including a tenant's author/artist for Book/Album) rather than the stored title/year verbatim -
+    /// a typo or regional title variant otherwise dead-ends with zero results and no way to adjust from this
+    /// page. Edited values only steer the search; nothing here is ever saved back to any item.
     /// </summary>
     private async Task SearchAsync()
     {

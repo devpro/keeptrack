@@ -42,13 +42,14 @@ public class VideoGameRepository(IMongoDatabase mongoDatabase, ILogger<VideoGame
         return result.ModifiedCount;
     }
 
-    public async Task<IReadOnlyList<(string Title, int? Year)>> FindDistinctUnresolvedTitleYearsAsync()
+    public async Task<IReadOnlyList<(string Title, int? Year, string? Creator)>> FindDistinctUnresolvedTitleYearsAsync()
     {
         var groups = await GetCollection().Aggregate()
             .Match(UnresolvedFilter())
             .Group(f => new { f.Title, f.Year }, g => g.Key)
             .ToListAsync();
-        return groups.Select(g => (g.Title, g.Year)).ToList();
+        // no creator dimension for this type - the tuple stays one shape across all five repositories
+        return groups.Select(g => (g.Title, g.Year, (string?)null)).ToList();
     }
 
     /// <summary>

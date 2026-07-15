@@ -15,7 +15,7 @@
             }
             else if (_results.Count == 0)
             {
-                <div class="alert alert-info mb-0">No @ProviderName results for this title/year.</div>
+                <div class="alert alert-info mb-2">No @ProviderName results for this title/year.</div>
             }
             else
             {
@@ -41,6 +41,15 @@
                         <button class="btn btn-sm btn-success ms-auto" @onclick="() => LinkAsync(candidate)" disabled="@_linking">Link</button>
                     </div>
                 }
+            }
+
+            @if (_searched && !_searching)
+            {
+                @* Re-runs the search with the page's *current* title/year (and author/artist) field values -
+                   the wrong-candidates fix is "edit the fields above, then search again", which previously
+                   required a full page reload. *@
+                <button class="btn btn-sm btn-secondary" @onclick="SearchAsync"
+                        title="Searches again with the current title/year values from this page.">↻ Search again</button>
             }
 
             @if (_error is not null)

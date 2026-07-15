@@ -45,13 +45,15 @@ public class BookRepository(IMongoDatabase mongoDatabase, ILogger<BookRepository
         return result.ModifiedCount;
     }
 
-    public async Task<IReadOnlyList<(string Title, int? Year)>> FindDistinctUnresolvedTitleYearsAsync()
+    public async Task<IReadOnlyList<(string Title, int? Year, string? Creator)>> FindDistinctUnresolvedTitleYearsAsync()
     {
+        // any one tenant's author works as the queue entry's creator - it only prefills the admin's
+        // search field, it is never persisted anywhere (see ReferenceDataAdminPage's SearchAsync).
         var groups = await GetCollection().Aggregate()
             .Match(UnresolvedFilter())
-            .Group(f => new { f.Title, f.Year }, g => g.Key)
+            .Group(f => new { f.Title, f.Year }, g => new { g.Key, Creator = g.First().Author })
             .ToListAsync();
-        return groups.Select(g => (g.Title, g.Year)).ToList();
+        return groups.Select(g => (g.Key.Title, g.Key.Year, (string?)g.Creator)).ToList();
     }
 
     /// <summary>
