@@ -119,9 +119,11 @@ A new type touches every layer:
 7. `BlazorApp/Components/Inventory/Clients/<X>ApiClient.cs` extending `InventoryApiClientBase<TDto>`, plus a `Pages/<X>.razor` / `<X>.razor.cs` pair extending `InventoryPageBase<TDto>`.
    The page overrides `ListRoute` ("/xs"), which the shared `SaveAsync` uses to redirect a successful create to the new item's detail page.
    By convention the Add form (`FormTemplate`) only carries the identity fields (title/name, creator, year - bare placeholder inputs, no labels); everything else is edited on the detail page.
-   List rows are uniform media rows rendered by `InventoryList` (optional cover thumb, title, a per-type `MetaTemplate` line of year/creator text and `kt-flag-badge` pills, delete icon) - the whole row opens the detail page, and there is deliberately no per-row edit modal.
+   List rows are uniform media rows rendered by `InventoryList` (optional cover thumb, title, a per-type `MetaTemplate` line of year/creator text and `kt-flag-badge` pills, delete icon) -
+   the whole row opens the detail page, and there is deliberately no per-row edit modal.
    The detail page starts with a `<Breadcrumb ListRoute="/xs" ListLabel="Xs" Current="@_x.Title"/>` (`Components/Shared/Breadcrumb.razor`) so mobile users can get back to the list without the collapsed sidebar.
-8. If the type is reference-linked (has a `ReferenceId`): the DTO implements `IReferenceLinkedDto` (adds a server-hydrated `ImageUrl`, ignored both ways in the DTO mapper), the reference repository gets a batched `FindByIdsAsync`, and the controller overrides `OnListMappedAsync` to hydrate cover images via `ReferenceImageHydrator` - one batched lookup per list page, never one call per item.
+8. If the type is reference-linked (has a `ReferenceId`): the DTO implements `IReferenceLinkedDto` (adds a server-hydrated `ImageUrl`, ignored both ways in the DTO mapper), the reference repository gets a batched `FindByIdsAsync`,
+   and the controller overrides `OnListMappedAsync` to hydrate cover images via `ReferenceImageHydrator` - one batched lookup per list page, never one call per item.
 
 **Gotcha:** `<X>Dto` can never have a `required` member if `Pages/<X>.razor.cs` extends `InventoryPageBase<TDto>` — that base class is constrained `where TDto : IHasId, new()`.
 A type with *any* `required` member can't satisfy a bare `new()` constraint in C# (`CS9040`).
@@ -241,7 +243,8 @@ It's also why `Title`/`Year` are unconditionally editable on both `MovieDetail.r
 free editing is what makes "fix a typo or a wrong year (or pick a different match), then hit refresh" work.
 `Year` matters here specifically because TMDB search results embedding a year into the title text (e.g. "Dune 2021") is unreliable - the tip that used to suggest doing that was wrong and has been removed.
 The actual matching (both this local lookup and the live TMDB search behind `InlineReferenceLinker`) always takes year as its own separate field/parameter, never parsed out of title text.
-The list pages' per-row edit modal (which used to lock `Title` for non-admins once linked, as a stricter bulk-editing surface) was removed entirely - the detail page, one tap away via the row itself, is now the single editing surface for every field.
+The list pages' per-row edit modal (which used to lock `Title` for non-admins once linked, as a stricter bulk-editing surface) was removed entirely -
+the detail page, one tap away via the row itself, is now the single editing surface for every field.
 
 **Gotcha:** the title-only fallback in `TryLinkExistingTvShowReferenceAsync`/`TryLinkExistingMovieReferenceAsync` must run unconditionally, *including* when the tenant's `Year` is `null`.
 An earlier version only attempted it when `Year is not null`, which is backwards.
@@ -728,8 +731,10 @@ the scoped file itself has to be edited.
   `E2eFixture` is a single instance shared by every parallel-running smoke test class, so its `ApiHttpClient` helper (used by tests' own cleanup) must be thread-safe.
   Movie/TvShow/VideoGame/Album use fixed real-world titles rather than a GUID, so an orphaned leftover from a failed run is an actual accumulating duplicate, not harmless clutter.
   That's why they clean up via this helper instead of skipping it.
-  `ApiHttpClient` is built with `LazyInitializer.EnsureInitialized`, the same thread-safe pattern `AccountRepository.AuthenticateAsync` already uses, after a plain `??=` lazy-init caused a real intermittent failure under parallel execution.
-  `MobileScreenshotTest` is an assertion-free visual-review harness, not a regression test: gated behind `E2E_SCREENSHOTS=true` (on top of `E2E_ENABLED`), it seeds representative data through `E2eFixture.ApiHttpClient`, captures every page at a 390x844 phone viewport into `E2E_SHOTS_DIR`, and deletes what it created.
+  `ApiHttpClient` is built with `LazyInitializer.EnsureInitialized`, the same thread-safe pattern `AccountRepository.AuthenticateAsync` already uses,
+  after a plain `??=` lazy-init caused a real intermittent failure under parallel execution.
+  `MobileScreenshotTest` is an assertion-free visual-review harness, not a regression test: gated behind `E2E_SCREENSHOTS=true` (on top of `E2E_ENABLED`), it seeds representative data through `E2eFixture.ApiHttpClient`,
+  captures every page at a 390x844 phone viewport into `E2E_SHOTS_DIR`, and deletes what it created.
   Re-run it after UI changes and review the images - this is how the July 2026 mobile UX overhaul was verified.
 - Assertions use `AwesomeAssertions` (a `FluentAssertions`-compatible API); test data is generated with `Bogus`.
 

@@ -58,6 +58,7 @@ jobs:
         Features__IsHttpsRedirectionEnabled=false
         Infrastructure__MongoDB__ConnectionString=mongodb://localhost:27017
         Infrastructure__MongoDB__DatabaseName=keeptrack_ci
+        E2E_ENABLED=true
       fossa-enabled: true
       sonar-enabled: true
       sonar-exclusions: "samples/**,**/*.g.cs,**/*.generated.cs"
