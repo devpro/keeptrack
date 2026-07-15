@@ -117,6 +117,9 @@ A new type touches every layer:
 6. Add a storage mapper (`Infrastructure.MongoDb/Mappers/<X>StorageMapper.cs`, implementing `IStorageMapper<TModel, TEntity>`, registered in `InfrastructureServiceCollectionExtensions.cs`).
    Also add a DTO mapper (`WebApi/Mappers/<X>DtoMapper.cs`, implementing `IDtoMapper<TDto, TModel>`, registered in `Program.cs`).
 7. `BlazorApp/Components/Inventory/Clients/<X>ApiClient.cs` extending `InventoryApiClientBase<TDto>`, plus a `Pages/<X>.razor` / `<X>.razor.cs` pair extending `InventoryPageBase<TDto>`.
+   The page overrides `ListRoute` ("/xs"), which the shared `SaveAsync` uses to redirect a successful create to the new item's detail page.
+   By convention the Add form (`FormTemplate`) only carries the identity fields (title/name, creator, year - bare placeholder inputs, no labels); everything else is edited on the detail page.
+   The detail page starts with a `<Breadcrumb ListRoute="/xs" ListLabel="Xs" Current="@_x.Title"/>` (`Components/Shared/Breadcrumb.razor`) so mobile users can get back to the list without the collapsed sidebar.
 
 **Gotcha:** `<X>Dto` can never have a `required` member if `Pages/<X>.razor.cs` extends `InventoryPageBase<TDto>` — that base class is constrained `where TDto : IHasId, new()`.
 A type with *any* `required` member can't satisfy a bare `new()` constraint in C# (`CS9040`).

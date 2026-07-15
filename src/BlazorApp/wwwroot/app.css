@@ -404,6 +404,25 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
 
 .kt-table-title span { color: var(--kt-accent); }
 
+/* ── Breadcrumb ────────────────────────────────────────────────────── */
+.kt-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.82rem;
+  min-width: 0;
+}
+.kt-breadcrumb a { color: var(--kt-text-muted); text-decoration: none; flex-shrink: 0; }
+.kt-breadcrumb a:hover { color: var(--kt-accent); }
+.kt-breadcrumb-sep { color: var(--kt-text-subtle); flex-shrink: 0; }
+.kt-breadcrumb-current {
+  color: var(--kt-text-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ── Page header ───────────────────────────────────────────────────── */
 .kt-page-header {
   display: flex;

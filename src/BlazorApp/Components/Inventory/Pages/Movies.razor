@@ -68,35 +68,10 @@
     </RowTemplate>
     <FormTemplate Context="movie">
         <div class="col-12">
-            <label class="form-label">Title</label>
-            <input class="form-control" data-testid="title-input" @bind="movie.Title"/>
+            <input class="form-control" placeholder="Title" data-testid="title-input" @bind="movie.Title"/>
         </div>
-        <div class="col-md-6">
-            <label class="form-label">Year</label>
-            <input class="form-control" data-testid="year-input" @bind="movie.Year" type="number" min="1970" max="2100"/>
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">Rating</label>
-            <input class="form-control" @bind="movie.Rating" type="number" step="0.1" min="0" max="5"/>
-        </div>
-        <div class="col-12">
-            <label class="form-label">Lists</label>
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="movie-favorite" @bind="movie.IsFavorite" />
-                <label class="form-check-label" for="movie-favorite">Favorites</label>
-            </div>
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="movie-want-to-watch" @bind="movie.WantToWatch" />
-                <label class="form-check-label" for="movie-want-to-watch">Watchlist</label>
-            </div>
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="movie-owned" @bind="movie.IsOwned" />
-                <label class="form-check-label" for="movie-owned">Owned</label>
-            </div>
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="movie-wishlisted" @bind="movie.IsWishlisted" />
-                <label class="form-check-label" for="movie-wishlisted">Wishlist</label>
-            </div>
+        <div class="col-6 col-md-4">
+            <input class="form-control" placeholder="Year" data-testid="year-input" @bind="movie.Year" type="number" min="1970" max="2100"/>
         </div>
     </FormTemplate>
     <EditModalTemplate Context="movie">

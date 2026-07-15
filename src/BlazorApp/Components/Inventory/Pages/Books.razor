@@ -66,24 +66,13 @@
     </RowTemplate>
     <FormTemplate Context="book">
         <div class="col-12">
-            <label class="form-label">Title</label>
-            <input class="form-control" data-testid="title-input" @bind="book.Title" />
+            <input class="form-control" placeholder="Title" data-testid="title-input" @bind="book.Title" />
         </div>
         <div class="col-12">
-            <label class="form-label">Author</label>
-            <input class="form-control" data-testid="author-input" @bind="book.Author" />
+            <input class="form-control" placeholder="Author" data-testid="author-input" @bind="book.Author" />
         </div>
-        <div class="col-md-6">
-            <label class="form-label">Series</label>
-            <input class="form-control" @bind="book.Series" />
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">Year</label>
-            <input class="form-control" @bind="book.Year" type="number" min="1400" max="2100" />
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">Rating</label>
-            <input class="form-control" @bind="book.Rating" type="number" min="0" max="5" step="0.1" />
+        <div class="col-6 col-md-4">
+            <input class="form-control" placeholder="Year" data-testid="year-input" @bind="book.Year" type="number" min="1400" max="2100" />
         </div>
     </FormTemplate>
     <EditModalTemplate Context="book">

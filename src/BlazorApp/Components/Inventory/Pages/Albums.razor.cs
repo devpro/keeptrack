@@ -9,6 +9,8 @@ public partial class Albums : InventoryPageBase<AlbumDto>
 
     protected override InventoryApiClientBase<AlbumDto> Api => AlbumApi;
 
+    protected override string ListRoute => "/albums";
+
     private bool _favoriteFilter;
 
     protected override IReadOnlyDictionary<string, string>? ExtraQuery =>

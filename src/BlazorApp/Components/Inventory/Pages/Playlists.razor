@@ -39,7 +39,9 @@
         <td data-label="Songs">@playlist.SongIds.Count</td>
     </RowTemplate>
     <FormTemplate Context="playlist">
-        <input class="form-control" placeholder="Title" @bind="playlist.Title" />
+        <div class="col-12">
+            <input class="form-control" placeholder="Title" data-testid="title-input" @bind="playlist.Title" />
+        </div>
     </FormTemplate>
     <EditModalTemplate Context="playlist">
         <div class="col-12">

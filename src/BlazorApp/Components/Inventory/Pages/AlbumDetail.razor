@@ -20,6 +20,8 @@ else if (_album is null)
 }
 else
 {
+    <Breadcrumb ListRoute="/albums" ListLabel="Albums" Current="@_album.Title"/>
+
     <div class="kt-page-header">
         <div class="kt-title-row">
             <input class="kt-title-input" value="@_album.Title" @onchange="SaveTitleAsync"/>

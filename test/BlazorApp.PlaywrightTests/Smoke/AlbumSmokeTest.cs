@@ -31,8 +31,7 @@ public class AlbumSmokeTest(E2eFixture fixture) : SmokeTestBase(fixture)
         await list.FillAsync("year-input", Year);
         await list.SaveNewAsync();
 
-        await Assertions.Expect(list.Row(Title)).ToBeVisibleAsync();
-        await list.OpenItemAsync(Title);
+        // Creating an item navigates straight to its detail page.
         var detail = new AlbumDetailPage(Page);
         await detail.WaitForReadyAsync();
         var id = ExtractIdFromUrl(Page.Url);

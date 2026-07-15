@@ -9,6 +9,8 @@ public partial class Books : InventoryPageBase<BookDto>
 
     protected override InventoryApiClientBase<BookDto> Api => BookApi;
 
+    protected override string ListRoute => "/books";
+
     private bool _favoriteFilter;
 
     private bool _ownedFilter;

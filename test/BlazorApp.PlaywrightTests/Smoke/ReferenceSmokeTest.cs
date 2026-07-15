@@ -27,9 +27,8 @@ public class ReferenceSmokeTest(E2eFixture fixture) : SmokeTestBase(fixture)
         await list.FillAsync("title-input", ReferenceFixtureZipBuilder.BookTitle);
         await list.FillAsync("author-input", ReferenceFixtureZipBuilder.BookAuthor);
         await list.SaveNewAsync();
-        await Assertions.Expect(list.Row(ReferenceFixtureZipBuilder.BookTitle)).ToBeVisibleAsync();
 
-        await list.OpenItemAsync(ReferenceFixtureZipBuilder.BookTitle);
+        // Creating an item navigates straight to its detail page.
         var detail = new BookDetailPage(Page);
         await detail.WaitForReadyAsync();
 

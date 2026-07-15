@@ -31,9 +31,18 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
 
     protected int TotalPages => (int)Math.Ceiling(_totalCount / (double)PageSize);
 
+    [Inject] protected NavigationManager Navigation { get; set; } = null!;
+
     protected abstract InventoryApiClientBase<TDto> Api { get; }
 
     protected abstract TDto CloneItem(TDto item);
+
+    /// <summary>
+    /// The list page's own route ("/movies", "/books", ...), which is also every item's detail-route prefix -
+    /// creating an item navigates straight to "{ListRoute}/{id}" so the rest of the fields can be filled in
+    /// on the detail page, instead of burying them all in the Add form.
+    /// </summary>
+    protected abstract string ListRoute { get; }
 
     /// <summary>
     /// Extra query parameters beyond search/page/pageSize - null by default. Override in a page that
@@ -84,8 +93,13 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
     {
         try
         {
-            if (_form.Id is null) await Api.AddAsync(_form);
-            else await Api.UpdateAsync(_form);
+            if (_form.Id is null)
+            {
+                var created = await Api.AddAsync(_form);
+                Navigation.NavigateTo($"{ListRoute}/{created.Id}");
+                return;
+            }
+            await Api.UpdateAsync(_form);
             _showForm = false;
             await LoadAsync();
         }

@@ -27,9 +27,7 @@ public class BookSmokeTest(E2eFixture fixture) : SmokeTestBase(fixture)
         await list.FillAsync("author-input", author);
         await list.SaveNewAsync();
 
-        await Assertions.Expect(list.Row(title)).ToBeVisibleAsync();
-
-        await list.OpenItemAsync(title);
+        // Creating an item navigates straight to its detail page.
         var detail = new BookDetailPage(Page);
         await detail.WaitForReadyAsync();
         await Assertions.Expect(detail.TitleInput).ToHaveValueAsync(title);

@@ -20,6 +20,8 @@ else if (_game is null)
 }
 else
 {
+    <Breadcrumb ListRoute="/video-games" ListLabel="Video games" Current="@_game.Title"/>
+
     <div class="kt-page-header">
         <div class="kt-title-row">
             <input class="kt-title-input" value="@_game.Title" @onchange="SaveTitleAsync"/>

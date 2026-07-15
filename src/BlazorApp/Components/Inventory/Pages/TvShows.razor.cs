@@ -9,6 +9,8 @@ public partial class TvShows : InventoryPageBase<TvShowDto>
 
     protected override InventoryApiClientBase<TvShowDto> Api => TvShowApi;
 
+    protected override string ListRoute => "/tv-shows";
+
     private TvShowStatus? _stateFilter;
 
     private bool _favoriteFilter;

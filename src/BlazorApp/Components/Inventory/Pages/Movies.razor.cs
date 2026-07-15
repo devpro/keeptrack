@@ -9,6 +9,8 @@ public partial class Movies : InventoryPageBase<MovieDto>
 
     protected override InventoryApiClientBase<MovieDto> Api => MovieApi;
 
+    protected override string ListRoute => "/movies";
+
     private bool _favoriteFilter;
 
     private bool _ownedFilter;

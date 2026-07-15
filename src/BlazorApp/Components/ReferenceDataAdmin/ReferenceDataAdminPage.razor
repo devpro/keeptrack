@@ -6,29 +6,110 @@
     <h1>Reference data</h1>
 </div>
 
+@* Linking unresolved titles is the frequent admin task, so it comes first; sync and export/import are
+   occasional housekeeping and moved below it. *@
 <div class="kt-form-card">
     <p style="color:var(--kt-text-muted)">
-        Export the whole reference dataset (TV shows, movies, cast) as a zip, or re-import a previously
-        exported one - re-importing is safe to run more than once, since every document is upserted by id.
+        Titles below couldn't be automatically matched to a reference entry (no result, or more than one
+        candidate). Pick one to search @ProviderName and link every account's matching item at once.
     </p>
-    <div class="d-flex align-items-center gap-3">
-        <button class="btn btn-sm btn-secondary" @onclick="ExportAsync" disabled="@_exporting">Download export</button>
-        <InputFile OnChange="OnImportFileSelectedAsync" accept=".zip" disabled="@_importing"/>
-        @if (_importing)
-        {
-            <div class="kt-spinner" style="width:1rem;height:1rem"></div>
-        }
+    <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-sm @(_type == ReferenceItemType.TvShow ? "btn-primary" : "btn-secondary")" @onclick='() => SelectTypeAsync(ReferenceItemType.TvShow)'>TV shows</button>
+        <button class="btn btn-sm @(_type == ReferenceItemType.Movie ? "btn-primary" : "btn-secondary")" @onclick='() => SelectTypeAsync(ReferenceItemType.Movie)'>Movies</button>
+        <button class="btn btn-sm @(_type == ReferenceItemType.Book ? "btn-primary" : "btn-secondary")" @onclick='() => SelectTypeAsync(ReferenceItemType.Book)'>Books</button>
+        <button class="btn btn-sm @(_type == ReferenceItemType.VideoGame ? "btn-primary" : "btn-secondary")" @onclick='() => SelectTypeAsync(ReferenceItemType.VideoGame)'>Video games</button>
+        <button class="btn btn-sm @(_type == ReferenceItemType.Album ? "btn-primary" : "btn-secondary")" @onclick='() => SelectTypeAsync(ReferenceItemType.Album)'>Albums</button>
     </div>
-    @if (_importResult is not null)
+</div>
+
+<div class="kt-table-wrap mb-4">
+    <div class="kt-table-header">
+        <span class="kt-table-title">Unresolved (@_unresolved.Count)</span>
+    </div>
+    @if (_unresolved.Count == 0)
     {
-        <div class="alert alert-info mt-3 mb-0">
-            Imported @_importResult.TvShowCount TV show(s), @_importResult.MovieCount movie(s), @_importResult.PersonCount person(s),
-            @_importResult.BookCount book(s), @_importResult.VideoGameCount video game(s), @_importResult.AlbumCount album(s).
+        <div class="kt-empty">
+            <div class="kt-empty-icon">◈</div>
+            <p>Nothing waiting on a manual match.</p>
         </div>
     }
-    @if (_importExportError is not null)
+    else
     {
-        <div class="alert alert-danger mt-3 mb-0">@_importExportError</div>
+        @* The search panel expands inline directly under the tapped title (tap again to collapse) - a
+           side-by-side master/detail split stacked the results below the whole list on mobile, where
+           they rendered off-screen with no feedback at all. *@
+        <table class="table">
+            <tbody>
+                @foreach (var item in _unresolved)
+                {
+                    <tr class="@(item == _selected ? "table-active" : "")" @onclick="() => SelectItemAsync(item)" style="cursor:pointer">
+                        <td style="font-weight:500">@item.Title</td>
+                        <td>@item.Year</td>
+                    </tr>
+                    @if (item == _selected)
+                    {
+                        <tr>
+                            <td colspan="2">
+                                <div class="d-flex gap-2 mb-3 flex-wrap">
+                                    <input class="form-control form-control-sm" style="max-width:240px" placeholder="Title" @bind="_queryTitle"/>
+                                    <input class="form-control form-control-sm" style="max-width:90px" placeholder="Year" type="number" @bind="_queryYear"/>
+                                    @if (_type is ReferenceItemType.Book or ReferenceItemType.Album)
+                                    {
+                                        <input class="form-control form-control-sm" style="max-width:180px" placeholder="@(_type == ReferenceItemType.Book ? "Author" : "Artist")" @bind="_creator"/>
+                                    }
+                                    <button class="btn btn-sm btn-secondary" @onclick="SearchAsync" disabled="@_searching">Search</button>
+                                </div>
+
+                                @if (_searching)
+                                {
+                                    <div class="kt-loading"><div class="kt-spinner"></div> Searching…</div>
+                                }
+                                else if (_searchResults.Count == 0)
+                                {
+                                    <div class="alert alert-info mb-0">No @ProviderName results - adjust the title or year above and search again.</div>
+                                }
+                                else
+                                {
+                                    @foreach (var candidate in _searchResults)
+                                    {
+                                        <div class="kt-form-card mb-2">
+                                            <div class="d-flex gap-3">
+                                                @if (!string.IsNullOrEmpty(candidate.ImageUrl))
+                                                {
+                                                    <img src="@candidate.ImageUrl" alt="@candidate.Title poster"
+                                                         style="width:60px;height:90px;object-fit:cover;flex-shrink:0" class="rounded"/>
+                                                }
+                                                <div>
+                                                    <p class="mb-1"><strong>@candidate.Title</strong> @(candidate.Year is not null ? $"({candidate.Year})" : "")</p>
+                                                    @if (!string.IsNullOrEmpty(candidate.Creator))
+                                                    {
+                                                        <p class="kt-card-meta mb-1">@candidate.Creator</p>
+                                                    }
+                                                    @if (candidate.TopCastNames.Count > 0)
+                                                    {
+                                                        <p class="kt-card-meta mb-1">@string.Join(", ", candidate.TopCastNames)</p>
+                                                    }
+                                                    @if (!string.IsNullOrEmpty(candidate.Synopsis))
+                                                    {
+                                                        <p class="kt-card-meta mb-2">@candidate.Synopsis</p>
+                                                    }
+                                                </div>
+                                            </div>
+                                            <button class="btn btn-sm btn-success" @onclick="() => LinkAsync(candidate)" disabled="@_linking">Link this one</button>
+                                        </div>
+                                    }
+                                }
+
+                                @if (_error is not null)
+                                {
+                                    <div class="alert alert-danger mt-2 mb-0">@_error</div>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
     }
 </div>
 
@@ -66,114 +147,28 @@
 
 <div class="kt-form-card">
     <p style="color:var(--kt-text-muted)">
-        Titles below couldn't be automatically matched to a reference entry (no result, or more than one
-        candidate). Pick the right one to link every account's matching item at once.
+        Export the whole reference dataset (TV shows, movies, cast) as a zip, or re-import a previously
+        exported one - re-importing is safe to run more than once, since every document is upserted by id.
     </p>
-    <div class="d-flex gap-2 mb-3">
-        <button class="btn btn-sm @(_type == ReferenceItemType.TvShow ? "btn-primary" : "btn-secondary")" @onclick='() => SelectTypeAsync(ReferenceItemType.TvShow)'>TV shows</button>
-        <button class="btn btn-sm @(_type == ReferenceItemType.Movie ? "btn-primary" : "btn-secondary")" @onclick='() => SelectTypeAsync(ReferenceItemType.Movie)'>Movies</button>
-        <button class="btn btn-sm @(_type == ReferenceItemType.Book ? "btn-primary" : "btn-secondary")" @onclick='() => SelectTypeAsync(ReferenceItemType.Book)'>Books</button>
-        <button class="btn btn-sm @(_type == ReferenceItemType.VideoGame ? "btn-primary" : "btn-secondary")" @onclick='() => SelectTypeAsync(ReferenceItemType.VideoGame)'>Video games</button>
-        <button class="btn btn-sm @(_type == ReferenceItemType.Album ? "btn-primary" : "btn-secondary")" @onclick='() => SelectTypeAsync(ReferenceItemType.Album)'>Albums</button>
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+        <button class="btn btn-sm btn-secondary" @onclick="ExportAsync" disabled="@_exporting">Download export</button>
+        <InputFile OnChange="OnImportFileSelectedAsync" accept=".zip" disabled="@_importing"/>
+        @if (_importing)
+        {
+            <div class="kt-spinner" style="width:1rem;height:1rem"></div>
+        }
     </div>
-</div>
-
-<div class="row g-3">
-    <div class="col-md-6">
-        <div class="kt-table-wrap">
-            <div class="kt-table-header">
-                <span class="kt-table-title">Unresolved (@_unresolved.Count)</span>
-            </div>
-            @if (_unresolved.Count == 0)
-            {
-                <div class="kt-empty">
-                    <div class="kt-empty-icon">◈</div>
-                    <p>Nothing waiting on a manual match.</p>
-                </div>
-            }
-            else
-            {
-                <table class="table">
-                    <tbody>
-                        @foreach (var item in _unresolved)
-                        {
-                            <tr class="@(item == _selected ? "table-active" : "")" @onclick="() => SelectItemAsync(item)" style="cursor:pointer">
-                                <td>@item.Title</td>
-                                <td>@item.Year</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            }
+    @if (_importResult is not null)
+    {
+        <div class="alert alert-info mt-3 mb-0">
+            Imported @_importResult.TvShowCount TV show(s), @_importResult.MovieCount movie(s), @_importResult.PersonCount person(s),
+            @_importResult.BookCount book(s), @_importResult.VideoGameCount video game(s), @_importResult.AlbumCount album(s).
         </div>
-    </div>
-
-    <div class="col-md-6">
-        <div class="kt-form-card">
-            @if (_selected is null)
-            {
-                <p class="kt-card-meta">Pick a title on the left to search @ProviderName for a match.</p>
-            }
-            else
-            {
-                <p><strong>@_selected.Title</strong> @(_selected.Year is not null ? $"({_selected.Year})" : "")</p>
-
-                @if (_type is ReferenceItemType.Book or ReferenceItemType.Album)
-                {
-                    <div class="d-flex gap-2 mb-3">
-                        <input class="form-control form-control-sm" style="max-width:240px" placeholder="@(_type == ReferenceItemType.Book ? "Author" : "Artist")"
-                               @bind="_creator" @bind:event="oninput"/>
-                        <button class="btn btn-sm btn-secondary" @onclick="SearchAsync" disabled="@_searching">Search again</button>
-                    </div>
-                }
-
-                @if (_searching)
-                {
-                    <div class="kt-loading"><div class="kt-spinner"></div> Searching…</div>
-                }
-                else if (_searchResults.Count == 0)
-                {
-                    <div class="alert alert-info">No @ProviderName results for this title/year.</div>
-                }
-                else
-                {
-                    @foreach (var candidate in _searchResults)
-                    {
-                        <div class="kt-form-card mb-2">
-                            <div class="d-flex gap-3">
-                                @if (!string.IsNullOrEmpty(candidate.ImageUrl))
-                                {
-                                    <img src="@candidate.ImageUrl" alt="@candidate.Title poster"
-                                         style="width:60px;height:90px;object-fit:cover;flex-shrink:0" class="rounded"/>
-                                }
-                                <div>
-                                    <p class="mb-1"><strong>@candidate.Title</strong> @(candidate.Year is not null ? $"({candidate.Year})" : "")</p>
-                                    @if (!string.IsNullOrEmpty(candidate.Creator))
-                                    {
-                                        <p class="kt-card-meta mb-1">@candidate.Creator</p>
-                                    }
-                                    @if (candidate.TopCastNames.Count > 0)
-                                    {
-                                        <p class="kt-card-meta mb-1">@string.Join(", ", candidate.TopCastNames)</p>
-                                    }
-                                    @if (!string.IsNullOrEmpty(candidate.Synopsis))
-                                    {
-                                        <p class="kt-card-meta mb-2">@candidate.Synopsis</p>
-                                    }
-                                </div>
-                            </div>
-                            <button class="btn btn-sm btn-success" @onclick="() => LinkAsync(candidate)" disabled="@_linking">Link this one</button>
-                        </div>
-                    }
-                }
-
-                @if (_error is not null)
-                {
-                    <div class="alert alert-danger mt-2">@_error</div>
-                }
-            }
-        </div>
-    </div>
+    }
+    @if (_importExportError is not null)
+    {
+        <div class="alert alert-danger mt-3 mb-0">@_importExportError</div>
+    }
 </div>
 
 @code {
@@ -190,6 +185,8 @@
     private bool _searching;
     private bool _linking;
     private string? _error;
+    private string? _queryTitle;
+    private int? _queryYear;
     private string? _creator;
 
     private string ProviderName => _type switch
@@ -323,6 +320,8 @@
         _unresolved = await Api.GetUnresolvedAsync(_type);
         _selected = null;
         _searchResults = [];
+        _queryTitle = null;
+        _queryYear = null;
         _creator = null;
     }
 
@@ -334,15 +333,25 @@
 
     private async Task SelectItemAsync(UnresolvedReferenceDto item)
     {
+        if (item == _selected)
+        {
+            _selected = null;
+            return;
+        }
+
         _selected = item;
+        _queryTitle = item.Title;
+        _queryYear = item.Year;
         _creator = null;
         await SearchAsync();
     }
 
     /// <summary>
-    /// Re-run manually (via the "Search again" button) once the admin types an author/artist - the
-    /// unresolved queue itself has no creator field (it's a distinct (title, year) pair across every
-    /// tenant, not any one tenant's own record), so this is the only way to supply one for Book/Album.
+    /// Searches the provider with the freely-editable query fields (prefilled from the selected unresolved
+    /// pair) rather than the stored title/year verbatim - a typo or regional title variant otherwise dead-ends
+    /// with zero results and no way to adjust from this page. The unresolved queue itself has no creator field
+    /// (it's a distinct (title, year) pair across every tenant, not any one tenant's own record), so the
+    /// author/artist box is the only way to supply one for Book/Album.
     /// </summary>
     private async Task SearchAsync()
     {
@@ -350,10 +359,15 @@
 
         _searching = true;
         _error = null;
-        _searchResults = await Api.SearchAsync(_type, _selected.Title, _selected.Year, _creator);
+        _searchResults = await Api.SearchAsync(_type, _queryTitle ?? _selected.Title, _queryYear, _creator);
         _searching = false;
     }
 
+    /// <summary>
+    /// Deliberately links by the selected unresolved (title, year) pair, not the edited query fields - the
+    /// query only helps *find* the right candidate; the alias that propagates to every tenant's matching item
+    /// must stay the exact pair those items actually carry.
+    /// </summary>
     private async Task LinkAsync(ReferenceSearchResultDto candidate)
     {
         if (_selected is null) return;

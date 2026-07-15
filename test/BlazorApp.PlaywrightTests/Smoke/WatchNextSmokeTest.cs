@@ -36,8 +36,8 @@ public class WatchNextSmokeTest(E2eFixture fixture) : SmokeTestBase(fixture)
         await showsList.FillAsync("title-input", ShowTitle);
         await showsList.FillAsync("year-input", ShowYear);
         await showsList.SaveNewAsync();
-        await Assertions.Expect(showsList.Row(ShowTitle)).ToBeVisibleAsync();
-        await showsList.OpenItemAsync(ShowTitle);
+
+        // Creating an item navigates straight to its detail page.
         var showDetail = new TvShowDetailPage(Page);
         await showDetail.WaitForReadyAsync();
         var showId = ExtractIdFromUrl(Page.Url);
@@ -53,8 +53,8 @@ public class WatchNextSmokeTest(E2eFixture fixture) : SmokeTestBase(fixture)
             await moviesList.FillAsync("title-input", MovieTitle);
             await moviesList.FillAsync("year-input", MovieYear);
             await moviesList.SaveNewAsync();
-            await Assertions.Expect(moviesList.Row(MovieTitle)).ToBeVisibleAsync();
-            await moviesList.OpenItemAsync(MovieTitle);
+
+            // Creating an item navigates straight to its detail page.
             var movieDetail = new MovieDetailPage(Page);
             await movieDetail.WaitForReadyAsync();
             var movieId = ExtractIdFromUrl(Page.Url);

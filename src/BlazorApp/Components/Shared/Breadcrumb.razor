@@ -1,0 +1,20 @@
+@* One-level breadcrumb for a detail page: a link back to the parent list plus the current item's name.
+   The sidebar collapses behind a hamburger on mobile, so without this there is no visible way back to
+   the list from a detail page. *@
+
+<nav class="kt-breadcrumb" aria-label="Breadcrumb">
+    <a href="@ListRoute">@ListLabel</a>
+    @if (!string.IsNullOrEmpty(Current))
+    {
+        <span class="kt-breadcrumb-sep">›</span>
+        <span class="kt-breadcrumb-current">@Current</span>
+    }
+</nav>
+
+@code {
+    [Parameter] public required string ListRoute { get; set; }
+
+    [Parameter] public required string ListLabel { get; set; }
+
+    [Parameter] public string? Current { get; set; }
+}

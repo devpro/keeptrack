@@ -75,35 +75,10 @@
     </RowTemplate>
     <FormTemplate Context="show">
         <div class="col-12">
-            <label class="form-label">Title</label>
-            <input class="form-control" data-testid="title-input" @bind="show.Title"/>
+            <input class="form-control" placeholder="Title" data-testid="title-input" @bind="show.Title"/>
         </div>
-        <div class="col-md-6">
-            <label class="form-label">Year</label>
-            <input class="form-control" data-testid="year-input" @bind="show.Year" type="number" min="1970" max="2100"/>
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">Rating</label>
-            <input class="form-control" @bind="show.Rating" type="number" step="0.1" min="0" max="5"/>
-        </div>
-        <div class="col-12">
-            <label class="form-label">Lists</label>
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="show-favorite" @bind="show.IsFavorite" />
-                <label class="form-check-label" for="show-favorite">Favorites</label>
-            </div>
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="show-want-to-watch" @bind="show.WantToWatch" />
-                <label class="form-check-label" for="show-want-to-watch">Watchlist</label>
-            </div>
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="show-owned" @bind="show.IsOwned" />
-                <label class="form-check-label" for="show-owned">Owned</label>
-            </div>
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="show-wishlisted" @bind="show.IsWishlisted" />
-                <label class="form-check-label" for="show-wishlisted">Wishlist</label>
-            </div>
+        <div class="col-6 col-md-4">
+            <input class="form-control" placeholder="Year" data-testid="year-input" @bind="show.Year" type="number" min="1970" max="2100"/>
         </div>
     </FormTemplate>
     <EditModalTemplate Context="show">

@@ -20,6 +20,8 @@ else if (_movie is null)
 }
 else
 {
+    <Breadcrumb ListRoute="/movies" ListLabel="Movies" Current="@_movie.Title"/>
+
     <div class="kt-page-header">
         <div class="kt-title-row">
             <input class="kt-title-input" value="@_movie.Title" @onchange="SaveTitleAsync"/>

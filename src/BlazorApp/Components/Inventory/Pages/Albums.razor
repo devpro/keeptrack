@@ -52,20 +52,13 @@
     </RowTemplate>
     <FormTemplate Context="album">
         <div class="col-12">
-            <label class="form-label">Title</label>
-            <input class="form-control" data-testid="title-input" @bind="album.Title" />
+            <input class="form-control" placeholder="Title" data-testid="title-input" @bind="album.Title" />
         </div>
         <div class="col-12">
-            <label class="form-label">Artist</label>
-            <input class="form-control" data-testid="artist-input" @bind="album.Artist" />
+            <input class="form-control" placeholder="Artist" data-testid="artist-input" @bind="album.Artist" />
         </div>
-        <div class="col-md-6">
-            <label class="form-label">Year</label>
-            <input class="form-control" data-testid="year-input" @bind="album.Year" type="number" min="1900" max="2100" />
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">Rating</label>
-            <input class="form-control" @bind="album.Rating" type="number" step="0.1" min="0" max="5" />
+        <div class="col-6 col-md-4">
+            <input class="form-control" placeholder="Year" data-testid="year-input" @bind="album.Year" type="number" min="1900" max="2100" />
         </div>
     </FormTemplate>
     <EditModalTemplate Context="album">

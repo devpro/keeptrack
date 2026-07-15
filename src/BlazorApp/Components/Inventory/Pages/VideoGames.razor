@@ -68,8 +68,12 @@
         </td>
     </RowTemplate>
     <FormTemplate Context="game">
-        <input class="form-control" placeholder="Title" @bind="game.Title" />
-        <input class="form-control" placeholder="Year" @bind="game.Year" type="number" />
+        <div class="col-12">
+            <input class="form-control" placeholder="Title" data-testid="title-input" @bind="game.Title" />
+        </div>
+        <div class="col-6 col-md-4">
+            <input class="form-control" placeholder="Year" data-testid="year-input" @bind="game.Year" type="number" />
+        </div>
     </FormTemplate>
     <EditModalTemplate Context="game">
         <div class="col-12">

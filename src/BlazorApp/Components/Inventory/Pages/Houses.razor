@@ -46,24 +46,13 @@
     </RowTemplate>
     <FormTemplate Context="house">
         <div class="col-12">
-            <label class="form-label">Name</label>
-            <input class="form-control" data-testid="name-input" @bind="house.Name" />
+            <input class="form-control" placeholder="Name" data-testid="name-input" @bind="house.Name" />
         </div>
         <div class="col-12">
-            <label class="form-label">Address</label>
-            <input class="form-control" @bind="house.Address" />
+            <input class="form-control" placeholder="Address" @bind="house.Address" />
         </div>
-        <div class="col-md-4">
-            <label class="form-label">City</label>
-            <input class="form-control" @bind="house.City" />
-        </div>
-        <div class="col-md-4">
-            <label class="form-label">Postal code</label>
-            <input class="form-control" @bind="house.PostalCode" />
-        </div>
-        <div class="col-md-4">
-            <label class="form-label">Country</label>
-            <input class="form-control" @bind="house.Country" />
+        <div class="col-md-6">
+            <input class="form-control" placeholder="City" @bind="house.City" />
         </div>
     </FormTemplate>
     <EditModalTemplate Context="house">

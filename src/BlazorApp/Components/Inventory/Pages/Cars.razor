@@ -50,24 +50,16 @@
     </RowTemplate>
     <FormTemplate Context="car">
         <div class="col-12">
-            <label class="form-label">Name</label>
-            <input class="form-control" data-testid="name-input" @bind="car.Name" />
+            <input class="form-control" placeholder="Name" data-testid="name-input" @bind="car.Name" />
         </div>
         <div class="col-md-6">
-            <label class="form-label">Manufacturer</label>
-            <input class="form-control" @bind="car.Manufacturer" />
+            <input class="form-control" placeholder="Manufacturer" @bind="car.Manufacturer" />
         </div>
         <div class="col-md-6">
-            <label class="form-label">Model</label>
-            <input class="form-control" @bind="car.Model" />
+            <input class="form-control" placeholder="Model" @bind="car.Model" />
         </div>
-        <div class="col-md-6">
-            <label class="form-label">Year</label>
-            <input class="form-control" @bind="car.Year" type="number" min="1900" max="2100" />
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">License plate</label>
-            <input class="form-control" @bind="car.LicensePlate" />
+        <div class="col-6 col-md-4">
+            <input class="form-control" placeholder="Year" @bind="car.Year" type="number" min="1900" max="2100" />
         </div>
     </FormTemplate>
     <EditModalTemplate Context="car">

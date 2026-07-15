@@ -19,6 +19,8 @@ else if (_car is null)
 }
 else
 {
+    <Breadcrumb ListRoute="/cars" ListLabel="Cars" Current="@_car.Name"/>
+
     <div class="kt-page-header">
         <div class="kt-title-row">
             <input class="kt-title-input" value="@_car.Name" @onchange="SaveNameAsync"/>
