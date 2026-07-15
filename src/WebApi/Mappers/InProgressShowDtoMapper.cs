@@ -12,5 +12,7 @@ namespace Keeptrack.WebApi.Mappers;
 [Mapper]
 public partial class InProgressShowDtoMapper
 {
+    // ImageUrl is set by WatchNextController from the already-fetched reference documents, not mapped.
+    [MapperIgnoreTarget(nameof(InProgressShowDto.ImageUrl))]
     public partial InProgressShowDto ToDto(InProgressShowModel model);
 }

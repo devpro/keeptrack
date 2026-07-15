@@ -50,3 +50,8 @@ app.MapControllers();
 app.MapHealthChecks("/health");
 
 await app.RunAsync();
+
+namespace Keeptrack.BlazorApp
+{
+    public partial class Program { }
+}

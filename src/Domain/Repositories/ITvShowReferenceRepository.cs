@@ -13,6 +13,11 @@ public interface ITvShowReferenceRepository
 {
     Task<TvShowReferenceModel?> FindByIdAsync(string id);
 
+    /// <summary>
+    /// Batched id lookup backing list-page image hydration - one query per page instead of one per item.
+    /// </summary>
+    Task<List<TvShowReferenceModel>> FindByIdsAsync(IReadOnlyCollection<string> ids);
+
     Task<TvShowReferenceModel?> FindByTitleYearAsync(string title, int? year);
 
     /// <summary>

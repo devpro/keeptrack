@@ -3,7 +3,7 @@ using Keeptrack.Common.System;
 
 namespace Keeptrack.WebApi.Contracts.Dto;
 
-public class MovieDto : IHasId
+public class MovieDto : IHasId, IReferenceLinkedDto
 {
     public string? Id { get; set; }
 
@@ -25,6 +25,12 @@ public class MovieDto : IHasId
     /// Id of the shared reference-data document (synopsis) for this movie, once resolved.
     /// </summary>
     public string? ReferenceId { get; set; }
+
+    /// <summary>
+    /// Cover/poster image URL from the linked reference document - read-only, hydrated server-side on
+    /// list reads and never accepted from client input.
+    /// </summary>
+    public string? ImageUrl { get; set; }
 
     public DateOnly? FirstSeenAt { get; set; }
 

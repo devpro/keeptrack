@@ -6,6 +6,7 @@
 <InventoryList TDto="CarDto"
                Title="Cars"
                ItemName="Car"
+               Route="@ListRoute"
                Items="@_items"
                Loading="@_loading"
                Error="@_error"
@@ -14,83 +15,42 @@
                TotalPages="@TotalPages"
                TotalCount="@_totalCount"
                ShowForm="@_showForm"
-               EditingInline="@_editingInline"
                Form="@_form"
-               InlineForm="@_inlineForm"
+               ItemTitle="@(car => car.Name)"
                OnSearchKeyUp="@OnSearchKeyUp"
                OnClearSearch="@ClearSearch"
                OnGoToPage="@GoToPage"
                OnShowAddForm="@ShowAddForm"
                OnCancelForm="@CancelForm"
                OnSave="@SaveAsync"
-               OnStartInlineEdit="@StartInlineEdit"
-               OnCancelInline="@CancelInline"
-               OnSaveInline="@SaveInlineAsync"
                OnDelete="@DeleteAsync"
                OnSearchChanged="@OnSearchChanged">
-    <HeaderTemplate>
-        <th>Name</th>
-        <th>Manufacturer</th>
-        <th>Model</th>
-        <th>Year</th>
-        <th>License plate</th>
-        <th>Energy</th>
-        <th></th>
-    </HeaderTemplate>
-    <RowTemplate Context="car">
-        <td style="font-weight:500">
-            <a href="@($"/cars/{car.Id}")">@car.Name</a>
-        </td>
-        <td>@car.Manufacturer</td>
-        <td>@car.Model</td>
-        <td>@car.Year</td>
-        <td>@car.LicensePlate</td>
-        <td>@car.EnergyType</td>
-        <td></td>
-    </RowTemplate>
+    <MetaTemplate Context="car">
+        @if (!string.IsNullOrEmpty(car.Manufacturer) || !string.IsNullOrEmpty(car.Model))
+        {
+            <span>@($"{car.Manufacturer} {car.Model}".Trim())</span>
+        }
+        @if (car.Year > 0)
+        {
+            <span>@car.Year</span>
+        }
+        @if (!string.IsNullOrEmpty(car.LicensePlate))
+        {
+            <span>@car.LicensePlate</span>
+        }
+    </MetaTemplate>
     <FormTemplate Context="car">
         <div class="col-12">
-            <label class="form-label">Name</label>
-            <input class="form-control" @bind="car.Name" />
+            <input class="form-control" placeholder="Name" data-testid="name-input" @bind="car.Name" />
         </div>
         <div class="col-md-6">
-            <label class="form-label">Manufacturer</label>
-            <input class="form-control" @bind="car.Manufacturer" />
+            <input class="form-control" placeholder="Manufacturer" @bind="car.Manufacturer" />
         </div>
         <div class="col-md-6">
-            <label class="form-label">Model</label>
-            <input class="form-control" @bind="car.Model" />
+            <input class="form-control" placeholder="Model" @bind="car.Model" />
         </div>
-        <div class="col-md-6">
-            <label class="form-label">Year</label>
-            <input class="form-control" @bind="car.Year" type="number" min="1900" max="2100" />
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">License plate</label>
-            <input class="form-control" @bind="car.LicensePlate" />
+        <div class="col-6 col-md-4">
+            <input class="form-control" placeholder="Year" @bind="car.Year" type="number" min="1900" max="2100" />
         </div>
     </FormTemplate>
-    <EditModalTemplate Context="car">
-        <div class="col-12">
-            <label class="form-label">Name</label>
-            <input class="form-control" @bind="car.Name" />
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">Manufacturer</label>
-            <input class="form-control" @bind="car.Manufacturer" />
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">Model</label>
-            <input class="form-control" @bind="car.Model" />
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">Year</label>
-            <input class="form-control" @bind="car.Year" type="number" min="1900" max="2100" />
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">License plate</label>
-            <input class="form-control" @bind="car.LicensePlate" />
-        </div>
-        <p class="kt-card-meta">Manage energy type and history from the car's detail page.</p>
-    </EditModalTemplate>
 </InventoryList>

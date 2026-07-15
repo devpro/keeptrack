@@ -15,6 +15,7 @@ public class WatchNextController(
     IEpisodeRepository episodeRepository,
     IMovieRepository movieRepository,
     ITvShowReferenceRepository tvShowReferenceRepository,
+    IMovieReferenceRepository movieReferenceRepository,
     InProgressShowDtoMapper inProgressShowMapper,
     IDtoMapper<MovieDto, MovieModel> movieMapper) : ControllerBase
 {
@@ -41,11 +42,21 @@ public class WatchNextController(
             if (reference is not null) referencesByShowId[show.Id!] = reference;
         }
 
-        return Ok(new WatchNextDto
+        var result = new WatchNextDto
         {
             InProgressShows = WatchNextService.ComputeInProgressShows(shows.Items, episodes.Items, referencesByShowId)
                 .Select(inProgressShowMapper.ToDto).ToList(),
             MoviesToWatch = WatchNextService.FilterMoviesToWatch(moviesToWatch.Items).Select(movieMapper.ToDto).ToList()
-        });
+        };
+
+        // in-progress shows' posters come straight from the reference documents already fetched above -
+        // no second lookup needed, unlike the movies' generic hydration below.
+        foreach (var dto in result.InProgressShows)
+        {
+            if (referencesByShowId.TryGetValue(dto.TvShowId, out var reference)) dto.ImageUrl = reference.ImageUrl;
+        }
+        await ReferenceImageHydrator.HydrateAsync(result.MoviesToWatch, movieReferenceRepository.FindByIdsAsync, x => x.ImageUrl);
+
+        return Ok(result);
     }
 }

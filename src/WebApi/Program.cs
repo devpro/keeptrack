@@ -7,7 +7,7 @@ var configuration = new AppConfiguration(builder.Configuration);
 // adds services to the container
 builder.Services.AddControllers(opts => { opts.Filters.Add<ApiExceptionFilterAttribute>(); });
 builder.Services.AddOpenApi();
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks().AddCheck<Keeptrack.WebApi.HealthChecks.MongoDbHealthCheck>("mongodb");
 // a hosted BackgroundService (e.g. ReferenceSyncBackgroundService) already catches and logs every exception it can anticipate,
 // but this is a systemic safety net for whatever it doesn't: by default, an unhandled exception escaping a BackgroundService.ExecuteAsync stops the whole host,
 // taking every other endpoint down with it - "Ignore" logs it instead and lets the rest of the app keep serving requests.
@@ -155,3 +155,8 @@ app.MapHealthChecks(AppConfiguration.HealthCheckEndpoint);
 
 // runs the application
 await app.RunAsync();
+
+namespace Keeptrack.WebApi
+{
+    public partial class Program { }
+}

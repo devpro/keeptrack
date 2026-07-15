@@ -16,6 +16,7 @@
     <File Path="docs/backlog.md" />
     <File Path="docs/code-quality-findings.md" />
     <File Path="docs/operations.md" />
+    <File Path="docs/playwright-e2e-tests-plan.md" />
   </Folder>
   <Folder Name="/Solution Items/pipelines/" />
   <Folder Name="/Solution Items/pipelines/azure-devops/">
@@ -44,7 +45,9 @@
   <Project Path="src/Infrastructure.MongoDb/Infrastructure.MongoDb.csproj" />
   <Project Path="src/WebApi.Contracts/WebApi.Contracts.csproj" />
   <Project Path="src/WebApi/WebApi.csproj" />
+  <Project Path="test/BlazorApp.PlaywrightTests/BlazorApp.PlaywrightTests.csproj" />
   <Project Path="test/BlazorApp.UnitTests/BlazorApp.UnitTests.csproj" />
+  <Project Path="test/Testing.Shared/Testing.Shared.csproj" />
   <Project Path="test/WebApi.IntegrationTests/WebApi.IntegrationTests.csproj" />
   <Project Path="test/WebApi.UnitTests/WebApi.UnitTests.csproj" />
 </Solution>

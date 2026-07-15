@@ -6,6 +6,7 @@
 <InventoryList TDto="AlbumDto"
                Title="Albums"
                ItemName="Album"
+               Route="@ListRoute"
                Items="@_items"
                Loading="@_loading"
                Error="@_error"
@@ -14,90 +15,48 @@
                TotalPages="@TotalPages"
                TotalCount="@_totalCount"
                ShowForm="@_showForm"
-               EditingInline="@_editingInline"
                Form="@_form"
-               InlineForm="@_inlineForm"
+               ItemTitle="@(album => album.Title)"
+               ItemImageUrl="@(album => album.ImageUrl)"
+               ItemImageShape="square"
                OnSearchKeyUp="@OnSearchKeyUp"
                OnClearSearch="@ClearSearch"
                OnGoToPage="@GoToPage"
                OnShowAddForm="@ShowAddForm"
                OnCancelForm="@CancelForm"
                OnSave="@SaveAsync"
-               OnStartInlineEdit="@StartInlineEdit"
-               OnCancelInline="@CancelInline"
-               OnSaveInline="@SaveInlineAsync"
                OnDelete="@DeleteAsync"
                OnSearchChanged="@OnSearchChanged">
     <Filters>
         <button class="btn btn-sm kt-toggle-btn @(_favoriteFilter ? "active" : "")" @onclick="ToggleFavoriteFilterAsync">★ Favorites</button>
     </Filters>
-    <HeaderTemplate>
-        <th>Title</th>
-        <th>Artist</th>
-        <th>Rating</th>
-        <th></th>
-    </HeaderTemplate>
-    <RowTemplate Context="album">
-        <td style="font-weight:500">
-            <a href="@($"/albums/{album.Id}")">@album.Title</a>
-        </td>
-        <td>@album.Artist</td>
-        <td><span class="kt-stars"><StarRating Rating="album.Rating" /></span></td>
-        <td>
-            @if (album.IsFavorite)
-            {
-                <span title="Favorite">★</span>
-            }
-        </td>
-    </RowTemplate>
+    <MetaTemplate Context="album">
+        @if (!string.IsNullOrEmpty(album.Artist))
+        {
+            <span>@album.Artist</span>
+        }
+        @if (album.Year > 0)
+        {
+            <span>@album.Year</span>
+        }
+        @if (album.Rating is not null)
+        {
+            <span class="kt-stars"><StarRating Rating="album.Rating"/></span>
+        }
+        @if (album.IsFavorite)
+        {
+            <span class="kt-flag-badge favorite">Favorite</span>
+        }
+    </MetaTemplate>
     <FormTemplate Context="album">
         <div class="col-12">
-            <label class="form-label">Title</label>
-            <input class="form-control" @bind="album.Title" />
+            <input class="form-control" placeholder="Title" data-testid="title-input" @bind="album.Title" />
         </div>
         <div class="col-12">
-            <label class="form-label">Artist</label>
-            <input class="form-control" @bind="album.Artist" />
+            <input class="form-control" placeholder="Artist" data-testid="artist-input" @bind="album.Artist" />
         </div>
-        <div class="col-md-6">
-            <label class="form-label">Year</label>
-            <input class="form-control" @bind="album.Year" type="number" min="1900" max="2100" />
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">Rating</label>
-            <input class="form-control" @bind="album.Rating" type="number" step="0.1" min="0" max="5" />
+        <div class="col-6 col-md-4">
+            <input class="form-control" placeholder="Year" data-testid="year-input" @bind="album.Year" type="number" min="1900" max="2100" />
         </div>
     </FormTemplate>
-    <EditModalTemplate Context="album">
-        <div class="col-12">
-            <label class="form-label">Title</label>
-            <AuthorizeView Policy="AdminOnly" Context="titleAdminCtx">
-                <Authorized><input class="form-control" @bind="album.Title"/></Authorized>
-                <NotAuthorized><input class="form-control" @bind="album.Title" disabled="@(!string.IsNullOrEmpty(album.ReferenceId))"/></NotAuthorized>
-            </AuthorizeView>
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">Artist</label>
-            <input class="form-control" @bind="album.Artist" />
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">Year</label>
-            <input class="form-control" @bind="album.Year" type="number" min="1900" max="2100" />
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">Genre</label>
-            <input class="form-control" @bind="album.Genre" />
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">Rating</label>
-            <input class="form-control" @bind="album.Rating" type="number" step="0.1" min="0" max="5" />
-        </div>
-        <div class="col-12">
-            <label class="form-label">Lists</label>
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="album-favorite-modal" @bind="album.IsFavorite" />
-                <label class="form-check-label" for="album-favorite-modal">Favorites</label>
-            </div>
-        </div>
-    </EditModalTemplate>
 </InventoryList>

@@ -18,5 +18,5 @@ public interface IAlbumRepository : IDataRepository<AlbumModel>
     /// Distinct (title, year) pairs across every tenant's albums that have no <see cref="AlbumModel.ReferenceId"/>
     /// yet - feeds the admin curation queue.
     /// </summary>
-    Task<IReadOnlyList<(string Title, int? Year)>> FindDistinctUnresolvedTitleYearsAsync();
+    Task<IReadOnlyList<(string Title, int? Year, string? Creator)>> FindDistinctUnresolvedTitleYearsAsync();
 }

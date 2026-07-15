@@ -173,8 +173,8 @@ public class TvTimeImportServiceIdempotencyTest
         public Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null) =>
             Task.FromResult(0L);
 
-        public Task<IReadOnlyList<(string Title, int? Year)>> FindDistinctUnresolvedTitleYearsAsync() =>
-            Task.FromResult<IReadOnlyList<(string, int?)>>([]);
+        public Task<IReadOnlyList<(string Title, int? Year, string? Creator)>> FindDistinctUnresolvedTitleYearsAsync() =>
+            Task.FromResult<IReadOnlyList<(string, int?, string?)>>([]);
     }
 
     private sealed class FakeMovieRepository : InMemoryRepository<MovieModel>, IMovieRepository
@@ -182,8 +182,8 @@ public class TvTimeImportServiceIdempotencyTest
         public Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null) =>
             Task.FromResult(0L);
 
-        public Task<IReadOnlyList<(string Title, int? Year)>> FindDistinctUnresolvedTitleYearsAsync() =>
-            Task.FromResult<IReadOnlyList<(string, int?)>>([]);
+        public Task<IReadOnlyList<(string Title, int? Year, string? Creator)>> FindDistinctUnresolvedTitleYearsAsync() =>
+            Task.FromResult<IReadOnlyList<(string, int?, string?)>>([]);
     }
 
     private sealed class FakeEpisodeRepository()

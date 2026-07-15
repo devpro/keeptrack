@@ -13,11 +13,19 @@ namespace Keeptrack.WebApi.Controllers;
 public class TvShowController(
     IDtoMapper<TvShowDto, TvShowModel> mapper,
     ITvShowRepository dataRepository,
+    ITvShowReferenceRepository referenceRepository,
     ReferenceEnrichmentService enrichmentService,
     IServiceScopeFactory scopeFactory,
     ILogger<TvShowController> logger)
     : DataCrudControllerBase<TvShowDto, TvShowModel>(mapper, dataRepository)
 {
+    /// <summary>
+    /// Hydrates each page item's cover image from its linked reference document - one batched lookup per
+    /// page (see <see cref="ReferenceImageHydrator"/>), keyed by the id-bearing documents only.
+    /// </summary>
+    protected override Task OnListMappedAsync(List<TvShowDto> dtos)
+        => ReferenceImageHydrator.HydrateAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl);
+
     /// <summary>
     /// Fires a best-effort background TMDB match for the new show. Runs on its own DI scope since the
     /// request will have completed by the time it finishes - same shape as the TV Time import job.

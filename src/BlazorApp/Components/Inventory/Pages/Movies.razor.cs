@@ -9,6 +9,8 @@ public partial class Movies : InventoryPageBase<MovieDto>
 
     protected override InventoryApiClientBase<MovieDto> Api => MovieApi;
 
+    protected override string ListRoute => "/movies";
+
     private bool _favoriteFilter;
 
     private bool _ownedFilter;
@@ -48,18 +50,4 @@ public partial class Movies : InventoryPageBase<MovieDto>
         await LoadAsync();
     }
 
-    protected override MovieDto CloneItem(MovieDto item) => new()
-    {
-        Id = item.Id,
-        Title = item.Title,
-        Year = item.Year,
-        Rating = item.Rating,
-        Notes = item.Notes,
-        FirstSeenAt = item.FirstSeenAt,
-        ReferenceId = item.ReferenceId,
-        IsFavorite = item.IsFavorite,
-        WantToWatch = item.WantToWatch,
-        IsOwned = item.IsOwned,
-        IsWishlisted = item.IsWishlisted
-    };
 }

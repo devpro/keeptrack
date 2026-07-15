@@ -9,6 +9,8 @@ public partial class Books : InventoryPageBase<BookDto>
 
     protected override InventoryApiClientBase<BookDto> Api => BookApi;
 
+    protected override string ListRoute => "/books";
+
     private bool _favoriteFilter;
 
     private bool _ownedFilter;
@@ -48,20 +50,4 @@ public partial class Books : InventoryPageBase<BookDto>
         await LoadAsync();
     }
 
-    protected override BookDto CloneItem(BookDto item) => new()
-    {
-        Id = item.Id,
-        Title = item.Title,
-        Author = item.Author,
-        Series = item.Series,
-        Year = item.Year,
-        Genre = item.Genre,
-        Rating = item.Rating,
-        Notes = item.Notes,
-        FirstReadAt = item.FirstReadAt,
-        ReferenceId = item.ReferenceId,
-        IsFavorite = item.IsFavorite,
-        IsOwned = item.IsOwned,
-        IsWishlisted = item.IsWishlisted
-    };
 }

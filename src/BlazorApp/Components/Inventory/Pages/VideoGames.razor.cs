@@ -23,9 +23,9 @@ public partial class VideoGames : InventoryPageBase<VideoGameDto>
 
     [Inject] private VideoGameApiClient VideoGameApi { get; set; } = null!;
 
-    [Inject] private NavigationManager Nav { get; set; } = null!;
-
     protected override InventoryApiClientBase<VideoGameDto> Api => VideoGameApi;
+
+    protected override string ListRoute => "/video-games";
 
     private string? _stateFilter;
 
@@ -66,52 +66,4 @@ public partial class VideoGames : InventoryPageBase<VideoGameDto>
         await LoadAsync();
     }
 
-    /// <summary>
-    /// Creating a game only ever captures Title+Year here (see <c>FormTemplate</c>) - platforms, state
-    /// and playthroughs are added on the detail page, so a successful create navigates straight there
-    /// instead of closing the form and staying on the list.
-    /// </summary>
-    protected override async Task SaveAsync()
-    {
-        try
-        {
-            if (_form.Id is null)
-            {
-                var created = await VideoGameApi.AddAsync(_form);
-                _showForm = false;
-                Nav.NavigateTo($"/video-games/{created.Id}");
-            }
-            else
-            {
-                await VideoGameApi.UpdateAsync(_form);
-                _showForm = false;
-                await LoadAsync();
-            }
-        }
-        catch (Exception ex)
-        {
-            _error = ex.Message;
-        }
-    }
-
-    protected override VideoGameDto CloneItem(VideoGameDto item) => new()
-    {
-        Id = item.Id,
-        Title = item.Title,
-        Platforms = item.Platforms.Select(p => new VideoGamePlatformDto
-        {
-            Platform = p.Platform,
-            CopyType = p.CopyType,
-            State = p.State,
-            Playthroughs = p.Playthroughs.Select(pt => new PlaythroughDto { Label = pt.Label, CompletedAt = pt.CompletedAt }).ToList(),
-            IsFullyCompleted = p.IsFullyCompleted,
-            FullyCompletedAt = p.FullyCompletedAt
-        }).ToList(),
-        Notes = item.Notes,
-        Rating = item.Rating,
-        Year = item.Year,
-        ReferenceId = item.ReferenceId,
-        IsOwned = item.IsOwned,
-        IsWishlisted = item.IsWishlisted
-    };
 }

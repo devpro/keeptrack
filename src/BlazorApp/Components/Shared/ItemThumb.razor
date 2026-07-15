@@ -1,0 +1,21 @@
+@* Cover/poster thumbnail for an item row - shared by the inventory lists, Wishlist and Watch Next so the
+   image/placeholder handling and the per-provider aspect ratios (portrait posters/covers, square Discogs
+   album art, wide RAWG game imagery - see the .kt-item-thumb shape modifiers in app.css) exist once. *@
+
+<div class="kt-item-thumb @Shape">
+    @if (!string.IsNullOrEmpty(ImageUrl))
+    {
+        <img src="@ImageUrl" alt="" loading="lazy"/>
+    }
+    else
+    {
+        <span>◈</span>
+    }
+</div>
+
+@code {
+    [Parameter] public string? ImageUrl { get; set; }
+
+    /// <summary>null/empty = portrait (default), "square" (albums), "wide" (video games).</summary>
+    [Parameter] public string? Shape { get; set; }
+}

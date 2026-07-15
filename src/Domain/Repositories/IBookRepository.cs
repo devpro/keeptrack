@@ -18,5 +18,5 @@ public interface IBookRepository : IDataRepository<BookModel>
     /// Distinct (title, year) pairs across every tenant's books that have no <see cref="BookModel.ReferenceId"/>
     /// yet - feeds the admin curation queue.
     /// </summary>
-    Task<IReadOnlyList<(string Title, int? Year)>> FindDistinctUnresolvedTitleYearsAsync();
+    Task<IReadOnlyList<(string Title, int? Year, string? Creator)>> FindDistinctUnresolvedTitleYearsAsync();
 }

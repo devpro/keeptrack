@@ -12,8 +12,11 @@ public partial class BookDtoMapper : IDtoMapper<BookDto, BookModel>
     // still leaving OwnerId to be set server-side from claims (DataCrudControllerBase), never from
     // client input, exactly like the ignored member it replaces.
     [MapValue(nameof(BookModel.OwnerId), "")]
+    // ImageUrl is server-hydrated presentation data (see IReferenceLinkedDto) - no model counterpart in either direction.
+    [MapperIgnoreSource(nameof(BookDto.ImageUrl))]
     public partial BookModel ToModel(BookDto dto);
 
     [MapperIgnoreSource(nameof(BookModel.OwnerId))]
+    [MapperIgnoreTarget(nameof(BookDto.ImageUrl))]
     public partial BookDto ToDto(BookModel model);
 }

@@ -22,6 +22,13 @@ public class BookReferenceRepository(IMongoDatabase mongoDatabase, BookReference
         return entity is null ? null : mapper.ToModel(entity);
     }
 
+    public async Task<List<BookReferenceModel>> FindByIdsAsync(IReadOnlyCollection<string> ids)
+    {
+        if (ids.Count == 0) return [];
+        var entities = await Collection.Find(Builders<BookReference>.Filter.In(x => x.Id, ids)).ToListAsync();
+        return entities.Select(mapper.ToModel).ToList();
+    }
+
     public async Task<BookReferenceModel?> FindByTitleYearAsync(string title, int? year, string author)
     {
         var normalized = TitleNormalizer.Normalize(title);

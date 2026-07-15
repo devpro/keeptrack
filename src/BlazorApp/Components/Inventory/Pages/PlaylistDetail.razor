@@ -19,8 +19,10 @@ else if (_playlist is null)
 }
 else
 {
+    <Breadcrumb ListRoute="/playlists" ListLabel="Playlists" Current="@_playlist.Title"/>
+
     <div class="kt-page-header">
-        <div class="d-flex align-items-center gap-2" style="flex:1;min-width:0">
+        <div class="kt-title-row">
             <input class="kt-title-input" value="@_playlist.Title" @onchange="SaveTitleAsync"/>
         </div>
     </div>

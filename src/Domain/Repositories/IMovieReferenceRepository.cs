@@ -12,6 +12,11 @@ public interface IMovieReferenceRepository
 {
     Task<MovieReferenceModel?> FindByIdAsync(string id);
 
+    /// <summary>
+    /// Batched id lookup backing list-page image hydration - one query per page instead of one per item.
+    /// </summary>
+    Task<List<MovieReferenceModel>> FindByIdsAsync(IReadOnlyCollection<string> ids);
+
     Task<MovieReferenceModel?> FindByTitleYearAsync(string title, int? year);
 
     /// <summary>

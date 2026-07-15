@@ -13,11 +13,19 @@ namespace Keeptrack.WebApi.Controllers;
 public class AlbumController(
     IDtoMapper<AlbumDto, AlbumModel> mapper,
     IAlbumRepository dataRepository,
+    IAlbumReferenceRepository referenceRepository,
     ReferenceEnrichmentService enrichmentService,
     IServiceScopeFactory scopeFactory,
     ILogger<AlbumController> logger)
     : DataCrudControllerBase<AlbumDto, AlbumModel>(mapper, dataRepository)
 {
+    /// <summary>
+    /// Hydrates each page item's cover image from its linked reference document - one batched lookup per
+    /// page (see <see cref="ReferenceImageHydrator"/>), keyed by the id-bearing documents only.
+    /// </summary>
+    protected override Task OnListMappedAsync(List<AlbumDto> dtos)
+        => ReferenceImageHydrator.HydrateAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl);
+
     /// <summary>
     /// Fires a best-effort background Discogs match for the new album - see <see cref="TvShowController.OnCreatedAsync"/>.
     /// </summary>

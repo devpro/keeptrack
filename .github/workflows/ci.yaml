@@ -47,6 +47,19 @@ jobs:
     if: needs.git-check.outputs.app_changed == 'true' || (github.event_name == 'workflow_dispatch' && inputs.run-code-quality)
     uses: devpro/github-workflow-parts/.github/workflows/reusable-dotnet-quality.yml@f9d8c00db1ed723e39cfff6c4c7addc77a23c54d
     with:
+      # TODO: need a safe solution for service account json content
+      #
+      # echo "Install Playwright browser (chromium)"
+      # dotnet build --no-restore --configuration Debug test/BlazorApp.PlaywrightTests
+      # pwsh test/BlazorApp.PlaywrightTests/bin/Debug/net10.0/playwright.ps1 install chromium
+      #
+      # E2E_ENABLED=true
+      # WebApi__BaseUrl=http://localhost:5057
+      #
+      # Firebase__WebAppConfiguration__ApiKey=${{ secrets.FIREBASE_APIKEY }}
+      # Firebase__WebAppConfiguration__AuthDomain=${{ secrets.FIREBASE_PROJECTID }}.firebaseapp.com
+      # Firebase__WebAppConfiguration__ProjectId=${{ secrets.FIREBASE_PROJECTID }}
+      # Firebase__ServiceAccount=${{ secrets.FIREBASE_SERVICEACCOUNT }}
       custom-commands: |
         ./scripts/mongodb-install.sh
         echo "Initialize database (indexes, tenants & users)"

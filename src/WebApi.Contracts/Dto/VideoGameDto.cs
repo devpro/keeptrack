@@ -6,7 +6,7 @@ namespace Keeptrack.WebApi.Contracts.Dto;
 /// <summary>
 /// Video Game data transfer object.
 /// </summary>
-public class VideoGameDto : IHasId
+public class VideoGameDto : IHasId, IReferenceLinkedDto
 {
     /// <summary>
     /// Video Game ID.
@@ -33,6 +33,12 @@ public class VideoGameDto : IHasId
     /// Id of the linked <c>videogame_reference</c> document, when a match has been found.
     /// </summary>
     public string? ReferenceId { get; set; }
+
+    /// <summary>
+    /// Cover/poster image URL from the linked reference document - read-only, hydrated server-side on
+    /// list reads and never accepted from client input.
+    /// </summary>
+    public string? ImageUrl { get; set; }
 
     public bool IsOwned { get; set; }
 

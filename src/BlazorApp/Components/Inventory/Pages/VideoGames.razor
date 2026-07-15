@@ -1,11 +1,12 @@
-﻿@page "/video-games"
+@page "/video-games"
 @inherits InventoryPageBase<VideoGameDto>
 @rendermode InteractiveServer
 @attribute [Authorize]
 
 <InventoryList TDto="VideoGameDto"
                Title="Video Games"
-               ItemName="Video Game"
+               ItemName="Video game"
+               Route="@ListRoute"
                Items="@_items"
                Loading="@_loading"
                Error="@_error"
@@ -14,18 +15,16 @@
                TotalPages="@TotalPages"
                TotalCount="@_totalCount"
                ShowForm="@_showForm"
-               EditingInline="@_editingInline"
                Form="@_form"
-               InlineForm="@_inlineForm"
+               ItemTitle="@(game => game.Title)"
+               ItemImageUrl="@(game => game.ImageUrl)"
+               ItemImageShape="wide"
                OnSearchKeyUp="@OnSearchKeyUp"
                OnClearSearch="@ClearSearch"
                OnGoToPage="@GoToPage"
                OnShowAddForm="@ShowAddForm"
                OnCancelForm="@CancelForm"
                OnSave="@SaveAsync"
-               OnStartInlineEdit="@StartInlineEdit"
-               OnCancelInline="@CancelInline"
-               OnSaveInline="@SaveInlineAsync"
                OnDelete="@DeleteAsync"
                OnSearchChanged="@OnSearchChanged">
     <Filters>
@@ -37,71 +36,36 @@
         <button class="btn btn-sm kt-toggle-btn @(_ownedFilter ? "active" : "")" @onclick="ToggleOwnedFilterAsync">● Owned</button>
         <button class="btn btn-sm kt-toggle-btn @(_wishlistedFilter ? "active" : "")" @onclick="ToggleWishlistedFilterAsync">○ Wishlist</button>
     </Filters>
-    <HeaderTemplate>
-        <th>Title</th>
-        <th>Platforms</th>
-        <th>Rating</th>
-        <th></th>
-    </HeaderTemplate>
-    <RowTemplate Context="game">
-        <td style="font-weight:500">
-            <a href="@($"/video-games/{game.Id}")">@game.Title</a>
-        </td>
-        <td>
-            @foreach (var entry in game.Platforms)
-            {
-                <span class="kt-status-badge @StateBadgeClass(entry.State ?? "")" style="margin-right:4px">
-                    @entry.Platform@(string.IsNullOrEmpty(entry.State) ? "" : $" ({entry.State})")
-                </span>
-            }
-        </td>
-        <td><span class="kt-stars"><StarRating Rating="game.Rating" /></span></td>
-        <td>
-            @if (game.IsOwned)
-            {
-                <span title="Owned">●</span>
-            }
-            @if (game.IsWishlisted)
-            {
-                <span title="Wishlist">○</span>
-            }
-        </td>
-    </RowTemplate>
+    <MetaTemplate Context="game">
+        @if (game.Year > 0)
+        {
+            <span>@game.Year</span>
+        }
+        @foreach (var entry in game.Platforms)
+        {
+            <span class="kt-status-badge @StateBadgeClass(entry.State ?? "")">
+                @entry.Platform@(string.IsNullOrEmpty(entry.State) ? "" : $" ({entry.State})")
+            </span>
+        }
+        @if (game.Rating is not null)
+        {
+            <span class="kt-stars"><StarRating Rating="game.Rating"/></span>
+        }
+        @if (game.IsOwned)
+        {
+            <span class="kt-flag-badge">Owned</span>
+        }
+        @if (game.IsWishlisted)
+        {
+            <span class="kt-flag-badge wishlist">Wishlist</span>
+        }
+    </MetaTemplate>
     <FormTemplate Context="game">
-        <input class="form-control" placeholder="Title" @bind="game.Title" />
-        <input class="form-control" placeholder="Year" @bind="game.Year" type="number" />
+        <div class="col-12">
+            <input class="form-control" placeholder="Title" data-testid="title-input" @bind="game.Title" />
+        </div>
+        <div class="col-6 col-md-4">
+            <input class="form-control" placeholder="Year" data-testid="year-input" @bind="game.Year" type="number" />
+        </div>
     </FormTemplate>
-    <EditModalTemplate Context="game">
-        <div class="col-12">
-            <label class="form-label">Title</label>
-            <AuthorizeView Policy="AdminOnly" Context="titleAdminCtx">
-                <Authorized><input class="form-control" @bind="game.Title"/></Authorized>
-                <NotAuthorized><input class="form-control" @bind="game.Title" disabled="@(!string.IsNullOrEmpty(game.ReferenceId))"/></NotAuthorized>
-            </AuthorizeView>
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">Year</label>
-            <input class="form-control" @bind="game.Year" type="number" />
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">Rating</label>
-            <input class="form-control" @bind="game.Rating" type="number" />
-        </div>
-        <div class="col-12">
-            <label class="form-label">Notes</label>
-            <input class="form-control" @bind="game.Notes" />
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">Lists</label>
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="game-owned-modal" @bind="game.IsOwned" />
-                <label class="form-check-label" for="game-owned-modal">Owned</label>
-            </div>
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="game-wishlisted-modal" @bind="game.IsWishlisted" />
-                <label class="form-check-label" for="game-wishlisted-modal">Wishlist</label>
-            </div>
-        </div>
-        <p class="kt-card-meta">Manage platforms, state and playthroughs from the game's detail page.</p>
-    </EditModalTemplate>
 </InventoryList>

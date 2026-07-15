@@ -20,8 +20,10 @@ else if (_album is null)
 }
 else
 {
+    <Breadcrumb ListRoute="/albums" ListLabel="Albums" Current="@_album.Title"/>
+
     <div class="kt-page-header">
-        <div class="d-flex align-items-center gap-2" style="flex:1;min-width:0">
+        <div class="kt-title-row">
             <input class="kt-title-input" value="@_album.Title" @onchange="SaveTitleAsync"/>
             <button class="kt-icon-btn" @onclick="RefreshReferenceAsync" disabled="@_refreshingReference"
                     title="@(string.IsNullOrEmpty(_album.ReferenceId) ? "Check for reference match using the title and year below." : $"Linked to \"{_reference?.Title}\". Not right? Edit the title or year below, then check again.")">
@@ -55,7 +57,7 @@ else
                 <div class="row g-3">
                     <div class="col-12">
                         <label class="form-label">Artist</label>
-                        <input class="form-control form-control-sm" value="@_album.Artist" @onchange="SaveArtistAsync"/>
+                        <input class="form-control form-control-sm" data-testid="artist-input" value="@_album.Artist" @onchange="SaveArtistAsync"/>
                     </div>
                     <div class="col-4">
                         <label class="form-label">Year</label>

@@ -3,10 +3,10 @@
 
 <tr>
     <td>@Entry.HistoryDate.ToString("yyyy-MM-dd")</td>
-    <td>@Entry.EventType</td>
-    <td>@Entry.Cost?.ToString("F2")</td>
-    <td>@Entry.Provider</td>
-    <td>@Entry.Description</td>
+    <td data-label="Event">@Entry.EventType</td>
+    <td data-label="Cost">@Entry.Cost?.ToString("F2")</td>
+    <td data-label="Provider">@Entry.Provider</td>
+    <td data-label="Description">@Entry.Description</td>
     <td>
         <div class="d-flex gap-1">
             <button class="btn btn-sm btn-outline-primary" @onclick="() => OnEdit.InvokeAsync(Entry)">Edit</button>

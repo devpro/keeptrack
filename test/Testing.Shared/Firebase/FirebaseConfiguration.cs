@@ -1,6 +1,6 @@
-﻿using System;
+using System;
 
-namespace Keeptrack.WebApi.IntegrationTests.Firebase;
+namespace Keeptrack.Testing.Shared.Firebase;
 
 public static class FirebaseConfiguration
 {

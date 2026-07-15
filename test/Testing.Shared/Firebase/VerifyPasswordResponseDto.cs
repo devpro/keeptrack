@@ -1,4 +1,4 @@
-﻿namespace Keeptrack.WebApi.IntegrationTests.Firebase;
+namespace Keeptrack.Testing.Shared.Firebase;
 
 public class VerifyPasswordResponseDto
 {

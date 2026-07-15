@@ -20,5 +20,5 @@ public interface ITvShowRepository : IDataRepository<TvShowModel>
     /// Distinct (title, year) pairs across every tenant's shows that have no <see cref="TvShowModel.ReferenceId"/>
     /// yet - feeds the admin curation queue.
     /// </summary>
-    Task<IReadOnlyList<(string Title, int? Year)>> FindDistinctUnresolvedTitleYearsAsync();
+    Task<IReadOnlyList<(string Title, int? Year, string? Creator)>> FindDistinctUnresolvedTitleYearsAsync();
 }

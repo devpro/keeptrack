@@ -18,8 +18,10 @@ else if (_house is null)
 }
 else
 {
+    <Breadcrumb ListRoute="/houses" ListLabel="Houses" Current="@_house.Name"/>
+
     <div class="kt-page-header">
-        <div class="d-flex align-items-center gap-2" style="flex:1;min-width:0">
+        <div class="kt-title-row">
             <input class="kt-title-input" value="@_house.Name" @onchange="SaveNameAsync"/>
         </div>
     </div>
@@ -76,9 +78,9 @@ else
                             <td style="font-weight:500">@point.Year</td>
                             @foreach (var eventType in Enum.GetValues<HouseEventType>())
                             {
-                                <td>@(point.CostByCategory.FirstOrDefault(c => c.EventType == eventType)?.Cost.ToString("F2") ?? "-")</td>
+                                <td data-label="@eventType">@(point.CostByCategory.FirstOrDefault(c => c.EventType == eventType)?.Cost.ToString("F2") ?? "-")</td>
                             }
-                            <td style="font-weight:600">@point.TotalCost.ToString("F2")</td>
+                            <td data-label="Total" style="font-weight:600">@point.TotalCost.ToString("F2")</td>
                         </tr>
                     }
                     </tbody>

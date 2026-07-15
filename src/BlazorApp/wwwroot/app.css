@@ -404,6 +404,107 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
 
 .kt-table-title span { color: var(--kt-accent); }
 
+/* ── Inventory item rows (list pages) ──────────────────────────────── */
+/* one media row per item: optional cover thumb, title + meta line, delete icon. The whole row opens the
+   detail page via the title's Bootstrap stretched-link, which needs this position:relative and a raised
+   z-index on the delete button so it stays clickable above the stretched overlay. */
+.kt-item-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.6rem 1rem;
+  border-top: 1px solid var(--kt-border);
+  transition: background var(--kt-transition);
+}
+.kt-item-row:hover { background: var(--kt-surface-2); }
+.kt-item-delete { position: relative; z-index: 2; }
+/* Wishlist/Watch Next rows are plain anchors (no inner action, no stretched-link needed) */
+a.kt-item-row { color: inherit; text-decoration: none; }
+
+.kt-item-thumb {
+  width: 44px;
+  height: 66px;
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--kt-surface-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--kt-text-subtle);
+}
+.kt-item-thumb img { width: 100%; height: 100%; object-fit: cover; }
+/* per-provider aspect ratios: Discogs album art is square, RAWG game imagery is wide - cropping either
+   into the default 2:3 poster shape cuts the artwork badly */
+.kt-item-thumb.square { width: 56px; height: 56px; }
+.kt-item-thumb.wide { width: 96px; height: 54px; }
+
+.kt-item-main { min-width: 0; flex: 1; }
+.kt-item-title {
+  font-weight: 500;
+  text-decoration: none;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kt-item-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.6rem;
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+  color: var(--kt-text-muted);
+}
+
+/* small text pills for per-item flags (favorite, seen/read, owned, wishlist) - plain words instead of
+   bare glyphs, which read as unlabeled noise in the row */
+.kt-flag-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.05rem 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  border-radius: 20px;
+  white-space: nowrap;
+  background: var(--kt-surface-3);
+  color: var(--kt-text-muted);
+}
+.kt-flag-badge.favorite { background: var(--kt-warning-bg); color: var(--kt-warning); }
+.kt-flag-badge.done     { background: var(--kt-success-bg); color: var(--kt-success); }
+.kt-flag-badge.wishlist { background: var(--kt-accent-glow); color: var(--kt-accent); }
+
+/* candidate synopsis in the admin linking queue - TMDB synopses can run very long, pushing the Link
+   action below the fold; clamp to a teaser so the card stays scannable */
+.kt-ref-synopsis {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── Breadcrumb ────────────────────────────────────────────────────── */
+.kt-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.82rem;
+  min-width: 0;
+}
+.kt-breadcrumb a { color: var(--kt-text-muted); text-decoration: none; flex-shrink: 0; }
+.kt-breadcrumb a:hover { color: var(--kt-accent); }
+.kt-breadcrumb-sep { color: var(--kt-text-subtle); flex-shrink: 0; }
+.kt-breadcrumb-current {
+  color: var(--kt-text-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ── Page header ───────────────────────────────────────────────────── */
 .kt-page-header {
   display: flex;
@@ -437,6 +538,16 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
 .kt-title-input:hover:not(:disabled) { border-color: var(--kt-border); }
 .kt-title-input:focus { border-color: var(--kt-accent); outline: none; background: var(--kt-surface); }
 .kt-title-input:disabled { cursor: not-allowed; }
+
+/* the title input + its inline actions (reference-refresh button, toast) on a detail page's header row -
+   one shared class so the mobile full-width override in the responsive section has a single target */
+.kt-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
 
 /* small icon-only button next to the title (e.g. "check for reference match") - borderless/transparent
    until hover, matching the title input's own minimal look, instead of standing out as a heavy bordered button */
@@ -767,19 +878,37 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
   .navbar-toggler-label { display: flex; align-items: center; }
   .nav-scrollable { display: none; }
   #nav-toggle:checked ~ .nav-scrollable { display: block; }
-  article.content { padding: 1.5rem 1rem; }
+  /* must repeat the base rule's full selector group: MainLayout renders div.content, and a plain
+     article.content override here silently never matches it (real bug found in a mobile review) */
+  article.content, div.content, .content { padding: 1.25rem 0.5rem; }
   .kt-page-header h1 { font-size: 1.6rem; }
+  /* the title group must wrap to its own full-width row - its desktop flex:1 + min-width:0 otherwise lets
+     it shrink to (near) zero width beside the flag toggles instead of ever wrapping */
+  .kt-title-row { flex-basis: 100%; }
   .kt-table-wrap { border-radius: var(--kt-radius); }
   .table thead { display: none; }
   .table, .table tbody, .table tr, .table td { display: block; width: 100%; }
   .table tr { border-bottom: 1px solid var(--kt-border); padding: 0.5rem 0; }
   .table td { border-bottom: none !important; padding: 0.3rem 1rem !important; }
   .table td:last-child { padding-top: 0.5rem !important; padding-bottom: 0.75rem !important; }
+  /* a stacked cell loses its column header - re-attach it as an inline label */
+  .table td[data-label]::before {
+    content: attr(data-label);
+    display: inline-block;
+    min-width: 6rem;
+    padding-right: 0.5rem;
+    color: var(--kt-text-subtle);
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .table td[data-label]:empty { display: none; }
 }
 
 @media (min-width: 768px) and (max-width: 1024px) {
   .sidebar { width: 190px; }
-  article.content { padding: 2rem 2rem; }
+  article.content, div.content, .content { padding: 2rem 2rem; }
 }
 
 /* ── Search bar ────────────────────────────────────────────────────── */
@@ -820,6 +949,14 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
   gap: 0.5rem;
   flex-wrap: wrap;
   margin-left: auto;
+}
+
+/* must come after the base rules above (like the pagination override below) - an equally-specific override
+   placed in the main responsive section earlier in the file loses the cascade to them */
+@media (max-width: 767px) {
+  .kt-search-bar { flex-wrap: wrap; padding: 0.75rem 1rem; }
+  .kt-search-input-wrap { flex: 1 1 100%; max-width: none; }
+  .kt-search-filters { margin-left: 0; }
 }
 
 /* ── Pagination ────────────────────────────────────────────────────── */
@@ -1136,6 +1273,13 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
   color: var(--kt-text-subtle);
   font-weight: 400;
   margin-left: 0.3rem;
+}
+
+/* tabs scroll horizontally in place of wrapping onto a second row, which orphans the last tab below the
+   underline. Placed after the base rules for the same cascade reason as the search-bar override above. */
+@media (max-width: 767px) {
+  .kt-tabs { flex-wrap: nowrap; overflow-x: auto; gap: 1rem; }
+  .kt-tab { white-space: nowrap; flex-shrink: 0; }
 }
 
 /* ── Season timeline (TV show detail) ──────────────────────────────── */

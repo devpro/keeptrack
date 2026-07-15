@@ -22,6 +22,13 @@ public class VideoGameReferenceRepository(IMongoDatabase mongoDatabase, VideoGam
         return entity is null ? null : mapper.ToModel(entity);
     }
 
+    public async Task<List<VideoGameReferenceModel>> FindByIdsAsync(IReadOnlyCollection<string> ids)
+    {
+        if (ids.Count == 0) return [];
+        var entities = await Collection.Find(Builders<VideoGameReference>.Filter.In(x => x.Id, ids)).ToListAsync();
+        return entities.Select(mapper.ToModel).ToList();
+    }
+
     public async Task<VideoGameReferenceModel?> FindByTitleYearAsync(string title, int? year)
     {
         var normalized = TitleNormalizer.Normalize(title);

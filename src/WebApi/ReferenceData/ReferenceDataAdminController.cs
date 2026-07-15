@@ -230,7 +230,7 @@ public class ReferenceDataAdminController(
             _ => throw new ArgumentOutOfRangeException(nameof(type))
         };
 
-        return Ok(pairs.Select(p => new UnresolvedReferenceDto { Type = type, Title = p.Title, Year = p.Year }).ToList());
+        return Ok(pairs.Select(p => new UnresolvedReferenceDto { Type = type, Title = p.Title, Year = p.Year, Creator = p.Creator }).ToList());
     }
 
     /// <summary>

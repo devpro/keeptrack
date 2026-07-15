@@ -13,11 +13,19 @@ namespace Keeptrack.WebApi.Controllers;
 public class VideoGameController(
     IDtoMapper<VideoGameDto, VideoGameModel> mapper,
     IVideoGameRepository dataRepository,
+    IVideoGameReferenceRepository referenceRepository,
     ReferenceEnrichmentService enrichmentService,
     IServiceScopeFactory scopeFactory,
     ILogger<VideoGameController> logger)
     : DataCrudControllerBase<VideoGameDto, VideoGameModel>(mapper, dataRepository)
 {
+    /// <summary>
+    /// Hydrates each page item's cover image from its linked reference document - one batched lookup per
+    /// page (see <see cref="ReferenceImageHydrator"/>), keyed by the id-bearing documents only.
+    /// </summary>
+    protected override Task OnListMappedAsync(List<VideoGameDto> dtos)
+        => ReferenceImageHydrator.HydrateAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl);
+
     /// <summary>
     /// Fires a best-effort background RAWG match for the new game - see <see cref="TvShowController.OnCreatedAsync"/>.
     /// </summary>

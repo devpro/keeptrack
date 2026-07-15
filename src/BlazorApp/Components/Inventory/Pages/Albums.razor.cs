@@ -9,6 +9,8 @@ public partial class Albums : InventoryPageBase<AlbumDto>
 
     protected override InventoryApiClientBase<AlbumDto> Api => AlbumApi;
 
+    protected override string ListRoute => "/albums";
+
     private bool _favoriteFilter;
 
     protected override IReadOnlyDictionary<string, string>? ExtraQuery =>
@@ -21,15 +23,4 @@ public partial class Albums : InventoryPageBase<AlbumDto>
         await LoadAsync();
     }
 
-    protected override AlbumDto CloneItem(AlbumDto item) => new()
-    {
-        Id = item.Id,
-        Title = item.Title,
-        Artist = item.Artist,
-        Genre = item.Genre,
-        Year = item.Year,
-        Rating = item.Rating,
-        ReferenceId = item.ReferenceId,
-        IsFavorite = item.IsFavorite
-    };
 }

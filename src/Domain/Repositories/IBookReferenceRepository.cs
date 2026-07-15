@@ -13,6 +13,11 @@ public interface IBookReferenceRepository
     Task<BookReferenceModel?> FindByIdAsync(string id);
 
     /// <summary>
+    /// Batched id lookup backing list-page image hydration - one query per page instead of one per item.
+    /// </summary>
+    Task<List<BookReferenceModel>> FindByIdsAsync(IReadOnlyCollection<string> ids);
+
+    /// <summary>
     /// <paramref name="author"/> is required (not optional) as part of the match key, not just a search
     /// hint: two different tenants' different books can easily share the same (title, year) - a generic
     /// title re-published the same year is common - so title+year alone risks silently linking a tenant

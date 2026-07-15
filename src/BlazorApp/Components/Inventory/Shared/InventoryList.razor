@@ -5,27 +5,6 @@
     <div class="alert alert-danger mb-4" role="alert">@Error</div>
 }
 
-@if (_showModal)
-{
-    <div class="kt-modal-backdrop" @onclick="HandleBackdropClick" @onmousedown="HandleBackdropMouseDown">
-        <div class="kt-modal" @onclick:stopPropagation @onmousedown:stopPropagation>
-            <div class="kt-modal-header">
-                <h5>Edit item</h5>
-                <button class="kt-modal-close" @onclick="OnCancelModal">✕</button>
-            </div>
-            <div class="kt-modal-body">
-                <div class="row g-3">
-                    @EditModalTemplate(InlineForm)
-                </div>
-            </div>
-            <div class="kt-modal-footer">
-                <button class="btn btn-secondary" @onclick="OnCancelModal">Cancel</button>
-                <button class="btn btn-success" @onclick="OnSaveModal">Save</button>
-            </div>
-        </div>
-    </div>
-}
-
 <ConfirmModal Show="_pendingDeleteId is not null"
               Title="Delete this item?"
               Message="@($"This will permanently delete this {ItemName ?? "item"}. This can't be undone.")"
@@ -38,7 +17,7 @@
         <div class="row g-3">
             @FormTemplate(Form)
         </div>
-        <div class="col-12 d-flex gap-2 pt-1">
+        <div class="d-flex gap-2 mt-3">
             <button class="btn btn-success" @onclick="OnSave">Save</button>
             <button class="btn btn-secondary" @onclick="OnCancelForm">Cancel</button>
         </div>
@@ -80,28 +59,37 @@ else
         </div>
         @if (Items.Count > 0)
         {
-            <table class="table">
-                <thead>
-                <tr>
-                    @HeaderTemplate
-                    <th style="width:120px"></th>
-                </tr>
-                </thead>
-                <tbody>
+            <div class="kt-item-list">
                 @foreach (var item in Items)
                 {
-                    <tr>
-                        @RowTemplate(item)
-                        <td>
-                            <div class="d-flex gap-1">
-                                <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenEditModal(item)">Edit</button>
-                                <button class="btn btn-sm btn-outline-danger" @onclick="() => RequestDelete(item)">Del</button>
-                            </div>
-                        </td>
-                    </tr>
+                    @* The stretched-link title makes the whole row open the detail page (where all editing
+                       happens); the delete button sits above it via z-index. *@
+                    <div class="kt-item-row">
+                        @if (ItemImageUrl is not null)
+                        {
+                            <ItemThumb ImageUrl="@ItemImageUrl(item)" Shape="@ItemImageShape"/>
+                        }
+                        <div class="kt-item-main">
+                            <a class="kt-item-title stretched-link" href="@($"{Route}/{item.Id}")">@ItemTitle(item)</a>
+                            <div class="kt-item-meta">@MetaTemplate(item)</div>
+                        </div>
+                        @* a monochrome inline SVG bin: there is no bin codepoint with a reliable text
+                           presentation (U+1F5D1 renders as a color emoji on several platforms - see the
+                           theme section's emoji gotcha in CLAUDE.md) *@
+                        <button type="button" class="kt-icon-btn kt-item-delete" title="Delete" aria-label="Delete"
+                                @onclick="() => RequestDelete(item)">
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+                                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M3 6h18"/>
+                                <path d="M8 6V4.5A1.5 1.5 0 0 1 9.5 3h5A1.5 1.5 0 0 1 16 4.5V6"/>
+                                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                                <path d="M10 11v6"/>
+                                <path d="M14 11v6"/>
+                            </svg>
+                        </button>
+                    </div>
                 }
-                </tbody>
-            </table>
+            </div>
         }
         else
         {
@@ -165,8 +153,6 @@ else
     private bool _initialized;
     private string? _pendingDeleteId;
     private string _localSearch = "";
-    private bool _showModal;
-    private bool _mouseDownOnBackdrop;
 
     protected override void OnParametersSet()
     {
@@ -199,45 +185,10 @@ else
         if (id is not null) await OnDelete.InvokeAsync(id);
     }
 
-    private async Task OpenEditModal(TDto item)
-    {
-        await OnStartInlineEdit.InvokeAsync(item);
-        _showModal = true;
-    }
-
-    private async Task OnSaveModal()
-    {
-        await OnSaveInline.InvokeAsync();
-        _showModal = false;
-    }
-
-    private async Task OnCancelModal()
-    {
-        _showModal = false;
-        await OnCancelInline.InvokeAsync();
-    }
-
-    private void HandleBackdropMouseDown()
-    {
-        _mouseDownOnBackdrop = true;
-    }
-
-    private async Task HandleBackdropClick()
-    {
-        if (_mouseDownOnBackdrop)
-        {
-            _mouseDownOnBackdrop = false;
-            await OnCancelModal();
-        }
-        _mouseDownOnBackdrop = false;
-    }
-
     [Parameter] public required string Title { get; set; }
     [Parameter] public string? ItemName { get; set; }
     [Parameter] public required List<TDto> Items { get; set; }
     [Parameter] public required TDto Form { get; set; }
-    [Parameter] public required TDto? EditingInline { get; set; }
-    [Parameter] public required TDto InlineForm { get; set; }
     [Parameter] public required bool Loading { get; set; }
     [Parameter] public required bool ShowForm { get; set; }
     [Parameter] public required string? Error { get; set; }
@@ -245,20 +196,35 @@ else
     [Parameter] public required int Page { get; set; }
     [Parameter] public required int TotalPages { get; set; }
     [Parameter] public required long TotalCount { get; set; }
-    [Parameter] public required RenderFragment HeaderTemplate { get; set; }
-    [Parameter] public required RenderFragment<TDto> RowTemplate { get; set; }
+
+    /// <summary>The list's own route ("/movies"), also every row link's detail-route prefix.</summary>
+    [Parameter] public required string Route { get; set; }
+
+    [Parameter] public required Func<TDto, string?> ItemTitle { get; set; }
+
+    /// <summary>
+    /// Cover/poster URL selector - leave unset for types with no reference imagery (cars, houses,
+    /// playlists), which then render without a thumbnail column at all.
+    /// </summary>
+    [Parameter] public Func<TDto, string?>? ItemImageUrl { get; set; }
+
+    /// <summary>See <see cref="ItemThumb.Shape"/>: unset = portrait, "square" (albums), "wide" (games).</summary>
+    [Parameter] public string? ItemImageShape { get; set; }
+
+    /// <summary>
+    /// The row's second line: year/creator text and .kt-flag-badge pills. This is per-type data shape,
+    /// not layout - rows themselves render identically for every type.
+    /// </summary>
+    [Parameter] public required RenderFragment<TDto> MetaTemplate { get; set; }
+
     [Parameter] public required RenderFragment<TDto> FormTemplate { get; set; }
-    [Parameter] public required RenderFragment<TDto> EditModalTemplate { get; set; }
     [Parameter] public RenderFragment? Filters { get; set; }
     [Parameter] public required EventCallback OnSave { get; set; }
     [Parameter] public required EventCallback OnCancelForm { get; set; }
     [Parameter] public required EventCallback OnShowAddForm { get; set; }
     [Parameter] public required EventCallback OnClearSearch { get; set; }
-    [Parameter] public required EventCallback OnSaveInline { get; set; }
-    [Parameter] public required EventCallback OnCancelInline { get; set; }
     [Parameter] public required EventCallback<KeyboardEventArgs> OnSearchKeyUp { get; set; }
     [Parameter] public required EventCallback<int> OnGoToPage { get; set; }
-    [Parameter] public required EventCallback<TDto> OnStartInlineEdit { get; set; }
     [Parameter] public required EventCallback<string> OnDelete { get; set; }
     [Parameter] public required EventCallback<string> OnSearchChanged { get; set; }
 }

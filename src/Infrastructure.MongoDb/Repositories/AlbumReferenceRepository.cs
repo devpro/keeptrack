@@ -22,6 +22,13 @@ public class AlbumReferenceRepository(IMongoDatabase mongoDatabase, AlbumReferen
         return entity is null ? null : mapper.ToModel(entity);
     }
 
+    public async Task<List<AlbumReferenceModel>> FindByIdsAsync(IReadOnlyCollection<string> ids)
+    {
+        if (ids.Count == 0) return [];
+        var entities = await Collection.Find(Builders<AlbumReference>.Filter.In(x => x.Id, ids)).ToListAsync();
+        return entities.Select(mapper.ToModel).ToList();
+    }
+
     public async Task<AlbumReferenceModel?> FindByTitleYearAsync(string title, int? year, string artist)
     {
         var normalized = TitleNormalizer.Normalize(title);
