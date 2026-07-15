@@ -6,6 +6,7 @@
 <InventoryList TDto="PlaylistDto"
                Title="Playlists"
                ItemName="Playlist"
+               Route="@ListRoute"
                Items="@_items"
                Loading="@_loading"
                Error="@_error"
@@ -14,40 +15,22 @@
                TotalPages="@TotalPages"
                TotalCount="@_totalCount"
                ShowForm="@_showForm"
-               EditingInline="@_editingInline"
                Form="@_form"
-               InlineForm="@_inlineForm"
+               ItemTitle="@(playlist => playlist.Title)"
                OnSearchKeyUp="@OnSearchKeyUp"
                OnClearSearch="@ClearSearch"
                OnGoToPage="@GoToPage"
                OnShowAddForm="@ShowAddForm"
                OnCancelForm="@CancelForm"
                OnSave="@SaveAsync"
-               OnStartInlineEdit="@StartInlineEdit"
-               OnCancelInline="@CancelInline"
-               OnSaveInline="@SaveInlineAsync"
                OnDelete="@DeleteAsync"
                OnSearchChanged="@OnSearchChanged">
-    <HeaderTemplate>
-        <th>Title</th>
-        <th>Songs</th>
-    </HeaderTemplate>
-    <RowTemplate Context="playlist">
-        <td style="font-weight:500">
-            <a href="@($"/playlists/{playlist.Id}")">@playlist.Title</a>
-        </td>
-        <td data-label="Songs">@playlist.SongIds.Count</td>
-    </RowTemplate>
+    <MetaTemplate Context="playlist">
+        <span>@playlist.SongIds.Count song@(playlist.SongIds.Count == 1 ? "" : "s")</span>
+    </MetaTemplate>
     <FormTemplate Context="playlist">
         <div class="col-12">
             <input class="form-control" placeholder="Title" data-testid="title-input" @bind="playlist.Title" />
         </div>
     </FormTemplate>
-    <EditModalTemplate Context="playlist">
-        <div class="col-12">
-            <label class="form-label">Title</label>
-            <input class="form-control" @bind="playlist.Title" />
-        </div>
-        <p class="kt-card-meta">Manage songs from the playlist's detail page.</p>
-    </EditModalTemplate>
 </InventoryList>

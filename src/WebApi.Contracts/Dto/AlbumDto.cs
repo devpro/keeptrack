@@ -5,7 +5,7 @@ namespace Keeptrack.WebApi.Contracts.Dto;
 /// <summary>
 /// A music album the user has listened to or wants to listen to.
 /// </summary>
-public class AlbumDto : IHasId
+public class AlbumDto : IHasId, IReferenceLinkedDto
 {
     /// <summary>
     /// Unique identifier.
@@ -43,6 +43,12 @@ public class AlbumDto : IHasId
     /// Id of the linked <c>album_reference</c> document, when a match has been found.
     /// </summary>
     public string? ReferenceId { get; set; }
+
+    /// <summary>
+    /// Cover/poster image URL from the linked reference document - read-only, hydrated server-side on
+    /// list reads and never accepted from client input.
+    /// </summary>
+    public string? ImageUrl { get; set; }
 
     public bool IsFavorite { get; set; }
 }

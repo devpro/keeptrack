@@ -12,6 +12,11 @@ public interface IVideoGameReferenceRepository
 {
     Task<VideoGameReferenceModel?> FindByIdAsync(string id);
 
+    /// <summary>
+    /// Batched id lookup backing list-page image hydration - one query per page instead of one per item.
+    /// </summary>
+    Task<List<VideoGameReferenceModel>> FindByIdsAsync(IReadOnlyCollection<string> ids);
+
     Task<VideoGameReferenceModel?> FindByTitleYearAsync(string title, int? year);
 
     /// <summary>

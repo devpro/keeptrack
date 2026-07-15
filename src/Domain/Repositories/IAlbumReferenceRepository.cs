@@ -13,6 +13,11 @@ public interface IAlbumReferenceRepository
     Task<AlbumReferenceModel?> FindByIdAsync(string id);
 
     /// <summary>
+    /// Batched id lookup backing list-page image hydration - one query per page instead of one per item.
+    /// </summary>
+    Task<List<AlbumReferenceModel>> FindByIdsAsync(IReadOnlyCollection<string> ids);
+
+    /// <summary>
     /// <paramref name="artist"/> is required (not optional) as part of the match key, not just a search
     /// hint: two different tenants' different albums can easily share the same (title, year) - a generic
     /// title re-released the same year is common - so title+year alone risks silently linking a tenant

@@ -11,14 +11,4 @@ public partial class Houses : InventoryPageBase<HouseDto>
 
     protected override string ListRoute => "/houses";
 
-    protected override HouseDto CloneItem(HouseDto item) => new()
-    {
-        Id = item.Id,
-        Name = item.Name,
-        Address = item.Address,
-        City = item.City,
-        PostalCode = item.PostalCode,
-        Country = item.Country,
-        Notes = item.Notes
-    };
 }

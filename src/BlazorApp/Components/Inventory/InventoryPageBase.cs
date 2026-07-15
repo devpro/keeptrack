@@ -13,10 +13,6 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
 
     protected TDto _form = new();
 
-    protected TDto? _editingInline;
-
-    protected TDto _inlineForm = new();
-
     protected bool _showForm;
 
     protected bool _loading = true;
@@ -34,8 +30,6 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
     [Inject] protected NavigationManager Navigation { get; set; } = null!;
 
     protected abstract InventoryApiClientBase<TDto> Api { get; }
-
-    protected abstract TDto CloneItem(TDto item);
 
     /// <summary>
     /// The list page's own route ("/movies", "/books", ...), which is also every item's detail-route prefix -
@@ -80,7 +74,6 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
     {
         _form = new TDto();
         _showForm = true;
-        _editingInline = default;
     }
 
     protected void CancelForm()
@@ -89,46 +82,12 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
         _error = null;
     }
 
-    protected virtual async Task SaveAsync()
+    protected async Task SaveAsync()
     {
         try
         {
-            if (_form.Id is null)
-            {
-                var created = await Api.AddAsync(_form);
-                Navigation.NavigateTo($"{ListRoute}/{created.Id}");
-                return;
-            }
-            await Api.UpdateAsync(_form);
-            _showForm = false;
-            await LoadAsync();
-        }
-        catch (Exception ex)
-        {
-            _error = ex.Message;
-        }
-    }
-
-    protected void StartInlineEdit(TDto item)
-    {
-        _showForm = false;
-        _editingInline = item;
-        _inlineForm = CloneItem(item);
-    }
-
-    protected void CancelInline()
-    {
-        _editingInline = default;
-        _error = null;
-    }
-
-    protected async Task SaveInlineAsync()
-    {
-        try
-        {
-            await Api.UpdateAsync(_inlineForm);
-            _editingInline = default;
-            await LoadAsync();
+            var created = await Api.AddAsync(_form);
+            Navigation.NavigateTo($"{ListRoute}/{created.Id}");
         }
         catch (Exception ex)
         {

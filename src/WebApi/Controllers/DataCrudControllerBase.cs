@@ -33,8 +33,16 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IDtoMapper<TDto, TMod
             pagedRequest.PageSize,
             pagedRequest.Search,
             mapper.ToModel(input));
-        return Ok(models.Map(mapper.ToDto));
+        var page = models.Map(mapper.ToDto);
+        await OnListMappedAsync(page.Items);
+        return Ok(page);
     }
+
+    /// <summary>
+    /// Hook for subclasses that enrich a mapped list page before it is returned (e.g. hydrating
+    /// reference-image URLs, see <see cref="ReferenceImageHydrator"/>). No-op by default.
+    /// </summary>
+    protected virtual Task OnListMappedAsync(List<TDto> dtos) => Task.CompletedTask;
 
     [HttpGet("{id}")]
     [ProducesResponseType(200)]

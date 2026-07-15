@@ -24,6 +24,13 @@ public class MovieReferenceRepository(IMongoDatabase mongoDatabase, MovieReferen
         return entity is null ? null : mapper.ToModel(entity);
     }
 
+    public async Task<List<MovieReferenceModel>> FindByIdsAsync(IReadOnlyCollection<string> ids)
+    {
+        if (ids.Count == 0) return [];
+        var entities = await Collection.Find(Builders<MovieReference>.Filter.In(x => x.Id, ids)).ToListAsync();
+        return entities.Select(mapper.ToModel).ToList();
+    }
+
     public async Task<MovieReferenceModel?> FindByTitleYearAsync(string title, int? year)
     {
         // matches against every known-good (title, year) combination for this reference (see

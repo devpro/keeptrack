@@ -5,7 +5,7 @@ namespace Keeptrack.WebApi.Contracts.Dto;
 /// <summary>
 /// TV Show history transfer object.
 /// </summary>
-public class TvShowDto : IHasId
+public class TvShowDto : IHasId, IReferenceLinkedDto
 {
     /// <summary>
     /// TV Show ID.
@@ -35,6 +35,12 @@ public class TvShowDto : IHasId
     /// Id of the shared reference-data document (episode titles, synopsis) for this show, once resolved.
     /// </summary>
     public string? ReferenceId { get; set; }
+
+    /// <summary>
+    /// Cover/poster image URL from the linked reference document - read-only, hydrated server-side on
+    /// list reads and never accepted from client input.
+    /// </summary>
+    public string? ImageUrl { get; set; }
 
     public TvShowStatus? State { get; set; }
 

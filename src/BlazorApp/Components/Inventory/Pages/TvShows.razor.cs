@@ -60,19 +60,4 @@ public partial class TvShows : InventoryPageBase<TvShowDto>
         await LoadAsync();
     }
 
-    protected override TvShowDto CloneItem(TvShowDto item) => new()
-    {
-        Id = item.Id,
-        Title = item.Title,
-        Rating = item.Rating,
-        ReferenceId = item.ReferenceId,
-        Notes = item.Notes,
-        State = item.State,
-        LastEpisodeSeen = item.LastEpisodeSeen,
-        Year = item.Year,
-        IsFavorite = item.IsFavorite,
-        WantToWatch = item.WantToWatch,
-        IsOwned = item.IsOwned,
-        IsWishlisted = item.IsWishlisted
-    };
 }

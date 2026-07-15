@@ -6,6 +6,7 @@
 <InventoryList TDto="HouseDto"
                Title="Houses"
                ItemName="House"
+               Route="@ListRoute"
                Items="@_items"
                Loading="@_loading"
                Error="@_error"
@@ -14,36 +15,26 @@
                TotalPages="@TotalPages"
                TotalCount="@_totalCount"
                ShowForm="@_showForm"
-               EditingInline="@_editingInline"
                Form="@_form"
-               InlineForm="@_inlineForm"
+               ItemTitle="@(house => house.Name)"
                OnSearchKeyUp="@OnSearchKeyUp"
                OnClearSearch="@ClearSearch"
                OnGoToPage="@GoToPage"
                OnShowAddForm="@ShowAddForm"
                OnCancelForm="@CancelForm"
                OnSave="@SaveAsync"
-               OnStartInlineEdit="@StartInlineEdit"
-               OnCancelInline="@CancelInline"
-               OnSaveInline="@SaveInlineAsync"
                OnDelete="@DeleteAsync"
                OnSearchChanged="@OnSearchChanged">
-    <HeaderTemplate>
-        <th>Name</th>
-        <th>Address</th>
-        <th>City</th>
-        <th>Country</th>
-        <th></th>
-    </HeaderTemplate>
-    <RowTemplate Context="house">
-        <td style="font-weight:500">
-            <a href="@($"/houses/{house.Id}")">@house.Name</a>
-        </td>
-        <td data-label="Address">@house.Address</td>
-        <td data-label="City">@house.City</td>
-        <td data-label="Country">@house.Country</td>
-        <td></td>
-    </RowTemplate>
+    <MetaTemplate Context="house">
+        @if (!string.IsNullOrEmpty(house.Address))
+        {
+            <span>@house.Address</span>
+        }
+        @if (!string.IsNullOrEmpty(house.City))
+        {
+            <span>@house.City</span>
+        }
+    </MetaTemplate>
     <FormTemplate Context="house">
         <div class="col-12">
             <input class="form-control" placeholder="Name" data-testid="name-input" @bind="house.Name" />
@@ -55,27 +46,4 @@
             <input class="form-control" placeholder="City" @bind="house.City" />
         </div>
     </FormTemplate>
-    <EditModalTemplate Context="house">
-        <div class="col-12">
-            <label class="form-label">Name</label>
-            <input class="form-control" @bind="house.Name" />
-        </div>
-        <div class="col-12">
-            <label class="form-label">Address</label>
-            <input class="form-control" @bind="house.Address" />
-        </div>
-        <div class="col-md-4">
-            <label class="form-label">City</label>
-            <input class="form-control" @bind="house.City" />
-        </div>
-        <div class="col-md-4">
-            <label class="form-label">Postal code</label>
-            <input class="form-control" @bind="house.PostalCode" />
-        </div>
-        <div class="col-md-4">
-            <label class="form-label">Country</label>
-            <input class="form-control" @bind="house.Country" />
-        </div>
-        <p class="kt-card-meta">Manage notes and history from the house's detail page.</p>
-    </EditModalTemplate>
 </InventoryList>

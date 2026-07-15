@@ -23,6 +23,13 @@ public class TvShowReferenceRepository(IMongoDatabase mongoDatabase, TvShowRefer
         return entity is null ? null : mapper.ToModel(entity);
     }
 
+    public async Task<List<TvShowReferenceModel>> FindByIdsAsync(IReadOnlyCollection<string> ids)
+    {
+        if (ids.Count == 0) return [];
+        var entities = await Collection.Find(Builders<TvShowReference>.Filter.In(x => x.Id, ids)).ToListAsync();
+        return entities.Select(mapper.ToModel).ToList();
+    }
+
     public async Task<TvShowReferenceModel?> FindByTitleYearAsync(string title, int? year)
     {
         // matches against every known-good (title, year) combination for this reference (see MatchedAliases), not just its canonical TitleNormalized/Year -

@@ -11,14 +11,4 @@ public partial class Cars : InventoryPageBase<CarDto>
 
     protected override string ListRoute => "/cars";
 
-    protected override CarDto CloneItem(CarDto item) => new()
-    {
-        Id = item.Id,
-        Name = item.Name,
-        Manufacturer = item.Manufacturer,
-        Model = item.Model,
-        Year = item.Year,
-        LicensePlate = item.LicensePlate,
-        EnergyType = item.EnergyType
-    };
 }

@@ -66,24 +66,4 @@ public partial class VideoGames : InventoryPageBase<VideoGameDto>
         await LoadAsync();
     }
 
-    protected override VideoGameDto CloneItem(VideoGameDto item) => new()
-    {
-        Id = item.Id,
-        Title = item.Title,
-        Platforms = item.Platforms.Select(p => new VideoGamePlatformDto
-        {
-            Platform = p.Platform,
-            CopyType = p.CopyType,
-            State = p.State,
-            Playthroughs = p.Playthroughs.Select(pt => new PlaythroughDto { Label = pt.Label, CompletedAt = pt.CompletedAt }).ToList(),
-            IsFullyCompleted = p.IsFullyCompleted,
-            FullyCompletedAt = p.FullyCompletedAt
-        }).ToList(),
-        Notes = item.Notes,
-        Rating = item.Rating,
-        Year = item.Year,
-        ReferenceId = item.ReferenceId,
-        IsOwned = item.IsOwned,
-        IsWishlisted = item.IsWishlisted
-    };
 }

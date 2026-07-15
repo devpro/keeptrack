@@ -6,7 +6,7 @@ namespace Keeptrack.WebApi.Contracts.Dto;
 /// <summary>
 /// Book data transfer object.
 /// </summary>
-public class BookDto : IHasId
+public class BookDto : IHasId, IReferenceLinkedDto
 {
     /// <summary>
     /// Book ID.
@@ -51,6 +51,12 @@ public class BookDto : IHasId
     /// Id of the linked <c>book_reference</c> document, when a match has been found.
     /// </summary>
     public string? ReferenceId { get; set; }
+
+    /// <summary>
+    /// Cover/poster image URL from the linked reference document - read-only, hydrated server-side on
+    /// list reads and never accepted from client input.
+    /// </summary>
+    public string? ImageUrl { get; set; }
 
     public bool IsFavorite { get; set; }
 

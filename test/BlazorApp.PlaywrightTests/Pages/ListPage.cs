@@ -31,10 +31,10 @@ public class ListPage(IPage page, string route, string title) : PageBase(page)
     }
 
     /// <summary>
-    /// The table row containing <paramref name="itemTitle"/> - scoping edit/delete actions to a specific
-    /// row, since every row repeats the same "Edit"/"Del" button labels.
+    /// The item row containing <paramref name="itemTitle"/> - scoping the delete action to a specific row,
+    /// since every row repeats the same "Delete" button label.
     /// </summary>
-    public ILocator Row(string itemTitle) => Page.Locator("table tbody tr", new() { HasText = itemTitle });
+    public ILocator Row(string itemTitle) => Page.Locator(".kt-item-row", new() { HasText = itemTitle });
 
     /// <summary>
     /// The first state-changing click after a fresh page load - see <see cref="PageBase.ClickUntilAsync"/> for
@@ -68,15 +68,14 @@ public class ListPage(IPage page, string route, string title) : PageBase(page)
         await search.PressAsync("Enter");
     }
 
-    public async Task StartEditAsync(string itemTitle)
-        => await ClickUntilAsync(Row(itemTitle).GetByRole(AriaRole.Button, new() { Name = "Edit" }), Page.Locator(".kt-modal"));
-
-    public async Task SaveModalAsync() => await Page.GetByRole(AriaRole.Button, new() { Name = "Save", Exact = true }).ClickAsync();
-
+    /// <summary>
+    /// The confirm click is scoped to the modal - every row's own delete icon shares the same accessible
+    /// "Delete" name, so a page-level lookup would be ambiguous.
+    /// </summary>
     public async Task DeleteAsync(string itemTitle)
     {
-        await Row(itemTitle).GetByRole(AriaRole.Button, new() { Name = "Del" }).ClickAsync();
-        await Page.GetByRole(AriaRole.Button, new() { Name = "Delete", Exact = true }).ClickAsync();
+        await Row(itemTitle).GetByRole(AriaRole.Button, new() { Name = "Delete" }).ClickAsync();
+        await Page.Locator(".kt-modal").GetByRole(AriaRole.Button, new() { Name = "Delete", Exact = true }).ClickAsync();
     }
 
     /// <summary>

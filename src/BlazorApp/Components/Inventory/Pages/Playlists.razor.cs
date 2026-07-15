@@ -11,10 +11,4 @@ public partial class Playlists : InventoryPageBase<PlaylistDto>
 
     protected override string ListRoute => "/playlists";
 
-    protected override PlaylistDto CloneItem(PlaylistDto item) => new()
-    {
-        Id = item.Id,
-        Title = item.Title,
-        SongIds = [.. item.SongIds]
-    };
 }
