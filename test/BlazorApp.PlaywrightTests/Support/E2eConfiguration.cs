@@ -49,6 +49,18 @@ public static class E2eConfiguration
 
     public static string? Password => GetString("E2E_PASSWORD");
 
+    /// <summary>
+    /// Opt-in for the <see cref="Smoke.MobileScreenshotTest"/> visual-review capture - it adds a slow,
+    /// assertion-free walkthrough to the run, so it stays off unless explicitly requested.
+    /// </summary>
+    public static bool Screenshots => GetBool("E2E_SCREENSHOTS", false);
+
+    /// <summary>
+    /// Output directory for <see cref="Smoke.MobileScreenshotTest"/>'s captures (defaults to
+    /// "mobile-shots" under the test base directory).
+    /// </summary>
+    public static string? ScreenshotsDirectory => GetString("E2E_SHOTS_DIR");
+
     public static bool Headless => GetBool("E2E_HEADLESS", true);
 
     public static float SlowMoMs => GetFloat("E2E_SLOWMO_MS", 0);

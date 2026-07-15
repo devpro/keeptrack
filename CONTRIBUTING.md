@@ -352,6 +352,8 @@ Variable         | Default      | Purpose
 `E2E_SLOWMO_MS`  | `0`          | Milliseconds of delay injected before each Playwright action
 `E2E_BROWSER`    | `chromium`   | `chromium`, `firefox` or `webkit`
 `E2E_TRACE`      | `on-failure` | `off`, `on` or `on-failure`; traces/screenshots land in `bin/<config>/net10.0/e2e-diagnostics`
+`E2E_SCREENSHOTS` | `false`     | Opt-in for `MobileScreenshotTest`, an assertion-free visual-review walkthrough: seeds representative data, captures every page at a phone viewport, cleans up after itself
+`E2E_SHOTS_DIR`  | `bin/<config>/net10.0/mobile-shots` | Where `MobileScreenshotTest` writes its captures
 
 Integration mode (the common local/CI case) reuses the same MongoDB/Firebase variables as the integration tests above, pointed at a dedicated database (e.g. `keeptrack_e2e`), plus `E2E_ENABLED=true`:
 

@@ -225,9 +225,12 @@ public sealed class E2eFixture : IAsyncLifetime
     /// here is not thread-safe against that, confirmed by a real intermittent failure under a full parallel
     /// run. <see cref="LazyInitializer.EnsureInitialized{T}(ref T?, Func{T})"/> is the same thread-safe pattern
     /// <c>Testing.Shared</c>'s own <c>AccountRepository.AuthenticateAsync</c> already uses for exactly this
-    /// kind of shared, lazily-created, concurrently-accessed resource.
+    /// kind of shared, lazily-created, concurrently-accessed resource. Public so a test that needs direct,
+    /// signed-in API access beyond <see cref="DeleteItemAsync"/> (e.g. <c>MobileScreenshotTest</c>'s seeding)
+    /// reuses the run's one authenticated identity instead of re-deriving credentials itself - which would
+    /// silently break in ephemeral-user mode, where no E2E_USERNAME exists to re-derive from.
     /// </summary>
-    private HttpClient ApiHttpClient => LazyInitializer.EnsureInitialized(ref _apiHttpClient, () =>
+    public HttpClient ApiHttpClient => LazyInitializer.EnsureInitialized(ref _apiHttpClient, () =>
     {
         var client = new HttpClient { BaseAddress = new Uri(WebApiBaseUrl) };
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _idToken);

@@ -729,6 +729,8 @@ the scoped file itself has to be edited.
   Movie/TvShow/VideoGame/Album use fixed real-world titles rather than a GUID, so an orphaned leftover from a failed run is an actual accumulating duplicate, not harmless clutter.
   That's why they clean up via this helper instead of skipping it.
   `ApiHttpClient` is built with `LazyInitializer.EnsureInitialized`, the same thread-safe pattern `AccountRepository.AuthenticateAsync` already uses, after a plain `??=` lazy-init caused a real intermittent failure under parallel execution.
+  `MobileScreenshotTest` is an assertion-free visual-review harness, not a regression test: gated behind `E2E_SCREENSHOTS=true` (on top of `E2E_ENABLED`), it seeds representative data through `E2eFixture.ApiHttpClient`, captures every page at a 390x844 phone viewport into `E2E_SHOTS_DIR`, and deletes what it created.
+  Re-run it after UI changes and review the images - this is how the July 2026 mobile UX overhaul was verified.
 - Assertions use `AwesomeAssertions` (a `FluentAssertions`-compatible API); test data is generated with `Bogus`.
 
 ## CI
