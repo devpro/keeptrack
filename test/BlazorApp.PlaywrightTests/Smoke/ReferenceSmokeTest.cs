@@ -8,13 +8,13 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// With <see cref="E2eFixture"/>'s synthetic book reference already imported, adding a book with the exact
+/// With <see cref="End2EndFixture"/>'s synthetic book reference already imported, adding a book with the exact
 /// matching title/author and clicking "check for reference match" must resolve it - a local Mongo lookup
 /// only (<c>TryLinkExistingBookReferenceAsync</c>), never a real Open Library call, so this stays deterministic.
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]
-public class ReferenceSmokeTest(E2eFixture fixture) : SmokeTestBase(fixture)
+public class ReferenceSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 {
     [Fact]
     public async Task CheckForReferenceMatch_ResolvesTheSeededBook()
@@ -28,7 +28,6 @@ public class ReferenceSmokeTest(E2eFixture fixture) : SmokeTestBase(fixture)
         await list.FillAsync("author-input", ReferenceFixtureZipBuilder.BookAuthor);
         await list.SaveNewAsync();
 
-        // Creating an item navigates straight to its detail page.
         var detail = new BookDetailPage(Page);
         await detail.WaitForReadyAsync();
 

@@ -13,7 +13,7 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]
-public class TvShowSmokeTest(E2eFixture fixture) : SmokeTestBase(fixture)
+public class TvShowSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 {
     private const string Title = "Breaking Bad";
     private const string Year = "2008";
@@ -30,7 +30,6 @@ public class TvShowSmokeTest(E2eFixture fixture) : SmokeTestBase(fixture)
         await list.FillAsync("year-input", Year);
         await list.SaveNewAsync();
 
-        // Creating an item navigates straight to its detail page.
         var detail = new TvShowDetailPage(Page);
         await detail.WaitForReadyAsync();
         var id = ExtractIdFromUrl(Page.Url);

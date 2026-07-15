@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Playwright;
 
@@ -10,9 +9,7 @@ public class BookDetailPage(IPage page) : ReferenceableDetailPageBase(page, "Ope
 
     public ILocator SeriesInput => Page.GetByTestId("series-input");
 
-    public override ILocator CoverImage => Page.GetByRole(AriaRole.Img, new() { NameRegex = new Regex("cover$") });
-
-    public async Task SetFieldAsync(ILocator input, string value)
+    public static async Task SetFieldAsync(ILocator input, string value)
     {
         await input.FillAsync(value);
         await input.BlurAsync();

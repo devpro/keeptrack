@@ -22,16 +22,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Both WebApi and BlazorApp generate a top-level `Program` class in the global namespace - aliasing
-         these two ProjectReferences is what lets this project host both side by side (see the extern alias
-         usage in Hosting/E2eFixture.cs). Domain/WebApi.Contracts/Common.System are referenced directly
-         (rather than relying on the transitive, unaliased references WebApiHost/BlazorHost would otherwise
-         flow in) for clarity about what this project actually uses from each. -->
-    <ProjectReference Include="..\..\src\WebApi\WebApi.csproj" Aliases="WebApiHost" />
-    <ProjectReference Include="..\..\src\BlazorApp\BlazorApp.csproj" Aliases="BlazorHost" />
-    <ProjectReference Include="..\..\src\Domain\Domain.csproj" />
-    <ProjectReference Include="..\..\src\WebApi.Contracts\WebApi.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\BlazorApp\BlazorApp.csproj" />
     <ProjectReference Include="..\..\src\Common.System\Common.System.csproj" />
+    <ProjectReference Include="..\..\src\Domain\Domain.csproj" />
+    <ProjectReference Include="..\..\src\WebApi\WebApi.csproj" />
+    <ProjectReference Include="..\..\src\WebApi.Contracts\WebApi.Contracts.csproj" />
     <ProjectReference Include="..\Testing.Shared\Testing.Shared.csproj" />
   </ItemGroup>
 

@@ -14,18 +14,19 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Not a regression test: a visual-review harness that seeds representative items via the API (including
-/// reference-linked movies/shows/albums/games with real cover art), captures full-page screenshots of every
-/// page at a phone viewport (390x844), then deletes everything it created. Assertion-free by design - its
-/// output is the screenshots, reviewed by a human (or an AI assistant) after UI changes. Doubly gated:
-/// besides the usual E2E_ENABLED, it also skips unless E2E_SCREENSHOTS=true, so a normal full e2e run
-/// doesn't pay for the slow walkthrough. Output directory: E2E_SHOTS_DIR.
+/// Not a regression test: a visual-review harness that seeds representative items via the API
+/// (including reference-linked movies/shows/albums/games with real cover art),
+/// captures full-page screenshots of every page at a phone viewport (390x844), then deletes everything it created.
+/// Assertion-free by design - its output is the screenshots, reviewed by a human (or an AI assistant) after UI changes.
+/// Doubly gated: besides the usual E2E_ENABLED, it also skips unless E2E_SCREENSHOTS=true,
+/// so a normal full e2e run doesn't pay for the slow walkthrough.
+/// Output directory: E2E_SHOTS_DIR.
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]
-public class MobileScreenshotTest(E2eFixture fixture) : SmokeTestBase(fixture)
+public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 {
-    private static readonly (string Route, string Name)[] Routes =
+    private static readonly (string Route, string Name)[] s_routes =
     [
         ("/", "home"),
         ("/watch-next", "watch-next"),
@@ -43,7 +44,7 @@ public class MobileScreenshotTest(E2eFixture fixture) : SmokeTestBase(fixture)
     ];
 
     private static string ShotsDirectory =>
-        E2eConfiguration.ScreenshotsDirectory ?? Path.Combine(AppContext.BaseDirectory, "mobile-shots");
+        End2EndConfiguration.ScreenshotsDirectory ?? Path.Combine(AppContext.BaseDirectory, "mobile-shots");
 
     public override BrowserNewContextOptions ContextOptions()
     {
@@ -58,7 +59,7 @@ public class MobileScreenshotTest(E2eFixture fixture) : SmokeTestBase(fixture)
     [Fact]
     public async Task CaptureAllPagesAtPhoneViewport()
     {
-        Assert.SkipUnless(E2eConfiguration.Screenshots, "E2E_SCREENSHOTS is not set; the visual-review capture is opt-in.");
+        Assert.SkipUnless(End2EndConfiguration.Screenshots, "E2E_SCREENSHOTS is not set; the visual-review capture is opt-in.");
         SkipIfReadOnly();
         Directory.CreateDirectory(ShotsDirectory);
 
@@ -68,7 +69,7 @@ public class MobileScreenshotTest(E2eFixture fixture) : SmokeTestBase(fixture)
         {
             await SeedAsync(api, created);
 
-            foreach (var (route, name) in Routes)
+            foreach (var (route, name) in s_routes)
             {
                 await CaptureAsync(route, name);
             }
@@ -88,14 +89,14 @@ public class MobileScreenshotTest(E2eFixture fixture) : SmokeTestBase(fixture)
             // The Add form modal on a list page.
             await Page.GotoAsync("/movies");
             await Page.WaitForTimeoutAsync(1000);
-            await Page.GetByRole(AriaRole.Button, new() { Name = "Add" }).First.ClickAsync();
+            await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Add" }).First.ClickAsync();
             await Page.WaitForTimeoutAsync(500);
             await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(ShotsDirectory, "movies-add-form.png"), FullPage = true });
 
             // The admin unresolved queue with the first row's inline search panel expanded (no linking).
             await Page.GotoAsync("/admin/reference-data");
             await Page.WaitForTimeoutAsync(1500);
-            var wireRow = Page.Locator(".kt-table-wrap table tbody tr", new() { HasText = "The Wire" }).First;
+            var wireRow = Page.Locator(".kt-table-wrap table tbody tr", new PageLocatorOptions { HasText = "The Wire" }).First;
             if (await wireRow.CountAsync() > 0)
             {
                 for (var attempt = 0; attempt < 3; attempt++)
@@ -110,14 +111,15 @@ public class MobileScreenshotTest(E2eFixture fixture) : SmokeTestBase(fixture)
                     {
                     }
                 }
+
                 await Page.WaitForTimeoutAsync(3000);
                 await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(ShotsDirectory, "admin-expanded.png"), FullPage = true });
             }
 
             // The Albums queue: the expanded panel must prefill the tenant's saved artist.
-            await Page.GetByRole(AriaRole.Button, new() { Name = "Albums" }).ClickAsync();
+            await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Albums" }).ClickAsync();
             await Page.WaitForTimeoutAsync(1000);
-            var albumRow = Page.Locator(".kt-table-wrap table tbody tr", new() { HasText = "Zzq Unfindable Album" }).First;
+            var albumRow = Page.Locator(".kt-table-wrap table tbody tr", new PageLocatorOptions { HasText = "Zzq Unfindable Album" }).First;
             if (await albumRow.CountAsync() > 0)
             {
                 for (var attempt = 0; attempt < 3; attempt++)
@@ -132,6 +134,7 @@ public class MobileScreenshotTest(E2eFixture fixture) : SmokeTestBase(fixture)
                     {
                     }
                 }
+
                 await Page.WaitForTimeoutAsync(3000);
                 await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(ShotsDirectory, "admin-album-expanded.png"), FullPage = true });
             }
@@ -152,15 +155,51 @@ public class MobileScreenshotTest(E2eFixture fixture) : SmokeTestBase(fixture)
 
     private static async Task SeedAsync(HttpClient api, List<string> created)
     {
-        await CreateAsync(api, created, "api/movies", new MovieDto { Title = "The Shawshank Redemption", Year = 1994, Rating = 4.5f, IsFavorite = true, FirstSeenAt = new DateOnly(2024, 3, 12) });
-        await CreateAsync(api, created, "api/movies", new MovieDto { Title = "Heat", Year = 1995, Rating = 4, IsOwned = true, FirstSeenAt = new DateOnly(2023, 11, 2) });
+        await CreateAsync(api, created, "api/movies", new MovieDto
+        {
+            Title = "The Shawshank Redemption",
+            Year = 1994,
+            Rating = 4.5f,
+            IsFavorite = true,
+            FirstSeenAt = new DateOnly(2024, 3, 12)
+        });
+        await CreateAsync(api, created, "api/movies", new MovieDto
+        {
+            Title = "Heat",
+            Year = 1995,
+            Rating = 4,
+            IsOwned = true,
+            FirstSeenAt = new DateOnly(2023, 11, 2)
+        });
         await CreateAsync(api, created, "api/movies", new MovieDto { Title = "Everything Everywhere All at Once", Year = 2022, WantToWatch = true });
-        await CreateAsync(api, created, "api/movies", new MovieDto { Title = "The Terminator", Year = 1984, Rating = 4, IsOwned = true, FirstSeenAt = new DateOnly(2022, 7, 30) });
+        await CreateAsync(api, created, "api/movies", new MovieDto
+        {
+            Title = "The Terminator",
+            Year = 1984,
+            Rating = 4,
+            IsOwned = true,
+            FirstSeenAt = new DateOnly(2022, 7, 30)
+        });
         await CreateAsync(api, created, "api/movies", new MovieDto { Title = "Blade Runner 2049", Year = 2017, WantToWatch = true, IsWishlisted = true });
         await CreateAsync(api, created, "api/movies", new MovieDto { Title = "Amélie", Year = 2001, Rating = 3.5f, FirstSeenAt = new DateOnly(2021, 1, 15) });
 
-        await CreateAsync(api, created, "api/tv-shows", new TvShowDto { Title = "Breaking Bad", Year = 2008, Rating = 5, State = TvShowStatus.Finished, IsFavorite = true, LastEpisodeSeen = "S05E16" });
-        await CreateAsync(api, created, "api/tv-shows", new TvShowDto { Title = "Severance", Year = 2022, Rating = 4.5f, State = TvShowStatus.Current, LastEpisodeSeen = "S02E03" });
+        await CreateAsync(api, created, "api/tv-shows", new TvShowDto
+        {
+            Title = "Breaking Bad",
+            Year = 2008,
+            Rating = 5,
+            State = TvShowStatus.Finished,
+            IsFavorite = true,
+            LastEpisodeSeen = "S05E16"
+        });
+        await CreateAsync(api, created, "api/tv-shows", new TvShowDto
+        {
+            Title = "Severance",
+            Year = 2022,
+            Rating = 4.5f,
+            State = TvShowStatus.Current,
+            LastEpisodeSeen = "S02E03"
+        });
         await CreateAsync(api, created, "api/tv-shows", new TvShowDto { Title = "The Wire", Year = 2002, State = TvShowStatus.Stopped, LastEpisodeSeen = "S03E01" });
 
         // A realistic long unresolved queue: gibberish titles that no provider can match, so they all land
@@ -170,50 +209,86 @@ public class MobileScreenshotTest(E2eFixture fixture) : SmokeTestBase(fixture)
             await CreateAsync(api, created, "api/tv-shows", new TvShowDto { Title = $"Zzq Unmatchable Show {i:00}", Year = 1990 + i });
         }
 
-        await CreateAsync(api, created, "api/books", new BookDto { Title = "Killing Floor", Author = "Lee Child", Series = "Jack Reacher", Year = 1997, Rating = 4, Genre = "Thriller", FirstReadAt = new DateOnly(2024, 8, 3) });
+        await CreateAsync(api, created, "api/books", new BookDto
+        {
+            Title = "Killing Floor",
+            Author = "Lee Child",
+            Series = "Jack Reacher",
+            Year = 1997,
+            Rating = 4,
+            Genre = "Thriller",
+            FirstReadAt = new DateOnly(2024, 8, 3)
+        });
 
         // An album (square Discogs art) and a game (wide RAWG art) - linked deterministically via the admin
         // search/link API rather than relying on the background auto-resolve winning the race.
-        await CreateAsync(api, created, "api/albums", new AlbumDto { Title = "Nevermind", Artist = "Nirvana", Year = 1991, Rating = 4.5f, IsFavorite = true });
+        await CreateAsync(api, created, "api/albums", new AlbumDto
+        {
+            Title = "Nevermind",
+            Artist = "Nirvana",
+            Year = 1991,
+            Rating = 4.5f,
+            IsFavorite = true
+        });
         await CreateAsync(api, created, "api/video-games", new VideoGameDto { Title = "Hades", Year = 2020, Rating = 4.5f, IsOwned = true });
         await LinkFirstCandidateAsync(api, ReferenceItemType.Album, "Nevermind", 1991, "Nirvana");
         await LinkFirstCandidateAsync(api, ReferenceItemType.VideoGame, "Hades", 2020, null);
 
         // stays unresolved (no provider can match it) - proves the admin queue prefills the saved artist
         await CreateAsync(api, created, "api/albums", new AlbumDto { Title = "Zzq Unfindable Album", Artist = "Zzq Test Artist", Year = 1999 });
-        await CreateAsync(api, created, "api/books", new BookDto { Title = "The Return of the King", Author = "J. R. R. Tolkien", Series = "The Lord of the Rings", Year = 1955, Rating = 5, IsFavorite = true, IsWishlisted = true });
+        await CreateAsync(api, created, "api/books", new BookDto
+        {
+            Title = "The Return of the King",
+            Author = "J. R. R. Tolkien",
+            Series = "The Lord of the Rings",
+            Year = 1955,
+            Rating = 5,
+            IsFavorite = true,
+            IsWishlisted = true
+        });
 
-        var carId = await CreateAsync(api, created, "api/cars", new CarDto { Name = "Daily driver", Manufacturer = "Renault", Model = "Clio V", Year = 2019, LicensePlate = "AB-123-CD", EnergyType = CarEnergyType.Combustion });
+        var carId = await CreateAsync(api, created, "api/cars", new CarDto
+        {
+            Name = "Daily driver",
+            Manufacturer = "Renault",
+            Model = "Clio V",
+            Year = 2019,
+            LicensePlate = "AB-123-CD",
+            EnergyType = CarEnergyType.Combustion
+        });
         var mileage = 42000;
         for (var i = 0; i < 6; i++)
         {
             mileage += 550 + (i * 35);
-            await CreateAsync(api, created, "api/car-history", new CarHistoryDto
+            await CreateAsync(api, created, "api/car-history",
+                new CarHistoryDto
+                {
+                    CarId = carId,
+                    HistoryDate = DateTime.UtcNow.AddMonths(i - 6).AddDays(3),
+                    EventType = CarHistoryType.Refuel,
+                    Mileage = mileage,
+                    DeltaMileage = 550 + (i * 35),
+                    FuelCategory = "E10",
+                    FuelVolume = 38.2 + i,
+                    FuelUnitPrice = 1.78,
+                    Cost = Math.Round((38.2 + i) * 1.78, 2),
+                    IsFullRefill = true,
+                    StationBrandName = "TotalEnergies",
+                    City = "Lyon"
+                });
+        }
+
+        await CreateAsync(api, created, "api/car-history",
+            new CarHistoryDto
             {
                 CarId = carId,
-                HistoryDate = DateTime.UtcNow.AddMonths(i - 6).AddDays(3),
-                EventType = CarHistoryType.Refuel,
-                Mileage = mileage,
-                DeltaMileage = 550 + (i * 35),
-                FuelCategory = "E10",
-                FuelVolume = 38.2 + i,
-                FuelUnitPrice = 1.78,
-                Cost = Math.Round((38.2 + i) * 1.78, 2),
-                IsFullRefill = true,
-                StationBrandName = "TotalEnergies",
-                City = "Lyon"
+                HistoryDate = DateTime.UtcNow.AddMonths(-2),
+                EventType = CarHistoryType.Maintenance,
+                Mileage = mileage - 300,
+                Description = "Oil change + front brake pads",
+                Cost = 389.90,
+                Garage = "Renault Lyon Est"
             });
-        }
-        await CreateAsync(api, created, "api/car-history", new CarHistoryDto
-        {
-            CarId = carId,
-            HistoryDate = DateTime.UtcNow.AddMonths(-2),
-            EventType = CarHistoryType.Maintenance,
-            Mileage = mileage - 300,
-            Description = "Oil change + front brake pads",
-            Cost = 389.90,
-            Garage = "Renault Lyon Est"
-        });
     }
 
     /// <summary>Links an item to its provider's first search candidate via the admin API (best-effort).</summary>
@@ -258,6 +333,7 @@ public class MobileScreenshotTest(E2eFixture fixture) : SmokeTestBase(fixture)
         {
             return;
         }
+
         await firstItemLink.ClickAsync();
         await Page.WaitForTimeoutAsync(1500);
         await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(ShotsDirectory, $"{name}.png"), FullPage = true });

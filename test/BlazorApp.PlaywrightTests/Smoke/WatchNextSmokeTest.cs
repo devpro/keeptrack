@@ -17,7 +17,7 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]
-public class WatchNextSmokeTest(E2eFixture fixture) : SmokeTestBase(fixture)
+public class WatchNextSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 {
     private const string ShowTitle = "The Wire";
     private const string ShowYear = "2002";
@@ -37,7 +37,6 @@ public class WatchNextSmokeTest(E2eFixture fixture) : SmokeTestBase(fixture)
         await showsList.FillAsync("year-input", ShowYear);
         await showsList.SaveNewAsync();
 
-        // Creating an item navigates straight to its detail page.
         var showDetail = new TvShowDetailPage(Page);
         await showDetail.WaitForReadyAsync();
         var showId = ExtractIdFromUrl(Page.Url);
@@ -54,7 +53,6 @@ public class WatchNextSmokeTest(E2eFixture fixture) : SmokeTestBase(fixture)
             await moviesList.FillAsync("year-input", MovieYear);
             await moviesList.SaveNewAsync();
 
-            // Creating an item navigates straight to its detail page.
             var movieDetail = new MovieDetailPage(Page);
             await movieDetail.WaitForReadyAsync();
             var movieId = ExtractIdFromUrl(Page.Url);
@@ -65,8 +63,6 @@ public class WatchNextSmokeTest(E2eFixture fixture) : SmokeTestBase(fixture)
 
                 var watchNext = await movieDetail.OpenWatchNextAsync();
 
-                // TV shows is the default tab - the confirmed next episode (episode 2, since only episode 1
-                // was marked watched) should show up as "Next: S01E02".
                 await Assertions.Expect(watchNext.Card(ShowTitle)).ToBeVisibleAsync();
                 await Assertions.Expect(watchNext.CardBadge(ShowTitle)).ToContainTextAsync("E02");
 

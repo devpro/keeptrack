@@ -17,7 +17,7 @@ public enum TraceMode
 /// variable reaches an ASP.NET Core configuration provider, exactly like <c>WebApi.IntegrationTests</c>
 /// already relies on today.
 /// </summary>
-public static class E2eConfiguration
+public static class End2EndConfiguration
 {
     /// <summary>
     /// Master switch. When false, every e2e test dynamically skips itself (<see cref="Xunit.Assert.SkipUnless"/>)

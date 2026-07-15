@@ -4,11 +4,7 @@ using Microsoft.Playwright;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 
 /// <summary>
-/// One page object for all ten inventory list pages (Books, Movies, Albums, Playlists, TV shows, Video
-/// games, Cars, Houses, plus Wishlist/Watch next's simpler card layout is covered separately) - they are
-/// all rendered by the same <c>InventoryList</c> component, so a single parameterized page object covers
-/// every one of them rather than ten near-identical copies (see CLAUDE.md's "no duplicated algorithms"
-/// quality bar and the e2e plan's "minimal code" requirement).
+/// One PageObject for all inventory list pages - they are all rendered by the same <c>InventoryList</c> component.
 /// </summary>
 public class ListPage(IPage page, string route, string title) : PageBase(page)
 {
@@ -26,40 +22,37 @@ public class ListPage(IPage page, string route, string title) : PageBase(page)
     public override async Task WaitForReadyAsync()
     {
         await base.WaitForReadyAsync();
-        await Assertions.Expect(Page.GetByRole(AriaRole.Heading, new() { Name = title, Level = 1 })).ToBeVisibleAsync();
+        await Assertions.Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = title, Level = 1 })).ToBeVisibleAsync();
         await Assertions.Expect(Page.Locator(".kt-spinner")).ToBeHiddenAsync();
     }
 
     /// <summary>
-    /// The item row containing <paramref name="itemTitle"/> - scoping the delete action to a specific row,
-    /// since every row repeats the same "Delete" button label.
+    /// The item row containing <paramref name="itemTitle"/> - scoping the delete action to a specific row, since every row repeats the same "Delete" button label.
     /// </summary>
-    public ILocator Row(string itemTitle) => Page.Locator(".kt-item-row", new() { HasText = itemTitle });
+    public ILocator Row(string itemTitle) => Page.Locator(".kt-item-row", new PageLocatorOptions { HasText = itemTitle });
 
     /// <summary>
-    /// The first state-changing click after a fresh page load - see <see cref="PageBase.ClickUntilAsync"/> for
-    /// why this specifically (not every click) needs the retry-until-visible treatment.
+    /// The first state-changing click after a fresh page load -
+    /// see <see cref="PageBase.ClickUntilAsync"/> for why this specifically (not every click) needs the retry-until-visible treatment.
     /// </summary>
     public async Task ClickAddAsync()
-        => await ClickUntilAsync(Page.GetByRole(AriaRole.Button, new() { Name = "+ Add" }), Page.Locator(".kt-form-card"));
+        => await ClickUntilAsync(Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "+ Add" }), Page.Locator(".kt-form-card"));
 
     /// <summary>
-    /// <paramref name="testId"/> is the field's <c>data-testid</c> (e.g. "title-input"/"author-input") - the
-    /// add form's fields are plain sibling <c>&lt;label&gt;</c>/<c>&lt;input&gt;</c> pairs with no <c>for</c>/
-    /// <c>id</c> association, so <c>GetByLabel</c> structurally can't resolve them (confirmed against a real
-    /// run: the "Title" field could never be found, every add-form fill silently timed out). Matches
-    /// <c>todo-blazor</c>'s own convention of reaching for <c>data-testid</c> once role/label lookup proves
-    /// unusable, not just fragile.
+    /// <paramref name="testId"/> is the field's <c>data-testid</c> (e.g. "title-input"/"author-input") -
+    /// the add form's fields are plain sibling <c>&lt;label&gt;</c>/<c>&lt;input&gt;</c> pairs with no <c>for</c>/ <c>id</c> association,
+    /// so <c>GetByLabel</c> structurally can't resolve them (confirmed against a real run:
+    /// the "Title" field could never be found, every add-form fill silently timed out).
     /// </summary>
     public async Task FillAsync(string testId, string value) => await Page.GetByTestId(testId).FillAsync(value);
 
     /// <summary>
-    /// VideoGames' and Playlists' Add forms use a bare <c>placeholder="Title"</c> input with no <c>&lt;label&gt;</c>
-    /// at all - <c>GetByPlaceholder</c> already resolves it uniquely, so no <c>data-testid</c> was needed there.
+    /// VideoGames' and Playlists' Add forms use a bare <c>placeholder="Title"</c> input with no <c>&lt;label&gt;</c> at all -
+    /// <c>GetByPlaceholder</c> already resolves it uniquely, so no <c>data-testid</c> was needed there.
     /// </summary>
     public async Task FillByPlaceholderAsync(string placeholder, string value) => await Page.GetByPlaceholder(placeholder).FillAsync(value);
 
-    public async Task SaveNewAsync() => await Page.GetByRole(AriaRole.Button, new() { Name = "Save", Exact = true }).ClickAsync();
+    public async Task SaveNewAsync() => await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Save", Exact = true }).ClickAsync();
 
     public async Task SearchAsync(string query)
     {
@@ -69,20 +62,20 @@ public class ListPage(IPage page, string route, string title) : PageBase(page)
     }
 
     /// <summary>
-    /// The confirm click is scoped to the modal - every row's own delete icon shares the same accessible
-    /// "Delete" name, so a page-level lookup would be ambiguous.
+    /// The confirm click is scoped to the modal -
+    /// every row's own delete icon shares the same accessible "Delete" name, so a page-level lookup would be ambiguous.
     /// </summary>
     public async Task DeleteAsync(string itemTitle)
     {
-        await Row(itemTitle).GetByRole(AriaRole.Button, new() { Name = "Delete" }).ClickAsync();
-        await Page.Locator(".kt-modal").GetByRole(AriaRole.Button, new() { Name = "Delete", Exact = true }).ClickAsync();
+        await Row(itemTitle).GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "Delete" }).ClickAsync();
+        await Page.Locator(".kt-modal").GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "Delete", Exact = true }).ClickAsync();
     }
 
     /// <summary>
-    /// Navigates to an item's own detail page by clicking its title link - the caller constructs whatever
-    /// typed detail page object it needs afterward (e.g. <see cref="BookDetailPage"/>), since a generic list
-    /// page has no business knowing which detail page type belongs to which item type.
+    /// Navigates to an item's own detail page by clicking its title link -
+    /// the caller constructs whatever typed detail page object it needs afterward (e.g. <see cref="BookDetailPage"/>),
+    /// since a generic list page has no business knowing which detail page type belongs to which item type.
     /// </summary>
     public async Task OpenItemAsync(string itemTitle)
-        => await Page.GetByRole(AriaRole.Link, new() { Name = itemTitle, Exact = true }).ClickAsync();
+        => await Page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = itemTitle, Exact = true }).ClickAsync();
 }

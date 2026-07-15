@@ -4,9 +4,9 @@ using System.Threading.Tasks;
 using AwesomeAssertions;
 using Keeptrack.WebApi.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Moq;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using Moq;
 using Xunit;
 
 namespace Keeptrack.WebApi.UnitTests.HealthChecks;

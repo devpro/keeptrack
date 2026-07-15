@@ -4,10 +4,7 @@ using Microsoft.Playwright;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 
 /// <summary>
-/// Sidebar navigation locators and typed <c>Open&lt;X&gt;Async()</c> helpers that return the next page object -
-/// mirrors <c>todo-blazor/test/BlazorApp.PlaywrightTests/Pages/PageBase.cs</c>'s own shape (see the e2e plan's
-/// review of that project), adapted to Keeptrack's sidebar (ten list pages, wishlist, watch next) instead of
-/// a single Todo page.
+/// Sidebar navigation locators and typed <c>Open&lt;X&gt;Async()</c> helpers that return the next page object.
 /// </summary>
 /// <remarks>
 /// <see cref="PageTitle"/> is null by default because only <c>Home.razor</c>/<c>Login.razor</c>/<c>Error.razor</c>
@@ -61,15 +58,14 @@ public abstract class PageBase(IPage page)
     }
 
     /// <summary>
-    /// The sidebar (<c>NavMenu.razor</c>'s <c>nav.flex-column</c>) - scoping to it matters because Home's own
-    /// CTA ("Go to my movies") also matches a plain substring role/name lookup for "Movies" (confirmed
-    /// against a real run: an unscoped lookup threw a strict-mode violation on that exact page).
+    /// The sidebar (<c>NavMenu.razor</c>'s <c>nav.flex-column</c>) -
+    /// scoping to it matters because Home's own CTA ("Go to my movies") also matches a plain substring role/name lookup for "Movies".
     /// </summary>
     private ILocator SidebarNav => Page.Locator("nav.flex-column");
 
     private async Task<TPage> NavigateAsync<TPage>(string linkName, TPage next) where TPage : PageBase
     {
-        await SidebarNav.GetByRole(AriaRole.Link, new() { Name = linkName }).ClickAsync();
+        await SidebarNav.GetByRole(AriaRole.Link, new LocatorGetByRoleOptions { Name = linkName }).ClickAsync();
         await next.WaitForReadyAsync();
         return next;
     }
@@ -97,9 +93,7 @@ public abstract class PageBase(IPage page)
     public Task<ListPage> OpenHousesAsync() => NavigateAsync("Houses", new ListPage(Page, "/houses", "Houses"));
 
     /// <summary>
-    /// <c>AuthenticationController.Logout</c> redirects to <c>/</c> (Home), not to the login page - confirmed
-    /// against a real run (this used to declare <c>Task&lt;LoginPage&gt;</c>, which failed waiting on the
-    /// wrong page entirely).
+    /// AuthenticationController.Logout redirects to the Home page.
     /// </summary>
     public Task<HomePage> LogoutAsync() => NavigateAsync("Log out", new HomePage(Page));
 }

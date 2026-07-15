@@ -11,7 +11,7 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]
-public class VideoGameSmokeTest(E2eFixture fixture) : SmokeTestBase(fixture)
+public class VideoGameSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 {
     private const string Title = "Half-Life 2";
     private const string Year = "2004";
@@ -28,7 +28,6 @@ public class VideoGameSmokeTest(E2eFixture fixture) : SmokeTestBase(fixture)
         await list.FillByPlaceholderAsync("Year", Year);
         await list.SaveNewAsync();
 
-        // VideoGames redirects straight to the detail page on save.
         var detail = new VideoGameDetailPage(Page);
         await detail.WaitForReadyAsync();
         var id = ExtractIdFromUrl(Page.Url);
@@ -37,7 +36,7 @@ public class VideoGameSmokeTest(E2eFixture fixture) : SmokeTestBase(fixture)
         {
             await detail.SearchAndLinkFirstResultAsync();
 
-            await Assertions.Expect(detail.CoverImage).ToBeVisibleAsync();
+            await Assertions.Expect(detail.CoverImage.First).ToBeVisibleAsync();
         }
         finally
         {

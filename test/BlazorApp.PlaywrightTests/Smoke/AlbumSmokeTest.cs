@@ -7,12 +7,12 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Uses a real, well-known album so linking exercises the actual Discogs provider - Album is one of the two
-/// domains (with Book) that also passes a Creator (Artist) to narrow the search.
+/// Uses a real, well-known album so linking exercises the actual Discogs provider -
+/// Album is one of the two domains (with Book) that also passes a Creator (Artist) to narrow the search.
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]
-public class AlbumSmokeTest(E2eFixture fixture) : SmokeTestBase(fixture)
+public class AlbumSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 {
     private const string Title = "Nevermind";
     private const string Artist = "Nirvana";
@@ -31,7 +31,6 @@ public class AlbumSmokeTest(E2eFixture fixture) : SmokeTestBase(fixture)
         await list.FillAsync("year-input", Year);
         await list.SaveNewAsync();
 
-        // Creating an item navigates straight to its detail page.
         var detail = new AlbumDetailPage(Page);
         await detail.WaitForReadyAsync();
         var id = ExtractIdFromUrl(Page.Url);

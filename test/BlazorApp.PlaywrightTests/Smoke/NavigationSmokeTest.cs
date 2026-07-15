@@ -13,7 +13,7 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Readonly")]
-public class NavigationSmokeTest(E2eFixture fixture) : SmokeTestBase(fixture)
+public class NavigationSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 {
     [Fact]
     public async Task Home_Loads() => await new HomePage(Page).OpenAsync();

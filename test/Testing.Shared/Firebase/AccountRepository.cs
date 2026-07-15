@@ -24,6 +24,8 @@ public static class AccountRepository
     /// </summary>
     private static Lazy<Task<string?>>? s_cachedToken;
 
+    private static readonly HttpClient s_httpClient = new();
+
     /// <summary>
     /// Authenticate. Only performs a real sign-in once per test run - concurrent and subsequent calls reuse the
     /// cached token/task.
@@ -44,16 +46,10 @@ public static class AccountRepository
 
     private static async Task<string?> SignInAsync(string username, string password, string applicationKey)
     {
-        using var httpClient = new HttpClient();
-
-        var input = new
-        {
-            email = username,
-            password,
-            returnSecureToken = true
-        };
+        var input = new { email = username, password, returnSecureToken = true };
         var url = $"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={applicationKey}";
-        var response = await httpClient.PostAsync(url, new StringContent(JsonSerializer.Serialize(input, JsonSerializerOptions.Web), Encoding.UTF8, "application/json"));
+        var response = await s_httpClient.PostAsync(url,
+            new StringContent(JsonSerializer.Serialize(input, JsonSerializerOptions.Web), Encoding.UTF8, "application/json"));
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var stringResponse = await response.Content.ReadAsStringAsync();

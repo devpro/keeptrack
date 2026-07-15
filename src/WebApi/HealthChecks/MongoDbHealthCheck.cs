@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace Keeptrack.WebApi.HealthChecks;

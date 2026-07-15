@@ -326,6 +326,8 @@ This test resolves repositories from the test host's DI container instead of goi
 It self-skips entirely unless `E2E_ENABLED=true`.
 So it needs no extra setup for a plain `dotnet test`.
 
+In Rider, open settings using `Ctrl` + `Alt` + `S` (or with File > Settings), navigate to **Build, Execution, Deployment** > **Unit Testing** > **Test Runner**, and add the variable in Environment variables.
+
 One-time browser install, after the project has been built at least once:
 
 ```bash
@@ -334,26 +336,26 @@ pwsh test/BlazorApp.PlaywrightTests/bin/Debug/net10.0/playwright.ps1 install chr
 
 The suite runs three ways from the same code, controlled by environment variables:
 
-Mode        | Trigger                          | Hosting
+Mode        | Trigger                           | Hosting
 ------------|-----------------------------------|--------
 Integration | `E2E_ENABLED=true`, no target URL | Both apps self-hosted in-process on dynamic ports, same MongoDB/Firebase settings as the integration tests above
 Live        | `E2E_TARGET_URL` set              | Nothing hosted; the browser drives an already-running deployment
 Read-only   | `E2E_READONLY=true`               | No provisioning, no seeding, every mutating test skips - pair with `E2E_TARGET_URL` against a real environment
 
-Variable         | Default      | Purpose
------------------|--------------|--------
-`E2E_ENABLED`    | `false`      | Master switch; every e2e test dynamically skips unless this is `true`
-`E2E_TARGET_URL` | *(empty)*    | Live mode: base URL of an already-running BlazorApp
-`E2E_WEBAPI_URL` | *(empty)*    | Live mode: base URL of the matching WebApi, required for seeding/cleanup unless read-only
-`E2E_READONLY`   | `false`      | Skips every mutating test, user creation, and seeding
-`E2E_USERNAME`   | *(empty)*    | Existing account email; empty triggers ephemeral admin user creation (integration mode only)
-`E2E_PASSWORD`   | *(empty)*    | Password for `E2E_USERNAME`
-`E2E_HEADLESS`   | `true`       | `false` shows the browser window
-`E2E_SLOWMO_MS`  | `0`          | Milliseconds of delay injected before each Playwright action
-`E2E_BROWSER`    | `chromium`   | `chromium`, `firefox` or `webkit`
-`E2E_TRACE`      | `on-failure` | `off`, `on` or `on-failure`; traces/screenshots land in `bin/<config>/net10.0/e2e-diagnostics`
-`E2E_SCREENSHOTS` | `false`     | Opt-in for `MobileScreenshotTest`, an assertion-free visual-review walkthrough: seeds representative data, captures every page at a phone viewport, cleans up after itself
-`E2E_SHOTS_DIR`  | `bin/<config>/net10.0/mobile-shots` | Where `MobileScreenshotTest` writes its captures
+Variable          | Default                             | Purpose
+------------------|-------------------------------------|--------
+`E2E_ENABLED`     | `false`                             | Master switch; every e2e test dynamically skips unless this is `true`
+`E2E_TARGET_URL`  | *(empty)*                           | Live mode: base URL of an already-running BlazorApp
+`E2E_WEBAPI_URL`  | *(empty)*                           | Live mode: base URL of the matching WebApi, required for seeding/cleanup unless read-only
+`E2E_READONLY`    | `false`                             | Skips every mutating test, user creation, and seeding
+`E2E_USERNAME`    | *(empty)*                           | Existing account email; empty triggers ephemeral admin user creation (integration mode only)
+`E2E_PASSWORD`    | *(empty)*                           | Password for `E2E_USERNAME`
+`E2E_HEADLESS`    | `true`                              | `false` shows the browser window
+`E2E_SLOWMO_MS`   | `0`                                 | Milliseconds of delay injected before each Playwright action
+`E2E_BROWSER`     | `chromium`                          | `chromium`, `firefox` or `webkit`
+`E2E_TRACE`       | `on-failure`                        | `off`, `on` or `on-failure`; traces/screenshots land in `bin/<config>/net10.0/e2e-diagnostics`
+`E2E_SCREENSHOTS` | `false`                             | Opt-in for `MobileScreenshotTest`, an assertion-free visual-review walkthrough: seeds representative data, captures every page at a phone viewport, cleans up after itself
+`E2E_SHOTS_DIR`   | `bin/<config>/net10.0/mobile-shots` | Where `MobileScreenshotTest` writes its captures
 
 Integration mode (the common local/CI case) reuses the same MongoDB/Firebase variables as the integration tests above, pointed at a dedicated database (e.g. `keeptrack_e2e`), plus `E2E_ENABLED=true`:
 

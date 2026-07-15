@@ -155,3 +155,8 @@ app.MapHealthChecks(AppConfiguration.HealthCheckEndpoint);
 
 // runs the application
 await app.RunAsync();
+
+namespace Keeptrack.WebApi
+{
+    public partial class Program { }
+}

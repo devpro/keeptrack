@@ -12,18 +12,18 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Keeptrack.Testing.Shared.Hosting;
 
 /// <summary>
-/// In-process (or already-running, via <paramref name="urlOverrideEnvironmentVariable"/>) Kestrel host for a
-/// test suite. Shared by <c>WebApi.IntegrationTests</c> and <c>BlazorApp.E2eTests</c>, so the env-var override
-/// name and any in-memory configuration overrides (e.g. disabling a background sync job that would otherwise
-/// fire real outbound calls against shared test data) are constructor parameters rather than hardcoded, letting
-/// each host (WebApi, BlazorApp) supply its own.
+/// In-process (or already-running, via "urlOverrideEnvironmentVariable") Kestrel host for a test suite.
+/// Shared by <c>WebApi.IntegrationTests</c> and <c>BlazorApp.E2eTests</c>,
+/// so the env-var override name and any in-memory configuration overrides
+/// (e.g. disabling a background sync job that would otherwise fire real outbound calls against shared test data)
+/// are constructor parameters rather than hardcoded, letting each host (WebApi, BlazorApp) supply its own.
 /// </summary>
 public class KestrelWebAppFactory<TEntryPoint> : WebApplicationFactory<TEntryPoint>
     where TEntryPoint : class
 {
     private readonly string? _webapiUrl;
 
-    private readonly IReadOnlyList<KeyValuePair<string, string?>> _configOverrides;
+    private readonly KeyValuePair<string, string?>[] _configOverrides;
 
     private int _serverPort;
 
@@ -39,12 +39,12 @@ public class KestrelWebAppFactory<TEntryPoint> : WebApplicationFactory<TEntryPoi
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        // ConfigureAppConfiguration (rather than UseSetting, which loads before appsettings.json and so gets
-        // overridden by it) is added last and wins.
-        if (_configOverrides.Count > 0)
+        // ConfigureAppConfiguration (rather than UseSetting, which loads before appsettings.json and so gets overridden by it) is added last and wins.
+        if (_configOverrides.Length > 0)
         {
             builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(_configOverrides));
         }
+
         base.ConfigureWebHost(builder);
     }
 
@@ -59,7 +59,6 @@ public class KestrelWebAppFactory<TEntryPoint> : WebApplicationFactory<TEntryPoi
 
             EnsureServerStarted();
             return $"http://127.0.0.1:{_serverPort}";
-
         }
     }
 

@@ -7,12 +7,11 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Uses a real, well-known movie so linking exercises the actual TMDB provider, not a synthetic fixture -
-/// see the phase 4 goal of smoke testing every page's reference-linking against the real external services.
+/// Uses a real, well-known movie so linking exercises the actual TMDB provider, not a synthetic fixture.
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]
-public class MovieSmokeTest(E2eFixture fixture) : SmokeTestBase(fixture)
+public class MovieSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 {
     private const string Title = "The Terminator";
     private const string Year = "1984";
@@ -29,7 +28,6 @@ public class MovieSmokeTest(E2eFixture fixture) : SmokeTestBase(fixture)
         await list.FillAsync("year-input", Year);
         await list.SaveNewAsync();
 
-        // Creating an item navigates straight to its detail page.
         var detail = new MovieDetailPage(Page);
         await detail.WaitForReadyAsync();
         var id = ExtractIdFromUrl(Page.Url);

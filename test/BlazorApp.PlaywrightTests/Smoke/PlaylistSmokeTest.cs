@@ -14,7 +14,7 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]
-public class PlaylistSmokeTest(E2eFixture fixture) : SmokeTestBase(fixture)
+public class PlaylistSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 {
     [Fact]
     public async Task AddAndDelete_PlaylistThroughTheList()
@@ -29,7 +29,6 @@ public class PlaylistSmokeTest(E2eFixture fixture) : SmokeTestBase(fixture)
         await list.FillByPlaceholderAsync("Title", title);
         await list.SaveNewAsync();
 
-        // Playlists redirects straight to the detail page on save.
         var detail = new PlaylistDetailPage(Page);
         await detail.WaitForReadyAsync();
         await Assertions.Expect(detail.TitleInput).ToHaveValueAsync(title);

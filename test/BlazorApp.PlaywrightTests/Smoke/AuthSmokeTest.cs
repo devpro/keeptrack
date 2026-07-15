@@ -8,14 +8,13 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Readonly")]
-public class AuthSmokeTest(E2eFixture fixture) : SmokeTestBase(fixture)
+public class AuthSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 {
     [Fact]
     public async Task AnonymousVisit_ToProtectedPage_RedirectsToLogin()
     {
-        // The shared Page/Context (from SmokeTestBase.ContextOptions) already carries a signed-in storage
-        // state - a genuinely anonymous visit needs its own context with none, per the e2e plan ("only the
-        // dedicated auth test uses a clean context").
+        // The shared Page/Context (from SmokeTestBase.ContextOptions) already carries a signed-in storage state -
+        // a genuinely anonymous visit needs its own context with none, per the e2e plan ("only the dedicated auth test uses a clean context").
         await using var anonymousContext = await NewContext(new BrowserNewContextOptions
         {
             BaseURL = Fixture.BlazorBaseUrl,
