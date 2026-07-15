@@ -25,6 +25,12 @@ public class InProgressShowDto
     public required int NextEpisodeNumber { get; set; }
 
     public required string NextEpisodeTitle { get; set; }
+
+    /// <summary>
+    /// The show's reference poster URL, hydrated server-side from the reference document that confirmed
+    /// the next episode.
+    /// </summary>
+    public string? ImageUrl { get; set; }
 }
 
 /// <summary>

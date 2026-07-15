@@ -419,6 +419,8 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
 }
 .kt-item-row:hover { background: var(--kt-surface-2); }
 .kt-item-delete { position: relative; z-index: 2; }
+/* Wishlist/Watch Next rows are plain anchors (no inner action, no stretched-link needed) */
+a.kt-item-row { color: inherit; text-decoration: none; }
 
 .kt-item-thumb {
   width: 44px;
@@ -433,6 +435,10 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
   color: var(--kt-text-subtle);
 }
 .kt-item-thumb img { width: 100%; height: 100%; object-fit: cover; }
+/* per-provider aspect ratios: Discogs album art is square, RAWG game imagery is wide - cropping either
+   into the default 2:3 poster shape cuts the artwork badly */
+.kt-item-thumb.square { width: 56px; height: 56px; }
+.kt-item-thumb.wide { width: 96px; height: 54px; }
 
 .kt-item-main { min-width: 0; flex: 1; }
 .kt-item-title {

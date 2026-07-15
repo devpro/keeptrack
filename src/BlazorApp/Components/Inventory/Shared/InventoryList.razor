@@ -67,24 +67,26 @@ else
                     <div class="kt-item-row">
                         @if (ItemImageUrl is not null)
                         {
-                            var imageUrl = ItemImageUrl(item);
-                            <div class="kt-item-thumb">
-                                @if (!string.IsNullOrEmpty(imageUrl))
-                                {
-                                    <img src="@imageUrl" alt="" loading="lazy"/>
-                                }
-                                else
-                                {
-                                    <span>◈</span>
-                                }
-                            </div>
+                            <ItemThumb ImageUrl="@ItemImageUrl(item)" Shape="@ItemImageShape"/>
                         }
                         <div class="kt-item-main">
                             <a class="kt-item-title stretched-link" href="@($"{Route}/{item.Id}")">@ItemTitle(item)</a>
                             <div class="kt-item-meta">@MetaTemplate(item)</div>
                         </div>
+                        @* a monochrome inline SVG bin: there is no bin codepoint with a reliable text
+                           presentation (U+1F5D1 renders as a color emoji on several platforms - see the
+                           theme section's emoji gotcha in CLAUDE.md) *@
                         <button type="button" class="kt-icon-btn kt-item-delete" title="Delete" aria-label="Delete"
-                                @onclick="() => RequestDelete(item)">✕</button>
+                                @onclick="() => RequestDelete(item)">
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+                                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M3 6h18"/>
+                                <path d="M8 6V4.5A1.5 1.5 0 0 1 9.5 3h5A1.5 1.5 0 0 1 16 4.5V6"/>
+                                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                                <path d="M10 11v6"/>
+                                <path d="M14 11v6"/>
+                            </svg>
+                        </button>
                     </div>
                 }
             </div>
@@ -205,6 +207,9 @@ else
     /// playlists), which then render without a thumbnail column at all.
     /// </summary>
     [Parameter] public Func<TDto, string?>? ItemImageUrl { get; set; }
+
+    /// <summary>See <see cref="ItemThumb.Shape"/>: unset = portrait, "square" (albums), "wide" (games).</summary>
+    [Parameter] public string? ItemImageShape { get; set; }
 
     /// <summary>
     /// The row's second line: year/creator text and .kt-flag-badge pills. This is per-type data shape,

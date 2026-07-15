@@ -23,11 +23,8 @@ public class AlbumController(
     /// Hydrates each page item's cover image from its linked reference document - one batched lookup per
     /// page (see <see cref="ReferenceImageHydrator"/>), keyed by the id-bearing documents only.
     /// </summary>
-    protected override async Task OnListMappedAsync(List<AlbumDto> dtos)
-    {
-        var references = await referenceRepository.FindByIdsAsync(ReferenceImageHydrator.CollectReferenceIds(dtos));
-        ReferenceImageHydrator.Apply(dtos, references.Where(x => x.Id is not null).ToDictionary(x => x.Id!, x => x.ImageUrl));
-    }
+    protected override Task OnListMappedAsync(List<AlbumDto> dtos)
+        => ReferenceImageHydrator.HydrateAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl);
 
     /// <summary>
     /// Fires a best-effort background Discogs match for the new album - see <see cref="TvShowController.OnCreatedAsync"/>.

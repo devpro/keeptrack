@@ -13,11 +13,11 @@ public class WatchNextPage(IPage page) : PageBase(page)
     }
 
     /// <summary>
-    /// TV shows and movies share the same <c>.kt-card</c> markup, just under whichever tab is currently
-    /// active - the other tab's cards aren't in the DOM at all (a plain Blazor <c>@if</c>), so there's no
+    /// TV shows and movies share the same <c>.kt-item-row</c> markup, just under whichever tab is currently
+    /// active - the other tab's rows aren't in the DOM at all (a plain Blazor <c>@if</c>), so there's no
     /// ambiguity risk in reusing one locator for both.
     /// </summary>
-    public ILocator Card(string title) => Page.Locator(".kt-card", new() { HasText = title });
+    public ILocator Card(string title) => Page.Locator(".kt-item-row", new() { HasText = title });
 
     public ILocator CardBadge(string title) => Card(title).Locator(".kt-card-badge");
 

@@ -23,11 +23,8 @@ public class BookController(
     /// Hydrates each page item's cover image from its linked reference document - one batched lookup per
     /// page (see <see cref="ReferenceImageHydrator"/>), keyed by the id-bearing documents only.
     /// </summary>
-    protected override async Task OnListMappedAsync(List<BookDto> dtos)
-    {
-        var references = await referenceRepository.FindByIdsAsync(ReferenceImageHydrator.CollectReferenceIds(dtos));
-        ReferenceImageHydrator.Apply(dtos, references.Where(x => x.Id is not null).ToDictionary(x => x.Id!, x => x.ImageUrl));
-    }
+    protected override Task OnListMappedAsync(List<BookDto> dtos)
+        => ReferenceImageHydrator.HydrateAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl);
 
     /// <summary>
     /// Fires a best-effort background Open Library match for the new book - see <see cref="TvShowController.OnCreatedAsync"/>.

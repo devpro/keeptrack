@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using AwesomeAssertions;
+using Keeptrack.Domain.Models;
 using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.Controllers;
 using Xunit;
@@ -9,47 +11,57 @@ namespace Keeptrack.WebApi.UnitTests.Controllers;
 [Trait("Category", "UnitTests")]
 public class ReferenceImageHydratorTest
 {
-    [Fact]
-    public void CollectReferenceIds_ReturnsDistinctNonEmptyIds()
+    private static Task<List<MovieReferenceModel>> Repository(IReadOnlyCollection<string> requestedIds, List<MovieReferenceModel> references, List<IReadOnlyCollection<string>>? calls = null)
     {
-        var dtos = new List<MovieDto>
-        {
-            new() { Title = "Linked", ReferenceId = "ref-1" },
-            new() { Title = "Same reference", ReferenceId = "ref-1" },
-            new() { Title = "Other reference", ReferenceId = "ref-2" },
-            new() { Title = "Unresolved null", ReferenceId = null },
-            new() { Title = "Unresolved empty (pre-Mapperly data)", ReferenceId = "" }
-        };
-
-        var ids = ReferenceImageHydrator.CollectReferenceIds(dtos);
-
-        ids.Should().BeEquivalentTo("ref-1", "ref-2");
+        calls?.Add(requestedIds);
+        return Task.FromResult(references);
     }
 
     [Fact]
-    public void Apply_SetsImageUrlOnlyOnItemsWhoseReferenceWasFound()
+    public async Task HydrateAsync_QueriesDistinctNonEmptyIdsOnce_AndSetsImageUrlOnMatchingItems()
     {
         var linked = new MovieDto { Title = "Linked", ReferenceId = "ref-1" };
+        var sameReference = new MovieDto { Title = "Same reference", ReferenceId = "ref-1" };
         var missingReference = new MovieDto { Title = "Dangling link", ReferenceId = "ref-gone" };
-        var unresolved = new MovieDto { Title = "Unresolved", ReferenceId = null };
+        var unresolvedNull = new MovieDto { Title = "Unresolved null", ReferenceId = null };
+        var unresolvedEmpty = new MovieDto { Title = "Unresolved empty (pre-Mapperly data)", ReferenceId = "" };
+        var calls = new List<IReadOnlyCollection<string>>();
 
-        ReferenceImageHydrator.Apply(
-            new List<MovieDto> { linked, missingReference, unresolved },
-            new Dictionary<string, string?> { ["ref-1"] = "https://img.example/poster.jpg" });
+        await ReferenceImageHydrator.HydrateAsync(
+            new List<MovieDto> { linked, sameReference, missingReference, unresolvedNull, unresolvedEmpty },
+            ids => Repository(ids, [new MovieReferenceModel { Id = "ref-1", Title = "Linked", TitleNormalized = "linked", ExternalIds = new(), ImageUrl = "https://img.example/poster.jpg" }], calls),
+            x => x.ImageUrl);
 
+        calls.Should().ContainSingle().Which.Should().BeEquivalentTo("ref-1", "ref-gone");
         linked.ImageUrl.Should().Be("https://img.example/poster.jpg");
+        sameReference.ImageUrl.Should().Be("https://img.example/poster.jpg");
         missingReference.ImageUrl.Should().BeNull();
-        unresolved.ImageUrl.Should().BeNull();
+        unresolvedNull.ImageUrl.Should().BeNull();
+        unresolvedEmpty.ImageUrl.Should().BeNull();
     }
 
     [Fact]
-    public void Apply_PropagatesAReferenceWithNoImageAsNull()
+    public async Task HydrateAsync_SkipsTheRepositoryEntirely_WhenNoItemIsLinked()
+    {
+        var calls = new List<IReadOnlyCollection<string>>();
+
+        await ReferenceImageHydrator.HydrateAsync(
+            new List<MovieDto> { new() { Title = "Unresolved", ReferenceId = null } },
+            ids => Repository(ids, [], calls),
+            x => x.ImageUrl);
+
+        calls.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task HydrateAsync_PropagatesAReferenceWithNoImageAsNull()
     {
         var dto = new MovieDto { Title = "Linked, no poster", ReferenceId = "ref-1" };
 
-        ReferenceImageHydrator.Apply(
+        await ReferenceImageHydrator.HydrateAsync(
             new List<MovieDto> { dto },
-            new Dictionary<string, string?> { ["ref-1"] = null });
+            ids => Repository(ids, [new MovieReferenceModel { Id = "ref-1", Title = "Linked, no poster", TitleNormalized = "linked no poster", ExternalIds = new(), ImageUrl = null }]),
+            x => x.ImageUrl);
 
         dto.ImageUrl.Should().BeNull();
     }

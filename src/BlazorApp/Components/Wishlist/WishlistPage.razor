@@ -30,107 +30,50 @@ else
         </button>
     </div>
 
-    @if (_tab == Tab.Movies)
+    var rows = CurrentRows();
+    @if (rows.Count == 0)
     {
-        @if (_data.Movies.Count == 0)
-        {
-            <div class="kt-empty">
-                <div class="kt-empty-icon">◈</div>
-                <p>No movies on your wishlist yet.</p>
-            </div>
-        }
-        else
-        {
-            <div class="kt-card-grid">
-                @foreach (var movie in _data.Movies)
-                {
-                    <a class="kt-card" href="@($"/movies/{movie.Id}")" style="display:block;color:inherit">
-                        <p class="kt-card-title">@movie.Title</p>
-                        @if (movie.Year > 0)
-                        {
-                            <p class="kt-card-meta">@movie.Year</p>
-                        }
-                    </a>
-                }
-            </div>
-        }
-    }
-    else if (_tab == Tab.TvShows)
-    {
-        @if (_data.TvShows.Count == 0)
-        {
-            <div class="kt-empty">
-                <div class="kt-empty-icon">◈</div>
-                <p>No TV shows on your wishlist yet.</p>
-            </div>
-        }
-        else
-        {
-            <div class="kt-card-grid">
-                @foreach (var show in _data.TvShows)
-                {
-                    <a class="kt-card" href="@($"/tv-shows/{show.Id}")" style="display:block;color:inherit">
-                        <p class="kt-card-title">@show.Title</p>
-                        @if (show.Year > 0)
-                        {
-                            <p class="kt-card-meta">@show.Year</p>
-                        }
-                    </a>
-                }
-            </div>
-        }
-    }
-    else if (_tab == Tab.Books)
-    {
-        @if (_data.Books.Count == 0)
-        {
-            <div class="kt-empty">
-                <div class="kt-empty-icon">◈</div>
-                <p>No books on your wishlist yet.</p>
-            </div>
-        }
-        else
-        {
-            <div class="kt-card-grid">
-                @foreach (var book in _data.Books)
-                {
-                    <a class="kt-card" href="@($"/books/{book.Id}")" style="display:block;color:inherit">
-                        <p class="kt-card-title">@book.Title</p>
-                        <p class="kt-card-meta">@book.Author</p>
-                    </a>
-                }
-            </div>
-        }
+        <div class="kt-empty">
+            <div class="kt-empty-icon">◈</div>
+            <p>@EmptyMessage</p>
+        </div>
     }
     else
     {
-        @if (_data.VideoGames.Count == 0)
-        {
-            <div class="kt-empty">
-                <div class="kt-empty-icon">◈</div>
-                <p>No video games on your wishlist yet.</p>
-            </div>
-        }
-        else
-        {
-            <div class="kt-card-grid">
-                @foreach (var game in _data.VideoGames)
+        <div class="kt-table-wrap">
+            <div class="kt-item-list">
+                @foreach (var row in rows)
                 {
-                    <a class="kt-card" href="@($"/video-games/{game.Id}")" style="display:block;color:inherit">
-                        <p class="kt-card-title">@game.Title</p>
-                        @if (game.Year > 0)
-                        {
-                            <p class="kt-card-meta">@game.Year</p>
-                        }
+                    <a class="kt-item-row" href="@row.Href">
+                        <ItemThumb ImageUrl="@row.ImageUrl" Shape="@row.Shape"/>
+                        <div class="kt-item-main">
+                            <span class="kt-item-title">@row.Title</span>
+                            <div class="kt-item-meta">
+                                @if (row.Year > 0)
+                                {
+                                    <span>@row.Year</span>
+                                }
+                                @if (!string.IsNullOrEmpty(row.Subtitle))
+                                {
+                                    <span>@row.Subtitle</span>
+                                }
+                            </div>
+                        </div>
                     </a>
                 }
             </div>
-        }
+        </div>
     }
 }
 
 @code {
     private enum Tab { Movies, TvShows, Books, VideoGames }
+
+    /// <summary>
+    /// The one common projection all four item types share here - a single row loop instead of four
+    /// near-identical per-type markup blocks.
+    /// </summary>
+    private sealed record WishlistRow(string Href, string? ImageUrl, string? Shape, string? Title, int? Year, string? Subtitle = null);
 
     [Inject] private WishlistApiClient WishlistApi { get; set; } = null!;
 
@@ -145,4 +88,20 @@ else
     }
 
     private void SelectTab(Tab tab) => _tab = tab;
+
+    private List<WishlistRow> CurrentRows() => _tab switch
+    {
+        Tab.Movies => _data.Movies.ConvertAll(x => new WishlistRow($"/movies/{x.Id}", x.ImageUrl, null, x.Title, x.Year)),
+        Tab.TvShows => _data.TvShows.ConvertAll(x => new WishlistRow($"/tv-shows/{x.Id}", x.ImageUrl, null, x.Title, x.Year)),
+        Tab.Books => _data.Books.ConvertAll(x => new WishlistRow($"/books/{x.Id}", x.ImageUrl, null, x.Title, x.Year, x.Author)),
+        _ => _data.VideoGames.ConvertAll(x => new WishlistRow($"/video-games/{x.Id}", x.ImageUrl, "wide", x.Title, x.Year))
+    };
+
+    private string EmptyMessage => _tab switch
+    {
+        Tab.Movies => "No movies on your wishlist yet.",
+        Tab.TvShows => "No TV shows on your wishlist yet.",
+        Tab.Books => "No books on your wishlist yet.",
+        _ => "No video games on your wishlist yet."
+    };
 }

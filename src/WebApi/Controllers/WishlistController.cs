@@ -15,6 +15,10 @@ public class WishlistController(
     ITvShowRepository tvShowRepository,
     IBookRepository bookRepository,
     IVideoGameRepository videoGameRepository,
+    IMovieReferenceRepository movieReferenceRepository,
+    ITvShowReferenceRepository tvShowReferenceRepository,
+    IBookReferenceRepository bookReferenceRepository,
+    IVideoGameReferenceRepository videoGameReferenceRepository,
     IDtoMapper<MovieDto, MovieModel> movieMapper,
     IDtoMapper<TvShowDto, TvShowModel> tvShowMapper,
     IDtoMapper<BookDto, BookModel> bookMapper,
@@ -36,12 +40,19 @@ public class WishlistController(
         var videoGames = await videoGameRepository.FindAllAsync(ownerId, 1, int.MaxValue, null,
             new VideoGameModel { OwnerId = ownerId, Title = string.Empty, IsWishlisted = true });
 
-        return Ok(new WishlistDto
+        var result = new WishlistDto
         {
             Movies = WishlistService.SortMovies(movies.Items).Select(movieMapper.ToDto).ToList(),
             TvShows = WishlistService.SortTvShows(tvShows.Items).Select(tvShowMapper.ToDto).ToList(),
             Books = WishlistService.SortBooks(books.Items).Select(bookMapper.ToDto).ToList(),
             VideoGames = WishlistService.SortVideoGames(videoGames.Items).Select(videoGameMapper.ToDto).ToList()
-        });
+        };
+
+        await ReferenceImageHydrator.HydrateAsync(result.Movies, movieReferenceRepository.FindByIdsAsync, x => x.ImageUrl);
+        await ReferenceImageHydrator.HydrateAsync(result.TvShows, tvShowReferenceRepository.FindByIdsAsync, x => x.ImageUrl);
+        await ReferenceImageHydrator.HydrateAsync(result.Books, bookReferenceRepository.FindByIdsAsync, x => x.ImageUrl);
+        await ReferenceImageHydrator.HydrateAsync(result.VideoGames, videoGameReferenceRepository.FindByIdsAsync, x => x.ImageUrl);
+
+        return Ok(result);
     }
 }
