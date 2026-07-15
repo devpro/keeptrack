@@ -53,6 +53,12 @@ public class ListPage(IPage page, string route, string title) : PageBase(page)
     /// </summary>
     public async Task FillAsync(string testId, string value) => await Page.GetByTestId(testId).FillAsync(value);
 
+    /// <summary>
+    /// VideoGames' and Playlists' Add forms use a bare <c>placeholder="Title"</c> input with no <c>&lt;label&gt;</c>
+    /// at all - <c>GetByPlaceholder</c> already resolves it uniquely, so no <c>data-testid</c> was needed there.
+    /// </summary>
+    public async Task FillByPlaceholderAsync(string placeholder, string value) => await Page.GetByPlaceholder(placeholder).FillAsync(value);
+
     public async Task SaveNewAsync() => await Page.GetByRole(AriaRole.Button, new() { Name = "Save", Exact = true }).ClickAsync();
 
     public async Task SearchAsync(string query)

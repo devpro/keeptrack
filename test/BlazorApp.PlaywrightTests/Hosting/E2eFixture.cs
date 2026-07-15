@@ -4,13 +4,17 @@ extern alias BlazorHost;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Threading;
 using System.Threading.Tasks;
 using FirebaseAdmin.Auth;
 using Keeptrack.BlazorApp.PlaywrightTests.Support;
 using Keeptrack.Testing.Shared.Firebase;
 using Keeptrack.Testing.Shared.Hosting;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Playwright;
 using Xunit;
 
@@ -83,6 +87,8 @@ public sealed class E2eFixture : IAsyncLifetime
             Environment.SetEnvironmentVariable("WebApi__BaseUrl", WebApiBaseUrl);
             _blazorFactory = new KestrelWebAppFactory<BlazorHost::Program>(BlazorKestrelUrlOverride);
             BlazorBaseUrl = _blazorFactory.ServerAddress;
+
+            EnsureReferenceProviderKeysConfigured();
         }
 
         var (username, password) = await ResolveCredentialsAsync();
@@ -97,6 +103,31 @@ public sealed class E2eFixture : IAsyncLifetime
         if (!E2eConfiguration.ReadOnly)
         {
             await SeedReferenceDataAsync();
+        }
+    }
+
+    /// <summary>
+    /// Movie/TvShow/VideoGame/Album smoke tests link real, well-known titles against the real TMDB/RAWG/
+    /// Discogs providers (Book/Open Library needs no key) - fail fast with a clear, actionable error rather
+    /// than letting those tests fail downstream with a confusing "no results found". Only checked in
+    /// self-hosted integration mode, since a live deployment's configuration can't be inspected this way -
+    /// live mode trusts the deployment is already configured correctly.
+    /// </summary>
+    private void EnsureReferenceProviderKeysConfigured()
+    {
+        var configuration = _webApiFactory!.Services.GetRequiredService<IConfiguration>();
+        var missingVariables = new (string ConfigKey, string EnvVarName)[]
+        {
+            ("Tmdb:ApiKey", "Tmdb__ApiKey"),
+            ("Rawg:ApiKey", "Rawg__ApiKey"),
+            ("Discogs:Token", "Discogs__Token")
+        }.Where(x => string.IsNullOrEmpty(configuration[x.ConfigKey])).Select(x => x.EnvVarName).ToList();
+
+        if (missingVariables.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"Missing required reference-provider configuration for e2e tests: {string.Join(", ", missingVariables)}. " +
+                "Movie/TvShow/VideoGame/Album smoke tests link real titles against real TMDB/RAWG/Discogs providers.");
         }
     }
 
@@ -186,8 +217,47 @@ public sealed class E2eFixture : IAsyncLifetime
         response.EnsureSuccessStatusCode();
     }
 
+    private HttpClient? _apiHttpClient;
+
+    /// <summary>
+    /// <see cref="E2eFixture"/> is a single instance shared by every parallel-running smoke test class, and
+    /// several of them call <see cref="DeleteItemAsync"/> from their own cleanup - a plain <c>??=</c> lazy-init
+    /// here is not thread-safe against that, confirmed by a real intermittent failure under a full parallel
+    /// run. <see cref="LazyInitializer.EnsureInitialized{T}(ref T?, Func{T})"/> is the same thread-safe pattern
+    /// <c>Testing.Shared</c>'s own <c>AccountRepository.AuthenticateAsync</c> already uses for exactly this
+    /// kind of shared, lazily-created, concurrently-accessed resource.
+    /// </summary>
+    private HttpClient ApiHttpClient => LazyInitializer.EnsureInitialized(ref _apiHttpClient, () =>
+    {
+        var client = new HttpClient { BaseAddress = new Uri(WebApiBaseUrl) };
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _idToken);
+        return client;
+    });
+
+    /// <summary>
+    /// Deletes an item directly via the API rather than through the UI - meant to be called from a smoke
+    /// test's own <c>finally</c> block, so a mid-test assertion failure still cleans up. This matters more
+    /// here than it did for Book's phase-2 tests: Movie/TvShow/VideoGame/Album smoke tests use fixed,
+    /// recognizable real-world titles (not a random GUID) so the reference-provider search means something,
+    /// which makes an orphaned leftover from a failed run an actual accumulating duplicate, not just harmless
+    /// clutter with a never-repeated name.
+    /// </summary>
+    public async Task DeleteItemAsync(string resourcePathAndId)
+    {
+        try
+        {
+            await ApiHttpClient.DeleteAsync(resourcePathAndId);
+        }
+        catch (Exception ex)
+        {
+            await Console.Error.WriteLineAsync($"Failed to clean up {resourcePathAndId}: {ex.Message}");
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
+        _apiHttpClient?.Dispose();
+
         if (_ephemeralUserUid is not null)
         {
             try

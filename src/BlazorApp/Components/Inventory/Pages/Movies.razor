@@ -69,11 +69,11 @@
     <FormTemplate Context="movie">
         <div class="col-12">
             <label class="form-label">Title</label>
-            <input class="form-control" @bind="movie.Title"/>
+            <input class="form-control" data-testid="title-input" @bind="movie.Title"/>
         </div>
         <div class="col-md-6">
             <label class="form-label">Year</label>
-            <input class="form-control" @bind="movie.Year" type="number" min="1970" max="2100"/>
+            <input class="form-control" data-testid="year-input" @bind="movie.Year" type="number" min="1970" max="2100"/>
         </div>
         <div class="col-md-6">
             <label class="form-label">Rating</label>

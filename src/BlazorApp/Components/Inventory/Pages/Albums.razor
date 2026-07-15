@@ -53,15 +53,15 @@
     <FormTemplate Context="album">
         <div class="col-12">
             <label class="form-label">Title</label>
-            <input class="form-control" @bind="album.Title" />
+            <input class="form-control" data-testid="title-input" @bind="album.Title" />
         </div>
         <div class="col-12">
             <label class="form-label">Artist</label>
-            <input class="form-control" @bind="album.Artist" />
+            <input class="form-control" data-testid="artist-input" @bind="album.Artist" />
         </div>
         <div class="col-md-6">
             <label class="form-label">Year</label>
-            <input class="form-control" @bind="album.Year" type="number" min="1900" max="2100" />
+            <input class="form-control" data-testid="year-input" @bind="album.Year" type="number" min="1900" max="2100" />
         </div>
         <div class="col-md-6">
             <label class="form-label">Rating</label>

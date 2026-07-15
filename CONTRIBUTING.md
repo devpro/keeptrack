@@ -363,19 +363,30 @@ export Authentication__JwtBearer__Authority=https://securetoken.google.com/<fire
 export Authentication__JwtBearer__TokenValidation__Issuer=https://securetoken.google.com/<firebase-project-id>
 export Authentication__JwtBearer__TokenValidation__Audience=<firebase-project-id>
 export FIREBASE_APIKEY=<web-api-key>
+export Tmdb__ApiKey=<tmdb-api-key>
+export Rawg__ApiKey=<rawg-api-key>
+export Discogs__Token=<discogs-personal-access-token>
 
 dotnet test test/BlazorApp.PlaywrightTests/BlazorApp.PlaywrightTests.csproj
 ```
 
 No `FIREBASE_USERNAME`/`FIREBASE_PASSWORD` is needed for this mode.
-An ephemeral admin user is created via the Firebase Admin SDK (reusing the Blazor host's own `Firebase:ServiceAccount`, already present in `appsettings.Development.json`) and deleted again at teardown.
+An ephemeral admin user is created via the Firebase Admin SDK (reusing the Blazor host's own `Firebase:ServiceAccount`) and deleted again at teardown.
 Set `E2E_USERNAME`/`E2E_PASSWORD` instead to reuse an existing account.
+
+`Tmdb__ApiKey`/`Rawg__ApiKey`/`Discogs__Token` are required (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) above for where to get each one), not optional.
+The Movie/TvShow/VideoGame/Album smoke tests link a real, well-known title (e.g. "The Terminator", "Breaking Bad") against the real provider.
+So a missing key fails the whole run fast with a clear error, rather than letting those tests fail downstream with a confusing "no results found".
+Book needs no key (Open Library), so it's unaffected.
 
 For an IDE-driven workflow, add the same variables to the `Local.runsettings` file described above, for example:
 
 ```xml
 <E2E_ENABLED>true</E2E_ENABLED>
 <Infrastructure__MongoDB__DatabaseName>keeptrack_e2e</Infrastructure__MongoDB__DatabaseName>
+<Tmdb__ApiKey>xxxx</Tmdb__ApiKey>
+<Rawg__ApiKey>xxxx</Rawg__ApiKey>
+<Discogs__Token>xxxx</Discogs__Token>
 <!-- <E2E_HEADLESS>false</E2E_HEADLESS> -->
 <!-- <E2E_SLOWMO_MS>250</E2E_SLOWMO_MS> -->
 ```

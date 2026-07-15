@@ -3,10 +3,6 @@ using Microsoft.Playwright;
 
 namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 
-/// <summary>
-/// Only asserted to load in phase 2 - meaningful content assertions need reference-linked, partially-watched
-/// seed data, deferred to a later phase per the e2e plan.
-/// </summary>
 public class WatchNextPage(IPage page) : PageBase(page)
 {
     public override async Task WaitForReadyAsync()
@@ -15,4 +11,15 @@ public class WatchNextPage(IPage page) : PageBase(page)
         await Assertions.Expect(Page.GetByRole(AriaRole.Heading, new() { Name = "Watch next", Level = 1 })).ToBeVisibleAsync();
         await Assertions.Expect(Page.Locator(".kt-spinner")).ToBeHiddenAsync();
     }
+
+    /// <summary>
+    /// TV shows and movies share the same <c>.kt-card</c> markup, just under whichever tab is currently
+    /// active - the other tab's cards aren't in the DOM at all (a plain Blazor <c>@if</c>), so there's no
+    /// ambiguity risk in reusing one locator for both.
+    /// </summary>
+    public ILocator Card(string title) => Page.Locator(".kt-card", new() { HasText = title });
+
+    public ILocator CardBadge(string title) => Card(title).Locator(".kt-card-badge");
+
+    public async Task OpenMoviesTabAsync() => await Page.GetByRole(AriaRole.Button, new() { Name = "Movies" }).ClickAsync();
 }

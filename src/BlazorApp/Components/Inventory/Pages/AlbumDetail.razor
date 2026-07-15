@@ -55,7 +55,7 @@ else
                 <div class="row g-3">
                     <div class="col-12">
                         <label class="form-label">Artist</label>
-                        <input class="form-control form-control-sm" value="@_album.Artist" @onchange="SaveArtistAsync"/>
+                        <input class="form-control form-control-sm" data-testid="artist-input" value="@_album.Artist" @onchange="SaveArtistAsync"/>
                     </div>
                     <div class="col-4">
                         <label class="form-label">Year</label>

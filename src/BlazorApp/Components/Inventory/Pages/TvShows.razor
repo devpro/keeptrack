@@ -76,11 +76,11 @@
     <FormTemplate Context="show">
         <div class="col-12">
             <label class="form-label">Title</label>
-            <input class="form-control" @bind="show.Title"/>
+            <input class="form-control" data-testid="title-input" @bind="show.Title"/>
         </div>
         <div class="col-md-6">
             <label class="form-label">Year</label>
-            <input class="form-control" @bind="show.Year" type="number" min="1970" max="2100"/>
+            <input class="form-control" data-testid="year-input" @bind="show.Year" type="number" min="1970" max="2100"/>
         </div>
         <div class="col-md-6">
             <label class="form-label">Rating</label>

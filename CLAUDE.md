@@ -710,8 +710,20 @@ the scoped file itself has to be edited.
   It also seeds a synthetic book reference via `POST /api/reference-data/import` so "check for reference match" never calls a real provider.
   `Pages/PageBase` holds the sidebar nav locators and typed `Open<X>Async()` helpers that return the next page object.
   `ListPage` is one class parameterized by route/title covering all ten inventory list pages, since `InventoryList` renders them all identically.
-  A handful of `Books.razor`/`BookDetail.razor` fields got a minimal `data-testid` added because their `<label>`/`<input>` pairs have no `for`/`id` association, so `GetByLabel` can't resolve them - confirmed against a real run, not assumed.
+  A handful of fields across every inventory type's Add-form and detail page got a minimal `data-testid` added because their `<label>`/`<input>` pairs have no `for`/`id` association.
+  This is because `GetByLabel` can't resolve them - confirmed against a real run, not assumed.
+  Every detail page's title/name input, on the other hand, needs no `data-testid` at all - they all share one already-unique `.kt-title-input` class, covered generically by `Pages/DetailPageBase`.
   See `CONTRIBUTING.md`'s "End-to-end (Playwright) tests" section for the full `E2E_*` configuration surface and the three run modes (self-hosted integration, live, read-only).
+  Movie/TvShow/VideoGame/Album smoke tests link a real, well-known title (e.g. "The Terminator", "Breaking Bad") against the real TMDB/RAWG/Discogs provider, not the synthetic-seed path Book uses.
+  This goes through the admin-only `InlineReferenceLinker` widget ("click link"); `Pages/ReferenceableDetailPageBase` shares this flow across all five reference-bearing detail pages.
+  `Tmdb__ApiKey`/`Rawg__ApiKey`/`Discogs__Token` are hard-required for this reason.
+  `E2eFixture` fails fast at startup with a clear error if any is missing, rather than letting those tests fail downstream with a confusing "no results found".
+  `WatchNextSmokeTest` seeds a real, long-finished TV show plus a real movie, to assert the Watch Next page's "confirmed next episode"/"movies to watch" logic against actual data instead of just an empty state.
+  The show is marked "Current" in-app regardless of its real-world airing status, since `WatchNextService` only checks the tenant's own `State` field.
+  `E2eFixture` is a single instance shared by every parallel-running smoke test class, so its `ApiHttpClient` helper (used by tests' own cleanup) must be thread-safe.
+  Movie/TvShow/VideoGame/Album use fixed real-world titles rather than a GUID, so an orphaned leftover from a failed run is an actual accumulating duplicate, not harmless clutter.
+  That's why they clean up via this helper instead of skipping it.
+  `ApiHttpClient` is built with `LazyInitializer.EnsureInitialized`, the same thread-safe pattern `AccountRepository.AuthenticateAsync` already uses, after a plain `??=` lazy-init caused a real intermittent failure under parallel execution.
 - Assertions use `AwesomeAssertions` (a `FluentAssertions`-compatible API); test data is generated with `Bogus`.
 
 ## CI

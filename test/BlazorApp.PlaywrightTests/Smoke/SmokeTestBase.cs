@@ -91,6 +91,12 @@ public abstract class SmokeTestBase : PageTest
     protected static void SkipIfReadOnly()
         => Assert.SkipWhen(E2eConfiguration.ReadOnly, "E2E_READONLY is set; mutating test skipped.");
 
+    /// <summary>
+    /// A detail page's own URL (e.g. "/movies/{id}") is the only place a smoke test can read the id it needs
+    /// for direct-API cleanup, since the Add form's response body isn't surfaced anywhere in the UI.
+    /// </summary>
+    protected static string ExtractIdFromUrl(string url) => new Uri(url).Segments[^1].TrimEnd('/');
+
     private static string DiagnosticsDirectory() => Path.Combine(AppContext.BaseDirectory, "e2e-diagnostics");
 
     private static string TestFileName()
