@@ -404,6 +404,16 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
 
 .kt-table-title span { color: var(--kt-accent); }
 
+/* candidate synopsis in the admin linking queue - TMDB synopses can run very long, pushing the Link
+   action below the fold; clamp to a teaser so the card stays scannable */
+.kt-ref-synopsis {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* ── Breadcrumb ────────────────────────────────────────────────────── */
 .kt-breadcrumb {
   display: flex;
