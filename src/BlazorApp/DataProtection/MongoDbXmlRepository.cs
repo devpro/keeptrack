@@ -6,14 +6,12 @@ using MongoDB.Driver;
 namespace Keeptrack.BlazorApp.DataProtection;
 
 /// <summary>
-/// Persists the ASP.NET Core Data Protection key ring in MongoDB, so every replica of this app encrypts
-/// and decrypts with the same keys. Without this, each pod generates its own ephemeral key ring: an auth
-/// cookie (which also carries the user's Firebase token) issued by one replica is undecipherable garbage
-/// to another, and antiforgery tokens fail the same way - the hard blocker for running more than one
-/// replica, regardless of how traffic is routed (cloudflared, Traefik, anything). MongoDB is used because
-/// it's the one shared store this system always has; no ReadWriteMany volume or extra service needed.
-/// Keys are stored unencrypted at rest, exactly like the framework's own file-system default on Linux -
-/// the database is already the deployment's most sensitive store.
+/// Persists the ASP.NET Core Data Protection key ring in MongoDB, so every replica of this app encrypts and decrypts with the same keys.
+/// Without this, each pod generates its own ephemeral key ring:
+/// an auth cookie (which also carries the user's Firebase token) issued by one replica is undecipherable garbage to another, and antiforgery tokens fail the same way -
+/// the hard blocker for running more than one replica, regardless of how traffic is routed (cloudflared, Traefik, anything).
+/// MongoDB is used because it's the one shared store this system always has; no ReadWriteMany volume or extra service needed.
+/// Keys are stored unencrypted at rest, exactly like the framework's own file-system default on Linux - the database is already the deployment's most sensitive store.
 /// </summary>
 public class MongoDbXmlRepository(IMongoCollection<MongoDbXmlRepository.DataProtectionKey> collection) : IXmlRepository
 {

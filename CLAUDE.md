@@ -145,7 +145,7 @@ and the `*_owned` partial indexes match that rendered `{ "owned_versions.0": { $
 The storage mappers ignore `IsOwned` in both directions - don't map it to an entity field again.
 `BlazorApp`'s detail pages share one `OwnedVersionsEditor` component (`Components/Inventory/Shared/`) instead of the old header toggle; list rows derive their "Owned" badge from `OwnedVersions.Count > 0`
 (video games show their platform badges instead - an extra Owned badge would be redundant).
-Existing data needs the one-off `scripts/migrate-is-owned-to-owned-versions.js` (seeds one default Physical version per `is_owned: true` document, then unsets the flag; games flagged owned with no platform entry are printed for manual re-entry),
+Existing data needs the one-off `scripts/migrate-is-owned-to-owned-versions.js` (seeds one default Physical version per `is_owned: true` document, then unsets the flag; games with no platform entry are printed for manual re-entry),
 then a `scripts/mongodb-create-index.js` re-run to replace the old `is_owned` index definitions.
 Covered by the resource tests' owned-filter cases (including a full decimal/date round-trip in `MovieResourceTest`/`AlbumResourceTest`) and `OwnershipSmokeTest` (Playwright, end-to-end through the editor).
 
@@ -338,7 +338,7 @@ There's no in-app way to grant the first admin; it's a one-off `setCustomUserCla
 The app is meant to be publicly shareable: anyone can sign in (Google/GitHub via Firebase Auth), but a plain account with **no** `role` claim is a *free preview* tier.
 Free tier = movies and TV shows only, capped at `Features:FreeTierItemLimit` creations per collection (default 20, guarded in `AppConfiguration.GetFreeTierItemLimit` so a missing setting can never lock the tier out entirely);
 episodes are capped at 100x that limit (`EpisodeController.FreeTierLimitFactor`) - generous on purpose, the cap only exists so a raw-API caller can't flood the database, never to ration a real watch-through.
-A Firebase custom claim `role: member` unlocks everything; the "MemberOnly" policy (`RequireClaim("role", "member", "admin")`, registered in both `Program.cs` files) accepts `admin` too - a membership must never be less than the owner's own account.
+A Firebase custom claim `role: member` unlocks everything; the "MemberOnly" policy (`RequireClaim("role", "member", "admin")`, registered in both `Program.cs` files) accepts `admin` too.
 Enforcement is API-side and two-layered: `[Authorize(Policy = "MemberOnly")]` on every restricted controller (Book/Album/Playlist/Song/VideoGame/Car/CarHistory/House/HouseHistory/TvTimeImport),
 and the creation quota in `DataCrudControllerBase.Post` (opted into per controller via `FreeTierLimitFactor`; 403 with the standard `{ error }` body once `CountAsync` reaches the limit).
 `NavMenu.razor` hiding the restricted sections (with a "preview account" note) is UX, not security - never rely on it.
@@ -391,11 +391,13 @@ Revoking deletes one document, killing every copy of that link while the owner's
 The delete is owner-scoped in the repository query itself, so an id can't revoke someone else's share.
 `SharedWishlistApiClient` is registered **without** `AuthenticationTokenHandler` - the authenticated handler would bounce an anonymous recipient to login.
 Both wishlist pages share one `WishlistRow` projection; the shared view renders unlinked rows (a recipient can't open detail pages).
-Covered by `WishlistShareResourceTest` (integration, including a genuinely unauthenticated second HttpClient) and `SharedWishlistSmokeTest` (Playwright, a fresh browser context with no storage state - the one e2e flow that must NOT reuse the fixture's signed-in state).
+Covered by `WishlistShareResourceTest` (integration, including a genuinely unauthenticated second HttpClient) and `SharedWishlistSmokeTest` (Playwright, a fresh browser context with no storage state -
+the one e2e flow that must NOT reuse the fixture's signed-in state).
 `StatsController` (`GET /api/stats`, per-owner counts via the shared `IDataRepository.CountAsync`, backing the Home page's signed-in collection overview)
 and `SystemStatusController` (`GET /api/system-status`, admin-only: the answering instance's configuration plus the shared reference-sync lease and recent background jobs, surfaced on the reference-data admin page's "System" panel)
 follow the same shape, minus a Domain service - nine independent counts and a config/lease read involve no computation worth extracting.
-System-status per-instance fields deliberately describe whichever replica answered (seeing different instance names on refresh is evidence load-balancing works); the lease and job history come from MongoDB and are identical from every replica.
+System-status per-instance fields deliberately describe whichever replica answered (seeing different instance names on refresh is evidence load-balancing works);
+the lease and job history come from MongoDB and are identical from every replica.
 `WebApi/Import/` (the TV Time GDPR-export upsert, using `CsvHelper` for parsing) and `WebApi/ReferenceData/` still follow the older feature-folder shape (a `ControllerBase` and service class colocated under `WebApi/<Feature>/`).
 This is now recognized as the same misplacement `WatchNext` had, but migrating them is deliberately deferred to a separate change to limit regression surface and manual-testing burden.
 Don't extend the older feature-folder shape to new code; follow `WatchNextController`/`WishlistController`'s split instead (controller in `Controllers/`, pure computation in `Domain/Services/` when there is any).
@@ -485,7 +487,8 @@ TMDB's own data (episode air dates as seasons progress, genres, posters, cast) d
 It's deliberately **not** a Kubernetes CronJob or separate worker process.
 A second scheduled workload is real operational overhead (another manifest, another thing that can silently stop running) for a job that's cheap enough to run inside the existing API process.
 With multiple WebApi replicas, every replica runs the loop but only one syncs per cycle: each tick first tries a MongoDB lease
-(`ILeaseRepository.TryAcquireAsync("reference-sync", Environment.MachineName, 1h)` - `LeaseRepository`, an atomic filtered upsert whose mutual exclusion is the `lease` collection's own `_id` uniqueness, covered by the real-Mongo `LeaseRepositoryTest`).
+(`ILeaseRepository.TryAcquireAsync("reference-sync", Environment.MachineName, 1h)` -
+`LeaseRepository`, an atomic filtered upsert whose mutual exclusion is the `lease` collection's own `_id` uniqueness, covered by the real-Mongo `LeaseRepositoryTest`).
 The loser logs and skips, so scaling out never multiplies provider traffic or races two enrichments of the same document - and the no-external-scheduler rationale above survives scaling intact.
 A replica dying while holding the lease delays the next pass by at most the 1h lease duration, immaterial against the 24h cadence.
 `ReferenceSyncService.SyncStaleReferencesAsync(staleAfter, ...)` is shared by both the periodic loop and the admin's on-demand trigger, so there's exactly one sync algorithm.
@@ -706,11 +709,13 @@ and adopts an externally-changed `Search` parameter only when it didn't originat
 Covered end-to-end by `ListStateSmokeTest` (Playwright), including the back-navigation-from-detail scenario.
 Authentication uses Firebase (cookie auth in the Blazor app, JWT bearer validated against Firebase in the Web API); `AuthenticationTokenHandler` attaches the bearer token to outgoing API calls.
 
-**Scaling (multiple replicas) is an app-level design here, deliberately not an infrastructure assumption** - the owner's cluster fronts the app with a Cloudflare tunnel, where no ingress cookie-affinity exists, so nothing may rely on sticky sessions.
+**Scaling (multiple replicas) is an app-level design here, deliberately not an infrastructure assumption** - the app may be front with a Cloudflare tunnel, where no ingress cookie-affinity exists, so nothing may rely on sticky sessions.
 Two pieces make the Blazor app replica-safe:
 `DataProtection:MongoDb:ConnectionString`/`DatabaseName` (opt-in, `Program.cs`) persists the Data Protection key ring via `DataProtection/MongoDbXmlRepository` so the auth cookie and antiforgery tokens decrypt on every replica -
-without it each pod keeps ephemeral keys and multi-replica cookie auth breaks; this is the only reason `BlazorApp.csproj` references `MongoDB.Driver` (it still never references `Domain`/`Infrastructure.MongoDb` - tenant data stays behind WebApi).
-`Features:IsWebSocketsOnlyEnabled` (default `true`, `App.razor`) starts the circuit via `Blazor.start` with `skipNegotiation` + WebSockets-only transport, so a circuit's single long-lived connection naturally pins it to the pod owning its state - set it to `false` only behind a proxy that can't pass WebSockets, and stay single-replica there.
+without it each pod keeps ephemeral keys and multi-replica cookie auth breaks; this is the only reason `BlazorApp.csproj` references `MongoDB.Driver`
+(it still never references `Domain`/`Infrastructure.MongoDb` - tenant data stays behind WebApi).
+`Features:IsWebSocketsOnlyEnabled` (default `true`, `App.razor`) starts the circuit via `Blazor.start` with `skipNegotiation` + WebSockets-only transport,
+so a circuit's single long-lived connection naturally pins it to the pod owning its state - set it to `false` only behind a proxy that can't pass WebSockets, and stay single-replica there.
 A pod dying still drops its circuits (inherent to Blazor Server - clients reconnect-then-reload); the WebApi side's replica-safety (Mongo job store, sync lease) is covered in its own sections above.
 
 Pages that aren't a generic CRUD list (`TvShowDetail.razor`, `WatchNext/WatchNextPage.razor`, `Import/ImportPage.razor`) don't extend `InventoryPageBase`/`InventoryList` —

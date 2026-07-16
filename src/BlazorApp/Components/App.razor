@@ -24,13 +24,12 @@
 <FirebaseSessionRefresh/>
 @if (Configuration.GetValue("Features:IsWebSocketsOnlyEnabled", true))
 {
-    @* The circuit runs on a single WebSocket with no negotiate round-trip, so it naturally pins to the
-       one server instance that owns its state - the only way multiple replicas work behind a plain
-       Kubernetes Service (cloudflared, or any proxy without cookie affinity). Reconnects after a network
-       blip open a fresh WebSocket that may land on another replica; each retry re-rolls, so with the
-       default retry count the odds of never reaching the right replica are negligible at small replica
-       counts. The flag (default on) exists for a proxy that can't pass WebSockets through - such a
-       deployment must stay single-replica. transport: 1 is HttpTransportType.WebSockets. *@
+    @* The circuit runs on a single WebSocket with no negotiate round-trip, so it naturally pins to the one server instance that owns its state -
+       the only way multiple replicas work behind a plain Kubernetes Service (cloudflared, or any proxy without cookie affinity).
+       Reconnects after a network blip open a fresh WebSocket that may land on another replica;
+       each retry re-rolls, so with the default retry count the odds of never reaching the right replica are negligible at small replica counts.
+       The flag (default on) exists for a proxy that can't pass WebSockets through - such a deployment must stay single-replica.
+       transport: 1 is HttpTransportType.WebSockets. *@
     <script src="@Assets["_framework/blazor.web.js"]" autostart="false"></script>
     <script>
         Blazor.start({
