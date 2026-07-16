@@ -29,9 +29,9 @@ public class TvTimeImportService(
         "emotions-live-votes.csv"
     ];
 
-    public async Task<ImportResultDto> ImportAsync(Stream zipStream, string ownerId, Action<ImportStage>? onStageChanged = null)
+    public async Task<ImportResultDto> ImportAsync(Stream zipStream, string ownerId, Func<ImportStage, Task>? onStageChanged = null)
     {
-        onStageChanged?.Invoke(ImportStage.Parsing);
+        if (onStageChanged is not null) await onStageChanged(ImportStage.Parsing);
 
         await using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
 
@@ -78,16 +78,16 @@ public class TvTimeImportService(
                 .Concat(seenEpisodes.Select(e => (e.ShowTitle, e.TvShowId))));
         var movieIdByTitle = BuildIdByTitle(movieTrackingEvents.Select(e => (e.MovieName, e.Uuid)));
 
-        onStageChanged?.Invoke(ImportStage.ImportingShows);
+        if (onStageChanged is not null) await onStageChanged(ImportStage.ImportingShows);
         var showIndex = await ImportShowsAsync(ownerId, followedShows, enrichment, showIdByTitle);
 
-        onStageChanged?.Invoke(ImportStage.ImportingEpisodes);
+        if (onStageChanged is not null) await onStageChanged(ImportStage.ImportingEpisodes);
         var detailedEpisodeCountByShowTitle = await ImportEpisodesAsync(ownerId, showIndex, seenEpisodes, episodeComments, enrichment, showIdByTitle, result);
         result.ShowsCreated = showIndex.CreatedCount;
         result.ShowsSkipped = showIndex.SkippedCount;
         AnnotateWatchCompleteness(followedShows, showActivity, detailedEpisodeCountByShowTitle, result);
 
-        onStageChanged?.Invoke(ImportStage.ImportingMovies);
+        if (onStageChanged is not null) await onStageChanged(ImportStage.ImportingMovies);
         await ImportMoviesAsync(ownerId, movieVotes, movieTrackingEvents, favoriteMovieUuids, movieIdByTitle, result);
 
         return result;

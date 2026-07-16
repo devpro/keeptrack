@@ -81,6 +81,8 @@ else
         </div>
     </div>
 
+    <OwnedVersionsEditor Versions="_album.OwnedVersions" OnChanged="SaveAlbumAsync"/>
+
     @if (!string.IsNullOrEmpty(_reference?.ArtistImageUrl))
     {
         <h2 class="kt-section-title">Artist</h2>
@@ -197,6 +199,12 @@ else
     {
         if (_album is null) return;
         _album.IsFavorite = !_album.IsFavorite;
+        await AlbumApi.UpdateAsync(_album);
+    }
+
+    private async Task SaveAlbumAsync()
+    {
+        if (_album is null) return;
         await AlbumApi.UpdateAsync(_album);
     }
 

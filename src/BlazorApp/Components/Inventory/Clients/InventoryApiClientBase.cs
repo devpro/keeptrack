@@ -9,8 +9,7 @@ public abstract class InventoryApiClientBase<TDto>(HttpClient http)
 
     /// <summary>
     /// Exposes the HttpClient to subclasses that add their own calls (e.g. a refresh-reference endpoint) -
-    /// lets them reuse this instance instead of capturing their own <c>HttpClient</c> primary-constructor
-    /// parameter as a second field holding the same reference.
+    /// lets them reuse this instance instead of capturing their own <c>HttpClient</c> primary-constructor parameter as a second field holding the same reference.
     /// </summary>
     protected HttpClient Http => http;
 
@@ -37,9 +36,20 @@ public abstract class InventoryApiClientBase<TDto>(HttpClient http)
     public async Task<TDto> AddAsync(TDto movie)
     {
         var response = await http.PostAsJsonAsync($"{ApiResourceName}", movie);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            // the API returns error bodies (free-tier quota 403s, ApiExceptionFilterAttribute's 400s/500s);
+            // surfacing that text beats EnsureSuccessStatusCode's opaque "403 (Forbidden)" in the Add form
+            var body = await response.Content.ReadFromJsonAsync<ApiError>();
+            throw new InvalidOperationException(string.IsNullOrEmpty(body?.Error)
+                ? $"The request failed ({(int)response.StatusCode})."
+                : body.Error);
+        }
+
         return (await response.Content.ReadFromJsonAsync<TDto>())!;
     }
+
+    private sealed record ApiError(string? Error);
 
     public async Task UpdateAsync(TDto movie)
     {

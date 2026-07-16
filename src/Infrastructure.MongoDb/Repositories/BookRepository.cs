@@ -25,7 +25,8 @@ public class BookRepository(IMongoDatabase mongoDatabase, ILogger<BookRepository
                                                                          || (f.Series != null && f.Series.Contains(search, System.StringComparison.CurrentCultureIgnoreCase))
                                                                          || f.Author.Contains(search, System.StringComparison.CurrentCultureIgnoreCase));
         if (input.IsFavorite) filter &= builder.Eq(f => f.IsFavorite, true);
-        if (input.IsOwned) filter &= builder.Eq(f => f.IsOwned, true);
+        // "owned" means at least one owned version - see MovieRepository.GetFilter
+        if (input.IsOwned) filter &= builder.SizeGt(f => f.OwnedVersions, 0);
         if (input.IsWishlisted) filter &= builder.Eq(f => f.IsWishlisted, true);
         return filter;
     }

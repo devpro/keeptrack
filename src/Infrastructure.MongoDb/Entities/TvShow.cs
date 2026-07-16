@@ -1,4 +1,5 @@
-﻿using Keeptrack.Common.System;
+﻿using System.Collections.Generic;
+using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
@@ -42,8 +43,8 @@ public class TvShow : IHasIdAndOwnerId
     [BsonElement("want_to_watch")]
     public bool WantToWatch { get; set; }
 
-    [BsonElement("is_owned")]
-    public bool IsOwned { get; set; }
+    [BsonElement("owned_versions")]
+    public List<OwnedVersion> OwnedVersions { get; set; } = [];
 
     [BsonElement("is_wishlisted")]
     public bool IsWishlisted { get; set; }

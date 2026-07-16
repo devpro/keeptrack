@@ -21,7 +21,8 @@ public class TvShowResourceTest(KestrelWebAppFactory<Program> factory)
         var created = await PostAsync($"/{ResourceEndpoint}", new TvShowDto
         {
             Title = title,
-            IsOwned = true,
+            // "owned" is derived from having at least one owned version, not a stored flag
+            OwnedVersions = [new OwnedVersionDto { CopyType = CopyType.Physical }],
             IsWishlisted = true
         });
 

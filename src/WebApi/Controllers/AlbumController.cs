@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Keeptrack.WebApi.Controllers;
 
 [ApiController]
-[Authorize]
+[Authorize(Policy = "MemberOnly")]
 [Route("api/albums")]
 public class AlbumController(
     IDtoMapper<AlbumDto, AlbumModel> mapper,

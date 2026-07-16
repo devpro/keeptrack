@@ -30,7 +30,7 @@ public class VideoGameResourceTest(KestrelWebAppFactory<Program> factory)
             .Rules((f, o) =>
             {
                 o.Title = f.Random.AlphaNumeric(14);
-                o.Platforms = [new VideoGamePlatformDto { Platform = "PC", CopyType = VideoGameCopyType.Physical, State = "Current" }];
+                o.Platforms = [new VideoGamePlatformDto { Platform = "PC", CopyType = CopyType.Physical, State = "Current" }];
             })
             .Generate();
         var created = await PostAsync($"/{ResourceEndpoint}", input);
@@ -64,7 +64,7 @@ public class VideoGameResourceTest(KestrelWebAppFactory<Program> factory)
         var created = await PostAsync($"/{ResourceEndpoint}", new VideoGameDto
         {
             Title = title,
-            Platforms = [new VideoGamePlatformDto { Platform = "PS5", CopyType = VideoGameCopyType.Physical, State = "Available" }]
+            Platforms = [new VideoGamePlatformDto { Platform = "PS5", CopyType = CopyType.Physical, State = "Available" }]
         });
 
         try
@@ -88,8 +88,8 @@ public class VideoGameResourceTest(KestrelWebAppFactory<Program> factory)
         var created = await PostAsync($"/{ResourceEndpoint}", new VideoGameDto
         {
             Title = title,
-            Platforms = [new VideoGamePlatformDto { Platform = "PS5", CopyType = VideoGameCopyType.Physical, State = "Available" }],
-            IsOwned = true,
+            // "owned" is derived from having at least one platform entry (a game's copies), not a stored flag
+            Platforms = [new VideoGamePlatformDto { Platform = "PS5", CopyType = CopyType.Physical, State = "Available" }],
             IsWishlisted = true
         });
 

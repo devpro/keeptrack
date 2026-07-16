@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Keeptrack.WebApi.Controllers;
 
 [ApiController]
-[Authorize]
+[Authorize(Policy = "MemberOnly")]
 [Route("api/cars")]
 public class CarController(
     IDtoMapper<CarDto, CarModel> mapper,

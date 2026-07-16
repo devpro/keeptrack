@@ -37,7 +37,6 @@ else
         <div class="d-flex gap-2">
             <button class="btn btn-sm kt-toggle-btn @(_movie.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>
             <button class="btn btn-sm kt-toggle-btn @(_movie.WantToWatch ? "active" : "")" @onclick="ToggleWantToWatchAsync">Watchlist</button>
-            <button class="btn btn-sm kt-toggle-btn @(_movie.IsOwned ? "active" : "")" @onclick="ToggleOwnedAsync">● Owned</button>
             <button class="btn btn-sm kt-toggle-btn @(_movie.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync">○ Wishlist</button>
         </div>
     </div>
@@ -96,6 +95,8 @@ else
         }
     </div>
 
+    <OwnedVersionsEditor Versions="_movie.OwnedVersions" OnChanged="SaveMovieAsync"/>
+
     @if (_reference?.Cast.Count > 0)
     {
         <h2 class="kt-section-title">Cast</h2>
@@ -144,10 +145,9 @@ else
         await MovieApi.UpdateAsync(_movie);
     }
 
-    private async Task ToggleOwnedAsync()
+    private async Task SaveMovieAsync()
     {
         if (_movie is null) return;
-        _movie.IsOwned = !_movie.IsOwned;
         await MovieApi.UpdateAsync(_movie);
     }
 

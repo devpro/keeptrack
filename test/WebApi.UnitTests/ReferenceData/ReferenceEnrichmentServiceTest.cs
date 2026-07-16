@@ -948,6 +948,80 @@ public class ReferenceEnrichmentServiceTest
             t => { t.Position.Should().Be("2"); t.Title.Should().Be("Apocalypse Please"); t.Duration.Should().Be("4:12"); });
     }
 
+    /// <summary>
+    /// Every provider client is a strict mock with zero setups: any provider call at all fails the test.
+    /// This is exactly what the empty-title guards promise - a null/empty/whitespace title must never
+    /// reach an external provider (or unlink anything) in any of the five domains.
+    /// </summary>
+    private ReferenceEnrichmentService CreateServiceWithStrictClients() => new(
+        new Mock<ITmdbClient>(MockBehavior.Strict).Object,
+        new Mock<IBookReferenceClient>(MockBehavior.Strict).Object,
+        new Mock<IRawgClient>(MockBehavior.Strict).Object,
+        new Mock<IDiscogsClient>(MockBehavior.Strict).Object,
+        _tvShowReferenceRepository.Object, _movieReferenceRepository.Object, _personReferenceRepository.Object,
+        _bookReferenceRepository.Object, _videoGameReferenceRepository.Object, _albumReferenceRepository.Object,
+        _tvShowRepository.Object, _movieRepository.Object, _bookRepository.Object, _videoGameRepository.Object, _albumRepository.Object);
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task TryAutoResolve_NeverCallsAProvider_OnAnEmptyTitle_ForAnyDomain(string title)
+    {
+        var service = CreateServiceWithStrictClients();
+
+        await service.TryAutoResolveTvShowAsync(title, 2020);
+        await service.TryAutoResolveMovieAsync(title, 2020);
+        await service.TryAutoResolveBookAsync(title, 2020, "Some Author");
+        await service.TryAutoResolveVideoGameAsync(title, 2020);
+        await service.TryAutoResolveAlbumAsync(title, 2020, "Some Artist");
+
+        // strict client mocks already fail on any provider call; the repositories must be equally untouched
+        _tvShowRepository.VerifyNoOtherCalls();
+        _movieRepository.VerifyNoOtherCalls();
+        _bookRepository.VerifyNoOtherCalls();
+        _videoGameRepository.VerifyNoOtherCalls();
+        _albumRepository.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task TryLinkExisting_LeavesAnExistingLinkUntouched_OnAnEmptyTitle_ForAnyDomain()
+    {
+        // without the guard, an empty title would match nothing and the "no match" branch would wrongly
+        // clear ReferenceId - empty input must be a no-op, not an unlink
+        var service = CreateServiceWithStrictClients();
+
+        var show = await service.TryLinkExistingTvShowReferenceAsync(new TvShowModel { OwnerId = "o", Title = " ", ReferenceId = "ref-1" });
+        var movie = await service.TryLinkExistingMovieReferenceAsync(new MovieModel { OwnerId = "o", Title = "", ReferenceId = "ref-1" });
+        var book = await service.TryLinkExistingBookReferenceAsync(new BookModel { OwnerId = "o", Title = "", Author = "A", ReferenceId = "ref-1" });
+        var game = await service.TryLinkExistingVideoGameReferenceAsync(new VideoGameModel { OwnerId = "o", Title = " ", ReferenceId = "ref-1" });
+        var album = await service.TryLinkExistingAlbumReferenceAsync(new AlbumModel { OwnerId = "o", Title = "", Artist = "B", ReferenceId = "ref-1" });
+
+        show.ReferenceId.Should().Be("ref-1");
+        movie.ReferenceId.Should().Be("ref-1");
+        book.ReferenceId.Should().Be("ref-1");
+        game.ReferenceId.Should().Be("ref-1");
+        album.ReferenceId.Should().Be("ref-1");
+        _tvShowReferenceRepository.VerifyNoOtherCalls();
+        _movieReferenceRepository.VerifyNoOtherCalls();
+        _bookReferenceRepository.VerifyNoOtherCalls();
+        _videoGameReferenceRepository.VerifyNoOtherCalls();
+        _albumReferenceRepository.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task Resolve_Throws_OnAnEmptyTitle_ForAnyDomain()
+    {
+        // Resolve* is the admin's explicit link action - an empty title there is a caller bug and maps
+        // to a 400 via ApiExceptionFilterAttribute rather than being silently ignored
+        var service = CreateServiceWithStrictClients();
+
+        await ((Func<Task>)(() => service.ResolveTvShowAsync("", 2020, "42"))).Should().ThrowAsync<ArgumentException>();
+        await ((Func<Task>)(() => service.ResolveMovieAsync("", 2020, "42"))).Should().ThrowAsync<ArgumentException>();
+        await ((Func<Task>)(() => service.ResolveBookAsync(" ", 2020, "42"))).Should().ThrowAsync<ArgumentException>();
+        await ((Func<Task>)(() => service.ResolveVideoGameAsync("", 2020, "42"))).Should().ThrowAsync<ArgumentException>();
+        await ((Func<Task>)(() => service.ResolveAlbumAsync(" ", 2020, "42"))).Should().ThrowAsync<ArgumentException>();
+    }
+
     private sealed class FakeTmdbClient : ITmdbClient
     {
         private readonly List<TmdbSearchResult> _tvShowSearchResults;

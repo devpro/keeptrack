@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Keeptrack.Common.System;
 
 namespace Keeptrack.Domain.Models;
@@ -33,6 +34,13 @@ public class MovieModel : IHasIdAndOwnerId, IHasTvTimeId
 
     public bool WantToWatch { get; set; }
 
+    public List<OwnedVersionModel> OwnedVersions { get; set; } = [];
+
+    /// <summary>
+    /// Filter-only: matches if <see cref="OwnedVersions"/> is non-empty. Never persisted - ownership is
+    /// derived from owning at least one version, not stored as its own flag. See
+    /// <see cref="VideoGameModel.Platform"/> for the filter-probe convention.
+    /// </summary>
     public bool IsOwned { get; set; }
 
     public bool IsWishlisted { get; set; }

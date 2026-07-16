@@ -132,6 +132,23 @@ It's a hard language limitation forced by the generic list-page base class, not 
 A Dto with no `InventoryPageBase` usage (e.g. `CarHistoryDto`, owned-by-a-parent types managed from their parent's detail page rather than their own list page) has no such constraint.
 It can mirror the Domain model's `required` members in full.
 
+### Ownership: owned versions, never a stored flag
+
+An item is "owned" exactly when it has at least one owned copy - the old stored `is_owned` boolean was removed (owner's call: a duplicate, too-general flag that could drift out of sync with the copies).
+`Movie`/`TvShow`/`Book`/`Album` embed a `List<OwnedVersionModel>` (`owned_versions`): each entry is one copy with a `CopyType` (`Physical`, deliberately first so it's the default, or `Digital`),
+optional `Price` (`decimal`, stored as Decimal128; currency-agnostic - the euro sign on the edit form is a display choice, pending a possible per-user currency profile setting),
+optional `AcquiredAt` (`DateOnly`, via the shared `CommonStorageMappings` conversion), optional `Vendor`, and an optional free-text `Reference` (edition/order number - unrelated to reference-data `ReferenceId`).
+`CopyType` is the renamed, now-shared `VideoGameCopyType` - video games do **not** get `OwnedVersions`; their per-platform entries (each already carrying a `CopyType`) *are* their copies,
+so a game is owned when `Platforms` is non-empty, and the same rule applies (no stored flag).
+`IsOwned` still exists on the models/DTOs but only as a filter-only query parameter (the `VideoGameDto.Platform` convention): repositories translate it to `SizeGt(OwnedVersions/Platforms, 0)`,
+and the `*_owned` partial indexes match that rendered `{ "owned_versions.0": { $exists: true } }` predicate.
+The storage mappers ignore `IsOwned` in both directions - don't map it to an entity field again.
+`BlazorApp`'s detail pages share one `OwnedVersionsEditor` component (`Components/Inventory/Shared/`) instead of the old header toggle; list rows derive their "Owned" badge from `OwnedVersions.Count > 0`
+(video games show their platform badges instead - an extra Owned badge would be redundant).
+Existing data needs the one-off `scripts/migrate-is-owned-to-owned-versions.js` (seeds one default Physical version per `is_owned: true` document, then unsets the flag; games with no platform entry are printed for manual re-entry),
+then a `scripts/mongodb-create-index.js` re-run to replace the old `is_owned` index definitions.
+Covered by the resource tests' owned-filter cases (including a full decimal/date round-trip in `MovieResourceTest`/`AlbumResourceTest`) and `OwnershipSmokeTest` (Playwright, end-to-end through the editor).
+
 ### Child entities (1-to-many owned by another entity)
 
 `CarHistory` (owned by `Car`) and `Episode` (owned by `TvShow`) are separate top-level collections referencing their parent by id (`car_id`, `tv_show_id`), not embedded arrays.
@@ -318,6 +335,16 @@ Firebase's claim arrives as a plain `"role"` claim rather than the `ClaimTypes.R
 WebApi validates the bearer token's claims directly and needs no equivalent step.
 There's no in-app way to grant the first admin; it's a one-off `setCustomUserClaims` call via the Firebase Admin SDK (see `CONTRIBUTING.md`).
 
+The app is meant to be publicly shareable: anyone can sign in (Google/GitHub via Firebase Auth), but a plain account with **no** `role` claim is a *free preview* tier.
+Free tier = movies and TV shows only, capped at `Features:FreeTierItemLimit` creations per collection (default 20, guarded in `AppConfiguration.GetFreeTierItemLimit` so a missing setting can never lock the tier out entirely);
+episodes are capped at 100x that limit (`EpisodeController.FreeTierLimitFactor`) - generous on purpose, the cap only exists so a raw-API caller can't flood the database, never to ration a real watch-through.
+A Firebase custom claim `role: member` unlocks everything; the "MemberOnly" policy (`RequireClaim("role", "member", "admin")`, registered in both `Program.cs` files) accepts `admin` too.
+Enforcement is API-side and two-layered: `[Authorize(Policy = "MemberOnly")]` on every restricted controller (Book/Album/Playlist/Song/VideoGame/Car/CarHistory/House/HouseHistory/TvTimeImport),
+and the creation quota in `DataCrudControllerBase.Post` (opted into per controller via `FreeTierLimitFactor`; 403 with the standard `{ error }` body once `CountAsync` reaches the limit).
+`NavMenu.razor` hiding the restricted sections (with a "preview account" note) is UX, not security - never rely on it.
+`FreeTierTest` (unit) covers the quota path directly (the integration suite's shared Firebase user is an admin, which the quota never counts, so HTTP-level coverage can't reach it)
+plus a reflection guard asserting each controller carries exactly the expected policy - removing one is a failing test, not a silent public giveaway.
+
 **Gotcha:** `WebApi/Program.cs`'s `AddJwtBearer` sets `options.MapInboundClaims = false` deliberately.
 Without it, the token handler silently renames certain short JWT claim names to legacy `ClaimTypes.*` URIs before `HttpContext.User` ever sees them.
 `"role"` is one of the remapped names (to `ClaimTypes.Role`), so `RequireClaim("role", "admin")` would never match even though the raw token genuinely has a `role` claim.
@@ -356,6 +383,21 @@ A bug in it should never be able to take down unrelated endpoints.
 Not every endpoint is per-item CRUD.
 `WatchNextController`/`WishlistController` (read-only cross-entity aggregations) live in `WebApi/Controllers/` like every other controller, with a plain `ControllerBase` rather than being force-fit into `DataCrudControllerBase`.
 Their computation lives in `Domain/Services/` (`WatchNextService`, `WishlistService`) since it's pure logic over Domain models with no persistence or web dependency - Domain's stated charter from the project-overview table above.
+The wishlist is shareable via capability URLs: `GET/POST /api/wishlist/shares` and `DELETE /api/wishlist/shares/{id}` manage the owner's share links
+(`wishlist_share`, one document per issued link - an owner holds several at once, each with an optional owner-only `Label` like "Mum", so `owner_id` is deliberately non-unique while `token` stays unique),
+and `GET /api/wishlist/shared/{token}` is the app's **one deliberately anonymous read** (`[AllowAnonymous]`, backing `/shared/wishlist/{token}` - a static-SSR, `noindex`, no-`[Authorize]` Blazor page).
+The 128-bit random token *is* the access control (chosen over email invites: no mail infrastructure to operate, works for recipients who never register, and the page's "Get started" CTA is the register invitation).
+Revoking deletes one document, killing every copy of that link while the owner's other links keep working - the per-recipient granularity is the point (revoke one person without cutting off everyone).
+The delete is owner-scoped in the repository query itself, so an id can't revoke someone else's share.
+`SharedWishlistApiClient` is registered **without** `AuthenticationTokenHandler` - the authenticated handler would bounce an anonymous recipient to login.
+Both wishlist pages share one `WishlistRow` projection; the shared view renders unlinked rows (a recipient can't open detail pages).
+Covered by `WishlistShareResourceTest` (integration, including a genuinely unauthenticated second HttpClient) and `SharedWishlistSmokeTest` (Playwright, a fresh browser context with no storage state -
+the one e2e flow that must NOT reuse the fixture's signed-in state).
+`StatsController` (`GET /api/stats`, per-owner counts via the shared `IDataRepository.CountAsync`, backing the Home page's signed-in collection overview)
+and `SystemStatusController` (`GET /api/system-status`, admin-only: the answering instance's configuration plus the shared reference-sync lease and recent background jobs, surfaced on the reference-data admin page's "System" panel)
+follow the same shape, minus a Domain service - nine independent counts and a config/lease read involve no computation worth extracting.
+System-status per-instance fields deliberately describe whichever replica answered (seeing different instance names on refresh is evidence load-balancing works);
+the lease and job history come from MongoDB and are identical from every replica.
 `WebApi/Import/` (the TV Time GDPR-export upsert, using `CsvHelper` for parsing) and `WebApi/ReferenceData/` still follow the older feature-folder shape (a `ControllerBase` and service class colocated under `WebApi/<Feature>/`).
 This is now recognized as the same misplacement `WatchNext` had, but migrating them is deliberately deferred to a separate change to limit regression surface and manual-testing burden.
 Don't extend the older feature-folder shape to new code; follow `WatchNextController`/`WishlistController`'s split instead (controller in `Controllers/`, pure computation in `Domain/Services/` when there is any).
@@ -410,8 +452,12 @@ If a future TV Time field looks suspiciously absent, re-check the real export be
 The import runs as a background job rather than a single request/response, so the UI can show real progress.
 `POST /api/import/tv-time` buffers the upload, kicks off the work via `IServiceScopeFactory.CreateScope()` (the request's own DI scope is gone by the time the background work runs), and returns a job id immediately.
 `GET /api/import/tv-time/{jobId}` reports the current `ImportStage`.
-`ImportJobStore` is an in-memory singleton keyed by job id and checks the caller's owner id on every read, so a job is only ever visible to the user who started it.
-Follow this shape (buffer input, background `Task` via a fresh scope, pollable status keyed by owner) for any other future long-running action.
+`JobStore<TStage, TResult>` (`WebApi/Jobs/`, shared by this import and the admin "sync now") is backed by MongoDB (`IBackgroundJobRepository`/`background_job` collection, TTL-cleaned after 7 days),
+**not** memory: with multiple WebApi replicas the replica answering a poll isn't necessarily the one running the job, and the original in-memory store made polling fail whenever they differed.
+The typed wrapper owns the enum-name/JSON translation (stage stored as the enum member name, result as a JSON string), so the Domain contract stays free of web DTO types.
+The owner id is checked in the repository query itself on every read, so a job is only ever visible to the user who started it.
+A background task must resolve its `JobStore` from its own fresh DI scope (it's scoped, wrapping a scoped repository) - never capture the request's instance, whose scope is gone by the time the task runs.
+Follow this shape (buffer input, background `Task` via a fresh scope, pollable Mongo-backed status keyed by owner) for any other future long-running action.
 Don't block a request on multi-second server work just because the current single-endpoint pattern is simpler to write.
 
 Watch Next originally reported only the *last watched* episode per in-progress show, deliberately never guessing a "next" one, because Keeptrack had no episode-guide data to confirm a further episode actually existed.
@@ -440,6 +486,11 @@ TMDB's own data (episode air dates as seasons progress, genres, posters, cast) d
 `ReferenceSyncBackgroundService` (`WebApi/ReferenceData/`) is a plain in-process `BackgroundService` running a `PeriodicTimer` (24h interval, does an initial pass immediately on startup too).
 It's deliberately **not** a Kubernetes CronJob or separate worker process.
 A second scheduled workload is real operational overhead (another manifest, another thing that can silently stop running) for a job that's cheap enough to run inside the existing API process.
+With multiple WebApi replicas, every replica runs the loop but only one syncs per cycle: each tick first tries a MongoDB lease
+(`ILeaseRepository.TryAcquireAsync("reference-sync", Environment.MachineName, 1h)` -
+`LeaseRepository`, an atomic filtered upsert whose mutual exclusion is the `lease` collection's own `_id` uniqueness, covered by the real-Mongo `LeaseRepositoryTest`).
+The loser logs and skips, so scaling out never multiplies provider traffic or races two enrichments of the same document - and the no-external-scheduler rationale above survives scaling intact.
+A replica dying while holding the lease delays the next pass by at most the 1h lease duration, immaterial against the 24h cadence.
 `ReferenceSyncService.SyncStaleReferencesAsync(staleAfter, ...)` is shared by both the periodic loop and the admin's on-demand trigger, so there's exactly one sync algorithm.
 It skips any reference document whose `LastEnrichedAt` is more recent than `staleAfter` (3 days for the periodic pass; `TimeSpan.Zero` for the admin's forced "sync now", which therefore re-checks everything regardless of recency).
 It never lets one failing document (a TMDB id that's since been removed, a transient network error) abort the rest of the run - each is caught and logged individually.
@@ -644,9 +695,28 @@ so a second implementation only needs its own class (`OpenLibraryClient`-shaped:
 `InventoryPageBase<TDto>` (`BlazorApp/Components/Inventory/InventoryPageBase.cs`) centralizes list/paging/search/inline-edit state and calls into `InventoryApiClientBase<TDto>`,
 which wraps the typed `HttpClient` calls to the Web API (its `GetAsync` takes an optional extra-query-parameters dictionary, used by features that filter on more than search/page/pageSize).
 Each concrete page (`Books.razor.cs`, `Movies.razor.cs`, ...) only supplies its `Api` instance and `CloneItem`.
-A page that needs its own filter beyond search (e.g. `TvShows.razor.cs`'s state filter) overrides the base's `protected virtual ExtraQuery` property instead of reimplementing paging/search -
-`LoadAsync` is `protected` for exactly this reason, so the page can trigger a reload after changing its own filter state.
+A page that needs its own filter beyond search (e.g. `TvShows.razor.cs`'s state filter) overrides the base's `protected virtual ExtraQuery` property instead of reimplementing paging/search.
+
+List state (search, page, and each page's own filters) lives in the list URL's query string (`?search=&page=` plus lowercase per-filter parameters), read back via `[SupplyParameterFromQuery]`.
+Search/filter/pagination clicks never call `LoadAsync` themselves - they navigate via the base's `ApplyQueryChanges`/`ToggleFilter`/`SetFilter` helpers,
+and the reload happens once in `InventoryPageBase.OnParametersSetAsync` when the router supplies the new values.
+This is what makes browser back from an item's detail page restore the exact list position (the original complaint: paging deep into movies, opening one, and coming back used to reset to an unfiltered page 1),
+and it means a button click and browser back/forward share one code path instead of two.
+A new list filter therefore needs three things: a `[SupplyParameterFromQuery]` property, an `ExtraQuery` entry (the API-facing key, e.g. `IsFavorite`),
+and a razor button calling `ToggleFilter`/`SetFilter` with the URL parameter name (e.g. `favorite`) - don't add a mutate-a-field-then-`LoadAsync` handler, that's the pre-URL-state pattern this replaced.
+`InventoryList`'s search box keeps a deliberate local copy of the text (so a parent re-render racing fast typing can't revert characters)
+and adopts an externally-changed `Search` parameter only when it didn't originate from its own `OnSearchChanged` report - see the sent/received tracking in its `OnParametersSet` before touching that logic.
+Covered end-to-end by `ListStateSmokeTest` (Playwright), including the back-navigation-from-detail scenario.
 Authentication uses Firebase (cookie auth in the Blazor app, JWT bearer validated against Firebase in the Web API); `AuthenticationTokenHandler` attaches the bearer token to outgoing API calls.
+
+**Scaling (multiple replicas) is an app-level design here, deliberately not an infrastructure assumption** - the app may be front with a Cloudflare tunnel, where no ingress cookie-affinity exists, so nothing may rely on sticky sessions.
+Two pieces make the Blazor app replica-safe:
+`DataProtection:MongoDb:ConnectionString`/`DatabaseName` (opt-in, `Program.cs`) persists the Data Protection key ring via `DataProtection/MongoDbXmlRepository` so the auth cookie and antiforgery tokens decrypt on every replica -
+without it each pod keeps ephemeral keys and multi-replica cookie auth breaks; this is the only reason `BlazorApp.csproj` references `MongoDB.Driver`
+(it still never references `Domain`/`Infrastructure.MongoDb` - tenant data stays behind WebApi).
+`Features:IsWebSocketsOnlyEnabled` (default `true`, `App.razor`) starts the circuit via `Blazor.start` with `skipNegotiation` + WebSockets-only transport,
+so a circuit's single long-lived connection naturally pins it to the pod owning its state - set it to `false` only behind a proxy that can't pass WebSockets, and stay single-replica there.
+A pod dying still drops its circuits (inherent to Blazor Server - clients reconnect-then-reload); the WebApi side's replica-safety (Mongo job store, sync lease) is covered in its own sections above.
 
 Pages that aren't a generic CRUD list (`TvShowDetail.razor`, `WatchNext/WatchNextPage.razor`, `Import/ImportPage.razor`) don't extend `InventoryPageBase`/`InventoryList` —
 they're free to build their own layout on top of the shared `kt-*` CSS classes in `app.css`.
@@ -707,6 +777,8 @@ the scoped file itself has to be edited.
 - `test/WebApi.IntegrationTests`: xunit v3 tests booted against a real Kestrel host (`KestrelWebAppFactory<Program>`) and a real MongoDB instance.
   `ResourceTestBase` provides typed `GetAsync`/`PostAsync`/`PutAsync`/`DeleteAsync`/`PostFileAsync` helpers and an `Authenticate()` helper that logs in against Firebase to obtain a bearer token.
   Resource tests (`BookResourceTest`, `MovieResourceTest`, `TvTimeImportResourceTest`) exercise a full create/read/update/delete (or upsert) cycle against the live API and clean up what they create.
+  `SyncNow_PollingReachesACompletedResult` self-skips unless `REFERENCE_SYNC_POLL_ENABLED=true` - polling a full live-provider sync to completion grows with the shared database and flakes on provider latency,
+  so only the job-start half runs by default (see CONTRIBUTING.md).
   `TvTimeFixtureZipBuilder` builds a small synthetic TV Time export in memory for the import test — never commit a real personal export as a test fixture.
 - `test/Testing.Shared`: not a test project itself, but the shared hosting/Firebase-auth infrastructure both `WebApi.IntegrationTests` and `BlazorApp.PlaywrightTests` build on, so neither duplicates it.
   `KestrelWebAppFactory<TEntryPoint>`'s env-var override name and in-memory config overrides are constructor parameters for exactly this reason - each host (WebApi, BlazorApp) supplies its own.
@@ -727,6 +799,8 @@ the scoped file itself has to be edited.
   `Tmdb__ApiKey`/`Rawg__ApiKey`/`Discogs__Token` are hard-required for this reason.
   `E2eFixture` fails fast at startup with a clear error if any is missing, rather than letting those tests fail downstream with a confusing "no results found".
   `WatchNextSmokeTest` seeds a real, long-finished TV show plus a real movie, to assert the Watch Next page's "confirmed next episode"/"movies to watch" logic against actual data instead of just an empty state.
+  It lives in a `[CollectionDefinition(DisableParallelization = true)]` collection so it never runs concurrently with other classes -
+  Watch Next aggregates across the whole shared tenant, so parallel classes' create/delete traffic raced its assertions (a confirmed intermittent failure that passes in isolation).
   The show is marked "Current" in-app regardless of its real-world airing status, since `WatchNextService` only checks the tenant's own `State` field.
   `E2eFixture` is a single instance shared by every parallel-running smoke test class, so its `ApiHttpClient` helper (used by tests' own cleanup) must be thread-safe.
   Movie/TvShow/VideoGame/Album use fixed real-world titles rather than a GUID, so an orphaned leftover from a failed run is an actual accumulating duplicate, not harmless clutter.

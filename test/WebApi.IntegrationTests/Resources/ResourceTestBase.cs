@@ -69,6 +69,23 @@ public abstract class ResourceTestBase(KestrelWebAppFactory<Program> factory)
         return output;
     }
 
+    /// <summary>
+    /// For endpoints whose request and response bodies are different types (e.g. a create request DTO
+    /// answered with the created resource) - the single-type overload above covers the common
+    /// same-DTO-both-ways CRUD case.
+    /// </summary>
+    protected async Task<TResult> PostAsync<TBody, TResult>(string url, TBody body, HttpStatusCode httpStatusCode = HttpStatusCode.OK)
+    {
+        var bodyContent = new StringContent(JsonSerializer.Serialize(body, JsonSerializerOptions.Web), Encoding.UTF8, MediaTypeJson);
+        var response = await _httpClient.PostAsync(url, bodyContent);
+        response.StatusCode.Should().Be(httpStatusCode);
+
+        var stringResponse = await response.Content.ReadAsStringAsync();
+        var output = JsonSerializer.Deserialize<TResult>(stringResponse, JsonSerializerOptions.Web);
+        output.Should().NotBeNull();
+        return output;
+    }
+
     protected async Task PutAsync<T>(string url, T body, HttpStatusCode httpStatusCode = HttpStatusCode.NoContent)
     {
         var bodyContent = new StringContent(JsonSerializer.Serialize(body, JsonSerializerOptions.Web), Encoding.UTF8, MediaTypeJson);

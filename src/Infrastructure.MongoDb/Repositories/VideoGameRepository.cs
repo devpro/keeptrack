@@ -24,7 +24,9 @@ public class VideoGameRepository(IMongoDatabase mongoDatabase, ILogger<VideoGame
         if (!string.IsNullOrEmpty(search)) filter &= builder.Where(f => f.Title.Contains(search, System.StringComparison.CurrentCultureIgnoreCase));
         if (!string.IsNullOrEmpty(input.State)) filter &= builder.AnyEq(f => f.Platforms.Select(p => p.State), input.State);
         if (!string.IsNullOrEmpty(input.Platform)) filter &= builder.AnyEq(f => f.Platforms.Select(p => p.Platform), input.Platform);
-        if (input.IsOwned) filter &= builder.Eq(f => f.IsOwned, true);
+        // "owned" means at least one platform entry (a game's copies) - the platform-entry equivalent of
+        // MovieRepository.GetFilter's owned-versions rule
+        if (input.IsOwned) filter &= builder.SizeGt(f => f.Platforms, 0);
         if (input.IsWishlisted) filter &= builder.Eq(f => f.IsWishlisted, true);
         return filter;
     }

@@ -16,6 +16,9 @@ public partial class ReferenceEnrichmentService
     /// </summary>
     public async Task<AlbumModel> TryLinkExistingAlbumReferenceAsync(AlbumModel model)
     {
+        // see TryLinkExistingTvShowReferenceAsync's empty-title guard
+        if (string.IsNullOrWhiteSpace(model.Title)) return model;
+
         var reference = await albumReferenceRepository.FindByTitleYearAsync(model.Title, model.Year, model.Artist)
                         ?? await albumReferenceRepository.FindByTitleAsync(model.Title, model.Artist);
 
@@ -53,6 +56,8 @@ public partial class ReferenceEnrichmentService
     /// </summary>
     public async Task TryAutoResolveAlbumAsync(string title, int? year, string? artist = null)
     {
+        if (string.IsNullOrWhiteSpace(title)) return; // see TryAutoResolveTvShowAsync
+
         var candidates = await discogsClient.SearchAlbumsAsync(title, year, artist);
         if (candidates.Count != 1) return;
         await ResolveAlbumAsync(title, year, candidates[0].ExternalId);
@@ -64,6 +69,8 @@ public partial class ReferenceEnrichmentService
     /// </summary>
     public async Task<AlbumReferenceModel> ResolveAlbumAsync(string title, int? year, string externalId)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+
         var details = await discogsClient.GetAlbumDetailsAsync(externalId)
                       ?? throw new InvalidOperationException($"Discogs master {externalId} could not be fetched.");
 

@@ -15,7 +15,24 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", policy => policy.RequireClaim("role", "admin"));
+    // mirrors WebApi's policy (the cookie principal carries the same Firebase "role" claim): members and
+    // admins see the whole app; everyone else is the free preview tier (movies + TV shows). This only
+    // drives what the UI shows - the API enforces the same rule on every request.
+    options.AddPolicy("MemberOnly", policy => policy.RequireClaim("role", "member", "admin"));
 });
+// opt-in shared Data Protection key ring (see MongoDbXmlRepository) - required before running more than
+// one replica of this app, since the auth cookie and antiforgery tokens must decrypt on every replica.
+// Left unset (the default), the framework keeps its usual per-instance ephemeral keys.
+var dataProtectionConnectionString = builder.Configuration["DataProtection:MongoDb:ConnectionString"];
+if (!string.IsNullOrEmpty(dataProtectionConnectionString))
+{
+    var keyCollection = new MongoClient(dataProtectionConnectionString)
+        .GetDatabase(builder.Configuration["DataProtection:MongoDb:DatabaseName"] ?? "keeptrack")
+        .GetCollection<MongoDbXmlRepository.DataProtectionKey>(MongoDbXmlRepository.CollectionName);
+    builder.Services.AddDataProtection()
+        .SetApplicationName("keeptrack")
+        .AddKeyManagementOptions(options => options.XmlRepository = new MongoDbXmlRepository(keyCollection));
+}
 builder.Services.AddControllers();
 builder.Services.AddSingleton(builder.Configuration.TryGetSection<FirebaseClientSettings>("Firebase:WebAppConfiguration"));
 if (FirebaseApp.DefaultInstance is null)

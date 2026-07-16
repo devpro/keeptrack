@@ -91,22 +91,12 @@ ensureIndex(
 );
 
 // movie / tvshow / book / videogame: same sparse-flag partial-index rationale as the favorite/want-to-watch
-// indexes above, for the is_owned/is_wishlisted flags. VideoGame has no favorite/want-to-watch flags, so
-// these are its first two flag indexes.
-ensureIndex(
-  db.movie,
-  { owner_id: 1, is_owned: 1 },
-  { name: "movie_owned", partialFilterExpression: { is_owned: true } }
-);
+// indexes above, for the is_wishlisted flag. VideoGame has no favorite/want-to-watch flags, so this is its
+// first flag index.
 ensureIndex(
   db.movie,
   { owner_id: 1, is_wishlisted: 1 },
   { name: "movie_wishlisted", partialFilterExpression: { is_wishlisted: true } }
-);
-ensureIndex(
-  db.tvshow,
-  { owner_id: 1, is_owned: 1 },
-  { name: "tvshow_owned", partialFilterExpression: { is_owned: true } }
 );
 ensureIndex(
   db.tvshow,
@@ -115,24 +105,64 @@ ensureIndex(
 );
 ensureIndex(
   db.book,
-  { owner_id: 1, is_owned: 1 },
-  { name: "book_owned", partialFilterExpression: { is_owned: true } }
-);
-ensureIndex(
-  db.book,
   { owner_id: 1, is_wishlisted: 1 },
   { name: "book_wishlisted", partialFilterExpression: { is_wishlisted: true } }
-);
-ensureIndex(
-  db.videogame,
-  { owner_id: 1, is_owned: 1 },
-  { name: "videogame_owned", partialFilterExpression: { is_owned: true } }
 );
 ensureIndex(
   db.videogame,
   { owner_id: 1, is_wishlisted: 1 },
   { name: "videogame_wishlisted", partialFilterExpression: { is_wishlisted: true } }
 );
+
+// movie / tvshow / book / album / videogame: the "owned" filter. There is no stored is_owned flag anymore -
+// ownership is derived from owned_versions (platforms for videogame) being non-empty, which the repositories
+// query as { "owned_versions.0": { $exists: true } } (the driver's SizeGt rendering). The partial filter
+// matches that predicate exactly, so the planner can use these for owned-filtered list queries while the
+// index stays as sparse as the old is_owned one. Re-running this script after the migration replaces the
+// old same-named is_owned index definitions automatically (ensureIndex drops on conflict).
+ensureIndex(
+  db.movie,
+  { owner_id: 1 },
+  { name: "movie_owned", partialFilterExpression: { "owned_versions.0": { $exists: true } } }
+);
+ensureIndex(
+  db.tvshow,
+  { owner_id: 1 },
+  { name: "tvshow_owned", partialFilterExpression: { "owned_versions.0": { $exists: true } } }
+);
+ensureIndex(
+  db.book,
+  { owner_id: 1 },
+  { name: "book_owned", partialFilterExpression: { "owned_versions.0": { $exists: true } } }
+);
+ensureIndex(
+  db.album,
+  { owner_id: 1 },
+  { name: "album_owned", partialFilterExpression: { "owned_versions.0": { $exists: true } } }
+);
+ensureIndex(
+  db.videogame,
+  { owner_id: 1 },
+  { name: "videogame_owned", partialFilterExpression: { "platforms.0": { $exists: true } } }
+);
+
+// background_job: transient job-progress documents (TV Time import, reference-data "sync now") polled by
+// job id - MongoDB-backed (instead of in-memory) so any WebApi replica can answer a poll. TTL cleanup
+// after 7 days; reads are by _id + owner check, so no other index is needed. The "lease" collection
+// (single-runner election for the periodic reference sync) needs no index at all: one tiny document per
+// lease name, keyed by _id.
+ensureIndex(
+  db.background_job,
+  { created_at: 1 },
+  { name: "background_job_ttl", expireAfterSeconds: 604800 }
+);
+
+// wishlist_share: one document per issued share link - an owner can hold several at once (one per
+// recipient, individually revocable), so owner_id is deliberately NOT unique. The token lookup is the
+// anonymous shared-view read path and stays unique (a collision is astronomically unlikely with 128
+// random bits, but the invariant belongs in the database regardless).
+ensureIndex(db.wishlist_share, { owner_id: 1 }, { name: "wishlist_share_owner" });
+ensureIndex(db.wishlist_share, { token: 1 }, { name: "wishlist_share_token", unique: true });
 
 // tvshow_reference / movie_reference: shared, owner-less lookup tables (see CLAUDE.md) keyed by
 // matched_aliases (every (title, year) combination ever confirmed for that reference, not just its

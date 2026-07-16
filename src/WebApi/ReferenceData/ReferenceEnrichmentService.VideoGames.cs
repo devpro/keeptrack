@@ -15,6 +15,9 @@ public partial class ReferenceEnrichmentService
     /// </summary>
     public async Task<VideoGameModel> TryLinkExistingVideoGameReferenceAsync(VideoGameModel model)
     {
+        // see TryLinkExistingTvShowReferenceAsync's empty-title guard
+        if (string.IsNullOrWhiteSpace(model.Title)) return model;
+
         var reference = await videoGameReferenceRepository.FindByTitleYearAsync(model.Title, model.Year)
                         ?? await videoGameReferenceRepository.FindByTitleAsync(model.Title);
 
@@ -46,6 +49,8 @@ public partial class ReferenceEnrichmentService
     /// </summary>
     public async Task TryAutoResolveVideoGameAsync(string title, int? year)
     {
+        if (string.IsNullOrWhiteSpace(title)) return; // see TryAutoResolveTvShowAsync
+
         var candidates = await rawgClient.SearchGamesAsync(title, year);
         if (candidates.Count != 1) return;
         await ResolveVideoGameAsync(title, year, candidates[0].ExternalId);
@@ -57,6 +62,8 @@ public partial class ReferenceEnrichmentService
     /// </summary>
     public async Task<VideoGameReferenceModel> ResolveVideoGameAsync(string title, int? year, string externalId)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+
         var details = await rawgClient.GetGameDetailsAsync(externalId)
                       ?? throw new InvalidOperationException($"RAWG game {externalId} could not be fetched.");
 

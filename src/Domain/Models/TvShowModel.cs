@@ -1,4 +1,5 @@
-﻿using Keeptrack.Common.System;
+﻿using System.Collections.Generic;
+using Keeptrack.Common.System;
 
 namespace Keeptrack.Domain.Models;
 
@@ -34,6 +35,12 @@ public class TvShowModel : IHasIdAndOwnerId, IHasTvTimeId
 
     public bool WantToWatch { get; set; }
 
+    public List<OwnedVersionModel> OwnedVersions { get; set; } = [];
+
+    /// <summary>
+    /// Filter-only: matches if <see cref="OwnedVersions"/> is non-empty. Never persisted - see
+    /// <see cref="MovieModel.IsOwned"/>.
+    /// </summary>
     public bool IsOwned { get; set; }
 
     public bool IsWishlisted { get; set; }

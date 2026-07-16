@@ -35,8 +35,9 @@ builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.MovieReferenceDtoMapper>(
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.BookReferenceDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.VideoGameReferenceDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.AlbumReferenceDtoMapper>();
-builder.Services.AddSingleton<Keeptrack.WebApi.Jobs.JobStore<Keeptrack.WebApi.Contracts.Dto.ImportStage, Keeptrack.WebApi.Contracts.Dto.ImportResultDto>>();
-builder.Services.AddSingleton<Keeptrack.WebApi.Jobs.JobStore<Keeptrack.WebApi.Contracts.Dto.ReferenceSyncStage, Keeptrack.WebApi.Contracts.Dto.ReferenceSyncResultDto>>();
+// scoped (not singleton) since it wraps the scoped IBackgroundJobRepository; the open-generic
+// registration covers every (stage, result) pair without one line per feature
+builder.Services.AddScoped(typeof(Keeptrack.WebApi.Jobs.JobStore<,>));
 builder.Services.AddScoped<Keeptrack.WebApi.Import.TvTimeImportService>();
 builder.Services.AddScoped<Keeptrack.WebApi.Import.CarHistoryImportService>();
 builder.Services.AddSingleton(configuration.TmdbSettings);
@@ -50,7 +51,7 @@ builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.ITmdbClient, Keept
     // timeout be authoritative instead of a stuck call hanging for a full 100s - see
     // https://github.com/dotnet/extensions/issues/4770 (confirmed against this exact symptom on Discogs).
     client.Timeout = Timeout.InfiniteTimeSpan;
-}).AddStandardResilienceHandler();
+}).AddProviderResilienceHandler();
 // which IBookReferenceClient implementation is registered is a deployment-time choice
 // (ReferenceData:BookProvider / ReferenceData__BookProvider) - add a case here for each new provider.
 switch (configuration.BookReferenceProvider)
@@ -61,7 +62,7 @@ switch (configuration.BookReferenceProvider)
             client.BaseAddress = new Uri("https://openlibrary.org/");
             client.DefaultRequestHeaders.Add("User-Agent", "Keeptrack/1.0 (+https://github.com/devpro/keeptrack)");
             client.Timeout = Timeout.InfiniteTimeSpan;
-        }).AddStandardResilienceHandler();
+        }).AddProviderResilienceHandler();
         break;
     default:
         throw new InvalidOperationException($"Unknown ReferenceData:BookProvider '{configuration.BookReferenceProvider}'. Supported providers: OpenLibrary.");
@@ -71,14 +72,14 @@ builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.IRawgClient, Keept
 {
     client.BaseAddress = new Uri("https://api.rawg.io/api/");
     client.Timeout = Timeout.InfiniteTimeSpan;
-}).AddStandardResilienceHandler();
+}).AddProviderResilienceHandler();
 builder.Services.AddSingleton(configuration.DiscogsSettings);
 builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.IDiscogsClient, Keeptrack.WebApi.ReferenceData.DiscogsClient>(client =>
 {
     client.BaseAddress = new Uri("https://api.discogs.com/");
     client.DefaultRequestHeaders.Add("User-Agent", "Keeptrack/1.0 (+https://github.com/devpro/keeptrack)");
     client.Timeout = Timeout.InfiniteTimeSpan;
-}).AddStandardResilienceHandler();
+}).AddProviderResilienceHandler();
 builder.Services.AddScoped<Keeptrack.WebApi.ReferenceData.ReferenceEnrichmentService>();
 builder.Services.AddScoped<Keeptrack.WebApi.ReferenceData.ReferenceSyncService>();
 builder.Services.AddHostedService<Keeptrack.WebApi.ReferenceData.ReferenceSyncBackgroundService>();
@@ -105,6 +106,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", policy => policy.RequireClaim("role", "admin"));
+    // members (and admins - a membership must never be *less* than the owner's own account) get the
+    // full app; authenticated users without the role are the free preview tier (movies + TV shows,
+    // capped - see DataCrudControllerBase). Granted the same way as admin: a Firebase custom claim
+    // role=member via the Admin SDK (see CONTRIBUTING.md).
+    options.AddPolicy("MemberOnly", policy => policy.RequireClaim("role", "member", "admin"));
 });
 if (configuration.CorsAllowedOrigin.Count != 0)
 {

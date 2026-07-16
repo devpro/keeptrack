@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Keeptrack.Common.System;
 
 namespace Keeptrack.Domain.Models;
@@ -21,4 +22,12 @@ public class AlbumModel : IHasIdAndOwnerId
     public string? ReferenceId { get; set; }
 
     public bool IsFavorite { get; set; }
+
+    public List<OwnedVersionModel> OwnedVersions { get; set; } = [];
+
+    /// <summary>
+    /// Filter-only: matches if <see cref="OwnedVersions"/> is non-empty. Never persisted - see
+    /// <see cref="MovieModel.IsOwned"/>.
+    /// </summary>
+    public bool IsOwned { get; set; }
 }

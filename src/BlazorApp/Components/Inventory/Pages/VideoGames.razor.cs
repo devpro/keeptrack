@@ -9,10 +9,8 @@ public partial class VideoGames : InventoryPageBase<VideoGameDto>
     /// the (now-removed from the list page) Add/Edit forms' old State button group.</summary>
     internal static readonly string[] VideoGameStates = ["Available", "Current", "Completed", "To resume", "On-hold"];
 
-    /// <summary>Shared by the detail page's platform picker - previously duplicated as a literal
-    /// &lt;select&gt; in three places (list add form, list edit modal, detail page).</summary>
     internal static readonly string[] VideoGamePlatforms =
-        ["Xbox Series X", "PS5", "PC", "Xbox One X", "PS4", "WII", "Xbox 360", "PS2", "PS1"];
+        ["PC", "PS1", "PS2", "PSP", "PS3", "PS4", "PS5", "Xbox 360", "Xbox One X", "Xbox Series X", "Nintendo 64", "WII", "Switch", "Switch 2"];
 
     /// <summary>
     /// The <c>kt-status-badge</c> modifier class for a state value (see app.css) - same badge/color
@@ -27,43 +25,24 @@ public partial class VideoGames : InventoryPageBase<VideoGameDto>
 
     protected override string ListRoute => "/video-games";
 
-    private string? _stateFilter;
+    [SupplyParameterFromQuery(Name = "state")]
+    public string? StateFilter { get; set; }
 
-    private bool _ownedFilter;
+    [SupplyParameterFromQuery(Name = "owned")]
+    public bool OwnedFilter { get; set; }
 
-    private bool _wishlistedFilter;
+    [SupplyParameterFromQuery(Name = "wishlisted")]
+    public bool WishlistedFilter { get; set; }
 
     protected override IReadOnlyDictionary<string, string>? ExtraQuery
     {
         get
         {
             var query = new Dictionary<string, string>();
-            if (!string.IsNullOrEmpty(_stateFilter)) query["State"] = _stateFilter;
-            if (_ownedFilter) query["IsOwned"] = "true";
-            if (_wishlistedFilter) query["IsWishlisted"] = "true";
+            if (!string.IsNullOrEmpty(StateFilter)) query["State"] = StateFilter;
+            if (OwnedFilter) query["IsOwned"] = "true";
+            if (WishlistedFilter) query["IsWishlisted"] = "true";
             return query.Count > 0 ? query : null;
         }
     }
-
-    private async Task SetStateFilterAsync(string? state)
-    {
-        _stateFilter = state;
-        _page = 1;
-        await LoadAsync();
-    }
-
-    private async Task ToggleOwnedFilterAsync()
-    {
-        _ownedFilter = !_ownedFilter;
-        _page = 1;
-        await LoadAsync();
-    }
-
-    private async Task ToggleWishlistedFilterAsync()
-    {
-        _wishlistedFilter = !_wishlistedFilter;
-        _page = 1;
-        await LoadAsync();
-    }
-
 }

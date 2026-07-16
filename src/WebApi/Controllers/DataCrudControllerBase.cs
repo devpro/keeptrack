@@ -22,6 +22,14 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IDtoMapper<TDto, TMod
     /// </summary>
     protected IDtoMapper<TDto, TModel> Mapper => mapper;
 
+    /// <summary>
+    /// How many items a non-member ("free preview") account may create in this collection, as a multiple
+    /// of the configured <c>Features:FreeTierItemLimit</c>. 0 (the default) means no quota check runs
+    /// here - which is only correct for controllers whose whole surface already requires the "MemberOnly"
+    /// policy; a controller that is part of the free tier must override this (see <c>MovieController</c>).
+    /// </summary>
+    protected virtual int FreeTierLimitFactor => 0;
+
     [HttpGet]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
@@ -69,8 +77,23 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IDtoMapper<TDto, TMod
     [Consumes("application/json", "text/json")]
     [Produces("application/json")]
     [ProducesResponseType(201)]
+    [ProducesResponseType(403)]
     public async Task<IActionResult> Post([FromBody] TDto dto)
     {
+        // free-tier creation quota - enforced server-side because hiding UI is not security; a non-member
+        // talking to the API directly hits the exact same wall. Members and admins are never counted.
+        if (FreeTierLimitFactor > 0 && !this.IsMember())
+        {
+            var configuration = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+            var limit = AppConfiguration.GetFreeTierItemLimit(configuration) * FreeTierLimitFactor;
+            if (await dataRepository.CountAsync(this.GetUserId()) >= limit)
+            {
+                // same { error } body shape as ApiExceptionFilterAttribute, so clients parse one format
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    new { error = $"Free preview accounts are limited to {limit} items in this collection - a membership unlocks unlimited tracking." });
+            }
+        }
+
         var input = mapper.ToModel(dto);
         input.OwnerId = this.GetUserId();
         var model = await dataRepository.CreateAsync(input);

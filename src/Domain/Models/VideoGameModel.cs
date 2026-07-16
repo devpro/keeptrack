@@ -21,6 +21,11 @@ public class VideoGameModel : IHasIdAndOwnerId
 
     public string? ReferenceId { get; set; }
 
+    /// <summary>
+    /// Filter-only: matches if <see cref="Platforms"/> is non-empty. Never persisted - a platform entry
+    /// (with its own <see cref="CopyType"/>) is this type's owned copy, so ownership derives from having
+    /// at least one, the same rule as <see cref="MovieModel.IsOwned"/> over its owned versions.
+    /// </summary>
     public bool IsOwned { get; set; }
 
     public bool IsWishlisted { get; set; }

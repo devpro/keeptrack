@@ -27,9 +27,6 @@ public class VideoGame : IHasIdAndOwnerId
     [BsonElement("reference_id")]
     public string? ReferenceId { get; set; }
 
-    [BsonElement("is_owned")]
-    public bool IsOwned { get; set; }
-
     [BsonElement("is_wishlisted")]
     public bool IsWishlisted { get; set; }
 }

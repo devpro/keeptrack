@@ -14,7 +14,7 @@ public class VideoGamePlatformModel
 {
     public required string Platform { get; set; }
 
-    public VideoGameCopyType CopyType { get; set; }
+    public CopyType CopyType { get; set; }
 
     public string State { get; set; } = "";
 

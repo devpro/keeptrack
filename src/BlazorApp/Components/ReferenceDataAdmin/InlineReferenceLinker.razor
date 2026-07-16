@@ -7,7 +7,8 @@
 
             @if (!_searched)
             {
-                <button class="btn btn-sm btn-secondary" @onclick="SearchAsync">Search @ProviderName to link</button>
+                @* disabled on an empty title: the API refuses (400) to hit a provider with nothing to search for *@
+                <button class="btn btn-sm btn-secondary" @onclick="SearchAsync" disabled="@(string.IsNullOrWhiteSpace(Title))">Search @ProviderName to link</button>
             }
             else if (_searching)
             {
@@ -48,7 +49,7 @@
                 @* Re-runs the search with the page's *current* title/year (and author/artist) field values -
                    the wrong-candidates fix is "edit the fields above, then search again", which previously
                    required a full page reload. *@
-                <button class="btn btn-sm btn-secondary" @onclick="SearchAsync"
+                <button class="btn btn-sm btn-secondary" @onclick="SearchAsync" disabled="@(string.IsNullOrWhiteSpace(Title))"
                         title="Searches again with the current title/year values from this page.">↻ Search again</button>
             }
 

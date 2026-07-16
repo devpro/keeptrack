@@ -33,6 +33,10 @@ public partial class ReferenceEnrichmentService
     /// </summary>
     public async Task<TvShowModel> TryLinkExistingTvShowReferenceAsync(TvShowModel model)
     {
+        // an empty title can never match anything, and falling through would wrongly unlink an
+        // already-linked item - empty input must be a no-op, not an action
+        if (string.IsNullOrWhiteSpace(model.Title)) return model;
+
         var reference = await tvShowReferenceRepository.FindByTitleYearAsync(model.Title, model.Year)
                         ?? await tvShowReferenceRepository.FindByTitleAsync(model.Title);
 
@@ -64,6 +68,9 @@ public partial class ReferenceEnrichmentService
     /// </summary>
     public async Task<MovieModel> TryLinkExistingMovieReferenceAsync(MovieModel model)
     {
+        // see TryLinkExistingTvShowReferenceAsync's empty-title guard
+        if (string.IsNullOrWhiteSpace(model.Title)) return model;
+
         var reference = await movieReferenceRepository.FindByTitleYearAsync(model.Title, model.Year)
                         ?? await movieReferenceRepository.FindByTitleAsync(model.Title);
 
@@ -96,6 +103,9 @@ public partial class ReferenceEnrichmentService
     /// </summary>
     public async Task TryAutoResolveTvShowAsync(string title, int? year)
     {
+        // never call the provider with an empty title - there is nothing to search with
+        if (string.IsNullOrWhiteSpace(title)) return;
+
         var candidates = await tmdbClient.SearchTvShowAsync(title, year);
         if (candidates.Count != 1) return;
         await ResolveTvShowAsync(title, year, candidates[0].TmdbId);
@@ -106,6 +116,8 @@ public partial class ReferenceEnrichmentService
     /// </summary>
     public async Task TryAutoResolveMovieAsync(string title, int? year)
     {
+        if (string.IsNullOrWhiteSpace(title)) return; // see TryAutoResolveTvShowAsync
+
         var candidates = await tmdbClient.SearchMovieAsync(title, year);
         if (candidates.Count != 1) return;
         await ResolveMovieAsync(title, year, candidates[0].TmdbId);
@@ -117,6 +129,8 @@ public partial class ReferenceEnrichmentService
     /// </summary>
     public async Task<TvShowReferenceModel> ResolveTvShowAsync(string title, int? year, string tmdbId)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(title); // mapped to a 400 by ApiExceptionFilterAttribute
+
         var details = await tmdbClient.GetTvShowDetailsAsync(tmdbId)
                       ?? throw new InvalidOperationException($"TMDB show {tmdbId} could not be fetched.");
         var cast = await tmdbClient.GetTvShowCastAsync(tmdbId);
@@ -161,6 +175,8 @@ public partial class ReferenceEnrichmentService
     /// </summary>
     public async Task<MovieReferenceModel> ResolveMovieAsync(string title, int? year, string tmdbId)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+
         var details = await tmdbClient.GetMovieDetailsAsync(tmdbId)
                       ?? throw new InvalidOperationException($"TMDB movie {tmdbId} could not be fetched.");
         var cast = await tmdbClient.GetMovieCastAsync(tmdbId);

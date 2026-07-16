@@ -23,7 +23,7 @@ If you do not agree with these terms, do not submit a contribution.
 The application source code is in the following .NET projects:
 
 Project name               | Technology | Project type
----------------------------|------------|------------------------------
+---------------------------|------------|-------------
 `BlazorApp`                | ASP.NET 10 | Blazor Server web application
 `Common.System`            | .NET 10    | Library
 `Domain`                   | .NET 10    | Library
@@ -34,7 +34,7 @@ Project name               | Technology | Project type
 The application is using the following .NET packages (via NuGet):
 
 Name                | Description
---------------------|--------------------
+--------------------|------------
 `FirebaseAdmin`     | Firebase
 `MongoDB.Bson`      | MongoDB BSON
 `MongoDB.Driver`    | MongoDB .NET Driver
@@ -80,7 +80,7 @@ Name                | Description
 ### Web API settings
 
 Key                                       | Description
-------------------------------------------|--------------------------
+------------------------------------------|------------
 `Infrastructure:MongoDB:ConnectionString` | MongoDB connection string
 `Infrastructure:MongoDB:DatabaseName`     | MongoDB database name
 `Tmdb:ApiKey`                             | TMDB v3 API key, used to auto-match shows/movies to episode titles and synopses (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
@@ -139,12 +139,12 @@ Template for `src/WebApi/appsettings.Development.json`:
 
 Episode titles, synopses, cover art, and the "what should I watch next" experience are backed by shared reference collections, one per trackable type, each populated from a different external provider rather than typed in by hand:
 
-Type              | Provider                                                 | Setting         | API key required?
-------------------|----------------------------------------------------------|-----------------|------------------
-TV shows / Movies | [TMDB](https://www.themoviedb.org/) (The Movie Database) | `Tmdb:ApiKey`   | Yes
-Books             | [Open Library](https://openlibrary.org/)                 | *(none)*        | No
-Video Games       | [RAWG](https://rawg.io/apidocs)                          | `Rawg:ApiKey`   | Yes
-Albums            | [Discogs](https://www.discogs.com/developers)            | `Discogs:Token` | Yes (personal access token)
+Type              | Provider                                      | Setting         | API key required?
+------------------|-----------------------------------------------|-----------------|------------------
+TV shows / Movies | [TMDB](https://www.themoviedb.org/)           | `Tmdb:ApiKey`   | Yes
+Books             | [Open Library](https://openlibrary.org/)      | *(none)*        | No
+Video Games       | [RAWG](https://rawg.io/apidocs)               | `Rawg:ApiKey`   | Yes
+Albums            | [Discogs](https://www.discogs.com/developers) | `Discogs:Token` | Yes (personal access token)
 
 1. **TMDB**: create a free account, then generate a v3 API key at [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api).
    Set `Tmdb:ApiKey` (or the `Tmdb__ApiKey` environment variable) to that key.
@@ -177,6 +177,22 @@ admin.auth().setCustomUserClaims("<firebase-user-uid>", { role: "admin" });
 
 The claim is embedded directly in that user's ID token on their next sign-in (existing sessions need to sign out/in again to pick it up).
 
+### Membership role (free preview tier)
+
+Any account that can sign in (Google/GitHub through Firebase Auth) but carries **no** `role` claim is a *free preview* account:
+it only gets movies and TV shows, capped at `Features:FreeTierItemLimit` items per collection (default 20; episodes get 100x that so ticking off a watch-through never feels rationed).
+Every other collection (books, albums, playlists, video games, cars, houses) and the TV Time import require the `MemberOnly` policy.
+
+Grant a membership exactly like the admin role above, with `role: "member"` instead:
+
+```javascript
+admin.auth().setCustomUserClaims("<firebase-user-uid>", { role: "member" });
+```
+
+`role: "admin"` implies membership (the `MemberOnly` policy accepts both values), so the owner's account needs nothing extra.
+As with the admin claim, the user must sign out and back in to pick it up.
+Enforcement lives in the API (`MemberOnly` policy attributes plus the creation quota in `DataCrudControllerBase.Post`) - the Blazor nav hiding restricted sections is UX, not security.
+
 [Install Deno](https://docs.deno.com/runtime/getting_started/installation/):
 
 ```cmd
@@ -186,7 +202,7 @@ winget install DenoLand.Deno
 Run the script:
 
 ```cmd
-deno run -A scripts/firebase-set-admin.js ./path/to/serviceAccount.json user@example.com
+deno run -A scripts/firebase-user-role.js ./path/to/serviceAccount.json user@example.com admin
 ```
 
 ### Blazor Server App settings
@@ -272,6 +288,10 @@ These need two things configured before they'll pass:
      See the [Web API settings](#web-api-settings) above for the Issuer/Audience split.
      This is what lets the API-under-test validate the token issued by that same Firebase project.
 
+One test is additionally opt-in: `SyncNow_PollingReachesACompletedResult` polls a full reference-data sync to completion against the live providers,
+so its duration grows with the database and it can flake on provider latency/rate limits.
+It self-skips unless `REFERENCE_SYNC_POLL_ENABLED=true`; set that when working on the sync pipeline (the job-start half of the lifecycle stays covered by default).
+
 Provide all of this as environment variables (works everywhere, including CI - see `.github/workflows/ci.yaml` for how the pipeline supplies its own test account), for example:
 
 ```bash
@@ -314,7 +334,7 @@ Or in Rider, in "File | Settings | Build, Execution, Deployment | Unit Testing |
 
 Set `KESTREL_WEBAPP_URL` to target a specific already-running instance instead of letting the tests spin up their own.
 
-The standard test user above now carries the `role: admin` custom claim (set via `scripts/firebase-set-admin.js`, see [Admin role](#admin-role) above).
+The standard test user above now carries the `role: admin` custom claim (set via `scripts/firebase-user-role.js`, see [Admin role](#admin-role) above).
 So `ReferenceDataAdminResourceTest` and any other admin-gated endpoint can be exercised end-to-end over HTTP with the same single test account.
 There's no separate non-admin test account, so there's no automated coverage of the "AdminOnly" policy actually rejecting a non-admin caller; that would need a second Firebase test user without the claim.
 The underlying Mongo query logic (`SetReferenceIdForTitleYearAsync`, `FindDistinctUnresolvedTitleYearsAsync`) is still covered directly against a real database in `TvShowReferenceLinkingTest`.

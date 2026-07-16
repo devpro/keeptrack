@@ -150,19 +150,28 @@ else
 }
 
 @code {
-    private bool _initialized;
     private string? _pendingDeleteId;
     private string _localSearch = "";
+    private string _lastSearchParam = "";
+    private string _lastSearchSent = "";
 
+    // Adopt an externally-changed Search parameter (URL navigation, browser back/forward) into the
+    // input without clobbering in-progress typing: a value we reported ourselves via OnSearchChanged
+    // comes straight back as an equal parameter and must be ignored, or a re-render racing fast
+    // typing would revert characters entered since the last keyup.
     protected override void OnParametersSet()
     {
-        if (_initialized) return;
-        _localSearch = Search;
-        _initialized = true;
+        if (Search == _lastSearchParam) return;
+        _lastSearchParam = Search;
+        if (Search != _lastSearchSent)
+        {
+            _localSearch = Search;
+        }
     }
 
     private async Task HandleSearchKeyUp(KeyboardEventArgs e)
     {
+        _lastSearchSent = _localSearch;
         await OnSearchChanged.InvokeAsync(_localSearch);
         await OnSearchKeyUp.InvokeAsync(e);
     }
@@ -170,6 +179,7 @@ else
     private async Task HandleClear()
     {
         _localSearch = "";
+        _lastSearchSent = "";
         await OnSearchChanged.InvokeAsync("");
         await OnClearSearch.InvokeAsync();
     }

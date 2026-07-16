@@ -37,7 +37,6 @@ else
         <div class="d-flex gap-2">
             <button class="btn btn-sm kt-toggle-btn @(_show.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>
             <button class="btn btn-sm kt-toggle-btn @(_show.WantToWatch ? "active" : "")" @onclick="ToggleWantToWatchAsync">Watchlist</button>
-            <button class="btn btn-sm kt-toggle-btn @(_show.IsOwned ? "active" : "")" @onclick="ToggleOwnedAsync">● Owned</button>
             <button class="btn btn-sm kt-toggle-btn @(_show.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync">○ Wishlist</button>
         </div>
     </div>
@@ -97,6 +96,8 @@ else
         <h2 class="kt-section-title">Cast</h2>
         <CastGrid Cast="_reference.Cast"/>
     }
+
+    <OwnedVersionsEditor Versions="_show.OwnedVersions" OnChanged="SaveShowAsync"/>
 
     @if (_reference is not null)
     {
@@ -287,10 +288,9 @@ else
         await TvShowApi.UpdateAsync(_show);
     }
 
-    private async Task ToggleOwnedAsync()
+    private async Task SaveShowAsync()
     {
         if (_show is null) return;
-        _show.IsOwned = !_show.IsOwned;
         await TvShowApi.UpdateAsync(_show);
     }
 

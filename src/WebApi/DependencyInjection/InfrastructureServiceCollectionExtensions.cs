@@ -40,6 +40,8 @@ internal static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IStorageMapper<Domain.Models.HouseModel, House>, HouseStorageMapper>();
         services.AddSingleton<IStorageMapper<Domain.Models.HouseHistoryModel, HouseHistory>, HouseHistoryStorageMapper>();
 
+        services.AddSingleton<BackgroundJobStorageMapper>();
+        services.AddSingleton<WishlistShareStorageMapper>();
         services.AddSingleton<TvShowReferenceStorageMapper>();
         services.AddSingleton<MovieReferenceStorageMapper>();
         services.AddSingleton<PersonReferenceStorageMapper>();
@@ -47,6 +49,9 @@ internal static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<VideoGameReferenceStorageMapper>();
         services.AddSingleton<AlbumReferenceStorageMapper>();
 
+        services.TryAddScoped<Domain.Repositories.IBackgroundJobRepository, BackgroundJobRepository>();
+        services.TryAddScoped<Domain.Repositories.IWishlistShareRepository, WishlistShareRepository>();
+        services.TryAddScoped<Domain.Repositories.ILeaseRepository, LeaseRepository>();
         services.TryAddScoped<Domain.Repositories.IAlbumRepository, AlbumRepository>();
         services.TryAddScoped<Domain.Repositories.ISongRepository, SongRepository>();
         services.TryAddScoped<Domain.Repositories.IPlaylistRepository, PlaylistRepository>();

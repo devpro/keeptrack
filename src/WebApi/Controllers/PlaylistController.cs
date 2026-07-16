@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Keeptrack.WebApi.Controllers;
 
 [ApiController]
-[Authorize]
+[Authorize(Policy = "MemberOnly")]
 [Route("api/playlists")]
 public class PlaylistController(IDtoMapper<PlaylistDto, PlaylistModel> mapper, IPlaylistRepository dataRepository)
     : DataCrudControllerBase<PlaylistDto, PlaylistModel>(mapper, dataRepository);

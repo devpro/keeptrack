@@ -10,7 +10,7 @@ public class VideoGamePlatform
     public required string Platform { get; set; }
 
     [BsonElement("copy_type")]
-    public VideoGameCopyType CopyType { get; set; }
+    public CopyType CopyType { get; set; }
 
     public string State { get; set; } = "";
 

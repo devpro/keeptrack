@@ -27,9 +27,9 @@
                OnDelete="@DeleteAsync"
                OnSearchChanged="@OnSearchChanged">
     <Filters>
-        <button class="btn btn-sm kt-toggle-btn @(_favoriteFilter ? "active" : "")" @onclick="ToggleFavoriteFilterAsync">★ Favorites</button>
-        <button class="btn btn-sm kt-toggle-btn @(_ownedFilter ? "active" : "")" @onclick="ToggleOwnedFilterAsync">● Owned</button>
-        <button class="btn btn-sm kt-toggle-btn @(_wishlistedFilter ? "active" : "")" @onclick="ToggleWishlistedFilterAsync">○ Wishlist</button>
+        <button class="btn btn-sm kt-toggle-btn @(FavoriteFilter ? "active" : "")" @onclick='() => ToggleFilter("favorite", FavoriteFilter)'>★ Favorites</button>
+        <button class="btn btn-sm kt-toggle-btn @(OwnedFilter ? "active" : "")" @onclick='() => ToggleFilter("owned", OwnedFilter)'>● Owned</button>
+        <button class="btn btn-sm kt-toggle-btn @(WishlistedFilter ? "active" : "")" @onclick='() => ToggleFilter("wishlisted", WishlistedFilter)'>○ Wishlist</button>
     </Filters>
     <MetaTemplate Context="book">
         @if (book.Year > 0)
@@ -52,7 +52,7 @@
         {
             <span class="kt-flag-badge done">Read</span>
         }
-        @if (book.IsOwned)
+        @if (book.OwnedVersions.Count > 0)
         {
             <span class="kt-flag-badge">Owned</span>
         }

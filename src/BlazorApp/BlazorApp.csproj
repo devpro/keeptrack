@@ -11,6 +11,9 @@
 
   <ItemGroup>
     <PackageReference Include="FirebaseAdmin" />
+    <!-- Data Protection key-ring persistence only (Components/DataProtection) - tenant data still flows
+         exclusively through WebApi; this project still never references Domain/Infrastructure.MongoDb. -->
+    <PackageReference Include="MongoDB.Driver" />
     <PackageReference Include="Withywoods.Configuration" />
   </ItemGroup>
 

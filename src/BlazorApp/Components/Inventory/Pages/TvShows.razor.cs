@@ -11,53 +11,30 @@ public partial class TvShows : InventoryPageBase<TvShowDto>
 
     protected override string ListRoute => "/tv-shows";
 
-    private TvShowStatus? _stateFilter;
+    [SupplyParameterFromQuery(Name = "state")]
+    public string? StateQuery { get; set; }
 
-    private bool _favoriteFilter;
+    [SupplyParameterFromQuery(Name = "favorite")]
+    public bool FavoriteFilter { get; set; }
 
-    private bool _ownedFilter;
+    [SupplyParameterFromQuery(Name = "owned")]
+    public bool OwnedFilter { get; set; }
 
-    private bool _wishlistedFilter;
+    [SupplyParameterFromQuery(Name = "wishlisted")]
+    public bool WishlistedFilter { get; set; }
+
+    private TvShowStatus? StateFilter => Enum.TryParse<TvShowStatus>(StateQuery, true, out var state) ? state : null;
 
     protected override IReadOnlyDictionary<string, string>? ExtraQuery
     {
         get
         {
             var query = new Dictionary<string, string>();
-            if (_stateFilter is not null) query["State"] = _stateFilter.ToString()!;
-            if (_favoriteFilter) query["IsFavorite"] = "true";
-            if (_ownedFilter) query["IsOwned"] = "true";
-            if (_wishlistedFilter) query["IsWishlisted"] = "true";
+            if (StateFilter is not null) query["State"] = StateFilter.ToString()!;
+            if (FavoriteFilter) query["IsFavorite"] = "true";
+            if (OwnedFilter) query["IsOwned"] = "true";
+            if (WishlistedFilter) query["IsWishlisted"] = "true";
             return query.Count > 0 ? query : null;
         }
     }
-
-    private async Task SetStateFilterAsync(TvShowStatus? state)
-    {
-        _stateFilter = state;
-        _page = 1;
-        await LoadAsync();
-    }
-
-    private async Task ToggleFavoriteFilterAsync()
-    {
-        _favoriteFilter = !_favoriteFilter;
-        _page = 1;
-        await LoadAsync();
-    }
-
-    private async Task ToggleOwnedFilterAsync()
-    {
-        _ownedFilter = !_ownedFilter;
-        _page = 1;
-        await LoadAsync();
-    }
-
-    private async Task ToggleWishlistedFilterAsync()
-    {
-        _wishlistedFilter = !_wishlistedFilter;
-        _page = 1;
-        await LoadAsync();
-    }
-
 }

@@ -81,7 +81,8 @@ public class MovieResourceTest(KestrelWebAppFactory<Program> factory)
             .Rules((f, o) =>
             {
                 o.Title = uniqueTitle;
-                o.IsOwned = true;
+                // "owned" is derived from having at least one owned version, not a stored flag
+                o.OwnedVersions = [new OwnedVersionDto { CopyType = CopyType.Digital, Price = 19.99m, Vendor = "Some store", Reference = "4K UHD edition", AcquiredAt = new DateOnly(2024, 5, 17) }];
                 o.IsWishlisted = true;
             })
             .Generate();
@@ -92,8 +93,32 @@ public class MovieResourceTest(KestrelWebAppFactory<Program> factory)
             var owned = await GetAsync<PagedResult<MovieDto>>($"/{ResourceEndpoint}?IsOwned=true&search={uniqueTitle}");
             owned.Items.Should().ContainSingle(m => m.Id == created.Id);
 
+            // the version's fields must survive the full DTO -> model -> BSON round trip (incl. the decimal price)
+            var fetchedVersions = owned.Items.Single(m => m.Id == created.Id).OwnedVersions;
+            fetchedVersions.Should().BeEquivalentTo(input.OwnedVersions);
+
             var wishlisted = await GetAsync<PagedResult<MovieDto>>($"/{ResourceEndpoint}?IsWishlisted=true&search={uniqueTitle}");
             wishlisted.Items.Should().ContainSingle(m => m.Id == created.Id);
+        }
+        finally
+        {
+            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
+        }
+    }
+
+    [Fact]
+    public async Task MovieResourceOwnedFilter_ExcludesItemsWithoutOwnedVersions_IsOk()
+    {
+        await Authenticate();
+
+        var uniqueTitle = $"NotOwnedTarget-{Guid.NewGuid():N}";
+        var input = new Faker<MovieDto>().Rules((f, o) => { o.Title = uniqueTitle; }).Generate();
+        var created = await PostAsync($"/{ResourceEndpoint}", input);
+
+        try
+        {
+            var owned = await GetAsync<PagedResult<MovieDto>>($"/{ResourceEndpoint}?IsOwned=true&search={uniqueTitle}");
+            owned.Items.Should().NotContain(m => m.Id == created.Id);
         }
         finally
         {

@@ -1,0 +1,106 @@
+@page "/shared/wishlist/{Token}"
+@inject SharedWishlistApiClient SharedWishlistApi
+
+@* Deliberately anonymous (no [Authorize]) and statically rendered (no @rendermode): the recipient of a
+   share link has no account and needs no interactivity - every visit re-fetches, so the view is live by
+   construction. The token in the URL is the access control (see WishlistController.GetShared). *@
+
+<PageTitle>Shared wishlist - Keeptrack</PageTitle>
+<HeadContent>
+    @* the link is private to whoever received it - never let a search engine index one that leaked into a crawl *@
+    <meta name="robots" content="noindex"/>
+</HeadContent>
+
+<div class="kt-page-header">
+    <h1>A shared wish<span>list</span></h1>
+</div>
+
+@if (_loading)
+{
+    <div class="kt-loading">
+        <div class="kt-spinner"></div>
+        Loading…
+    </div>
+}
+else if (_data is null)
+{
+    <div class="kt-empty">
+        <div class="kt-empty-icon">◈</div>
+        <p>This share link is no longer valid - its owner may have stopped sharing. Ask them for a fresh link.</p>
+    </div>
+}
+else
+{
+    <p class="kt-card-meta">Someone shared their wishlist with you - a live view, always up to date.</p>
+
+    @foreach (var (title, rows) in Sections())
+    {
+        @if (rows.Count > 0)
+        {
+            <h2 class="kt-section-title">@title</h2>
+            <div class="kt-table-wrap mb-4">
+                <div class="kt-item-list">
+                    @foreach (var row in rows)
+                    {
+                        <div class="kt-item-row">
+                            <ItemThumb ImageUrl="@row.ImageUrl" Shape="@row.Shape"/>
+                            <div class="kt-item-main">
+                                <span class="kt-item-title">@row.Title</span>
+                                <div class="kt-item-meta">
+                                    @if (row.Year > 0)
+                                    {
+                                        <span>@row.Year</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(row.Subtitle))
+                                    {
+                                        <span>@row.Subtitle</span>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+
+    @if (IsEmpty)
+    {
+        <div class="kt-empty">
+            <div class="kt-empty-icon">◈</div>
+            <p>Nothing on this wishlist yet - check back later.</p>
+        </div>
+    }
+
+    <div class="kt-form-card">
+        <p style="color:var(--kt-text-muted); margin-bottom:0.75rem">
+            Keeptrack is a quiet space to log the things that matter - films watched, books read, wishes kept.
+            Start your own collection for free.
+        </p>
+        <a class="btn btn-sm btn-primary" href="/account/login" data-enhance-nav="false">Get started</a>
+    </div>
+}
+
+@code {
+    [Parameter] public required string Token { get; set; }
+
+    private bool _loading = true;
+    private WishlistDto? _data;
+
+    private bool IsEmpty =>
+        _data is not null && _data.Movies.Count == 0 && _data.TvShows.Count == 0 && _data.Books.Count == 0 && _data.VideoGames.Count == 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _data = await SharedWishlistApi.GetAsync(Token);
+        _loading = false;
+    }
+
+    private IEnumerable<(string Title, List<WishlistRow> Rows)> Sections() =>
+    [
+        ("Movies", WishlistRow.FromMovies(_data!.Movies)),
+        ("TV shows", WishlistRow.FromTvShows(_data.TvShows)),
+        ("Books", WishlistRow.FromBooks(_data.Books)),
+        ("Video games", WishlistRow.FromVideoGames(_data.VideoGames))
+    ];
+}

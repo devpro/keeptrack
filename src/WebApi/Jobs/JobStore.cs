@@ -1,4 +1,6 @@
-using System.Collections.Concurrent;
+using System.Text.Json;
+using Keeptrack.Domain.Models;
+using Keeptrack.Domain.Repositories;
 
 namespace Keeptrack.WebApi.Jobs;
 
@@ -6,58 +8,49 @@ namespace Keeptrack.WebApi.Jobs;
 /// Tracks the progress of a background job so the client can poll for real status instead of waiting on
 /// a single opaque request - shared by every feature with a long-running admin/user-triggered action
 /// (TV Time import, reference-data "sync now"), parameterized by that feature's own stage enum and result
-/// DTO rather than duplicated per feature. In-memory only - fine for occasional, personal-scale actions;
-/// jobs don't survive an app restart, an acceptable trade-off here.
+/// DTO rather than duplicated per feature. Backed by MongoDB (<see cref="IBackgroundJobRepository"/>),
+/// not memory: with multiple WebApi replicas, the replica answering a poll is not necessarily the one
+/// running the job, and the old in-memory store made polling fail whenever they differed. This typed
+/// wrapper owns the enum-name/JSON translation so the Domain contract stays free of web DTO types.
 /// </summary>
-public class JobStore<TStage, TResult>
+public class JobStore<TStage, TResult>(IBackgroundJobRepository repository)
+    where TStage : struct, Enum
 {
-    private readonly ConcurrentDictionary<Guid, Job> _jobs = new();
+    /// <summary>
+    /// The feature this store's jobs belong to, shown on the admin system-status panel - derived from the
+    /// stage enum's name ("ImportStage" -> "Import"), the one piece of identity every closed generic
+    /// already carries without per-feature registration ceremony.
+    /// </summary>
+    private static readonly string Kind = typeof(TStage).Name.EndsWith("Stage", StringComparison.Ordinal)
+        ? typeof(TStage).Name[..^"Stage".Length]
+        : typeof(TStage).Name;
 
-    public Guid Create(string ownerId, TStage initialStage)
+    public async Task<Guid> CreateAsync(string ownerId, TStage initialStage)
     {
         var jobId = Guid.NewGuid();
-        _jobs[jobId] = new Job(ownerId, initialStage);
+        await repository.CreateAsync(new BackgroundJobModel { JobId = jobId, OwnerId = ownerId, Kind = Kind, Stage = initialStage.ToString() });
         return jobId;
     }
 
-    public void UpdateStage(Guid jobId, TStage stage)
-    {
-        if (_jobs.TryGetValue(jobId, out var job)) job.Stage = stage;
-    }
+    public async Task UpdateStageAsync(Guid jobId, TStage stage) =>
+        await repository.UpdateStageAsync(jobId, stage.ToString());
 
-    public void Complete(Guid jobId, TStage completedStage, TResult result)
-    {
-        if (!_jobs.TryGetValue(jobId, out var job)) return;
-        job.Stage = completedStage;
-        job.Result = result;
-    }
+    public async Task CompleteAsync(Guid jobId, TStage completedStage, TResult result) =>
+        await repository.CompleteAsync(jobId, completedStage.ToString(), JsonSerializer.Serialize(result));
 
-    public void Fail(Guid jobId, TStage failedStage, string errorMessage)
-    {
-        if (!_jobs.TryGetValue(jobId, out var job)) return;
-        job.Stage = failedStage;
-        job.ErrorMessage = errorMessage;
-    }
+    public async Task FailAsync(Guid jobId, TStage failedStage, string errorMessage) =>
+        await repository.FailAsync(jobId, failedStage.ToString(), errorMessage);
 
     /// <summary>
     /// Returns null if the job doesn't exist or wasn't created by this owner - a caller can never observe
-    /// another user's job, even by guessing a job id.
+    /// another user's job, even by guessing a job id (enforced by the repository query itself).
     /// </summary>
-    public (TStage Stage, TResult? Result, string? ErrorMessage)? GetStatus(Guid jobId, string ownerId)
+    public async Task<(TStage Stage, TResult? Result, string? ErrorMessage)?> GetStatusAsync(Guid jobId, string ownerId)
     {
-        if (!_jobs.TryGetValue(jobId, out var job) || job.OwnerId != ownerId) return null;
+        var job = await repository.FindAsync(jobId, ownerId);
+        if (job is null) return null;
 
-        return (job.Stage, job.Result, job.ErrorMessage);
-    }
-
-    private sealed class Job(string ownerId, TStage stage)
-    {
-        public string OwnerId { get; } = ownerId;
-
-        public TStage Stage { get; set; } = stage;
-
-        public TResult? Result { get; set; }
-
-        public string? ErrorMessage { get; set; }
+        var result = job.ResultJson is null ? default : JsonSerializer.Deserialize<TResult>(job.ResultJson);
+        return (Enum.Parse<TStage>(job.Stage), result, job.ErrorMessage);
     }
 }
