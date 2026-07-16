@@ -139,12 +139,12 @@ Template for `src/WebApi/appsettings.Development.json`:
 
 Episode titles, synopses, cover art, and the "what should I watch next" experience are backed by shared reference collections, one per trackable type, each populated from a different external provider rather than typed in by hand:
 
-Type              | Provider            | Setting         | API key required?
-------------------|---------------------|-----------------|------------------
-TV shows / Movies | [TMDB](https://www.themoviedb.org/)         | `Tmdb:ApiKey`   | Yes
-Books             | [Open Library](https://openlibrary.org/) | *(none)*        | No
-Video Games       | [RAWG](https://rawg.io/apidocs)         | `Rawg:ApiKey`   | Yes
-Albums            | [Discogs](https://www.discogs.com/developers)      | `Discogs:Token` | Yes (personal access token)
+Type              | Provider                                      | Setting         | API key required?
+------------------|-----------------------------------------------|-----------------|------------------
+TV shows / Movies | [TMDB](https://www.themoviedb.org/)           | `Tmdb:ApiKey`   | Yes
+Books             | [Open Library](https://openlibrary.org/)      | *(none)*        | No
+Video Games       | [RAWG](https://rawg.io/apidocs)               | `Rawg:ApiKey`   | Yes
+Albums            | [Discogs](https://www.discogs.com/developers) | `Discogs:Token` | Yes (personal access token)
 
 1. **TMDB**: create a free account, then generate a v3 API key at [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api).
    Set `Tmdb:ApiKey` (or the `Tmdb__ApiKey` environment variable) to that key.
