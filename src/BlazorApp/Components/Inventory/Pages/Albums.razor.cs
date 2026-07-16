@@ -11,16 +11,9 @@ public partial class Albums : InventoryPageBase<AlbumDto>
 
     protected override string ListRoute => "/albums";
 
-    private bool _favoriteFilter;
+    [SupplyParameterFromQuery(Name = "favorite")]
+    public bool FavoriteFilter { get; set; }
 
     protected override IReadOnlyDictionary<string, string>? ExtraQuery =>
-        _favoriteFilter ? new Dictionary<string, string> { ["IsFavorite"] = "true" } : null;
-
-    private async Task ToggleFavoriteFilterAsync()
-    {
-        _favoriteFilter = !_favoriteFilter;
-        _page = 1;
-        await LoadAsync();
-    }
-
+        FavoriteFilter ? new Dictionary<string, string> { ["IsFavorite"] = "true" } : null;
 }

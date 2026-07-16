@@ -644,8 +644,18 @@ so a second implementation only needs its own class (`OpenLibraryClient`-shaped:
 `InventoryPageBase<TDto>` (`BlazorApp/Components/Inventory/InventoryPageBase.cs`) centralizes list/paging/search/inline-edit state and calls into `InventoryApiClientBase<TDto>`,
 which wraps the typed `HttpClient` calls to the Web API (its `GetAsync` takes an optional extra-query-parameters dictionary, used by features that filter on more than search/page/pageSize).
 Each concrete page (`Books.razor.cs`, `Movies.razor.cs`, ...) only supplies its `Api` instance and `CloneItem`.
-A page that needs its own filter beyond search (e.g. `TvShows.razor.cs`'s state filter) overrides the base's `protected virtual ExtraQuery` property instead of reimplementing paging/search -
-`LoadAsync` is `protected` for exactly this reason, so the page can trigger a reload after changing its own filter state.
+A page that needs its own filter beyond search (e.g. `TvShows.razor.cs`'s state filter) overrides the base's `protected virtual ExtraQuery` property instead of reimplementing paging/search.
+
+List state (search, page, and each page's own filters) lives in the list URL's query string (`?search=&page=` plus lowercase per-filter parameters), read back via `[SupplyParameterFromQuery]`.
+Search/filter/pagination clicks never call `LoadAsync` themselves - they navigate via the base's `ApplyQueryChanges`/`ToggleFilter`/`SetFilter` helpers,
+and the reload happens once in `InventoryPageBase.OnParametersSetAsync` when the router supplies the new values.
+This is what makes browser back from an item's detail page restore the exact list position (the original complaint: paging deep into movies, opening one, and coming back used to reset to an unfiltered page 1),
+and it means a button click and browser back/forward share one code path instead of two.
+A new list filter therefore needs three things: a `[SupplyParameterFromQuery]` property, an `ExtraQuery` entry (the API-facing key, e.g. `IsFavorite`),
+and a razor button calling `ToggleFilter`/`SetFilter` with the URL parameter name (e.g. `favorite`) - don't add a mutate-a-field-then-`LoadAsync` handler, that's the pre-URL-state pattern this replaced.
+`InventoryList`'s search box keeps a deliberate local copy of the text (so a parent re-render racing fast typing can't revert characters)
+and adopts an externally-changed `Search` parameter only when it didn't originate from its own `OnSearchChanged` report - see the sent/received tracking in its `OnParametersSet` before touching that logic.
+Covered end-to-end by `ListStateSmokeTest` (Playwright), including the back-navigation-from-detail scenario.
 Authentication uses Firebase (cookie auth in the Blazor app, JWT bearer validated against Firebase in the Web API); `AuthenticationTokenHandler` attaches the bearer token to outgoing API calls.
 
 Pages that aren't a generic CRUD list (`TvShowDetail.razor`, `WatchNext/WatchNextPage.razor`, `Import/ImportPage.razor`) don't extend `InventoryPageBase`/`InventoryList` —

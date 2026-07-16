@@ -28,13 +28,13 @@
                OnDelete="@DeleteAsync"
                OnSearchChanged="@OnSearchChanged">
     <Filters>
-        <button class="btn btn-sm @(_stateFilter is null ? "btn-primary" : "btn-secondary")" @onclick='() => SetStateFilterAsync(null)'>All</button>
+        <button class="btn btn-sm @(string.IsNullOrEmpty(StateFilter) ? "btn-primary" : "btn-secondary")" @onclick='() => SetFilter("state", null)'>All</button>
         @foreach (var state in VideoGameStates)
         {
-            <button class="btn btn-sm @(_stateFilter == state ? "btn-primary" : "btn-secondary")" @onclick="() => SetStateFilterAsync(state)">@state</button>
+            <button class="btn btn-sm @(StateFilter == state ? "btn-primary" : "btn-secondary")" @onclick='() => SetFilter("state", state)'>@state</button>
         }
-        <button class="btn btn-sm kt-toggle-btn @(_ownedFilter ? "active" : "")" @onclick="ToggleOwnedFilterAsync">● Owned</button>
-        <button class="btn btn-sm kt-toggle-btn @(_wishlistedFilter ? "active" : "")" @onclick="ToggleWishlistedFilterAsync">○ Wishlist</button>
+        <button class="btn btn-sm kt-toggle-btn @(OwnedFilter ? "active" : "")" @onclick='() => ToggleFilter("owned", OwnedFilter)'>● Owned</button>
+        <button class="btn btn-sm kt-toggle-btn @(WishlistedFilter ? "active" : "")" @onclick='() => ToggleFilter("wishlisted", WishlistedFilter)'>○ Wishlist</button>
     </Filters>
     <MetaTemplate Context="game">
         @if (game.Year > 0)

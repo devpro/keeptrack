@@ -25,43 +25,24 @@ public partial class VideoGames : InventoryPageBase<VideoGameDto>
 
     protected override string ListRoute => "/video-games";
 
-    private string? _stateFilter;
+    [SupplyParameterFromQuery(Name = "state")]
+    public string? StateFilter { get; set; }
 
-    private bool _ownedFilter;
+    [SupplyParameterFromQuery(Name = "owned")]
+    public bool OwnedFilter { get; set; }
 
-    private bool _wishlistedFilter;
+    [SupplyParameterFromQuery(Name = "wishlisted")]
+    public bool WishlistedFilter { get; set; }
 
     protected override IReadOnlyDictionary<string, string>? ExtraQuery
     {
         get
         {
             var query = new Dictionary<string, string>();
-            if (!string.IsNullOrEmpty(_stateFilter)) query["State"] = _stateFilter;
-            if (_ownedFilter) query["IsOwned"] = "true";
-            if (_wishlistedFilter) query["IsWishlisted"] = "true";
+            if (!string.IsNullOrEmpty(StateFilter)) query["State"] = StateFilter;
+            if (OwnedFilter) query["IsOwned"] = "true";
+            if (WishlistedFilter) query["IsWishlisted"] = "true";
             return query.Count > 0 ? query : null;
         }
     }
-
-    private async Task SetStateFilterAsync(string? state)
-    {
-        _stateFilter = state;
-        _page = 1;
-        await LoadAsync();
-    }
-
-    private async Task ToggleOwnedFilterAsync()
-    {
-        _ownedFilter = !_ownedFilter;
-        _page = 1;
-        await LoadAsync();
-    }
-
-    private async Task ToggleWishlistedFilterAsync()
-    {
-        _wishlistedFilter = !_wishlistedFilter;
-        _page = 1;
-        await LoadAsync();
-    }
-
 }

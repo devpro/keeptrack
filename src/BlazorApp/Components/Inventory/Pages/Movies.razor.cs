@@ -11,43 +11,24 @@ public partial class Movies : InventoryPageBase<MovieDto>
 
     protected override string ListRoute => "/movies";
 
-    private bool _favoriteFilter;
+    [SupplyParameterFromQuery(Name = "favorite")]
+    public bool FavoriteFilter { get; set; }
 
-    private bool _ownedFilter;
+    [SupplyParameterFromQuery(Name = "owned")]
+    public bool OwnedFilter { get; set; }
 
-    private bool _wishlistedFilter;
+    [SupplyParameterFromQuery(Name = "wishlisted")]
+    public bool WishlistedFilter { get; set; }
 
     protected override IReadOnlyDictionary<string, string>? ExtraQuery
     {
         get
         {
             var query = new Dictionary<string, string>();
-            if (_favoriteFilter) query["IsFavorite"] = "true";
-            if (_ownedFilter) query["IsOwned"] = "true";
-            if (_wishlistedFilter) query["IsWishlisted"] = "true";
+            if (FavoriteFilter) query["IsFavorite"] = "true";
+            if (OwnedFilter) query["IsOwned"] = "true";
+            if (WishlistedFilter) query["IsWishlisted"] = "true";
             return query.Count > 0 ? query : null;
         }
     }
-
-    private async Task ToggleFavoriteFilterAsync()
-    {
-        _favoriteFilter = !_favoriteFilter;
-        _page = 1;
-        await LoadAsync();
-    }
-
-    private async Task ToggleOwnedFilterAsync()
-    {
-        _ownedFilter = !_ownedFilter;
-        _page = 1;
-        await LoadAsync();
-    }
-
-    private async Task ToggleWishlistedFilterAsync()
-    {
-        _wishlistedFilter = !_wishlistedFilter;
-        _page = 1;
-        await LoadAsync();
-    }
-
 }

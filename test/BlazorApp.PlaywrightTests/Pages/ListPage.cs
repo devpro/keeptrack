@@ -54,6 +54,14 @@ public class ListPage(IPage page, string route, string title) : PageBase(page)
 
     public async Task SaveNewAsync() => await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Save", Exact = true }).ClickAsync();
 
+    /// <summary>
+    /// Clicks a <c>kt-toggle-btn</c> filter button until it reads back as active - the same
+    /// first-click-after-load prerender gap <see cref="ClickAddAsync"/> mitigates via
+    /// <see cref="PageBase.ClickUntilAsync"/>.
+    /// </summary>
+    public async Task ClickFilterUntilActiveAsync(ILocator filterButton)
+        => await ClickUntilAsync(filterButton, Page.Locator("button.kt-toggle-btn.active"));
+
     public async Task SearchAsync(string query)
     {
         var search = Page.GetByPlaceholder("Search…");
