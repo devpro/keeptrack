@@ -168,7 +168,7 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             Title = "Heat",
             Year = 1995,
             Rating = 4,
-            IsOwned = true,
+            OwnedVersions = [new OwnedVersionDto { CopyType = CopyType.Physical, Price = 14.99m, Vendor = "Fnac", Reference = "Blu-ray" }],
             FirstSeenAt = new DateOnly(2023, 11, 2)
         });
         await CreateAsync(api, created, "api/movies", new MovieDto { Title = "Everything Everywhere All at Once", Year = 2022, WantToWatch = true });
@@ -177,7 +177,7 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             Title = "The Terminator",
             Year = 1984,
             Rating = 4,
-            IsOwned = true,
+            OwnedVersions = [new OwnedVersionDto { CopyType = CopyType.Digital }],
             FirstSeenAt = new DateOnly(2022, 7, 30)
         });
         await CreateAsync(api, created, "api/movies", new MovieDto { Title = "Blade Runner 2049", Year = 2017, WantToWatch = true, IsWishlisted = true });
@@ -230,7 +230,14 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             Rating = 4.5f,
             IsFavorite = true
         });
-        await CreateAsync(api, created, "api/video-games", new VideoGameDto { Title = "Hades", Year = 2020, Rating = 4.5f, IsOwned = true });
+        await CreateAsync(api, created, "api/video-games", new VideoGameDto
+        {
+            Title = "Hades",
+            Year = 2020,
+            Rating = 4.5f,
+            // a game's copies are its platform entries - there is no separate owned flag anymore
+            Platforms = [new VideoGamePlatformDto { Platform = "PC", CopyType = CopyType.Digital, State = "Current" }]
+        });
         await LinkFirstCandidateAsync(api, ReferenceItemType.Album, "Nevermind", 1991, "Nirvana");
         await LinkFirstCandidateAsync(api, ReferenceItemType.VideoGame, "Hades", 2020, null);
 

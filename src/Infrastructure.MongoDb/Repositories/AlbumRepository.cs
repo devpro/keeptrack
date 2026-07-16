@@ -24,6 +24,8 @@ public class AlbumRepository(IMongoDatabase mongoDatabase, ILogger<AlbumReposito
         if (!string.IsNullOrEmpty(search)) filter &= builder.Where(f => f.Title.Contains(search, System.StringComparison.CurrentCultureIgnoreCase)
                                                                          || f.Artist.Contains(search, System.StringComparison.CurrentCultureIgnoreCase));
         if (input.IsFavorite) filter &= builder.Eq(f => f.IsFavorite, true);
+        // "owned" means at least one owned version - see MovieRepository.GetFilter
+        if (input.IsOwned) filter &= builder.SizeGt(f => f.OwnedVersions, 0);
         return filter;
     }
 

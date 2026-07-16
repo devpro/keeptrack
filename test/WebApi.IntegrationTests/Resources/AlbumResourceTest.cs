@@ -78,6 +78,37 @@ public class AlbumResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     [Fact]
+    public async Task AlbumResourceOwnedFilter_OnlyReturnsAlbumsWithOwnedVersions_IsOk()
+    {
+        await Authenticate();
+
+        var title = $"OwnedTarget-{System.Guid.NewGuid():N}";
+        var created = await PostAsync($"/{ResourceEndpoint}", new AlbumDto
+        {
+            Title = title,
+            Artist = "Owned Filter Artist",
+            // "owned" is derived from having at least one owned version, not a stored flag
+            OwnedVersions = [new OwnedVersionDto { CopyType = CopyType.Physical, Price = 24.50m, Vendor = "Record store", Reference = "Vinyl reissue" }]
+        });
+        var notOwned = await PostAsync($"/{ResourceEndpoint}", new AlbumDto { Title = title, Artist = "Owned Filter Artist" });
+
+        try
+        {
+            var owned = await GetAsync<PagedResult<AlbumDto>>($"/{ResourceEndpoint}?IsOwned=true&search={title}");
+            owned.Items.Should().ContainSingle(x => x.Id == created.Id);
+            owned.Items.Should().NotContain(x => x.Id == notOwned.Id);
+
+            // the version's fields must survive the full DTO -> model -> BSON round trip (incl. the decimal price)
+            owned.Items.Single(x => x.Id == created.Id).OwnedVersions.Should().BeEquivalentTo(created.OwnedVersions);
+        }
+        finally
+        {
+            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
+            await DeleteAsync($"/{ResourceEndpoint}/{notOwned.Id}");
+        }
+    }
+
+    [Fact]
     public async Task AlbumResourceSearch_FiltersToMatchingTitleOrArtist_IsOk()
     {
         await Authenticate();

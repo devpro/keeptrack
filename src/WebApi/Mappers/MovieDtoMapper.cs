@@ -3,7 +3,7 @@ using Riok.Mapperly.Abstractions;
 
 namespace Keeptrack.WebApi.Mappers;
 
-[Mapper]
+[Mapper(EnumMappingStrategy = EnumMappingStrategy.ByName)]
 [UseStaticMapper(typeof(CommonDtoMappings))]
 public partial class MovieDtoMapper : IDtoMapper<MovieDto, MovieModel>
 {

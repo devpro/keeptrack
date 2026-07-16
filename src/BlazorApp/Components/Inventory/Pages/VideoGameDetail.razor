@@ -35,7 +35,6 @@ else
             }
         </div>
         <div class="d-flex gap-2">
-            <button class="btn btn-sm kt-toggle-btn @(_game.IsOwned ? "active" : "")" @onclick="ToggleOwnedAsync">● Owned</button>
             <button class="btn btn-sm kt-toggle-btn @(_game.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync">○ Wishlist</button>
         </div>
     </div>
@@ -103,8 +102,8 @@ else
                 <div>
                     <h3 class="mb-2">@entry.Platform</h3>
                     <div class="d-flex gap-2">
-                        <button class="btn btn-sm @(entry.CopyType == VideoGameCopyType.Physical ? "btn-primary" : "btn-secondary")" @onclick="() => SetCopyTypeAsync(entry, VideoGameCopyType.Physical)">Physical</button>
-                        <button class="btn btn-sm @(entry.CopyType == VideoGameCopyType.Digital ? "btn-primary" : "btn-secondary")" @onclick="() => SetCopyTypeAsync(entry, VideoGameCopyType.Digital)">Digital</button>
+                        <button class="btn btn-sm @(entry.CopyType == CopyType.Physical ? "btn-primary" : "btn-secondary")" @onclick="() => SetCopyTypeAsync(entry, CopyType.Physical)">Physical</button>
+                        <button class="btn btn-sm @(entry.CopyType == CopyType.Digital ? "btn-primary" : "btn-secondary")" @onclick="() => SetCopyTypeAsync(entry, CopyType.Digital)">Digital</button>
                     </div>
                 </div>
                 <button class="kt-icon-btn" title="Remove this platform" @onclick="() => RemovePlatformAsync(entry)">✕</button>
@@ -155,8 +154,8 @@ else
                     <option>@platform</option>
                 }
             </select>
-            <button class="btn btn-sm @(_newCopyType == VideoGameCopyType.Physical ? "btn-primary" : "btn-secondary")" @onclick="() => _newCopyType = VideoGameCopyType.Physical">Physical</button>
-            <button class="btn btn-sm @(_newCopyType == VideoGameCopyType.Digital ? "btn-primary" : "btn-secondary")" @onclick="() => _newCopyType = VideoGameCopyType.Digital">Digital</button>
+            <button class="btn btn-sm @(_newCopyType == CopyType.Physical ? "btn-primary" : "btn-secondary")" @onclick="() => _newCopyType = CopyType.Physical">Physical</button>
+            <button class="btn btn-sm @(_newCopyType == CopyType.Digital ? "btn-primary" : "btn-secondary")" @onclick="() => _newCopyType = CopyType.Digital">Digital</button>
             <button class="btn btn-sm btn-primary" disabled="@string.IsNullOrEmpty(_newPlatform)" @onclick="AddPlatformAsync">+ Add</button>
         </div>
     </div>
@@ -179,7 +178,7 @@ else
     private string _refreshMessageStyle = "neutral";
     private object? _refreshMessageToken;
     private string _newPlatform = "";
-    private VideoGameCopyType _newCopyType;
+    private CopyType _newCopyType;
 
     protected override async Task OnParametersSetAsync() => await LoadAsync();
 
@@ -203,13 +202,6 @@ else
     {
         if (_game is null) return;
         _game.Rating = rating;
-        await SaveGameAsync();
-    }
-
-    private async Task ToggleOwnedAsync()
-    {
-        if (_game is null) return;
-        _game.IsOwned = !_game.IsOwned;
         await SaveGameAsync();
     }
 
@@ -248,7 +240,7 @@ else
         if (_game is null || string.IsNullOrEmpty(_newPlatform)) return;
         _game.Platforms.Add(new VideoGamePlatformDto { Platform = _newPlatform, CopyType = _newCopyType });
         _newPlatform = "";
-        _newCopyType = VideoGameCopyType.Physical;
+        _newCopyType = CopyType.Physical;
         await SaveGameAsync();
     }
 
@@ -259,7 +251,7 @@ else
         await SaveGameAsync();
     }
 
-    private async Task SetCopyTypeAsync(VideoGamePlatformDto entry, VideoGameCopyType copyType)
+    private async Task SetCopyTypeAsync(VideoGamePlatformDto entry, CopyType copyType)
     {
         entry.CopyType = copyType;
         await SaveGameAsync();

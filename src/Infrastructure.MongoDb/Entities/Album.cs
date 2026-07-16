@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Keeptrack.Common.System;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
@@ -28,4 +29,7 @@ public class Album : IHasIdAndOwnerId
 
     [BsonElement("is_favorite")]
     public bool IsFavorite { get; set; }
+
+    [BsonElement("owned_versions")]
+    public List<OwnedVersion> OwnedVersions { get; set; } = [];
 }

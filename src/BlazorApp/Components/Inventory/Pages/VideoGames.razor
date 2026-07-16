@@ -51,10 +51,7 @@
         {
             <span class="kt-stars"><StarRating Rating="game.Rating"/></span>
         }
-        @if (game.IsOwned)
-        {
-            <span class="kt-flag-badge">Owned</span>
-        }
+        @* no Owned badge here - the per-platform badges above already are the game's copies *@
         @if (game.IsWishlisted)
         {
             <span class="kt-flag-badge wishlist">Wishlist</span>

@@ -29,6 +29,7 @@
                OnSearchChanged="@OnSearchChanged">
     <Filters>
         <button class="btn btn-sm kt-toggle-btn @(FavoriteFilter ? "active" : "")" @onclick='() => ToggleFilter("favorite", FavoriteFilter)'>★ Favorites</button>
+        <button class="btn btn-sm kt-toggle-btn @(OwnedFilter ? "active" : "")" @onclick='() => ToggleFilter("owned", OwnedFilter)'>● Owned</button>
     </Filters>
     <MetaTemplate Context="album">
         @if (!string.IsNullOrEmpty(album.Artist))
@@ -46,6 +47,10 @@
         @if (album.IsFavorite)
         {
             <span class="kt-flag-badge favorite">Favorite</span>
+        }
+        @if (album.OwnedVersions.Count > 0)
+        {
+            <span class="kt-flag-badge">Owned</span>
         }
     </MetaTemplate>
     <FormTemplate Context="album">

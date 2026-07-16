@@ -52,7 +52,7 @@
         {
             <span class="kt-flag-badge done">Read</span>
         }
-        @if (book.IsOwned)
+        @if (book.OwnedVersions.Count > 0)
         {
             <span class="kt-flag-badge">Owned</span>
         }

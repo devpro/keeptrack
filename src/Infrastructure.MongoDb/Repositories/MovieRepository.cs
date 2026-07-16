@@ -24,7 +24,8 @@ public class MovieRepository(IMongoDatabase mongoDatabase, ILogger<MovieReposito
         if (!string.IsNullOrEmpty(search)) filter &= builder.Where(f => f.Title.Contains(search, System.StringComparison.CurrentCultureIgnoreCase));
         if (input.IsFavorite) filter &= builder.Eq(f => f.IsFavorite, true);
         if (input.WantToWatch) filter &= builder.Eq(f => f.WantToWatch, true);
-        if (input.IsOwned) filter &= builder.Eq(f => f.IsOwned, true);
+        // "owned" means at least one owned version - renders as { "owned_versions.0": { $exists: true } }
+        if (input.IsOwned) filter &= builder.SizeGt(f => f.OwnedVersions, 0);
         if (input.IsWishlisted) filter &= builder.Eq(f => f.IsWishlisted, true);
         return filter;
     }

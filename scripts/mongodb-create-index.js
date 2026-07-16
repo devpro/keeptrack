@@ -91,22 +91,12 @@ ensureIndex(
 );
 
 // movie / tvshow / book / videogame: same sparse-flag partial-index rationale as the favorite/want-to-watch
-// indexes above, for the is_owned/is_wishlisted flags. VideoGame has no favorite/want-to-watch flags, so
-// these are its first two flag indexes.
-ensureIndex(
-  db.movie,
-  { owner_id: 1, is_owned: 1 },
-  { name: "movie_owned", partialFilterExpression: { is_owned: true } }
-);
+// indexes above, for the is_wishlisted flag. VideoGame has no favorite/want-to-watch flags, so this is its
+// first flag index.
 ensureIndex(
   db.movie,
   { owner_id: 1, is_wishlisted: 1 },
   { name: "movie_wishlisted", partialFilterExpression: { is_wishlisted: true } }
-);
-ensureIndex(
-  db.tvshow,
-  { owner_id: 1, is_owned: 1 },
-  { name: "tvshow_owned", partialFilterExpression: { is_owned: true } }
 );
 ensureIndex(
   db.tvshow,
@@ -115,23 +105,45 @@ ensureIndex(
 );
 ensureIndex(
   db.book,
-  { owner_id: 1, is_owned: 1 },
-  { name: "book_owned", partialFilterExpression: { is_owned: true } }
-);
-ensureIndex(
-  db.book,
   { owner_id: 1, is_wishlisted: 1 },
   { name: "book_wishlisted", partialFilterExpression: { is_wishlisted: true } }
 );
 ensureIndex(
   db.videogame,
-  { owner_id: 1, is_owned: 1 },
-  { name: "videogame_owned", partialFilterExpression: { is_owned: true } }
+  { owner_id: 1, is_wishlisted: 1 },
+  { name: "videogame_wishlisted", partialFilterExpression: { is_wishlisted: true } }
+);
+
+// movie / tvshow / book / album / videogame: the "owned" filter. There is no stored is_owned flag anymore -
+// ownership is derived from owned_versions (platforms for videogame) being non-empty, which the repositories
+// query as { "owned_versions.0": { $exists: true } } (the driver's SizeGt rendering). The partial filter
+// matches that predicate exactly, so the planner can use these for owned-filtered list queries while the
+// index stays as sparse as the old is_owned one. Re-running this script after the migration replaces the
+// old same-named is_owned index definitions automatically (ensureIndex drops on conflict).
+ensureIndex(
+  db.movie,
+  { owner_id: 1 },
+  { name: "movie_owned", partialFilterExpression: { "owned_versions.0": { $exists: true } } }
+);
+ensureIndex(
+  db.tvshow,
+  { owner_id: 1 },
+  { name: "tvshow_owned", partialFilterExpression: { "owned_versions.0": { $exists: true } } }
+);
+ensureIndex(
+  db.book,
+  { owner_id: 1 },
+  { name: "book_owned", partialFilterExpression: { "owned_versions.0": { $exists: true } } }
+);
+ensureIndex(
+  db.album,
+  { owner_id: 1 },
+  { name: "album_owned", partialFilterExpression: { "owned_versions.0": { $exists: true } } }
 );
 ensureIndex(
   db.videogame,
-  { owner_id: 1, is_wishlisted: 1 },
-  { name: "videogame_wishlisted", partialFilterExpression: { is_wishlisted: true } }
+  { owner_id: 1 },
+  { name: "videogame_owned", partialFilterExpression: { "platforms.0": { $exists: true } } }
 );
 
 // tvshow_reference / movie_reference: shared, owner-less lookup tables (see CLAUDE.md) keyed by

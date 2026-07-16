@@ -40,6 +40,10 @@ public class VideoGameDto : IHasId, IReferenceLinkedDto
     /// </summary>
     public string? ImageUrl { get; set; }
 
+    /// <summary>
+    /// Filter-only query parameter: matches games with at least one platform entry (a game's copies).
+    /// Never populated on a returned game - see <see cref="Platform"/> for the convention.
+    /// </summary>
     public bool IsOwned { get; set; }
 
     public bool IsWishlisted { get; set; }

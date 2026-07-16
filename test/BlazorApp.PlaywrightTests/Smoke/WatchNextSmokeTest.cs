@@ -7,6 +7,16 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
+/// Runs alone (never concurrently with any other test) - Watch Next is a cross-entity aggregation over the
+/// whole shared e2e tenant, so parallel classes creating/deleting their own shows and movies race its
+/// assertions (observed as a real intermittent element-not-found failure in a full parallel run that
+/// passes in isolation). DisableParallelization gives it the quiet tenant it needs without slowing the
+/// rest of the suite down.
+/// </summary>
+[CollectionDefinition(nameof(WatchNextSmokeTest), DisableParallelization = true)]
+public class WatchNextSmokeTestCollection;
+
+/// <summary>
 /// Watch Next needs real, reference-linked, partially-watched data to assert anything meaningful (an empty
 /// state is already covered by <c>NavigationSmokeTest</c>). Real-world airing status doesn't matter for the
 /// "Current" state - <c>WatchNextService</c> only checks the tenant's own <c>State</c> field, not whether the
@@ -14,9 +24,11 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 /// (its episode list will never change between runs, unlike a currently-airing show's).
 /// Uses different real titles than <see cref="TvShowSmokeTest"/>/<see cref="MovieSmokeTest"/> since every
 /// smoke test shares the same e2e tenant and a fixed real-world title would otherwise collide.
+/// See <see cref="WatchNextSmokeTestCollection"/> for why this class never runs in parallel with others.
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]
+[Collection(nameof(WatchNextSmokeTest))]
 public class WatchNextSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 {
     private const string ShowTitle = "The Wire";

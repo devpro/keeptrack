@@ -36,7 +36,6 @@ else
         </div>
         <div class="d-flex gap-2">
             <button class="btn btn-sm kt-toggle-btn @(_book.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>
-            <button class="btn btn-sm kt-toggle-btn @(_book.IsOwned ? "active" : "")" @onclick="ToggleOwnedAsync">● Owned</button>
             <button class="btn btn-sm kt-toggle-btn @(_book.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync">○ Wishlist</button>
         </div>
     </div>
@@ -102,6 +101,8 @@ else
             <p class="mb-0" style="color:var(--kt-text-muted)">@_reference.Synopsis</p>
         }
     </div>
+
+    <OwnedVersionsEditor Versions="_book.OwnedVersions" OnChanged="SaveBookAsync"/>
 }
 
 @code {
@@ -145,10 +146,9 @@ else
         await BookApi.UpdateAsync(_book);
     }
 
-    private async Task ToggleOwnedAsync()
+    private async Task SaveBookAsync()
     {
         if (_book is null) return;
-        _book.IsOwned = !_book.IsOwned;
         await BookApi.UpdateAsync(_book);
     }
 

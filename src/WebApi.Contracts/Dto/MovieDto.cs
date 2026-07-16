@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Keeptrack.Common.System;
 
 namespace Keeptrack.WebApi.Contracts.Dto;
@@ -38,6 +39,15 @@ public class MovieDto : IHasId, IReferenceLinkedDto
 
     public bool WantToWatch { get; set; }
 
+    /// <summary>
+    /// Every owned copy of this movie - the movie counts as owned when this list is non-empty.
+    /// </summary>
+    public List<OwnedVersionDto> OwnedVersions { get; set; } = [];
+
+    /// <summary>
+    /// Filter-only query parameter: matches items with at least one owned version. Never populated on a
+    /// returned item - see <see cref="VideoGameDto.Platform"/> for the convention.
+    /// </summary>
     public bool IsOwned { get; set; }
 
     public bool IsWishlisted { get; set; }

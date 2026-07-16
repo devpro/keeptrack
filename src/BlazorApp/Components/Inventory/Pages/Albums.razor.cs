@@ -14,6 +14,17 @@ public partial class Albums : InventoryPageBase<AlbumDto>
     [SupplyParameterFromQuery(Name = "favorite")]
     public bool FavoriteFilter { get; set; }
 
-    protected override IReadOnlyDictionary<string, string>? ExtraQuery =>
-        FavoriteFilter ? new Dictionary<string, string> { ["IsFavorite"] = "true" } : null;
+    [SupplyParameterFromQuery(Name = "owned")]
+    public bool OwnedFilter { get; set; }
+
+    protected override IReadOnlyDictionary<string, string>? ExtraQuery
+    {
+        get
+        {
+            var query = new Dictionary<string, string>();
+            if (FavoriteFilter) query["IsFavorite"] = "true";
+            if (OwnedFilter) query["IsOwned"] = "true";
+            return query.Count > 0 ? query : null;
+        }
+    }
 }

@@ -56,7 +56,7 @@
         {
             <span class="kt-flag-badge wishlist">To watch</span>
         }
-        @if (show.IsOwned)
+        @if (show.OwnedVersions.Count > 0)
         {
             <span class="kt-flag-badge">Owned</span>
         }

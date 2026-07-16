@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Keeptrack.Common.System;
 
 namespace Keeptrack.WebApi.Contracts.Dto;
@@ -51,4 +52,15 @@ public class AlbumDto : IHasId, IReferenceLinkedDto
     public string? ImageUrl { get; set; }
 
     public bool IsFavorite { get; set; }
+
+    /// <summary>
+    /// Every owned copy of this album - the album counts as owned when this list is non-empty.
+    /// </summary>
+    public List<OwnedVersionDto> OwnedVersions { get; set; } = [];
+
+    /// <summary>
+    /// Filter-only query parameter: matches items with at least one owned version. Never populated on a
+    /// returned item - see <see cref="VideoGameDto.Platform"/> for the convention.
+    /// </summary>
+    public bool IsOwned { get; set; }
 }

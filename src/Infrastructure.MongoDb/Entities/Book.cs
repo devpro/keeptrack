@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Keeptrack.Common.System;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
@@ -37,8 +38,8 @@ public class Book : IHasIdAndOwnerId
     [BsonElement("is_favorite")]
     public bool IsFavorite { get; set; }
 
-    [BsonElement("is_owned")]
-    public bool IsOwned { get; set; }
+    [BsonElement("owned_versions")]
+    public List<OwnedVersion> OwnedVersions { get; set; } = [];
 
     [BsonElement("is_wishlisted")]
     public bool IsWishlisted { get; set; }

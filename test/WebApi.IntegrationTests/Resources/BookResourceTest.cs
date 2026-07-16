@@ -58,7 +58,8 @@ public class BookResourceTest(KestrelWebAppFactory<Program> factory)
             {
                 o.Author = f.Random.AlphaNumeric(8);
                 o.Title = uniqueTitle;
-                o.IsOwned = true;
+                // "owned" is derived from having at least one owned version, not a stored flag
+                o.OwnedVersions = [new OwnedVersionDto()];
                 o.IsWishlisted = true;
             })
             .Generate();

@@ -16,7 +16,7 @@ public class VideoGamePlatformDto
     /// <summary>
     /// Whether this is a physical or digital copy.
     /// </summary>
-    public VideoGameCopyType CopyType { get; set; }
+    public CopyType CopyType { get; set; }
 
     /// <summary>
     /// Current playing state for this platform entry.

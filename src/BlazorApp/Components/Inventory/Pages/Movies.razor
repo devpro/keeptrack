@@ -52,7 +52,7 @@
         {
             <span class="kt-flag-badge wishlist">To watch</span>
         }
-        @if (movie.IsOwned)
+        @if (movie.OwnedVersions.Count > 0)
         {
             <span class="kt-flag-badge">Owned</span>
         }

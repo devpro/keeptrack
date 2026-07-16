@@ -132,6 +132,23 @@ It's a hard language limitation forced by the generic list-page base class, not 
 A Dto with no `InventoryPageBase` usage (e.g. `CarHistoryDto`, owned-by-a-parent types managed from their parent's detail page rather than their own list page) has no such constraint.
 It can mirror the Domain model's `required` members in full.
 
+### Ownership: owned versions, never a stored flag
+
+An item is "owned" exactly when it has at least one owned copy - the old stored `is_owned` boolean was removed (owner's call: a duplicate, too-general flag that could drift out of sync with the copies).
+`Movie`/`TvShow`/`Book`/`Album` embed a `List<OwnedVersionModel>` (`owned_versions`): each entry is one copy with a `CopyType` (`Physical`, deliberately first so it's the default, or `Digital`),
+optional `Price` (`decimal`, stored as Decimal128; currency-agnostic - the euro sign on the edit form is a display choice, pending a possible per-user currency profile setting),
+optional `AcquiredAt` (`DateOnly`, via the shared `CommonStorageMappings` conversion), optional `Vendor`, and an optional free-text `Reference` (edition/order number - unrelated to reference-data `ReferenceId`).
+`CopyType` is the renamed, now-shared `VideoGameCopyType` - video games do **not** get `OwnedVersions`; their per-platform entries (each already carrying a `CopyType`) *are* their copies,
+so a game is owned when `Platforms` is non-empty, and the same rule applies (no stored flag).
+`IsOwned` still exists on the models/DTOs but only as a filter-only query parameter (the `VideoGameDto.Platform` convention): repositories translate it to `SizeGt(OwnedVersions/Platforms, 0)`,
+and the `*_owned` partial indexes match that rendered `{ "owned_versions.0": { $exists: true } }` predicate.
+The storage mappers ignore `IsOwned` in both directions - don't map it to an entity field again.
+`BlazorApp`'s detail pages share one `OwnedVersionsEditor` component (`Components/Inventory/Shared/`) instead of the old header toggle; list rows derive their "Owned" badge from `OwnedVersions.Count > 0`
+(video games show their platform badges instead - an extra Owned badge would be redundant).
+Existing data needs the one-off `scripts/migrate-is-owned-to-owned-versions.js` (seeds one default Physical version per `is_owned: true` document, then unsets the flag; games flagged owned with no platform entry are printed for manual re-entry),
+then a `scripts/mongodb-create-index.js` re-run to replace the old `is_owned` index definitions.
+Covered by the resource tests' owned-filter cases (including a full decimal/date round-trip in `MovieResourceTest`/`AlbumResourceTest`) and `OwnershipSmokeTest` (Playwright, end-to-end through the editor).
+
 ### Child entities (1-to-many owned by another entity)
 
 `CarHistory` (owned by `Car`) and `Episode` (owned by `TvShow`) are separate top-level collections referencing their parent by id (`car_id`, `tv_show_id`), not embedded arrays.

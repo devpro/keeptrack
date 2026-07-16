@@ -272,6 +272,10 @@ These need two things configured before they'll pass:
      See the [Web API settings](#web-api-settings) above for the Issuer/Audience split.
      This is what lets the API-under-test validate the token issued by that same Firebase project.
 
+One test is additionally opt-in: `SyncNow_PollingReachesACompletedResult` polls a full reference-data sync to completion against the live providers,
+so its duration grows with the database and it can flake on provider latency/rate limits.
+It self-skips unless `REFERENCE_SYNC_POLL_ENABLED=true`; set that when working on the sync pipeline (the job-start half of the lifecycle stays covered by default).
+
 Provide all of this as environment variables (works everywhere, including CI - see `.github/workflows/ci.yaml` for how the pipeline supplies its own test account), for example:
 
 ```bash
