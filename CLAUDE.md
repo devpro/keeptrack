@@ -335,6 +335,16 @@ Firebase's claim arrives as a plain `"role"` claim rather than the `ClaimTypes.R
 WebApi validates the bearer token's claims directly and needs no equivalent step.
 There's no in-app way to grant the first admin; it's a one-off `setCustomUserClaims` call via the Firebase Admin SDK (see `CONTRIBUTING.md`).
 
+The app is meant to be publicly shareable: anyone can sign in (Google/GitHub via Firebase Auth), but a plain account with **no** `role` claim is a *free preview* tier.
+Free tier = movies and TV shows only, capped at `Features:FreeTierItemLimit` creations per collection (default 20, guarded in `AppConfiguration.GetFreeTierItemLimit` so a missing setting can never lock the tier out entirely);
+episodes are capped at 100x that limit (`EpisodeController.FreeTierLimitFactor`) - generous on purpose, the cap only exists so a raw-API caller can't flood the database, never to ration a real watch-through.
+A Firebase custom claim `role: member` unlocks everything; the "MemberOnly" policy (`RequireClaim("role", "member", "admin")`, registered in both `Program.cs` files) accepts `admin` too - a membership must never be less than the owner's own account.
+Enforcement is API-side and two-layered: `[Authorize(Policy = "MemberOnly")]` on every restricted controller (Book/Album/Playlist/Song/VideoGame/Car/CarHistory/House/HouseHistory/TvTimeImport),
+and the creation quota in `DataCrudControllerBase.Post` (opted into per controller via `FreeTierLimitFactor`; 403 with the standard `{ error }` body once `CountAsync` reaches the limit).
+`NavMenu.razor` hiding the restricted sections (with a "preview account" note) is UX, not security - never rely on it.
+`FreeTierTest` (unit) covers the quota path directly (the integration suite's shared Firebase user is an admin, which the quota never counts, so HTTP-level coverage can't reach it)
+plus a reflection guard asserting each controller carries exactly the expected policy - removing one is a failing test, not a silent public giveaway.
+
 **Gotcha:** `WebApi/Program.cs`'s `AddJwtBearer` sets `options.MapInboundClaims = false` deliberately.
 Without it, the token handler silently renames certain short JWT claim names to legacy `ClaimTypes.*` URIs before `HttpContext.User` ever sees them.
 `"role"` is one of the remapped names (to `ClaimTypes.Role`), so `RequireClaim("role", "admin")` would never match even though the raw token genuinely has a `role` claim.

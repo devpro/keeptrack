@@ -19,6 +19,9 @@ public class TvShowController(
     ILogger<TvShowController> logger)
     : DataCrudControllerBase<TvShowDto, TvShowModel>(mapper, dataRepository)
 {
+    /// <summary>TV shows are part of the free preview tier, capped at the configured limit for non-members.</summary>
+    protected override int FreeTierLimitFactor => 1;
+
     /// <summary>
     /// Hydrates each page item's cover image from its linked reference document - one batched lookup per
     /// page (see <see cref="ReferenceImageHydrator"/>), keyed by the id-bearing documents only.

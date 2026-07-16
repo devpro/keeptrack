@@ -25,23 +25,8 @@
                     </NavLink>
                 </div>
                 <div class="nav-item">
-                    <NavLink class="nav-link" href="books">
-                        <span class="nav-icon">▬</span> Books
-                    </NavLink>
-                </div>
-                <div class="nav-item">
                     <NavLink class="nav-link" href="movies">
                         <span class="nav-icon">◼</span> Movies
-                    </NavLink>
-                </div>
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="albums">
-                        <span class="nav-icon">♪</span> Albums
-                    </NavLink>
-                </div>
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="playlists">
-                        <span class="nav-icon">♫</span> Playlists
                     </NavLink>
                 </div>
                 <div class="nav-item">
@@ -49,26 +34,53 @@
                         <span class="nav-icon">▭</span> TV shows
                     </NavLink>
                 </div>
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="video-games">
-                        <span class="nav-icon">◆</span> Video games
-                    </NavLink>
-                </div>
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="cars">
-                        <span class="nav-icon">◉</span> Cars
-                    </NavLink>
-                </div>
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="houses">
-                        <span class="nav-icon">▲</span> Houses
-                    </NavLink>
-                </div>
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="import">
-                        <span class="nav-icon">⬆</span> Import
-                    </NavLink>
-                </div>
+                @* Free preview accounts (no Firebase "member"/"admin" role) only get movies and TV shows -
+                   the two links above sit outside this block on purpose. Hiding is UX, not security:
+                   the API enforces the same policy on every request. *@
+                <AuthorizeView Policy="MemberOnly" Context="memberContext">
+                    <Authorized>
+                        <div class="nav-item">
+                            <NavLink class="nav-link" href="books">
+                                <span class="nav-icon">▬</span> Books
+                            </NavLink>
+                        </div>
+                        <div class="nav-item">
+                            <NavLink class="nav-link" href="albums">
+                                <span class="nav-icon">♪</span> Albums
+                            </NavLink>
+                        </div>
+                        <div class="nav-item">
+                            <NavLink class="nav-link" href="playlists">
+                                <span class="nav-icon">♫</span> Playlists
+                            </NavLink>
+                        </div>
+                        <div class="nav-item">
+                            <NavLink class="nav-link" href="video-games">
+                                <span class="nav-icon">◆</span> Video games
+                            </NavLink>
+                        </div>
+                        <div class="nav-item">
+                            <NavLink class="nav-link" href="cars">
+                                <span class="nav-icon">◉</span> Cars
+                            </NavLink>
+                        </div>
+                        <div class="nav-item">
+                            <NavLink class="nav-link" href="houses">
+                                <span class="nav-icon">▲</span> Houses
+                            </NavLink>
+                        </div>
+                        <div class="nav-item">
+                            <NavLink class="nav-link" href="import">
+                                <span class="nav-icon">⬆</span> Import
+                            </NavLink>
+                        </div>
+                    </Authorized>
+                    <NotAuthorized>
+                        <div class="nav-item">
+                            <span class="kt-nav-note">Preview account - movies &amp; TV shows. A membership unlocks books, albums, games and more.</span>
+                        </div>
+                    </NotAuthorized>
+                </AuthorizeView>
                 <AuthorizeView Policy="AdminOnly" Context="adminContext">
                     <Authorized>
                         <div class="nav-item">

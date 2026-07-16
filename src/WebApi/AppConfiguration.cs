@@ -21,6 +21,20 @@ public class AppConfiguration(IConfiguration configuration)
     /// </summary>
     public bool IsReferenceSyncEnabled => configuration.TryGetSection<bool>("Features:IsReferenceSyncEnabled");
 
+    /// <summary>
+    /// How many items a non-member ("free preview") account may create per free-tier collection
+    /// (movies, TV shows) - see <see cref="Controllers.DataCrudControllerBase{TDto,TModel}"/>'s quota
+    /// check. Guarded against a missing/zero setting so a configuration gap can never lock free
+    /// accounts out of creating anything at all. Static (unlike the rest of this class) because the
+    /// per-request quota check reads just this one value and must not pay for - or depend on - this
+    /// class's eager parsing of every other section.
+    /// </summary>
+    public static int GetFreeTierItemLimit(IConfiguration configuration)
+    {
+        var limit = configuration.GetValue<int>("Features:FreeTierItemLimit");
+        return limit > 0 ? limit : 20;
+    }
+
     public OpenApiInfo OpenApiInfo { get; } = configuration.TryGetSection<OpenApiInfo>("OpenApi");
 
     public JwtBearerSettings JwtBearerSettings { get; } = configuration.TryGetSection<JwtBearerSettings>("Authentication:JwtBearer");

@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Keeptrack.WebApi.Controllers;
 
 [ApiController]
-[Authorize]
+[Authorize(Policy = "MemberOnly")]
 [Route("api/video-games")]
 public class VideoGameController(
     IDtoMapper<VideoGameDto, VideoGameModel> mapper,

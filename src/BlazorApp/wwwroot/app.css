@@ -780,6 +780,15 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 .kt-home-sub { font-size: 1rem; color: var(--kt-text-muted); line-height: 1.75; margin-bottom: 2.5rem; }
 .kt-home-cta { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
 
+/* ── Sidebar note for free preview accounts ─────────────────────────── */
+.kt-nav-note {
+  display: block;
+  padding: 0.55rem 1rem;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--kt-text-subtle);
+}
+
 /* ── Home collection overview (signed-in greeting) ─────────────────── */
 .kt-stat-grid {
   display: grid;

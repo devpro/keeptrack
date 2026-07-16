@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Keeptrack.WebApi.Import;
 
 [ApiController]
-[Authorize]
+[Authorize(Policy = "MemberOnly")]
 [Route("api/import")]
 public class TvTimeImportController(JobStore<ImportStage, ImportResultDto> jobStore, IServiceScopeFactory scopeFactory) : ControllerBase
 {

@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Keeptrack.WebApi.Controllers;
 
 [ApiController]
-[Authorize]
+[Authorize(Policy = "MemberOnly")]
 [Route("api/house-history")]
 public class HouseHistoryController(IDtoMapper<HouseHistoryDto, HouseHistoryModel> mapper, IHouseHistoryRepository dataRepository)
     : DataCrudControllerBase<HouseHistoryDto, HouseHistoryModel>(mapper, dataRepository);

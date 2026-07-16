@@ -177,6 +177,21 @@ admin.auth().setCustomUserClaims("<firebase-user-uid>", { role: "admin" });
 
 The claim is embedded directly in that user's ID token on their next sign-in (existing sessions need to sign out/in again to pick it up).
 
+### Membership role (free preview tier)
+
+Any account that can sign in (Google/GitHub through Firebase Auth) but carries **no** `role` claim is a *free preview* account:
+it only gets movies and TV shows, capped at `Features:FreeTierItemLimit` items per collection (default 20; episodes get 100x that so ticking off a watch-through never feels rationed).
+Every other collection (books, albums, playlists, video games, cars, houses) and the TV Time import require the `MemberOnly` policy.
+Grant a membership exactly like the admin role above, with `role: "member"` instead:
+
+```javascript
+admin.auth().setCustomUserClaims("<firebase-user-uid>", { role: "member" });
+```
+
+`role: "admin"` implies membership (the `MemberOnly` policy accepts both values), so the owner's account needs nothing extra.
+As with the admin claim, the user must sign out and back in to pick it up.
+Enforcement lives in the API (`MemberOnly` policy attributes plus the creation quota in `DataCrudControllerBase.Post`) - the Blazor nav hiding restricted sections is UX, not security.
+
 [Install Deno](https://docs.deno.com/runtime/getting_started/installation/):
 
 ```cmd
