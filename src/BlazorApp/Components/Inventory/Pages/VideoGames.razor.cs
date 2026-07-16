@@ -9,10 +9,8 @@ public partial class VideoGames : InventoryPageBase<VideoGameDto>
     /// the (now-removed from the list page) Add/Edit forms' old State button group.</summary>
     internal static readonly string[] VideoGameStates = ["Available", "Current", "Completed", "To resume", "On-hold"];
 
-    /// <summary>Shared by the detail page's platform picker - previously duplicated as a literal
-    /// &lt;select&gt; in three places (list add form, list edit modal, detail page).</summary>
     internal static readonly string[] VideoGamePlatforms =
-        ["Xbox Series X", "PS5", "PC", "Xbox One X", "PS4", "WII", "Xbox 360", "PS2", "PS1"];
+        ["PC", "PS1", "PS2", "PSP", "PS3", "PS4", "PS5", "Xbox 360", "Xbox One X", "Xbox Series X", "Nintendo 64", "WII", "Switch", "Switch 2"];
 
     /// <summary>
     /// The <c>kt-status-badge</c> modifier class for a state value (see app.css) - same badge/color
