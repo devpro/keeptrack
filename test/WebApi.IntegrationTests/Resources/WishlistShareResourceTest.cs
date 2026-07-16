@@ -1,10 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
 using AwesomeAssertions;
-using Keeptrack.Common.System;
 using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.IntegrationTests.Hosting;
 using Xunit;
@@ -12,9 +12,9 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Covers the wishlist share-link lifecycle end-to-end: create (idempotent), the anonymous token read
-/// (verified with a second HttpClient that never authenticates - the whole point of the feature), and
-/// revocation killing the link.
+/// Covers the wishlist share-link lifecycle end-to-end: several independent labeled links per owner,
+/// the anonymous token read (verified with a second HttpClient that never authenticates - the whole
+/// point of the feature), and revoking one link without touching the others.
 /// </summary>
 public class WishlistShareResourceTest(KestrelWebAppFactory<Program> factory)
     : ResourceTestBase(factory)
@@ -22,42 +22,50 @@ public class WishlistShareResourceTest(KestrelWebAppFactory<Program> factory)
     [Fact]
     public async Task ShareEndpoints_RequireAuthentication()
     {
-        await GetAsync("/api/wishlist/share", HttpStatusCode.Unauthorized);
+        await GetAsync("/api/wishlist/shares", HttpStatusCode.Unauthorized);
     }
 
     [Fact]
-    public async Task SharedWishlist_IsReadableAnonymously_AndRevocationKillsTheLink()
+    public async Task Shares_AreIndependentlyCreatableListableAndRevocable_AndReadableAnonymously()
     {
         await Authenticate();
 
         // a wishlisted movie that must appear in the shared view
         var movie = await PostAsync<MovieDto>("/api/movies", new MovieDto { Title = $"SharedWishlistTarget-{Guid.NewGuid():N}", IsWishlisted = true });
 
-        // create is idempotent: a second POST returns the same token instead of rotating it
-        var share = await PostAsync<WishlistShareDto?>("/api/wishlist/share", null, HttpStatusCode.OK);
-        share!.Token.Should().NotBeNullOrEmpty();
-        var again = await PostAsync<WishlistShareDto?>("/api/wishlist/share", null, HttpStatusCode.OK);
-        again!.Token.Should().Be(share.Token);
+        var mumShare = await PostAsync<CreateWishlistShareRequestDto, WishlistShareDto>("/api/wishlist/shares", new CreateWishlistShareRequestDto { Label = "Mum" });
+        var friendShare = await PostAsync<CreateWishlistShareRequestDto, WishlistShareDto>("/api/wishlist/shares", new CreateWishlistShareRequestDto { Label = "Friend" });
+        mumShare.Token.Should().NotBeNullOrEmpty().And.NotBe(friendShare.Token);
+        mumShare.Label.Should().Be("Mum");
 
         // a genuinely anonymous client - no Authenticate(), no bearer header, like a share recipient
         using var anonymous = new HttpClient { BaseAddress = new Uri(Factory.ServerAddress) };
         try
         {
-            var shared = await anonymous.GetFromJsonAsync<WishlistDto>($"/api/wishlist/shared/{share.Token}");
+            var shares = await GetAsync<List<WishlistShareDto>>("/api/wishlist/shares");
+            shares.Should().Contain(s => s.Id == mumShare.Id && s.Label == "Mum");
+            shares.Should().Contain(s => s.Id == friendShare.Id && s.Label == "Friend");
+
+            var shared = await anonymous.GetFromJsonAsync<WishlistDto>($"/api/wishlist/shared/{mumShare.Token}");
             shared!.Movies.Should().Contain(m => m.Id == movie.Id);
 
             // an unknown token is an indistinguishable 404
             (await anonymous.GetAsync($"/api/wishlist/shared/{Guid.NewGuid():N}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
 
-            // revoking makes every copy of the link dead immediately
-            await DeleteAsync("/api/wishlist/share");
-            (await anonymous.GetAsync($"/api/wishlist/shared/{share.Token}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
-            await GetAsync("/api/wishlist/share", HttpStatusCode.NotFound);
+            // revoking one link kills that link only - the other keeps working
+            await DeleteAsync($"/api/wishlist/shares/{mumShare.Id}");
+            (await anonymous.GetAsync($"/api/wishlist/shared/{mumShare.Token}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+            (await anonymous.GetAsync($"/api/wishlist/shared/{friendShare.Token}")).StatusCode.Should().Be(HttpStatusCode.OK);
+
+            var remaining = await GetAsync<List<WishlistShareDto>>("/api/wishlist/shares");
+            remaining.Should().NotContain(s => s.Id == mumShare.Id);
+            remaining.Should().Contain(s => s.Id == friendShare.Id);
         }
         finally
         {
             await DeleteAsync($"/api/movies/{movie.Id}");
-            await DeleteAsync("/api/wishlist/share", HttpStatusCode.NoContent);
+            await DeleteAsync($"/api/wishlist/shares/{mumShare.Id}");
+            await DeleteAsync($"/api/wishlist/shares/{friendShare.Id}");
         }
     }
 }

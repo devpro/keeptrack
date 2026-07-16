@@ -157,10 +157,11 @@ ensureIndex(
   { name: "background_job_ttl", expireAfterSeconds: 604800 }
 );
 
-// wishlist_share: one share-link document per owner. The token lookup is the anonymous shared-view
-// read path, and both fields carry a uniqueness invariant (one share per owner; a token can never
-// collide, however astronomically unlikely 128 random bits make that).
-ensureIndex(db.wishlist_share, { owner_id: 1 }, { name: "wishlist_share_owner", unique: true });
+// wishlist_share: one document per issued share link - an owner can hold several at once (one per
+// recipient, individually revocable), so owner_id is deliberately NOT unique. The token lookup is the
+// anonymous shared-view read path and stays unique (a collision is astronomically unlikely with 128
+// random bits, but the invariant belongs in the database regardless).
+ensureIndex(db.wishlist_share, { owner_id: 1 }, { name: "wishlist_share_owner" });
 ensureIndex(db.wishlist_share, { token: 1 }, { name: "wishlist_share_token", unique: true });
 
 // tvshow_reference / movie_reference: shared, owner-less lookup tables (see CLAUDE.md) keyed by

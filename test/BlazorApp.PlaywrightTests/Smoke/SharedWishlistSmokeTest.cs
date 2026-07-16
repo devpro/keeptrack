@@ -31,7 +31,7 @@ public class SharedWishlistSmokeTest(End2EndFixture fixture) : SmokeTestBase(fix
         createResponse.EnsureSuccessStatusCode();
         var movie = (await createResponse.Content.ReadFromJsonAsync<MovieDto>())!;
 
-        var shareResponse = await api.PostAsync("api/wishlist/share", null);
+        var shareResponse = await api.PostAsJsonAsync("api/wishlist/shares", new CreateWishlistShareRequestDto { Label = "E2e recipient" });
         shareResponse.EnsureSuccessStatusCode();
         var share = (await shareResponse.Content.ReadFromJsonAsync<WishlistShareDto>())!;
 
@@ -51,14 +51,14 @@ public class SharedWishlistSmokeTest(End2EndFixture fixture) : SmokeTestBase(fix
             await Assertions.Expect(page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Get started" })).ToBeVisibleAsync();
 
             // a revoked link dies immediately
-            (await api.DeleteAsync("api/wishlist/share")).EnsureSuccessStatusCode();
+            (await api.DeleteAsync($"api/wishlist/shares/{share.Id}")).EnsureSuccessStatusCode();
             await page.ReloadAsync();
             await Assertions.Expect(page.GetByText("no longer valid")).ToBeVisibleAsync();
         }
         finally
         {
             await Fixture.DeleteItemAsync($"api/movies/{movie.Id}");
-            await Fixture.DeleteItemAsync("api/wishlist/share");
+            await Fixture.DeleteItemAsync($"api/wishlist/shares/{share.Id}");
         }
     }
 }

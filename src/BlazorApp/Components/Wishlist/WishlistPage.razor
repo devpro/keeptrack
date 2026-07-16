@@ -12,26 +12,26 @@
 @if (_showSharePanel)
 {
     <div class="kt-form-card mb-3">
-        @if (_share is null)
+        <p style="color:var(--kt-text-muted)">
+            Each link gives whoever holds it a private, live, read-only view of this wishlist - no account
+            needed. Create one link per person, so a single link can be revoked without affecting the others.
+        </p>
+        @foreach (var share in _shares)
         {
-            <p style="color:var(--kt-text-muted)">
-                Share a private, live view of this wishlist - anyone with the link can see it (and only it),
-                no account needed. You can stop sharing at any time.
-            </p>
-            <button class="btn btn-sm btn-primary" @onclick="CreateShareAsync">Create share link</button>
-        }
-        else
-        {
-            <p style="color:var(--kt-text-muted)">
-                Anyone with this link sees a live, read-only view of your wishlist - nothing else.
-                Stop sharing to revoke every copy of it immediately.
-            </p>
-            <div class="d-flex gap-2 flex-wrap align-items-center">
-                <input class="form-control form-control-sm" style="max-width:420px" readonly value="@ShareUrl"/>
-                <button class="btn btn-sm btn-secondary" @onclick="CopyShareUrlAsync">@(_copied ? "✓ Copied" : "Copy link")</button>
-                <button class="btn btn-sm btn-secondary" @onclick="DeleteShareAsync">Stop sharing</button>
+            <div class="d-flex gap-2 flex-wrap align-items-center mb-2">
+                <span style="min-width:110px">
+                    <strong>@(string.IsNullOrEmpty(share.Label) ? "Share link" : share.Label)</strong>
+                    <span class="kt-card-meta"> @share.CreatedAt.ToString("yyyy-MM-dd")</span>
+                </span>
+                <input class="form-control form-control-sm" style="max-width:380px" readonly value="@ShareUrl(share)"/>
+                <button class="btn btn-sm btn-secondary" @onclick="() => CopyShareUrlAsync(share)">@(_copiedShareId == share.Id ? "✓ Copied" : "Copy link")</button>
+                <button class="kt-icon-btn" title="Revoke this link" aria-label="Revoke this link" @onclick="() => DeleteShareAsync(share)">✕</button>
             </div>
         }
+        <div class="d-flex gap-2 flex-wrap align-items-center mt-3">
+            <input class="form-control form-control-sm" style="max-width:220px" placeholder="Who is it for? (optional)" @bind="_newShareLabel"/>
+            <button class="btn btn-sm btn-primary" @onclick="CreateShareAsync">+ New share link</button>
+        </div>
         @if (_shareError is not null)
         {
             <div class="alert alert-danger mt-3 mb-0">@_shareError</div>
@@ -113,11 +113,12 @@ else
     private Tab _tab = Tab.Movies;
 
     private bool _showSharePanel;
-    private WishlistShareDto? _share;
+    private List<WishlistShareDto> _shares = [];
     private string? _shareError;
-    private bool _copied;
+    private string? _copiedShareId;
+    private string? _newShareLabel;
 
-    private string ShareUrl => Navigation.ToAbsoluteUri($"shared/wishlist/{_share?.Token}").ToString();
+    private string ShareUrl(WishlistShareDto share) => Navigation.ToAbsoluteUri($"shared/wishlist/{share.Token}").ToString();
 
     protected override async Task OnInitializedAsync()
     {
@@ -134,7 +135,7 @@ else
 
         try
         {
-            _share = await WishlistApi.GetShareAsync();
+            _shares = await WishlistApi.GetSharesAsync();
             _shareError = null;
         }
         catch (Exception ex)
@@ -147,8 +148,9 @@ else
     {
         try
         {
-            _share = await WishlistApi.CreateShareAsync();
-            _copied = false;
+            _shares.Add(await WishlistApi.CreateShareAsync(_newShareLabel));
+            _newShareLabel = null;
+            _copiedShareId = null;
             _shareError = null;
         }
         catch (Exception ex)
@@ -157,13 +159,12 @@ else
         }
     }
 
-    private async Task DeleteShareAsync()
+    private async Task DeleteShareAsync(WishlistShareDto share)
     {
         try
         {
-            await WishlistApi.DeleteShareAsync();
-            _share = null;
-            _copied = false;
+            await WishlistApi.DeleteShareAsync(share.Id);
+            _shares.Remove(share);
             _shareError = null;
         }
         catch (Exception ex)
@@ -172,10 +173,10 @@ else
         }
     }
 
-    private async Task CopyShareUrlAsync()
+    private async Task CopyShareUrlAsync(WishlistShareDto share)
     {
-        await JsRuntime.InvokeVoidAsync("navigator.clipboard.writeText", ShareUrl);
-        _copied = true;
+        await JsRuntime.InvokeVoidAsync("navigator.clipboard.writeText", ShareUrl(share));
+        _copiedShareId = share.Id;
     }
 
     private List<WishlistRow> CurrentRows() => _tab switch

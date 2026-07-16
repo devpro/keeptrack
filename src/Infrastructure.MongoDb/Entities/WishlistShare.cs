@@ -1,3 +1,4 @@
+using System;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
@@ -13,4 +14,9 @@ public class WishlistShare
     public required string OwnerId { get; set; }
 
     public required string Token { get; set; }
+
+    public string? Label { get; set; }
+
+    [BsonElement("created_at")]
+    public DateTime CreatedAt { get; set; }
 }

@@ -383,10 +383,12 @@ A bug in it should never be able to take down unrelated endpoints.
 Not every endpoint is per-item CRUD.
 `WatchNextController`/`WishlistController` (read-only cross-entity aggregations) live in `WebApi/Controllers/` like every other controller, with a plain `ControllerBase` rather than being force-fit into `DataCrudControllerBase`.
 Their computation lives in `Domain/Services/` (`WatchNextService`, `WishlistService`) since it's pure logic over Domain models with no persistence or web dependency - Domain's stated charter from the project-overview table above.
-The wishlist is shareable via a capability URL: `POST/GET/DELETE /api/wishlist/share` manage one share document per owner (`wishlist_share`, unique per owner and token),
+The wishlist is shareable via capability URLs: `GET/POST /api/wishlist/shares` and `DELETE /api/wishlist/shares/{id}` manage the owner's share links
+(`wishlist_share`, one document per issued link - an owner holds several at once, each with an optional owner-only `Label` like "Mum", so `owner_id` is deliberately non-unique while `token` stays unique),
 and `GET /api/wishlist/shared/{token}` is the app's **one deliberately anonymous read** (`[AllowAnonymous]`, backing `/shared/wishlist/{token}` - a static-SSR, `noindex`, no-`[Authorize]` Blazor page).
-The 128-bit random token *is* the access control (chosen over email invites: no mail infrastructure to operate, works for recipients who never register, and the page's "Get started" CTA is the register invitation);
-revoking deletes the document, killing every copy of the link, and recreating issues a fresh token.
+The 128-bit random token *is* the access control (chosen over email invites: no mail infrastructure to operate, works for recipients who never register, and the page's "Get started" CTA is the register invitation).
+Revoking deletes one document, killing every copy of that link while the owner's other links keep working - the per-recipient granularity is the point (revoke one person without cutting off everyone).
+The delete is owner-scoped in the repository query itself, so an id can't revoke someone else's share.
 `SharedWishlistApiClient` is registered **without** `AuthenticationTokenHandler` - the authenticated handler would bounce an anonymous recipient to login.
 Both wishlist pages share one `WishlistRow` projection; the shared view renders unlinked rows (a recipient can't open detail pages).
 Covered by `WishlistShareResourceTest` (integration, including a genuinely unauthenticated second HttpClient) and `SharedWishlistSmokeTest` (Playwright, a fresh browser context with no storage state - the one e2e flow that must NOT reuse the fixture's signed-in state).

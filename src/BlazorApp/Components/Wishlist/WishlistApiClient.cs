@@ -1,4 +1,3 @@
-using System.Net;
 using Keeptrack.WebApi.Contracts.Dto;
 
 namespace Keeptrack.BlazorApp.Components.Wishlist;
@@ -11,22 +10,20 @@ public sealed class WishlistApiClient(HttpClient http)
         return result ?? new WishlistDto();
     }
 
-    /// <summary>The caller's active share link, or null when the wishlist isn't shared.</summary>
-    public async Task<WishlistShareDto?> GetShareAsync()
+    /// <summary>Every share link the caller has issued, oldest first.</summary>
+    public async Task<List<WishlistShareDto>> GetSharesAsync()
     {
-        var response = await http.GetAsync("/api/wishlist/share");
-        if (response.StatusCode == HttpStatusCode.NotFound) return null;
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<WishlistShareDto>();
+        var result = await http.GetFromJsonAsync<List<WishlistShareDto>>("/api/wishlist/shares");
+        return result ?? [];
     }
 
-    public async Task<WishlistShareDto> CreateShareAsync()
+    public async Task<WishlistShareDto> CreateShareAsync(string? label)
     {
-        var response = await http.PostAsync("/api/wishlist/share", null);
+        var response = await http.PostAsJsonAsync("/api/wishlist/shares", new CreateWishlistShareRequestDto { Label = label });
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<WishlistShareDto>())!;
     }
 
-    public async Task DeleteShareAsync() =>
-        (await http.DeleteAsync("/api/wishlist/share")).EnsureSuccessStatusCode();
+    public async Task DeleteShareAsync(string id) =>
+        (await http.DeleteAsync($"/api/wishlist/shares/{id}")).EnsureSuccessStatusCode();
 }

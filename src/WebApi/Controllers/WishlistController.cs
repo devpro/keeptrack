@@ -32,47 +32,44 @@ public class WishlistController(
     public async Task<ActionResult<WishlistDto>> Get() => Ok(await BuildWishlistAsync(this.GetUserId()));
 
     /// <summary>
-    /// The caller's active wishlist share link, when one exists.
+    /// Every share link the caller has issued, oldest first - the "who did I share this with" list.
     /// </summary>
-    [HttpGet("share")]
+    [HttpGet("shares")]
     [ProducesResponseType(200)]
-    [ProducesResponseType(404)]
-    public async Task<ActionResult<WishlistShareDto>> GetShare()
+    public async Task<ActionResult<List<WishlistShareDto>>> GetShares()
     {
-        var share = await wishlistShareRepository.FindByOwnerIdAsync(this.GetUserId());
-        if (share is null) return NotFound();
-
-        return Ok(new WishlistShareDto { Token = share.Token });
+        var shares = await wishlistShareRepository.FindAllByOwnerIdAsync(this.GetUserId());
+        return Ok(shares.ConvertAll(ToDto));
     }
 
     /// <summary>
-    /// Creates the caller's wishlist share link, or returns the existing one (idempotent). To rotate a
-    /// leaked link, delete the share first - recreating issues a fresh token and old copies stay dead.
+    /// Issues a new share link, with an optional label for the caller's own bookkeeping ("Mum",
+    /// "Gift exchange"). Each link is independent: one can be revoked without touching the others.
     /// </summary>
-    [HttpPost("share")]
+    [HttpPost("shares")]
     [ProducesResponseType(200)]
-    public async Task<ActionResult<WishlistShareDto>> CreateShare()
+    public async Task<ActionResult<WishlistShareDto>> CreateShare([FromBody] CreateWishlistShareRequestDto? request)
     {
-        var ownerId = this.GetUserId();
-        var share = await wishlistShareRepository.FindByOwnerIdAsync(ownerId)
-                    ?? await wishlistShareRepository.CreateAsync(new WishlistShareModel
-                    {
-                        OwnerId = ownerId,
-                        // 128 bits of randomness: unguessable, which is the entire access control here
-                        Token = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant()
-                    });
+        var share = await wishlistShareRepository.CreateAsync(new WishlistShareModel
+        {
+            OwnerId = this.GetUserId(),
+            Label = string.IsNullOrWhiteSpace(request?.Label) ? null : request.Label.Trim(),
+            // 128 bits of randomness: unguessable, which is the entire access control here
+            Token = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant()
+        });
 
-        return Ok(new WishlistShareDto { Token = share.Token });
+        return Ok(ToDto(share));
     }
 
     /// <summary>
-    /// Revokes the caller's wishlist share link - every copy of the link stops working immediately.
+    /// Revokes one share link - every copy of that link stops working immediately, the caller's other
+    /// links keep working. Owner-scoped: nobody can revoke someone else's share by guessing an id.
     /// </summary>
-    [HttpDelete("share")]
+    [HttpDelete("shares/{id}")]
     [ProducesResponseType(204)]
-    public async Task<IActionResult> DeleteShare()
+    public async Task<IActionResult> DeleteShare(string id)
     {
-        await wishlistShareRepository.DeleteByOwnerIdAsync(this.GetUserId());
+        await wishlistShareRepository.DeleteAsync(id, this.GetUserId());
         return NoContent();
     }
 
@@ -92,6 +89,9 @@ public class WishlistController(
 
         return Ok(await BuildWishlistAsync(share.OwnerId));
     }
+
+    private static WishlistShareDto ToDto(WishlistShareModel share) =>
+        new() { Id = share.Id!, Token = share.Token, Label = share.Label, CreatedAt = share.CreatedAt };
 
     private async Task<WishlistDto> BuildWishlistAsync(string ownerId)
     {

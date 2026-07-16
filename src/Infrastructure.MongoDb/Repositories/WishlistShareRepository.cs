@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
@@ -13,26 +15,27 @@ public class WishlistShareRepository(IMongoDatabase mongoDatabase, WishlistShare
 
     private IMongoCollection<WishlistShare> Collection => mongoDatabase.GetCollection<WishlistShare>(CollectionName);
 
-    public async Task<WishlistShareModel?> FindByOwnerIdAsync(string ownerId)
+    public async Task<List<WishlistShareModel>> FindAllByOwnerIdAsync(string ownerId)
     {
-        var entity = await Collection.Find(s => s.OwnerId == ownerId).FirstOrDefaultAsync();
-        // the usual null guard before mapping - see MongoDbRepositoryBase.FindOneAsync's identical shape
-        return entity is null ? null : mapper.ToModel(entity);
+        var entities = await Collection.Find(s => s.OwnerId == ownerId).SortBy(s => s.CreatedAt).ToListAsync();
+        return entities.ConvertAll(mapper.ToModel);
     }
 
     public async Task<WishlistShareModel?> FindByTokenAsync(string token)
     {
         var entity = await Collection.Find(s => s.Token == token).FirstOrDefaultAsync();
+        // the usual null guard before mapping - see MongoDbRepositoryBase.FindOneAsync's identical shape
         return entity is null ? null : mapper.ToModel(entity);
     }
 
     public async Task<WishlistShareModel> CreateAsync(WishlistShareModel model)
     {
         var entity = mapper.ToEntity(model);
+        entity.CreatedAt = DateTime.UtcNow;
         await Collection.InsertOneAsync(entity);
         return mapper.ToModel(entity);
     }
 
-    public async Task DeleteByOwnerIdAsync(string ownerId) =>
-        await Collection.DeleteOneAsync(s => s.OwnerId == ownerId);
+    public async Task DeleteAsync(string id, string ownerId) =>
+        await Collection.DeleteOneAsync(s => s.Id == id && s.OwnerId == ownerId);
 }
