@@ -31,9 +31,9 @@
     <File Path=".gitlab-ci.yml" />
   </Folder>
   <Folder Name="/Solution Items/scripts/">
-    <File Path="scripts/align_table.js" />
     <File Path="scripts/dedupe-matched-aliases.js" />
     <File Path="scripts/firebase-set-admin.js" />
+    <File Path="scripts/migrate-is-owned-to-owned-versions.js" />
     <File Path="scripts/migrate-poster-url-to-image-url.js" />
     <File Path="scripts/migrate-videogame-to-embedded-platforms.js" />
     <File Path="scripts/mongodb-create-index.js" />
