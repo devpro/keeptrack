@@ -46,16 +46,16 @@ public class WishlistShareResourceTest(KestrelWebAppFactory<Program> factory)
             shares.Should().Contain(s => s.Id == mumShare.Id && s.Label == "Mum");
             shares.Should().Contain(s => s.Id == friendShare.Id && s.Label == "Friend");
 
-            var shared = await anonymous.GetFromJsonAsync<WishlistDto>($"/api/wishlist/shared/{mumShare.Token}");
+            var shared = await anonymous.GetFromJsonAsync<WishlistDto>($"/api/wishlist/shared/{mumShare.Token}", TestContext.Current.CancellationToken);
             shared!.Movies.Should().Contain(m => m.Id == movie.Id);
 
             // an unknown token is an indistinguishable 404
-            (await anonymous.GetAsync($"/api/wishlist/shared/{Guid.NewGuid():N}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+            (await anonymous.GetAsync($"/api/wishlist/shared/{Guid.NewGuid():N}", TestContext.Current.CancellationToken)).StatusCode.Should().Be(HttpStatusCode.NotFound);
 
             // revoking one link kills that link only - the other keeps working
             await DeleteAsync($"/api/wishlist/shares/{mumShare.Id}");
-            (await anonymous.GetAsync($"/api/wishlist/shared/{mumShare.Token}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
-            (await anonymous.GetAsync($"/api/wishlist/shared/{friendShare.Token}")).StatusCode.Should().Be(HttpStatusCode.OK);
+            (await anonymous.GetAsync($"/api/wishlist/shared/{mumShare.Token}", TestContext.Current.CancellationToken)).StatusCode.Should().Be(HttpStatusCode.NotFound);
+            (await anonymous.GetAsync($"/api/wishlist/shared/{friendShare.Token}", TestContext.Current.CancellationToken)).StatusCode.Should().Be(HttpStatusCode.OK);
 
             var remaining = await GetAsync<List<WishlistShareDto>>("/api/wishlist/shares");
             remaining.Should().NotContain(s => s.Id == mumShare.Id);

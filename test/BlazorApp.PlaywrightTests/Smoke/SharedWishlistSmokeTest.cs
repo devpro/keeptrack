@@ -27,13 +27,13 @@ public class SharedWishlistSmokeTest(End2EndFixture fixture) : SmokeTestBase(fix
         var title = $"E2e Shared Wishlist Movie {Guid.NewGuid():N}";
         var api = Fixture.ApiHttpClient;
 
-        var createResponse = await api.PostAsJsonAsync("api/movies", new MovieDto { Title = title, IsWishlisted = true });
+        var createResponse = await api.PostAsJsonAsync("api/movies", new MovieDto { Title = title, IsWishlisted = true }, TestContext.Current.CancellationToken);
         createResponse.EnsureSuccessStatusCode();
-        var movie = (await createResponse.Content.ReadFromJsonAsync<MovieDto>())!;
+        var movie = (await createResponse.Content.ReadFromJsonAsync<MovieDto>(TestContext.Current.CancellationToken))!;
 
-        var shareResponse = await api.PostAsJsonAsync("api/wishlist/shares", new CreateWishlistShareRequestDto { Label = "E2e recipient" });
+        var shareResponse = await api.PostAsJsonAsync("api/wishlist/shares", new CreateWishlistShareRequestDto { Label = "E2e recipient" }, TestContext.Current.CancellationToken);
         shareResponse.EnsureSuccessStatusCode();
-        var share = (await shareResponse.Content.ReadFromJsonAsync<WishlistShareDto>())!;
+        var share = (await shareResponse.Content.ReadFromJsonAsync<WishlistShareDto>(TestContext.Current.CancellationToken))!;
 
         try
         {
@@ -51,7 +51,7 @@ public class SharedWishlistSmokeTest(End2EndFixture fixture) : SmokeTestBase(fix
             await Assertions.Expect(page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Get started" })).ToBeVisibleAsync();
 
             // a revoked link dies immediately
-            (await api.DeleteAsync($"api/wishlist/shares/{share.Id}")).EnsureSuccessStatusCode();
+            (await api.DeleteAsync($"api/wishlist/shares/{share.Id}", TestContext.Current.CancellationToken)).EnsureSuccessStatusCode();
             await page.ReloadAsync();
             await Assertions.Expect(page.GetByText("no longer valid")).ToBeVisibleAsync();
         }

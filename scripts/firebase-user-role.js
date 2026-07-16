@@ -3,13 +3,16 @@ import { getAuth } from "npm:firebase-admin/auth";
 import path from "node:path";
 
 // 1. Grab command line arguments
-const [serviceAccountPath, userIdentifier] = Deno.args;
+const [serviceAccountPath, userIdentifier, customRole] = Deno.args;
 
 if (!serviceAccountPath || !userIdentifier) {
   console.error("❌ Error: Missing arguments.");
-  console.log("Usage: deno run -A scripts/firebase-set-admin.js <path-to-json> <email-or-uid>");
+  console.log("Usage: deno run -A scripts/firebase-user-role.js <path-to-json> <email-or-uid> [role]");
   Deno.exit(1);
 }
+
+// Default to "member" if no role is explicitly passed
+const role = customRole || "member";
 
 try {
   // 2. Read and parse the service account file natively
@@ -34,11 +37,11 @@ try {
     uid = userRecord.uid;
   }
 
-  // 5. Set the custom claim
-  console.log(`🚀 Setting admin role claim for UID: ${uid}...`);
-  await auth.setCustomUserClaims(uid, { role: "admin" });
+  // 5. Set the custom claim using the dynamic role variable
+  console.log(`🚀 Setting '${role}' role claim for UID: ${uid}...`);
+  await auth.setCustomUserClaims(uid, { role: role });
 
-  console.log("%c✅ Successfully set admin claim!", "color: green; font-weight: bold;");
+  console.log(`%c✅ Successfully set '${role}' claim!`, "color: green; font-weight: bold;");
 
   // 6. Verify it worked
   const updatedUser = await auth.getUser(uid);

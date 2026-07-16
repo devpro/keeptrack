@@ -32,7 +32,7 @@
   </Folder>
   <Folder Name="/Solution Items/scripts/">
     <File Path="scripts/dedupe-matched-aliases.js" />
-    <File Path="scripts/firebase-set-admin.js" />
+    <File Path="scripts/firebase-user-role.js" />
     <File Path="scripts/migrate-is-owned-to-owned-versions.js" />
     <File Path="scripts/migrate-poster-url-to-image-url.js" />
     <File Path="scripts/migrate-videogame-to-embedded-platforms.js" />

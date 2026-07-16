@@ -202,7 +202,7 @@ winget install DenoLand.Deno
 Run the script:
 
 ```cmd
-deno run -A scripts/firebase-set-admin.js ./path/to/serviceAccount.json user@example.com
+deno run -A scripts/firebase-user-role.js ./path/to/serviceAccount.json user@example.com admin
 ```
 
 ### Blazor Server App settings
@@ -334,7 +334,7 @@ Or in Rider, in "File | Settings | Build, Execution, Deployment | Unit Testing |
 
 Set `KESTREL_WEBAPP_URL` to target a specific already-running instance instead of letting the tests spin up their own.
 
-The standard test user above now carries the `role: admin` custom claim (set via `scripts/firebase-set-admin.js`, see [Admin role](#admin-role) above).
+The standard test user above now carries the `role: admin` custom claim (set via `scripts/firebase-user-role.js`, see [Admin role](#admin-role) above).
 So `ReferenceDataAdminResourceTest` and any other admin-gated endpoint can be exercised end-to-end over HTTP with the same single test account.
 There's no separate non-admin test account, so there's no automated coverage of the "AdminOnly" policy actually rejecting a non-admin caller; that would need a second Firebase test user without the claim.
 The underlying Mongo query logic (`SetReferenceIdForTitleYearAsync`, `FindDistinctUnresolvedTitleYearsAsync`) is still covered directly against a real database in `TvShowReferenceLinkingTest`.
