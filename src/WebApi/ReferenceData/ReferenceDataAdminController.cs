@@ -169,9 +169,9 @@ public class ReferenceDataAdminController(
     /// </summary>
     [HttpPost("sync-now")]
     [ProducesResponseType(202)]
-    public ActionResult<ReferenceSyncJobDto> SyncNow()
+    public async Task<ActionResult<ReferenceSyncJobDto>> SyncNow()
     {
-        var jobId = syncJobStore.Create(this.GetUserId(), ReferenceSyncStage.SyncingTvShows);
+        var jobId = await syncJobStore.CreateAsync(this.GetUserId(), ReferenceSyncStage.SyncingTvShows);
 
         _ = RunSyncJobAsync(jobId);
 
@@ -184,9 +184,9 @@ public class ReferenceDataAdminController(
     [HttpGet("sync-now/{jobId:guid}")]
     [ProducesResponseType(200)]
     [ProducesResponseType(404)]
-    public ActionResult<ReferenceSyncJobStatusDto> GetSyncStatus(Guid jobId)
+    public async Task<ActionResult<ReferenceSyncJobStatusDto>> GetSyncStatus(Guid jobId)
     {
-        var status = syncJobStore.GetStatus(jobId, this.GetUserId());
+        var status = await syncJobStore.GetStatusAsync(jobId, this.GetUserId());
         if (status is null) return NotFound();
 
         return Ok(new ReferenceSyncJobStatusDto { Stage = status.Value.Stage, Result = status.Value.Result, ErrorMessage = status.Value.ErrorMessage });
@@ -194,22 +194,23 @@ public class ReferenceDataAdminController(
 
     /// <summary>
     /// Runs the sync on a background task using its own DI scope - the request that started it has
-    /// already completed by the time this runs, so it can't reuse the request's scoped
-    /// <see cref="ReferenceSyncService"/> instance.
+    /// already completed by the time this runs, so it can't reuse the request's scoped services
+    /// (neither <see cref="ReferenceSyncService"/> nor the request's own JobStore instance).
     /// </summary>
     private async Task RunSyncJobAsync(Guid jobId)
     {
         using var scope = scopeFactory.CreateScope();
         var scopedSyncService = scope.ServiceProvider.GetRequiredService<ReferenceSyncService>();
+        var scopedJobStore = scope.ServiceProvider.GetRequiredService<JobStore<ReferenceSyncStage, ReferenceSyncResultDto>>();
 
         try
         {
-            var result = await scopedSyncService.SyncStaleReferencesAsync(TimeSpan.Zero, stage => syncJobStore.UpdateStage(jobId, stage));
-            syncJobStore.Complete(jobId, ReferenceSyncStage.Completed, result);
+            var result = await scopedSyncService.SyncStaleReferencesAsync(TimeSpan.Zero, stage => scopedJobStore.UpdateStageAsync(jobId, stage));
+            await scopedJobStore.CompleteAsync(jobId, ReferenceSyncStage.Completed, result);
         }
         catch (Exception ex)
         {
-            syncJobStore.Fail(jobId, ReferenceSyncStage.Failed, ex.Message);
+            await scopedJobStore.FailAsync(jobId, ReferenceSyncStage.Failed, ex.Message);
         }
     }
 

@@ -173,6 +173,101 @@
     }
 </div>
 
+<div class="kt-form-card">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 class="kt-section-title mt-0 mb-0" style="border:none;padding:0">System</h2>
+        <button class="btn btn-sm btn-secondary" @onclick="LoadSystemStatusAsync" disabled="@_loadingSystemStatus">↻ Refresh</button>
+    </div>
+    <p style="color:var(--kt-text-muted)">
+        Configuration is reported by whichever instance answered this request - with several replicas,
+        refreshing may legitimately show a different instance each time. The sync lease and job history
+        are shared state, identical from every instance.
+    </p>
+    @if (_systemStatusError is not null)
+    {
+        <div class="alert alert-danger mb-0">@_systemStatusError</div>
+    }
+    else if (_systemStatus is null)
+    {
+        <div class="kt-loading"><div class="kt-spinner"></div> Loading…</div>
+    }
+    else
+    {
+        <table class="kt-sheet-table mb-3">
+            <tbody>
+            <tr>
+                <td>Answered by instance</td>
+                <td>@_systemStatus.InstanceName</td>
+            </tr>
+            <tr>
+                <td>Periodic reference sync</td>
+                <td>
+                    <span class="kt-status-badge @(_systemStatus.IsReferenceSyncEnabled ? "current" : "stopped")">
+                        @(_systemStatus.IsReferenceSyncEnabled ? "Enabled" : "Disabled")
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td>Book provider</td>
+                <td>@_systemStatus.BookProvider</td>
+            </tr>
+            <tr>
+                <td>Sync lease</td>
+                <td>
+                    @if (_systemStatus.ReferenceSyncLease is null)
+                    {
+                        <span class="kt-card-meta">never acquired - no sync pass has been elected yet</span>
+                    }
+                    else
+                    {
+                        <span class="kt-status-badge @(_systemStatus.ReferenceSyncLease.IsLive ? "current" : "finished")">
+                            @(_systemStatus.ReferenceSyncLease.IsLive ? "Live" : "Expired")
+                        </span>
+                        <span>
+                            held by <strong>@_systemStatus.ReferenceSyncLease.Holder</strong>,
+                            @(_systemStatus.ReferenceSyncLease.IsLive ? "expires" : "expired") @_systemStatus.ReferenceSyncLease.ExpiresAt.ToString("yyyy-MM-dd HH:mm") UTC
+                        </span>
+                    }
+                </td>
+            </tr>
+            </tbody>
+        </table>
+
+        @if (_systemStatus.RecentJobs.Count == 0)
+        {
+            <p class="kt-card-meta mb-0">No background jobs recorded yet.</p>
+        }
+        else
+        {
+            <table class="kt-sheet-table mb-0">
+                <thead>
+                <tr>
+                    <th>Started (UTC)</th>
+                    <th>Job</th>
+                    <th>Stage</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var job in _systemStatus.RecentJobs)
+                {
+                    <tr>
+                        <td>@job.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>@job.Kind</td>
+                        <td>
+                            @job.Stage
+                            @if (job.ErrorMessage is not null)
+                            {
+                                <span class="kt-card-meta"> - @job.ErrorMessage</span>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    }
+</div>
+
 @code {
     private const long MaxImportFileSize = 50_000_000;
 
@@ -315,7 +410,33 @@
         }
     }
 
-    protected override async Task OnInitializedAsync() => await LoadUnresolvedAsync();
+    private bool _loadingSystemStatus;
+    private SystemStatusDto? _systemStatus;
+    private string? _systemStatusError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUnresolvedAsync();
+        await LoadSystemStatusAsync();
+    }
+
+    private async Task LoadSystemStatusAsync()
+    {
+        _loadingSystemStatus = true;
+        _systemStatusError = null;
+        try
+        {
+            _systemStatus = await Api.GetSystemStatusAsync();
+        }
+        catch (Exception ex)
+        {
+            _systemStatusError = ex.Message;
+        }
+        finally
+        {
+            _loadingSystemStatus = false;
+        }
+    }
 
     private async Task LoadUnresolvedAsync()
     {

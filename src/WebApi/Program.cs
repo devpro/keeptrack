@@ -35,8 +35,9 @@ builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.MovieReferenceDtoMapper>(
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.BookReferenceDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.VideoGameReferenceDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.AlbumReferenceDtoMapper>();
-builder.Services.AddSingleton<Keeptrack.WebApi.Jobs.JobStore<Keeptrack.WebApi.Contracts.Dto.ImportStage, Keeptrack.WebApi.Contracts.Dto.ImportResultDto>>();
-builder.Services.AddSingleton<Keeptrack.WebApi.Jobs.JobStore<Keeptrack.WebApi.Contracts.Dto.ReferenceSyncStage, Keeptrack.WebApi.Contracts.Dto.ReferenceSyncResultDto>>();
+// scoped (not singleton) since it wraps the scoped IBackgroundJobRepository; the open-generic
+// registration covers every (stage, result) pair without one line per feature
+builder.Services.AddScoped(typeof(Keeptrack.WebApi.Jobs.JobStore<,>));
 builder.Services.AddScoped<Keeptrack.WebApi.Import.TvTimeImportService>();
 builder.Services.AddScoped<Keeptrack.WebApi.Import.CarHistoryImportService>();
 builder.Services.AddSingleton(configuration.TmdbSettings);

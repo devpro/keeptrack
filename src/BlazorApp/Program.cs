@@ -16,6 +16,19 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", policy => policy.RequireClaim("role", "admin"));
 });
+// opt-in shared Data Protection key ring (see MongoDbXmlRepository) - required before running more than
+// one replica of this app, since the auth cookie and antiforgery tokens must decrypt on every replica.
+// Left unset (the default), the framework keeps its usual per-instance ephemeral keys.
+var dataProtectionConnectionString = builder.Configuration["DataProtection:MongoDb:ConnectionString"];
+if (!string.IsNullOrEmpty(dataProtectionConnectionString))
+{
+    var keyCollection = new MongoClient(dataProtectionConnectionString)
+        .GetDatabase(builder.Configuration["DataProtection:MongoDb:DatabaseName"] ?? "keeptrack")
+        .GetCollection<MongoDbXmlRepository.DataProtectionKey>(MongoDbXmlRepository.CollectionName);
+    builder.Services.AddDataProtection()
+        .SetApplicationName("keeptrack")
+        .AddKeyManagementOptions(options => options.XmlRepository = new MongoDbXmlRepository(keyCollection));
+}
 builder.Services.AddControllers();
 builder.Services.AddSingleton(builder.Configuration.TryGetSection<FirebaseClientSettings>("Firebase:WebAppConfiguration"));
 if (FirebaseApp.DefaultInstance is null)

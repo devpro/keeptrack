@@ -22,12 +22,12 @@ public class ReferenceSyncService(
     /// (or unset). A failure on one document is logged and skipped rather than aborting the whole run - one
     /// bad TMDB response shouldn't block every other show/movie from being checked.
     /// </summary>
-    public async Task<ReferenceSyncResultDto> SyncStaleReferencesAsync(TimeSpan staleAfter, Action<ReferenceSyncStage>? onStageChanged = null, CancellationToken cancellationToken = default)
+    public async Task<ReferenceSyncResultDto> SyncStaleReferencesAsync(TimeSpan staleAfter, Func<ReferenceSyncStage, Task>? onStageChanged = null, CancellationToken cancellationToken = default)
     {
         var cutoff = DateTime.UtcNow - staleAfter;
         var result = new ReferenceSyncResultDto();
 
-        onStageChanged?.Invoke(ReferenceSyncStage.SyncingTvShows);
+        if (onStageChanged is not null) await onStageChanged(ReferenceSyncStage.SyncingTvShows);
         foreach (var reference in await tvShowReferenceRepository.FindAllAsync())
         {
             if (reference.LastEnrichedAt is not null && reference.LastEnrichedAt > cutoff) continue;
@@ -44,7 +44,7 @@ public class ReferenceSyncService(
             }
         }
 
-        onStageChanged?.Invoke(ReferenceSyncStage.SyncingMovies);
+        if (onStageChanged is not null) await onStageChanged(ReferenceSyncStage.SyncingMovies);
         foreach (var reference in await movieReferenceRepository.FindAllAsync())
         {
             if (reference.LastEnrichedAt is not null && reference.LastEnrichedAt > cutoff) continue;
@@ -61,7 +61,7 @@ public class ReferenceSyncService(
             }
         }
 
-        onStageChanged?.Invoke(ReferenceSyncStage.SyncingBooks);
+        if (onStageChanged is not null) await onStageChanged(ReferenceSyncStage.SyncingBooks);
         foreach (var reference in await bookReferenceRepository.FindAllAsync())
         {
             if (reference.LastEnrichedAt is not null && reference.LastEnrichedAt > cutoff) continue;
@@ -78,7 +78,7 @@ public class ReferenceSyncService(
             }
         }
 
-        onStageChanged?.Invoke(ReferenceSyncStage.SyncingVideoGames);
+        if (onStageChanged is not null) await onStageChanged(ReferenceSyncStage.SyncingVideoGames);
         foreach (var reference in await videoGameReferenceRepository.FindAllAsync())
         {
             if (reference.LastEnrichedAt is not null && reference.LastEnrichedAt > cutoff) continue;
@@ -95,7 +95,7 @@ public class ReferenceSyncService(
             }
         }
 
-        onStageChanged?.Invoke(ReferenceSyncStage.SyncingAlbums);
+        if (onStageChanged is not null) await onStageChanged(ReferenceSyncStage.SyncingAlbums);
         foreach (var reference in await albumReferenceRepository.FindAllAsync())
         {
             if (reference.LastEnrichedAt is not null && reference.LastEnrichedAt > cutoff) continue;

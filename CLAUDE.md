@@ -373,6 +373,10 @@ A bug in it should never be able to take down unrelated endpoints.
 Not every endpoint is per-item CRUD.
 `WatchNextController`/`WishlistController` (read-only cross-entity aggregations) live in `WebApi/Controllers/` like every other controller, with a plain `ControllerBase` rather than being force-fit into `DataCrudControllerBase`.
 Their computation lives in `Domain/Services/` (`WatchNextService`, `WishlistService`) since it's pure logic over Domain models with no persistence or web dependency - Domain's stated charter from the project-overview table above.
+`StatsController` (`GET /api/stats`, per-owner counts via the shared `IDataRepository.CountAsync`, backing the Home page's signed-in collection overview)
+and `SystemStatusController` (`GET /api/system-status`, admin-only: the answering instance's configuration plus the shared reference-sync lease and recent background jobs, surfaced on the reference-data admin page's "System" panel)
+follow the same shape, minus a Domain service - nine independent counts and a config/lease read involve no computation worth extracting.
+System-status per-instance fields deliberately describe whichever replica answered (seeing different instance names on refresh is evidence load-balancing works); the lease and job history come from MongoDB and are identical from every replica.
 `WebApi/Import/` (the TV Time GDPR-export upsert, using `CsvHelper` for parsing) and `WebApi/ReferenceData/` still follow the older feature-folder shape (a `ControllerBase` and service class colocated under `WebApi/<Feature>/`).
 This is now recognized as the same misplacement `WatchNext` had, but migrating them is deliberately deferred to a separate change to limit regression surface and manual-testing burden.
 Don't extend the older feature-folder shape to new code; follow `WatchNextController`/`WishlistController`'s split instead (controller in `Controllers/`, pure computation in `Domain/Services/` when there is any).
@@ -427,8 +431,12 @@ If a future TV Time field looks suspiciously absent, re-check the real export be
 The import runs as a background job rather than a single request/response, so the UI can show real progress.
 `POST /api/import/tv-time` buffers the upload, kicks off the work via `IServiceScopeFactory.CreateScope()` (the request's own DI scope is gone by the time the background work runs), and returns a job id immediately.
 `GET /api/import/tv-time/{jobId}` reports the current `ImportStage`.
-`ImportJobStore` is an in-memory singleton keyed by job id and checks the caller's owner id on every read, so a job is only ever visible to the user who started it.
-Follow this shape (buffer input, background `Task` via a fresh scope, pollable status keyed by owner) for any other future long-running action.
+`JobStore<TStage, TResult>` (`WebApi/Jobs/`, shared by this import and the admin "sync now") is backed by MongoDB (`IBackgroundJobRepository`/`background_job` collection, TTL-cleaned after 7 days),
+**not** memory: with multiple WebApi replicas the replica answering a poll isn't necessarily the one running the job, and the original in-memory store made polling fail whenever they differed.
+The typed wrapper owns the enum-name/JSON translation (stage stored as the enum member name, result as a JSON string), so the Domain contract stays free of web DTO types.
+The owner id is checked in the repository query itself on every read, so a job is only ever visible to the user who started it.
+A background task must resolve its `JobStore` from its own fresh DI scope (it's scoped, wrapping a scoped repository) - never capture the request's instance, whose scope is gone by the time the task runs.
+Follow this shape (buffer input, background `Task` via a fresh scope, pollable Mongo-backed status keyed by owner) for any other future long-running action.
 Don't block a request on multi-second server work just because the current single-endpoint pattern is simpler to write.
 
 Watch Next originally reported only the *last watched* episode per in-progress show, deliberately never guessing a "next" one, because Keeptrack had no episode-guide data to confirm a further episode actually existed.
@@ -457,6 +465,10 @@ TMDB's own data (episode air dates as seasons progress, genres, posters, cast) d
 `ReferenceSyncBackgroundService` (`WebApi/ReferenceData/`) is a plain in-process `BackgroundService` running a `PeriodicTimer` (24h interval, does an initial pass immediately on startup too).
 It's deliberately **not** a Kubernetes CronJob or separate worker process.
 A second scheduled workload is real operational overhead (another manifest, another thing that can silently stop running) for a job that's cheap enough to run inside the existing API process.
+With multiple WebApi replicas, every replica runs the loop but only one syncs per cycle: each tick first tries a MongoDB lease
+(`ILeaseRepository.TryAcquireAsync("reference-sync", Environment.MachineName, 1h)` - `LeaseRepository`, an atomic filtered upsert whose mutual exclusion is the `lease` collection's own `_id` uniqueness, covered by the real-Mongo `LeaseRepositoryTest`).
+The loser logs and skips, so scaling out never multiplies provider traffic or races two enrichments of the same document - and the no-external-scheduler rationale above survives scaling intact.
+A replica dying while holding the lease delays the next pass by at most the 1h lease duration, immaterial against the 24h cadence.
 `ReferenceSyncService.SyncStaleReferencesAsync(staleAfter, ...)` is shared by both the periodic loop and the admin's on-demand trigger, so there's exactly one sync algorithm.
 It skips any reference document whose `LastEnrichedAt` is more recent than `staleAfter` (3 days for the periodic pass; `TimeSpan.Zero` for the admin's forced "sync now", which therefore re-checks everything regardless of recency).
 It never lets one failing document (a TMDB id that's since been removed, a transient network error) abort the rest of the run - each is caught and logged individually.
@@ -675,6 +687,13 @@ and adopts an externally-changed `Search` parameter only when it didn't originat
 Covered end-to-end by `ListStateSmokeTest` (Playwright), including the back-navigation-from-detail scenario.
 Authentication uses Firebase (cookie auth in the Blazor app, JWT bearer validated against Firebase in the Web API); `AuthenticationTokenHandler` attaches the bearer token to outgoing API calls.
 
+**Scaling (multiple replicas) is an app-level design here, deliberately not an infrastructure assumption** - the owner's cluster fronts the app with a Cloudflare tunnel, where no ingress cookie-affinity exists, so nothing may rely on sticky sessions.
+Two pieces make the Blazor app replica-safe:
+`DataProtection:MongoDb:ConnectionString`/`DatabaseName` (opt-in, `Program.cs`) persists the Data Protection key ring via `DataProtection/MongoDbXmlRepository` so the auth cookie and antiforgery tokens decrypt on every replica -
+without it each pod keeps ephemeral keys and multi-replica cookie auth breaks; this is the only reason `BlazorApp.csproj` references `MongoDB.Driver` (it still never references `Domain`/`Infrastructure.MongoDb` - tenant data stays behind WebApi).
+`Features:IsWebSocketsOnlyEnabled` (default `true`, `App.razor`) starts the circuit via `Blazor.start` with `skipNegotiation` + WebSockets-only transport, so a circuit's single long-lived connection naturally pins it to the pod owning its state - set it to `false` only behind a proxy that can't pass WebSockets, and stay single-replica there.
+A pod dying still drops its circuits (inherent to Blazor Server - clients reconnect-then-reload); the WebApi side's replica-safety (Mongo job store, sync lease) is covered in its own sections above.
+
 Pages that aren't a generic CRUD list (`TvShowDetail.razor`, `WatchNext/WatchNextPage.razor`, `Import/ImportPage.razor`) don't extend `InventoryPageBase`/`InventoryList` —
 they're free to build their own layout on top of the shared `kt-*` CSS classes in `app.css`.
 Their API clients live next to them in a feature folder rather than in `Inventory/Clients/`.
@@ -734,6 +753,8 @@ the scoped file itself has to be edited.
 - `test/WebApi.IntegrationTests`: xunit v3 tests booted against a real Kestrel host (`KestrelWebAppFactory<Program>`) and a real MongoDB instance.
   `ResourceTestBase` provides typed `GetAsync`/`PostAsync`/`PutAsync`/`DeleteAsync`/`PostFileAsync` helpers and an `Authenticate()` helper that logs in against Firebase to obtain a bearer token.
   Resource tests (`BookResourceTest`, `MovieResourceTest`, `TvTimeImportResourceTest`) exercise a full create/read/update/delete (or upsert) cycle against the live API and clean up what they create.
+  `SyncNow_PollingReachesACompletedResult` self-skips unless `REFERENCE_SYNC_POLL_ENABLED=true` - polling a full live-provider sync to completion grows with the shared database and flakes on provider latency,
+  so only the job-start half runs by default (see CONTRIBUTING.md).
   `TvTimeFixtureZipBuilder` builds a small synthetic TV Time export in memory for the import test — never commit a real personal export as a test fixture.
 - `test/Testing.Shared`: not a test project itself, but the shared hosting/Firebase-auth infrastructure both `WebApi.IntegrationTests` and `BlazorApp.PlaywrightTests` build on, so neither duplicates it.
   `KestrelWebAppFactory<TEntryPoint>`'s env-var override name and in-memory config overrides are constructor parameters for exactly this reason - each host (WebApi, BlazorApp) supplies its own.
@@ -754,6 +775,8 @@ the scoped file itself has to be edited.
   `Tmdb__ApiKey`/`Rawg__ApiKey`/`Discogs__Token` are hard-required for this reason.
   `E2eFixture` fails fast at startup with a clear error if any is missing, rather than letting those tests fail downstream with a confusing "no results found".
   `WatchNextSmokeTest` seeds a real, long-finished TV show plus a real movie, to assert the Watch Next page's "confirmed next episode"/"movies to watch" logic against actual data instead of just an empty state.
+  It lives in a `[CollectionDefinition(DisableParallelization = true)]` collection so it never runs concurrently with other classes -
+  Watch Next aggregates across the whole shared tenant, so parallel classes' create/delete traffic raced its assertions (a confirmed intermittent failure that passes in isolation).
   The show is marked "Current" in-app regardless of its real-world airing status, since `WatchNextService` only checks the tenant's own `State` field.
   `E2eFixture` is a single instance shared by every parallel-running smoke test class, so its `ApiHttpClient` helper (used by tests' own cleanup) must be thread-safe.
   Movie/TvShow/VideoGame/Album use fixed real-world titles rather than a GUID, so an orphaned leftover from a failed run is an actual accumulating duplicate, not harmless clutter.

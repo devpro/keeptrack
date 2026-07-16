@@ -36,7 +36,7 @@ public class TvTimeImportController(JobStore<ImportStage, ImportResultDto> jobSt
 
         buffer.Position = 0;
         var ownerId = this.GetUserId();
-        var jobId = jobStore.Create(ownerId, ImportStage.Parsing);
+        var jobId = await jobStore.CreateAsync(ownerId, ImportStage.Parsing);
 
         _ = RunImportJobAsync(jobId, buffer, ownerId);
 
@@ -49,9 +49,9 @@ public class TvTimeImportController(JobStore<ImportStage, ImportResultDto> jobSt
     [HttpGet("tv-time/{jobId:guid}")]
     [ProducesResponseType(200)]
     [ProducesResponseType(404)]
-    public ActionResult<ImportJobStatusDto> GetStatus(Guid jobId)
+    public async Task<ActionResult<ImportJobStatusDto>> GetStatus(Guid jobId)
     {
-        var status = jobStore.GetStatus(jobId, this.GetUserId());
+        var status = await jobStore.GetStatusAsync(jobId, this.GetUserId());
         if (status is null) return NotFound();
 
         return Ok(new ImportJobStatusDto { Stage = status.Value.Stage, Result = status.Value.Result, ErrorMessage = status.Value.ErrorMessage });
@@ -59,7 +59,8 @@ public class TvTimeImportController(JobStore<ImportStage, ImportResultDto> jobSt
 
     /// <summary>
     /// Runs the import on a background task using its own DI scope (the request that started it has
-    /// already completed by the time this runs, so it can't reuse the request's scoped services).
+    /// already completed by the time this runs, so it can't reuse the request's scoped services -
+    /// including the request's own JobStore, whose repository belongs to that dead scope).
     /// </summary>
     private async Task RunImportJobAsync(Guid jobId, MemoryStream buffer, string ownerId)
     {
@@ -67,15 +68,16 @@ public class TvTimeImportController(JobStore<ImportStage, ImportResultDto> jobSt
         {
             using var scope = scopeFactory.CreateScope();
             var importService = scope.ServiceProvider.GetRequiredService<TvTimeImportService>();
+            var scopedJobStore = scope.ServiceProvider.GetRequiredService<JobStore<ImportStage, ImportResultDto>>();
 
             try
             {
-                var result = await importService.ImportAsync(buffer, ownerId, stage => jobStore.UpdateStage(jobId, stage));
-                jobStore.Complete(jobId, ImportStage.Completed, result);
+                var result = await importService.ImportAsync(buffer, ownerId, stage => scopedJobStore.UpdateStageAsync(jobId, stage));
+                await scopedJobStore.CompleteAsync(jobId, ImportStage.Completed, result);
             }
             catch (Exception ex)
             {
-                jobStore.Fail(jobId, ImportStage.Failed, ex.Message);
+                await scopedJobStore.FailAsync(jobId, ImportStage.Failed, ex.Message);
             }
         }
     }

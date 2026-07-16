@@ -72,4 +72,11 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
         var status = await http.GetFromJsonAsync<ReferenceSyncJobStatusDto>($"/api/reference-data/sync-now/{jobId}");
         return status ?? new ReferenceSyncJobStatusDto { Stage = ReferenceSyncStage.Failed, ErrorMessage = "Lost track of the sync job." };
     }
+
+    /// <summary>
+    /// Operational snapshot: the answering instance's configuration plus the shared reference-sync lease
+    /// and recent background jobs (see <c>SystemStatusController</c>).
+    /// </summary>
+    public async Task<SystemStatusDto?> GetSystemStatusAsync() =>
+        await http.GetFromJsonAsync<SystemStatusDto>("/api/system-status");
 }

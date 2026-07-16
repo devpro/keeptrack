@@ -146,6 +146,17 @@ ensureIndex(
   { name: "videogame_owned", partialFilterExpression: { "platforms.0": { $exists: true } } }
 );
 
+// background_job: transient job-progress documents (TV Time import, reference-data "sync now") polled by
+// job id - MongoDB-backed (instead of in-memory) so any WebApi replica can answer a poll. TTL cleanup
+// after 7 days; reads are by _id + owner check, so no other index is needed. The "lease" collection
+// (single-runner election for the periodic reference sync) needs no index at all: one tiny document per
+// lease name, keyed by _id.
+ensureIndex(
+  db.background_job,
+  { created_at: 1 },
+  { name: "background_job_ttl", expireAfterSeconds: 604800 }
+);
+
 // tvshow_reference / movie_reference: shared, owner-less lookup tables (see CLAUDE.md) keyed by
 // matched_aliases (every (title, year) combination ever confirmed for that reference, not just its
 // canonical one - see MatchedAliases/ReferenceMatchModel in CLAUDE.md), the primary automatic-match key.

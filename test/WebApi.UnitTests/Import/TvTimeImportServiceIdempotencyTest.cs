@@ -143,6 +143,9 @@ public class TvTimeImportServiceIdempotencyTest
         public Task<TModel?> FindOneAsync(string id, string ownerId) =>
             Task.FromResult(Items.FirstOrDefault(x => x.Id == id && x.OwnerId == ownerId));
 
+        public Task<long> CountAsync(string ownerId) =>
+            Task.FromResult((long)Items.Count(x => x.OwnerId == ownerId));
+
         public Task<PagedResult<TModel>> FindAllAsync(string ownerId, int page, int pageSize, string? search, TModel input)
         {
             var items = Items.Where(x => x.OwnerId == ownerId && _matchesInput(x, input)).ToList();

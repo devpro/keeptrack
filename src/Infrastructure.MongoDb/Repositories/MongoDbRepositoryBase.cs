@@ -56,6 +56,9 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
         );
     }
 
+    public async Task<long> CountAsync(string ownerId) =>
+        await GetCollection().CountDocumentsAsync(Builders<TEntity>.Filter.Eq(f => f.OwnerId, ownerId));
+
     public async Task<TModel> CreateAsync(TModel model)
     {
         var entity = Mapper.ToEntity(model);

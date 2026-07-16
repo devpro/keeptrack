@@ -127,7 +127,14 @@ public class ReferenceSyncServiceTest
         var service = CreateService(FakeTmdbClient.Empty());
         var stages = new List<ReferenceSyncStage>();
 
-        await service.SyncStaleReferencesAsync(TimeSpan.FromDays(3), stages.Add, TestContext.Current.CancellationToken);
+        await service.SyncStaleReferencesAsync(
+            TimeSpan.FromDays(3),
+            stage =>
+            {
+                stages.Add(stage);
+                return Task.CompletedTask;
+            },
+            TestContext.Current.CancellationToken);
 
         stages.Should().ContainInOrder(
             ReferenceSyncStage.SyncingTvShows,
