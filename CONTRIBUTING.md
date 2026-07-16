@@ -23,7 +23,7 @@ If you do not agree with these terms, do not submit a contribution.
 The application source code is in the following .NET projects:
 
 Project name               | Technology | Project type
----------------------------|------------|------------------------------
+---------------------------|------------|-------------
 `BlazorApp`                | ASP.NET 10 | Blazor Server web application
 `Common.System`            | .NET 10    | Library
 `Domain`                   | .NET 10    | Library
@@ -34,7 +34,7 @@ Project name               | Technology | Project type
 The application is using the following .NET packages (via NuGet):
 
 Name                | Description
---------------------|--------------------
+--------------------|------------
 `FirebaseAdmin`     | Firebase
 `MongoDB.Bson`      | MongoDB BSON
 `MongoDB.Driver`    | MongoDB .NET Driver
@@ -80,7 +80,7 @@ Name                | Description
 ### Web API settings
 
 Key                                       | Description
-------------------------------------------|--------------------------
+------------------------------------------|------------
 `Infrastructure:MongoDB:ConnectionString` | MongoDB connection string
 `Infrastructure:MongoDB:DatabaseName`     | MongoDB database name
 `Tmdb:ApiKey`                             | TMDB v3 API key, used to auto-match shows/movies to episode titles and synopses (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
@@ -139,12 +139,12 @@ Template for `src/WebApi/appsettings.Development.json`:
 
 Episode titles, synopses, cover art, and the "what should I watch next" experience are backed by shared reference collections, one per trackable type, each populated from a different external provider rather than typed in by hand:
 
-Type              | Provider                                                 | Setting         | API key required?
-------------------|----------------------------------------------------------|-----------------|------------------
-TV shows / Movies | [TMDB](https://www.themoviedb.org/) (The Movie Database) | `Tmdb:ApiKey`   | Yes
-Books             | [Open Library](https://openlibrary.org/)                 | *(none)*        | No
-Video Games       | [RAWG](https://rawg.io/apidocs)                          | `Rawg:ApiKey`   | Yes
-Albums            | [Discogs](https://www.discogs.com/developers)            | `Discogs:Token` | Yes (personal access token)
+Type              | Provider            | Setting         | API key required?
+------------------|---------------------|-----------------|------------------
+TV shows / Movies | [TMDB](https://www.themoviedb.org/)         | `Tmdb:ApiKey`   | Yes
+Books             | [Open Library](https://openlibrary.org/) | *(none)*        | No
+Video Games       | [RAWG](https://rawg.io/apidocs)         | `Rawg:ApiKey`   | Yes
+Albums            | [Discogs](https://www.discogs.com/developers)      | `Discogs:Token` | Yes (personal access token)
 
 1. **TMDB**: create a free account, then generate a v3 API key at [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api).
    Set `Tmdb:ApiKey` (or the `Tmdb__ApiKey` environment variable) to that key.
@@ -182,6 +182,7 @@ The claim is embedded directly in that user's ID token on their next sign-in (ex
 Any account that can sign in (Google/GitHub through Firebase Auth) but carries **no** `role` claim is a *free preview* account:
 it only gets movies and TV shows, capped at `Features:FreeTierItemLimit` items per collection (default 20; episodes get 100x that so ticking off a watch-through never feels rationed).
 Every other collection (books, albums, playlists, video games, cars, houses) and the TV Time import require the `MemberOnly` policy.
+
 Grant a membership exactly like the admin role above, with `role: "member"` instead:
 
 ```javascript
