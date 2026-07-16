@@ -9,8 +9,7 @@
 <div class="kt-form-card">
     <p style="color:var(--kt-text-muted)">
         Upload the zip file from TV Time's "Download my data" (GDPR) export.
-        Keeptrack reads your followed shows, episode watch history, ratings, favorites/watchlist status,
-        comments, and movies, and upserts them into your account.
+        Keeptrack reads your followed shows, episode watch history, ratings, favorites/watchlist status, comments, and movies, and upserts them into your account.
         Safe to run more than once.
     </p>
 
@@ -114,6 +113,8 @@
     private string? _carError;
     private CarHistoryImportResultDto? _carResult;
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "S5693:Make sure the content length limit is safe here",
+        Justification = "The limit IS set (MaxFileSize, 50 MB, matching the API's own RequestSizeLimit).")]
     private async Task OnFileSelectedAsync(InputFileChangeEventArgs e)
     {
         _importing = true;
@@ -160,6 +161,8 @@
         }
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "S5693:Make sure the content length limit is safe here",
+        Justification = "The limit IS set (MaxFileSize, 50 MB, matching the API's own RequestSizeLimit).")]
     private async Task OnCarFileSelectedAsync(InputFileChangeEventArgs e)
     {
         _carImporting = true;

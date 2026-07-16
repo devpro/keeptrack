@@ -7,28 +7,28 @@ using System.Web;
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// Open Library REST client. No API key required; registered as a typed <see cref="HttpClient"/> with a
-/// descriptive User-Agent header (Open Library's stated best practice for API consumers) - see Program.cs.
+/// Open Library REST client.
+/// No API key required;
+/// registered as a typed <see cref="HttpClient"/> with a descriptive User-Agent header (Open Library's stated best practice for API consumers) - see Program.cs.
 /// </summary>
 public class OpenLibraryClient(HttpClient http) : IBookReferenceClient
 {
     public string ProviderKey => "openlibrary";
 
     /// <summary>
-    /// Deliberately does NOT filter server-side by <paramref name="year"/>: Open Library's
-    /// <c>first_publish_year</c> is the work's ORIGINAL publication year, which routinely differs from
-    /// whatever edition/printing year a tenant recorded (e.g. a 1997 first edition vs. a 2016 reprint) -
-    /// filtering on it would silently drop the real match instead of just ranking it lower. This is an
-    /// Open-Library-specific workaround, not a rule every <see cref="IBookReferenceClient"/> must follow.
+    /// Deliberately does NOT filter server-side by <paramref name="year"/>:
+    /// Open Library's <c>first_publish_year</c> is the work's ORIGINAL publication year,
+    /// which routinely differs from whatever edition/printing year a tenant recorded (e.g. a 1997 first edition vs. a 2016 reprint) -
+    /// filtering on it would silently drop the real match instead of just ranking it lower.
+    /// This is an Open-Library-specific workaround, not a rule every <see cref="IBookReferenceClient"/> must follow.
     /// </summary>
     public async Task<IReadOnlyList<BookSearchResult>> SearchBooksAsync(string title, int? year, string? author = null, CancellationToken cancellationToken = default)
     {
         var results = await SearchBooksCoreAsync(title, author, cancellationToken);
         if (results.Count == 0 && !string.IsNullOrEmpty(author))
         {
-            // same "an optional narrowing parameter must not silently produce zero results" lesson as the
-            // year filter above: an author string that doesn't exactly match Open Library's own indexing
-            // (a middle name, a diacritic, "and" vs "&") can zero out results the title alone would find -
+            // same "an optional narrowing parameter must not silently produce zero results" lesson as the year filter above:
+            // an author string that doesn't exactly match Open Library's own indexing (a middle name, a diacritic, "and" vs "&") can zero out results the title alone would find -
             // see DiscogsClient.SearchAlbumsAsync for the equivalent fallback with the same rationale.
             results = await SearchBooksCoreAsync(title, null, cancellationToken);
         }

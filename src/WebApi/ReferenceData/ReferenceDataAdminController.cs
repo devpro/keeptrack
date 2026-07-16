@@ -11,8 +11,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// Lets an admin/maintainer resolve titles the automatic match couldn't confidently handle (ambiguous or
-/// zero results), across every reference-backed domain (TV shows, movies, books, video games, albums).
+/// Lets an admin/maintainer resolve titles the automatic match couldn't confidently handle (ambiguous or zero results),
+/// across every reference-backed domain (TV shows, movies, books, video games, albums).
 /// Not per-tenant CRUD, so this doesn't extend <see cref="Controllers.DataCrudControllerBase{TDto,TModel}"/>.
 /// </summary>
 [ApiController]
@@ -46,8 +46,7 @@ public class ReferenceDataAdminController(
     private const string AlbumEntryName = "album_reference.json";
 
     /// <summary>
-    /// Every reference document (TV shows, movies, cast, books, video games, albums) as a zip, so an admin
-    /// can seed a fresh environment's reference data without re-earning every match one search at a time.
+    /// Every reference document as a zip, so an admin can seed a fresh environment's reference data without re-earning every match one search at a time.
     /// </summary>
     [HttpGet("export")]
     [ProducesResponseType(200)]
@@ -76,8 +75,8 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// Idempotent (upsert-by-id) re-import of a previously exported zip - re-running the same import
-    /// twice is a no-op the second time, since every document already carries the id it was exported with.
+    /// Idempotent (upsert-by-id) re-import of a previously exported zip -
+    /// re-running the same import twice is a no-op the second time, since every document already carries the id it was exported with.
     /// </summary>
     [HttpPost("import")]
     [RequestSizeLimit(50_000_000)]
@@ -85,7 +84,8 @@ public class ReferenceDataAdminController(
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     [SuppressMessage("Security", "S5693:Make sure the content length limit is safe here",
-        Justification = "The limit IS set (50 MB), deliberately above Sonar's 8 MB default: a full reference-data export (six collections of episode guides, cast, aliases) grows past 8 MB, and the endpoint is admin-only.")]
+        Justification = "The limit IS set (50 MB), deliberately above Sonar's 8 MB default: " +
+                        "a full reference-data export (six collections of episode guides, cast, aliases) grows past 8 MB, and the endpoint is admin-only.")]
     public async Task<ActionResult<ReferenceDataImportResultDto>> Import(IFormFile file)
     {
         if (file.Length == 0) return BadRequest();
@@ -247,20 +247,21 @@ public class ReferenceDataAdminController(
 
     /// <summary>
     /// Live external-provider search, for an admin to pick the right candidate for an unresolved title.
-    /// TV show/movie candidates are additionally enriched with top-billed cast names to help tell apart
-    /// near-identical results (remakes, regional variants, sequels sharing a title).
+    /// TV show/movie candidates are additionally enriched with top-billed cast names to help tell apart near-identical results
+    /// (remakes, regional variants, sequels sharing a title).
     /// </summary>
     /// <summary>
     /// <paramref name="creator"/> is the book's author or the album's artist, when the caller has one -
-    /// passed straight through to the provider's own author/artist search field (see
-    /// <see cref="IBookReferenceClient.SearchBooksAsync"/>/<see cref="IDiscogsClient.SearchAlbumsAsync"/>),
-    /// since a common title alone often returns many unrelated candidates. Ignored for TV shows/movies/video
-    /// games, which have no equivalent single-name creator field on this endpoint.
+    /// passed straight through to the provider's own author/artist search field
+    /// (see <see cref="IBookReferenceClient.SearchBooksAsync"/>/<see cref="IDiscogsClient.SearchAlbumsAsync"/>),
+    /// since a common title alone often returns many unrelated candidates.
+    /// Ignored for TV shows/movies/video games, which have no equivalent single-name creator field on this endpoint.
     /// </summary>
     [HttpGet("search")]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
-    public async Task<ActionResult<List<ReferenceSearchResultDto>>> Search([FromQuery] ReferenceItemType type, [FromQuery] string title, [FromQuery] int? year, [FromQuery] string? creator = null)
+    public async Task<ActionResult<List<ReferenceSearchResultDto>>> Search([FromQuery] ReferenceItemType type, [FromQuery] string title, [FromQuery] int? year,
+        [FromQuery] string? creator = null)
     {
         // never hit a provider with an empty title - mapped to a 400 by ApiExceptionFilterAttribute
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
@@ -273,7 +274,14 @@ public class ReferenceDataAdminController(
             case ReferenceItemType.Book:
                 var books = await bookReferenceClient.SearchBooksAsync(title, year, creator);
                 return Ok(books.Take(MaxEnrichedCandidates)
-                    .Select(r => new ReferenceSearchResultDto { ExternalId = r.ExternalId, Title = r.Title, Year = r.Year, Creator = r.Author, ImageUrl = r.ImageUrl })
+                    .Select(r => new ReferenceSearchResultDto
+                    {
+                        ExternalId = r.ExternalId,
+                        Title = r.Title,
+                        Year = r.Year,
+                        Creator = r.Author,
+                        ImageUrl = r.ImageUrl
+                    })
                     .ToList());
             case ReferenceItemType.VideoGame:
                 var games = await rawgClient.SearchGamesAsync(title, year);
@@ -283,7 +291,14 @@ public class ReferenceDataAdminController(
             case ReferenceItemType.Album:
                 var albums = await discogsClient.SearchAlbumsAsync(title, year, creator);
                 return Ok(albums.Take(MaxEnrichedCandidates)
-                    .Select(r => new ReferenceSearchResultDto { ExternalId = r.ExternalId, Title = r.Title, Year = r.Year, Creator = r.Artist, ImageUrl = r.ImageUrl })
+                    .Select(r => new ReferenceSearchResultDto
+                    {
+                        ExternalId = r.ExternalId,
+                        Title = r.Title,
+                        Year = r.Year,
+                        Creator = r.Artist,
+                        ImageUrl = r.ImageUrl
+                    })
                     .ToList());
             default:
                 throw new ArgumentOutOfRangeException(nameof(type));

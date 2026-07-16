@@ -14,10 +14,13 @@
         candidate). Pick one to search @ProviderName and link every account's matching item at once.
     </p>
     <div class="d-flex gap-2 flex-wrap">
-        <button class="btn btn-sm @(_type == ReferenceItemType.TvShow ? "btn-primary" : "btn-secondary")" @onclick='() => SelectTypeAsync(ReferenceItemType.TvShow)'>TV shows</button>
+        <button class="btn btn-sm @(_type == ReferenceItemType.TvShow ? "btn-primary" : "btn-secondary")" @onclick='() => SelectTypeAsync(ReferenceItemType.TvShow)'>TV shows
+        </button>
         <button class="btn btn-sm @(_type == ReferenceItemType.Movie ? "btn-primary" : "btn-secondary")" @onclick='() => SelectTypeAsync(ReferenceItemType.Movie)'>Movies</button>
         <button class="btn btn-sm @(_type == ReferenceItemType.Book ? "btn-primary" : "btn-secondary")" @onclick='() => SelectTypeAsync(ReferenceItemType.Book)'>Books</button>
-        <button class="btn btn-sm @(_type == ReferenceItemType.VideoGame ? "btn-primary" : "btn-secondary")" @onclick='() => SelectTypeAsync(ReferenceItemType.VideoGame)'>Video games</button>
+        <button class="btn btn-sm @(_type == ReferenceItemType.VideoGame ? "btn-primary" : "btn-secondary")" @onclick='() => SelectTypeAsync(ReferenceItemType.VideoGame)'>Video
+            games
+        </button>
         <button class="btn btn-sm @(_type == ReferenceItemType.Album ? "btn-primary" : "btn-secondary")" @onclick='() => SelectTypeAsync(ReferenceItemType.Album)'>Albums</button>
     </div>
 </div>
@@ -40,76 +43,80 @@
            they rendered off-screen with no feedback at all. *@
         <table class="table">
             <tbody>
-                @foreach (var item in _unresolved)
+            @foreach (var item in _unresolved)
+            {
+                <tr class="@(item == _selected ? "table-active" : "")" @onclick="() => SelectItemAsync(item)" style="cursor:pointer">
+                    <td style="font-weight:500">@item.Title</td>
+                    <td>@item.Year</td>
+                </tr>
+                @if (item == _selected)
                 {
-                    <tr class="@(item == _selected ? "table-active" : "")" @onclick="() => SelectItemAsync(item)" style="cursor:pointer">
-                        <td style="font-weight:500">@item.Title</td>
-                        <td>@item.Year</td>
-                    </tr>
-                    @if (item == _selected)
-                    {
-                        <tr>
-                            <td colspan="2">
-                                <div class="d-flex gap-2 mb-3 flex-wrap">
-                                    <input class="form-control form-control-sm" style="max-width:240px" placeholder="Title" @bind="_queryTitle"/>
-                                    <input class="form-control form-control-sm" style="max-width:90px" placeholder="Year" type="number" @bind="_queryYear"/>
-                                    @if (_type is ReferenceItemType.Book or ReferenceItemType.Album)
-                                    {
-                                        <input class="form-control form-control-sm" style="max-width:180px" placeholder="@(_type == ReferenceItemType.Book ? "Author" : "Artist")" @bind="_creator"/>
-                                    }
-                                    <button class="btn btn-sm btn-secondary" @onclick="SearchAsync" disabled="@(_searching || string.IsNullOrWhiteSpace(_queryTitle))">Search</button>
+                    <tr>
+                        <td colspan="2">
+                            <div class="d-flex gap-2 mb-3 flex-wrap">
+                                <input class="form-control form-control-sm" style="max-width:240px" placeholder="Title" @bind="_queryTitle"/>
+                                <input class="form-control form-control-sm" style="max-width:90px" placeholder="Year" type="number" @bind="_queryYear"/>
+                                @if (_type is ReferenceItemType.Book or ReferenceItemType.Album)
+                                {
+                                    <input class="form-control form-control-sm" style="max-width:180px" placeholder="@(_type == ReferenceItemType.Book ? "Author" : "Artist")"
+                                           @bind="_creator"/>
+                                }
+                                <button class="btn btn-sm btn-secondary" @onclick="SearchAsync" disabled="@(_searching || string.IsNullOrWhiteSpace(_queryTitle))">Search</button>
+                            </div>
+
+                            @if (_searching)
+                            {
+                                <div class="kt-loading">
+                                    <div class="kt-spinner"></div>
+                                    Searching…
                                 </div>
-
-                                @if (_searching)
+                            }
+                            else if (_searchResults.Count == 0)
+                            {
+                                <div class="alert alert-info mb-0">No @ProviderName results - adjust the title or year above and search again.</div>
+                            }
+                            else
+                            {
+                                @foreach (var candidate in _searchResults)
                                 {
-                                    <div class="kt-loading"><div class="kt-spinner"></div> Searching…</div>
-                                }
-                                else if (_searchResults.Count == 0)
-                                {
-                                    <div class="alert alert-info mb-0">No @ProviderName results - adjust the title or year above and search again.</div>
-                                }
-                                else
-                                {
-                                    @foreach (var candidate in _searchResults)
-                                    {
-                                        <div class="kt-form-card mb-2">
-                                            @* Link sits top-right and the synopsis is clamped (.kt-ref-synopsis) - a long TMDB
+                                    <div class="kt-form-card mb-2">
+                                        @* Link sits top-right and the synopsis is clamped (.kt-ref-synopsis) - a long TMDB
                                                synopsis otherwise pushes the only action below the fold on mobile. *@
-                                            <div class="d-flex gap-3 align-items-start">
-                                                @if (!string.IsNullOrEmpty(candidate.ImageUrl))
+                                        <div class="d-flex gap-3 align-items-start">
+                                            @if (!string.IsNullOrEmpty(candidate.ImageUrl))
+                                            {
+                                                <img src="@candidate.ImageUrl" alt="@candidate.Title poster"
+                                                     style="width:60px;height:90px;object-fit:cover;flex-shrink:0" class="rounded"/>
+                                            }
+                                            <div style="min-width:0">
+                                                <p class="mb-1"><strong>@candidate.Title</strong> @(candidate.Year is not null ? $"({candidate.Year})" : "")</p>
+                                                @if (!string.IsNullOrEmpty(candidate.Creator))
                                                 {
-                                                    <img src="@candidate.ImageUrl" alt="@candidate.Title poster"
-                                                         style="width:60px;height:90px;object-fit:cover;flex-shrink:0" class="rounded"/>
+                                                    <p class="kt-card-meta mb-1">@candidate.Creator</p>
                                                 }
-                                                <div style="min-width:0">
-                                                    <p class="mb-1"><strong>@candidate.Title</strong> @(candidate.Year is not null ? $"({candidate.Year})" : "")</p>
-                                                    @if (!string.IsNullOrEmpty(candidate.Creator))
-                                                    {
-                                                        <p class="kt-card-meta mb-1">@candidate.Creator</p>
-                                                    }
-                                                    @if (candidate.TopCastNames.Count > 0)
-                                                    {
-                                                        <p class="kt-card-meta mb-1">@string.Join(", ", candidate.TopCastNames)</p>
-                                                    }
-                                                    @if (!string.IsNullOrEmpty(candidate.Synopsis))
-                                                    {
-                                                        <p class="kt-card-meta kt-ref-synopsis mb-0">@candidate.Synopsis</p>
-                                                    }
-                                                </div>
-                                                <button class="btn btn-sm btn-success ms-auto flex-shrink-0" @onclick="() => LinkAsync(candidate)" disabled="@_linking">Link</button>
+                                                @if (candidate.TopCastNames.Count > 0)
+                                                {
+                                                    <p class="kt-card-meta mb-1">@string.Join(", ", candidate.TopCastNames)</p>
+                                                }
+                                                @if (!string.IsNullOrEmpty(candidate.Synopsis))
+                                                {
+                                                    <p class="kt-card-meta kt-ref-synopsis mb-0">@candidate.Synopsis</p>
+                                                }
                                             </div>
+                                            <button class="btn btn-sm btn-success ms-auto flex-shrink-0" @onclick="() => LinkAsync(candidate)" disabled="@_linking">Link</button>
                                         </div>
-                                    }
+                                    </div>
                                 }
+                            }
 
-                                @if (_error is not null)
-                                {
-                                    <div class="alert alert-danger mt-2 mb-0">@_error</div>
-                                }
-                            </td>
-                        </tr>
-                    }
+                            @if (_error is not null)
+                            {
+                                <div class="alert alert-danger mt-2 mb-0">@_error</div>
+                            }
+                        </td>
+                    </tr>
                 }
+            }
             </tbody>
         </table>
     }
@@ -189,7 +196,10 @@
     }
     else if (_systemStatus is null)
     {
-        <div class="kt-loading"><div class="kt-spinner"></div> Loading…</div>
+        <div class="kt-loading">
+            <div class="kt-spinner"></div>
+            Loading…
+        </div>
     }
     else
     {
@@ -391,7 +401,8 @@
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "S5693:Make sure the content length limit is safe here",
-        Justification = "The limit IS set (MaxImportFileSize, 50 MB, matching the API's own RequestSizeLimit), deliberately above Sonar's 8 MB default: a full reference-data export grows past 8 MB, and this page is admin-only.")]
+        Justification = "The limit IS set (MaxImportFileSize, 50 MB, matching the API's own RequestSizeLimit), deliberately above Sonar's 8 MB default: " +
+                        "a full reference-data export grows past 8 MB, and this page is admin-only.")]
     private async Task OnImportFileSelectedAsync(InputFileChangeEventArgs e)
     {
         _importing = true;
@@ -512,4 +523,5 @@
             _linking = false;
         }
     }
+
 }
