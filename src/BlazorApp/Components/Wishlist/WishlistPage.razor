@@ -4,7 +4,40 @@
 
 <div class="kt-page-header">
     <h1>Wish<span>list</span></h1>
+    <div class="d-flex gap-2">
+        <button class="btn btn-sm kt-toggle-btn @(_showSharePanel ? "active" : "")" @onclick="ToggleSharePanelAsync">↗ Share</button>
+    </div>
 </div>
+
+@if (_showSharePanel)
+{
+    <div class="kt-form-card mb-3">
+        @if (_share is null)
+        {
+            <p style="color:var(--kt-text-muted)">
+                Share a private, live view of this wishlist - anyone with the link can see it (and only it),
+                no account needed. You can stop sharing at any time.
+            </p>
+            <button class="btn btn-sm btn-primary" @onclick="CreateShareAsync">Create share link</button>
+        }
+        else
+        {
+            <p style="color:var(--kt-text-muted)">
+                Anyone with this link sees a live, read-only view of your wishlist - nothing else.
+                Stop sharing to revoke every copy of it immediately.
+            </p>
+            <div class="d-flex gap-2 flex-wrap align-items-center">
+                <input class="form-control form-control-sm" style="max-width:420px" readonly value="@ShareUrl"/>
+                <button class="btn btn-sm btn-secondary" @onclick="CopyShareUrlAsync">@(_copied ? "✓ Copied" : "Copy link")</button>
+                <button class="btn btn-sm btn-secondary" @onclick="DeleteShareAsync">Stop sharing</button>
+            </div>
+        }
+        @if (_shareError is not null)
+        {
+            <div class="alert alert-danger mt-3 mb-0">@_shareError</div>
+        }
+    </div>
+}
 
 @if (_loading)
 {
@@ -69,17 +102,22 @@ else
 @code {
     private enum Tab { Movies, TvShows, Books, VideoGames }
 
-    /// <summary>
-    /// The one common projection all four item types share here - a single row loop instead of four
-    /// near-identical per-type markup blocks.
-    /// </summary>
-    private sealed record WishlistRow(string Href, string? ImageUrl, string? Shape, string? Title, int? Year, string? Subtitle = null);
-
     [Inject] private WishlistApiClient WishlistApi { get; set; } = null!;
+
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    [Inject] private IJSRuntime JsRuntime { get; set; } = null!;
 
     private bool _loading = true;
     private WishlistDto _data = new();
     private Tab _tab = Tab.Movies;
+
+    private bool _showSharePanel;
+    private WishlistShareDto? _share;
+    private string? _shareError;
+    private bool _copied;
+
+    private string ShareUrl => Navigation.ToAbsoluteUri($"shared/wishlist/{_share?.Token}").ToString();
 
     protected override async Task OnInitializedAsync()
     {
@@ -89,12 +127,63 @@ else
 
     private void SelectTab(Tab tab) => _tab = tab;
 
+    private async Task ToggleSharePanelAsync()
+    {
+        _showSharePanel = !_showSharePanel;
+        if (!_showSharePanel) return;
+
+        try
+        {
+            _share = await WishlistApi.GetShareAsync();
+            _shareError = null;
+        }
+        catch (Exception ex)
+        {
+            _shareError = ex.Message;
+        }
+    }
+
+    private async Task CreateShareAsync()
+    {
+        try
+        {
+            _share = await WishlistApi.CreateShareAsync();
+            _copied = false;
+            _shareError = null;
+        }
+        catch (Exception ex)
+        {
+            _shareError = ex.Message;
+        }
+    }
+
+    private async Task DeleteShareAsync()
+    {
+        try
+        {
+            await WishlistApi.DeleteShareAsync();
+            _share = null;
+            _copied = false;
+            _shareError = null;
+        }
+        catch (Exception ex)
+        {
+            _shareError = ex.Message;
+        }
+    }
+
+    private async Task CopyShareUrlAsync()
+    {
+        await JsRuntime.InvokeVoidAsync("navigator.clipboard.writeText", ShareUrl);
+        _copied = true;
+    }
+
     private List<WishlistRow> CurrentRows() => _tab switch
     {
-        Tab.Movies => _data.Movies.ConvertAll(x => new WishlistRow($"/movies/{x.Id}", x.ImageUrl, null, x.Title, x.Year)),
-        Tab.TvShows => _data.TvShows.ConvertAll(x => new WishlistRow($"/tv-shows/{x.Id}", x.ImageUrl, null, x.Title, x.Year)),
-        Tab.Books => _data.Books.ConvertAll(x => new WishlistRow($"/books/{x.Id}", x.ImageUrl, null, x.Title, x.Year, x.Author)),
-        _ => _data.VideoGames.ConvertAll(x => new WishlistRow($"/video-games/{x.Id}", x.ImageUrl, "wide", x.Title, x.Year))
+        Tab.Movies => WishlistRow.FromMovies(_data.Movies),
+        Tab.TvShows => WishlistRow.FromTvShows(_data.TvShows),
+        Tab.Books => WishlistRow.FromBooks(_data.Books),
+        _ => WishlistRow.FromVideoGames(_data.VideoGames)
     };
 
     private string EmptyMessage => _tab switch
