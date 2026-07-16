@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Keeptrack.WebApi.Controllers;
 using Keeptrack.WebApi.Jobs;
 using Microsoft.AspNetCore.Authorization;
@@ -19,6 +20,8 @@ public class TvTimeImportController(JobStore<ImportStage, ImportResultDto> jobSt
     [Consumes("multipart/form-data")]
     [ProducesResponseType(202)]
     [ProducesResponseType(400)]
+    [SuppressMessage("Security", "S5693:Make sure the content length limit is safe here",
+        Justification = "The limit IS set (50 MB), deliberately above Sonar's 8 MB default: a TV Time GDPR export zip spanning years of episode history genuinely exceeds 8 MB, and the endpoint is admin-of-your-own-data, authenticated, member-only.")]
     public async Task<ActionResult<ImportJobDto>> ImportTvTime(IFormFile file)
     {
         if (file.Length == 0)

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.IO.Compression;
 using System.Text.Json;
 using Keeptrack.Domain.Models;
@@ -83,6 +84,8 @@ public class ReferenceDataAdminController(
     [Consumes("multipart/form-data")]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
+    [SuppressMessage("Security", "S5693:Make sure the content length limit is safe here",
+        Justification = "The limit IS set (50 MB), deliberately above Sonar's 8 MB default: a full reference-data export (six collections of episode guides, cast, aliases) grows past 8 MB, and the endpoint is admin-only.")]
     public async Task<ActionResult<ReferenceDataImportResultDto>> Import(IFormFile file)
     {
         if (file.Length == 0) return BadRequest();
@@ -256,8 +259,12 @@ public class ReferenceDataAdminController(
     /// </summary>
     [HttpGet("search")]
     [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
     public async Task<ActionResult<List<ReferenceSearchResultDto>>> Search([FromQuery] ReferenceItemType type, [FromQuery] string title, [FromQuery] int? year, [FromQuery] string? creator = null)
     {
+        // never hit a provider with an empty title - mapped to a 400 by ApiExceptionFilterAttribute
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+
         switch (type)
         {
             case ReferenceItemType.TvShow:

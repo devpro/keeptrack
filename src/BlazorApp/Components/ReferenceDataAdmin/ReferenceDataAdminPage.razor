@@ -57,7 +57,7 @@
                                     {
                                         <input class="form-control form-control-sm" style="max-width:180px" placeholder="@(_type == ReferenceItemType.Book ? "Author" : "Artist")" @bind="_creator"/>
                                     }
-                                    <button class="btn btn-sm btn-secondary" @onclick="SearchAsync" disabled="@_searching">Search</button>
+                                    <button class="btn btn-sm btn-secondary" @onclick="SearchAsync" disabled="@(_searching || string.IsNullOrWhiteSpace(_queryTitle))">Search</button>
                                 </div>
 
                                 @if (_searching)
@@ -390,6 +390,8 @@
         }
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "S5693:Make sure the content length limit is safe here",
+        Justification = "The limit IS set (MaxImportFileSize, 50 MB, matching the API's own RequestSizeLimit), deliberately above Sonar's 8 MB default: a full reference-data export grows past 8 MB, and this page is admin-only.")]
     private async Task OnImportFileSelectedAsync(InputFileChangeEventArgs e)
     {
         _importing = true;

@@ -16,6 +16,9 @@ public partial class ReferenceEnrichmentService
     /// </summary>
     public async Task<BookModel> TryLinkExistingBookReferenceAsync(BookModel model)
     {
+        // see TryLinkExistingTvShowReferenceAsync's empty-title guard
+        if (string.IsNullOrWhiteSpace(model.Title)) return model;
+
         var reference = await bookReferenceRepository.FindByTitleYearAsync(model.Title, model.Year, model.Author)
                         ?? await bookReferenceRepository.FindByTitleAsync(model.Title, model.Author);
 
@@ -54,6 +57,8 @@ public partial class ReferenceEnrichmentService
     /// </summary>
     public async Task TryAutoResolveBookAsync(string title, int? year, string? author = null)
     {
+        if (string.IsNullOrWhiteSpace(title)) return; // see TryAutoResolveTvShowAsync
+
         var candidates = await bookReferenceClient.SearchBooksAsync(title, year, author);
         if (candidates.Count != 1) return;
         await ResolveBookAsync(title, year, candidates[0].ExternalId);
@@ -65,6 +70,8 @@ public partial class ReferenceEnrichmentService
     /// </summary>
     public async Task<BookReferenceModel> ResolveBookAsync(string title, int? year, string externalId)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+
         var details = await bookReferenceClient.GetBookDetailsAsync(externalId)
                       ?? throw new InvalidOperationException($"Book {externalId} could not be fetched from {bookReferenceClient.ProviderKey}.");
 
