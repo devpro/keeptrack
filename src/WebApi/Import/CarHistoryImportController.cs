@@ -10,9 +10,8 @@ namespace Keeptrack.WebApi.Import;
 public class CarHistoryImportController(CarHistoryImportService importService) : ControllerBase
 {
     /// <summary>
-    /// Imports the personal "Voitures.xlsx" spreadsheet (fuel/maintenance history per car). Runs
-    /// synchronously - unlike the TV Time import, there's no external API call in the loop, so a few
-    /// hundred rows complete well within a normal request.
+    /// Imports the personal "Voitures.xlsx" spreadsheet (fuel/maintenance history per car).
+    /// Runs synchronously - unlike the TV Time import, there's no external API call in the loop, so a few hundred rows complete well within a normal request.
     /// </summary>
     [HttpPost("car-history")]
     [RequestSizeLimit(10_000_000)]
