@@ -1,3 +1,4 @@
+using System;
 using Keeptrack.Common.System;
 
 namespace Keeptrack.Domain.Models;
@@ -10,13 +11,15 @@ public class HouseModel : IHasIdAndOwnerId
 
     public required string Name { get; set; }
 
-    public string? Address { get; set; }
+    public required string City { get; set; }
 
-    public string? City { get; set; }
+    public required PropertyType PropertyType { get; set; }
 
-    public string? PostalCode { get; set; }
+    /// <summary>When the owner moved into this property, if recorded.</summary>
+    public DateOnly? MovedInAt { get; set; }
 
-    public string? Country { get; set; }
+    /// <summary>When the owner moved out of this property, if recorded (unset while still occupied).</summary>
+    public DateOnly? MovedOutAt { get; set; }
 
     public string? Notes { get; set; }
 }

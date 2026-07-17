@@ -28,13 +28,13 @@
                Sort="@_sort"
                OnSortChanged="@SetSort">
     <MetaTemplate Context="house">
-        @if (!string.IsNullOrEmpty(house.Address))
-        {
-            <span>@house.Address</span>
-        }
         @if (!string.IsNullOrEmpty(house.City))
         {
             <span>@house.City</span>
+        }
+        @if (house.PropertyType is not null)
+        {
+            <span>@house.PropertyType</span>
         }
     </MetaTemplate>
     <FormTemplate Context="house">
@@ -42,9 +42,6 @@
             <input class="form-control" placeholder="Name" data-testid="name-input" @bind="house.Name" />
         </div>
         <div class="col-12">
-            <input class="form-control" placeholder="Address" @bind="house.Address" />
-        </div>
-        <div class="col-md-6">
             <input class="form-control" placeholder="City" @bind="house.City" />
         </div>
     </FormTemplate>

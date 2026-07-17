@@ -1,4 +1,6 @@
+using System;
 using Keeptrack.Common.System;
+using Keeptrack.Domain.Models;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
@@ -15,14 +17,16 @@ public class House : IHasIdAndOwnerId
 
     public required string Name { get; set; }
 
-    public string? Address { get; set; }
+    public required string City { get; set; }
 
-    public string? City { get; set; }
+    [BsonElement("property_type")]
+    public required PropertyType PropertyType { get; set; }
 
-    [BsonElement("postal_code")]
-    public string? PostalCode { get; set; }
+    [BsonElement("moved_in_at")]
+    public DateTime? MovedInAt { get; set; }
 
-    public string? Country { get; set; }
+    [BsonElement("moved_out_at")]
+    public DateTime? MovedOutAt { get; set; }
 
     public string? Notes { get; set; }
 }

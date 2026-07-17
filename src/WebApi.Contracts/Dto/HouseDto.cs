@@ -1,3 +1,4 @@
+using System;
 using Keeptrack.Common.System;
 
 namespace Keeptrack.WebApi.Contracts.Dto;
@@ -18,24 +19,24 @@ public class HouseDto : IHasId
     public string? Name { get; set; }
 
     /// <summary>
-    /// Street address.
-    /// </summary>
-    public string? Address { get; set; }
-
-    /// <summary>
     /// City.
     /// </summary>
     public string? City { get; set; }
 
     /// <summary>
-    /// Postal code.
+    /// Type of property (house, apartment, or other).
     /// </summary>
-    public string? PostalCode { get; set; }
+    public PropertyType? PropertyType { get; set; }
 
     /// <summary>
-    /// Country.
+    /// When the owner moved into this property, if recorded.
     /// </summary>
-    public string? Country { get; set; }
+    public DateOnly? MovedInAt { get; set; }
+
+    /// <summary>
+    /// When the owner moved out of this property, if recorded (unset while still occupied).
+    /// </summary>
+    public DateOnly? MovedOutAt { get; set; }
 
     /// <summary>
     /// Free-text notes.

@@ -26,23 +26,26 @@ else
         </div>
     </div>
 
+    <div class="d-flex gap-2 mb-3">
+        @foreach (var propertyType in Enum.GetValues<PropertyType>())
+        {
+            <button class="btn btn-sm @(_house.PropertyType == propertyType ? "btn-primary" : "btn-secondary")" @onclick="() => SetPropertyTypeAsync(propertyType)">@propertyType</button>
+        }
+    </div>
+
     <div class="kt-form-card">
         <div class="row g-3">
-            <div class="col-12">
-                <label class="form-label">Address</label>
-                <input class="form-control form-control-sm" value="@_house.Address" @onchange="SaveAddressAsync"/>
-            </div>
-            <div class="col-md-4">
+            <div class="col-md-6">
                 <label class="form-label">City</label>
                 <input class="form-control form-control-sm" value="@_house.City" @onchange="SaveCityAsync"/>
             </div>
-            <div class="col-md-4">
-                <label class="form-label">Postal code</label>
-                <input class="form-control form-control-sm" value="@_house.PostalCode" @onchange="SavePostalCodeAsync"/>
+            <div class="col-md-3">
+                <label class="form-label">Moved in</label>
+                <input class="form-control form-control-sm" type="date" value="@_house.MovedInAt?.ToString("yyyy-MM-dd")" @onchange="SaveMovedInAtAsync"/>
             </div>
-            <div class="col-md-4">
-                <label class="form-label">Country</label>
-                <input class="form-control form-control-sm" value="@_house.Country" @onchange="SaveCountryAsync"/>
+            <div class="col-md-3">
+                <label class="form-label">Moved out</label>
+                <input class="form-control form-control-sm" type="date" value="@_house.MovedOutAt?.ToString("yyyy-MM-dd")" @onchange="SaveMovedOutAtAsync"/>
             </div>
             <div class="col-12">
                 <label class="form-label">Notes</label>
@@ -258,10 +261,10 @@ else
         await SaveHouseAsync();
     }
 
-    private async Task SaveAddressAsync(ChangeEventArgs e)
+    private async Task SetPropertyTypeAsync(PropertyType propertyType)
     {
         if (_house is null) return;
-        _house.Address = e.Value?.ToString();
+        _house.PropertyType = propertyType;
         await SaveHouseAsync();
     }
 
@@ -272,17 +275,17 @@ else
         await SaveHouseAsync();
     }
 
-    private async Task SavePostalCodeAsync(ChangeEventArgs e)
+    private async Task SaveMovedInAtAsync(ChangeEventArgs e)
     {
         if (_house is null) return;
-        _house.PostalCode = e.Value?.ToString();
+        _house.MovedInAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
         await SaveHouseAsync();
     }
 
-    private async Task SaveCountryAsync(ChangeEventArgs e)
+    private async Task SaveMovedOutAtAsync(ChangeEventArgs e)
     {
         if (_house is null) return;
-        _house.Country = e.Value?.ToString();
+        _house.MovedOutAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
         await SaveHouseAsync();
     }
 
