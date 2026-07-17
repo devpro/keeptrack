@@ -5,7 +5,9 @@ using Microsoft.AspNetCore.Mvc;
 namespace Keeptrack.WebApi.Import;
 
 [ApiController]
-[Authorize]
+// MemberOnly like CarController itself: this import creates cars/history through the repositories,
+// which would otherwise let a free-preview account bypass the controller-level policy entirely
+[Authorize(Policy = "MemberOnly")]
 [Route("api/import")]
 public class CarHistoryImportController(CarHistoryImportService importService) : ControllerBase
 {

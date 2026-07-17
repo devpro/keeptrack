@@ -9,8 +9,8 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
 /// Walks the health journal end-to-end: create a profile, add an appointment through the modal (with a
-/// price but no reimbursement), and check the balance surfaces both as the "Reimbursements to check"
-/// panel and the row's own "to check" badge - the core promise of the feature.
+/// price but no reimbursement), and check the balance surfaces as the row's "to check" badge - the
+/// journal table is deliberately the only warning surface (no summary panel above it).
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]
@@ -41,7 +41,6 @@ public class HealthSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
         await Page.GetByTestId("price-input").FillAsync("60");
         await Page.Locator(".kt-modal").GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "Save" }).ClickAsync();
 
-        await Assertions.Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Reimbursements to check" })).ToBeVisibleAsync();
         await Assertions.Expect(Page.GetByText("to check").First).ToBeVisibleAsync();
         await Assertions.Expect(Page.GetByText("Dr E2e").First).ToBeVisibleAsync();
 

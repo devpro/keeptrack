@@ -32,46 +32,9 @@ else
         <textarea class="form-control form-control-sm" rows="2" @onchange="SaveNotesAsync">@_profile.Notes</textarea>
     </div>
 
-    @if (_metrics is { UnbalancedRecords.Count: > 0 })
-    {
-        <h2 class="kt-section-title">Reimbursements to check</h2>
-        <div class="kt-form-card">
-            <p class="kt-card-meta mb-1">
-                These don't balance to zero (paid − public reimbursement − insurance reimbursement − not covered) -
-                @_metrics.UnbalancedRecords.Sum(p => p.MissingAmount).ToString("F2") € unaccounted for across
-                @_metrics.UnbalancedRecords.Count entr@(_metrics.UnbalancedRecords.Count == 1 ? "y" : "ies"), oldest first.
-                A positive amount is money still expected; a negative one means more arrived than the price accounts for.
-            </p>
-            <div class="table-responsive">
-                <table class="table kt-sheet-table mb-0">
-                    <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>What</th>
-                        <th>Paid</th>
-                        <th>Missing</th>
-                        <th></th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    @foreach (var unbalanced in _metrics.UnbalancedRecords)
-                    {
-                        <tr>
-                            <td>@unbalanced.HistoryDate.ToString("yyyy-MM-dd")</td>
-                            <td data-label="What">@unbalanced.Label</td>
-                            <td data-label="Paid">@unbalanced.Price.ToString("F2")</td>
-                            <td data-label="Missing" style="font-weight:600; color:var(--kt-warning)">@unbalanced.MissingAmount.ToString("F2")</td>
-                            <td>
-                                <button class="btn btn-sm btn-outline-primary" @onclick="() => EditRecordByIdAsync(unbalanced.RecordId)">Settle</button>
-                            </td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    }
-
+    @* No summary panels before the journal on purpose (owner feedback): the journal is the page's
+       primary content, and the per-row "to check" badge is the whole warning surface - a record that
+       doesn't balance is spotted in place, not in a duplicate list above. *@
     @if (_metrics is { LastVisits.Count: > 0 })
     {
         <h2 class="kt-section-title">Last seen</h2>
@@ -81,7 +44,6 @@ else
                     <thead>
                     <tr>
                         <th>Practitioner</th>
-                        <th>Specialty</th>
                         <th>Visits</th>
                         <th>Last visit</th>
                     </tr>
@@ -91,46 +53,8 @@ else
                     {
                         <tr>
                             <td style="font-weight:500">@visit.Practitioner</td>
-                            <td data-label="Specialty">@visit.Specialty</td>
                             <td data-label="Visits">@visit.VisitCount</td>
                             <td data-label="Last visit">@visit.LastVisitDate.ToString("yyyy-MM-dd")</td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    }
-
-    @if (_metrics is { CostHistory.Count: > 0 })
-    {
-        var metrics = _metrics;
-        <h2 class="kt-section-title">Yearly cost review</h2>
-        <div class="kt-form-card">
-            <p class="kt-card-meta mb-1">
-                Out-of-pocket by year (paid minus reimbursed) -
-                @metrics.CostHistory.Sum(p => p.OutOfPocket).ToString("F2") € across the whole journal
-            </p>
-            @RenderYearlyOutOfPocketChart(metrics.CostHistory)
-
-            <div class="table-responsive mt-3">
-                <table class="table kt-sheet-table">
-                    <thead>
-                    <tr>
-                        <th>Year</th>
-                        <th>Paid</th>
-                        <th>Reimbursed</th>
-                        <th>Out of pocket</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    @foreach (var point in metrics.CostHistory)
-                    {
-                        <tr>
-                            <td style="font-weight:500">@point.Year</td>
-                            <td data-label="Paid">@point.TotalPaid.ToString("F2")</td>
-                            <td data-label="Reimbursed">@point.TotalReimbursed.ToString("F2")</td>
-                            <td data-label="Out of pocket" style="font-weight:600">@point.OutOfPocket.ToString("F2")</td>
                         </tr>
                     }
                     </tbody>
@@ -152,7 +76,6 @@ else
                     <th>Event</th>
                     <th>Who</th>
                     <th>Paid</th>
-                    <th>Reimbursed</th>
                     <th>Description</th>
                     <th></th>
                 </tr>
@@ -160,7 +83,7 @@ else
                 <tbody>
                 @if (_records.Count == 0)
                 {
-                    <tr><td colspan="7" class="text-center kt-card-meta">No entries yet - add the first one above.</td></tr>
+                    <tr><td colspan="6" class="text-center kt-card-meta">No entries yet - add the first one above.</td></tr>
                 }
                 @foreach (var entry in _records)
                 {
@@ -170,6 +93,36 @@ else
             </table>
         </div>
     </div>
+
+    @if (_metrics is { CostHistory.Count: > 0 })
+    {
+        <h2 class="kt-section-title">Yearly cost review</h2>
+        <div class="kt-table-wrap">
+            <div class="table-responsive">
+                <table class="table kt-sheet-table">
+                    <thead>
+                    <tr>
+                        <th>Year</th>
+                        <th>Paid</th>
+                        <th>Reimbursed</th>
+                        <th>Out of pocket</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var point in _metrics.CostHistory)
+                    {
+                        <tr>
+                            <td style="font-weight:500">@point.Year</td>
+                            <td data-label="Paid">@point.TotalPaid.ToString("F2")</td>
+                            <td data-label="Reimbursed">@point.TotalReimbursed.ToString("F2")</td>
+                            <td data-label="Out of pocket" style="font-weight:600">@point.OutOfPocket.ToString("F2")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
 
     @if (_showModal)
     {
@@ -377,24 +330,10 @@ else
         _showModal = true;
     }
 
-    /// <summary>The "Enter reimbursement" shortcut from the pending list - same edit modal, found by id.</summary>
-    private async Task EditRecordByIdAsync(string recordId)
-    {
-        var entry = _records.FirstOrDefault(r => r.Id == recordId);
-        if (entry is not null)
-        {
-            ShowEditModal(entry);
-            return;
-        }
-
-        // not in the local list (shouldn't happen, but the metrics and the journal are two separate reads)
-        await LoadAsync();
-    }
-
     private void CancelModal() => _showModal = false;
 
     /// <summary>Every journal mutation reloads the whole profile (journal + metrics) rather than patching
-    /// local state - an edit can change the yearly totals, the pending list and the last-visit table, so
+    /// local state - an edit can change the yearly totals, the row badges and the last-visit table, so
     /// recomputing from the server is simpler and safer than syncing derived state by hand.</summary>
     private async Task SaveModalEntryAsync()
     {
@@ -426,57 +365,4 @@ else
         await HealthRecordApi.DeleteAsync(id);
         await LoadAsync();
     }
-
-    /// <summary>Hand-rolled SVG bar chart - out-of-pocket per year, one bar each, same single-series shape
-    /// as HouseDetail's yearly cost chart (axis drawing shared via <see cref="SvgChartHelpers"/>). The
-    /// table right below carries the paid/reimbursed detail, so the chart only answers "what did health
-    /// really cost me, year by year" at a glance.</summary>
-    private static RenderFragment RenderYearlyOutOfPocketChart(List<HealthCostHistoryPointDto> points) => builder =>
-    {
-        var geometry = SvgChartHelpers.FullWidthGeometry;
-        var (viewWidth, viewHeight, plotLeft, plotRight, plotTop, plotBottom) = geometry;
-
-        var maxValue = points.Max(p => p.OutOfPocket);
-        if (maxValue <= 0) maxValue = 1;
-
-        var plotWidth = plotRight - plotLeft;
-        var barWidth = plotWidth / points.Count * 0.6;
-        var gap = plotWidth / points.Count * 0.4;
-
-        double ScaleHeight(double value) => value <= 0 ? 0 : value / maxValue * (plotBottom - plotTop);
-
-        var yTicks = Enumerable.Range(0, 4)
-            .Select(i => maxValue * i / 3.0)
-            .Select(v => (plotBottom - ScaleHeight(v), v.ToString("F0")))
-            .ToList();
-        var xTicks = points.Select((p, i) => (plotLeft + i * (barWidth + gap) + barWidth / 2, p.Year.ToString())).ToList();
-
-        var seq = 0;
-        builder.OpenElement(seq++, "svg");
-        builder.AddAttribute(seq++, "viewBox", $"0 0 {viewWidth} {viewHeight}");
-        builder.AddAttribute(seq++, "class", "kt-chart-svg");
-
-        SvgChartHelpers.RenderAxes(builder, ref seq, geometry, "kt-chart-arrow-health-cost", "Year", "€", yTicks, xTicks);
-
-        for (var i = 0; i < points.Count; i++)
-        {
-            var point = points[i];
-            var x = plotLeft + i * (barWidth + gap);
-            var height = ScaleHeight(point.OutOfPocket);
-            var y = plotBottom - height;
-
-            builder.OpenElement(seq++, "rect");
-            builder.AddAttribute(seq++, "x", x.ToString("F1"));
-            builder.AddAttribute(seq++, "y", y.ToString("F1"));
-            builder.AddAttribute(seq++, "width", barWidth.ToString("F1"));
-            builder.AddAttribute(seq++, "height", height.ToString("F1"));
-            builder.AddAttribute(seq++, "fill", "var(--kt-accent)");
-            builder.OpenElement(seq++, "title");
-            builder.AddContent(seq++, $"{point.Year}: {point.OutOfPocket:F2}");
-            builder.CloseElement();
-            builder.CloseElement();
-        }
-
-        builder.CloseElement();
-    };
 }

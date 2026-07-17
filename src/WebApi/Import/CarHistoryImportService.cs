@@ -87,7 +87,7 @@ public class CarHistoryImportService(ICarRepository carRepository, ICarHistoryRe
                 continue;
             }
 
-            var time = ParseTime(Cell(row, headers, "Heure")) ?? TimeOnly.MinValue;
+            var time = ExcelCellParser.ParseTime(Cell(row, headers, "Heure")) ?? TimeOnly.MinValue;
 
             var entry = new CarHistoryModel
             {
@@ -95,19 +95,19 @@ public class CarHistoryImportService(ICarRepository carRepository, ICarHistoryRe
                 CarId = carId,
                 HistoryDate = date.Value.ToDateTime(time),
                 EventType = CarHistoryType.Refuel,
-                City = StringOrNull(Cell(row, headers, "Ville")),
-                PostalCode = StringOrNull(Cell(row, headers, "CP")),
-                FuelCategory = StringOrNull(Cell(row, headers, "Type carburant")),
-                FuelVolume = DoubleOrNull(Cell(row, headers, "Volume (L)")) ?? DoubleOrNull(Cell(row, headers, "Quantité (L)")),
-                FuelUnitPrice = PriceOrNull(Cell(row, headers, "Prix (€ / L)")),
-                Cost = PriceOrNull(Cell(row, headers, "Prix (€)")) ?? PriceOrNull(Cell(row, headers, "Montant (€)")),
-                Mileage = IntOrNull(Cell(row, headers, "Km")),
-                DeltaMileage = DoubleOrNull(Cell(row, headers, "Distance (km)")),
+                City = ExcelCellParser.StringOrNull(Cell(row, headers, "Ville")),
+                PostalCode = ExcelCellParser.StringOrNull(Cell(row, headers, "CP")),
+                FuelCategory = ExcelCellParser.StringOrNull(Cell(row, headers, "Type carburant")),
+                FuelVolume = ExcelCellParser.DoubleOrNull(Cell(row, headers, "Volume (L)")) ?? ExcelCellParser.DoubleOrNull(Cell(row, headers, "Quantité (L)")),
+                FuelUnitPrice = ExcelCellParser.PriceOrNull(Cell(row, headers, "Prix (€ / L)")),
+                Cost = ExcelCellParser.PriceOrNull(Cell(row, headers, "Prix (€)")) ?? ExcelCellParser.PriceOrNull(Cell(row, headers, "Montant (€)")),
+                Mileage = ExcelCellParser.IntOrNull(Cell(row, headers, "Km")),
+                DeltaMileage = ExcelCellParser.DoubleOrNull(Cell(row, headers, "Distance (km)")),
                 IsFullRefill = IsFlagSet(Cell(row, headers, "Plein")),
-                StationBrandName = StringOrNull(Cell(row, headers, "Distributeur")),
-                Description = JoinNonEmpty("; ",
-                    StringOrNull(Cell(row, headers, "Voyage")) is { } voyage ? $"Voyage : {voyage}" : null,
-                    StringOrNull(Cell(row, headers, "Détails")),
+                StationBrandName = ExcelCellParser.StringOrNull(Cell(row, headers, "Distributeur")),
+                Description = ExcelCellParser.JoinNonEmpty("; ",
+                    ExcelCellParser.StringOrNull(Cell(row, headers, "Voyage")) is { } voyage ? $"Voyage : {voyage}" : null,
+                    ExcelCellParser.StringOrNull(Cell(row, headers, "Détails")),
                     IsFlagSet(Cell(row, headers, "Autoroute Eloigné")) == true ? "Autoroute/éloigné" : null,
                     IsFlagSet(Cell(row, headers, "Autoroute")) == true ? "Autoroute" : null,
                     IsFlagSet(Cell(row, headers, "Gonflage")) == true ? "Gonflage pneus" : null)
@@ -137,8 +137,8 @@ public class CarHistoryImportService(ICarRepository carRepository, ICarHistoryRe
                 continue;
             }
 
-            var nature = StringOrNull(Cell(row, headers, "Nature"));
-            var invoiceNumber = StringOrNull(Cell(row, headers, "N° facture"));
+            var nature = ExcelCellParser.StringOrNull(Cell(row, headers, "Nature"));
+            var invoiceNumber = ExcelCellParser.StringOrNull(Cell(row, headers, "N° facture"));
 
             var entry = new CarHistoryModel
             {
@@ -148,15 +148,15 @@ public class CarHistoryImportService(ICarRepository carRepository, ICarHistoryRe
                 HistoryDate = date.Value.ToDateTime(TimeOnly.MinValue),
                 // "Achat" (purchase) is not a maintenance action - everything else in these two sheets is.
                 EventType = string.Equals(nature, "Achat", StringComparison.OrdinalIgnoreCase) ? CarHistoryType.Other : CarHistoryType.Maintenance,
-                City = StringOrNull(Cell(row, headers, "Ville")),
-                PostalCode = StringOrNull(Cell(row, headers, "CP")),
-                Cost = PriceOrNull(Cell(row, headers, "Prix (TTC)")),
-                Mileage = IntOrNull(Cell(row, headers, "Km")),
-                Garage = StringOrNull(Cell(row, headers, "Garage")),
-                Description = JoinNonEmpty("; ",
+                City = ExcelCellParser.StringOrNull(Cell(row, headers, "Ville")),
+                PostalCode = ExcelCellParser.StringOrNull(Cell(row, headers, "CP")),
+                Cost = ExcelCellParser.PriceOrNull(Cell(row, headers, "Prix (TTC)")),
+                Mileage = ExcelCellParser.IntOrNull(Cell(row, headers, "Km")),
+                Garage = ExcelCellParser.StringOrNull(Cell(row, headers, "Garage")),
+                Description = ExcelCellParser.JoinNonEmpty("; ",
                     nature,
-                    StringOrNull(Cell(row, headers, "Détail")),
-                    StringOrNull(Cell(row, headers, "Complément")),
+                    ExcelCellParser.StringOrNull(Cell(row, headers, "Détail")),
+                    ExcelCellParser.StringOrNull(Cell(row, headers, "Complément")),
                     invoiceNumber is not null ? $"Facture {invoiceNumber}" : null)
             };
 
@@ -205,45 +205,10 @@ public class CarHistoryImportService(ICarRepository carRepository, ICarHistoryRe
         return DateOnly.TryParseExact(raw, "d/M/yyyy", French, DateTimeStyles.None, out var parsed) ? parsed : null;
     }
 
-    /// <summary>
-    /// The "Heure" column is inconsistent in this file - some cells are real Excel time values (a fraction
-    /// of a day), others are plain text like "11:57" - but <c>GetFormattedString()</c> renders both the
-    /// same way, so a single text parse handles both.
-    /// </summary>
-    private static TimeOnly? ParseTime(IXLCell? cell)
-    {
-        if (cell is null || cell.IsEmpty()) return null;
-        var text = cell.GetFormattedString().Trim();
-        return TimeOnly.TryParse(text, CultureInfo.InvariantCulture, out var parsed) ? parsed : null;
-    }
-
     private static bool? IsFlagSet(IXLCell? cell)
     {
         if (cell is null || cell.IsEmpty()) return null;
         return string.Equals(cell.GetString().Trim(), "O", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static string? StringOrNull(IXLCell? cell)
-    {
-        if (cell is null || cell.IsEmpty()) return null;
-        var text = cell.GetString().Trim();
-        return text.Length > 0 ? text : null;
-    }
-
-    private static double? DoubleOrNull(IXLCell? cell) => cell is not null && !cell.IsEmpty() && cell.TryGetValue(out double value) ? value : null;
-
-    /// <summary>
-    /// Several euro-amount columns are Excel formulas (e.g. volume × unit price), which routinely produce
-    /// floating-point noise like 180.77539999999996 instead of a clean 180.78 - rounded to the cent here so
-    /// every imported price is a real, displayable amount.
-    /// </summary>
-    private static double? PriceOrNull(IXLCell? cell) => DoubleOrNull(cell) is { } value ? Math.Round(value, 2) : null;
-
-    private static int? IntOrNull(IXLCell? cell) => DoubleOrNull(cell) is { } value ? (int)Math.Round(value) : null;
-
-    private static string? JoinNonEmpty(string separator, params string?[] parts)
-    {
-        var joined = string.Join(separator, parts.Where(p => !string.IsNullOrWhiteSpace(p)));
-        return joined.Length > 0 ? joined : null;
-    }
 }

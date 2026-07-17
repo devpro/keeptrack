@@ -1,9 +1,9 @@
-@* One row of the health journal - a compact summary of the most important fields. Editing happens
-   through the same modal used to add a new entry (HealthProfileDetail.razor), opened via the Edit
-   button below. *@
+@* One row of the health journal - only the absolute essentials (owner feedback: this table grows large,
+   so no per-row reimbursement breakdown; the ⚠ badge is the whole warning surface and the edit modal
+   carries the full money detail). *@
 
 <tr>
-    <td>@Entry.HistoryDate.ToString("yyyy-MM-dd HH:mm")</td>
+    <td>@DateText</td>
     <td data-label="Event">@Entry.EventType</td>
     <td data-label="Who">
         @Entry.Practitioner
@@ -17,10 +17,9 @@
         @Entry.Price?.ToString("F2")
         @if (IsUnbalanced)
         {
-            <span class="kt-flag-badge wishlist" title="Doesn't balance to zero - see 'Reimbursements to check' above.">⚠ to check</span>
+            <span class="kt-flag-badge wishlist" title="Paid, reimbursements and not-covered don't add up to zero - open the entry to settle it.">⚠ to check</span>
         }
     </td>
-    <td data-label="Reimbursed">@(TotalReimbursed?.ToString("F2"))</td>
     <td data-label="Description">@Entry.Description</td>
     <td>
         <div class="d-flex gap-1">
@@ -41,7 +40,9 @@
 
     [Parameter] public EventCallback<string> OnDelete { get; set; }
 
-    private double? TotalReimbursed => Entry.PublicReimbursement is null && Entry.InsuranceReimbursement is null
-        ? null
-        : (Entry.PublicReimbursement ?? 0) + (Entry.InsuranceReimbursement ?? 0);
+    /// <summary>Midnight means "no time recorded" (the import's default, and sickness entries rarely have
+    /// one) - showing 00:00 on most rows would just be noise.</summary>
+    private string DateText => Entry.HistoryDate.TimeOfDay == TimeSpan.Zero
+        ? Entry.HistoryDate.ToString("yyyy-MM-dd")
+        : Entry.HistoryDate.ToString("yyyy-MM-dd HH:mm");
 }

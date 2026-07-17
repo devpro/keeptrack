@@ -195,8 +195,15 @@ The money model is the French reimbursement flow, four numbers the app does the 
 A record is *settled* exactly when `price - public - insurance - notCovered == 0` (within `HealthMetricsService.BalanceTolerance`, 0.005 - double arithmetic must never flag a settled record);
 anything else lands in `HealthMetricsModel.UnbalancedRecords` with the signed missing amount (positive = money still expected, negative = over-received, both worth chasing - the owner's explicit reconciliation goal).
 The balance rule lives ONLY in `HealthMetricsService` (`ComputeMissingAmount`/`IsBalanced`); the journal rows' "to check" badges come from the metrics' id list, never re-derived client-side.
-`HealthMetricsService` also computes `LastVisits` ("when did I last see this practitioner" - appointments grouped by practitioner+specialty, most recent first) and the yearly Paid/Reimbursed/OutOfPocket table + out-of-pocket bar chart (SvgChartHelpers again).
+The detail page is deliberately journal-first and badge-only (owner feedback after seeing a first version with summary panels): NO "to check" list above the table (the per-row ⚠ badge is the whole warning surface),
+no chart, no per-row reimbursement column (the edit modal holds the money detail), and the compact yearly Paid/Reimbursed/OutOfPocket table sits *after* the journal - this table grows large, so rows carry only the absolute essentials.
+`HealthMetricsService` also computes `LastVisits` ("when did I last see this practitioner" - appointments grouped by practitioner+specialty, most recent first; only practitioner/count/date are displayed).
 Both controllers are `MemberOnly` (health data is never part of the free preview tier).
+`HealthImportService` (`POST /api/import/health`, `MemberOnly` like all imports - CarHistoryImportController was fixed to match, since imports create data through repositories and would otherwise bypass controller policies)
+is the CarHistoryImportService-style one-off Excel import of the personal "Journal_sante.xlsx": one sheet, every family member mixed in one "Personne" column (profiles created/matched by name, case-insensitive),
+a SECOND "Personne" column meaning the practitioner (so header lookup is position-aware, not a plain name dictionary), and the derived "Reste à charge" formula column deliberately NOT imported - the app recomputes the balance,
+so unsettled historical rows surface with the ⚠ badge for the owner's own review. Shared cell parsing lives in `ExcelCellParser` (extracted from the car importer rather than duplicated).
+Verified against the real sample file end-to-end (3 profiles, 13 rows, zero warnings), and `HealthImportServiceTest` pins the file's quirks with an in-memory ClosedXML workbook.
 
 `HouseDetail.razor`'s yearly cost chart is a single-series bar chart (total cost per year) plus a plain HTML breakdown table underneath (rows = years, columns = the 6 categories + total), not a 6-color stacked bar chart.
 A stacked chart with that many categories would be visually noisy and add real code, and the table already carries the actual per-category precision an insurance review needs at a glance.

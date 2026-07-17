@@ -156,6 +156,8 @@ public class FreeTierTest
     [InlineData(typeof(HealthProfileController), "MemberOnly")]
     [InlineData(typeof(HealthRecordController), "MemberOnly")]
     [InlineData(typeof(TvTimeImportController), "MemberOnly")]
+    [InlineData(typeof(CarHistoryImportController), "MemberOnly")]
+    [InlineData(typeof(HealthImportController), "MemberOnly")]
     [InlineData(typeof(MovieController), null)]
     [InlineData(typeof(TvShowController), null)]
     [InlineData(typeof(EpisodeController), null)]

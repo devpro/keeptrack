@@ -44,6 +44,7 @@ builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.AlbumReferenceDtoMapper>(
 builder.Services.AddScoped(typeof(Keeptrack.WebApi.Jobs.JobStore<,>));
 builder.Services.AddScoped<Keeptrack.WebApi.Import.TvTimeImportService>();
 builder.Services.AddScoped<Keeptrack.WebApi.Import.CarHistoryImportService>();
+builder.Services.AddScoped<Keeptrack.WebApi.Import.HealthImportService>();
 builder.Services.AddSingleton(configuration.TmdbSettings);
 builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.ITmdbClient, Keeptrack.WebApi.ReferenceData.TmdbClient>(client =>
 {
