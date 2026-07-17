@@ -103,10 +103,9 @@
 
 <div class="kt-form-card">
     <p style="color:var(--kt-text-muted)">
-        Upload the personal "Journal_sante.xlsx" spreadsheet (one sheet, every family member mixed in one
-        "Personne" column - health profiles are created or matched by name).
-        The "Reste à charge" column isn't imported: the app recomputes the balance itself, so rows that
-        don't balance land in each profile's "Reimbursements to check" list for review.
+        Upload the personal "Journal_sante.xlsx" spreadsheet (one sheet, every family member mixed in one "Personne" column - health profiles are created or matched by name).
+        The "Reste à charge" column isn't imported: the app recomputes the balance itself,
+        so rows that don't balance land in each profile's "Reimbursements to check" list for review.
         Only run this once - re-uploading the same file will duplicate the journal entries.
     </p>
 
@@ -167,8 +166,6 @@
     private string? _healthError;
     private HealthImportResultDto? _healthResult;
 
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "S5693:Make sure the content length limit is safe here",
-        Justification = "The limit IS set (MaxFileSize, 50 MB, matching the API's own RequestSizeLimit).")]
     private async Task OnFileSelectedAsync(InputFileChangeEventArgs e)
     {
         _importing = true;
@@ -179,10 +176,12 @@
         try
         {
             Guid jobId;
+#pragma warning disable S5693
             await using (var stream = e.File.OpenReadStream(MaxFileSize))
             {
                 jobId = await ImportApi.StartImportAsync(stream, e.File.Name);
             }
+#pragma warning restore S5693
 
             while (true)
             {
@@ -215,8 +214,6 @@
         }
     }
 
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "S5693:Make sure the content length limit is safe here",
-        Justification = "The limit IS set (MaxFileSize, 50 MB, matching the API's own RequestSizeLimit).")]
     private async Task OnCarFileSelectedAsync(InputFileChangeEventArgs e)
     {
         _carImporting = true;
@@ -225,7 +222,9 @@
 
         try
         {
+#pragma warning disable S5693
             await using var stream = e.File.OpenReadStream(MaxFileSize);
+#pragma warning restore S5693
             _carResult = await CarImportApi.ImportAsync(stream, e.File.Name);
         }
         catch (Exception ex)
@@ -238,8 +237,6 @@
         }
     }
 
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "S5693:Make sure the content length limit is safe here",
-        Justification = "The limit IS set (MaxFileSize, 50 MB, matching the API's own RequestSizeLimit).")]
     private async Task OnHealthFileSelectedAsync(InputFileChangeEventArgs e)
     {
         _healthImporting = true;
@@ -248,7 +245,9 @@
 
         try
         {
+#pragma warning disable S5693
             await using var stream = e.File.OpenReadStream(MaxFileSize);
+#pragma warning restore S5693
             _healthResult = await HealthImportApi.ImportAsync(stream, e.File.Name);
         }
         catch (Exception ex)

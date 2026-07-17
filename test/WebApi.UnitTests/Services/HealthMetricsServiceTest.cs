@@ -41,7 +41,7 @@ public class HealthMetricsServiceTest
     [Fact]
     public void ComputeMetrics_IsAllEmpty_WhenThereAreNoRecords()
     {
-        var result = _service.ComputeMetrics([]);
+        var result = HealthMetricsService.ComputeMetrics([]);
 
         result.CostHistory.Should().BeEmpty();
         result.LastVisits.Should().BeEmpty();
@@ -58,7 +58,7 @@ public class HealthMetricsServiceTest
             Record("r3", new DateTime(2026, 1, 15, 10, 0, 0), price: 26.5, publicReimbursement: 16.5)
         };
 
-        var result = _service.ComputeMetrics(records);
+        var result = HealthMetricsService.ComputeMetrics(records);
 
         result.CostHistory.Should().HaveCount(2);
         var year2025 = result.CostHistory[0];
@@ -80,7 +80,7 @@ public class HealthMetricsServiceTest
         // a sickness entry carries no money - it must not fabricate a zero-cost year
         var records = new[] { Record("r1", new DateTime(2025, 3, 10, 8, 0, 0), HealthEventType.Sickness, description: "Fever") };
 
-        _service.ComputeMetrics(records).CostHistory.Should().BeEmpty();
+        HealthMetricsService.ComputeMetrics(records).CostHistory.Should().BeEmpty();
     }
 
     [Fact]
@@ -93,7 +93,7 @@ public class HealthMetricsServiceTest
             Record("r3", new DateTime(2025, 6, 1, 15, 30, 0), practitioner: "Dr Diaz", specialty: "généraliste")
         };
 
-        var result = _service.ComputeMetrics(records);
+        var result = HealthMetricsService.ComputeMetrics(records);
 
         result.LastVisits.Should().HaveCount(2);
         result.LastVisits[0].Specialty.Should().Be("dentiste");
@@ -110,7 +110,7 @@ public class HealthMetricsServiceTest
             Record("r2", new DateTime(2025, 2, 20, 11, 0, 0), practitioner: "Dr Diaz")
         };
 
-        _service.ComputeMetrics(records).LastVisits.Should().BeEmpty();
+        HealthMetricsService.ComputeMetrics(records).LastVisits.Should().BeEmpty();
     }
 
     [Fact]
@@ -128,7 +128,7 @@ public class HealthMetricsServiceTest
             Record("r4", new DateTime(2026, 6, 1, 9, 0, 0), practitioner: "Dr Diaz")
         };
 
-        var result = _service.ComputeMetrics(records);
+        var result = HealthMetricsService.ComputeMetrics(records);
 
         result.UnbalancedRecords.Should().HaveCount(3);
         result.UnbalancedRecords[0].RecordId.Should().Be("r2");
@@ -149,7 +149,7 @@ public class HealthMetricsServiceTest
             Record("r1", new DateTime(2026, 2, 3, 9, 0, 0), price: 26.5, publicReimbursement: 16.5, insuranceReimbursement: 8, leftover: 2)
         };
 
-        _service.ComputeMetrics(records).UnbalancedRecords.Should().BeEmpty();
+        HealthMetricsService.ComputeMetrics(records).UnbalancedRecords.Should().BeEmpty();
     }
 
     [Fact]
@@ -161,7 +161,7 @@ public class HealthMetricsServiceTest
             Record("r1", new DateTime(2026, 2, 3, 9, 0, 0), price: 0.3, publicReimbursement: 0.1, insuranceReimbursement: 0.2)
         };
 
-        _service.ComputeMetrics(records).UnbalancedRecords.Should().BeEmpty();
+        HealthMetricsService.ComputeMetrics(records).UnbalancedRecords.Should().BeEmpty();
     }
 
     [Fact]
@@ -172,7 +172,7 @@ public class HealthMetricsServiceTest
             Record("r1", new DateTime(2026, 2, 3, 9, 0, 0), price: 30, publicReimbursement: 20, insuranceReimbursement: 15)
         };
 
-        var result = _service.ComputeMetrics(records);
+        var result = HealthMetricsService.ComputeMetrics(records);
 
         var unbalanced = result.UnbalancedRecords.Should().ContainSingle().Subject;
         unbalanced.MissingAmount.Should().Be(-5);

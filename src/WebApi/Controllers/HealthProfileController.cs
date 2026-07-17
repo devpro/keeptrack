@@ -14,7 +14,6 @@ public class HealthProfileController(
     IDtoMapper<HealthProfileDto, HealthProfileModel> mapper,
     IHealthProfileRepository dataRepository,
     IHealthRecordRepository healthRecordRepository,
-    HealthMetricsService metricsService,
     HealthMetricsDtoMapper metricsMapper)
     : DataCrudControllerBase<HealthProfileDto, HealthProfileModel>(mapper, dataRepository)
 {
@@ -35,13 +34,15 @@ public class HealthProfileController(
         var records = await healthRecordRepository.FindAllAsync(ownerId, 1, int.MaxValue, null,
             new HealthRecordModel { OwnerId = ownerId, HealthProfileId = id, EventType = default, HistoryDate = default });
 
-        return Ok(metricsMapper.ToDto(metricsService.ComputeMetrics(records.Items)));
+        return Ok(metricsMapper.ToDto(HealthMetricsService.ComputeMetrics(records.Items)));
     }
 
     /// <summary>
-    /// HealthRecord is a separate top-level collection referencing its profile by id, not an embedded
-    /// array (see CLAUDE.md's "Child entities" section) - without this, deleting a profile would leave
-    /// its journal orphaned in MongoDB forever, since it's only ever reachable via the profile's own id.
+    /// HealthRecord is a separate top-level collection referencing its profile by id, not an embedded array (see CLAUDE.md's "Child entities" section) -
+    /// without this, deleting a profile would leave its journal orphaned in MongoDB forever, since it's only ever reachable via the profile's own id.
     /// </summary>
-    protected override async Task OnDeletedAsync(string id, string ownerId) => await healthRecordRepository.DeleteAllForProfileAsync(id, ownerId);
+    protected override async Task OnDeletedAsync(string id, string ownerId)
+    {
+        await healthRecordRepository.DeleteAllForProfileAsync(id, ownerId);
+    }
 }

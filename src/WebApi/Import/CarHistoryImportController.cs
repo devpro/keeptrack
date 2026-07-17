@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Keeptrack.WebApi.Controllers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,6 +21,8 @@ public class CarHistoryImportController(CarHistoryImportService importService) :
     [Consumes("multipart/form-data")]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
+    [SuppressMessage("Security", "S5693:Make sure the content length limit is safe here",
+        Justification = "The limit IS set (10 MB), deliberately above Sonar's 8 MB default.")]
     public async Task<ActionResult<CarHistoryImportResultDto>> ImportCarHistory(IFormFile file)
     {
         if (file.Length == 0)

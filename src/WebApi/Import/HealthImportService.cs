@@ -6,42 +6,55 @@ using HealthEventType = Keeptrack.Domain.Models.HealthEventType;
 namespace Keeptrack.WebApi.Import;
 
 /// <summary>
-/// One-off personal import of the "Journal_sante.xlsx" spreadsheet: a single sheet of hand-tracked
-/// health events in French, mixing every family member in one "Personne" column - so unlike the car
-/// import, rows are dispatched to (and, when needed, create) one <see cref="HealthProfileModel"/> per
-/// distinct person. Same non-idempotence trade-off as <see cref="CarHistoryImportService"/>: profiles
-/// are matched by name so re-running doesn't duplicate the people, but re-uploading the same file will
-/// duplicate journal entries - there is no per-row natural key to de-duplicate against.
-/// The "Reste à charge" column is deliberately NOT imported: it's a formula in the source file
-/// (paid - ameli - mutuelle), i.e. derived data the app recomputes itself (see
-/// <see cref="Domain.Services.HealthMetricsService"/>) - importing its cached value as
-/// <see cref="HealthRecordModel.NotCovered"/> would silently mark every historical row as settled.
+/// One-off personal import of the "Journal_sante.xlsx" spreadsheet:
+/// a single sheet of hand-tracked health events in French, mixing every family member in one "Personne" column -
+/// so unlike the car import, rows are dispatched to (and, when needed, create) one <see cref="HealthProfileModel"/> per distinct person.
+/// Same non-idempotence trade-off as <see cref="CarHistoryImportService"/>:
+/// profiles are matched by name so re-running doesn't duplicate the people, but re-uploading the same file will duplicate journal entries -
+/// there is no per-row natural key to de-duplicate against.
+/// The "Reste à charge" column is deliberately NOT imported:
+/// it's a formula in the source file (paid - ameli - mutuelle), i.e. derived data the app recomputes itself (see <see cref="Domain.Services.HealthMetricsService"/>) -
+/// importing its cached value as <see cref="HealthRecordModel.NotCovered"/> would silently mark every historical row as settled.
 /// Rows the balance check then flags are exactly the ones the owner wants to re-verify.
 /// </summary>
 public class HealthImportService(IHealthProfileRepository healthProfileRepository, IHealthRecordRepository healthRecordRepository)
 {
     /// <summary>
-    /// Column positions resolved from the header row. The file has TWO columns titled "Personne" - the
-    /// first is who was treated (the profile), the second the practitioner - so a plain
-    /// header-name-to-column dictionary (the car importer's approach) can't represent this sheet.
+    /// Column positions resolved from the header row.
+    /// The file has TWO columns titled "Personne" - the first is who was treated (the profile), the second the practitioner -
+    /// so a plain header-name-to-column dictionary (the car importer's approach) can't represent this sheet.
     /// "Jour" (derived day-of-week) and "Reste à charge" (derived, see the class remarks) are ignored.
     /// </summary>
     private sealed class SheetColumns
     {
         public int? Date { get; set; }
+
         public int? Time { get; set; }
+
         public int? Person { get; set; }
+
         public int? Practitioner { get; set; }
+
         public int? Specialty { get; set; }
+
         public int? Location { get; set; }
+
         public int? Description { get; set; }
+
         public int? Notes { get; set; }
+
         public int? Paid { get; set; }
+
         public int? PublicReimbursement { get; set; }
+
         public int? PublicTransfer { get; set; }
+
         public int? PublicDate { get; set; }
+
         public int? InsuranceReimbursement { get; set; }
+
         public int? InsuranceDate { get; set; }
+
         public int? Comment { get; set; }
     }
 
@@ -102,8 +115,8 @@ public class HealthImportService(IHealthProfileRepository healthProfileRepositor
                 Price = ExcelCellParser.PriceOrNull(Cell(row, columns.Paid)),
                 PublicReimbursement = ExcelCellParser.PriceOrNull(Cell(row, columns.PublicReimbursement)),
                 InsuranceReimbursement = ExcelCellParser.PriceOrNull(Cell(row, columns.InsuranceReimbursement)),
-                // the sparse bookkeeping columns (place, actual ameli bank transfer, payment dates,
-                // comment) have no dedicated fields - preserved as labeled notes instead of dropped
+                // the sparse bookkeeping columns (place, actual ameli bank transfer, payment dates, comment) have no dedicated fields -
+                // preserved as labeled notes instead of dropped
                 Notes = ExcelCellParser.JoinNonEmpty("; ",
                     ExcelCellParser.StringOrNull(Cell(row, columns.Notes)),
                     ExcelCellParser.StringOrNull(Cell(row, columns.Location)) is { } location ? $"Lieu : {location}" : null,

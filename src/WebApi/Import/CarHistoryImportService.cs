@@ -8,13 +8,12 @@ using CarHistoryType = Keeptrack.Domain.Models.CarHistoryType;
 namespace Keeptrack.WebApi.Import;
 
 /// <summary>
-/// One-off personal import of the "Voitures.xlsx" spreadsheet: one fuel-log sheet and (optionally) one
-/// maintenance-log sheet per car, hand-tracked in French. This is a single-owner spreadsheet with a fixed,
-/// known shape (not a generic user-facing file format like the TV Time GDPR export), so the sheet names and
-/// column headers below are hardcoded rather than auto-detected. Not idempotent by design - matches an
-/// existing car by name so re-running doesn't duplicate the cars themselves, but re-uploading the same
-/// file will duplicate history entries. This is meant to be run once per car; unlike <see cref="TvTimeImportService"/>,
-/// there is no per-entry natural key in the source data to de-duplicate against.
+/// One-off personal import of the "Voitures.xlsx" spreadsheet:
+/// one fuel-log sheet and (optionally) one maintenance-log sheet per car, hand-tracked in French.
+/// This is a single-owner spreadsheet with a fixed, known shape (not a generic user-facing file format like the TV Time GDPR export),
+/// so the sheet names and column headers below are hardcoded rather than auto-detected. Not idempotent by design -
+/// matches an existing car by name so re-running doesn't duplicate the cars themselves, but re-uploading the same file will duplicate history entries.
+/// This is meant to be run once per car; unlike <see cref="TvTimeImportService"/>, there is no per-entry natural key in the source data to de-duplicate against.
 /// </summary>
 public class CarHistoryImportService(ICarRepository carRepository, ICarHistoryRepository carHistoryRepository)
 {
@@ -24,9 +23,9 @@ public class CarHistoryImportService(ICarRepository carRepository, ICarHistoryRe
 
     private static readonly CarSheetGroup[] CarGroups =
     [
-        new("Renault Scenic", "Renault", "Scenic", "Carburant S", null),
-        new("Renault Modus", "Renault", "Modus", "Carburant M", "Interventions M"),
-        new("Peugeot 306", "Peugeot", "306", "Carburant 306", "Intervention 306")
+        new("First car", "First", "First", "Carburant F", null),
+        new("Second car", "Second", "Second", "Carburant S", "Interventions S"),
+        new("Third car", "Third", "Third", "Carburant T", "Intervention T")
     ];
 
     public async Task<CarHistoryImportResultDto> ImportAsync(Stream xlsxStream, string ownerId)
@@ -175,8 +174,8 @@ public class CarHistoryImportService(ICarRepository carRepository, ICarHistoryRe
         var headers = new Dictionary<string, int>();
         foreach (var cell in headerRow.CellsUsed())
         {
-            // Some headers (e.g. "Autoroute\nEloigné") span two lines within a single cell; normalize
-            // whitespace so a lookup doesn't have to guess the exact line-break character used in the file.
+            // Some headers (e.g. "Autoroute\nEloigné") span two lines within a single cell;
+            // normalize whitespace so a lookup doesn't have to guess the exact line-break character used in the file.
             var text = string.Join(' ', cell.GetString().Split([' ', '\r', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries));
             if (text.Length > 0) headers.TryAdd(text, cell.Address.ColumnNumber);
         }
@@ -190,10 +189,10 @@ public class CarHistoryImportService(ICarRepository carRepository, ICarHistoryRe
         headers.TryGetValue(header, out var column) ? row.Cell(column) : null;
 
     /// <summary>
-    /// Reads a date, falling back to a manual French (d/M/yyyy) text parse for the one row that wasn't
-    /// stored as a real Excel date. One entry in "Carburant S" has the corrupted literal text "11/06/0207",
-    /// confirmed (from the surrounding, chronologically-sorted rows: 2017-08-13 above, 2017-05-26 below) to
-    /// be a mistyped 11/06/2017 - fixed here rather than skipped, per a manual review of the source file.
+    /// Reads a date, falling back to a manual French (d/M/yyyy) text parse for the one row that wasn't stored as a real Excel date.
+    /// One entry in "Carburant X" has the corrupted literal text "11/06/0207",
+    /// confirmed (from the surrounding, chronologically-sorted rows: 2017-08-13 above, 2017-05-26 below) to be a mistyped 11/06/2017 -
+    /// fixed here rather than skipped, per a manual review of the source file.
     /// </summary>
     private static DateOnly? ParseDate(IXLCell cell)
     {
@@ -210,5 +209,4 @@ public class CarHistoryImportService(ICarRepository carRepository, ICarHistoryRe
         if (cell is null || cell.IsEmpty()) return null;
         return string.Equals(cell.GetString().Trim(), "O", StringComparison.OrdinalIgnoreCase);
     }
-
 }

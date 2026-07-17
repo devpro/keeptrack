@@ -14,11 +14,9 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.Import;
 
 /// <summary>
-/// Exercises <see cref="HealthImportService"/> against an in-memory workbook shaped exactly like the
-/// real "Journal_sante.xlsx" (verified against the actual file): the duplicate "Personne" header (first =
-/// who was treated, second = practitioner), two-line headers like "Rbrst\nAmeli", Excel-native dates and
-/// time fractions, formula-backed amounts, and the derived "Reste à charge" column that must NOT be
-/// imported.
+/// Exercises <see cref="HealthImportService"/> against an in-memory workbook shaped exactly like the real "Journal_sante.xlsx" (verified against the actual file):
+/// the duplicate "Personne" header (first = who was treated, second = practitioner), two-line headers like "Rbrst\nAmeli", Excel-native dates
+/// and time fractions, formula-backed amounts, and the derived "Reste à charge" column that must NOT be imported.
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class HealthImportServiceTest
@@ -33,7 +31,11 @@ public class HealthImportServiceTest
         using var workbook = new XLWorkbook();
         var sheet = workbook.AddWorksheet("Journal");
 
-        string[] headers = ["Jour", "Date", "Heure", "Personne", "Spécialité", "Personne", "Lieu", "Fait", "Notes", "Paiement", "Rbrst\nAmeli", "Virt Ameli", "Date Ameli", "Rbrst\nMutuelle", "Date\nmutuelle", "Reste\nà charge", "Commentaire"];
+        string[] headers =
+        [
+            "Jour", "Date", "Heure", "Personne", "Spécialité", "Personne", "Lieu", "Fait", "Notes", "Paiement", "Rbrst\nAmeli", "Virt Ameli", "Date Ameli", "Rbrst\nMutuelle",
+            "Date\nmutuelle", "Reste\nà charge", "Commentaire"
+        ];
         for (var i = 0; i < headers.Length; i++) sheet.Cell(1, i + 1).Value = headers[i];
 
         // a settled consultation for Bertrand, with a time of day
@@ -154,7 +156,16 @@ public class HealthImportServiceTest
             return Task.FromResult(model);
         }
 
-        public Task<long> UpdateAsync(string id, TModel model, string ownerId) => Task.FromResult(1L);
+        public Task<long> UpdateAsync(string id, TModel model, string ownerId)
+        {
+            var existing = Items.FirstOrDefault(x => x.Id == id && x.OwnerId == ownerId);
+            if (existing != null)
+            {
+                Items.Remove(existing);
+                Items.Add(model);
+            }
+            return Task.FromResult(1L);
+        }
 
         public Task<long> DeleteAsync(string id, string ownerId) =>
             Task.FromResult((long)Items.RemoveAll(x => x.Id == id && x.OwnerId == ownerId));
