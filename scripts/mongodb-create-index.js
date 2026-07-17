@@ -24,6 +24,8 @@ ensureIndex(db.car, { owner_id: 1 }, { name: "car_owner" });
 ensureIndex(db.car_history, { owner_id: 1 }, { name: "car_history_owner" });
 ensureIndex(db.house, { owner_id: 1 }, { name: "house_owner" });
 ensureIndex(db.house_history, { owner_id: 1 }, { name: "house_history_owner" });
+ensureIndex(db.health_profile, { owner_id: 1 }, { name: "health_profile_owner" });
+ensureIndex(db.health_record, { owner_id: 1 }, { name: "health_record_owner" });
 ensureIndex(db.movie, { owner_id: 1 }, { name: "movie_owner" });
 ensureIndex(db.tvshow, { owner_id: 1 }, { name: "tvshow_owner" });
 ensureIndex(db.videogame, { owner_id: 1 }, { name: "videogame_owner" });

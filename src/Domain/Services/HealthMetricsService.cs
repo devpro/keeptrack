@@ -1,0 +1,101 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Keeptrack.Domain.Models;
+
+namespace Keeptrack.Domain.Services;
+
+/// <summary>
+/// Pure, stateless computation over a health profile's journal - no persistence of its own, same shape
+/// as <see cref="HouseMetricsService"/>/<see cref="CarMetricsService"/>. Three views the raw journal
+/// can't answer at a glance: what health costs per year after reimbursements, when each practitioner was
+/// last seen, and which paid records are still waiting on a reimbursement.
+/// </summary>
+public class HealthMetricsService
+{
+    /// <summary>
+    /// Two amounts closer than this are "equal" - reimbursement arithmetic runs on doubles, and a
+    /// sub-cent residue must never flag a genuinely settled record.
+    /// </summary>
+    private const double BalanceTolerance = 0.005;
+
+    public HealthMetricsModel ComputeMetrics(IEnumerable<HealthRecordModel> records)
+    {
+        var list = records.ToList();
+        return new HealthMetricsModel
+        {
+            CostHistory = ComputeAnnualCostHistory(list),
+            LastVisits = ComputeLastVisits(list),
+            UnbalancedRecords = ComputeUnbalancedRecords(list)
+        };
+    }
+
+    /// <summary>
+    /// What's still missing once everything entered is accounted for: price minus both reimbursements
+    /// minus the accepted not-covered part (reste à charge). Zero = settled.
+    /// </summary>
+    public static double ComputeMissingAmount(HealthRecordModel record) =>
+        (record.Price ?? 0) - (record.PublicReimbursement ?? 0) - (record.InsuranceReimbursement ?? 0) - (record.NotCovered ?? 0);
+
+    public static bool IsBalanced(HealthRecordModel record) => Math.Abs(ComputeMissingAmount(record)) <= BalanceTolerance;
+
+    private static List<HealthCostHistoryPointModel> ComputeAnnualCostHistory(IEnumerable<HealthRecordModel> records) =>
+        records
+            .Where(r => r.Price is not null || r.PublicReimbursement is not null || r.InsuranceReimbursement is not null)
+            .GroupBy(r => r.HistoryDate.Year)
+            .OrderBy(g => g.Key)
+            .Select(g =>
+            {
+                var paid = g.Sum(r => r.Price ?? 0);
+                var reimbursed = g.Sum(r => (r.PublicReimbursement ?? 0) + (r.InsuranceReimbursement ?? 0));
+                return new HealthCostHistoryPointModel
+                {
+                    Year = g.Key,
+                    TotalPaid = paid,
+                    TotalReimbursed = reimbursed,
+                    OutOfPocket = paid - reimbursed
+                };
+            })
+            .ToList();
+
+    /// <summary>
+    /// One row per (practitioner, specialty) across every appointment - most recently seen first, so
+    /// "when did I last see my dentist" is the top of the list, not a search.
+    /// </summary>
+    private static List<HealthLastVisitModel> ComputeLastVisits(IEnumerable<HealthRecordModel> records) =>
+        records
+            .Where(r => r.EventType == HealthEventType.Appointment && !string.IsNullOrWhiteSpace(r.Practitioner))
+            .GroupBy(r => (Practitioner: r.Practitioner!.Trim(), Specialty: r.Specialty?.Trim()))
+            .Select(g => new HealthLastVisitModel
+            {
+                Practitioner = g.Key.Practitioner,
+                Specialty = g.Key.Specialty,
+                LastVisitDate = g.Max(r => r.HistoryDate),
+                VisitCount = g.Count()
+            })
+            .OrderByDescending(v => v.LastVisitDate)
+            .ToList();
+
+    /// <summary>
+    /// Every paid record whose money doesn't balance to zero, oldest first (the longest-waiting claim is
+    /// the one to chase). This deliberately flags partial settlements too: a record with only the ameli
+    /// payment entered is exactly the "did the mutuelle ever pay?" case the check exists for, and a
+    /// negative missing amount (more received than the price accounts for) is just as worth a look.
+    /// </summary>
+    private static List<HealthUnbalancedRecordModel> ComputeUnbalancedRecords(IEnumerable<HealthRecordModel> records) =>
+        records
+            .Where(r => r.Price is > 0 && r.Id is not null && !IsBalanced(r))
+            .OrderBy(r => r.HistoryDate)
+            .Select(r => new HealthUnbalancedRecordModel
+            {
+                RecordId = r.Id!,
+                HistoryDate = r.HistoryDate,
+                Label = FirstNonEmpty(r.Practitioner, r.Description, r.Specialty) ?? r.EventType.ToString(),
+                Price = r.Price!.Value,
+                MissingAmount = ComputeMissingAmount(r)
+            })
+            .ToList();
+
+    private static string? FirstNonEmpty(params string?[] values) =>
+        values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+}

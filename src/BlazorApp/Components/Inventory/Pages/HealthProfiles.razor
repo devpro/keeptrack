@@ -1,0 +1,39 @@
+@page "/health"
+@inherits InventoryPageBase<HealthProfileDto>
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+<InventoryList TDto="HealthProfileDto"
+               Title="Health"
+               ItemName="Profile"
+               Route="@ListRoute"
+               Items="@_items"
+               Loading="@_loading"
+               Error="@_error"
+               Search="@_search"
+               Page="@_page"
+               TotalPages="@TotalPages"
+               TotalCount="@_totalCount"
+               ShowForm="@_showForm"
+               Form="@_form"
+               ItemTitle="@(profile => profile.Name)"
+               OnSearchKeyUp="@OnSearchKeyUp"
+               OnClearSearch="@ClearSearch"
+               OnGoToPage="@GoToPage"
+               OnShowAddForm="@ShowAddForm"
+               OnCancelForm="@CancelForm"
+               OnSave="@SaveAsync"
+               OnDelete="@DeleteAsync"
+               OnSearchChanged="@OnSearchChanged">
+    <MetaTemplate Context="profile">
+        @if (!string.IsNullOrEmpty(profile.Notes))
+        {
+            <span>@profile.Notes</span>
+        }
+    </MetaTemplate>
+    <FormTemplate Context="profile">
+        <div class="col-12">
+            <input class="form-control" placeholder="Name (e.g. Me, a child's first name)" data-testid="name-input" @bind="profile.Name" />
+        </div>
+    </FormTemplate>
+</InventoryList>

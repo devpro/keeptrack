@@ -39,6 +39,7 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
         ("/video-games", "video-games"),
         ("/cars", "cars"),
         ("/houses", "houses"),
+        ("/health", "health"),
         ("/import", "import"),
         ("/admin/reference-data", "admin-reference-data")
     ];
@@ -85,6 +86,7 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             await CaptureFirstDetailAsync("/tv-shows", "tvshow-detail");
             await CaptureFirstDetailAsync("/cars", "car-detail");
             await CaptureFirstDetailAsync("/books", "book-detail");
+            await CaptureFirstDetailAsync("/health", "health-detail");
 
             // The Add form modal on a list page.
             await Page.GotoAsync("/movies");
@@ -240,6 +242,40 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
         });
         await LinkFirstCandidateAsync(api, ReferenceItemType.Album, "Nevermind", 1991, "Nirvana");
         await LinkFirstCandidateAsync(api, ReferenceItemType.VideoGame, "Hades", 2020, null);
+
+        // a health journal with a settled appointment, an unbalanced one (drives the "to check" panel)
+        // and a sickness entry, so the detail shot shows every section
+        var healthProfileId = await CreateAsync(api, created, "api/health-profiles", new HealthProfileDto { Name = "Bertrand" });
+        await CreateAsync(api, created, "api/health-records", new HealthRecordDto
+        {
+            HealthProfileId = healthProfileId,
+            HistoryDate = new DateTime(2026, 2, 3, 9, 30, 0),
+            EventType = HealthEventType.Appointment,
+            Specialty = "généraliste",
+            Practitioner = "Dr Martin",
+            Description = "Annual check-up",
+            Price = 30,
+            PublicReimbursement = 20,
+            InsuranceReimbursement = 8.5,
+            NotCovered = 1.5
+        });
+        await CreateAsync(api, created, "api/health-records", new HealthRecordDto
+        {
+            HealthProfileId = healthProfileId,
+            HistoryDate = new DateTime(2026, 5, 12, 14, 0, 0),
+            EventType = HealthEventType.Appointment,
+            Specialty = "dentiste",
+            Practitioner = "Dr Diaz",
+            Description = "Descaling",
+            Price = 120
+        });
+        await CreateAsync(api, created, "api/health-records", new HealthRecordDto
+        {
+            HealthProfileId = healthProfileId,
+            HistoryDate = new DateTime(2026, 7, 1, 8, 0, 0),
+            EventType = HealthEventType.Sickness,
+            Description = "Fever, stayed home"
+        });
 
         // stays unresolved (no provider can match it) - proves the admin queue prefills the saved artist
         await CreateAsync(api, created, "api/albums", new AlbumDto { Title = "Zzq Unfindable Album", Artist = "Zzq Test Artist", Year = 1999 });

@@ -15,11 +15,14 @@ builder.Services.Configure<HostOptions>(opts =>
     opts.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore);
 builder.Services.AddSingleton<Keeptrack.Domain.Services.CarMetricsService>();
 builder.Services.AddSingleton<Keeptrack.Domain.Services.HouseMetricsService>();
+builder.Services.AddSingleton<Keeptrack.Domain.Services.HealthMetricsService>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<BookDto, Keeptrack.Domain.Models.BookModel>, Keeptrack.WebApi.Mappers.BookDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<CarDto, Keeptrack.Domain.Models.CarModel>, Keeptrack.WebApi.Mappers.CarDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<CarHistoryDto, Keeptrack.Domain.Models.CarHistoryModel>, Keeptrack.WebApi.Mappers.CarHistoryDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<HouseDto, Keeptrack.Domain.Models.HouseModel>, Keeptrack.WebApi.Mappers.HouseDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<HouseHistoryDto, Keeptrack.Domain.Models.HouseHistoryModel>, Keeptrack.WebApi.Mappers.HouseHistoryDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<HealthProfileDto, Keeptrack.Domain.Models.HealthProfileModel>, Keeptrack.WebApi.Mappers.HealthProfileDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<HealthRecordDto, Keeptrack.Domain.Models.HealthRecordModel>, Keeptrack.WebApi.Mappers.HealthRecordDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<EpisodeDto, Keeptrack.Domain.Models.EpisodeModel>, Keeptrack.WebApi.Mappers.EpisodeDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<MovieDto, Keeptrack.Domain.Models.MovieModel>, Keeptrack.WebApi.Mappers.MovieDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<AlbumDto, Keeptrack.Domain.Models.AlbumModel>, Keeptrack.WebApi.Mappers.AlbumDtoMapper>();
@@ -30,6 +33,7 @@ builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<VideoGameDto, 
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.InProgressShowDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.CarMetricsDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.HouseMetricsDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.HealthMetricsDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.TvShowReferenceDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.MovieReferenceDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.BookReferenceDtoMapper>();

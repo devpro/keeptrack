@@ -1,0 +1,482 @@
+@page "/health/{Id}"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using System.Globalization
+
+@if (_loading)
+{
+    <div class="kt-loading">
+        <div class="kt-spinner"></div>
+        Loading…
+    </div>
+}
+else if (_profile is null)
+{
+    <div class="kt-empty">
+        <div class="kt-empty-icon">◈</div>
+        <p>Health profile not found.</p>
+    </div>
+}
+else
+{
+    <Breadcrumb ListRoute="/health" ListLabel="Health" Current="@_profile.Name"/>
+
+    <div class="kt-page-header">
+        <div class="kt-title-row">
+            <input class="kt-title-input" value="@_profile.Name" @onchange="SaveNameAsync"/>
+        </div>
+    </div>
+
+    <div class="kt-form-card">
+        <label class="form-label">Notes</label>
+        <textarea class="form-control form-control-sm" rows="2" @onchange="SaveNotesAsync">@_profile.Notes</textarea>
+    </div>
+
+    @if (_metrics is { UnbalancedRecords.Count: > 0 })
+    {
+        <h2 class="kt-section-title">Reimbursements to check</h2>
+        <div class="kt-form-card">
+            <p class="kt-card-meta mb-1">
+                These don't balance to zero (paid − public reimbursement − insurance reimbursement − not covered) -
+                @_metrics.UnbalancedRecords.Sum(p => p.MissingAmount).ToString("F2") € unaccounted for across
+                @_metrics.UnbalancedRecords.Count entr@(_metrics.UnbalancedRecords.Count == 1 ? "y" : "ies"), oldest first.
+                A positive amount is money still expected; a negative one means more arrived than the price accounts for.
+            </p>
+            <div class="table-responsive">
+                <table class="table kt-sheet-table mb-0">
+                    <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>What</th>
+                        <th>Paid</th>
+                        <th>Missing</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var unbalanced in _metrics.UnbalancedRecords)
+                    {
+                        <tr>
+                            <td>@unbalanced.HistoryDate.ToString("yyyy-MM-dd")</td>
+                            <td data-label="What">@unbalanced.Label</td>
+                            <td data-label="Paid">@unbalanced.Price.ToString("F2")</td>
+                            <td data-label="Missing" style="font-weight:600; color:var(--kt-warning)">@unbalanced.MissingAmount.ToString("F2")</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" @onclick="() => EditRecordByIdAsync(unbalanced.RecordId)">Settle</button>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    @if (_metrics is { LastVisits.Count: > 0 })
+    {
+        <h2 class="kt-section-title">Last seen</h2>
+        <div class="kt-form-card">
+            <div class="table-responsive">
+                <table class="table kt-sheet-table mb-0">
+                    <thead>
+                    <tr>
+                        <th>Practitioner</th>
+                        <th>Specialty</th>
+                        <th>Visits</th>
+                        <th>Last visit</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var visit in _metrics.LastVisits)
+                    {
+                        <tr>
+                            <td style="font-weight:500">@visit.Practitioner</td>
+                            <td data-label="Specialty">@visit.Specialty</td>
+                            <td data-label="Visits">@visit.VisitCount</td>
+                            <td data-label="Last visit">@visit.LastVisitDate.ToString("yyyy-MM-dd")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    @if (_metrics is { CostHistory.Count: > 0 })
+    {
+        var metrics = _metrics;
+        <h2 class="kt-section-title">Yearly cost review</h2>
+        <div class="kt-form-card">
+            <p class="kt-card-meta mb-1">
+                Out-of-pocket by year (paid minus reimbursed) -
+                @metrics.CostHistory.Sum(p => p.OutOfPocket).ToString("F2") € across the whole journal
+            </p>
+            @RenderYearlyOutOfPocketChart(metrics.CostHistory)
+
+            <div class="table-responsive mt-3">
+                <table class="table kt-sheet-table">
+                    <thead>
+                    <tr>
+                        <th>Year</th>
+                        <th>Paid</th>
+                        <th>Reimbursed</th>
+                        <th>Out of pocket</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var point in metrics.CostHistory)
+                    {
+                        <tr>
+                            <td style="font-weight:500">@point.Year</td>
+                            <td data-label="Paid">@point.TotalPaid.ToString("F2")</td>
+                            <td data-label="Reimbursed">@point.TotalReimbursed.ToString("F2")</td>
+                            <td data-label="Out of pocket" style="font-weight:600">@point.OutOfPocket.ToString("F2")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    <div class="d-flex justify-content-between align-items-center">
+        <h2 class="kt-section-title">Journal</h2>
+        <button class="btn btn-sm btn-primary" @onclick="ShowAddModal">+ Add entry</button>
+    </div>
+    <div class="kt-table-wrap">
+        <div class="table-responsive">
+            <table class="table kt-sheet-table">
+                <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Event</th>
+                    <th>Who</th>
+                    <th>Paid</th>
+                    <th>Reimbursed</th>
+                    <th>Description</th>
+                    <th></th>
+                </tr>
+                </thead>
+                <tbody>
+                @if (_records.Count == 0)
+                {
+                    <tr><td colspan="7" class="text-center kt-card-meta">No entries yet - add the first one above.</td></tr>
+                }
+                @foreach (var entry in _records)
+                {
+                    <HealthRecordRow Entry="entry" IsUnbalanced="@UnbalancedRecordIds.Contains(entry.Id!)" OnEdit="ShowEditModal" OnDelete="DeleteEntryAsync"/>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @if (_showModal)
+    {
+        <div class="kt-modal-backdrop" @onclick="CancelModal">
+            <div class="kt-modal" @onclick:stopPropagation>
+                <div class="kt-modal-header">
+                    <h5>@(IsEditMode ? "Edit" : "Add") journal entry</h5>
+                    <button class="kt-modal-close" @onclick="CancelModal">✕</button>
+                </div>
+                <div class="kt-modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label d-block">Event type</label>
+                            <div class="d-flex gap-2 flex-wrap">
+                                @foreach (var eventType in Enum.GetValues<HealthEventType>())
+                                {
+                                    <button type="button" class="btn btn-sm @(_modalEntry.EventType == eventType ? "btn-primary" : "btn-secondary")"
+                                            @onclick="() => _modalEntry.EventType = eventType">@eventType</button>
+                                }
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Date</label>
+                            <input class="form-control" type="date" @bind="ModalDate" @bind:format="yyyy-MM-dd"/>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Time (24h)</label>
+                            <input class="form-control" type="text" inputmode="numeric" placeholder="HH:mm"
+                                   pattern="[0-2][0-9]:[0-5][0-9]" @bind="ModalTimeText" @bind:event="onchange"/>
+                        </div>
+                        @if (_modalEntry.EventType == HealthEventType.Appointment)
+                        {
+                            <div class="col-md-6">
+                                <label class="form-label">Specialty</label>
+                                <input class="form-control" placeholder="généraliste, dentiste, …" @bind="_modalEntry.Specialty"/>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Practitioner</label>
+                                @* data-testid: the label/input pair has no for/id association, so GetByLabel
+                                   can't resolve it in e2e tests - same as every inventory Add form *@
+                                <input class="form-control" placeholder="Dr …" data-testid="practitioner-input" @bind="_modalEntry.Practitioner"/>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Price paid (€)</label>
+                                <input class="form-control" type="number" step="0.01" data-testid="price-input" @bind="_modalEntry.Price"/>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Public reimb. (€)</label>
+                                <input class="form-control" type="number" step="0.01" @bind="_modalEntry.PublicReimbursement"
+                                       title="What the public health system (assurance maladie / ameli) officially reimburses for this care."/>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Insurance reimb. (€)</label>
+                                <input class="form-control" type="number" step="0.01" @bind="_modalEntry.InsuranceReimbursement"/>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Not covered (€)</label>
+                                <input class="form-control" type="number" step="0.01" @bind="_modalEntry.NotCovered"
+                                       title="Reste à charge: the accepted part no one will reimburse."/>
+                            </div>
+                            @if (_modalEntry.Price is > 0)
+                            {
+                                var missing = ModalMissingAmount;
+                                <div class="col-12">
+                                    @if (Math.Abs(missing) <= 0.005)
+                                    {
+                                        <span class="kt-card-meta" style="color:var(--kt-success)">✓ Balanced - paid, reimbursements and not-covered add up to zero.</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="kt-card-meta" style="color:var(--kt-warning)">
+                                            @missing.ToString("F2") € @(missing > 0 ? "still unaccounted for - this entry will appear under \"Reimbursements to check\"." : "received beyond the price - worth a look.")
+                                        </span>
+                                    }
+                                </div>
+                            }
+                        }
+                        <div class="col-12">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" rows="2" placeholder="@DescriptionPlaceholder" @bind="_modalEntry.Description"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Notes</label>
+                            <textarea class="form-control" rows="2" @bind="_modalEntry.Notes"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="kt-modal-footer">
+                    <button class="btn btn-secondary" @onclick="CancelModal">Cancel</button>
+                    <button class="btn btn-success" @onclick="SaveModalEntryAsync">Save</button>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public required string Id { get; set; }
+
+    [Inject] private HealthProfileApiClient HealthProfileApi { get; set; } = null!;
+
+    [Inject] private HealthRecordApiClient HealthRecordApi { get; set; } = null!;
+
+    private bool _loading = true;
+    private HealthProfileDto? _profile;
+    private List<HealthRecordDto> _records = [];
+    private HealthMetricsDto? _metrics;
+    private HealthRecordDto _modalEntry = NewEntry("");
+    private bool _showModal;
+
+    private bool IsEditMode => !string.IsNullOrEmpty(_modalEntry.Id);
+
+    /// <summary>The journal rows' warning flags come from the metrics (the one balance computation,
+    /// server-side in HealthMetricsService) rather than re-deriving the arithmetic per row.</summary>
+    private HashSet<string> UnbalancedRecordIds =>
+        _metrics is null ? [] : [.. _metrics.UnbalancedRecords.Select(u => u.RecordId)];
+
+    /// <summary>Live preview of the same balance the server computes - what the modal shows while typing.</summary>
+    private double ModalMissingAmount =>
+        (_modalEntry.Price ?? 0) - (_modalEntry.PublicReimbursement ?? 0) - (_modalEntry.InsuranceReimbursement ?? 0) - (_modalEntry.NotCovered ?? 0);
+
+    private string DescriptionPlaceholder => _modalEntry.EventType == HealthEventType.Sickness
+        ? "What was wrong (fever, migraine, gastro, …)"
+        : "Reason for the visit / what happened";
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private static HealthRecordDto NewEntry(string profileId) => new()
+    {
+        HealthProfileId = profileId,
+        // today at the current hour, minute zeroed - a "right now" default the time field can refine
+        HistoryDate = DateTime.Today.AddHours(DateTime.Now.Hour),
+        EventType = HealthEventType.Appointment
+    };
+
+    /// <summary>Separate Date/Time proxies over the single _modalEntry.HistoryDate - see CarDetail.razor's
+    /// identical pair for why a plain @bind to HistoryDate would lose the time on every date change.</summary>
+    private DateOnly ModalDate
+    {
+        get => DateOnly.FromDateTime(_modalEntry.HistoryDate);
+        set => _modalEntry.HistoryDate = value.ToDateTime(TimeOnly.FromDateTime(_modalEntry.HistoryDate));
+    }
+
+    /// <summary>Plain "HH:mm" text instead of &lt;input type="time"&gt; - see CarDetail.razor's ModalTimeText
+    /// for why the native picker can't be forced to 24h.</summary>
+    private string ModalTimeText
+    {
+        get => TimeOnly.FromDateTime(_modalEntry.HistoryDate).ToString("HH:mm");
+        set
+        {
+            if (TimeOnly.TryParseExact(value, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var time))
+            {
+                _modalEntry.HistoryDate = DateOnly.FromDateTime(_modalEntry.HistoryDate).ToDateTime(time);
+            }
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _profile = await HealthProfileApi.GetOneAsync(Id);
+        if (_profile is not null)
+        {
+            var result = await HealthRecordApi.GetAsync("", 1, int.MaxValue, new Dictionary<string, string> { ["HealthProfileId"] = Id });
+            // most recent first - a journal reads with the newest entry on top, same call as HouseDetail
+            _records = result.Items.OrderByDescending(r => r.HistoryDate).ToList();
+            _metrics = await HealthProfileApi.GetMetricsAsync(Id);
+        }
+        _loading = false;
+    }
+
+    private async Task SaveProfileAsync()
+    {
+        if (_profile is null) return;
+        await HealthProfileApi.UpdateAsync(_profile);
+    }
+
+    private async Task SaveNameAsync(ChangeEventArgs e)
+    {
+        if (_profile is null) return;
+        var name = e.Value?.ToString();
+        if (string.IsNullOrWhiteSpace(name)) return;
+        _profile.Name = name;
+        await SaveProfileAsync();
+    }
+
+    private async Task SaveNotesAsync(ChangeEventArgs e)
+    {
+        if (_profile is null) return;
+        _profile.Notes = e.Value?.ToString();
+        await SaveProfileAsync();
+    }
+
+    private void ShowAddModal()
+    {
+        _modalEntry = NewEntry(Id);
+        _showModal = true;
+    }
+
+    /// <summary>Edits a copy, not the row's own object, so Cancel discards changes instead of leaving the
+    /// table showing edits that were never saved.</summary>
+    private void ShowEditModal(HealthRecordDto entry)
+    {
+        _modalEntry = CloneEntry(entry);
+        _showModal = true;
+    }
+
+    /// <summary>The "Enter reimbursement" shortcut from the pending list - same edit modal, found by id.</summary>
+    private async Task EditRecordByIdAsync(string recordId)
+    {
+        var entry = _records.FirstOrDefault(r => r.Id == recordId);
+        if (entry is not null)
+        {
+            ShowEditModal(entry);
+            return;
+        }
+
+        // not in the local list (shouldn't happen, but the metrics and the journal are two separate reads)
+        await LoadAsync();
+    }
+
+    private void CancelModal() => _showModal = false;
+
+    /// <summary>Every journal mutation reloads the whole profile (journal + metrics) rather than patching
+    /// local state - an edit can change the yearly totals, the pending list and the last-visit table, so
+    /// recomputing from the server is simpler and safer than syncing derived state by hand.</summary>
+    private async Task SaveModalEntryAsync()
+    {
+        if (IsEditMode) await HealthRecordApi.UpdateAsync(_modalEntry);
+        else await HealthRecordApi.AddAsync(_modalEntry);
+
+        _showModal = false;
+        await LoadAsync();
+    }
+
+    private static HealthRecordDto CloneEntry(HealthRecordDto entry) => new()
+    {
+        Id = entry.Id,
+        HealthProfileId = entry.HealthProfileId,
+        HistoryDate = entry.HistoryDate,
+        EventType = entry.EventType,
+        Specialty = entry.Specialty,
+        Practitioner = entry.Practitioner,
+        Description = entry.Description,
+        Notes = entry.Notes,
+        Price = entry.Price,
+        PublicReimbursement = entry.PublicReimbursement,
+        InsuranceReimbursement = entry.InsuranceReimbursement,
+        NotCovered = entry.NotCovered
+    };
+
+    private async Task DeleteEntryAsync(string id)
+    {
+        await HealthRecordApi.DeleteAsync(id);
+        await LoadAsync();
+    }
+
+    /// <summary>Hand-rolled SVG bar chart - out-of-pocket per year, one bar each, same single-series shape
+    /// as HouseDetail's yearly cost chart (axis drawing shared via <see cref="SvgChartHelpers"/>). The
+    /// table right below carries the paid/reimbursed detail, so the chart only answers "what did health
+    /// really cost me, year by year" at a glance.</summary>
+    private static RenderFragment RenderYearlyOutOfPocketChart(List<HealthCostHistoryPointDto> points) => builder =>
+    {
+        var geometry = SvgChartHelpers.FullWidthGeometry;
+        var (viewWidth, viewHeight, plotLeft, plotRight, plotTop, plotBottom) = geometry;
+
+        var maxValue = points.Max(p => p.OutOfPocket);
+        if (maxValue <= 0) maxValue = 1;
+
+        var plotWidth = plotRight - plotLeft;
+        var barWidth = plotWidth / points.Count * 0.6;
+        var gap = plotWidth / points.Count * 0.4;
+
+        double ScaleHeight(double value) => value <= 0 ? 0 : value / maxValue * (plotBottom - plotTop);
+
+        var yTicks = Enumerable.Range(0, 4)
+            .Select(i => maxValue * i / 3.0)
+            .Select(v => (plotBottom - ScaleHeight(v), v.ToString("F0")))
+            .ToList();
+        var xTicks = points.Select((p, i) => (plotLeft + i * (barWidth + gap) + barWidth / 2, p.Year.ToString())).ToList();
+
+        var seq = 0;
+        builder.OpenElement(seq++, "svg");
+        builder.AddAttribute(seq++, "viewBox", $"0 0 {viewWidth} {viewHeight}");
+        builder.AddAttribute(seq++, "class", "kt-chart-svg");
+
+        SvgChartHelpers.RenderAxes(builder, ref seq, geometry, "kt-chart-arrow-health-cost", "Year", "€", yTicks, xTicks);
+
+        for (var i = 0; i < points.Count; i++)
+        {
+            var point = points[i];
+            var x = plotLeft + i * (barWidth + gap);
+            var height = ScaleHeight(point.OutOfPocket);
+            var y = plotBottom - height;
+
+            builder.OpenElement(seq++, "rect");
+            builder.AddAttribute(seq++, "x", x.ToString("F1"));
+            builder.AddAttribute(seq++, "y", y.ToString("F1"));
+            builder.AddAttribute(seq++, "width", barWidth.ToString("F1"));
+            builder.AddAttribute(seq++, "height", height.ToString("F1"));
+            builder.AddAttribute(seq++, "fill", "var(--kt-accent)");
+            builder.OpenElement(seq++, "title");
+            builder.AddContent(seq++, $"{point.Year}: {point.OutOfPocket:F2}");
+            builder.CloseElement();
+            builder.CloseElement();
+        }
+
+        builder.CloseElement();
+    };
+}
