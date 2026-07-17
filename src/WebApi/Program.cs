@@ -11,11 +11,7 @@ builder.Services.AddHealthChecks().AddCheck<Keeptrack.WebApi.HealthChecks.MongoD
 // a hosted BackgroundService (e.g. ReferenceSyncBackgroundService) already catches and logs every exception it can anticipate,
 // but this is a systemic safety net for whatever it doesn't: by default, an unhandled exception escaping a BackgroundService.ExecuteAsync stops the whole host,
 // taking every other endpoint down with it - "Ignore" logs it instead and lets the rest of the app keep serving requests.
-builder.Services.Configure<HostOptions>(opts =>
-    opts.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore);
-builder.Services.AddSingleton<Keeptrack.Domain.Services.CarMetricsService>();
-builder.Services.AddSingleton<Keeptrack.Domain.Services.HouseMetricsService>();
-builder.Services.AddSingleton<Keeptrack.Domain.Services.HealthMetricsService>();
+builder.Services.Configure<HostOptions>(opts => opts.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore);
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<BookDto, Keeptrack.Domain.Models.BookModel>, Keeptrack.WebApi.Mappers.BookDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<CarDto, Keeptrack.Domain.Models.CarModel>, Keeptrack.WebApi.Mappers.CarDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<CarHistoryDto, Keeptrack.Domain.Models.CarHistoryModel>, Keeptrack.WebApi.Mappers.CarHistoryDtoMapper>();
@@ -49,12 +45,11 @@ builder.Services.AddSingleton(configuration.TmdbSettings);
 builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.ITmdbClient, Keeptrack.WebApi.ReferenceData.TmdbClient>(client =>
 {
     client.BaseAddress = new Uri("https://api.themoviedb.org/3/");
-    // AddStandardResilienceHandler's own TotalRequestTimeout (30s default) is meant to be the real bound
-    // on a call - but HttpClient's own Timeout (100s default, never otherwise touched here) wraps the
-    // whole pipeline including every retry, and silently wins whenever it's shorter than however long the
-    // resilience pipeline actually takes to give up. Disabling it lets the resilience handler's own
-    // timeout be authoritative instead of a stuck call hanging for a full 100s - see
-    // https://github.com/dotnet/extensions/issues/4770 (confirmed against this exact symptom on Discogs).
+    // AddStandardResilienceHandler's own TotalRequestTimeout (30s default) is meant to be the real bound on a call -
+    // but HttpClient's own Timeout (100s default, never otherwise touched here) wraps the whole pipeline including every retry,
+    // and silently wins whenever it's shorter than however long the resilience pipeline actually takes to give up.
+    // Disabling it lets the resilience handler's own timeout be authoritative instead of a stuck call hanging for a full 100s -
+    // see https://github.com/dotnet/extensions/issues/4770 (confirmed against this exact symptom on Discogs).
     client.Timeout = Timeout.InfiniteTimeSpan;
 }).AddProviderResilienceHandler();
 // which IBookReferenceClient implementation is registered is a deployment-time choice
@@ -93,10 +88,9 @@ builder.Services.AddOpenApiWithBearerAuth(configuration);
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        // Firebase's own claim names ("user_id", "role", ...) must stay exactly as issued - without this,
-        // some claim types (short JWT claim names like "role") get silently renamed to legacy ClaimTypes.*
-        // URIs by the token handler's inbound claim mapping, breaking RequireClaim("role", ...) checks
-        // that look for the literal type "role".
+        // Firebase's own claim names ("user_id", "role", ...) must stay exactly as issued -
+        // without this, some claim types (short JWT claim names like "role") get silently renamed to legacy ClaimTypes.
+        // URIs by the token handler's inbound claim mapping, breaking RequireClaim("role", ...) checks that look for the literal type "role".
         options.MapInboundClaims = false;
         options.Authority = configuration.JwtBearerSettings.Authority;
         options.TokenValidationParameters = new TokenValidationParameters
@@ -111,10 +105,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", policy => policy.RequireClaim("role", "admin"));
-    // members (and admins - a membership must never be *less* than the owner's own account) get the
-    // full app; authenticated users without the role are the free preview tier (movies + TV shows,
-    // capped - see DataCrudControllerBase). Granted the same way as admin: a Firebase custom claim
-    // role=member via the Admin SDK (see CONTRIBUTING.md).
+    // members (and admins - a membership must never be *less* than the owner's own account) get the full app;
+    // authenticated users without the role are the free preview tier (movies + TV shows, capped - see DataCrudControllerBase).
+    // Granted the same way as admin: a Firebase custom claim role=member via the Admin SDK (see CONTRIBUTING.md).
     options.AddPolicy("MemberOnly", policy => policy.RequireClaim("role", "member", "admin"));
 });
 if (configuration.CorsAllowedOrigin.Count != 0)

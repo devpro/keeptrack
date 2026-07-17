@@ -6,15 +6,14 @@ using Keeptrack.Domain.Models;
 namespace Keeptrack.Domain.Services;
 
 /// <summary>
-/// Computes fuel/electric consumption, cost history, mileage-consistency warnings and a next-maintenance-due
-/// estimate from a car's full intervention history. Pure computation over an in-memory list, same shape as
-/// WatchNextService - nothing here is persisted, so a car's metrics are always derived fresh from its history.
+/// Computes fuel/electric consumption, cost history, mileage-consistency warnings and a next-maintenance-due estimate from a car's full intervention history.
+/// Pure computation over an in-memory list, same shape as WatchNextService - nothing here is persisted, so a car's metrics are always derived fresh from its history.
 /// </summary>
-public class CarMetricsService
+public static class CarMetricsService
 {
     private const double MileageToleranceKm = 1;
 
-    public CarMetricsModel ComputeMetrics(IEnumerable<CarHistoryModel> history)
+    public static CarMetricsModel ComputeMetrics(IEnumerable<CarHistoryModel> history)
     {
         var historyList = history.ToList();
 

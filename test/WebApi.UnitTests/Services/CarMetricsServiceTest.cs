@@ -9,8 +9,6 @@ namespace Keeptrack.WebApi.UnitTests.Services;
 [Trait("Category", "UnitTests")]
 public class CarMetricsServiceTest
 {
-    private readonly CarMetricsService _service = new();
-
     private static CarHistoryModel Refuel(
         string id, DateTime date, int mileage,
         double? fuelVolume = null, double? electricVolume = null, bool isFullRefill = true,
@@ -31,7 +29,16 @@ public class CarMetricsServiceTest
         };
 
     private static CarHistoryModel Maintenance(string id, DateTime date, int? mileage = null, double? cost = null) =>
-        new() { Id = id, OwnerId = "owner", CarId = "car-1", HistoryDate = date, Mileage = mileage, EventType = CarHistoryType.Maintenance, Cost = cost };
+        new()
+        {
+            Id = id,
+            OwnerId = "owner",
+            CarId = "car-1",
+            HistoryDate = date,
+            Mileage = mileage,
+            EventType = CarHistoryType.Maintenance,
+            Cost = cost
+        };
 
     [Fact]
     public void ComputeMetrics_FuelConsumption_OnlyEmitsAPointAcrossAFullRefill()
@@ -43,7 +50,7 @@ public class CarMetricsServiceTest
             Refuel("h3", new DateTime(2024, 2, 1), 1400, fuelVolume: 25, isFullRefill: true)
         };
 
-        var result = _service.ComputeMetrics(history);
+        var result = CarMetricsService.ComputeMetrics(history);
 
         result.FuelConsumption.Should().ContainSingle();
         result.FuelConsumption[0].ValuePer100Km.Should().BeApproximately(11.25, 0.001);
@@ -61,7 +68,7 @@ public class CarMetricsServiceTest
             Refuel("e2", new DateTime(2024, 1, 20), 1300, electricVolume: 30, isFullRefill: true)
         };
 
-        var result = _service.ComputeMetrics(history);
+        var result = CarMetricsService.ComputeMetrics(history);
 
         result.FuelConsumption.Should().ContainSingle();
         result.FuelConsumption[0].ValuePer100Km.Should().BeApproximately(35.0 / 500 * 100, 0.001);
@@ -80,7 +87,7 @@ public class CarMetricsServiceTest
             Refuel("h3", new DateTime(2024, 2, 5), 1500, fuelVolume: 40, cost: 65)
         };
 
-        var result = _service.ComputeMetrics(history);
+        var result = CarMetricsService.ComputeMetrics(history);
 
         result.CostHistory.Should().HaveCount(2);
         var january = result.CostHistory[0];
@@ -97,7 +104,7 @@ public class CarMetricsServiceTest
     {
         var history = new[] { Refuel("h1", new DateTime(2024, 1, 1), 1000, fuelVolume: 40) };
 
-        var result = _service.ComputeMetrics(history);
+        var result = CarMetricsService.ComputeMetrics(history);
 
         result.NextMaintenance.Should().BeNull();
     }
@@ -108,7 +115,7 @@ public class CarMetricsServiceTest
         var lastMaintenance = DateOnly.FromDateTime(DateTime.Today).AddMonths(-10);
         var history = new[] { Maintenance("h1", lastMaintenance.ToDateTime(TimeOnly.MinValue)) };
 
-        var result = _service.ComputeMetrics(history);
+        var result = CarMetricsService.ComputeMetrics(history);
 
         result.NextMaintenance.Should().NotBeNull();
         result.NextMaintenance!.LastMaintenanceDate.Should().Be(lastMaintenance);
@@ -122,7 +129,7 @@ public class CarMetricsServiceTest
         var lastMaintenance = DateOnly.FromDateTime(DateTime.Today).AddMonths(-14);
         var history = new[] { Maintenance("h1", lastMaintenance.ToDateTime(TimeOnly.MinValue)) };
 
-        var result = _service.ComputeMetrics(history);
+        var result = CarMetricsService.ComputeMetrics(history);
 
         result.NextMaintenance!.MonthsRemaining.Should().Be(-2);
     }
@@ -136,7 +143,7 @@ public class CarMetricsServiceTest
             Refuel("h2", new DateTime(2024, 2, 1), 4800, fuelVolume: 40)
         };
 
-        var result = _service.ComputeMetrics(history);
+        var result = CarMetricsService.ComputeMetrics(history);
 
         result.MileageWarnings.Should().ContainSingle(w => w.CarHistoryId == "h2");
     }
@@ -144,15 +151,15 @@ public class CarMetricsServiceTest
     [Fact]
     public void ComputeMetrics_MileageWarnings_FlagsADeltaMismatchAndSuggestsAMissingEntry()
     {
-        // the trip computer says 300 km since the last refuel, but the odometer jumped 900 km since the
-        // previous entry in the app - a refuel was very likely never logged in between
+        // the trip computer says 300 km since the last refuel, but the odometer jumped 900 km since the previous entry in the app -
+        // a refuel was very likely never logged in between
         var history = new[]
         {
             Refuel("h1", new DateTime(2024, 1, 1), 1000, fuelVolume: 40),
             Refuel("h2", new DateTime(2024, 2, 1), 1900, fuelVolume: 40, deltaMileage: 300)
         };
 
-        var result = _service.ComputeMetrics(history);
+        var result = CarMetricsService.ComputeMetrics(history);
 
         result.MileageWarnings.Should().ContainSingle(w => w.CarHistoryId == "h2");
         result.MileageWarnings[0].Message.Should().Contain("missing");
@@ -167,7 +174,7 @@ public class CarMetricsServiceTest
             Refuel("h2", new DateTime(2024, 2, 1), 1300, fuelVolume: 40, deltaMileage: 500)
         };
 
-        var result = _service.ComputeMetrics(history);
+        var result = CarMetricsService.ComputeMetrics(history);
 
         result.MileageWarnings.Should().ContainSingle(w => w.CarHistoryId == "h2");
         result.MileageWarnings[0].Message.Should().NotContain("missing");
@@ -182,7 +189,7 @@ public class CarMetricsServiceTest
             Refuel("h2", new DateTime(2024, 2, 1), 1500, fuelVolume: 40, deltaMileage: 500.4)
         };
 
-        var result = _service.ComputeMetrics(history);
+        var result = CarMetricsService.ComputeMetrics(history);
 
         result.MileageWarnings.Should().BeEmpty();
     }

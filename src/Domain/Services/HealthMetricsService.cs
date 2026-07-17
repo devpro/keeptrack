@@ -11,12 +11,12 @@ namespace Keeptrack.Domain.Services;
 /// Three views the raw journal can't answer at a glance:
 /// what health costs per year after reimbursements, when each practitioner was last seen, and which paid records are still waiting on a reimbursement.
 /// </summary>
-public class HealthMetricsService
+public static class HealthMetricsService
 {
     /// <summary>
     /// Two amounts closer than this are "equal" - reimbursement arithmetic runs on doubles, and a sub-cent residue must never flag a genuinely settled record.
     /// </summary>
-    private const double BalanceTolerance = 0.005;
+    private const double BalanceTolerance = 0.05;
 
     public static HealthMetricsModel ComputeMetrics(IEnumerable<HealthRecordModel> records)
     {

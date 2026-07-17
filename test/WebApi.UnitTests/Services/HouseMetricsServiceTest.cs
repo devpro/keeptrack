@@ -9,15 +9,13 @@ namespace Keeptrack.WebApi.UnitTests.Services;
 [Trait("Category", "UnitTests")]
 public class HouseMetricsServiceTest
 {
-    private readonly HouseMetricsService _service = new();
-
     private static HouseHistoryModel Entry(string id, DateOnly date, HouseEventType eventType, double? cost = null) =>
         new() { Id = id, OwnerId = "owner", HouseId = "house-1", HistoryDate = date, EventType = eventType, Cost = cost };
 
     [Fact]
     public void ComputeMetrics_CostHistory_IsEmpty_WhenThereIsNoHistory()
     {
-        var result = _service.ComputeMetrics([]);
+        var result = HouseMetricsService.ComputeMetrics([]);
 
         result.CostHistory.Should().BeEmpty();
     }
@@ -27,7 +25,7 @@ public class HouseMetricsServiceTest
     {
         var history = new[] { Entry("h1", new DateOnly(2024, 3, 1), HouseEventType.Maintenance, cost: null) };
 
-        var result = _service.ComputeMetrics(history);
+        var result = HouseMetricsService.ComputeMetrics(history);
 
         result.CostHistory.Should().BeEmpty();
     }
@@ -42,7 +40,7 @@ public class HouseMetricsServiceTest
             Entry("h3", new DateOnly(2025, 2, 1), HouseEventType.Purchase, cost: 400)
         };
 
-        var result = _service.ComputeMetrics(history);
+        var result = HouseMetricsService.ComputeMetrics(history);
 
         result.CostHistory.Should().HaveCount(2);
         var year2024 = result.CostHistory[0];
@@ -64,7 +62,7 @@ public class HouseMetricsServiceTest
             Entry("h3", new DateOnly(2024, 6, 1), HouseEventType.Maintenance, cost: 150)
         };
 
-        var result = _service.ComputeMetrics(history);
+        var result = HouseMetricsService.ComputeMetrics(history);
 
         var year2024 = result.CostHistory.Should().ContainSingle().Subject;
         year2024.CostByCategory.Should().HaveCount(2);

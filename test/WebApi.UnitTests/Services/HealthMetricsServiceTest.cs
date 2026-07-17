@@ -9,8 +9,6 @@ namespace Keeptrack.WebApi.UnitTests.Services;
 [Trait("Category", "UnitTests")]
 public class HealthMetricsServiceTest
 {
-    private readonly HealthMetricsService _service = new();
-
     private static HealthRecordModel Record(
         string id,
         DateTime date,
