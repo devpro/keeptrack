@@ -59,19 +59,19 @@ public class HealthMetricsService
             .ToList();
 
     /// <summary>
-    /// One row per (practitioner, specialty) across every appointment - most recently seen first, so
-    /// "when did I last see my dentist" is the top of the list, not a search.
+    /// One line per specialty across every appointment - most recently seen first, so "when did I last
+    /// see a dentist" is the top of the list, not a search. Grouped by specialty rather than by
+    /// practitioner name (owner's call): the question is about the kind of care, and the journal itself
+    /// carries the names.
     /// </summary>
     private static List<HealthLastVisitModel> ComputeLastVisits(IEnumerable<HealthRecordModel> records) =>
         records
-            .Where(r => r.EventType == HealthEventType.Appointment && !string.IsNullOrWhiteSpace(r.Practitioner))
-            .GroupBy(r => (Practitioner: r.Practitioner!.Trim(), Specialty: r.Specialty?.Trim()))
+            .Where(r => r.EventType == HealthEventType.Appointment && !string.IsNullOrWhiteSpace(r.Specialty))
+            .GroupBy(r => r.Specialty!.Trim())
             .Select(g => new HealthLastVisitModel
             {
-                Practitioner = g.Key.Practitioner,
-                Specialty = g.Key.Specialty,
-                LastVisitDate = g.Max(r => r.HistoryDate),
-                VisitCount = g.Count()
+                Specialty = g.Key,
+                LastVisitDate = g.Max(r => r.HistoryDate)
             })
             .OrderByDescending(v => v.LastVisitDate)
             .ToList();

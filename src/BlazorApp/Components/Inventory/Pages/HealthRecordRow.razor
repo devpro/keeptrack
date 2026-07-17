@@ -1,30 +1,24 @@
-@* One row of the health journal - only the absolute essentials (owner feedback: this table grows large,
-   so no per-row reimbursement breakdown; the ⚠ badge is the whole warning surface and the edit modal
-   carries the full money detail). *@
+@* One journal line, Excel-like (owner's explicit display choice): date, specialty, name, a warning sign
+   when money remains unaccounted, edit/delete icons - no field labels, no money columns. The edit modal
+   carries every other field. ⚠ (U+26A0) and ✎ (U+270E) default to text presentation (no FE0F). *@
 
 <tr>
     <td>@DateText</td>
-    <td data-label="Event">@Entry.EventType</td>
-    <td data-label="Who">
-        @Entry.Practitioner
-        @if (!string.IsNullOrEmpty(Entry.Specialty))
-        {
-            @* ms-1, not a text space: Razor collapses the leading whitespace inside the span *@
-            <span class="kt-card-meta ms-1">@Entry.Specialty</span>
-        }
-    </td>
-    <td data-label="Paid">
-        @Entry.Price?.ToString("F2")
+    <td>@Entry.Specialty</td>
+    <td>@Entry.Practitioner</td>
+    @* wider screens have room for more than the mobile essentials (d-md-table-cell = hidden below 768px) *@
+    <td class="d-none d-md-table-cell">@Entry.Description</td>
+    <td class="d-none d-md-table-cell text-end">@Entry.Price?.ToString("F2")</td>
+    <td class="text-center">
         @if (IsUnbalanced)
         {
-            <span class="kt-flag-badge wishlist" title="Paid, reimbursements and not-covered don't add up to zero - open the entry to settle it.">⚠ to check</span>
+            <span style="color:var(--kt-warning)" title="Paid, reimbursements and not-covered don't add up to zero - open the entry to settle it.">⚠</span>
         }
     </td>
-    <td data-label="Description">@Entry.Description</td>
     <td>
-        <div class="d-flex gap-1">
-            <button class="btn btn-sm btn-outline-primary" @onclick="() => OnEdit.InvokeAsync(Entry)">Edit</button>
-            <button class="btn btn-sm btn-outline-danger" @onclick="() => OnDelete.InvokeAsync(Entry.Id!)">Del</button>
+        <div class="d-flex gap-1 justify-content-end">
+            <button class="kt-icon-btn" title="Edit this entry" aria-label="Edit this entry" @onclick="() => OnEdit.InvokeAsync(Entry)">✎</button>
+            <button class="kt-icon-btn" title="Delete this entry" aria-label="Delete this entry" @onclick="() => OnDelete.InvokeAsync(Entry.Id!)">✕</button>
         </div>
     </td>
 </tr>
@@ -33,7 +27,7 @@
     [Parameter] public required HealthRecordDto Entry { get; set; }
 
     /// <summary>Computed by HealthMetricsService (via the parent's metrics), never re-derived here -
-    /// the balance rule lives in exactly one place. U+26A0 defaults to text presentation (no FE0F).</summary>
+    /// the balance rule lives in exactly one place.</summary>
     [Parameter] public bool IsUnbalanced { get; set; }
 
     [Parameter] public EventCallback<HealthRecordDto> OnEdit { get; set; }

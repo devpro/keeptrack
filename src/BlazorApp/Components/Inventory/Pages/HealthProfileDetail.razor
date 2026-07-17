@@ -33,33 +33,19 @@ else
     </div>
 
     @* No summary panels before the journal on purpose (owner feedback): the journal is the page's
-       primary content, and the per-row "to check" badge is the whole warning surface - a record that
-       doesn't balance is spotted in place, not in a duplicate list above. *@
+       primary content, and the per-row warning sign is the whole warning surface. "Last seen" is a bare
+       specialty + last-date list - no names, no counts, no field labels. *@
     @if (_metrics is { LastVisits.Count: > 0 })
     {
         <h2 class="kt-section-title">Last seen</h2>
         <div class="kt-form-card">
-            <div class="table-responsive">
-                <table class="table kt-sheet-table mb-0">
-                    <thead>
-                    <tr>
-                        <th>Practitioner</th>
-                        <th>Visits</th>
-                        <th>Last visit</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    @foreach (var visit in _metrics.LastVisits)
-                    {
-                        <tr>
-                            <td style="font-weight:500">@visit.Practitioner</td>
-                            <td data-label="Visits">@visit.VisitCount</td>
-                            <td data-label="Last visit">@visit.LastVisitDate.ToString("yyyy-MM-dd")</td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
-            </div>
+            @foreach (var visit in _metrics.LastVisits)
+            {
+                <div class="d-flex justify-content-between" style="max-width:420px">
+                    <span>@visit.Specialty</span>
+                    <span class="kt-card-meta">@visit.LastVisitDate.ToString("yyyy-MM-dd")</span>
+                </div>
+            }
         </div>
     }
 
@@ -67,23 +53,16 @@ else
         <h2 class="kt-section-title">Journal</h2>
         <button class="btn btn-sm btn-primary" @onclick="ShowAddModal">+ Add entry</button>
     </div>
+    @* Excel-like on purpose: no header row, no per-field labels, aligned columns at every width
+       (kt-table-grid opts out of the mobile stacked-cards treatment) - date, specialty, name, a warning
+       sign when money remains unaccounted, and edit/delete icons. Everything else lives in the modal. *@
     <div class="kt-table-wrap">
         <div class="table-responsive">
-            <table class="table kt-sheet-table">
-                <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Event</th>
-                    <th>Who</th>
-                    <th>Paid</th>
-                    <th>Description</th>
-                    <th></th>
-                </tr>
-                </thead>
+            <table class="table kt-sheet-table kt-table-grid mb-0">
                 <tbody>
                 @if (_records.Count == 0)
                 {
-                    <tr><td colspan="6" class="text-center kt-card-meta">No entries yet - add the first one above.</td></tr>
+                    <tr><td class="text-center kt-card-meta">No entries yet - add the first one above.</td></tr>
                 }
                 @foreach (var entry in _records)
                 {
@@ -99,7 +78,7 @@ else
         <h2 class="kt-section-title">Yearly cost review</h2>
         <div class="kt-table-wrap">
             <div class="table-responsive">
-                <table class="table kt-sheet-table">
+                <table class="table kt-sheet-table kt-table-grid">
                     <thead>
                     <tr>
                         <th>Year</th>

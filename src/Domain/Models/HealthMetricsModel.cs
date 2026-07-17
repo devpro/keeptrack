@@ -31,17 +31,14 @@ public class HealthCostHistoryPointModel
 }
 
 /// <summary>
-/// "When did I last see this practitioner" - one row per (practitioner, specialty) seen in appointments.
+/// "When did I last see this kind of doctor" - one line per specialty seen in appointments, nothing more
+/// (no names, no counts - owner's explicit display choice).
 /// </summary>
 public class HealthLastVisitModel
 {
-    public required string Practitioner { get; set; }
-
-    public string? Specialty { get; set; }
+    public required string Specialty { get; set; }
 
     public required DateTime LastVisitDate { get; set; }
-
-    public required int VisitCount { get; set; }
 }
 
 /// <summary>

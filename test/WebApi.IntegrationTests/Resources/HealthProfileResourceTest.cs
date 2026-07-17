@@ -93,7 +93,7 @@ public class HealthProfileResourceTest(KestrelWebAppFactory<Program> factory)
             year.OutOfPocket.Should().Be(121.5);
 
             metrics.LastVisits.Should().HaveCount(2);
-            metrics.LastVisits[0].Practitioner.Should().Be("Dr Diaz");
+            metrics.LastVisits[0].Specialty.Should().Be("dentiste");
 
             var unbalanced = metrics.UnbalancedRecords.Should().ContainSingle().Subject;
             unbalanced.Label.Should().Be("Dr Diaz");

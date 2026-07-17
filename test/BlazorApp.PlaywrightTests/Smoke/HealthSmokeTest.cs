@@ -41,7 +41,8 @@ public class HealthSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
         await Page.GetByTestId("price-input").FillAsync("60");
         await Page.Locator(".kt-modal").GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "Save" }).ClickAsync();
 
-        await Assertions.Expect(Page.GetByText("to check").First).ToBeVisibleAsync();
+        // the bare warning sign in the row is the whole warning surface
+        await Assertions.Expect(Page.GetByText("⚠").First).ToBeVisibleAsync();
         await Assertions.Expect(Page.GetByText("Dr E2e").First).ToBeVisibleAsync();
 
         list = await detail.OpenHealthAsync();

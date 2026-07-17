@@ -84,31 +84,30 @@ public class HealthMetricsServiceTest
     }
 
     [Fact]
-    public void ComputeMetrics_LastVisits_GroupsByPractitionerAndSpecialty_MostRecentFirst()
+    public void ComputeMetrics_LastVisits_GroupsBySpecialty_MostRecentFirst()
     {
         var records = new[]
         {
             Record("r1", new DateTime(2025, 1, 10, 9, 0, 0), practitioner: "Dr Martin", specialty: "dentiste"),
-            Record("r2", new DateTime(2026, 2, 20, 11, 0, 0), practitioner: "Dr Martin", specialty: "dentiste"),
+            Record("r2", new DateTime(2026, 2, 20, 11, 0, 0), practitioner: "Dr Roche", specialty: "dentiste"),
             Record("r3", new DateTime(2025, 6, 1, 15, 30, 0), practitioner: "Dr Diaz", specialty: "généraliste")
         };
 
         var result = _service.ComputeMetrics(records);
 
         result.LastVisits.Should().HaveCount(2);
-        result.LastVisits[0].Practitioner.Should().Be("Dr Martin");
+        result.LastVisits[0].Specialty.Should().Be("dentiste");
         result.LastVisits[0].LastVisitDate.Should().Be(new DateTime(2026, 2, 20, 11, 0, 0));
-        result.LastVisits[0].VisitCount.Should().Be(2);
-        result.LastVisits[1].Practitioner.Should().Be("Dr Diaz");
+        result.LastVisits[1].Specialty.Should().Be("généraliste");
     }
 
     [Fact]
-    public void ComputeMetrics_LastVisits_IgnoreSicknessEntriesAndAppointmentsWithoutAPractitioner()
+    public void ComputeMetrics_LastVisits_IgnoreSicknessEntriesAndAppointmentsWithoutASpecialty()
     {
         var records = new[]
         {
             Record("r1", new DateTime(2025, 1, 10, 9, 0, 0), HealthEventType.Sickness, description: "Migraine"),
-            Record("r2", new DateTime(2025, 2, 20, 11, 0, 0), specialty: "laboratoire")
+            Record("r2", new DateTime(2025, 2, 20, 11, 0, 0), practitioner: "Dr Diaz")
         };
 
         _service.ComputeMetrics(records).LastVisits.Should().BeEmpty();

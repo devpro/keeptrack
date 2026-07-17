@@ -53,29 +53,19 @@ public class HealthCostHistoryPointDto
 }
 
 /// <summary>
-/// When a practitioner was last seen.
+/// When a specialty was last seen.
 /// </summary>
 public class HealthLastVisitDto
 {
     /// <summary>
-    /// The practitioner's name.
+    /// The medical specialty.
     /// </summary>
-    public required string Practitioner { get; set; }
+    public required string Specialty { get; set; }
 
     /// <summary>
-    /// The practitioner's specialty, when recorded.
-    /// </summary>
-    public string? Specialty { get; set; }
-
-    /// <summary>
-    /// The most recent appointment date.
+    /// The most recent appointment date for that specialty.
     /// </summary>
     public required DateTime LastVisitDate { get; set; }
-
-    /// <summary>
-    /// How many appointments are recorded with this practitioner.
-    /// </summary>
-    public required int VisitCount { get; set; }
 }
 
 /// <summary>
