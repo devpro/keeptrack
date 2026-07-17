@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Keeptrack.WebApi.Controllers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -5,7 +6,9 @@ using Microsoft.AspNetCore.Mvc;
 namespace Keeptrack.WebApi.Import;
 
 [ApiController]
-[Authorize]
+// MemberOnly like CarController itself: this import creates cars/history through the repositories,
+// which would otherwise let a free-preview account bypass the controller-level policy entirely
+[Authorize(Policy = "MemberOnly")]
 [Route("api/import")]
 public class CarHistoryImportController(CarHistoryImportService importService) : ControllerBase
 {
@@ -18,6 +21,8 @@ public class CarHistoryImportController(CarHistoryImportService importService) :
     [Consumes("multipart/form-data")]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
+    [SuppressMessage("Security", "S5693:Make sure the content length limit is safe here",
+        Justification = "The limit IS set (10 MB), deliberately above Sonar's 8 MB default.")]
     public async Task<ActionResult<CarHistoryImportResultDto>> ImportCarHistory(IFormFile file)
     {
         if (file.Length == 0)

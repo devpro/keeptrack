@@ -126,37 +126,59 @@ else
         <h2 class="kt-section-title">History</h2>
         <button class="btn btn-sm btn-primary" @onclick="ShowAddModal">+ Add entry</button>
     </div>
-    <div class="kt-table-wrap kt-car-sheet">
-        <div class="table-responsive">
-            <table class="table kt-sheet-table">
-                <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Mileage</th>
-                    <th>Event</th>
-                    <th>Cost</th>
-                    <th>City</th>
-                    <th>Description</th>
-                    <th></th>
-                    <th></th>
-                </tr>
-                </thead>
-                <tbody>
-                @if (_history.Count == 0)
-                {
-                    <tr><td colspan="8" class="text-center kt-card-meta">No history yet - add the first entry above.</td></tr>
-                }
-                @foreach (var entry in _history)
-                {
-                    <CarHistoryRow Entry="entry"
-                                   HasWarning="_warningsByEntryId.ContainsKey(entry.Id!)"
-                                   WarningMessage="@(_warningsByEntryId.GetValueOrDefault(entry.Id!))"
-                                   OnEdit="ShowEditModal" OnDelete="DeleteEntryAsync"/>
-                }
-                </tbody>
-            </table>
+    @* kt-table-grid opts this table out of the mobile stacked-cards treatment (see HealthProfileDetail.razor's
+       journal for the same pattern) - a real spreadsheet-like grid with only the most important columns
+       (City/Description) stay desktop-only via d-none d-md-table-cell.
+       One tab per year (same kt-season-picker/kt-page-btn header as TvShowDetail.razor's season tabs and
+       HealthProfileDetail.razor's journal), newest year first. *@
+    @if (_history.Count == 0)
+    {
+        <div class="kt-table-wrap kt-car-sheet">
+            <div class="table-responsive">
+                <table class="table kt-sheet-table kt-table-grid">
+                    <tbody>
+                    <tr><td class="text-center kt-card-meta">No history yet - add the first entry above.</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
+    }
+    else
+    {
+        <div class="kt-season-picker">
+            @foreach (var year in _years)
+            {
+                <button class="kt-page-btn @(year == _selectedYear ? "active" : "")" @onclick="() => SelectYear(year)">@year</button>
+            }
+        </div>
+        <div class="kt-table-wrap kt-car-sheet">
+            <div class="table-responsive">
+                <table class="table kt-sheet-table kt-table-grid">
+                    <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Mileage</th>
+                        <th>Event</th>
+                        <th>Cost</th>
+                        <th class="d-none d-md-table-cell">City</th>
+                        <th class="d-none d-md-table-cell">Description</th>
+                        <th></th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var entry in _historyByYear.GetValueOrDefault(_selectedYear, []))
+                    {
+                        <CarHistoryRow Entry="entry"
+                                       HasWarning="_warningsByEntryId.ContainsKey(entry.Id!)"
+                                       WarningMessage="@(_warningsByEntryId.GetValueOrDefault(entry.Id!))"
+                                       OnEdit="ShowEditModal" OnDelete="DeleteEntryAsync"/>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
 
     @if (_showModal)
     {
@@ -286,6 +308,9 @@ else
     private bool _loading = true;
     private CarDto? _car;
     private List<CarHistoryDto> _history = [];
+    private Dictionary<int, List<CarHistoryDto>> _historyByYear = new();
+    private List<int> _years = [];
+    private int _selectedYear;
     private CarMetricsDto? _metrics;
     private CarHistoryDto _modalEntry = NewEntry("");
     private bool _showModal;
@@ -350,7 +375,13 @@ else
         if (_car is not null)
         {
             var result = await CarHistoryApi.GetAsync("", 1, int.MaxValue, new Dictionary<string, string> { ["CarId"] = Id });
-            _history = result.Items.OrderBy(h => h.HistoryDate).ToList();
+            // most recent first - same journal convention as HealthProfileDetail/HouseDetail
+            _history = result.Items.OrderByDescending(h => h.HistoryDate).ToList();
+            _historyByYear = _history.GroupBy(h => h.HistoryDate.Year).ToDictionary(g => g.Key, g => g.ToList());
+            _years = _historyByYear.Keys.OrderByDescending(y => y).ToList();
+            // same "keep the current tab if it still exists, else default to the newest" rule as
+            // TvShowDetail.razor's own season selection
+            if (!_years.Contains(_selectedYear)) _selectedYear = _years.Count > 0 ? _years[0] : 0;
             _metrics = await CarApi.GetMetricsAsync(Id);
             _warningsByEntryId = _metrics.MileageWarnings
                 .GroupBy(w => w.CarHistoryId)
@@ -358,6 +389,8 @@ else
         }
         _loading = false;
     }
+
+    private void SelectYear(int year) => _selectedYear = year;
 
     private async Task SaveCarAsync()
     {

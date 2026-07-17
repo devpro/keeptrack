@@ -97,6 +97,53 @@
     }
 </div>
 
+<div class="kt-page-header mt-4">
+    <h1>Import <span>health journal</span></h1>
+</div>
+
+<div class="kt-form-card">
+    <p style="color:var(--kt-text-muted)">
+        Upload the personal "Journal_sante.xlsx" spreadsheet (one sheet, every family member mixed in one "Personne" column - health profiles are created or matched by name).
+        The "Reste à charge" column isn't imported: the app recomputes the balance itself,
+        so rows that don't balance land in each profile's "Reimbursements to check" list for review.
+        Only run this once - re-uploading the same file will duplicate the journal entries.
+    </p>
+
+    <div class="kt-dropzone">
+        <span class="kt-dropzone-icon">⬆</span>
+        <InputFile OnChange="OnHealthFileSelectedAsync" accept=".xlsx" disabled="@_healthImporting"/>
+    </div>
+
+    @if (_healthImporting)
+    {
+        <p class="kt-card-meta mt-2">Importing…</p>
+    }
+
+    @if (_healthError is not null)
+    {
+        <div class="alert alert-danger mt-3">@_healthError</div>
+    }
+
+    @if (_healthResult is not null)
+    {
+        <div class="alert alert-info mt-3">
+            <p class="mb-1"><strong>Profiles:</strong> @_healthResult.ProfilesCreated created, @_healthResult.ProfilesSkipped already existed</p>
+            <p class="mb-0"><strong>Journal entries created:</strong> @_healthResult.RecordsCreated</p>
+            @if (_healthResult.Warnings.Count > 0)
+            {
+                <hr/>
+                <p class="mb-1"><strong>Good to know:</strong></p>
+                <ul class="mb-0">
+                    @foreach (var warning in _healthResult.Warnings)
+                    {
+                        <li>@warning</li>
+                    }
+                </ul>
+            }
+        </div>
+    }
+</div>
+
 @code {
     private const long MaxFileSize = 50_000_000;
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(600);
@@ -113,8 +160,12 @@
     private string? _carError;
     private CarHistoryImportResultDto? _carResult;
 
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "S5693:Make sure the content length limit is safe here",
-        Justification = "The limit IS set (MaxFileSize, 50 MB, matching the API's own RequestSizeLimit).")]
+    [Inject] private HealthImportApiClient HealthImportApi { get; set; } = null!;
+
+    private bool _healthImporting;
+    private string? _healthError;
+    private HealthImportResultDto? _healthResult;
+
     private async Task OnFileSelectedAsync(InputFileChangeEventArgs e)
     {
         _importing = true;
@@ -125,10 +176,12 @@
         try
         {
             Guid jobId;
+#pragma warning disable S5693
             await using (var stream = e.File.OpenReadStream(MaxFileSize))
             {
                 jobId = await ImportApi.StartImportAsync(stream, e.File.Name);
             }
+#pragma warning restore S5693
 
             while (true)
             {
@@ -161,8 +214,6 @@
         }
     }
 
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "S5693:Make sure the content length limit is safe here",
-        Justification = "The limit IS set (MaxFileSize, 50 MB, matching the API's own RequestSizeLimit).")]
     private async Task OnCarFileSelectedAsync(InputFileChangeEventArgs e)
     {
         _carImporting = true;
@@ -171,7 +222,9 @@
 
         try
         {
+#pragma warning disable S5693
             await using var stream = e.File.OpenReadStream(MaxFileSize);
+#pragma warning restore S5693
             _carResult = await CarImportApi.ImportAsync(stream, e.File.Name);
         }
         catch (Exception ex)
@@ -181,6 +234,29 @@
         finally
         {
             _carImporting = false;
+        }
+    }
+
+    private async Task OnHealthFileSelectedAsync(InputFileChangeEventArgs e)
+    {
+        _healthImporting = true;
+        _healthError = null;
+        _healthResult = null;
+
+        try
+        {
+#pragma warning disable S5693
+            await using var stream = e.File.OpenReadStream(MaxFileSize);
+#pragma warning restore S5693
+            _healthResult = await HealthImportApi.ImportAsync(stream, e.File.Name);
+        }
+        catch (Exception ex)
+        {
+            _healthError = ex.Message;
+        }
+        finally
+        {
+            _healthImporting = false;
         }
     }
 

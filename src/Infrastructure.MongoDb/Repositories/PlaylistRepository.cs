@@ -1,3 +1,5 @@
+using System;
+using System.Linq.Expressions;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.Infrastructure.MongoDb.Entities;
@@ -11,6 +13,8 @@ public class PlaylistRepository(IMongoDatabase mongoDatabase, ILogger<PlaylistRe
     : MongoDbRepositoryBase<PlaylistModel, Playlist>(mongoDatabase, logger, mapper), IPlaylistRepository
 {
     protected override string CollectionName => "playlist";
+
+    protected override Expression<Func<Playlist, object>> SortTitleField => x => x.Title;
 
     protected override FilterDefinition<Playlist> GetFilter(string ownerId, string? search, PlaylistModel input)
     {

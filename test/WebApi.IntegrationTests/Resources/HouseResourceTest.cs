@@ -29,10 +29,10 @@ public class HouseResourceTest(KestrelWebAppFactory<Program> factory)
             .Rules((f, o) =>
             {
                 o.Name = f.Random.AlphaNumeric(14);
-                o.Address = f.Address.StreetAddress();
                 o.City = f.Address.City();
-                o.PostalCode = f.Address.ZipCode();
-                o.Country = f.Address.Country();
+                o.PropertyType = f.PickRandom<PropertyType>();
+                o.MovedInAt = System.DateOnly.FromDateTime(f.Date.Past());
+                o.MovedOutAt = System.DateOnly.FromDateTime(f.Date.Recent());
             })
             .Generate();
         var created = await PostAsync($"/{ResourceEndpoint}", input);

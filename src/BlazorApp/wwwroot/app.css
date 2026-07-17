@@ -949,6 +949,17 @@ a.kt-item-row { color: inherit; text-decoration: none; }
     letter-spacing: 0.05em;
   }
   .table td[data-label]:empty { display: none; }
+
+  /* Opt-out of the stacked-cards treatment above: .kt-table-grid stays a real spreadsheet-like grid at
+     every width (one header row, one line per entry, horizontal scroll via .table-responsive when
+     narrow). For a long, dense journal the per-row labels read as noise, not help - owner feedback. */
+  .table.kt-table-grid thead { display: table-header-group; }
+  .table.kt-table-grid { display: table; }
+  .table.kt-table-grid tbody { display: table-row-group; }
+  .table.kt-table-grid tr { display: table-row; border-bottom: none; padding: 0; }
+  .table.kt-table-grid td { display: table-cell; width: auto; white-space: nowrap; border-bottom: 1px solid var(--kt-border) !important; padding: 0.4rem 0.6rem !important; }
+  .table.kt-table-grid td[data-label]::before { content: none; }
+  .table.kt-table-grid td[data-label]:empty { display: table-cell; }
 }
 
 @media (min-width: 768px) and (max-width: 1024px) {
@@ -988,6 +999,11 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 /* pushed to the far right of the search bar row via margin-left:auto - the search input/Clear button stay
    left-aligned, filter toggles (status, favorites, ...) sit on the opposite end of the same line instead
    of a separate row above the table */
+.kt-sort-select {
+  width: 80px;
+  flex: 0 0 auto;
+}
+
 .kt-search-filters {
   display: flex;
   align-items: center;

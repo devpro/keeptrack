@@ -92,6 +92,8 @@ public abstract class PageBase(IPage page)
 
     public Task<ListPage> OpenHousesAsync() => NavigateAsync("Houses", new ListPage(Page, "/houses", "Houses"));
 
+    public Task<ListPage> OpenHealthAsync() => NavigateAsync("Health", new ListPage(Page, "/health", "Health"));
+
     /// <summary>
     /// AuthenticationController.Logout redirects to the Home page.
     /// </summary>

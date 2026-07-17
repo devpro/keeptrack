@@ -39,6 +39,8 @@ internal static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IStorageMapper<Domain.Models.CarHistoryModel, CarHistory>, CarHistoryStorageMapper>();
         services.AddSingleton<IStorageMapper<Domain.Models.HouseModel, House>, HouseStorageMapper>();
         services.AddSingleton<IStorageMapper<Domain.Models.HouseHistoryModel, HouseHistory>, HouseHistoryStorageMapper>();
+        services.AddSingleton<IStorageMapper<Domain.Models.HealthProfileModel, HealthProfile>, HealthProfileStorageMapper>();
+        services.AddSingleton<IStorageMapper<Domain.Models.HealthRecordModel, HealthRecord>, HealthRecordStorageMapper>();
 
         services.AddSingleton<BackgroundJobStorageMapper>();
         services.AddSingleton<WishlistShareStorageMapper>();
@@ -60,6 +62,8 @@ internal static class InfrastructureServiceCollectionExtensions
         services.TryAddScoped<Domain.Repositories.ICarHistoryRepository, CarHistoryRepository>();
         services.TryAddScoped<Domain.Repositories.IHouseRepository, HouseRepository>();
         services.TryAddScoped<Domain.Repositories.IHouseHistoryRepository, HouseHistoryRepository>();
+        services.TryAddScoped<Domain.Repositories.IHealthProfileRepository, HealthProfileRepository>();
+        services.TryAddScoped<Domain.Repositories.IHealthRecordRepository, HealthRecordRepository>();
         services.TryAddScoped<Domain.Repositories.IEpisodeRepository, EpisodeRepository>();
         services.TryAddScoped<Domain.Repositories.IMovieRepository, MovieRepository>();
         services.TryAddScoped<Domain.Repositories.ITvShowRepository, TvShowRepository>();

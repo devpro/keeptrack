@@ -1,13 +1,15 @@
 @* One row of the car history sheet - a compact summary of the most important fields. Editing happens
-   through the same modal used to add a new entry (CarDetail.razor), opened via the Edit button below. *@
+   through the same modal used to add a new entry (CarDetail.razor), opened via the Edit button below.
+   ⚠ (U+26A0) and the edit/delete icons default to text presentation (no FE0F) - same convention as
+   HealthRecordRow.razor. *@
 
 <tr class="@(HasWarning ? "kt-history-row-warning" : "")">
     <td>@Entry.HistoryDate.ToString(Entry.HistoryDate.TimeOfDay == TimeSpan.Zero ? "yyyy-MM-dd" : "yyyy-MM-dd HH:mm")</td>
-    <td data-label="Mileage">@Entry.Mileage</td>
-    <td data-label="Event">@Entry.EventType</td>
-    <td data-label="Cost">@Entry.Cost?.ToString("F2")</td>
-    <td data-label="City">@Entry.City</td>
-    <td data-label="Description">@Entry.Description</td>
+    <td>@Entry.Mileage</td>
+    <td>@Entry.EventType</td>
+    <td>@Entry.Cost?.ToString("F2")</td>
+    <td class="d-none d-md-table-cell">@Entry.City</td>
+    <td class="d-none d-md-table-cell">@Entry.Description</td>
     <td>
         @if (HasWarning)
         {
@@ -15,9 +17,9 @@
         }
     </td>
     <td>
-        <div class="d-flex gap-1">
-            <button class="btn btn-sm btn-outline-primary" @onclick="() => OnEdit.InvokeAsync(Entry)">Edit</button>
-            <button class="btn btn-sm btn-outline-danger" @onclick="() => OnDelete.InvokeAsync(Entry.Id!)">Del</button>
+        <div class="d-flex gap-1 justify-content-end">
+            <button class="kt-icon-btn" title="Edit this entry" aria-label="Edit this entry" @onclick="() => OnEdit.InvokeAsync(Entry)">✎</button>
+            <button class="kt-icon-btn" title="Delete this entry" aria-label="Delete this entry" @onclick="() => OnDelete.InvokeAsync(Entry.Id!)">✕</button>
         </div>
     </td>
 </tr>

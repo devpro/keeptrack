@@ -90,7 +90,13 @@ else
 
     <h2 class="kt-section-title">Platforms</h2>
 
-    @if (_game.Platforms.Count == 0)
+    <ConfirmModal Show="_pendingRemovePlatform is not null"
+                  Title="Remove this platform?"
+                  Message="This will remove this platform entry and its details (state, completion, playthroughs). This can't be undone."
+                  ConfirmLabel="Remove"
+                  OnConfirm="ConfirmRemovePlatformAsync" OnCancel="() => _pendingRemovePlatform = null"/>
+
+    @if (_game.Platforms.Count == 0 && _draftPlatform is null)
     {
         <p class="kt-card-meta">No platforms tracked yet - add one below.</p>
     }
@@ -106,7 +112,9 @@ else
                         <button class="btn btn-sm @(entry.CopyType == CopyType.Digital ? "btn-primary" : "btn-secondary")" @onclick="() => SetCopyTypeAsync(entry, CopyType.Digital)">Digital</button>
                     </div>
                 </div>
-                <button class="kt-icon-btn" title="Remove this platform" @onclick="() => RemovePlatformAsync(entry)">✕</button>
+                <button class="kt-icon-btn" title="Remove this platform" aria-label="Remove this platform" @onclick="() => RequestRemovePlatformAsync(entry)">
+                    <TrashIcon/>
+                </button>
             </div>
 
             <div class="d-flex gap-2 mt-3 flex-wrap">
@@ -144,21 +152,31 @@ else
         </div>
     }
 
-    <div class="kt-form-card">
-        <label class="form-label">Add a platform</label>
-        <div class="d-flex gap-2 flex-wrap align-items-center">
-            <select class="form-select form-select-sm" style="max-width:200px" @bind="_newPlatform">
-                <option value="">— Platform —</option>
-                @foreach (var platform in VideoGames.VideoGamePlatforms)
-                {
-                    <option>@platform</option>
-                }
-            </select>
-            <button class="btn btn-sm @(_newCopyType == CopyType.Physical ? "btn-primary" : "btn-secondary")" @onclick="() => _newCopyType = CopyType.Physical">Physical</button>
-            <button class="btn btn-sm @(_newCopyType == CopyType.Digital ? "btn-primary" : "btn-secondary")" @onclick="() => _newCopyType = CopyType.Digital">Digital</button>
-            <button class="btn btn-sm btn-primary" disabled="@string.IsNullOrEmpty(_newPlatform)" @onclick="AddPlatformAsync">+ Add</button>
+    @if (_draftPlatform is not null)
+    {
+        <div class="kt-form-card mb-3">
+            <label class="form-label">Add a platform</label>
+            <div class="d-flex gap-2 flex-wrap align-items-center">
+                <select class="form-select form-select-sm" style="max-width:200px" @bind="_draftPlatform.Platform">
+                    <option value="">— Platform —</option>
+                    @foreach (var platform in VideoGames.VideoGamePlatforms)
+                    {
+                        <option>@platform</option>
+                    }
+                </select>
+                <button class="btn btn-sm @(_draftPlatform.CopyType == CopyType.Physical ? "btn-primary" : "btn-secondary")" @onclick="() => _draftPlatform.CopyType = CopyType.Physical">Physical</button>
+                <button class="btn btn-sm @(_draftPlatform.CopyType == CopyType.Digital ? "btn-primary" : "btn-secondary")" @onclick="() => _draftPlatform.CopyType = CopyType.Digital">Digital</button>
+            </div>
+            <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-sm btn-success" disabled="@string.IsNullOrEmpty(_draftPlatform.Platform)" @onclick="SaveDraftPlatformAsync">Save</button>
+                <button class="btn btn-sm btn-secondary" @onclick="CancelDraftPlatform">Cancel</button>
+            </div>
         </div>
-    </div>
+    }
+    else
+    {
+        <button class="btn btn-sm btn-secondary mb-3" @onclick="StartDraftPlatform">+ Add platform</button>
+    }
 }
 
 @code {
@@ -177,8 +195,8 @@ else
     private string? _refreshMessage;
     private string _refreshMessageStyle = "neutral";
     private object? _refreshMessageToken;
-    private string _newPlatform = "";
-    private CopyType _newCopyType;
+    private VideoGamePlatformDto? _draftPlatform;
+    private VideoGamePlatformDto? _pendingRemovePlatform;
 
     protected override async Task OnParametersSetAsync() => await LoadAsync();
 
@@ -235,13 +253,39 @@ else
         await SaveGameAsync();
     }
 
-    private async Task AddPlatformAsync()
+    private void StartDraftPlatform() => _draftPlatform = new VideoGamePlatformDto();
+
+    private void CancelDraftPlatform() => _draftPlatform = null;
+
+    private async Task SaveDraftPlatformAsync()
     {
-        if (_game is null || string.IsNullOrEmpty(_newPlatform)) return;
-        _game.Platforms.Add(new VideoGamePlatformDto { Platform = _newPlatform, CopyType = _newCopyType });
-        _newPlatform = "";
-        _newCopyType = CopyType.Physical;
+        if (_game is null || _draftPlatform is null || string.IsNullOrEmpty(_draftPlatform.Platform)) return;
+        _game.Platforms.Add(_draftPlatform);
+        _draftPlatform = null;
         await SaveGameAsync();
+    }
+
+    private async Task RequestRemovePlatformAsync(VideoGamePlatformDto entry)
+    {
+        // a platform entry with no state/completion/playthroughs set has no details to lose -
+        // remove it without the confirmation detour, same as OwnedVersionsEditor's empty-copy case
+        if (IsEmpty(entry))
+        {
+            await RemovePlatformAsync(entry);
+            return;
+        }
+
+        _pendingRemovePlatform = entry;
+    }
+
+    private async Task ConfirmRemovePlatformAsync()
+    {
+        var entry = _pendingRemovePlatform;
+        _pendingRemovePlatform = null;
+        if (entry is not null)
+        {
+            await RemovePlatformAsync(entry);
+        }
     }
 
     private async Task RemovePlatformAsync(VideoGamePlatformDto entry)
@@ -250,6 +294,12 @@ else
         _game.Platforms.Remove(entry);
         await SaveGameAsync();
     }
+
+    private static bool IsEmpty(VideoGamePlatformDto entry) =>
+        string.IsNullOrWhiteSpace(entry.State)
+        && !entry.IsFullyCompleted
+        && entry.FullyCompletedAt is null
+        && entry.Playthroughs.Count == 0;
 
     private async Task SetCopyTypeAsync(VideoGamePlatformDto entry, CopyType copyType)
     {

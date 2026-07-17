@@ -6,6 +6,7 @@ using Riok.Mapperly.Abstractions;
 namespace Keeptrack.Infrastructure.MongoDb.Mappers;
 
 [Mapper]
+[UseStaticMapper(typeof(CommonStorageMappings))]
 public partial class HouseStorageMapper : IStorageMapper<HouseModel, House>
 {
     public partial House ToEntity(HouseModel model);

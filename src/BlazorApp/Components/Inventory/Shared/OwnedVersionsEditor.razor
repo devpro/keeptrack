@@ -2,24 +2,42 @@
 
 @* Shared ownership section for movie/TV show/book/album detail pages: one card per owned copy.
    An item is owned exactly when this list is non-empty - there is no separate owned flag. Video games
-   don't use this component; their per-platform entries already are their copies. *@
+   don't use this component; their per-platform entries already are their copies.
+
+   Creating vs. editing follow the app's two conventions: a NEW copy is a draft card with explicit
+   Save/Cancel (the list pages' Add-form pattern - nothing persists, and the item doesn't become owned,
+   until Save), while an already-saved copy's fields auto-save on change like every other detail-page
+   field. Removing a saved copy asks for confirmation (it discards price/date/vendor data), except when
+   the copy is entirely empty - then there is nothing to lose and the removal stays one click. *@
 
 <h2 class="kt-section-title">Ownership</h2>
 
-@if (Versions.Count == 0)
+<ConfirmModal Show="_pendingRemove is not null"
+              Title="Remove this copy?"
+              Message="This will remove this copy and its details (price, date, vendor). This can't be undone."
+              ConfirmLabel="Remove"
+              OnConfirm="ConfirmRemoveAsync" OnCancel="() => _pendingRemove = null"/>
+
+@if (Versions.Count == 0 && _draft is null)
 {
     <p class="kt-card-meta">No owned copy recorded - add one below if you own this.</p>
 }
 
-@foreach (var version in Versions)
+@foreach (var version in DisplayedVersions)
 {
+    var isDraft = ReferenceEquals(version, _draft);
     <div class="kt-form-card mb-3">
         <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
             <div class="d-flex gap-2">
                 <button class="btn btn-sm @(version.CopyType == CopyType.Physical ? "btn-primary" : "btn-secondary")" @onclick="() => SetCopyTypeAsync(version, CopyType.Physical)">Physical</button>
                 <button class="btn btn-sm @(version.CopyType == CopyType.Digital ? "btn-primary" : "btn-secondary")" @onclick="() => SetCopyTypeAsync(version, CopyType.Digital)">Digital</button>
             </div>
-            <button class="kt-icon-btn" title="Remove this version" aria-label="Remove this version" @onclick="() => RemoveAsync(version)">✕</button>
+            @if (!isDraft)
+            {
+                <button class="kt-icon-btn" title="Remove this copy" aria-label="Remove this copy" @onclick="() => RequestRemoveAsync(version)">
+                    <TrashIcon/>
+                </button>
+            }
         </div>
         <div class="row g-3 mt-0">
             <div class="col-6 col-md-3">
@@ -44,10 +62,20 @@
                        value="@version.Reference" @onchange="e => SetReferenceAsync(version, e)"/>
             </div>
         </div>
+        @if (isDraft)
+        {
+            <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-sm btn-success" data-testid="version-save-button" @onclick="SaveDraftAsync">Save</button>
+                <button class="btn btn-sm btn-secondary" @onclick="CancelDraft">Cancel</button>
+            </div>
+        }
     </div>
 }
 
-<button class="btn btn-sm btn-secondary mb-3" @onclick="AddAsync">+ Add version</button>
+@if (_draft is null)
+{
+    <button class="btn btn-sm btn-secondary mb-3" @onclick="StartDraft">+ Add version</button>
+}
 
 @code {
     /// <summary>The item's owned-versions list, mutated in place - the parent owns persistence.</summary>
@@ -56,10 +84,49 @@
     /// <summary>Raised after every mutation; the parent saves the whole DTO (the detail pages' usual shape).</summary>
     [Parameter] public required EventCallback OnChanged { get; set; }
 
-    private async Task AddAsync()
+    private OwnedVersionDto? _draft;
+
+    private OwnedVersionDto? _pendingRemove;
+
+    /// <summary>The saved copies plus the in-progress draft (rendered as one more card, never persisted).</summary>
+    private IEnumerable<OwnedVersionDto> DisplayedVersions => _draft is null ? Versions : Versions.Append(_draft);
+
+    private void StartDraft() => _draft = new OwnedVersionDto();
+
+    private void CancelDraft() => _draft = null;
+
+    private async Task SaveDraftAsync()
     {
-        Versions.Add(new OwnedVersionDto());
+        if (_draft is null)
+        {
+            return;
+        }
+
+        Versions.Add(_draft);
+        _draft = null;
         await OnChanged.InvokeAsync();
+    }
+
+    private async Task RequestRemoveAsync(OwnedVersionDto version)
+    {
+        // an entirely empty copy has no details to lose - remove it without the confirmation detour
+        if (IsEmpty(version))
+        {
+            await RemoveAsync(version);
+            return;
+        }
+
+        _pendingRemove = version;
+    }
+
+    private async Task ConfirmRemoveAsync()
+    {
+        var version = _pendingRemove;
+        _pendingRemove = null;
+        if (version is not null)
+        {
+            await RemoveAsync(version);
+        }
     }
 
     private async Task RemoveAsync(OwnedVersionDto version)
@@ -68,34 +135,49 @@
         await OnChanged.InvokeAsync();
     }
 
+    private static bool IsEmpty(OwnedVersionDto version) =>
+        version.Price is null
+        && version.AcquiredAt is null
+        && string.IsNullOrWhiteSpace(version.Vendor)
+        && string.IsNullOrWhiteSpace(version.Reference);
+
+    /// <summary>Saves after a mutation on a saved copy; a draft's edits stay local until its Save button.</summary>
+    private async Task NotifyChangedAsync(OwnedVersionDto version)
+    {
+        if (!ReferenceEquals(version, _draft))
+        {
+            await OnChanged.InvokeAsync();
+        }
+    }
+
     private async Task SetCopyTypeAsync(OwnedVersionDto version, CopyType copyType)
     {
         version.CopyType = copyType;
-        await OnChanged.InvokeAsync();
+        await NotifyChangedAsync(version);
     }
 
     // number inputs report invariant-formatted values regardless of UI culture, so parse them the same way
     private async Task SetPriceAsync(OwnedVersionDto version, ChangeEventArgs e)
     {
         version.Price = decimal.TryParse(e.Value?.ToString(), NumberStyles.Number, CultureInfo.InvariantCulture, out var price) ? price : null;
-        await OnChanged.InvokeAsync();
+        await NotifyChangedAsync(version);
     }
 
     private async Task SetVendorAsync(OwnedVersionDto version, ChangeEventArgs e)
     {
         version.Vendor = e.Value?.ToString();
-        await OnChanged.InvokeAsync();
+        await NotifyChangedAsync(version);
     }
 
     private async Task SetAcquiredAtAsync(OwnedVersionDto version, ChangeEventArgs e)
     {
         version.AcquiredAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
-        await OnChanged.InvokeAsync();
+        await NotifyChangedAsync(version);
     }
 
     private async Task SetReferenceAsync(OwnedVersionDto version, ChangeEventArgs e)
     {
         version.Reference = e.Value?.ToString();
-        await OnChanged.InvokeAsync();
+        await NotifyChangedAsync(version);
     }
 }

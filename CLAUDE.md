@@ -145,6 +145,11 @@ and the `*_owned` partial indexes match that rendered `{ "owned_versions.0": { $
 The storage mappers ignore `IsOwned` in both directions - don't map it to an entity field again.
 `BlazorApp`'s detail pages share one `OwnedVersionsEditor` component (`Components/Inventory/Shared/`) instead of the old header toggle; list rows derive their "Owned" badge from `OwnedVersions.Count > 0`
 (video games show their platform badges instead - an extra Owned badge would be redundant).
+The editor follows the app's two existing conventions rather than inventing a third: a NEW copy is a draft card with explicit Save/Cancel buttons
+(the list pages' Add-form pattern - nothing persists, and the item does not become owned, until Save; "+ Add version" used to persist an empty owned copy instantly, which felt accidental),
+while an already-saved copy's fields auto-save on change like every other detail-page field.
+Removing a saved copy uses the shared bin icon (`Components/Shared/TrashIcon.razor`, extracted from `InventoryList`'s inline SVG rather than duplicated) plus a `ConfirmModal`,
+skipped when the copy is entirely empty (no price/date/vendor/reference) so undoing an accidental add stays one click.
 Existing data needs the one-off `scripts/migrate-is-owned-to-owned-versions.js` (seeds one default Physical version per `is_owned: true` document, then unsets the flag; games with no platform entry are printed for manual re-entry),
 then a `scripts/mongodb-create-index.js` re-run to replace the old `is_owned` index definitions.
 Covered by the resource tests' owned-filter cases (including a full decimal/date round-trip in `MovieResourceTest`/`AlbumResourceTest`) and `OwnershipSmokeTest` (Playwright, end-to-end through the editor).
@@ -185,6 +190,25 @@ So it reuses `CommonStorageMappings` (`Infrastructure.MongoDb/Mappers/`), the sh
 This avoids Car's bespoke hand-written `DateTime.SpecifyKind`/`ModalTimeText` "HH:mm" proxy machinery.
 `HouseHistoryModel.Provider` is a single field (contractor/technician/utility company/store name) covering every category, unlike Car's Refuel-only `StationBrandName` vs. Maintenance-only `Garage` split.
 House has no event type where "who was involved" doesn't apply, so one field suffices.
+
+`HealthProfile`/`HealthRecord` (the health journal: appointments, sicknesses, reimbursement tracking) is the third Car/House-shaped pair, and mixes its two siblings deliberately.
+The parent is a *person* (`HealthProfileModel.Name` - the owner, and one profile per family member later), so "create yourself first" is the House-like one-time setup step.
+`HealthRecordModel.HistoryDate` is a full `DateTime` like **Car**'s (an appointment's time of day is real data - the detail modal reuses Car's exact ModalDate/ModalTimeText proxy pair and its "HH:mm" free-text field),
+stamped `DateTimeKind.Utc` in `HealthRecordStorageMapper` via an explicit `[MapProperty(Use = ...)]` user mapping rather than Car's fully hand-written mapper (Health's fields are flat, only the date needs special casing).
+`HealthEventType` (`Appointment`/`Sickness`/`Other`) follows the CarHistoryType/HouseEventType discriminated-enum rule; appointment-only fields (Specialty, Practitioner, the money) hide in the modal for other types.
+The money model is the French reimbursement flow, four numbers the app does the math over: `Price` (paid), `PublicReimbursement` (assurance maladie), `InsuranceReimbursement` (mutuelle), `NotCovered` (reste à charge).
+A record is *settled* exactly when `price - public - insurance - notCovered == 0` (within `HealthMetricsService.BalanceTolerance`, 0.005 - double arithmetic must never flag a settled record);
+anything else lands in `HealthMetricsModel.UnbalancedRecords` with the signed missing amount (positive = money still expected, negative = over-received, both worth chasing - the owner's explicit reconciliation goal).
+The balance rule lives ONLY in `HealthMetricsService` (`ComputeMissingAmount`/`IsBalanced`); the journal rows' "to check" badges come from the metrics' id list, never re-derived client-side.
+The detail page is deliberately journal-first and badge-only (owner feedback after seeing a first version with summary panels): NO "to check" list above the table (the per-row ⚠ badge is the whole warning surface),
+no chart, no per-row reimbursement column (the edit modal holds the money detail), and the compact yearly Paid/Reimbursed/OutOfPocket table sits *after* the journal - this table grows large, so rows carry only the absolute essentials.
+`HealthMetricsService` also computes `LastVisits` ("when did I last see this practitioner" - appointments grouped by practitioner+specialty, most recent first; only practitioner/count/date are displayed).
+Both controllers are `MemberOnly` (health data is never part of the free preview tier).
+`HealthImportService` (`POST /api/import/health`, `MemberOnly` like all imports - CarHistoryImportController was fixed to match, since imports create data through repositories and would otherwise bypass controller policies)
+is the CarHistoryImportService-style one-off Excel import of the personal "Journal_sante.xlsx": one sheet, every family member mixed in one "Personne" column (profiles created/matched by name, case-insensitive),
+a SECOND "Personne" column meaning the practitioner (so header lookup is position-aware, not a plain name dictionary), and the derived "Reste à charge" formula column deliberately NOT imported - the app recomputes the balance,
+so unsettled historical rows surface with the ⚠ badge for the owner's own review. Shared cell parsing lives in `ExcelCellParser` (extracted from the car importer rather than duplicated).
+Verified against the real sample file end-to-end (3 profiles, 13 rows, zero warnings), and `HealthImportServiceTest` pins the file's quirks with an in-memory ClosedXML workbook.
 
 `HouseDetail.razor`'s yearly cost chart is a single-series bar chart (total cost per year) plus a plain HTML breakdown table underneath (rows = years, columns = the 6 categories + total), not a 6-color stacked bar chart.
 A stacked chart with that many categories would be visually noisy and add real code, and the table already carries the actual per-category precision an insurance review needs at a glance.
@@ -704,6 +728,20 @@ This is what makes browser back from an item's detail page restore the exact lis
 and it means a button click and browser back/forward share one code path instead of two.
 A new list filter therefore needs three things: a `[SupplyParameterFromQuery]` property, an `ExtraQuery` entry (the API-facing key, e.g. `IsFavorite`),
 and a razor button calling `ToggleFilter`/`SetFilter` with the URL parameter name (e.g. `favorite`) - don't add a mutate-a-field-then-`LoadAsync` handler, that's the pre-URL-state pattern this replaced.
+
+List ordering is deterministic everywhere: `MongoDbRepositoryBase.FindAllAsync` sorts every page read, defaulting to newest first via `_id` descending
+(ObjectIds embed their creation timestamp, so no separate created-at field exists or is needed), with `_id` also appended as the tie-break under every other key -
+an unsorted skip/limit page could duplicate or drop items across pages, so "no sort" was a paging-correctness bug, not just arbitrary-feeling UX.
+`PagedRequest.Sort` carries an optional `ListSort` key (`Common.System/ListSort.cs`: `title`, `rating`) end-to-end:
+`InventoryList`'s sort picker navigates a `?sort=` query parameter through the same URL-state path as search/filters ("" = the newest-first default, kept out of the URL),
+`DataCrudControllerBase.Get` passes it through, and a repository opts into a key by overriding `SortTitleField`/`SortRatingField`
+(an expression, never an element-name string, so the BSON mapping stays with the entity class - `Car.Name` stores as `commercial_name`, which a string-based sort would silently miss).
+An unknown or unsupported key falls back to newest-first rather than erroring; `HasRatingSort` on `InventoryList` shows the Rating option only for the five media types that have a rating field.
+The title sort attaches a per-query `Collation` ("en", strength 2) for case/diacritic-insensitive ordering with no normalized shadow field and no index changes -
+per-owner subsets are small enough that MongoDB's in-memory sort of an owner-filtered read is negligible, so no sort indexes were added.
+**Gotcha:** MongoDB rejects a collation combined with a `$text` filter; this is safe today only because every repository's `GetFilter` searches via regex `Contains`
+(the base class's `builder.Text` default is effectively dead) - a future `$text`-searching repository must not also offer the title sort without gating the collation.
+Covered by `ListSortingRepositoryTest` (integration, real MongoDB - the collation's ordering and descending-sort null placement are server-side semantics a mocked repository can never prove).
 `InventoryList`'s search box keeps a deliberate local copy of the text (so a parent re-render racing fast typing can't revert characters)
 and adopts an externally-changed `Search` parameter only when it didn't originate from its own `OnSearchChanged` report - see the sent/received tracking in its `OnParametersSet` before touching that logic.
 Covered end-to-end by `ListStateSmokeTest` (Playwright), including the back-navigation-from-detail scenario.

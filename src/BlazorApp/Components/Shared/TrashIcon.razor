@@ -1,0 +1,16 @@
+@* A monochrome inline SVG bin, shared by every delete affordance: there is no bin codepoint with a
+   reliable text presentation (U+1F5D1 renders as a color emoji on several platforms - see the theme
+   section's emoji gotcha in CLAUDE.md). Wrap it in the action's own button; this is just the glyph. *@
+
+<svg viewBox="0 0 24 24" width="@Size" height="@Size" fill="none" stroke="currentColor"
+     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M3 6h18"/>
+    <path d="M8 6V4.5A1.5 1.5 0 0 1 9.5 3h5A1.5 1.5 0 0 1 16 4.5V6"/>
+    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+    <path d="M10 11v6"/>
+    <path d="M14 11v6"/>
+</svg>
+
+@code {
+    [Parameter] public int Size { get; set; } = 15;
+}

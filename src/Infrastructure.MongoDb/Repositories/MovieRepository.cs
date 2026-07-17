@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Keeptrack.Domain.Models;
@@ -16,6 +18,10 @@ public class MovieRepository(IMongoDatabase mongoDatabase, ILogger<MovieReposito
     : MongoDbRepositoryBase<MovieModel, Movie>(mongoDatabase, logger, mapper), IMovieRepository
 {
     protected override string CollectionName => "movie";
+
+    protected override Expression<Func<Movie, object>> SortTitleField => x => x.Title;
+
+    protected override Expression<Func<Movie, object>> SortRatingField => x => x.Rating!;
 
     protected override FilterDefinition<Movie> GetFilter(string ownerId, string? search, MovieModel input)
     {

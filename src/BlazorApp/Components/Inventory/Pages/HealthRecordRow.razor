@@ -1,0 +1,42 @@
+@* One journal line, Excel-like (owner's explicit display choice): date, specialty, name, a warning sign
+   when money remains unaccounted, edit/delete icons - no field labels, no money columns. The edit modal
+   carries every other field. ⚠ (U+26A0) and ✎ (U+270E) default to text presentation (no FE0F). *@
+
+<tr>
+    <td>@DateText</td>
+    <td>@Entry.Specialty</td>
+    <td>@Entry.Practitioner</td>
+    @* wider screens have room for more than the mobile essentials (d-md-table-cell = hidden below 768px) *@
+    <td class="d-none d-md-table-cell">@Entry.Description</td>
+    <td class="d-none d-md-table-cell text-end">@Entry.Price?.ToString("F2")</td>
+    <td class="text-center">
+        @if (IsUnbalanced)
+        {
+            <span style="color:var(--kt-warning)" title="Paid, reimbursements and not-covered don't add up to zero - open the entry to settle it.">⚠</span>
+        }
+    </td>
+    <td>
+        <div class="d-flex gap-1 justify-content-end">
+            <button class="kt-icon-btn" title="Edit this entry" aria-label="Edit this entry" @onclick="() => OnEdit.InvokeAsync(Entry)">✎</button>
+            <button class="kt-icon-btn" title="Delete this entry" aria-label="Delete this entry" @onclick="() => OnDelete.InvokeAsync(Entry.Id!)">✕</button>
+        </div>
+    </td>
+</tr>
+
+@code {
+    [Parameter] public required HealthRecordDto Entry { get; set; }
+
+    /// <summary>Computed by HealthMetricsService (via the parent's metrics), never re-derived here -
+    /// the balance rule lives in exactly one place.</summary>
+    [Parameter] public bool IsUnbalanced { get; set; }
+
+    [Parameter] public EventCallback<HealthRecordDto> OnEdit { get; set; }
+
+    [Parameter] public EventCallback<string> OnDelete { get; set; }
+
+    /// <summary>Midnight means "no time recorded" (the import's default, and sickness entries rarely have
+    /// one) - showing 00:00 on most rows would just be noise.</summary>
+    private string DateText => Entry.HistoryDate.TimeOfDay == TimeSpan.Zero
+        ? Entry.HistoryDate.ToString("yyyy-MM-dd")
+        : Entry.HistoryDate.ToString("yyyy-MM-dd HH:mm");
+}

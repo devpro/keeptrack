@@ -14,13 +14,11 @@ public class CarController(
     IDtoMapper<CarDto, CarModel> mapper,
     ICarRepository dataRepository,
     ICarHistoryRepository carHistoryRepository,
-    CarMetricsService metricsService,
     CarMetricsDtoMapper metricsMapper)
     : DataCrudControllerBase<CarDto, CarModel>(mapper, dataRepository)
 {
     /// <summary>
-    /// Computed fuel/electric consumption, cost history, mileage warnings and next-maintenance estimate for
-    /// this car - see <see cref="CarMetricsService"/>.
+    /// Computed fuel/electric consumption, cost history, mileage warnings and next-maintenance estimate for this car - see <see cref="CarMetricsService"/>.
     /// </summary>
     [HttpGet("{id}/metrics")]
     [ProducesResponseType(200)]
@@ -35,13 +33,15 @@ public class CarController(
         var history = await carHistoryRepository.FindAllAsync(ownerId, 1, int.MaxValue, null,
             new CarHistoryModel { OwnerId = ownerId, CarId = id, EventType = default, HistoryDate = default });
 
-        return Ok(metricsMapper.ToDto(metricsService.ComputeMetrics(history.Items)));
+        return Ok(metricsMapper.ToDto(CarMetricsService.ComputeMetrics(history.Items)));
     }
 
     /// <summary>
-    /// CarHistory is a separate top-level collection referencing its car by id, not an embedded array
-    /// (see CLAUDE.md's "Child entities" section) - without this, deleting a car would leave its fuel/
-    /// maintenance history orphaned in MongoDB forever, since it's only ever reachable via the car's own id.
+    /// CarHistory is a separate top-level collection referencing its car by id -
+    /// without this, deleting a car would leave its fuel/maintenance history orphaned in MongoDB forever, since it's only ever reachable via the car's own id.
     /// </summary>
-    protected override async Task OnDeletedAsync(string id, string ownerId) => await carHistoryRepository.DeleteAllForCarAsync(id, ownerId);
+    protected override async Task OnDeletedAsync(string id, string ownerId)
+    {
+        await carHistoryRepository.DeleteAllForCarAsync(id, ownerId);
+    }
 }

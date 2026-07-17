@@ -62,7 +62,7 @@ public class FreeTierTest
 
         public Task<TestModel?> FindOneAsync(string id, string ownerId) => Task.FromResult<TestModel?>(null);
 
-        public Task<PagedResult<TestModel>> FindAllAsync(string ownerId, int page, int pageSize, string? search, TestModel input) =>
+        public Task<PagedResult<TestModel>> FindAllAsync(string ownerId, int page, int pageSize, string? search, TestModel input, string? sort = null) =>
             Task.FromResult(new PagedResult<TestModel>([], 0, page, pageSize));
 
         public Task<long> UpdateAsync(string id, TestModel model, string ownerId) => Task.FromResult(1L);
@@ -153,7 +153,11 @@ public class FreeTierTest
     [InlineData(typeof(CarHistoryController), "MemberOnly")]
     [InlineData(typeof(HouseController), "MemberOnly")]
     [InlineData(typeof(HouseHistoryController), "MemberOnly")]
+    [InlineData(typeof(HealthProfileController), "MemberOnly")]
+    [InlineData(typeof(HealthRecordController), "MemberOnly")]
     [InlineData(typeof(TvTimeImportController), "MemberOnly")]
+    [InlineData(typeof(CarHistoryImportController), "MemberOnly")]
+    [InlineData(typeof(HealthImportController), "MemberOnly")]
     [InlineData(typeof(MovieController), null)]
     [InlineData(typeof(TvShowController), null)]
     [InlineData(typeof(EpisodeController), null)]

@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Keeptrack.Domain.Models;
@@ -16,6 +18,10 @@ public class AlbumRepository(IMongoDatabase mongoDatabase, ILogger<AlbumReposito
     : MongoDbRepositoryBase<AlbumModel, Album>(mongoDatabase, logger, mapper), IAlbumRepository
 {
     protected override string CollectionName => "album";
+
+    protected override Expression<Func<Album, object>> SortTitleField => x => x.Title;
+
+    protected override Expression<Func<Album, object>> SortRatingField => x => x.Rating!;
 
     protected override FilterDefinition<Album> GetFilter(string ownerId, string? search, AlbumModel input)
     {

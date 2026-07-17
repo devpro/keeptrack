@@ -13,9 +13,13 @@ public abstract class InventoryApiClientBase<TDto>(HttpClient http)
     /// </summary>
     protected HttpClient Http => http;
 
-    public async Task<PagedResult<TDto>> GetAsync(string search, int page, int pageSize, IReadOnlyDictionary<string, string>? extraQuery = null)
+    public async Task<PagedResult<TDto>> GetAsync(string search, int page, int pageSize, IReadOnlyDictionary<string, string>? extraQuery = null, string? sort = null)
     {
         var query = $"{ApiResourceName}?search={Uri.EscapeDataString(search)}&page={page}&pageSize={pageSize}";
+        if (!string.IsNullOrEmpty(sort))
+        {
+            query += $"&sort={Uri.EscapeDataString(sort)}";
+        }
         if (extraQuery is not null)
         {
             foreach (var (key, value) in extraQuery)

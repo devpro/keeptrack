@@ -1,4 +1,6 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Linq.Expressions;
+using System.Threading.Tasks;
 using Keeptrack.Common.System;
 using Keeptrack.Infrastructure.MongoDb.Mappers;
 using Microsoft.Extensions.Logging;
@@ -23,27 +25,26 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
 
     private IStorageMapper<TModel, TEntity> Mapper { get; } = mapper;
 
-    /// <summary>
-    /// "Not found" must stay a real <c>null</c>, not a mapped default instance: Mapperly throws on a null
-    /// source rather than substituting a default instance, so the missing-document check has to happen
-    /// before mapping regardless - this guard is what makes that "not found" case behave as null instead
-    /// of propagating an exception.
-    /// </summary>
     public async Task<TModel?> FindOneAsync(string id, string ownerId)
     {
         var entity = await GetCollection().Find(x => x.Id == id && x.OwnerId == ownerId).FirstOrDefaultAsync();
         return entity is null ? default : Mapper.ToModel(entity);
     }
 
-    public async Task<PagedResult<TModel>> FindAllAsync(string ownerId, int page, int pageSize, string? search, TModel input)
+    public async Task<PagedResult<TModel>> FindAllAsync(string ownerId, int page, int pageSize, string? search, TModel input, string? sort = null)
     {
         var collection = GetCollection();
         var filter = GetFilter(ownerId, search, input);
 
         var totalCount = await collection.CountDocumentsAsync(filter);
 
+        var options = sort == ListSort.Title && SortTitleField is not null
+            ? new FindOptions { Collation = new Collation("en", strength: CollationStrength.Secondary) }
+            : null;
+
         var entities = await collection
-            .Find(filter)
+            .Find(filter, options)
+            .Sort(GetSort(sort))
             .Skip((page - 1) * pageSize)
             .Limit(pageSize)
             .ToListAsync();
@@ -56,8 +57,37 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
         );
     }
 
-    public async Task<long> CountAsync(string ownerId) =>
-        await GetCollection().CountDocumentsAsync(Builders<TEntity>.Filter.Eq(f => f.OwnerId, ownerId));
+    /// <summary>
+    /// Field behind the <see cref="ListSort.Title"/> sort key;
+    /// null (the default) means this collection doesn't offer that sort and the key falls back to newest-first.
+    /// An expression rather than an element-name string, so the BSON name mapping stays with the entity class.
+    /// </summary>
+    protected virtual Expression<Func<TEntity, object>>? SortTitleField => null;
+
+    /// <summary>
+    /// Field behind the <see cref="ListSort.Rating"/> sort key (descending, unrated items last) - same contract as <see cref="SortTitleField"/>.
+    /// </summary>
+    protected virtual Expression<Func<TEntity, object>>? SortRatingField => null;
+
+    /// <summary>
+    /// "_id" descending doubles as the "recently added" default (ObjectIds embed their creation timestamp, so no separate created-at field is needed)
+    /// and as the deterministic tie-break appended to every other sort.
+    /// </summary>
+    private SortDefinition<TEntity> GetSort(string? sort)
+    {
+        var builder = Builders<TEntity>.Sort;
+        return sort switch
+        {
+            ListSort.Title when SortTitleField is not null => builder.Ascending(SortTitleField).Descending("_id"),
+            ListSort.Rating when SortRatingField is not null => builder.Descending(SortRatingField).Descending("_id"),
+            _ => builder.Descending("_id")
+        };
+    }
+
+    public async Task<long> CountAsync(string ownerId)
+    {
+        return await GetCollection().CountDocumentsAsync(Builders<TEntity>.Filter.Eq(f => f.OwnerId, ownerId));
+    }
 
     public async Task<TModel> CreateAsync(TModel model)
     {

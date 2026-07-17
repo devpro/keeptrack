@@ -52,6 +52,15 @@ else
             {
                 <button class="btn btn-secondary btn-sm" @onclick="HandleClear">Clear</button>
             }
+            <select class="form-select form-select-sm kt-sort-select" title="Sort by" aria-label="Sort by"
+                    value="@Sort" @onchange="e => OnSortChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty)">
+                <option value="">Added</option>
+                <option value="@ListSort.Title">A–Z</option>
+                @if (HasRatingSort)
+                {
+                    <option value="@ListSort.Rating">Rating</option>
+                }
+            </select>
             @if (Filters is not null)
             {
                 <div class="kt-search-filters">@Filters</div>
@@ -73,19 +82,9 @@ else
                             <a class="kt-item-title stretched-link" href="@($"{Route}/{item.Id}")">@ItemTitle(item)</a>
                             <div class="kt-item-meta">@MetaTemplate(item)</div>
                         </div>
-                        @* a monochrome inline SVG bin: there is no bin codepoint with a reliable text
-                           presentation (U+1F5D1 renders as a color emoji on several platforms - see the
-                           theme section's emoji gotcha in CLAUDE.md) *@
                         <button type="button" class="kt-icon-btn kt-item-delete" title="Delete" aria-label="Delete"
                                 @onclick="() => RequestDelete(item)">
-                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
-                                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <path d="M3 6h18"/>
-                                <path d="M8 6V4.5A1.5 1.5 0 0 1 9.5 3h5A1.5 1.5 0 0 1 16 4.5V6"/>
-                                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                                <path d="M10 11v6"/>
-                                <path d="M14 11v6"/>
-                            </svg>
+                            <TrashIcon/>
                         </button>
                     </div>
                 }
@@ -203,6 +202,12 @@ else
     [Parameter] public required bool ShowForm { get; set; }
     [Parameter] public required string? Error { get; set; }
     [Parameter] public required string Search { get; set; }
+
+    /// <summary>Current sort key ("" = the newest-first default) - see <see cref="ListSort"/>.</summary>
+    [Parameter] public required string Sort { get; set; }
+
+    /// <summary>Offers the "Rating" sort option - only for types that carry a rating field.</summary>
+    [Parameter] public bool HasRatingSort { get; set; }
     [Parameter] public required int Page { get; set; }
     [Parameter] public required int TotalPages { get; set; }
     [Parameter] public required long TotalCount { get; set; }
@@ -237,4 +242,5 @@ else
     [Parameter] public required EventCallback<int> OnGoToPage { get; set; }
     [Parameter] public required EventCallback<string> OnDelete { get; set; }
     [Parameter] public required EventCallback<string> OnSearchChanged { get; set; }
+    [Parameter] public required EventCallback<string> OnSortChanged { get; set; }
 }

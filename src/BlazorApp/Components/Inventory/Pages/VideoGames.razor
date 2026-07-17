@@ -26,7 +26,10 @@
                OnCancelForm="@CancelForm"
                OnSave="@SaveAsync"
                OnDelete="@DeleteAsync"
-               OnSearchChanged="@OnSearchChanged">
+               OnSearchChanged="@OnSearchChanged"
+               Sort="@_sort"
+               OnSortChanged="@SetSort"
+               HasRatingSort="true">
     <Filters>
         <button class="btn btn-sm @(string.IsNullOrEmpty(StateFilter) ? "btn-primary" : "btn-secondary")" @onclick='() => SetFilter("state", null)'>All</button>
         @foreach (var state in VideoGameStates)

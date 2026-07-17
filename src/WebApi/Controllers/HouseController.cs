@@ -14,7 +14,6 @@ public class HouseController(
     IDtoMapper<HouseDto, HouseModel> mapper,
     IHouseRepository dataRepository,
     IHouseHistoryRepository houseHistoryRepository,
-    HouseMetricsService metricsService,
     HouseMetricsDtoMapper metricsMapper)
     : DataCrudControllerBase<HouseDto, HouseModel>(mapper, dataRepository)
 {
@@ -34,13 +33,15 @@ public class HouseController(
         var history = await houseHistoryRepository.FindAllAsync(ownerId, 1, int.MaxValue, null,
             new HouseHistoryModel { OwnerId = ownerId, HouseId = id, EventType = default, HistoryDate = default });
 
-        return Ok(metricsMapper.ToDto(metricsService.ComputeMetrics(history.Items)));
+        return Ok(metricsMapper.ToDto(HouseMetricsService.ComputeMetrics(history.Items)));
     }
 
     /// <summary>
-    /// HouseHistory is a separate top-level collection referencing its house by id, not an embedded array
-    /// (see CLAUDE.md's "Child entities" section) - without this, deleting a house would leave its history
-    /// orphaned in MongoDB forever, since it's only ever reachable via the house's own id.
+    /// HouseHistory is a separate top-level collection referencing its house by id -
+    /// without this, deleting a house would leave its history orphaned in MongoDB forever, since it's only ever reachable via the house's own id.
     /// </summary>
-    protected override async Task OnDeletedAsync(string id, string ownerId) => await houseHistoryRepository.DeleteAllForHouseAsync(id, ownerId);
+    protected override async Task OnDeletedAsync(string id, string ownerId)
+    {
+        await houseHistoryRepository.DeleteAllForHouseAsync(id, ownerId);
+    }
 }

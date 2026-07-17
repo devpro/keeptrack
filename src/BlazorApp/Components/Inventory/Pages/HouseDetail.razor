@@ -26,23 +26,26 @@ else
         </div>
     </div>
 
+    <div class="d-flex gap-2 mb-3">
+        @foreach (var propertyType in Enum.GetValues<PropertyType>())
+        {
+            <button class="btn btn-sm @(_house.PropertyType == propertyType ? "btn-primary" : "btn-secondary")" @onclick="() => SetPropertyTypeAsync(propertyType)">@propertyType</button>
+        }
+    </div>
+
     <div class="kt-form-card">
         <div class="row g-3">
-            <div class="col-12">
-                <label class="form-label">Address</label>
-                <input class="form-control form-control-sm" value="@_house.Address" @onchange="SaveAddressAsync"/>
-            </div>
-            <div class="col-md-4">
+            <div class="col-md-6">
                 <label class="form-label">City</label>
                 <input class="form-control form-control-sm" value="@_house.City" @onchange="SaveCityAsync"/>
             </div>
-            <div class="col-md-4">
-                <label class="form-label">Postal code</label>
-                <input class="form-control form-control-sm" value="@_house.PostalCode" @onchange="SavePostalCodeAsync"/>
+            <div class="col-md-3">
+                <label class="form-label">Moved in</label>
+                <input class="form-control form-control-sm" type="date" value="@_house.MovedInAt?.ToString("yyyy-MM-dd")" @onchange="SaveMovedInAtAsync"/>
             </div>
-            <div class="col-md-4">
-                <label class="form-label">Country</label>
-                <input class="form-control form-control-sm" value="@_house.Country" @onchange="SaveCountryAsync"/>
+            <div class="col-md-3">
+                <label class="form-label">Moved out</label>
+                <input class="form-control form-control-sm" type="date" value="@_house.MovedOutAt?.ToString("yyyy-MM-dd")" @onchange="SaveMovedOutAtAsync"/>
             </div>
             <div class="col-12">
                 <label class="form-label">Notes</label>
@@ -93,32 +96,54 @@ else
         <h2 class="kt-section-title">History</h2>
         <button class="btn btn-sm btn-primary" @onclick="ShowAddModal">+ Add entry</button>
     </div>
-    <div class="kt-table-wrap">
-        <div class="table-responsive">
-            <table class="table kt-sheet-table">
-                <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Event</th>
-                    <th>Cost</th>
-                    <th>Provider</th>
-                    <th>Description</th>
-                    <th></th>
-                </tr>
-                </thead>
-                <tbody>
-                @if (_history.Count == 0)
-                {
-                    <tr><td colspan="6" class="text-center kt-card-meta">No history yet - add the first entry above.</td></tr>
-                }
-                @foreach (var entry in _history)
-                {
-                    <HouseHistoryRow Entry="entry" OnEdit="ShowEditModal" OnDelete="DeleteEntryAsync"/>
-                }
-                </tbody>
-            </table>
+    @* kt-table-grid opts this table out of the mobile stacked-cards treatment (see HealthProfileDetail.razor's
+       journal for the same pattern) - a real spreadsheet-like grid with only the most important columns
+       (Provider/Description) stay desktop-only via d-none d-md-table-cell.
+       One tab per year (same kt-season-picker/kt-page-btn header as TvShowDetail.razor's season tabs and
+       HealthProfileDetail.razor's journal), newest year first. *@
+    @if (_history.Count == 0)
+    {
+        <div class="kt-table-wrap">
+            <div class="table-responsive">
+                <table class="table kt-sheet-table kt-table-grid">
+                    <tbody>
+                    <tr><td class="text-center kt-card-meta">No history yet - add the first entry above.</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
+    }
+    else
+    {
+        <div class="kt-season-picker">
+            @foreach (var year in _years)
+            {
+                <button class="kt-page-btn @(year == _selectedYear ? "active" : "")" @onclick="() => SelectYear(year)">@year</button>
+            }
+        </div>
+        <div class="kt-table-wrap">
+            <div class="table-responsive">
+                <table class="table kt-sheet-table kt-table-grid">
+                    <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Event</th>
+                        <th>Cost</th>
+                        <th class="d-none d-md-table-cell">Provider</th>
+                        <th class="d-none d-md-table-cell">Description</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var entry in _historyByYear.GetValueOrDefault(_selectedYear, []))
+                    {
+                        <HouseHistoryRow Entry="entry" OnEdit="ShowEditModal" OnDelete="DeleteEntryAsync"/>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
 
     @if (_showModal)
     {
@@ -177,6 +202,9 @@ else
     private bool _loading = true;
     private HouseDto? _house;
     private List<HouseHistoryDto> _history = [];
+    private Dictionary<int, List<HouseHistoryDto>> _historyByYear = new();
+    private List<int> _years = [];
+    private int _selectedYear;
     private HouseMetricsDto? _metrics;
     private HouseHistoryDto _modalEntry = NewEntry("");
     private bool _showModal;
@@ -204,13 +232,19 @@ else
         if (_house is not null)
         {
             var result = await HouseHistoryApi.GetAsync("", 1, int.MaxValue, new Dictionary<string, string> { ["HouseId"] = Id });
-            // Most recent first - unlike CarDetail's chronological (ascending) order, House has no mileage-style
-            // ordering dependency, and a browsable insurance/maintenance log reads better with the newest entry on top.
+            // most recent first - same journal convention as HealthProfileDetail/CarDetail
             _history = result.Items.OrderByDescending(h => h.HistoryDate).ToList();
+            _historyByYear = _history.GroupBy(h => h.HistoryDate.Year).ToDictionary(g => g.Key, g => g.ToList());
+            _years = _historyByYear.Keys.OrderByDescending(y => y).ToList();
+            // same "keep the current tab if it still exists, else default to the newest" rule as
+            // TvShowDetail.razor's own season selection
+            if (!_years.Contains(_selectedYear)) _selectedYear = _years.Count > 0 ? _years[0] : 0;
             _metrics = await HouseApi.GetMetricsAsync(Id);
         }
         _loading = false;
     }
+
+    private void SelectYear(int year) => _selectedYear = year;
 
     private async Task SaveHouseAsync()
     {
@@ -227,10 +261,10 @@ else
         await SaveHouseAsync();
     }
 
-    private async Task SaveAddressAsync(ChangeEventArgs e)
+    private async Task SetPropertyTypeAsync(PropertyType propertyType)
     {
         if (_house is null) return;
-        _house.Address = e.Value?.ToString();
+        _house.PropertyType = propertyType;
         await SaveHouseAsync();
     }
 
@@ -241,17 +275,17 @@ else
         await SaveHouseAsync();
     }
 
-    private async Task SavePostalCodeAsync(ChangeEventArgs e)
+    private async Task SaveMovedInAtAsync(ChangeEventArgs e)
     {
         if (_house is null) return;
-        _house.PostalCode = e.Value?.ToString();
+        _house.MovedInAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
         await SaveHouseAsync();
     }
 
-    private async Task SaveCountryAsync(ChangeEventArgs e)
+    private async Task SaveMovedOutAtAsync(ChangeEventArgs e)
     {
         if (_house is null) return;
-        _house.Country = e.Value?.ToString();
+        _house.MovedOutAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
         await SaveHouseAsync();
     }
 

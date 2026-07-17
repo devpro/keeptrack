@@ -24,7 +24,9 @@
                OnCancelForm="@CancelForm"
                OnSave="@SaveAsync"
                OnDelete="@DeleteAsync"
-               OnSearchChanged="@OnSearchChanged">
+               OnSearchChanged="@OnSearchChanged"
+               Sort="@_sort"
+               OnSortChanged="@SetSort">
     <MetaTemplate Context="car">
         @if (!string.IsNullOrEmpty(car.Manufacturer) || !string.IsNullOrEmpty(car.Model))
         {

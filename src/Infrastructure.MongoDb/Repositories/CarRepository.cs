@@ -1,4 +1,6 @@
-﻿using Keeptrack.Domain.Models;
+﻿using System;
+using System.Linq.Expressions;
+using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.Infrastructure.MongoDb.Entities;
 using Keeptrack.Infrastructure.MongoDb.Mappers;
@@ -11,6 +13,8 @@ public class CarRepository(IMongoDatabase mongoDatabase, ILogger<CarRepository> 
     : MongoDbRepositoryBase<CarModel, Car>(mongoDatabase, logger, mapper), ICarRepository
 {
     protected override string CollectionName => "car";
+
+    protected override Expression<Func<Car, object>> SortTitleField => x => x.Name;
 
     protected override FilterDefinition<Car> GetFilter(string ownerId, string? search, CarModel input)
     {
