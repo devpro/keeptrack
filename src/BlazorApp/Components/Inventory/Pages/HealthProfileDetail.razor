@@ -55,23 +55,42 @@ else
     </div>
     @* Excel-like on purpose: no header row, no per-field labels, aligned columns at every width
        (kt-table-grid opts out of the mobile stacked-cards treatment) - date, specialty, name, a warning
-       sign when money remains unaccounted, and edit/delete icons. Everything else lives in the modal. *@
-    <div class="kt-table-wrap">
-        <div class="table-responsive">
-            <table class="table kt-sheet-table kt-table-grid mb-0">
-                <tbody>
-                @if (_records.Count == 0)
-                {
+       sign when money remains unaccounted, and edit/delete icons. Everything else lives in the modal.
+       One tab per year (same kt-season-picker/kt-page-btn header as TvShowDetail.razor's season tabs),
+       newest year first, so a long-running journal doesn't render every entry on one page. *@
+    @if (_records.Count == 0)
+    {
+        <div class="kt-table-wrap">
+            <div class="table-responsive">
+                <table class="table kt-sheet-table kt-table-grid mb-0">
+                    <tbody>
                     <tr><td class="text-center kt-card-meta">No entries yet - add the first one above.</td></tr>
-                }
-                @foreach (var entry in _records)
-                {
-                    <HealthRecordRow Entry="entry" IsUnbalanced="@UnbalancedRecordIds.Contains(entry.Id!)" OnEdit="ShowEditModal" OnDelete="DeleteEntryAsync"/>
-                }
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
+    }
+    else
+    {
+        <div class="kt-season-picker">
+            @foreach (var year in _years)
+            {
+                <button class="kt-page-btn @(year == _selectedYear ? "active" : "")" @onclick="() => SelectYear(year)">@year</button>
+            }
+        </div>
+        <div class="kt-table-wrap">
+            <div class="table-responsive">
+                <table class="table kt-sheet-table kt-table-grid mb-0">
+                    <tbody>
+                    @foreach (var entry in _recordsByYear.GetValueOrDefault(_selectedYear, []))
+                    {
+                        <HealthRecordRow Entry="entry" IsUnbalanced="@UnbalancedRecordIds.Contains(entry.Id!)" OnEdit="ShowEditModal" OnDelete="DeleteEntryAsync"/>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
 
     @if (_metrics is { CostHistory.Count: > 0 })
     {
@@ -208,6 +227,9 @@ else
     private bool _loading = true;
     private HealthProfileDto? _profile;
     private List<HealthRecordDto> _records = [];
+    private Dictionary<int, List<HealthRecordDto>> _recordsByYear = new();
+    private List<int> _years = [];
+    private int _selectedYear;
     private HealthMetricsDto? _metrics;
     private HealthRecordDto _modalEntry = NewEntry("");
     private bool _showModal;
@@ -268,10 +290,17 @@ else
             var result = await HealthRecordApi.GetAsync("", 1, int.MaxValue, new Dictionary<string, string> { ["HealthProfileId"] = Id });
             // most recent first - a journal reads with the newest entry on top, same call as HouseDetail
             _records = result.Items.OrderByDescending(r => r.HistoryDate).ToList();
+            _recordsByYear = _records.GroupBy(r => r.HistoryDate.Year).ToDictionary(g => g.Key, g => g.ToList());
+            _years = _recordsByYear.Keys.OrderByDescending(y => y).ToList();
+            // same "keep the current tab if it still exists, else default to the newest" rule as
+            // TvShowDetail.razor's own season selection
+            if (!_years.Contains(_selectedYear)) _selectedYear = _years.Count > 0 ? _years[0] : 0;
             _metrics = await HealthProfileApi.GetMetricsAsync(Id);
         }
         _loading = false;
     }
+
+    private void SelectYear(int year) => _selectedYear = year;
 
     private async Task SaveProfileAsync()
     {
