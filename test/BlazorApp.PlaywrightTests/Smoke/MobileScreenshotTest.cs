@@ -87,6 +87,7 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             await CaptureFirstDetailAsync("/cars", "car-detail");
             await CaptureFirstDetailAsync("/books", "book-detail");
             await CaptureFirstDetailAsync("/health", "health-detail");
+            await CaptureFirstDetailAsync("/video-games", "video-game-detail");
 
             // The Add form modal on a list page.
             await Page.GotoAsync("/movies");
@@ -140,6 +141,9 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
                 await Page.WaitForTimeoutAsync(3000);
                 await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(ShotsDirectory, "admin-album-expanded.png"), FullPage = true });
             }
+
+            await Page.SetViewportSizeAsync(1280, 900);
+            await CaptureFirstDetailAsync("/video-games", "video-game-detail-desktop");
 
             // A dark-theme sample of the densest pages.
             await Page.EmulateMediaAsync(new PageEmulateMediaOptions { ColorScheme = ColorScheme.Dark });
