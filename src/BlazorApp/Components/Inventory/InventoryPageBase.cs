@@ -21,6 +21,8 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
 
     protected string _search = "";
 
+    protected string _sort = "";
+
     protected int _page = 1;
 
     protected long _totalCount;
@@ -41,6 +43,9 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
 
     [SupplyParameterFromQuery(Name = "page")]
     public int? PageQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = "sort")]
+    public string? SortQuery { get; set; }
 
     protected abstract InventoryApiClientBase<TDto> Api { get; }
 
@@ -66,6 +71,7 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
     protected override async Task OnParametersSetAsync()
     {
         _search = SearchQuery ?? "";
+        _sort = SortQuery ?? "";
         _page = PageQuery is > 0 ? PageQuery.Value : 1;
         var query = BuildQuerySignature();
         if (query != _loadedQuery)
@@ -105,6 +111,14 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
     /// <summary>Sets (or clears, when null) a filter query parameter and resets to page 1.</summary>
     protected void SetFilter(string name, string? value) =>
         ApplyQueryChanges(new Dictionary<string, object?> { [name] = value, ["page"] = null });
+
+    /// <summary>
+    /// Applies a sort key from the list's sort picker ("" = the newest-first default, which keeps the
+    /// URL clean of a redundant parameter) and resets to page 1, through the same URL-navigation path
+    /// as every other list-state change.
+    /// </summary>
+    protected void SetSort(string value) =>
+        ApplyQueryChanges(new Dictionary<string, object?> { ["sort"] = string.IsNullOrEmpty(value) ? null : value, ["page"] = null });
 
     /// <summary>
     /// Navigates to the current list URL with the given query-parameter changes applied (a null value
@@ -158,7 +172,7 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
         try
         {
             _loading = true;
-            var result = await Api.GetAsync(_search, _page, PageSize, ExtraQuery);
+            var result = await Api.GetAsync(_search, _page, PageSize, ExtraQuery, _sort);
             _items = result.Items;
             _totalCount = result.TotalCount;
         }
@@ -175,6 +189,6 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
     private string BuildQuerySignature()
     {
         var extra = ExtraQuery is null ? "" : string.Join('&', ExtraQuery.Select(pair => $"{pair.Key}={pair.Value}"));
-        return $"{_search}|{_page}|{extra}";
+        return $"{_search}|{_page}|{_sort}|{extra}";
     }
 }

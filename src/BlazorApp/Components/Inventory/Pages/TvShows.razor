@@ -25,7 +25,10 @@
                OnCancelForm="@CancelForm"
                OnSave="@SaveAsync"
                OnDelete="@DeleteAsync"
-               OnSearchChanged="@OnSearchChanged">
+               OnSearchChanged="@OnSearchChanged"
+               Sort="@_sort"
+               OnSortChanged="@SetSort"
+               HasRatingSort="true">
     <Filters>
         <button class="btn btn-sm @(StateFilter is null ? "btn-primary" : "btn-secondary")" @onclick='() => SetFilter("state", null)'>All</button>
         <button class="btn btn-sm @(StateFilter == TvShowStatus.Current ? "btn-primary" : "btn-secondary")" @onclick='() => SetFilter("state", nameof(TvShowStatus.Current))'>Current</button>

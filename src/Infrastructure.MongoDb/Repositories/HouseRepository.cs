@@ -1,3 +1,5 @@
+using System;
+using System.Linq.Expressions;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.Infrastructure.MongoDb.Entities;
@@ -11,6 +13,8 @@ public class HouseRepository(IMongoDatabase mongoDatabase, ILogger<HouseReposito
     : MongoDbRepositoryBase<HouseModel, House>(mongoDatabase, logger, mapper), IHouseRepository
 {
     protected override string CollectionName => "house";
+
+    protected override Expression<Func<House, object>> SortTitleField => x => x.Name;
 
     protected override FilterDefinition<House> GetFilter(string ownerId, string? search, HouseModel input)
     {

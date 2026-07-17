@@ -24,6 +24,12 @@ public class PagedRequest
     public int PageSize { get; set; } = 20;
 
     /// <summary>
+    /// Sort key (see <see cref="ListSort"/>: "title", "rating"). Null or empty means the default order,
+    /// newest first. An unsupported key for the requested collection also falls back to the default.
+    /// </summary>
+    public string? Sort { get; set; }
+
+    /// <summary>
     /// Elements to skip.
     /// </summary>
     public int Skip => (Page - 1) * PageSize;

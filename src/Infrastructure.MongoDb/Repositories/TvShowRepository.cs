@@ -1,5 +1,7 @@
-﻿using System.Collections.Generic;
+using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Keeptrack.Domain.Models;
@@ -16,6 +18,10 @@ public class TvShowRepository(IMongoDatabase mongoDatabase, ILogger<TvShowReposi
     : MongoDbRepositoryBase<TvShowModel, TvShow>(mongoDatabase, logger, mapper), ITvShowRepository
 {
     protected override string CollectionName => "tvshow";
+
+    protected override Expression<Func<TvShow, object>> SortTitleField => x => x.Title;
+
+    protected override Expression<Func<TvShow, object>> SortRatingField => x => x.Rating!;
 
     protected override FilterDefinition<TvShow> GetFilter(string ownerId, string? search, TvShowModel input)
     {

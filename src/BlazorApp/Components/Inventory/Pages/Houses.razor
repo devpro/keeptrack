@@ -24,7 +24,9 @@
                OnCancelForm="@CancelForm"
                OnSave="@SaveAsync"
                OnDelete="@DeleteAsync"
-               OnSearchChanged="@OnSearchChanged">
+               OnSearchChanged="@OnSearchChanged"
+               Sort="@_sort"
+               OnSortChanged="@SetSort">
     <MetaTemplate Context="house">
         @if (!string.IsNullOrEmpty(house.Address))
         {

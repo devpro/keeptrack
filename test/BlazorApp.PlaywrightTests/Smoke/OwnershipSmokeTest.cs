@@ -34,12 +34,18 @@ public class OwnershipSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
         var detail = new BookDetailPage(Page);
         await detail.WaitForReadyAsync();
 
-        // add a version (defaults to Physical) and fill in its purchase details
+        // a new version is a draft until its Save button - cancelling discards it without owning the item
+        await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "+ Add version" }).ClickAsync();
+        await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Cancel" }).ClickAsync();
+        await Assertions.Expect(Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "+ Add version" })).ToBeVisibleAsync();
+
+        // add a version (defaults to Physical), fill in its purchase details, and save the draft
         await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "+ Add version" }).ClickAsync();
         await BookDetailPage.SetFieldAsync(Page.GetByTestId("version-price-input"), "12.50");
         await BookDetailPage.SetFieldAsync(Page.GetByTestId("version-acquired-input"), "2024-05-17");
         await BookDetailPage.SetFieldAsync(Page.GetByTestId("version-vendor-input"), "E2e Bookshop");
         await BookDetailPage.SetFieldAsync(Page.GetByTestId("version-reference-input"), "Paperback 2nd edition");
+        await Page.GetByTestId("version-save-button").ClickAsync();
 
         // round-trip via the list: the row must show the derived Owned badge, and reopening the
         // detail page must show the persisted version fields
@@ -54,8 +60,9 @@ public class OwnershipSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
         await Assertions.Expect(Page.GetByTestId("version-vendor-input")).ToHaveValueAsync("E2e Bookshop");
         await Assertions.Expect(Page.GetByTestId("version-reference-input")).ToHaveValueAsync("Paperback 2nd edition");
 
-        // removing the only version un-owns the item
-        await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Remove this version" }).ClickAsync();
+        // removing the only version un-owns the item - the copy has details, so a confirmation is asked
+        await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Remove this copy" }).ClickAsync();
+        await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Remove", Exact = true }).ClickAsync();
         list = await detail.OpenBooksAsync();
         await list.SearchAsync(title);
         await Assertions.Expect(list.Row(title)).ToBeVisibleAsync();

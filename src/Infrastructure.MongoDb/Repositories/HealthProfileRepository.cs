@@ -1,3 +1,5 @@
+using System;
+using System.Linq.Expressions;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.Infrastructure.MongoDb.Entities;
@@ -11,6 +13,8 @@ public class HealthProfileRepository(IMongoDatabase mongoDatabase, ILogger<Healt
     : MongoDbRepositoryBase<HealthProfileModel, HealthProfile>(mongoDatabase, logger, mapper), IHealthProfileRepository
 {
     protected override string CollectionName => "health_profile";
+
+    protected override Expression<Func<HealthProfile, object>> SortTitleField => x => x.Name;
 
     protected override FilterDefinition<HealthProfile> GetFilter(string ownerId, string? search, HealthProfileModel input)
     {

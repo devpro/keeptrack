@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Keeptrack.Domain.Models;
@@ -16,6 +18,10 @@ public class VideoGameRepository(IMongoDatabase mongoDatabase, ILogger<VideoGame
     : MongoDbRepositoryBase<VideoGameModel, VideoGame>(mongoDatabase, logger, mapper), IVideoGameRepository
 {
     protected override string CollectionName => "videogame";
+
+    protected override Expression<Func<VideoGame, object>> SortTitleField => x => x.Title;
+
+    protected override Expression<Func<VideoGame, object>> SortRatingField => x => x.Rating!;
 
     protected override FilterDefinition<VideoGame> GetFilter(string ownerId, string? search, VideoGameModel input)
     {

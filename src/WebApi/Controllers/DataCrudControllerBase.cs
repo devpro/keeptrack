@@ -40,7 +40,8 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IDtoMapper<TDto, TMod
             pagedRequest.Page,
             pagedRequest.PageSize,
             pagedRequest.Search,
-            mapper.ToModel(input));
+            mapper.ToModel(input),
+            pagedRequest.Sort);
         var page = models.Map(mapper.ToDto);
         await OnListMappedAsync(page.Items);
         return Ok(page);

@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Keeptrack.Domain.Models;
@@ -16,6 +18,10 @@ public class BookRepository(IMongoDatabase mongoDatabase, ILogger<BookRepository
     : MongoDbRepositoryBase<BookModel, Book>(mongoDatabase, logger, mapper), IBookRepository
 {
     protected override string CollectionName => "book";
+
+    protected override Expression<Func<Book, object>> SortTitleField => x => x.Title;
+
+    protected override Expression<Func<Book, object>> SortRatingField => x => x.Rating!;
 
     protected override FilterDefinition<Book> GetFilter(string ownerId, string? search, BookModel input)
     {

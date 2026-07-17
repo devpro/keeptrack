@@ -145,6 +145,11 @@ and the `*_owned` partial indexes match that rendered `{ "owned_versions.0": { $
 The storage mappers ignore `IsOwned` in both directions - don't map it to an entity field again.
 `BlazorApp`'s detail pages share one `OwnedVersionsEditor` component (`Components/Inventory/Shared/`) instead of the old header toggle; list rows derive their "Owned" badge from `OwnedVersions.Count > 0`
 (video games show their platform badges instead - an extra Owned badge would be redundant).
+The editor follows the app's two existing conventions rather than inventing a third: a NEW copy is a draft card with explicit Save/Cancel buttons
+(the list pages' Add-form pattern - nothing persists, and the item does not become owned, until Save; "+ Add version" used to persist an empty owned copy instantly, which felt accidental),
+while an already-saved copy's fields auto-save on change like every other detail-page field.
+Removing a saved copy uses the shared bin icon (`Components/Shared/TrashIcon.razor`, extracted from `InventoryList`'s inline SVG rather than duplicated) plus a `ConfirmModal`,
+skipped when the copy is entirely empty (no price/date/vendor/reference) so undoing an accidental add stays one click.
 Existing data needs the one-off `scripts/migrate-is-owned-to-owned-versions.js` (seeds one default Physical version per `is_owned: true` document, then unsets the flag; games with no platform entry are printed for manual re-entry),
 then a `scripts/mongodb-create-index.js` re-run to replace the old `is_owned` index definitions.
 Covered by the resource tests' owned-filter cases (including a full decimal/date round-trip in `MovieResourceTest`/`AlbumResourceTest`) and `OwnershipSmokeTest` (Playwright, end-to-end through the editor).
@@ -723,6 +728,20 @@ This is what makes browser back from an item's detail page restore the exact lis
 and it means a button click and browser back/forward share one code path instead of two.
 A new list filter therefore needs three things: a `[SupplyParameterFromQuery]` property, an `ExtraQuery` entry (the API-facing key, e.g. `IsFavorite`),
 and a razor button calling `ToggleFilter`/`SetFilter` with the URL parameter name (e.g. `favorite`) - don't add a mutate-a-field-then-`LoadAsync` handler, that's the pre-URL-state pattern this replaced.
+
+List ordering is deterministic everywhere: `MongoDbRepositoryBase.FindAllAsync` sorts every page read, defaulting to newest first via `_id` descending
+(ObjectIds embed their creation timestamp, so no separate created-at field exists or is needed), with `_id` also appended as the tie-break under every other key -
+an unsorted skip/limit page could duplicate or drop items across pages, so "no sort" was a paging-correctness bug, not just arbitrary-feeling UX.
+`PagedRequest.Sort` carries an optional `ListSort` key (`Common.System/ListSort.cs`: `title`, `rating`) end-to-end:
+`InventoryList`'s sort picker navigates a `?sort=` query parameter through the same URL-state path as search/filters ("" = the newest-first default, kept out of the URL),
+`DataCrudControllerBase.Get` passes it through, and a repository opts into a key by overriding `SortTitleField`/`SortRatingField`
+(an expression, never an element-name string, so the BSON mapping stays with the entity class - `Car.Name` stores as `commercial_name`, which a string-based sort would silently miss).
+An unknown or unsupported key falls back to newest-first rather than erroring; `HasRatingSort` on `InventoryList` shows the Rating option only for the five media types that have a rating field.
+The title sort attaches a per-query `Collation` ("en", strength 2) for case/diacritic-insensitive ordering with no normalized shadow field and no index changes -
+per-owner subsets are small enough that MongoDB's in-memory sort of an owner-filtered read is negligible, so no sort indexes were added.
+**Gotcha:** MongoDB rejects a collation combined with a `$text` filter; this is safe today only because every repository's `GetFilter` searches via regex `Contains`
+(the base class's `builder.Text` default is effectively dead) - a future `$text`-searching repository must not also offer the title sort without gating the collation.
+Covered by `ListSortingRepositoryTest` (integration, real MongoDB - the collation's ordering and descending-sort null placement are server-side semantics a mocked repository can never prove).
 `InventoryList`'s search box keeps a deliberate local copy of the text (so a parent re-render racing fast typing can't revert characters)
 and adopts an externally-changed `Search` parameter only when it didn't originate from its own `OnSearchChanged` report - see the sent/received tracking in its `OnParametersSet` before touching that logic.
 Covered end-to-end by `ListStateSmokeTest` (Playwright), including the back-navigation-from-detail scenario.

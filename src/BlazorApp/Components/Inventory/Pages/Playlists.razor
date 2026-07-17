@@ -24,7 +24,9 @@
                OnCancelForm="@CancelForm"
                OnSave="@SaveAsync"
                OnDelete="@DeleteAsync"
-               OnSearchChanged="@OnSearchChanged">
+               OnSearchChanged="@OnSearchChanged"
+               Sort="@_sort"
+               OnSortChanged="@SetSort">
     <MetaTemplate Context="playlist">
         <span>@playlist.SongIds.Count song@(playlist.SongIds.Count == 1 ? "" : "s")</span>
     </MetaTemplate>

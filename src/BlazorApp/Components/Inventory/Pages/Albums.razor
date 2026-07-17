@@ -26,7 +26,10 @@
                OnCancelForm="@CancelForm"
                OnSave="@SaveAsync"
                OnDelete="@DeleteAsync"
-               OnSearchChanged="@OnSearchChanged">
+               OnSearchChanged="@OnSearchChanged"
+               Sort="@_sort"
+               OnSortChanged="@SetSort"
+               HasRatingSort="true">
     <Filters>
         <button class="btn btn-sm kt-toggle-btn @(FavoriteFilter ? "active" : "")" @onclick='() => ToggleFilter("favorite", FavoriteFilter)'>★ Favorites</button>
         <button class="btn btn-sm kt-toggle-btn @(OwnedFilter ? "active" : "")" @onclick='() => ToggleFilter("owned", OwnedFilter)'>● Owned</button>

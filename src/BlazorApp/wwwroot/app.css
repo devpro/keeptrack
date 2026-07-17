@@ -999,6 +999,11 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 /* pushed to the far right of the search bar row via margin-left:auto - the search input/Clear button stay
    left-aligned, filter toggles (status, favorites, ...) sit on the opposite end of the same line instead
    of a separate row above the table */
+.kt-sort-select {
+  width: 80px;
+  flex: 0 0 auto;
+}
+
 .kt-search-filters {
   display: flex;
   align-items: center;
