@@ -472,6 +472,14 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 }
 .kt-quickadd-back:hover { color: var(--kt-text); }
 
+/* Equal-width segmented button rows: event-type toggles (CarHistoryForm/HouseHistoryForm/HealthRecordForm)
+   and Quick Add's own parent-selector rows (car/house/health-profile) - each button's default width comes
+   from its own text length, which reads as arbitrary/lopsided for a set of options that are otherwise
+   equal choices. flex-basis:0 with equal grow/shrink divides the row evenly regardless of label length;
+   a still-too-long label (e.g. "Installation") is allowed to keep its own min-content width instead of
+   being squashed unreadable, which is why this isn't a plain CSS grid instead. */
+.kt-btn-row-even > button { flex: 1 1 0; }
+
 /* editable "title" input on a detail page, styled to read as a heading until you interact with it.
    flex/min-width let it fill its row (rather than a fixed browser-default input width), so a button placed
    right after it (e.g. the reference-refresh icon) sits at a predictable spot instead of trailing right
@@ -918,9 +926,12 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 
   /* Quick Add: the type picker forces 2 columns rather than kt-stat-grid's own auto-fit (which can settle
      on 3 narrow columns on some phone widths), and every form's Save button goes full-width - there's no
-     sticky save bar in this first version since these forms are short enough not to need one. */
+     sticky save bar in this first version since these forms are short enough not to need one.
+     Scoped to .kt-quickadd-save-btn specifically, not a bare .btn-primary - the event-type/parent-selector
+     toggle rows also turn btn-primary on whichever option is selected, and a blanket selector previously
+     stretched whichever one of those happened to be active to full width too. */
   .kt-quickadd-picker { grid-template-columns: repeat(2, 1fr); }
-  .kt-quickadd .btn-primary { width: 100%; }
+  .kt-quickadd-save-btn { width: 100%; }
 }
 
 @media (min-width: 768px) and (max-width: 1024px) {

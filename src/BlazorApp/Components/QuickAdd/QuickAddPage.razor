@@ -78,10 +78,6 @@ else
                     <label class="form-label">Watched on</label>
                     <input class="form-control" type="date" @bind="_movie.FirstSeenAt" @bind:format="yyyy-MM-dd"/>
                 </div>
-                <div class="col-12 col-md-6">
-                    <label class="form-label">Rating</label>
-                    <StarRatingInput Rating="_movie.Rating" RatingChanged="r => _movie.Rating = r"/>
-                </div>
                 <div class="col-12">
                     <button type="button" class="btn btn-sm kt-toggle-btn @(_movieOwned ? "active" : "")" @onclick="() => _movieOwned = !_movieOwned">I own a copy</button>
                 </div>
@@ -93,7 +89,7 @@ else
                 }
             </div>
         </div>
-        <button class="btn btn-primary mt-3" disabled="@_saving" @onclick="SaveMovieAsync" data-testid="quickadd-save-button">Save</button>
+        <button class="btn btn-primary mt-3 kt-quickadd-save-btn" disabled="@_saving" @onclick="SaveMovieAsync" data-testid="quickadd-save-button">Save</button>
     }
     else if (Type == "tv-show")
     {
@@ -118,7 +114,7 @@ else
                 }
             </div>
         </div>
-        <button class="btn btn-primary mt-3" disabled="@_saving" @onclick="SaveTvShowAsync" data-testid="quickadd-save-button">Save</button>
+        <button class="btn btn-primary mt-3 kt-quickadd-save-btn" disabled="@_saving" @onclick="SaveTvShowAsync" data-testid="quickadd-save-button">Save</button>
     }
     else
     {
@@ -155,7 +151,7 @@ else
                             }
                         </div>
                     </div>
-                    <button class="btn btn-primary mt-3" disabled="@_saving" @onclick="SaveBookAsync" data-testid="quickadd-save-button">Save</button>
+                    <button class="btn btn-primary mt-3 kt-quickadd-save-btn" disabled="@_saving" @onclick="SaveBookAsync" data-testid="quickadd-save-button">Save</button>
                 }
                 else if (Type == "album")
                 {
@@ -184,7 +180,7 @@ else
                             }
                         </div>
                     </div>
-                    <button class="btn btn-primary mt-3" disabled="@_saving" @onclick="SaveAlbumAsync" data-testid="quickadd-save-button">Save</button>
+                    <button class="btn btn-primary mt-3 kt-quickadd-save-btn" disabled="@_saving" @onclick="SaveAlbumAsync" data-testid="quickadd-save-button">Save</button>
                 }
                 else if (Type == "video-game")
                 {
@@ -216,7 +212,7 @@ else
                             }
                         </div>
                     </div>
-                    <button class="btn btn-primary mt-3" disabled="@_saving" @onclick="SaveVideoGameAsync" data-testid="quickadd-save-button">Save</button>
+                    <button class="btn btn-primary mt-3 kt-quickadd-save-btn" disabled="@_saving" @onclick="SaveVideoGameAsync" data-testid="quickadd-save-button">Save</button>
                 }
                 else if (Type == "car")
                 {
@@ -238,7 +234,7 @@ else
                     {
                         @if (_cars.Count > 1)
                         {
-                            <div class="d-flex gap-2 flex-wrap mb-3">
+                            <div class="d-flex gap-2 flex-wrap mb-3 kt-btn-row-even">
                                 @foreach (var car in _cars)
                                 {
                                     <button type="button" class="btn btn-sm @(_selectedCarId == car.Id ? "btn-primary" : "btn-secondary")" @onclick="() => SelectCar(car.Id!)">@car.Name</button>
@@ -248,7 +244,7 @@ else
                         <div class="kt-form-card">
                             <CarHistoryForm Entry="_carEntry" ShowFuel="ShowFuel" ShowElectric="ShowElectric"/>
                         </div>
-                        <button class="btn btn-primary mt-3" disabled="@(_selectedCarId is null || _saving)" @onclick="SaveCarRecordAsync" data-testid="quickadd-save-button">Save</button>
+                        <button class="btn btn-primary mt-3 kt-quickadd-save-btn" disabled="@(_selectedCarId is null || _saving)" @onclick="SaveCarRecordAsync" data-testid="quickadd-save-button">Save</button>
                     }
                 }
                 else if (Type == "house")
@@ -271,7 +267,7 @@ else
                     {
                         @if (_houses.Count > 1)
                         {
-                            <div class="d-flex gap-2 flex-wrap mb-3">
+                            <div class="d-flex gap-2 flex-wrap mb-3 kt-btn-row-even">
                                 @foreach (var house in _houses)
                                 {
                                     <button type="button" class="btn btn-sm @(_selectedHouseId == house.Id ? "btn-primary" : "btn-secondary")" @onclick="() => SelectHouse(house.Id!)">@house.Name</button>
@@ -281,7 +277,7 @@ else
                         <div class="kt-form-card">
                             <HouseHistoryForm Entry="_houseEntry"/>
                         </div>
-                        <button class="btn btn-primary mt-3" disabled="@(_selectedHouseId is null || _saving)" @onclick="SaveHouseRecordAsync" data-testid="quickadd-save-button">Save</button>
+                        <button class="btn btn-primary mt-3 kt-quickadd-save-btn" disabled="@(_selectedHouseId is null || _saving)" @onclick="SaveHouseRecordAsync" data-testid="quickadd-save-button">Save</button>
                     }
                 }
                 else if (Type == "health")
@@ -304,7 +300,7 @@ else
                     {
                         @if (_healthProfiles.Count > 1)
                         {
-                            <div class="d-flex gap-2 flex-wrap mb-3">
+                            <div class="d-flex gap-2 flex-wrap mb-3 kt-btn-row-even">
                                 @foreach (var profile in _healthProfiles)
                                 {
                                     <button type="button" class="btn btn-sm @(_selectedProfileId == profile.Id ? "btn-primary" : "btn-secondary")" @onclick="() => SelectHealthProfile(profile.Id!)">@profile.Name</button>
@@ -314,7 +310,7 @@ else
                         <div class="kt-form-card">
                             <HealthRecordForm Entry="_healthEntry"/>
                         </div>
-                        <button class="btn btn-primary mt-3" disabled="@(_selectedProfileId is null || _saving)" @onclick="SaveHealthRecordAsync" data-testid="quickadd-save-button">Save</button>
+                        <button class="btn btn-primary mt-3 kt-quickadd-save-btn" disabled="@(_selectedProfileId is null || _saving)" @onclick="SaveHealthRecordAsync" data-testid="quickadd-save-button">Save</button>
                     }
                 }
             </Authorized>

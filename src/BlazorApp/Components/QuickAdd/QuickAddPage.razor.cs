@@ -118,9 +118,7 @@ public partial class QuickAddPage : ComponentBase
         switch (Type)
         {
             case "movie":
-                // defaults to today for the "just saw it" scenario - visible and clearable, since
-                // prefilling it marks the movie Seen
-                _movie = new MovieDto { FirstSeenAt = DateOnly.FromDateTime(DateTime.Today) };
+                _movie = new MovieDto();
                 _movieOwned = false;
                 _movieOwnedDraft = new OwnedVersionDto();
                 break;
@@ -130,7 +128,7 @@ public partial class QuickAddPage : ComponentBase
                 _tvShowOwnedDraft = new OwnedVersionDto();
                 break;
             case "book":
-                _book = new BookDto { FirstReadAt = DateOnly.FromDateTime(DateTime.Today) };
+                _book = new BookDto();
                 _bookOwned = false;
                 _bookOwnedDraft = new OwnedVersionDto();
                 break;

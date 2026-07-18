@@ -16,7 +16,7 @@
     </div>
     <div class="col-12">
         <label class="form-label d-block">Event type</label>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap kt-btn-row-even">
             @foreach (var eventType in Enum.GetValues<CarHistoryType>())
             {
                 <button type="button" class="btn btn-sm @(Entry.EventType == eventType ? "btn-primary" : "btn-secondary")"
