@@ -1,0 +1,27 @@
+@* Standalone root for the anonymous shared-wishlist view (see SharedWishlistPage.razor) - mapped
+   directly to a route in Program.cs via RazorComponentResult, entirely outside App.razor/Routes.razor's
+   now-globally-interactive Router. No Blazor script reference at all: this page must never open a
+   SignalR circuit for an anonymous recipient. *@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <base href="/"/>
+    <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]"/>
+    <link rel="stylesheet" href="@Assets["app.css"]"/>
+    <link rel="stylesheet" href="@Assets["Keeptrack.BlazorApp.styles.css"]"/>
+    <link rel="icon" type="image/png" href="favicon.png"/>
+    <HeadOutlet/>
+</head>
+
+<body>
+<SharedWishlistPage Token="@Token"/>
+</body>
+
+</html>
+
+@code {
+    [Parameter] public required string Token { get; set; }
+}

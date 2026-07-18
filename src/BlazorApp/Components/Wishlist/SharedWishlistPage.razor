@@ -1,9 +1,13 @@
-@page "/shared/wishlist/{Token}"
 @inject SharedWishlistApiClient SharedWishlistApi
 
-@* Deliberately anonymous (no [Authorize]) and statically rendered (no @rendermode): the recipient of a
-   share link has no account and needs no interactivity - every visit re-fetches, so the view is live by
-   construction. The token in the URL is the access control (see WishlistController.GetShared). *@
+@* Deliberately anonymous and statically rendered, with no @page/@rendermode: the recipient of a share
+   link has no account and needs no interactivity - every visit re-fetches, so the view is live by
+   construction. Now that Routes.razor is globally interactive (see App.razor), this page can no longer
+   be reached through the normal Router - a component under an interactive ancestor can't opt back out
+   of interactivity. Instead it's served by its own SharedWishlistApp root (mapped directly in
+   Program.cs via RazorComponentResult), which never loads the Blazor script at all, so an anonymous
+   visitor never opens a SignalR circuit. The token in the URL is the access control
+   (see WishlistController.GetShared). *@
 
 <PageTitle>Shared wishlist - Keeptrack</PageTitle>
 <HeadContent>
