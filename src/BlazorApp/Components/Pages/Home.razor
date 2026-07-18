@@ -9,14 +9,11 @@
             <div class="kt-home-eyebrow">Your personal collection</div>
             @if (_stats is not null && TotalItems > 0)
             {
-                <h1>Welcome back —<br /><em>@TotalItems.ToString("N0") things remembered.</em></h1>
+                <h1>Welcome back —<br/><em>@TotalItems.ToString("N0") things remembered.</em></h1>
                 <p class="kt-home-sub">
                     Good work building this up@(_stats.EpisodesWatched > 0 ? $" — including {_stats.EpisodesWatched:N0} episodes watched across your shows" : "").
                     Every entry below is one more thing you'll never lose.
                 </p>
-                <div class="kt-home-cta">
-                    <a class="btn btn-primary" href="/add">+ Quick add</a>
-                </div>
                 <div class="kt-stat-grid">
                     <a class="kt-stat-tile" href="/movies"><span class="kt-stat-value">@_stats.Movies</span><span class="kt-stat-label">Movies</span></a>
                     <a class="kt-stat-tile" href="/tv-shows"><span class="kt-stat-value">@_stats.TvShows</span><span class="kt-stat-label">TV shows</span></a>
@@ -30,10 +27,9 @@
             }
             else
             {
-                <h1>Everything you do,<br /><em>remembered.</em></h1>
+                <h1>Everything you do,<br/><em>remembered.</em></h1>
                 <p class="kt-home-sub">
-                    Your collection is waiting for its first entry -
-                    log a film watched, a book read, an album on repeat.
+                    Your collection is waiting for its first entry - log a film watched, a book read, an album on repeat.
                     Rate it, note it, never lose it.
                 </p>
                 <div class="kt-home-cta">
@@ -44,10 +40,9 @@
         </Authorized>
         <NotAuthorized>
             <div class="kt-home-eyebrow">Your personal collection</div>
-            <h1>Everything you do,<br /><em>remembered.</em></h1>
+            <h1>Everything you do,<br/><em>remembered.</em></h1>
             <p class="kt-home-sub">
-                Keeptrack is your quiet space to log the things that matter -
-                films watched, books read, places visited, habits tracked.
+                Keeptrack is your quiet space to log the things that matter - films watched, books read, places visited, habits tracked.
                 Rate them, note them, never lose them.
             </p>
 
@@ -71,9 +66,10 @@
 
     private CollectionStatsDto? _stats;
 
-    private long TotalItems => _stats is null
-        ? 0
-        : _stats.Movies + _stats.TvShows + _stats.Books + _stats.Albums + _stats.VideoGames + _stats.Playlists + _stats.Cars + _stats.Houses;
+    private long TotalItems =>
+        _stats is null
+            ? 0
+            : _stats.Movies + _stats.TvShows + _stats.Books + _stats.Albums + _stats.VideoGames + _stats.Playlists + _stats.Cars + _stats.Houses;
 
     protected override async Task OnInitializedAsync()
     {
@@ -88,8 +84,7 @@
         }
         catch (Exception)
         {
-            // the greeting is decoration - a stats hiccup must never break the landing page,
-            // so it just falls back to the CTA variant
+            // the greeting is decoration - a stats hiccup must never break the landing page, so it just falls back to the CTA variant
         }
     }
 }

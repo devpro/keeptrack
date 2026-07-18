@@ -104,6 +104,19 @@ public partial class QuickAddPage : ComponentBase
 
     private static bool IsKnownType(string? type) => type is not null && KnownTypes.Contains(type);
 
+    private static string FormTitle(string? type) => type switch
+    {
+        "movie" => "New movie",
+        "tv-show" => "New TV show",
+        "book" => "New book",
+        "album" => "New album",
+        "video-game" => "New video game",
+        "car" => "New car record",
+        "house" => "New house record",
+        "health" => "New health record",
+        _ => ""
+    };
+
     /// <summary>
     /// Only rebuilds the draft on an actual type change - this also fires on unrelated parameter updates
     /// (e.g. a cascading auth-state refresh), which must not wipe a half-filled form.

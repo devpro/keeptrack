@@ -39,9 +39,8 @@
                         <span class="nav-icon">▭</span> TV shows
                     </NavLink>
                 </div>
-                @* Free preview accounts (no Firebase "member"/"admin" role) only get movies and TV shows -
-                   the two links above sit outside this block on purpose. Hiding is UX, not security:
-                   the API enforces the same policy on every request. *@
+                @* Free preview accounts (no Firebase "member"/"admin" role) only get movies and TV shows - the two links above sit outside this block on purpose.
+                   Hiding is UX, not security: the API enforces the same policy on every request. *@
                 <AuthorizeView Policy="MemberOnly" Context="memberContext">
                     <Authorized>
                         <div class="nav-item">
@@ -75,9 +74,6 @@
                             </NavLink>
                         </div>
                         <div class="nav-item">
-                            @* U+271A Heavy Greek Cross: default text presentation (not in Unicode's
-                               emoji-data), unlike the medical-cross emoji - see the theme section's
-                               emoji gotcha in CLAUDE.md *@
                             <NavLink class="nav-link" href="health">
                                 <span class="nav-icon">✚</span> Health
                             </NavLink>
