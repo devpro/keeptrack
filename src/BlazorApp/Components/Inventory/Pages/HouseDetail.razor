@@ -9,7 +9,7 @@
         Loading…
     </div>
 }
-else if (_house is null)
+else if (House is null)
 {
     <div class="kt-empty">
         <div class="kt-empty-icon">◈</div>
@@ -18,18 +18,18 @@ else if (_house is null)
 }
 else
 {
-    <Breadcrumb ListRoute="/houses" ListLabel="Houses" Current="@_house.Name"/>
+    <Breadcrumb ListRoute="/houses" ListLabel="Houses" Current="@House.Name"/>
 
     <div class="kt-page-header">
         <div class="kt-title-row">
-            <input class="kt-title-input" value="@_house.Name" @onchange="SaveNameAsync"/>
+            <input class="kt-title-input" value="@House.Name" @onchange="SaveNameAsync"/>
         </div>
     </div>
 
     <div class="d-flex gap-2 mb-3">
         @foreach (var propertyType in Enum.GetValues<PropertyType>())
         {
-            <button class="btn btn-sm @(_house.PropertyType == propertyType ? "btn-primary" : "btn-secondary")" @onclick="() => SetPropertyTypeAsync(propertyType)">@propertyType</button>
+            <button class="btn btn-sm @(House.PropertyType == propertyType ? "btn-primary" : "btn-secondary")" @onclick="() => SetPropertyTypeAsync(propertyType)">@propertyType</button>
         }
     </div>
 
@@ -37,26 +37,26 @@ else
         <div class="row g-3">
             <div class="col-md-6">
                 <label class="form-label">City</label>
-                <input class="form-control form-control-sm" value="@_house.City" @onchange="SaveCityAsync"/>
+                <input class="form-control form-control-sm" value="@House.City" @onchange="SaveCityAsync"/>
             </div>
             <div class="col-md-3">
                 <label class="form-label">Moved in</label>
-                <input class="form-control form-control-sm" type="date" value="@_house.MovedInAt?.ToString("yyyy-MM-dd")" @onchange="SaveMovedInAtAsync"/>
+                <input class="form-control form-control-sm" type="date" value="@House.MovedInAt?.ToString("yyyy-MM-dd")" @onchange="SaveMovedInAtAsync"/>
             </div>
             <div class="col-md-3">
                 <label class="form-label">Moved out</label>
-                <input class="form-control form-control-sm" type="date" value="@_house.MovedOutAt?.ToString("yyyy-MM-dd")" @onchange="SaveMovedOutAtAsync"/>
+                <input class="form-control form-control-sm" type="date" value="@House.MovedOutAt?.ToString("yyyy-MM-dd")" @onchange="SaveMovedOutAtAsync"/>
             </div>
             <div class="col-12">
                 <label class="form-label">Notes</label>
-                <textarea class="form-control form-control-sm" rows="2" @onchange="SaveNotesAsync">@_house.Notes</textarea>
+                <textarea class="form-control form-control-sm" rows="2" @onchange="SaveNotesAsync">@House.Notes</textarea>
             </div>
         </div>
     </div>
 
     @if (HasMetricsToShow)
     {
-        var metrics = _metrics!;
+        var metrics = Metrics!;
         <h2 class="kt-section-title">Yearly cost review</h2>
         <div class="kt-form-card">
             <p class="kt-card-meta mb-1">Total cost by year - @metrics.CostHistory.Sum(p => p.TotalCost).ToString("F2") across the whole history</p>
@@ -101,7 +101,7 @@ else
        (Provider/Description) stay desktop-only via d-none d-md-table-cell.
        One tab per year (same kt-season-picker/kt-page-btn header as TvShowDetail.razor's season tabs and
        HealthProfileDetail.razor's journal), newest year first. *@
-    @if (_history.Count == 0)
+    @if (History!.Count == 0)
     {
         <div class="kt-table-wrap">
             <div class="table-responsive">
@@ -200,12 +200,22 @@ else
     [Inject] private HouseHistoryApiClient HouseHistoryApi { get; set; } = null!;
 
     private bool _loading = true;
-    private HouseDto? _house;
-    private List<HouseHistoryDto> _history = [];
+
+    // Public properties (a framework requirement for [PersistentState]): the data loaded during the
+    // prerender pass is carried over to the interactive circuit, so the first interactive render reuses
+    // it instead of resetting to the spinner and re-fetching - same pattern as MovieDetail. The derived
+    // by-year grouping is rebuilt locally from these in BuildDerivedState, same as CarDetail.
+    [PersistentState]
+    public HouseDto? House { get; set; }
+
+    [PersistentState]
+    public List<HouseHistoryDto>? History { get; set; }
+
+    [PersistentState]
+    public HouseMetricsDto? Metrics { get; set; }
     private Dictionary<int, List<HouseHistoryDto>> _historyByYear = new();
     private List<int> _years = [];
     private int _selectedYear;
-    private HouseMetricsDto? _metrics;
     private HouseHistoryDto _modalEntry = NewEntry("");
     private bool _showModal;
 
@@ -214,9 +224,20 @@ else
     /// <summary>`ComputeMetrics` always returns a non-null result, even for a brand-new house with no history
     /// at all (an empty list) - the metrics panel should only render once there's actually something in it
     /// to show, not just because the object itself isn't null.</summary>
-    private bool HasMetricsToShow => _metrics is { CostHistory.Count: > 0 };
+    private bool HasMetricsToShow => Metrics is { CostHistory.Count: > 0 };
 
-    protected override async Task OnParametersSetAsync() => await LoadAsync();
+    protected override async Task OnParametersSetAsync()
+    {
+        // House already holds this route's item when [PersistentState] restored the prerendered data;
+        // the id check keeps an in-circuit navigation to a *different* house reloading as before.
+        if (House?.Id == Id && History is not null && Metrics is not null)
+        {
+            BuildDerivedState();
+            _loading = false;
+            return;
+        }
+        await LoadAsync();
+    }
 
     private static HouseHistoryDto NewEntry(string houseId) => new()
     {
@@ -228,71 +249,76 @@ else
     private async Task LoadAsync()
     {
         _loading = true;
-        _house = await HouseApi.GetOneAsync(Id);
-        if (_house is not null)
+        House = await HouseApi.GetOneAsync(Id);
+        if (House is not null)
         {
             var result = await HouseHistoryApi.GetAsync("", 1, int.MaxValue, new Dictionary<string, string> { ["HouseId"] = Id });
             // most recent first - same journal convention as HealthProfileDetail/CarDetail
-            _history = result.Items.OrderByDescending(h => h.HistoryDate).ToList();
-            _historyByYear = _history.GroupBy(h => h.HistoryDate.Year).ToDictionary(g => g.Key, g => g.ToList());
-            _years = _historyByYear.Keys.OrderByDescending(y => y).ToList();
-            // same "keep the current tab if it still exists, else default to the newest" rule as
-            // TvShowDetail.razor's own season selection
-            if (!_years.Contains(_selectedYear)) _selectedYear = _years.Count > 0 ? _years[0] : 0;
-            _metrics = await HouseApi.GetMetricsAsync(Id);
+            History = result.Items.OrderByDescending(h => h.HistoryDate).ToList();
+            Metrics = await HouseApi.GetMetricsAsync(Id);
+            BuildDerivedState();
         }
         _loading = false;
+    }
+
+    private void BuildDerivedState()
+    {
+        _historyByYear = History!.GroupBy(h => h.HistoryDate.Year).ToDictionary(g => g.Key, g => g.ToList());
+        _years = _historyByYear.Keys.OrderByDescending(y => y).ToList();
+        // same "keep the current tab if it still exists, else default to the newest" rule as
+        // TvShowDetail.razor's own season selection
+        if (!_years.Contains(_selectedYear)) _selectedYear = _years.Count > 0 ? _years[0] : 0;
     }
 
     private void SelectYear(int year) => _selectedYear = year;
 
     private async Task SaveHouseAsync()
     {
-        if (_house is null) return;
-        await HouseApi.UpdateAsync(_house);
+        if (House is null) return;
+        await HouseApi.UpdateAsync(House);
     }
 
     private async Task SaveNameAsync(ChangeEventArgs e)
     {
-        if (_house is null) return;
+        if (House is null) return;
         var name = e.Value?.ToString();
         if (string.IsNullOrWhiteSpace(name)) return;
-        _house.Name = name;
+        House.Name = name;
         await SaveHouseAsync();
     }
 
     private async Task SetPropertyTypeAsync(PropertyType propertyType)
     {
-        if (_house is null) return;
-        _house.PropertyType = propertyType;
+        if (House is null) return;
+        House.PropertyType = propertyType;
         await SaveHouseAsync();
     }
 
     private async Task SaveCityAsync(ChangeEventArgs e)
     {
-        if (_house is null) return;
-        _house.City = e.Value?.ToString();
+        if (House is null) return;
+        House.City = e.Value?.ToString();
         await SaveHouseAsync();
     }
 
     private async Task SaveMovedInAtAsync(ChangeEventArgs e)
     {
-        if (_house is null) return;
-        _house.MovedInAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
+        if (House is null) return;
+        House.MovedInAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
         await SaveHouseAsync();
     }
 
     private async Task SaveMovedOutAtAsync(ChangeEventArgs e)
     {
-        if (_house is null) return;
-        _house.MovedOutAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
+        if (House is null) return;
+        House.MovedOutAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
         await SaveHouseAsync();
     }
 
     private async Task SaveNotesAsync(ChangeEventArgs e)
     {
-        if (_house is null) return;
-        _house.Notes = e.Value?.ToString();
+        if (House is null) return;
+        House.Notes = e.Value?.ToString();
         await SaveHouseAsync();
     }
 

@@ -9,7 +9,22 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
 {
     private const int PageSize = 20;
 
-    protected List<TDto> _items = [];
+    // Public properties (a framework requirement for [PersistentState]): the page loaded during the
+    // prerender pass is carried over to the interactive circuit, so the first interactive render reuses
+    // it instead of resetting to the spinner and re-fetching - same pattern as the detail pages
+    // (MovieDetail, etc.). Items is nullable (no property initializer) so [PersistentState] restoration
+    // isn't fighting a default value - markup falls back to an empty list via "Items ?? []", same as
+    // every other nullable persisted list in this codebase. LoadedQuery is the query signature
+    // Items/TotalCount were loaded for, so a restore only skips the reload when it still matches the
+    // current search/filter/sort/page - any of those changing must still trigger a real reload.
+    [PersistentState]
+    public List<TDto>? Items { get; set; }
+
+    [PersistentState]
+    public long TotalCount { get; set; }
+
+    [PersistentState]
+    public string? LoadedQuery { get; set; }
 
     protected TDto _form = new();
 
@@ -25,11 +40,7 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
 
     protected int _page = 1;
 
-    protected long _totalCount;
-
-    private string? _loadedQuery;
-
-    protected int TotalPages => (int)Math.Ceiling(_totalCount / (double)PageSize);
+    protected int TotalPages => (int)Math.Ceiling(TotalCount / (double)PageSize);
 
     [Inject] protected NavigationManager Navigation { get; set; } = null!;
 
@@ -74,11 +85,19 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
         _sort = SortQuery ?? "";
         _page = PageQuery is > 0 ? PageQuery.Value : 1;
         var query = BuildQuerySignature();
-        if (query != _loadedQuery)
+
+        // Items/TotalCount already hold this exact query's results when [PersistentState] restored the
+        // prerendered data - the signature check keeps this skip from also swallowing a genuine
+        // search/filter/sort/page change (a different signature) or an unrelated parameter update (e.g.
+        // a cascading auth-state refresh), both of which must still reload.
+        if (query == LoadedQuery)
         {
-            _loadedQuery = query;
-            await LoadAsync();
+            _loading = false;
+            return;
         }
+
+        LoadedQuery = query;
+        await LoadAsync();
     }
 
     protected void OnSearchChanged(string value) => _search = value;
@@ -173,8 +192,8 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
         {
             _loading = true;
             var result = await Api.GetAsync(_search, _page, PageSize, ExtraQuery, _sort);
-            _items = result.Items;
-            _totalCount = result.TotalCount;
+            Items = result.Items;
+            TotalCount = result.TotalCount;
         }
         catch (Exception ex)
         {

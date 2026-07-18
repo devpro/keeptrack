@@ -10,7 +10,7 @@
         Loading…
     </div>
 }
-else if (_playlist is null)
+else if (Playlist is null)
 {
     <div class="kt-empty">
         <div class="kt-empty-icon">◈</div>
@@ -19,11 +19,11 @@ else if (_playlist is null)
 }
 else
 {
-    <Breadcrumb ListRoute="/playlists" ListLabel="Playlists" Current="@_playlist.Title"/>
+    <Breadcrumb ListRoute="/playlists" ListLabel="Playlists" Current="@Playlist.Title"/>
 
     <div class="kt-page-header">
         <div class="kt-title-row">
-            <input class="kt-title-input" value="@_playlist.Title" @onchange="SaveTitleAsync"/>
+            <input class="kt-title-input" value="@Playlist.Title" @onchange="SaveTitleAsync"/>
         </div>
     </div>
 
@@ -49,7 +49,7 @@ else
                     </span>
                     <div class="d-flex align-items-center gap-1">
                         <button class="kt-icon-btn" title="Move up" disabled="@(index == 0)" @onclick="() => MoveUpAsync(index)">↑</button>
-                        <button class="kt-icon-btn" title="Move down" disabled="@(index == _playlist.SongIds.Count - 1)" @onclick="() => MoveDownAsync(index)">↓</button>
+                        <button class="kt-icon-btn" title="Move down" disabled="@(index == Playlist.SongIds.Count - 1)" @onclick="() => MoveDownAsync(index)">↓</button>
                         <button class="kt-icon-btn" title="Remove from playlist" @onclick="() => RemoveSongAsync(index)">✕</button>
                     </div>
                 </div>
@@ -61,7 +61,7 @@ else
         <label class="form-label">Add from an album</label>
         <select class="form-select form-select-sm" @onchange="SelectAlbumAsync">
             <option value="">— Choose an album —</option>
-            @foreach (var album in _albums)
+            @foreach (var album in Albums!)
             {
                 <option value="@album.Id">@album.Title</option>
             }
@@ -106,8 +106,20 @@ else
     [Inject] private ReferenceDataApiClient ReferenceDataApi { get; set; } = null!;
 
     private bool _loading = true;
-    private PlaylistDto? _playlist;
-    private List<AlbumDto> _albums = [];
+
+    // Public properties (a framework requirement for [PersistentState]): the data loaded during the
+    // prerender pass is carried over to the interactive circuit, so the first interactive render reuses
+    // it instead of resetting to the spinner and re-fetching - same pattern as MovieDetail. The derived
+    // by-id/by-title lookups are rebuilt locally from these in BuildDerivedState, same as TvShowDetail's
+    // Episodes -> _watchedByKey.
+    [PersistentState]
+    public PlaylistDto? Playlist { get; set; }
+
+    [PersistentState]
+    public List<SongDto>? Songs { get; set; }
+
+    [PersistentState]
+    public List<AlbumDto>? Albums { get; set; }
     private Dictionary<string, SongDto> _songsById = [];
     private Dictionary<string, string> _albumTitlesById = [];
     private string _selectedAlbumId = "";
@@ -119,61 +131,78 @@ else
     /// tolerance already used for a missing reference-link elsewhere in the app.
     /// </summary>
     private List<(SongDto Song, int Index)> PlaylistSongs =>
-        _playlist is null
+        Playlist is null
             ? []
-            : _playlist.SongIds
+            : Playlist.SongIds
                 .Select((id, index) => (Song: _songsById.GetValueOrDefault(id), Index: index))
                 .Where(x => x.Song is not null)
                 .Select(x => (x.Song!, x.Index))
                 .ToList();
 
-    protected override async Task OnParametersSetAsync() => await LoadAsync();
+    protected override async Task OnParametersSetAsync()
+    {
+        // Playlist already holds this route's item when [PersistentState] restored the prerendered data;
+        // the id check keeps an in-circuit navigation to a *different* playlist reloading as before.
+        if (Playlist?.Id == Id && Songs is not null && Albums is not null)
+        {
+            BuildDerivedState();
+            _loading = false;
+            return;
+        }
+        await LoadAsync();
+    }
 
     private async Task LoadAsync()
     {
         _loading = true;
-        _playlist = await PlaylistApi.GetOneAsync(Id);
+        Playlist = await PlaylistApi.GetOneAsync(Id);
         var songs = await SongApi.GetAsync("", 1, 5000);
-        _songsById = songs.Items.Where(s => s.Id is not null).ToDictionary(s => s.Id!, s => s);
+        Songs = songs.Items;
         var albums = await AlbumApi.GetAsync("", 1, 5000);
-        _albums = albums.Items;
-        _albumTitlesById = _albums.Where(a => a.Id is not null).ToDictionary(a => a.Id!, a => a.Title ?? "");
+        Albums = albums.Items;
+        BuildDerivedState();
         _loading = false;
+    }
+
+    private void BuildDerivedState()
+    {
+        _songsById = Songs!.Where(s => s.Id is not null).ToDictionary(s => s.Id!, s => s);
+        _albumTitlesById = Albums!.Where(a => a.Id is not null).ToDictionary(a => a.Id!, a => a.Title ?? "");
     }
 
     private async Task SavePlaylistAsync()
     {
-        if (_playlist is null) return;
-        await PlaylistApi.UpdateAsync(_playlist);
+        if (Playlist is null) return;
+        await PlaylistApi.UpdateAsync(Playlist);
     }
 
     private async Task SaveTitleAsync(ChangeEventArgs e)
     {
-        if (_playlist is null) return;
+        if (Playlist is null) return;
         var title = e.Value?.ToString();
         if (string.IsNullOrWhiteSpace(title)) return;
-        _playlist.Title = title;
+        Playlist.Title = title;
         await SavePlaylistAsync();
     }
 
     private async Task MoveUpAsync(int index)
     {
-        if (_playlist is null || index <= 0) return;
-        (_playlist.SongIds[index - 1], _playlist.SongIds[index]) = (_playlist.SongIds[index], _playlist.SongIds[index - 1]);
+        if (Playlist is null || index <= 0) return;
+        (Playlist.SongIds[index - 1], Playlist.SongIds[index]) = (Playlist.SongIds[index], Playlist.SongIds[index - 1]);
         await SavePlaylistAsync();
     }
 
     private async Task MoveDownAsync(int index)
     {
-        if (_playlist is null || index >= _playlist.SongIds.Count - 1) return;
-        (_playlist.SongIds[index], _playlist.SongIds[index + 1]) = (_playlist.SongIds[index + 1], _playlist.SongIds[index]);
+        if (Playlist is null || index >= Playlist.SongIds.Count - 1) return;
+        (Playlist.SongIds[index], Playlist.SongIds[index + 1]) = (Playlist.SongIds[index + 1], Playlist.SongIds[index]);
         await SavePlaylistAsync();
     }
 
     private async Task RemoveSongAsync(int index)
     {
-        if (_playlist is null) return;
-        _playlist.SongIds.RemoveAt(index);
+        if (Playlist is null) return;
+        Playlist.SongIds.RemoveAt(index);
         await SavePlaylistAsync();
     }
 
@@ -188,7 +217,7 @@ else
         _selectedAlbumTracks = [];
         if (string.IsNullOrEmpty(_selectedAlbumId)) return;
 
-        var album = _albums.FirstOrDefault(a => a.Id == _selectedAlbumId);
+        var album = Albums!.FirstOrDefault(a => a.Id == _selectedAlbumId);
         if (string.IsNullOrEmpty(album?.ReferenceId)) return;
 
         var reference = await ReferenceDataApi.GetAlbumAsync(album.ReferenceId);
@@ -202,17 +231,17 @@ else
     /// </summary>
     private async Task AddTrackAsync(ReferenceTrackDto track)
     {
-        if (_playlist is null) return;
-        var album = _albums.FirstOrDefault(a => a.Id == _selectedAlbumId);
+        if (Playlist is null) return;
+        var album = Albums!.FirstOrDefault(a => a.Id == _selectedAlbumId);
         if (album?.Id is null) return;
 
         var song = await SongApi.GetOrCreateForTrackAsync(album.Id, track.Position, track.Title, track.Duration, album.Artist);
         if (song.Id is null) return;
 
         _songsById[song.Id] = song;
-        if (!_playlist.SongIds.Contains(song.Id))
+        if (!Playlist.SongIds.Contains(song.Id))
         {
-            _playlist.SongIds.Add(song.Id);
+            Playlist.SongIds.Add(song.Id);
             await SavePlaylistAsync();
         }
     }

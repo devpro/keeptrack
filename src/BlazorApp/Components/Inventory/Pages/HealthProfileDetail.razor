@@ -10,7 +10,7 @@
         Loading…
     </div>
 }
-else if (_profile is null)
+else if (Profile is null)
 {
     <div class="kt-empty">
         <div class="kt-empty-icon">◈</div>
@@ -19,27 +19,27 @@ else if (_profile is null)
 }
 else
 {
-    <Breadcrumb ListRoute="/health" ListLabel="Health" Current="@_profile.Name"/>
+    <Breadcrumb ListRoute="/health" ListLabel="Health" Current="@Profile.Name"/>
 
     <div class="kt-page-header">
         <div class="kt-title-row">
-            <input class="kt-title-input" value="@_profile.Name" @onchange="SaveNameAsync"/>
+            <input class="kt-title-input" value="@Profile.Name" @onchange="SaveNameAsync"/>
         </div>
     </div>
 
     <div class="kt-form-card">
         <label class="form-label">Notes</label>
-        <textarea class="form-control form-control-sm" rows="2" @onchange="SaveNotesAsync">@_profile.Notes</textarea>
+        <textarea class="form-control form-control-sm" rows="2" @onchange="SaveNotesAsync">@Profile.Notes</textarea>
     </div>
 
     @* No summary panels before the journal on purpose (owner feedback): the journal is the page's
        primary content, and the per-row warning sign is the whole warning surface. "Last seen" is a bare
        specialty + last-date list - no names, no counts, no field labels. *@
-    @if (_metrics is { LastVisits.Count: > 0 })
+    @if (Metrics is { LastVisits.Count: > 0 })
     {
         <h2 class="kt-section-title">Last seen</h2>
         <div class="kt-form-card">
-            @foreach (var visit in _metrics.LastVisits)
+            @foreach (var visit in Metrics.LastVisits)
             {
                 <div class="d-flex justify-content-between" style="max-width:420px">
                     <span>@visit.Specialty</span>
@@ -58,7 +58,7 @@ else
        sign when money remains unaccounted, and edit/delete icons. Everything else lives in the modal.
        One tab per year (same kt-season-picker/kt-page-btn header as TvShowDetail.razor's season tabs),
        newest year first, so a long-running journal doesn't render every entry on one page. *@
-    @if (_records.Count == 0)
+    @if (Records!.Count == 0)
     {
         <div class="kt-table-wrap">
             <div class="table-responsive">
@@ -92,7 +92,7 @@ else
         </div>
     }
 
-    @if (_metrics is { CostHistory.Count: > 0 })
+    @if (Metrics is { CostHistory.Count: > 0 })
     {
         <h2 class="kt-section-title">Yearly cost review</h2>
         <div class="kt-table-wrap">
@@ -107,7 +107,7 @@ else
                     </tr>
                     </thead>
                     <tbody>
-                    @foreach (var point in _metrics.CostHistory)
+                    @foreach (var point in Metrics.CostHistory)
                     {
                         <tr>
                             <td style="font-weight:500">@point.Year</td>
@@ -225,12 +225,22 @@ else
     [Inject] private HealthRecordApiClient HealthRecordApi { get; set; } = null!;
 
     private bool _loading = true;
-    private HealthProfileDto? _profile;
-    private List<HealthRecordDto> _records = [];
+
+    // Public properties (a framework requirement for [PersistentState]): the data loaded during the
+    // prerender pass is carried over to the interactive circuit, so the first interactive render reuses
+    // it instead of resetting to the spinner and re-fetching - same pattern as MovieDetail. The derived
+    // by-year grouping is rebuilt locally from these in BuildDerivedState, same as CarDetail/HouseDetail.
+    [PersistentState]
+    public HealthProfileDto? Profile { get; set; }
+
+    [PersistentState]
+    public List<HealthRecordDto>? Records { get; set; }
+
+    [PersistentState]
+    public HealthMetricsDto? Metrics { get; set; }
     private Dictionary<int, List<HealthRecordDto>> _recordsByYear = new();
     private List<int> _years = [];
     private int _selectedYear;
-    private HealthMetricsDto? _metrics;
     private HealthRecordDto _modalEntry = NewEntry("");
     private bool _showModal;
 
@@ -239,7 +249,7 @@ else
     /// <summary>The journal rows' warning flags come from the metrics (the one balance computation,
     /// server-side in HealthMetricsService) rather than re-deriving the arithmetic per row.</summary>
     private HashSet<string> UnbalancedRecordIds =>
-        _metrics is null ? [] : [.. _metrics.UnbalancedRecords.Select(u => u.RecordId)];
+        Metrics is null ? [] : [.. Metrics.UnbalancedRecords.Select(u => u.RecordId)];
 
     /// <summary>Live preview of the same balance the server computes - what the modal shows while typing.</summary>
     private double ModalMissingAmount =>
@@ -249,7 +259,18 @@ else
         ? "What was wrong (fever, migraine, gastro, …)"
         : "Reason for the visit / what happened";
 
-    protected override async Task OnParametersSetAsync() => await LoadAsync();
+    protected override async Task OnParametersSetAsync()
+    {
+        // Profile already holds this route's item when [PersistentState] restored the prerendered data;
+        // the id check keeps an in-circuit navigation to a *different* profile reloading as before.
+        if (Profile?.Id == Id && Records is not null && Metrics is not null)
+        {
+            BuildDerivedState();
+            _loading = false;
+            return;
+        }
+        await LoadAsync();
+    }
 
     private static HealthRecordDto NewEntry(string profileId) => new()
     {
@@ -284,43 +305,48 @@ else
     private async Task LoadAsync()
     {
         _loading = true;
-        _profile = await HealthProfileApi.GetOneAsync(Id);
-        if (_profile is not null)
+        Profile = await HealthProfileApi.GetOneAsync(Id);
+        if (Profile is not null)
         {
             var result = await HealthRecordApi.GetAsync("", 1, int.MaxValue, new Dictionary<string, string> { ["HealthProfileId"] = Id });
             // most recent first - a journal reads with the newest entry on top, same call as HouseDetail
-            _records = result.Items.OrderByDescending(r => r.HistoryDate).ToList();
-            _recordsByYear = _records.GroupBy(r => r.HistoryDate.Year).ToDictionary(g => g.Key, g => g.ToList());
-            _years = _recordsByYear.Keys.OrderByDescending(y => y).ToList();
-            // same "keep the current tab if it still exists, else default to the newest" rule as
-            // TvShowDetail.razor's own season selection
-            if (!_years.Contains(_selectedYear)) _selectedYear = _years.Count > 0 ? _years[0] : 0;
-            _metrics = await HealthProfileApi.GetMetricsAsync(Id);
+            Records = result.Items.OrderByDescending(r => r.HistoryDate).ToList();
+            Metrics = await HealthProfileApi.GetMetricsAsync(Id);
+            BuildDerivedState();
         }
         _loading = false;
+    }
+
+    private void BuildDerivedState()
+    {
+        _recordsByYear = Records!.GroupBy(r => r.HistoryDate.Year).ToDictionary(g => g.Key, g => g.ToList());
+        _years = _recordsByYear.Keys.OrderByDescending(y => y).ToList();
+        // same "keep the current tab if it still exists, else default to the newest" rule as
+        // TvShowDetail.razor's own season selection
+        if (!_years.Contains(_selectedYear)) _selectedYear = _years.Count > 0 ? _years[0] : 0;
     }
 
     private void SelectYear(int year) => _selectedYear = year;
 
     private async Task SaveProfileAsync()
     {
-        if (_profile is null) return;
-        await HealthProfileApi.UpdateAsync(_profile);
+        if (Profile is null) return;
+        await HealthProfileApi.UpdateAsync(Profile);
     }
 
     private async Task SaveNameAsync(ChangeEventArgs e)
     {
-        if (_profile is null) return;
+        if (Profile is null) return;
         var name = e.Value?.ToString();
         if (string.IsNullOrWhiteSpace(name)) return;
-        _profile.Name = name;
+        Profile.Name = name;
         await SaveProfileAsync();
     }
 
     private async Task SaveNotesAsync(ChangeEventArgs e)
     {
-        if (_profile is null) return;
-        _profile.Notes = e.Value?.ToString();
+        if (Profile is null) return;
+        Profile.Notes = e.Value?.ToString();
         await SaveProfileAsync();
     }
 
