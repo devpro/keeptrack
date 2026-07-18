@@ -29,6 +29,8 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
     private static readonly (string Route, string Name)[] s_routes =
     [
         ("/", "home"),
+        ("/add", "quickadd-picker"),
+        ("/add?type=movie", "quickadd-movie-form"),
         ("/watch-next", "watch-next"),
         ("/wishlist", "wishlist"),
         ("/books", "books"),

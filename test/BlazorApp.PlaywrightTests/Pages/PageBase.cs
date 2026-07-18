@@ -72,6 +72,8 @@ public abstract class PageBase(IPage page)
 
     public Task<HomePage> OpenHomeAsync() => NavigateAsync("Home", new HomePage(Page));
 
+    public Task<QuickAddPage> OpenQuickAddAsync() => NavigateAsync("Quick add", new QuickAddPage(Page));
+
     public Task<WatchNextPage> OpenWatchNextAsync() => NavigateAsync("Watch next", new WatchNextPage(Page));
 
     public Task<WishlistPage> OpenWishlistAsync() => NavigateAsync("Wishlist", new WishlistPage(Page));
