@@ -1,0 +1,216 @@
+@page "/add"
+@attribute [Authorize]
+@using Keeptrack.BlazorApp.Components.Inventory.Pages
+
+<div class="kt-page-header">
+    <h1>Quick <span>add</span></h1>
+</div>
+
+@if (!IsKnownType(Type))
+{
+    <div class="kt-stat-grid kt-quickadd-picker">
+        <a class="kt-stat-tile" href="/add?type=movie" data-testid="quickadd-type-movie">
+            <span class="kt-stat-value">◼</span>
+            <span class="kt-stat-label">Movie</span>
+        </a>
+        <a class="kt-stat-tile" href="/add?type=tv-show" data-testid="quickadd-type-tv-show">
+            <span class="kt-stat-value">▭</span>
+            <span class="kt-stat-label">TV show</span>
+        </a>
+        @* Free preview accounts only get movies and TV shows, same rule as NavMenu.razor - hiding is UX,
+           the API enforces the same policy on every request. *@
+        <AuthorizeView Policy="MemberOnly" Context="memberContext">
+            <Authorized>
+                <a class="kt-stat-tile" href="/add?type=book" data-testid="quickadd-type-book">
+                    <span class="kt-stat-value">▬</span>
+                    <span class="kt-stat-label">Book</span>
+                </a>
+                <a class="kt-stat-tile" href="/add?type=album" data-testid="quickadd-type-album">
+                    <span class="kt-stat-value">♪</span>
+                    <span class="kt-stat-label">Album</span>
+                </a>
+                <a class="kt-stat-tile" href="/add?type=video-game" data-testid="quickadd-type-video-game">
+                    <span class="kt-stat-value">◆</span>
+                    <span class="kt-stat-label">Video game</span>
+                </a>
+            </Authorized>
+            <NotAuthorized>
+                <span class="kt-nav-note">Preview account - movies &amp; TV shows only. A membership unlocks books, albums, games and more.</span>
+            </NotAuthorized>
+        </AuthorizeView>
+    </div>
+}
+else
+{
+    <a href="/add" class="kt-quickadd-back">‹ Choose a different type</a>
+
+    @if (_error is not null)
+    {
+        <p class="kt-callout kt-callout-danger">@_error</p>
+    }
+
+    @if (Type == "movie")
+    {
+        <div class="kt-form-card">
+            <div class="row g-3">
+                <div class="col-12">
+                    <label class="form-label">Title</label>
+                    <input class="form-control" data-testid="quickadd-title-input" @bind="_movie.Title"/>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label">Year</label>
+                    <input class="form-control" type="number" min="1900" max="2100" @bind="_movie.Year"/>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label">Watched on</label>
+                    <input class="form-control" type="date" @bind="_movie.FirstSeenAt" @bind:format="yyyy-MM-dd"/>
+                </div>
+                <div class="col-12 col-md-6">
+                    <label class="form-label">Rating</label>
+                    <StarRatingInput Rating="_movie.Rating" RatingChanged="r => _movie.Rating = r"/>
+                </div>
+                <div class="col-12">
+                    <button type="button" class="btn btn-sm kt-toggle-btn @(_movieOwned ? "active" : "")" @onclick="() => _movieOwned = !_movieOwned">I own a copy</button>
+                </div>
+                @if (_movieOwned)
+                {
+                    <div class="col-12">
+                        <OwnedVersionFields Copy="_movieOwnedDraft"/>
+                    </div>
+                }
+            </div>
+        </div>
+        <button class="btn btn-primary mt-3" disabled="@_saving" @onclick="SaveMovieAsync" data-testid="quickadd-save-button">Save</button>
+    }
+    else if (Type == "tv-show")
+    {
+        <div class="kt-form-card">
+            <div class="row g-3">
+                <div class="col-12">
+                    <label class="form-label">Title</label>
+                    <input class="form-control" data-testid="quickadd-title-input" @bind="_tvShow.Title"/>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label">Year</label>
+                    <input class="form-control" type="number" min="1900" max="2100" @bind="_tvShow.Year"/>
+                </div>
+                <div class="col-12">
+                    <button type="button" class="btn btn-sm kt-toggle-btn @(_tvShowOwned ? "active" : "")" @onclick="() => _tvShowOwned = !_tvShowOwned">I own a copy</button>
+                </div>
+                @if (_tvShowOwned)
+                {
+                    <div class="col-12">
+                        <OwnedVersionFields Copy="_tvShowOwnedDraft"/>
+                    </div>
+                }
+            </div>
+        </div>
+        <button class="btn btn-primary mt-3" disabled="@_saving" @onclick="SaveTvShowAsync" data-testid="quickadd-save-button">Save</button>
+    }
+    else
+    {
+        <AuthorizeView Policy="MemberOnly" Context="memberContext">
+            <Authorized>
+                @if (Type == "book")
+                {
+                    <div class="kt-form-card">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">Title</label>
+                                <input class="form-control" data-testid="quickadd-title-input" @bind="_book.Title"/>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Author</label>
+                                <input class="form-control" @bind="_book.Author"/>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label class="form-label">Year</label>
+                                <input class="form-control" type="number" min="1400" max="2100" @bind="_book.Year"/>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label class="form-label">Read on</label>
+                                <input class="form-control" type="date" @bind="_book.FirstReadAt" @bind:format="yyyy-MM-dd"/>
+                            </div>
+                            <div class="col-12">
+                                <button type="button" class="btn btn-sm kt-toggle-btn @(_bookOwned ? "active" : "")" @onclick="() => _bookOwned = !_bookOwned">I own a copy</button>
+                            </div>
+                            @if (_bookOwned)
+                            {
+                                <div class="col-12">
+                                    <OwnedVersionFields Copy="_bookOwnedDraft"/>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    <button class="btn btn-primary mt-3" disabled="@_saving" @onclick="SaveBookAsync" data-testid="quickadd-save-button">Save</button>
+                }
+                else if (Type == "album")
+                {
+                    <div class="kt-form-card">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">Title</label>
+                                <input class="form-control" data-testid="quickadd-title-input" @bind="_album.Title"/>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Artist</label>
+                                <input class="form-control" @bind="_album.Artist"/>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label class="form-label">Year</label>
+                                <input class="form-control" type="number" min="1900" max="2100" @bind="_album.Year"/>
+                            </div>
+                            <div class="col-12">
+                                <button type="button" class="btn btn-sm kt-toggle-btn @(_albumOwned ? "active" : "")" @onclick="() => _albumOwned = !_albumOwned">I own a copy</button>
+                            </div>
+                            @if (_albumOwned)
+                            {
+                                <div class="col-12">
+                                    <OwnedVersionFields Copy="_albumOwnedDraft"/>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    <button class="btn btn-primary mt-3" disabled="@_saving" @onclick="SaveAlbumAsync" data-testid="quickadd-save-button">Save</button>
+                }
+                else if (Type == "video-game")
+                {
+                    <div class="kt-form-card">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">Title</label>
+                                <input class="form-control" data-testid="quickadd-title-input" @bind="_videoGame.Title"/>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label class="form-label">Year</label>
+                                <input class="form-control" type="number" min="1970" max="2100" @bind="_videoGame.Year"/>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Platform</label>
+                                <select class="form-select" @bind="_videoGamePlatformDraft.Platform">
+                                    <option value="">— Not owned yet —</option>
+                                    @foreach (var platform in VideoGames.VideoGamePlatforms)
+                                    {
+                                        <option>@platform</option>
+                                    }
+                                </select>
+                            </div>
+                            @if (!string.IsNullOrEmpty(_videoGamePlatformDraft.Platform))
+                            {
+                                <div class="col-12">
+                                    <OwnedVersionFields Copy="_videoGamePlatformDraft"/>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    <button class="btn btn-primary mt-3" disabled="@_saving" @onclick="SaveVideoGameAsync" data-testid="quickadd-save-button">Save</button>
+                }
+            </Authorized>
+            <NotAuthorized>
+                <div class="kt-empty">
+                    <p>This type needs a membership. <a href="/add">Choose a different type</a>.</p>
+                </div>
+            </NotAuthorized>
+        </AuthorizeView>
+    }
+}
