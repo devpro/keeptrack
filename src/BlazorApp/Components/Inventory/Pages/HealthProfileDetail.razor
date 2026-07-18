@@ -132,74 +132,7 @@ else
                     <button class="kt-modal-close" @onclick="CancelModal">✕</button>
                 </div>
                 <div class="kt-modal-body">
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label class="form-label d-block">Event type</label>
-                            <div class="d-flex gap-2 flex-wrap">
-                                @foreach (var eventType in Enum.GetValues<HealthEventType>())
-                                {
-                                    <button type="button" class="btn btn-sm @(_modalEntry.EventType == eventType ? "btn-primary" : "btn-secondary")"
-                                            @onclick="() => _modalEntry.EventType = eventType">@eventType</button>
-                                }
-                            </div>
-                        </div>
-                        <DateTimeFields @bind-Value="_modalEntry.HistoryDate"/>
-                        @if (_modalEntry.EventType == HealthEventType.Appointment)
-                        {
-                            <div class="col-md-6">
-                                <label class="form-label">Specialty</label>
-                                <input class="form-control" placeholder="généraliste, dentiste, …" @bind="_modalEntry.Specialty"/>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Practitioner</label>
-                                @* data-testid: the label/input pair has no for/id association, so GetByLabel
-                                   can't resolve it in e2e tests - same as every inventory Add form *@
-                                <input class="form-control" placeholder="Dr …" data-testid="practitioner-input" @bind="_modalEntry.Practitioner"/>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Price paid (€)</label>
-                                <input class="form-control" type="number" step="0.01" data-testid="price-input" @bind="_modalEntry.Price"/>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Public reimb. (€)</label>
-                                <input class="form-control" type="number" step="0.01" @bind="_modalEntry.PublicReimbursement"
-                                       title="What the public health system (assurance maladie / ameli) officially reimburses for this care."/>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Insur. reimb. (€)</label>
-                                <input class="form-control" type="number" step="0.01" @bind="_modalEntry.InsuranceReimbursement"/>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Not covered (€)</label>
-                                <input class="form-control" type="number" step="0.01" @bind="_modalEntry.NotCovered"
-                                       title="Reste à charge: the accepted part no one will reimburse."/>
-                            </div>
-                            @if (_modalEntry.Price is > 0)
-                            {
-                                var missing = ModalMissingAmount;
-                                <div class="col-12">
-                                    @if (Math.Abs(missing) <= 0.005)
-                                    {
-                                        <span class="kt-card-meta" style="color:var(--kt-success)">✓ Balanced - paid, reimbursements and not-covered add up to zero.</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="kt-card-meta" style="color:var(--kt-warning)">
-                                            @missing.ToString("F2") € @(missing > 0 ? "still unaccounted for - this entry will appear under \"Reimbursements to check\"." : "received beyond the price - worth a look.")
-                                        </span>
-                                    }
-                                </div>
-                            }
-                        }
-                        <div class="col-12">
-                            <label class="form-label">Description</label>
-                            <textarea class="form-control" rows="2" placeholder="@DescriptionPlaceholder" @bind="_modalEntry.Description"></textarea>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label">Notes</label>
-                            <textarea class="form-control" rows="2" @bind="_modalEntry.Notes"></textarea>
-                        </div>
-                    </div>
+                    <HealthRecordForm Entry="_modalEntry"/>
                 </div>
                 <div class="kt-modal-footer">
                     <button class="btn btn-secondary" @onclick="CancelModal">Cancel</button>
@@ -240,7 +173,7 @@ else
     private Dictionary<int, List<HealthRecordDto>> _recordsByYear = new();
     private List<int> _years = [];
     private int _selectedYear;
-    private HealthRecordDto _modalEntry = NewEntry("");
+    private HealthRecordDto _modalEntry = HealthRecordForm.NewEntry("");
     private bool _showModal;
 
     private bool IsEditMode => !string.IsNullOrEmpty(_modalEntry.Id);
@@ -249,14 +182,6 @@ else
     /// server-side in HealthMetricsService) rather than re-deriving the arithmetic per row.</summary>
     private HashSet<string> UnbalancedRecordIds =>
         Metrics is null ? [] : [.. Metrics.UnbalancedRecords.Select(u => u.RecordId)];
-
-    /// <summary>Live preview of the same balance the server computes - what the modal shows while typing.</summary>
-    private double ModalMissingAmount =>
-        (_modalEntry.Price ?? 0) - (_modalEntry.PublicReimbursement ?? 0) - (_modalEntry.InsuranceReimbursement ?? 0) - (_modalEntry.NotCovered ?? 0);
-
-    private string DescriptionPlaceholder => _modalEntry.EventType == HealthEventType.Sickness
-        ? "What was wrong (fever, migraine, gastro, …)"
-        : "Reason for the visit / what happened";
 
     protected override async Task OnParametersSetAsync()
     {
@@ -271,14 +196,6 @@ else
         }
         await LoadAsync();
     }
-
-    private static HealthRecordDto NewEntry(string profileId) => new()
-    {
-        HealthProfileId = profileId,
-        // today at the current hour, minute zeroed - a "right now" default the time field can refine
-        HistoryDate = DateTime.Today.AddHours(DateTime.Now.Hour),
-        EventType = HealthEventType.Appointment
-    };
 
     private async Task LoadAsync()
     {
@@ -335,7 +252,7 @@ else
 
     private void ShowAddModal()
     {
-        _modalEntry = NewEntry(Id);
+        _modalEntry = HealthRecordForm.NewEntry(Id);
         _showModal = true;
     }
 

@@ -156,34 +156,7 @@ else
                     <button class="kt-modal-close" @onclick="CancelModal">✕</button>
                 </div>
                 <div class="kt-modal-body">
-                    <div class="row g-3">
-                        <div class="col-md-4">
-                            <label class="form-label">Date</label>
-                            <input class="form-control" type="date" @bind="_modalEntry.HistoryDate" @bind:format="yyyy-MM-dd"/>
-                        </div>
-                        <div class="col-md-8">
-                            <label class="form-label">Cost (€)</label>
-                            <input class="form-control" type="number" step="0.01" @bind="_modalEntry.Cost"/>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label d-block">Event type</label>
-                            <div class="d-flex gap-2 flex-wrap">
-                                @foreach (var eventType in Enum.GetValues<HouseEventType>())
-                                {
-                                    <button type="button" class="btn btn-sm @(_modalEntry.EventType == eventType ? "btn-primary" : "btn-secondary")"
-                                            @onclick="() => _modalEntry.EventType = eventType">@eventType</button>
-                                }
-                            </div>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label">Provider (contractor / technician / utility / store)</label>
-                            <input class="form-control" @bind="_modalEntry.Provider"/>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label">Description</label>
-                            <textarea class="form-control" rows="3" @bind="_modalEntry.Description"></textarea>
-                        </div>
-                    </div>
+                    <HouseHistoryForm Entry="_modalEntry"/>
                 </div>
                 <div class="kt-modal-footer">
                     <button class="btn btn-secondary" @onclick="CancelModal">Cancel</button>
@@ -224,7 +197,7 @@ else
     private Dictionary<int, List<HouseHistoryDto>> _historyByYear = new();
     private List<int> _years = [];
     private int _selectedYear;
-    private HouseHistoryDto _modalEntry = NewEntry("");
+    private HouseHistoryDto _modalEntry = HouseHistoryForm.NewEntry("");
     private bool _showModal;
 
     private bool IsEditMode => !string.IsNullOrEmpty(_modalEntry.Id);
@@ -247,13 +220,6 @@ else
         }
         await LoadAsync();
     }
-
-    private static HouseHistoryDto NewEntry(string houseId) => new()
-    {
-        HouseId = houseId,
-        HistoryDate = DateOnly.FromDateTime(DateTime.Now),
-        EventType = HouseEventType.Maintenance
-    };
 
     private async Task LoadAsync()
     {
@@ -338,7 +304,7 @@ else
 
     private void ShowAddModal()
     {
-        _modalEntry = NewEntry(Id);
+        _modalEntry = HouseHistoryForm.NewEntry(Id);
         _showModal = true;
     }
 
