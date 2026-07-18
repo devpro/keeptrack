@@ -37,4 +37,24 @@ public class VideoGamePlatformDto
     /// When the game was fully completed on this platform.
     /// </summary>
     public DateOnly? FullyCompletedAt { get; set; }
+
+    /// <summary>
+    /// Price paid, in the user's own currency (currently always displayed as euros).
+    /// </summary>
+    public decimal? Price { get; set; }
+
+    /// <summary>
+    /// Where this copy was bought (store, site, marketplace seller...).
+    /// </summary>
+    public string? Vendor { get; set; }
+
+    /// <summary>
+    /// When this copy was acquired, if recorded.
+    /// </summary>
+    public DateOnly? AcquiredAt { get; set; }
+
+    /// <summary>
+    /// Free-text reference for this copy: edition name, order number, barcode...
+    /// </summary>
+    public string? Reference { get; set; }
 }
