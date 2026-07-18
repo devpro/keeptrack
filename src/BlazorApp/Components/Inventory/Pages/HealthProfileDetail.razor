@@ -3,12 +3,15 @@
 @attribute [Authorize]
 @using System.Globalization
 
-@if (_loading)
+@if (!_loaded)
 {
-    <div class="kt-loading">
-        <div class="kt-spinner"></div>
-        Loading…
-    </div>
+    @if (_loading)
+    {
+        <div class="kt-loading">
+            <div class="kt-spinner"></div>
+            Loading…
+        </div>
+    }
 }
 else if (Profile is null)
 {
@@ -224,7 +227,13 @@ else
 
     [Inject] private HealthRecordApiClient HealthRecordApi { get; set; } = null!;
 
-    private bool _loading = true;
+    // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
+    // _loaded tracks whether a load attempt has finished at all, fresh or restored from persisted
+    // prerender state - both default false so the forced render Blazor triggers right after the
+    // synchronous prefix of OnParametersSetAsync (before any awaited fetch resolves) shows blank instead
+    // of a spinner flash on every navigation to this page.
+    private bool _loading;
+    private bool _loaded;
 
     // Public properties (a framework requirement for [PersistentState]): the data loaded during the
     // prerender pass is carried over to the interactive circuit, so the first interactive render reuses
@@ -267,6 +276,7 @@ else
         {
             BuildDerivedState();
             _loading = false;
+            _loaded = true;
             return;
         }
         await LoadAsync();
@@ -304,7 +314,13 @@ else
 
     private async Task LoadAsync()
     {
-        _loading = true;
+        await LoadingIndicator.RunAsync(FetchAsync(), v => _loading = v, StateHasChanged);
+        _loading = false;
+        _loaded = true;
+    }
+
+    private async Task FetchAsync()
+    {
         Profile = await HealthProfileApi.GetOneAsync(Id);
         if (Profile is not null)
         {
@@ -314,7 +330,6 @@ else
             Metrics = await HealthProfileApi.GetMetricsAsync(Id);
             BuildDerivedState();
         }
-        _loading = false;
     }
 
     private void BuildDerivedState()

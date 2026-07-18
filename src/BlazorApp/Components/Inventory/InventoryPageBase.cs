@@ -1,3 +1,4 @@
+using Keeptrack.BlazorApp.Components.Shared;
 using Keeptrack.Common.System;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -30,7 +31,14 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
 
     protected bool _showForm;
 
-    protected bool _loading = true;
+    // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
+    // _loaded tracks whether a load attempt has finished at all, fresh or restored from persisted
+    // prerender state - both default false so the forced render Blazor triggers right after the
+    // synchronous prefix of OnParametersSetAsync (before any awaited fetch resolves) shows blank instead
+    // of a spinner flash on every navigation to this page.
+    protected bool _loading;
+
+    protected bool _loaded;
 
     protected string? _error;
 
@@ -93,6 +101,7 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
         if (query == LoadedQuery)
         {
             _loading = false;
+            _loaded = true;
             return;
         }
 
@@ -190,10 +199,7 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
     {
         try
         {
-            _loading = true;
-            var result = await Api.GetAsync(_search, _page, PageSize, ExtraQuery, _sort);
-            Items = result.Items;
-            TotalCount = result.TotalCount;
+            await LoadingIndicator.RunAsync(FetchAsync(), v => _loading = v, StateHasChanged);
         }
         catch (Exception ex)
         {
@@ -202,7 +208,15 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
         finally
         {
             _loading = false;
+            _loaded = true;
         }
+    }
+
+    private async Task FetchAsync()
+    {
+        var result = await Api.GetAsync(_search, _page, PageSize, ExtraQuery, _sort);
+        Items = result.Items;
+        TotalCount = result.TotalCount;
     }
 
     private string BuildQuerySignature()
