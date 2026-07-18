@@ -1,3 +1,4 @@
+using Keeptrack.Common.System;
 using Keeptrack.WebApi.Contracts.Dto;
 using Microsoft.AspNetCore.Components;
 
@@ -11,4 +12,5 @@ public partial class Houses : InventoryPageBase<HouseDto>
 
     protected override string ListRoute => "/houses";
 
+    protected override string DefaultSort => ListSort.Title;
 }

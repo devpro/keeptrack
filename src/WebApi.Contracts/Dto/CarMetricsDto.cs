@@ -1,9 +1,10 @@
+using System;
 using System.Collections.Generic;
 
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// Computed metrics for one car: consumption, cost history, mileage warnings and next-maintenance estimate.
+/// Computed metrics for one car: consumption, cost history, mileage warnings and last-record-per-type readout.
 /// </summary>
 public class CarMetricsDto
 {
@@ -43,7 +44,23 @@ public class CarMetricsDto
     public required List<CarMileageWarningDto> MileageWarnings { get; set; }
 
     /// <summary>
-    /// Estimated next maintenance due, or null if no maintenance has been recorded yet.
+    /// When each event type was last recorded, most recent first.
     /// </summary>
-    public NextMaintenanceDto? NextMaintenance { get; set; }
+    public required List<CarLastRecordDto> LastRecords { get; set; }
+}
+
+/// <summary>
+/// When a car history event type was last recorded.
+/// </summary>
+public class CarLastRecordDto
+{
+    /// <summary>
+    /// The event type.
+    /// </summary>
+    public required CarHistoryType EventType { get; set; }
+
+    /// <summary>
+    /// The most recent recorded date for that event type.
+    /// </summary>
+    public required DateTime LastDate { get; set; }
 }

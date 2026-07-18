@@ -15,6 +15,9 @@ public class VideoGamePlatform
 
     public string State { get; set; } = "";
 
+    [BsonElement("completed_at")]
+    public DateTime? CompletedAt { get; set; }
+
     public List<Playthrough> Playthroughs { get; set; } = [];
 
     [BsonElement("is_fully_completed")]

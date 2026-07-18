@@ -43,7 +43,7 @@ public static class HealthMetricsService
         return records
             .Where(r => r.Price is not null || r.PublicReimbursement is not null || r.InsuranceReimbursement is not null)
             .GroupBy(r => r.HistoryDate.Year)
-            .OrderBy(g => g.Key)
+            .OrderByDescending(g => g.Key)
             .Select(g =>
             {
                 var paid = g.Sum(r => r.Price ?? 0);

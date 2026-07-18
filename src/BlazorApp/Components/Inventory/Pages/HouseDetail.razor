@@ -94,6 +94,20 @@ else
         </div>
     }
 
+    @if (Metrics is { LastRecords.Count: > 0 })
+    {
+        <h2 class="kt-section-title">Last record</h2>
+        <div class="kt-form-card">
+            @foreach (var record in Metrics.LastRecords)
+            {
+                <div class="d-flex justify-content-between" style="max-width:420px">
+                    <span>@record.EventType</span>
+                    <span class="kt-card-meta">@record.LastDate.ToString("yyyy-MM-dd")</span>
+                </div>
+            }
+        </div>
+    }
+
     <div class="d-flex justify-content-between align-items-center">
         <h2 class="kt-section-title">History</h2>
         <button class="btn btn-sm btn-primary" @onclick="ShowAddModal">+ Add entry</button>
@@ -149,22 +163,28 @@ else
 
     @if (_showModal)
     {
-        <div class="kt-modal-backdrop" @onclick="CancelModal">
-            <div class="kt-modal" @onclick:stopPropagation>
+        <div class="kt-modal-backdrop">
+            <div class="kt-modal">
                 <div class="kt-modal-header">
                     <h5>@(IsEditMode ? "Edit" : "Add") history entry</h5>
-                    <button class="kt-modal-close" @onclick="CancelModal">✕</button>
+                    <button class="kt-modal-close" @onclick="RequestCancelModal">✕</button>
                 </div>
                 <div class="kt-modal-body">
                     <HouseHistoryForm Entry="_modalEntry"/>
                 </div>
                 <div class="kt-modal-footer">
-                    <button class="btn btn-secondary" @onclick="CancelModal">Cancel</button>
+                    <button class="btn btn-secondary" @onclick="RequestCancelModal">Cancel</button>
                     <button class="btn btn-success" @onclick="SaveModalEntryAsync">Save</button>
                 </div>
             </div>
         </div>
     }
+
+    <ConfirmModal Show="_showDiscardConfirm"
+                  Title="Discard unsaved changes?"
+                  Message="This entry has unsaved changes that will be lost."
+                  ConfirmLabel="Discard"
+                  OnConfirm="ConfirmDiscard" OnCancel="CancelDiscard"/>
 }
 
 @code {
@@ -198,7 +218,9 @@ else
     private List<int> _years = [];
     private int _selectedYear;
     private HouseHistoryDto _modalEntry = HouseHistoryForm.NewEntry("");
+    private HouseHistoryDto _pristineModalEntry = HouseHistoryForm.NewEntry("");
     private bool _showModal;
+    private bool _showDiscardConfirm;
 
     private bool IsEditMode => !string.IsNullOrEmpty(_modalEntry.Id);
 
@@ -305,6 +327,7 @@ else
     private void ShowAddModal()
     {
         _modalEntry = HouseHistoryForm.NewEntry(Id);
+        _pristineModalEntry = CloneEntry(_modalEntry);
         _showModal = true;
     }
 
@@ -313,10 +336,27 @@ else
     private void ShowEditModal(HouseHistoryDto entry)
     {
         _modalEntry = CloneEntry(entry);
+        _pristineModalEntry = CloneEntry(entry);
         _showModal = true;
     }
 
-    private void CancelModal() => _showModal = false;
+    /// <summary>
+    /// A click/drag outside the modal no longer closes it (see the backdrop markup above) - only these
+    /// explicit Cancel/✕ buttons can, and they route through this unsaved-data check first.
+    /// </summary>
+    private void RequestCancelModal()
+    {
+        if (DirtyTracking.IsDirty(_pristineModalEntry, _modalEntry)) _showDiscardConfirm = true;
+        else _showModal = false;
+    }
+
+    private void ConfirmDiscard()
+    {
+        _showDiscardConfirm = false;
+        _showModal = false;
+    }
+
+    private void CancelDiscard() => _showDiscardConfirm = false;
 
     /// <summary>Every history mutation reloads the whole house (history + metrics) rather than patching local
     /// state - an edit can change the yearly cost breakdown, so recomputing from the server is simpler and

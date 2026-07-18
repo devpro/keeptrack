@@ -63,6 +63,10 @@ else
                 {
                     <option value="@ListSort.Rating">Rating</option>
                 }
+                @if (ExtraSortValue is not null)
+                {
+                    <option value="@ExtraSortValue">@ExtraSortLabel</option>
+                }
             </select>
             @if (Filters is not null)
             {
@@ -221,6 +225,14 @@ else
 
     /// <summary>Offers the "Rating" sort option - only for types that carry a rating field.</summary>
     [Parameter] public bool HasRatingSort { get; set; }
+
+    /// <summary>
+    /// Query value for an extra, type-specific sort option (e.g. Movie's "seen", Book's "read", Video
+    /// Game's "completed") - unset means no extra option renders. Paired with <see cref="ExtraSortLabel"/>.
+    /// </summary>
+    [Parameter] public string? ExtraSortValue { get; set; }
+
+    [Parameter] public string? ExtraSortLabel { get; set; }
     [Parameter] public required int Page { get; set; }
     [Parameter] public required int TotalPages { get; set; }
     [Parameter] public required long TotalCount { get; set; }

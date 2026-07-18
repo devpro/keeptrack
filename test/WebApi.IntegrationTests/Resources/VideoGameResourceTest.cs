@@ -113,6 +113,7 @@ public class VideoGameResourceTest(KestrelWebAppFactory<Program> factory)
             var fetchedPlatforms = owned.Items.Single(x => x.Id == created.Id).Platforms;
             fetchedPlatforms.Should().BeEquivalentTo(platforms);
 
+            // this is the WishlistController filter-probe, not a list-page UI filter (removed) - still real API behavior
             var wishlisted = await GetAsync<PagedResult<VideoGameDto>>($"/{ResourceEndpoint}?IsWishlisted=true&search={title}");
             wishlisted.Items.Should().ContainSingle(x => x.Id == created.Id);
         }

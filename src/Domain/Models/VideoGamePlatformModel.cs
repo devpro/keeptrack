@@ -18,6 +18,12 @@ public class VideoGamePlatformModel
 
     public string State { get; set; } = "";
 
+    /// <summary>
+    /// The date this entry's <see cref="State"/> was last set to "Completed" - auto-populated, not to be
+    /// confused with <see cref="FullyCompletedAt"/>/<see cref="IsFullyCompleted"/> (the platinum/100% flag).
+    /// </summary>
+    public DateOnly? CompletedAt { get; set; }
+
     public List<PlaythroughModel> Playthroughs { get; set; } = [];
 
     public bool IsFullyCompleted { get; set; }

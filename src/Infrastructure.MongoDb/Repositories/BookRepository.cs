@@ -23,6 +23,8 @@ public class BookRepository(IMongoDatabase mongoDatabase, ILogger<BookRepository
 
     protected override Expression<Func<Book, object>> SortRatingField => x => x.Rating!;
 
+    protected override Expression<Func<Book, object>> SortSecondaryDateField => x => x.FirstReadAt!;
+
     protected override FilterDefinition<Book> GetFilter(string ownerId, string? search, BookModel input)
     {
         var builder = Builders<Book>.Filter;
@@ -33,6 +35,9 @@ public class BookRepository(IMongoDatabase mongoDatabase, ILogger<BookRepository
         if (input.IsFavorite) filter &= builder.Eq(f => f.IsFavorite, true);
         // "owned" means at least one owned version - see MovieRepository.GetFilter
         if (input.IsOwned) filter &= builder.SizeGt(f => f.OwnedVersions, 0);
+        if (input.IsUnread) filter &= builder.Eq(f => f.FirstReadAt, null);
+        // WishlistController.BuildWishlistAsync still relies on this filter-probe clause even though the
+        // list page's own "Wishlist" toggle button was removed - don't drop it again.
         if (input.IsWishlisted) filter &= builder.Eq(f => f.IsWishlisted, true);
         return filter;
     }

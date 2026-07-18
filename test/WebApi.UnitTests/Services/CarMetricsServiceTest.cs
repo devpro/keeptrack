@@ -100,38 +100,22 @@ public class CarMetricsServiceTest
     }
 
     [Fact]
-    public void ComputeMetrics_NextMaintenance_IsNullWhenNoMaintenanceHistoryExists()
+    public void ComputeMetrics_LastRecords_GroupsByEventType_MostRecentFirst()
     {
-        var history = new[] { Refuel("h1", new DateTime(2024, 1, 1), 1000, fuelVolume: 40) };
+        var history = new[]
+        {
+            Refuel("h1", new DateTime(2024, 1, 10), 1000, fuelVolume: 40),
+            Refuel("h2", new DateTime(2024, 3, 1), 1200, fuelVolume: 40),
+            Maintenance("h3", new DateTime(2024, 2, 1))
+        };
 
         var result = CarMetricsService.ComputeMetrics(history);
 
-        result.NextMaintenance.Should().BeNull();
-    }
-
-    [Fact]
-    public void ComputeMetrics_NextMaintenance_IsOneYearAfterTheLastMaintenanceEvent()
-    {
-        var lastMaintenance = DateOnly.FromDateTime(DateTime.Today).AddMonths(-10);
-        var history = new[] { Maintenance("h1", lastMaintenance.ToDateTime(TimeOnly.MinValue)) };
-
-        var result = CarMetricsService.ComputeMetrics(history);
-
-        result.NextMaintenance.Should().NotBeNull();
-        result.NextMaintenance!.LastMaintenanceDate.Should().Be(lastMaintenance);
-        result.NextMaintenance.DueDate.Should().Be(lastMaintenance.AddYears(1));
-        result.NextMaintenance.MonthsRemaining.Should().Be(2);
-    }
-
-    [Fact]
-    public void ComputeMetrics_NextMaintenance_ReportsNegativeMonthsWhenOverdue()
-    {
-        var lastMaintenance = DateOnly.FromDateTime(DateTime.Today).AddMonths(-14);
-        var history = new[] { Maintenance("h1", lastMaintenance.ToDateTime(TimeOnly.MinValue)) };
-
-        var result = CarMetricsService.ComputeMetrics(history);
-
-        result.NextMaintenance!.MonthsRemaining.Should().Be(-2);
+        result.LastRecords.Should().HaveCount(2);
+        result.LastRecords[0].EventType.Should().Be(CarHistoryType.Refuel);
+        result.LastRecords[0].LastDate.Should().Be(new DateTime(2024, 3, 1));
+        result.LastRecords[1].EventType.Should().Be(CarHistoryType.Maintenance);
+        result.LastRecords[1].LastDate.Should().Be(new DateTime(2024, 2, 1));
     }
 
     [Fact]

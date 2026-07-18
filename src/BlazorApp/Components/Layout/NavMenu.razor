@@ -1,9 +1,11 @@
-﻿<div class="top-row">
+﻿@implements IDisposable
+
+<div class="top-row">
     <a class="navbar-brand" href="">Keeptrack</a>
     <label class="navbar-toggler-label" for="nav-toggle">&#9776;</label>
 </div>
 
-<input type="checkbox" id="nav-toggle" />
+<input type="checkbox" id="nav-toggle" @bind="_menuOpen" />
 
 <div class="nav-scrollable">
     <nav class="nav flex-column">
@@ -124,6 +126,26 @@
 </div>
 
 @code {
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    // The mobile menu is otherwise a pure-CSS checkbox toggle (see app.css's #nav-toggle:checked rule) -
+    // this is the one bit of real Blazor state, needed to force it closed after a nav-link click.
+    // Navigating between interactively-rendered pages happens through the circuit's own router (not a raw
+    // DOM/enhanced-navigation event), so NavigationManager.LocationChanged - the one abstraction that fires
+    // reliably regardless of which navigation path Blazor takes - is what drives this, not a JS event.
+    private bool _menuOpen;
+
+    protected override void OnInitialized() => Navigation.LocationChanged += CloseMenu;
+
+    private void CloseMenu(object? sender, LocationChangedEventArgs e)
+    {
+        if (!_menuOpen) return;
+        _menuOpen = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose() => Navigation.LocationChanged -= CloseMenu;
+
     private static string GetInitial(string? name) =>
         string.IsNullOrEmpty(name) ? "" : name[..1].ToUpperInvariant();
 }

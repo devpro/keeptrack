@@ -69,4 +69,23 @@ public class HouseMetricsServiceTest
         year2024.CostByCategory.Should().ContainSingle(c => c.EventType == HouseEventType.Bill && c.Cost == 100);
         year2024.CostByCategory.Should().ContainSingle(c => c.EventType == HouseEventType.Maintenance && c.Cost == 150);
     }
+
+    [Fact]
+    public void ComputeMetrics_LastRecords_GroupsByEventType_MostRecentFirst()
+    {
+        var history = new[]
+        {
+            Entry("h1", new DateOnly(2024, 1, 10), HouseEventType.Bill),
+            Entry("h2", new DateOnly(2024, 3, 1), HouseEventType.Bill),
+            Entry("h3", new DateOnly(2024, 2, 1), HouseEventType.Maintenance)
+        };
+
+        var result = HouseMetricsService.ComputeMetrics(history);
+
+        result.LastRecords.Should().HaveCount(2);
+        result.LastRecords[0].EventType.Should().Be(HouseEventType.Bill);
+        result.LastRecords[0].LastDate.Should().Be(new DateOnly(2024, 3, 1));
+        result.LastRecords[1].EventType.Should().Be(HouseEventType.Maintenance);
+        result.LastRecords[1].LastDate.Should().Be(new DateOnly(2024, 2, 1));
+    }
 }

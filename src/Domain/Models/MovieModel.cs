@@ -43,5 +43,11 @@ public class MovieModel : IHasIdAndOwnerId, IHasTvTimeId
     /// </summary>
     public bool IsOwned { get; set; }
 
+    /// <summary>
+    /// Filter-only: matches if <see cref="FirstSeenAt"/> is unset. Never persisted - see
+    /// <see cref="IsOwned"/> for the filter-probe convention.
+    /// </summary>
+    public bool IsUnseen { get; set; }
+
     public bool IsWishlisted { get; set; }
 }

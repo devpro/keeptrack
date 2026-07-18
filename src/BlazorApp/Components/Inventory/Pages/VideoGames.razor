@@ -29,7 +29,9 @@
                OnSearchChanged="@OnSearchChanged"
                Sort="@_sort"
                OnSortChanged="@SetSort"
-               HasRatingSort="true">
+               HasRatingSort="true"
+               ExtraSortValue="@ListSort.LastCompleted"
+               ExtraSortLabel="Ended">
     <Filters>
         <button class="btn btn-sm @(string.IsNullOrEmpty(StateFilter) ? "btn-primary" : "btn-secondary")" @onclick='() => SetFilter("state", null)'>All</button>
         @foreach (var state in VideoGameStates)
@@ -37,7 +39,6 @@
             <button class="btn btn-sm @(StateFilter == state ? "btn-primary" : "btn-secondary")" @onclick='() => SetFilter("state", state)'>@state</button>
         }
         <button class="btn btn-sm kt-toggle-btn @(OwnedFilter ? "active" : "")" @onclick='() => ToggleFilter("owned", OwnedFilter)'>● Owned</button>
-        <button class="btn btn-sm kt-toggle-btn @(WishlistedFilter ? "active" : "")" @onclick='() => ToggleFilter("wishlisted", WishlistedFilter)'>○ Wishlist</button>
     </Filters>
     <MetaTemplate Context="game">
         @if (game.Year > 0)

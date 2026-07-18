@@ -33,9 +33,9 @@ else
         <textarea class="form-control form-control-sm" rows="2" @onchange="SaveNotesAsync">@Profile.Notes</textarea>
     </div>
 
-    @* No summary panels before the journal on purpose (owner feedback): the journal is the page's
-       primary content, and the per-row warning sign is the whole warning surface. "Last seen" is a bare
-       specialty + last-date list - no names, no counts, no field labels. *@
+    @* No summary panels before the journal on purpose (owner feedback):
+       the journal is the page's primary content, and the per-row warning sign is the whole warning surface.
+       "Last seen" is a bare specialty + last-date list - no names, no counts, no field labels. *@
     @if (Metrics is { LastVisits.Count: > 0 })
     {
         <h2 class="kt-section-title">Last seen</h2>
@@ -125,22 +125,28 @@ else
 
     @if (_showModal)
     {
-        <div class="kt-modal-backdrop" @onclick="CancelModal">
-            <div class="kt-modal" @onclick:stopPropagation>
+        <div class="kt-modal-backdrop">
+            <div class="kt-modal">
                 <div class="kt-modal-header">
                     <h5>@(IsEditMode ? "Edit" : "Add") journal entry</h5>
-                    <button class="kt-modal-close" @onclick="CancelModal">✕</button>
+                    <button class="kt-modal-close" @onclick="RequestCancelModal">✕</button>
                 </div>
                 <div class="kt-modal-body">
                     <HealthRecordForm Entry="_modalEntry"/>
                 </div>
                 <div class="kt-modal-footer">
-                    <button class="btn btn-secondary" @onclick="CancelModal">Cancel</button>
+                    <button class="btn btn-secondary" @onclick="RequestCancelModal">Cancel</button>
                     <button class="btn btn-success" @onclick="SaveModalEntryAsync">Save</button>
                 </div>
             </div>
         </div>
     }
+
+    <ConfirmModal Show="_showDiscardConfirm"
+                  Title="Discard unsaved changes?"
+                  Message="This entry has unsaved changes that will be lost."
+                  ConfirmLabel="Discard"
+                  OnConfirm="ConfirmDiscard" OnCancel="CancelDiscard"/>
 }
 
 @code {
@@ -174,7 +180,9 @@ else
     private List<int> _years = [];
     private int _selectedYear;
     private HealthRecordDto _modalEntry = HealthRecordForm.NewEntry("");
+    private HealthRecordDto _pristineModalEntry = HealthRecordForm.NewEntry("");
     private bool _showModal;
+    private bool _showDiscardConfirm;
 
     private bool IsEditMode => !string.IsNullOrEmpty(_modalEntry.Id);
 
@@ -253,6 +261,7 @@ else
     private void ShowAddModal()
     {
         _modalEntry = HealthRecordForm.NewEntry(Id);
+        _pristineModalEntry = CloneEntry(_modalEntry);
         _showModal = true;
     }
 
@@ -261,10 +270,27 @@ else
     private void ShowEditModal(HealthRecordDto entry)
     {
         _modalEntry = CloneEntry(entry);
+        _pristineModalEntry = CloneEntry(entry);
         _showModal = true;
     }
 
-    private void CancelModal() => _showModal = false;
+    /// <summary>
+    /// A click/drag outside the modal no longer closes it (see the backdrop markup above) - only these
+    /// explicit Cancel/✕ buttons can, and they route through this unsaved-data check first.
+    /// </summary>
+    private void RequestCancelModal()
+    {
+        if (DirtyTracking.IsDirty(_pristineModalEntry, _modalEntry)) _showDiscardConfirm = true;
+        else _showModal = false;
+    }
+
+    private void ConfirmDiscard()
+    {
+        _showDiscardConfirm = false;
+        _showModal = false;
+    }
+
+    private void CancelDiscard() => _showDiscardConfirm = false;
 
     /// <summary>Every journal mutation reloads the whole profile (journal + metrics) rather than patching
     /// local state - an edit can change the yearly totals, the row badges and the last-visit table, so

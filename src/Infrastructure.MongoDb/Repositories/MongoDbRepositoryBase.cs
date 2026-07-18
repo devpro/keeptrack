@@ -70,16 +70,27 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
     protected virtual Expression<Func<TEntity, object>>? SortRatingField => null;
 
     /// <summary>
-    /// "_id" descending doubles as the "recently added" default (ObjectIds embed their creation timestamp, so no separate created-at field is needed)
-    /// and as the deterministic tie-break appended to every other sort.
+    /// Field behind <see cref="ListSort.LastSeen"/>/<see cref="ListSort.LastRead"/> (descending, unset
+    /// items last) - same contract as <see cref="SortTitleField"/>. A single hook covers both keys: a
+    /// collection only ever advertises one of the two via its own list page's UI (Movie: last seen, Book:
+    /// last read), so both keys resolving to the same field is harmless.
     /// </summary>
-    private SortDefinition<TEntity> GetSort(string? sort)
+    protected virtual Expression<Func<TEntity, object>>? SortSecondaryDateField => null;
+
+    /// <summary>
+    /// "_id" descending doubles as the "recently added" default (ObjectIds embed their creation timestamp, so no separate created-at field is needed)
+    /// and as the deterministic tie-break appended to every other sort. Virtual so a collection whose extra
+    /// sort key doesn't fit the single-scalar-field hooks above (e.g. VideoGame's "last completed", the max
+    /// of an array field) can add its own case - see VideoGameRepository.GetSort.
+    /// </summary>
+    protected virtual SortDefinition<TEntity> GetSort(string? sort)
     {
         var builder = Builders<TEntity>.Sort;
         return sort switch
         {
             ListSort.Title when SortTitleField is not null => builder.Ascending(SortTitleField).Descending("_id"),
             ListSort.Rating when SortRatingField is not null => builder.Descending(SortRatingField).Descending("_id"),
+            ListSort.LastSeen or ListSort.LastRead when SortSecondaryDateField is not null => builder.Descending(SortSecondaryDateField).Descending("_id"),
             _ => builder.Descending("_id")
         };
     }

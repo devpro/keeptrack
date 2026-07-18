@@ -4,6 +4,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.Infrastructure.MongoDb.Entities;
@@ -23,6 +24,18 @@ public class VideoGameRepository(IMongoDatabase mongoDatabase, ILogger<VideoGame
 
     protected override Expression<Func<VideoGame, object>> SortRatingField => x => x.Rating!;
 
+    /// <summary>
+    /// "Last completed" needs the max <c>CompletedAt</c> across a game's <see cref="VideoGame.Platforms"/>
+    /// array, not a single scalar field, so it can't use the shared <c>SortSecondaryDateField</c> hook.
+    /// MongoDB natively compares a dotted array field by its max element on a descending sort - no
+    /// aggregation pipeline needed (the existing <c>AnyEq(f => f.Platforms.Select(p => p.State), ...)</c>
+    /// filter above already confirms the driver resolves this entity's "platforms.*" dotted paths).
+    /// </summary>
+    protected override SortDefinition<VideoGame> GetSort(string? sort) =>
+        sort == ListSort.LastCompleted
+            ? Builders<VideoGame>.Sort.Descending("platforms.completed_at").Descending("_id")
+            : base.GetSort(sort);
+
     protected override FilterDefinition<VideoGame> GetFilter(string ownerId, string? search, VideoGameModel input)
     {
         var builder = Builders<VideoGame>.Filter;
@@ -33,6 +46,8 @@ public class VideoGameRepository(IMongoDatabase mongoDatabase, ILogger<VideoGame
         // "owned" means at least one platform entry (a game's copies) - the platform-entry equivalent of
         // MovieRepository.GetFilter's owned-versions rule
         if (input.IsOwned) filter &= builder.SizeGt(f => f.Platforms, 0);
+        // WishlistController.BuildWishlistAsync still relies on this filter-probe clause even though the
+        // list page's own "Wishlist" toggle button was removed - don't drop it again.
         if (input.IsWishlisted) filter &= builder.Eq(f => f.IsWishlisted, true);
         return filter;
     }

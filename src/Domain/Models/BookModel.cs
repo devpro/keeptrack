@@ -38,5 +38,11 @@ public class BookModel : IHasIdAndOwnerId
     /// </summary>
     public bool IsOwned { get; set; }
 
+    /// <summary>
+    /// Filter-only: matches if <see cref="FirstReadAt"/> is unset. Never persisted - see
+    /// <see cref="IsOwned"/> for the filter-probe convention.
+    /// </summary>
+    public bool IsUnread { get; set; }
+
     public bool IsWishlisted { get; set; }
 }

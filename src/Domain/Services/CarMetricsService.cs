@@ -6,7 +6,7 @@ using Keeptrack.Domain.Models;
 namespace Keeptrack.Domain.Services;
 
 /// <summary>
-/// Computes fuel/electric consumption, cost history, mileage-consistency warnings and a next-maintenance-due estimate from a car's full intervention history.
+/// Computes fuel/electric consumption, cost history, mileage-consistency warnings and a last-record-per-type readout from a car's full intervention history.
 /// Pure computation over an in-memory list, same shape as WatchNextService - nothing here is persisted, so a car's metrics are always derived fresh from its history.
 /// </summary>
 public static class CarMetricsService
@@ -26,7 +26,7 @@ public static class CarMetricsService
             CostHistory = ComputeCostHistory(historyList),
             TotalCost = historyList.Sum(h => h.Cost ?? 0),
             MileageWarnings = ComputeMileageWarnings(historyList),
-            NextMaintenance = ComputeNextMaintenanceDue(historyList)
+            LastRecords = ComputeLastRecords(historyList)
         };
     }
 
@@ -142,29 +142,14 @@ public static class CarMetricsService
     }
 
     /// <summary>
-    /// Assumes a fixed 1-year maintenance cadence from the last recorded maintenance event. Returns null - never
-    /// a guess - when no maintenance history exists yet, same "don't guess without data" principle as
-    /// WatchNextService.
+    /// "When did I last log each kind of event" - one line per <see cref="CarHistoryType"/>, most recent
+    /// first. Same shape as HealthMetricsService.ComputeLastVisits, simpler (an enum key needs no
+    /// whitespace/Trim() handling a free-text specialty does).
     /// </summary>
-    private static NextMaintenanceModel? ComputeNextMaintenanceDue(IReadOnlyList<CarHistoryModel> history)
-    {
-        var lastMaintenance = history
-            .Where(h => h.EventType == CarHistoryType.Maintenance)
-            .OrderByDescending(h => h.HistoryDate)
-            .FirstOrDefault();
-
-        if (lastMaintenance is null) return null;
-
-        var lastMaintenanceDate = DateOnly.FromDateTime(lastMaintenance.HistoryDate);
-        var dueDate = lastMaintenanceDate.AddYears(1);
-        var today = DateOnly.FromDateTime(DateTime.Today);
-        var monthsRemaining = ((dueDate.Year - today.Year) * 12) + (dueDate.Month - today.Month);
-
-        return new NextMaintenanceModel
-        {
-            LastMaintenanceDate = lastMaintenanceDate,
-            DueDate = dueDate,
-            MonthsRemaining = monthsRemaining
-        };
-    }
+    private static List<CarLastRecordModel> ComputeLastRecords(IReadOnlyList<CarHistoryModel> history) =>
+        history
+            .GroupBy(h => h.EventType)
+            .Select(g => new CarLastRecordModel { EventType = g.Key, LastDate = g.Max(h => h.HistoryDate) })
+            .OrderByDescending(r => r.LastDate)
+            .ToList();
 }

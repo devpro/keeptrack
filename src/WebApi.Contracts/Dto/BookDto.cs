@@ -72,5 +72,11 @@ public class BookDto : IHasId, IReferenceLinkedDto
     /// </summary>
     public bool IsOwned { get; set; }
 
+    /// <summary>
+    /// Filter-only query parameter: matches items with no <see cref="FirstReadAt"/> set. Never populated on
+    /// a returned item - see <see cref="IsOwned"/> for the convention.
+    /// </summary>
+    public bool IsUnread { get; set; }
+
     public bool IsWishlisted { get; set; }
 }

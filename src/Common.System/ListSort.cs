@@ -13,4 +13,13 @@ public static class ListSort
 
     /// <summary>Best rated first; unrated items last.</summary>
     public const string Rating = "rating";
+
+    /// <summary>Most recently watched movie first (Movie's <c>FirstSeenAt</c>); unwatched items last.</summary>
+    public const string LastSeen = "seen";
+
+    /// <summary>Most recently read book first (Book's <c>FirstReadAt</c>); unread items last.</summary>
+    public const string LastRead = "read";
+
+    /// <summary>Most recently completed video game first (max <c>CompletedAt</c> across a game's platform entries); items with none last.</summary>
+    public const string LastCompleted = "completed";
 }

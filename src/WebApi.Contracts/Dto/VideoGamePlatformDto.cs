@@ -24,6 +24,12 @@ public class VideoGamePlatformDto : IOwnedCopyDto
     public string? State { get; set; }
 
     /// <summary>
+    /// The date this entry's <see cref="State"/> was last set to "Completed" - auto-populated. Not to be
+    /// confused with <see cref="FullyCompletedAt"/> (the platinum/100% date).
+    /// </summary>
+    public DateOnly? CompletedAt { get; set; }
+
+    /// <summary>
     /// Every recorded run through the game on this platform.
     /// </summary>
     public List<PlaythroughDto> Playthroughs { get; set; } = [];

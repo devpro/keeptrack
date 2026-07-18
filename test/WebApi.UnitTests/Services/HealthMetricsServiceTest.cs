@@ -59,17 +59,17 @@ public class HealthMetricsServiceTest
         var result = HealthMetricsService.ComputeMetrics(records);
 
         result.CostHistory.Should().HaveCount(2);
-        var year2025 = result.CostHistory[0];
-        year2025.Year.Should().Be(2025);
-        year2025.TotalPaid.Should().Be(85);
-        year2025.TotalReimbursed.Should().Be(28.5);
-        year2025.OutOfPocket.Should().Be(56.5);
-
-        var year2026 = result.CostHistory[1];
+        var year2026 = result.CostHistory[0];
         year2026.Year.Should().Be(2026);
         year2026.TotalPaid.Should().Be(26.5);
         year2026.TotalReimbursed.Should().Be(16.5);
         year2026.OutOfPocket.Should().BeApproximately(10, 0.0001);
+
+        var year2025 = result.CostHistory[1];
+        year2025.Year.Should().Be(2025);
+        year2025.TotalPaid.Should().Be(85);
+        year2025.TotalReimbursed.Should().Be(28.5);
+        year2025.OutOfPocket.Should().Be(56.5);
     }
 
     [Fact]

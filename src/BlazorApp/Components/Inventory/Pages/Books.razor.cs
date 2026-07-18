@@ -17,8 +17,8 @@ public partial class Books : InventoryPageBase<BookDto>
     [SupplyParameterFromQuery(Name = "owned")]
     public bool OwnedFilter { get; set; }
 
-    [SupplyParameterFromQuery(Name = "wishlisted")]
-    public bool WishlistedFilter { get; set; }
+    [SupplyParameterFromQuery(Name = "unread")]
+    public bool UnreadFilter { get; set; }
 
     protected override IReadOnlyDictionary<string, string>? ExtraQuery
     {
@@ -27,7 +27,7 @@ public partial class Books : InventoryPageBase<BookDto>
             var query = new Dictionary<string, string>();
             if (FavoriteFilter) query["IsFavorite"] = "true";
             if (OwnedFilter) query["IsOwned"] = "true";
-            if (WishlistedFilter) query["IsWishlisted"] = "true";
+            if (UnreadFilter) query["IsUnread"] = "true";
             return query.Count > 0 ? query : null;
         }
     }

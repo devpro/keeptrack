@@ -20,9 +20,6 @@ public partial class TvShows : InventoryPageBase<TvShowDto>
     [SupplyParameterFromQuery(Name = "owned")]
     public bool OwnedFilter { get; set; }
 
-    [SupplyParameterFromQuery(Name = "wishlisted")]
-    public bool WishlistedFilter { get; set; }
-
     private TvShowStatus? StateFilter => Enum.TryParse<TvShowStatus>(StateQuery, true, out var state) ? state : null;
 
     protected override IReadOnlyDictionary<string, string>? ExtraQuery
@@ -33,7 +30,6 @@ public partial class TvShows : InventoryPageBase<TvShowDto>
             if (StateFilter is not null) query["State"] = StateFilter.ToString()!;
             if (FavoriteFilter) query["IsFavorite"] = "true";
             if (OwnedFilter) query["IsOwned"] = "true";
-            if (WishlistedFilter) query["IsWishlisted"] = "true";
             return query.Count > 0 ? query : null;
         }
     }

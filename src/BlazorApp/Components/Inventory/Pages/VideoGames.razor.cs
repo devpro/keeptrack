@@ -31,9 +31,6 @@ public partial class VideoGames : InventoryPageBase<VideoGameDto>
     [SupplyParameterFromQuery(Name = "owned")]
     public bool OwnedFilter { get; set; }
 
-    [SupplyParameterFromQuery(Name = "wishlisted")]
-    public bool WishlistedFilter { get; set; }
-
     protected override IReadOnlyDictionary<string, string>? ExtraQuery
     {
         get
@@ -41,7 +38,6 @@ public partial class VideoGames : InventoryPageBase<VideoGameDto>
             var query = new Dictionary<string, string>();
             if (!string.IsNullOrEmpty(StateFilter)) query["State"] = StateFilter;
             if (OwnedFilter) query["IsOwned"] = "true";
-            if (WishlistedFilter) query["IsWishlisted"] = "true";
             return query.Count > 0 ? query : null;
         }
     }

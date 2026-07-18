@@ -28,11 +28,13 @@
                OnSearchChanged="@OnSearchChanged"
                Sort="@_sort"
                OnSortChanged="@SetSort"
-               HasRatingSort="true">
+               HasRatingSort="true"
+               ExtraSortValue="@ListSort.LastSeen"
+               ExtraSortLabel="Seen">
     <Filters>
         <button class="btn btn-sm kt-toggle-btn @(FavoriteFilter ? "active" : "")" @onclick='() => ToggleFilter("favorite", FavoriteFilter)'>★ Favorites</button>
         <button class="btn btn-sm kt-toggle-btn @(OwnedFilter ? "active" : "")" @onclick='() => ToggleFilter("owned", OwnedFilter)'>● Owned</button>
-        <button class="btn btn-sm kt-toggle-btn @(WishlistedFilter ? "active" : "")" @onclick='() => ToggleFilter("wishlisted", WishlistedFilter)'>○ Wishlist</button>
+        <button class="btn btn-sm kt-toggle-btn @(UnseenFilter ? "active" : "")" @onclick='() => ToggleFilter("unseen", UnseenFilter)'>◻ Unseen</button>
     </Filters>
     <MetaTemplate Context="movie">
         @if (movie.Year > 0)

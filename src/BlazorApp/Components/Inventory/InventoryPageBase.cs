@@ -82,6 +82,13 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
     protected virtual IReadOnlyDictionary<string, string>? ExtraQuery => null;
 
     /// <summary>
+    /// The sort key used when the URL carries none - "" (newest-first) for every page unless overridden.
+    /// Health/House/Car list themselves by person/vehicle/property name rather than creation order, so
+    /// their pages override this to <see cref="ListSort.Title"/> instead.
+    /// </summary>
+    protected virtual string DefaultSort => "";
+
+    /// <summary>
     /// Runs on the initial load and again whenever the router supplies new query-parameter values
     /// (a filter/page click's NavigateTo, but also browser back/forward), so every way of changing
     /// list state goes through this single reload path. The signature check keeps unrelated
@@ -90,7 +97,7 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
     protected override async Task OnParametersSetAsync()
     {
         _search = SearchQuery ?? "";
-        _sort = SortQuery ?? "";
+        _sort = SortQuery ?? DefaultSort;
         _page = PageQuery is > 0 ? PageQuery.Value : 1;
         var query = BuildQuerySignature();
 

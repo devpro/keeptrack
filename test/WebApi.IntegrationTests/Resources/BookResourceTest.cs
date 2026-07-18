@@ -70,6 +70,7 @@ public class BookResourceTest(KestrelWebAppFactory<Program> factory)
             var owned = await GetAsync<PagedResult<BookDto>>($"/{ResourceEndpoint}?IsOwned=true&search={uniqueTitle}");
             owned.Items.Should().ContainSingle(b => b.Id == created.Id);
 
+            // this is the WishlistController filter-probe, not a list-page UI filter (removed) - still real API behavior
             var wishlisted = await GetAsync<PagedResult<BookDto>>($"/{ResourceEndpoint}?IsWishlisted=true&search={uniqueTitle}");
             wishlisted.Items.Should().ContainSingle(b => b.Id == created.Id);
         }

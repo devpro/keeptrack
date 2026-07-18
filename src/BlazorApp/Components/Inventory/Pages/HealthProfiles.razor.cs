@@ -1,3 +1,4 @@
+using Keeptrack.Common.System;
 using Keeptrack.WebApi.Contracts.Dto;
 using Microsoft.AspNetCore.Components;
 
@@ -10,4 +11,6 @@ public partial class HealthProfiles : InventoryPageBase<HealthProfileDto>
     protected override InventoryApiClientBase<HealthProfileDto> Api => HealthProfileApi;
 
     protected override string ListRoute => "/health";
+
+    protected override string DefaultSort => ListSort.Title;
 }

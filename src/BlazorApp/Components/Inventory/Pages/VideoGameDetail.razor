@@ -115,10 +115,15 @@ else
                 </ButtonRowSuffix>
             </OwnedVersionFields>
 
-            <div class="d-flex gap-2 mt-3 flex-wrap">
+            <div class="d-flex gap-2 mt-3 flex-wrap align-items-center">
                 @foreach (var state in VideoGames.VideoGameStates)
                 {
                     <button class="btn btn-sm @(entry.State == state ? "btn-primary" : "btn-secondary")" @onclick="() => SetPlatformStateAsync(entry, state)">@state</button>
+                }
+                @if (entry.State == "Completed")
+                {
+                    <input class="form-control form-control-sm" style="max-width:160px" type="date"
+                           value="@entry.CompletedAt?.ToString("yyyy-MM-dd")" @onchange="e => SetPlatformCompletedDateAsync(entry, e)"/>
                 }
             </div>
 
@@ -339,6 +344,13 @@ else
     private async Task SetPlatformStateAsync(VideoGamePlatformDto entry, string state)
     {
         entry.State = entry.State == state ? "" : state;
+        if (entry.State == "Completed") entry.CompletedAt ??= DateOnly.FromDateTime(DateTime.Today);
+        await SaveGameAsync();
+    }
+
+    private async Task SetPlatformCompletedDateAsync(VideoGamePlatformDto entry, ChangeEventArgs e)
+    {
+        entry.CompletedAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
         await SaveGameAsync();
     }
 
