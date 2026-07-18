@@ -100,13 +100,6 @@
                 </AuthorizeView>
                 <div class="nav-divider"></div>
                 <div class="nav-item">
-                    <button type="button" class="nav-link kt-theme-toggle" onclick="ktToggleTheme()">
-                        <span class="nav-icon kt-theme-icon-light">☀</span>
-                        <span class="nav-icon kt-theme-icon-dark">☾</span>
-                        Toggle theme
-                    </button>
-                </div>
-                <div class="nav-item">
                     <a class="nav-link nav-link-user" href="/account/manage">
                         <span class="nav-icon kt-nav-avatar">@(GetInitial(context.User.Identity?.Name))</span>
                         <span class="nav-username">@context.User.Identity?.Name</span>

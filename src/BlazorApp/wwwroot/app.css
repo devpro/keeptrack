@@ -1,51 +1,11 @@
 /* ═══════════════════════════════════════════════════════════════════
-   KEEPTRACK — theme layer (light + dark)
-   Bootstrap 5.3 override layer, driven by [data-bs-theme] on <html>
+   KEEPTRACK — theme layer (dark only)
+   Bootstrap 5.3 override layer. data-bs-theme="dark" is set statically
+   on <html> in App.razor - the app has no light theme and no toggle.
    ═══════════════════════════════════════════════════════════════════ */
 
-/* ── Tokens: light (default) ──────────────────────────────────────── */
+/* ── Tokens ──────────────────────────────────────────────────────── */
 :root {
-  color-scheme: light;
-
-  --kt-bg:           #f6f7f9;
-  --kt-surface:      #ffffff;
-  --kt-surface-2:    #f1f2f5;
-  --kt-surface-3:    #eceef1;
-  --kt-border:       rgba(15, 18, 25, 0.10);
-  --kt-border-hover: rgba(15, 18, 25, 0.18);
-  --kt-accent:       #2f6fed;
-  --kt-accent-dim:   #1f56c4;
-  --kt-accent-glow:  rgba(47, 111, 237, 0.10);
-  --kt-text:         #1a1d23;
-  --kt-text-muted:   #5f6570;
-  --kt-text-subtle:  #b1b6bd;
-  --kt-danger:       #c73a52;
-  --kt-danger-bg:    #f5dde1;
-  --kt-success:      #2b8a5e;
-  --kt-success-bg:   #dcefe4;
-  --kt-warning:      #9a6b00;
-  --kt-warning-bg:   #f7ecd2;
-  --kt-chart-secondary: #8a5fd1;
-  --kt-radius:       10px;
-  --kt-radius-lg:    14px;
-  --kt-shadow:       0 2px 10px rgba(15, 18, 25, 0.06);
-  --kt-shadow-lg:    0 12px 36px rgba(15, 18, 25, 0.14);
-  --kt-font:         system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --kt-transition:   0.15s ease;
-
-  --bs-body-bg:            var(--kt-bg);
-  --bs-body-color:         var(--kt-text);
-  --bs-border-color:       var(--kt-border);
-  --bs-table-bg:           transparent;
-  --bs-table-color:        var(--kt-text);
-  --bs-table-border-color: var(--kt-border);
-  --bs-table-striped-bg:   transparent;
-  --bs-table-hover-bg:     var(--kt-surface-2);
-  --bs-table-active-bg:    var(--kt-surface-2);
-}
-
-/* ── Tokens: dark ──────────────────────────────────────────────────── */
-:root[data-bs-theme="dark"] {
   color-scheme: dark;
 
   --kt-bg:           #14161a;
@@ -67,12 +27,20 @@
   --kt-warning:      #e0be5b;
   --kt-warning-bg:   rgba(224, 190, 91, 0.16);
   --kt-chart-secondary: #b39ce8;
+  --kt-radius:       10px;
+  --kt-radius-lg:    14px;
   --kt-shadow:       0 4px 20px rgba(0, 0, 0, 0.35);
   --kt-shadow-lg:    0 16px 48px rgba(0, 0, 0, 0.5);
+  --kt-font:         system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --kt-transition:   0.15s ease;
 
   --bs-body-bg:            var(--kt-bg);
   --bs-body-color:         var(--kt-text);
   --bs-border-color:       var(--kt-border);
+  --bs-table-bg:           transparent;
+  --bs-table-color:        var(--kt-text);
+  --bs-table-border-color: var(--kt-border);
+  --bs-table-striped-bg:   transparent;
   --bs-table-hover-bg:     var(--kt-surface-2);
   --bs-table-active-bg:    var(--kt-surface-2);
 }
@@ -265,29 +233,6 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
 }
 
 .nav-divider { border-top: 1px solid var(--kt-border); margin: 0.75rem 0; }
-
-/* ── Theme toggle ──────────────────────────────────────────────────── */
-.kt-theme-toggle {
-  display: flex !important;
-  align-items: center;
-  gap: 0.6rem;
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  border-radius: 7px;
-  border: none;
-  background: none;
-  color: var(--kt-text-muted);
-  font-size: 0.875rem;
-  font-weight: 500;
-  font-family: var(--kt-font);
-  cursor: pointer;
-  text-align: left;
-}
-.kt-theme-toggle:hover { color: var(--kt-text); background: var(--kt-surface-2); }
-.kt-theme-toggle .nav-icon { opacity: 1; }
-[data-bs-theme="dark"] .kt-theme-toggle .kt-theme-icon-dark { display: none; }
-[data-bs-theme="light"] .kt-theme-toggle .kt-theme-icon-light { display: none; }
-:root:not([data-bs-theme]) .kt-theme-toggle .kt-theme-icon-light { display: none; }
 
 /* ── Buttons ───────────────────────────────────────────────────────── */
 .btn {

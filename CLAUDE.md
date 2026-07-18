@@ -769,9 +769,12 @@ Always write `Title="@_movie.Title"` for string parameters bound to a field/prop
 
 ### Theme
 
-`app.css` is a light+dark theme driven by `data-bs-theme` on `<html>` (Bootstrap 5.3's native color-mode support), with Keeptrack's own `--kt-*` tokens layered on top for custom components (sidebar, `kt-table-wrap`, `kt-modal`, etc.).
-`wwwroot/theme.js` sets the initial theme from `localStorage`/`prefers-color-scheme` before first paint (avoiding a flash of the wrong theme) and exposes `ktToggleTheme()`, called directly from a plain button in `NavMenu.razor` —
-no Blazor/JS interop needed for the toggle itself.
+The app is dark-only — there is no light theme and no in-app toggle.
+`App.razor` sets `data-bs-theme="dark"` statically on `<html>`, server-rendered as part of the initial markup rather than applied by client-side JS, so there's no flash of a different theme on first paint or between page loads.
+`app.css`'s token block (`:root { --kt-bg: ...; }`, Bootstrap 5.3's native color-mode variables) only ever defines the dark values now; a previous light+dark version (with a `wwwroot/theme.js` that picked the initial theme from `localStorage`/`prefers-color-scheme`,
+a `ktToggleTheme()` toggle button in `NavMenu.razor`, and a `Keeptrack.BlazorApp.lib.module.js` JS initializer that re-applied `data-bs-theme` after Blazor's enhanced-navigation DOM diff) was removed entirely at the owner's request —
+the toggle caused visibly jarring light/dark flashes on every page load, and a single dark theme is simpler to maintain than two.
+Don't reintroduce `data-bs-theme` as something client-side JS sets or removes; keep it a static attribute on `<html>` so enhanced navigation can never strip it.
 Use system-ui fonts only; no decorative/display webfonts.
 
 Icons throughout the app are plain Unicode symbols with no default emoji presentation (`◈`, `✓`, `✕`, `★`, `▶`, `↻`, `⌂`, `⚙`, `♪`, and the Geometric Shapes block generally: `◼ ▭ ▬ ◆`),
@@ -786,10 +789,9 @@ and were simply dropped rather than replaced with an approximate glyph, since a 
 `.kt-icon-spin` (reuses the same `spin` keyframes as `.kt-spinner`) makes a plain glyph rotate in place for a small inline action's "in progress" state, instead of swapping to an hourglass emoji.
 
 Enhanced navigation re-fetches and diffs the whole document on every in-app link click; anything set on `<html>`/`<body>` by client-side JS
-rather than server-rendered markup (like `data-bs-theme`) gets stripped back out unless it's explicitly re-applied.
-`wwwroot/Keeptrack.BlazorApp.lib.module.js` is a JS initializer (autoloaded by Blazor because its name matches the assembly -
-don't add a manual `<script>` tag for it) that re-applies the theme via `blazor.addEventListener('enhancedload', ...)`.
-Any future client-side DOM state that isn't part of the Razor render tree needs the same treatment.
+rather than server-rendered markup gets stripped back out unless it's explicitly re-applied.
+A JS initializer (`wwwroot/Keeptrack.BlazorApp.lib.module.js`, autoloaded by Blazor because its name matches the assembly - don't add a manual `<script>` tag for it) is the place to hook `blazor.addEventListener('enhancedload', ...)` for that;
+it was removed when it had no remaining purpose (its only use was re-applying `data-bs-theme` after enhanced navigation, no longer needed now that the theme is a static, server-rendered `<html>` attribute), but recreate it if any future client-side DOM state needs the same treatment.
 
 Before assuming a rule in `app.css` will style something, check whether that element has its own scoped `{ComponentName}.razor.css` file (Blazor CSS isolation) -
 a scoped selector always wins the cascade over an equally-specific one in the shared stylesheet, since it's compiled with an extra scope attribute.
