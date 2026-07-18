@@ -1,6 +1,5 @@
 @page "/health/{Id}"
 @attribute [Authorize]
-@using System.Globalization
 
 @if (!_loaded)
 {
@@ -144,15 +143,7 @@ else
                                 }
                             </div>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Date</label>
-                            <input class="form-control" type="date" @bind="ModalDate" @bind:format="yyyy-MM-dd"/>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Time (24h)</label>
-                            <input class="form-control" type="text" inputmode="numeric" placeholder="HH:mm"
-                                   pattern="[0-2][0-9]:[0-5][0-9]" @bind="ModalTimeText" @bind:event="onchange"/>
-                        </div>
+                        <DateTimeFields @bind-Value="_modalEntry.HistoryDate"/>
                         @if (_modalEntry.EventType == HealthEventType.Appointment)
                         {
                             <div class="col-md-6">
@@ -288,28 +279,6 @@ else
         HistoryDate = DateTime.Today.AddHours(DateTime.Now.Hour),
         EventType = HealthEventType.Appointment
     };
-
-    /// <summary>Separate Date/Time proxies over the single _modalEntry.HistoryDate - see CarDetail.razor's
-    /// identical pair for why a plain @bind to HistoryDate would lose the time on every date change.</summary>
-    private DateOnly ModalDate
-    {
-        get => DateOnly.FromDateTime(_modalEntry.HistoryDate);
-        set => _modalEntry.HistoryDate = value.ToDateTime(TimeOnly.FromDateTime(_modalEntry.HistoryDate));
-    }
-
-    /// <summary>Plain "HH:mm" text instead of &lt;input type="time"&gt; - see CarDetail.razor's ModalTimeText
-    /// for why the native picker can't be forced to 24h.</summary>
-    private string ModalTimeText
-    {
-        get => TimeOnly.FromDateTime(_modalEntry.HistoryDate).ToString("HH:mm");
-        set
-        {
-            if (TimeOnly.TryParseExact(value, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var time))
-            {
-                _modalEntry.HistoryDate = DateOnly.FromDateTime(_modalEntry.HistoryDate).ToDateTime(time);
-            }
-        }
-    }
 
     private async Task LoadAsync()
     {
