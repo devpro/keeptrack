@@ -6,21 +6,24 @@
     <h1>Watch <span>next</span></h1>
 </div>
 
-@if (_loading)
+@if (!_loaded)
 {
-    <div class="kt-loading">
-        <div class="kt-spinner"></div>
-        Loading…
-    </div>
+    @if (_loading)
+    {
+        <div class="kt-loading">
+            <div class="kt-spinner"></div>
+            Loading…
+        </div>
+    }
 }
-else
+else if (Data is not null)
 {
     <div class="kt-tabs">
         <button class="kt-tab @(_tab == Tab.TvShows ? "active" : "")" @onclick="() => SelectTab(Tab.TvShows)">
-            TV shows<span class="kt-tab-count">@_data.InProgressShows.Count</span>
+            TV shows<span class="kt-tab-count">@Data.InProgressShows.Count</span>
         </button>
         <button class="kt-tab @(_tab == Tab.Movies ? "active" : "")" @onclick="() => SelectTab(Tab.Movies)">
-            Movies<span class="kt-tab-count">@_data.MoviesToWatch.Count</span>
+            Movies<span class="kt-tab-count">@Data.MoviesToWatch.Count</span>
         </button>
     </div>
 
@@ -29,7 +32,7 @@ else
         <p style="color:var(--kt-text-muted);margin-top:-0.5rem">
             Current shows with a confirmed new episode ready to watch.
         </p>
-        @if (_data.InProgressShows.Count == 0)
+        @if (Data.InProgressShows.Count == 0)
         {
             <div class="kt-empty">
                 <div class="kt-empty-icon">◈</div>
@@ -40,7 +43,7 @@ else
         {
             <div class="kt-table-wrap">
                 <div class="kt-item-list">
-                    @foreach (var show in _data.InProgressShows)
+                    @foreach (var show in Data.InProgressShows)
                     {
                         <a class="kt-item-row" href="@($"/tv-shows/{show.TvShowId}")">
                             <ItemThumb ImageUrl="@show.ImageUrl"/>
@@ -60,7 +63,7 @@ else
     }
     else
     {
-        @if (_data.MoviesToWatch.Count == 0)
+        @if (Data.MoviesToWatch.Count == 0)
         {
             <div class="kt-empty">
                 <div class="kt-empty-icon">◈</div>
@@ -71,7 +74,7 @@ else
         {
             <div class="kt-table-wrap">
                 <div class="kt-item-list">
-                    @foreach (var movie in _data.MoviesToWatch)
+                    @foreach (var movie in Data.MoviesToWatch)
                     {
                         <a class="kt-item-row" href="@($"/movies/{movie.Id}")">
                             <ItemThumb ImageUrl="@movie.ImageUrl"/>
@@ -97,14 +100,34 @@ else
 
     [Inject] private WatchNextApiClient WatchNextApi { get; set; } = null!;
 
-    private bool _loading = true;
-    private WatchNextDto _data = new();
+    // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
+    // _loaded tracks whether a load attempt has finished at all - both default false so the forced
+    // render Blazor triggers right after the synchronous prefix of OnInitializedAsync (before any
+    // awaited fetch resolves) shows blank instead of a spinner flash on every navigation to this page.
+    private bool _loading;
+    private bool _loaded;
+
+    // Deliberately NOT [PersistentState], unlike the detail pages: WatchNextDto embeds every to-watch
+    // movie, an unbounded payload that can exceed the Blazor hub's 32 KB MaximumReceiveMessageSize and
+    // kill the circuit on the prerender-to-interactive handoff (dotnet/aspnetcore#65101, see
+    // docs/prerender-flash-fix.md). The interactive circuit re-fetches instead; the delay-gated
+    // spinner above keeps that re-fetch flash-free when it's fast.
+    private WatchNextDto? Data { get; set; }
+
     private Tab _tab = Tab.TvShows;
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
     {
-        _data = await WatchNextApi.GetAsync();
+        await LoadingIndicator.RunAsync(FetchAsync(), v => _loading = v, StateHasChanged);
         _loading = false;
+        _loaded = true;
+    }
+
+    private async Task FetchAsync()
+    {
+        Data = await WatchNextApi.GetAsync();
     }
 
     private void SelectTab(Tab tab) => _tab = tab;
