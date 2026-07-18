@@ -17,6 +17,7 @@
     <File Path="docs/code-quality-findings.md" />
     <File Path="docs/operations.md" />
     <File Path="docs/playwright-e2e-tests-plan.md" />
+    <File Path="docs/prerender-flash-fix.md" />
   </Folder>
   <Folder Name="/Solution Items/pipelines/" />
   <Folder Name="/Solution Items/pipelines/azure-devops/">
