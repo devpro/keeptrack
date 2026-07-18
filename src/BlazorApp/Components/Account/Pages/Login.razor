@@ -1,4 +1,4 @@
-﻿@page "/account/login"
+@page "/account/login"
 @inject FirebaseClientSettings FirebaseConfig
 
 <PageTitle>Login - Keeptrack</PageTitle>
@@ -65,10 +65,10 @@
         try {
             const result = await signInWithPopup(auth, provider);
             const idToken = await result.user.getIdToken();
-            // Land the user back on the page they were bounced from, if any. The server validates this
-            // value (open-redirect protection) before echoing it back as the redirect target. The param
-            // casing differs by source - ASP.NET's cookie challenge uses "ReturnUrl", Blazor's own
-            // RedirectToLogin uses "returnUrl" - so read it case-insensitively to catch both.
+            // Land the user back on the page they were bounced from, if any.
+            // The server validates this value (open-redirect protection) before echoing it back as the redirect target.
+            // The param casing differs by source - ASP.NET's cookie challenge uses "ReturnUrl", Blazor's own RedirectToLogin uses "returnUrl" -
+            // so read it case-insensitively to catch both.
             let returnUrl = null;
             for (const [key, value] of new URLSearchParams(window.location.search)) {
                 if (key.toLowerCase() === 'returnurl') { returnUrl = value; break; }
