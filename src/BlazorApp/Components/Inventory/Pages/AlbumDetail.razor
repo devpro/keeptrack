@@ -75,21 +75,9 @@ else
                         <StarRatingInput Rating="Album.Rating" RatingChanged="SetRatingAsync"/>
                     </div>
                 </div>
-                @if (!string.IsNullOrEmpty(Reference?.Synopsis))
-                {
-                    <p class="mt-3 mb-0" style="color:var(--kt-text-muted)">@Reference.Synopsis</p>
-                }
             </div>
         </div>
     </div>
-
-    <OwnedVersionsEditor Versions="Album.OwnedVersions" OnChanged="SaveAlbumAsync"/>
-
-    @if (!string.IsNullOrEmpty(Reference?.ArtistImageUrl))
-    {
-        <h2 class="kt-section-title">Artist</h2>
-        <CastGrid Cast="@_artistCard"/>
-    }
 
     @if (Reference?.Tracks.Count > 0)
     {
@@ -123,6 +111,14 @@ else
                 </div>
             }
         </div>
+    }
+
+    <OwnedVersionsEditor Versions="Album.OwnedVersions" OnChanged="SaveAlbumAsync"/>
+
+    @if (!string.IsNullOrEmpty(Reference?.ArtistImageUrl))
+    {
+        <h2 class="kt-section-title">Artist</h2>
+        <CastGrid Cast="@_artistCard"/>
     }
 }
 
