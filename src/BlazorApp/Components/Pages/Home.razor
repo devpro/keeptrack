@@ -14,6 +14,9 @@
                     Good work building this up@(_stats.EpisodesWatched > 0 ? $" — including {_stats.EpisodesWatched:N0} episodes watched across your shows" : "").
                     Every entry below is one more thing you'll never lose.
                 </p>
+                <div class="kt-home-cta">
+                    <a class="btn btn-primary" href="/add">+ Quick add</a>
+                </div>
                 <div class="kt-stat-grid">
                     <a class="kt-stat-tile" href="/movies"><span class="kt-stat-value">@_stats.Movies</span><span class="kt-stat-label">Movies</span></a>
                     <a class="kt-stat-tile" href="/tv-shows"><span class="kt-stat-value">@_stats.TvShows</span><span class="kt-stat-label">TV shows</span></a>
@@ -34,7 +37,8 @@
                     Rate it, note it, never lose it.
                 </p>
                 <div class="kt-home-cta">
-                    <a class="btn btn-primary" href="/movies">Go to my movies</a>
+                    <a class="btn btn-primary" href="/add">+ Quick add</a>
+                    <a class="btn btn-secondary" href="/movies">Go to my movies</a>
                 </div>
             }
         </Authorized>

@@ -462,6 +462,16 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 .kt-page-header h1 { font-size: 2rem; color: var(--kt-text); margin: 0; line-height: 1; }
 .kt-page-header h1 span { color: var(--kt-accent); }
 
+/* ── Quick Add ─────────────────────────────────────────────────────── */
+.kt-quickadd-back {
+  display: inline-block;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  color: var(--kt-text-muted);
+  text-decoration: none;
+}
+.kt-quickadd-back:hover { color: var(--kt-text); }
+
 /* editable "title" input on a detail page, styled to read as a heading until you interact with it.
    flex/min-width let it fill its row (rather than a fixed browser-default input width), so a button placed
    right after it (e.g. the reference-refresh icon) sits at a predictable spot instead of trailing right
@@ -905,6 +915,12 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   .table.kt-table-grid td { display: table-cell; width: auto; white-space: nowrap; border-bottom: 1px solid var(--kt-border) !important; padding: 0.4rem 0.6rem !important; }
   .table.kt-table-grid td[data-label]::before { content: none; }
   .table.kt-table-grid td[data-label]:empty { display: table-cell; }
+
+  /* Quick Add: the type picker forces 2 columns rather than kt-stat-grid's own auto-fit (which can settle
+     on 3 narrow columns on some phone widths), and every form's Save button goes full-width - there's no
+     sticky save bar in this first version since these forms are short enough not to need one. */
+  .kt-quickadd-picker { grid-template-columns: repeat(2, 1fr); }
+  .kt-quickadd .btn-primary { width: 100%; }
 }
 
 @media (min-width: 768px) and (max-width: 1024px) {
