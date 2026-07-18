@@ -11,7 +11,7 @@
         Loading…
     </div>
 }
-else if (_movie is null)
+else if (Movie is null)
 {
     <div class="kt-empty">
         <div class="kt-empty-icon">◈</div>
@@ -20,13 +20,13 @@ else if (_movie is null)
 }
 else
 {
-    <Breadcrumb ListRoute="/movies" ListLabel="Movies" Current="@_movie.Title"/>
+    <Breadcrumb ListRoute="/movies" ListLabel="Movies" Current="@Movie.Title"/>
 
     <div class="kt-page-header">
         <div class="kt-title-row">
-            <input class="kt-title-input" value="@_movie.Title" @onchange="SaveTitleAsync"/>
+            <input class="kt-title-input" value="@Movie.Title" @onchange="SaveTitleAsync"/>
             <button class="kt-icon-btn" @onclick="RefreshReferenceAsync" disabled="@_refreshingReference"
-                    title="@(string.IsNullOrEmpty(_movie.ReferenceId) ? "Check for reference match using the title and year below." : $"Linked to \"{_reference?.Title}\". Not right? Edit the title or year below, then check again.")">
+                    title="@(string.IsNullOrEmpty(Movie.ReferenceId) ? "Check for reference match using the title and year below." : $"Linked to \"{Reference?.Title}\". Not right? Edit the title or year below, then check again.")">
                 <span class="@(_refreshingReference ? "kt-icon-spin" : "")">↻</span>
             </button>
             @if (_refreshMessage is not null)
@@ -35,72 +35,72 @@ else
             }
         </div>
         <div class="d-flex gap-2">
-            <button class="btn btn-sm kt-toggle-btn @(_movie.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>
-            <button class="btn btn-sm kt-toggle-btn @(_movie.WantToWatch ? "active" : "")" @onclick="ToggleWantToWatchAsync">Watchlist</button>
-            <button class="btn btn-sm kt-toggle-btn @(_movie.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync">○ Wishlist</button>
+            <button class="btn btn-sm kt-toggle-btn @(Movie.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>
+            <button class="btn btn-sm kt-toggle-btn @(Movie.WantToWatch ? "active" : "")" @onclick="ToggleWantToWatchAsync">Watchlist</button>
+            <button class="btn btn-sm kt-toggle-btn @(Movie.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync">○ Wishlist</button>
         </div>
     </div>
-    @if (string.IsNullOrEmpty(_movie.ReferenceId))
+    @if (string.IsNullOrEmpty(Movie.ReferenceId))
     {
         <AuthorizeView Policy="AdminOnly">
             <Authorized>
-                <InlineReferenceLinker Type="ReferenceItemType.Movie" Title="@_movie.Title" Year="_movie.Year" OnLinked="LoadAsync"/>
+                <InlineReferenceLinker Type="ReferenceItemType.Movie" Title="@Movie.Title" Year="Movie.Year" OnLinked="LoadAsync"/>
             </Authorized>
         </AuthorizeView>
     }
 
     <div class="kt-form-card">
-        <span class="kt-corner-flag @(_movie.FirstSeenAt is not null ? "active" : "")" @onclick="ToggleWatchedAsync">
-            @(_movie.FirstSeenAt is not null ? "✓ Watched" : "Mark as watched")
+        <span class="kt-corner-flag @(Movie.FirstSeenAt is not null ? "active" : "")" @onclick="ToggleWatchedAsync">
+            @(Movie.FirstSeenAt is not null ? "✓ Watched" : "Mark as watched")
         </span>
         <div class="row g-3">
-            @if (!string.IsNullOrEmpty(_reference?.ImageUrl))
+            @if (!string.IsNullOrEmpty(Reference?.ImageUrl))
             {
                 <div class="col-md-2">
-                    <img src="@_reference.ImageUrl" alt="@_movie.Title poster" class="img-fluid rounded"/>
+                    <img src="@Reference.ImageUrl" alt="@Movie.Title poster" class="img-fluid rounded"/>
                 </div>
             }
             <div class="col-md-4">
                 <div>
                     <label class="form-label">Year</label>
                     <input class="form-control form-control-sm" style="max-width:120px" type="number" min="1970" max="2100"
-                           value="@_movie.Year" @onchange="SaveYearAsync"/>
+                           value="@Movie.Year" @onchange="SaveYearAsync"/>
                 </div>
                 <div class="mt-3">
                     <label class="form-label">Rating</label>
-                    <StarRatingInput Rating="_movie.Rating" RatingChanged="SetRatingAsync"/>
+                    <StarRatingInput Rating="Movie.Rating" RatingChanged="SetRatingAsync"/>
                 </div>
-                @if (_movie.FirstSeenAt is not null)
+                @if (Movie.FirstSeenAt is not null)
                 {
                     <div class="mt-3">
                         <label class="form-label">Watched on</label>
                         <input class="form-control form-control-sm" style="max-width:160px" type="date"
-                               value="@_movie.FirstSeenAt?.ToString("yyyy-MM-dd")" @onchange="SetWatchedDateAsync"/>
+                               value="@Movie.FirstSeenAt?.ToString("yyyy-MM-dd")" @onchange="SetWatchedDateAsync"/>
                     </div>
                 }
-                @if (_reference?.Genres.Count > 0)
+                @if (Reference?.Genres.Count > 0)
                 {
-                    <p class="kt-card-meta mt-3 mb-0">@string.Join(", ", _reference.Genres)</p>
+                    <p class="kt-card-meta mt-3 mb-0">@string.Join(", ", Reference.Genres)</p>
                 }
             </div>
             <div class="col-md-6">
                 <label class="form-label">Notes</label>
-                <textarea class="form-control" rows="3" @onchange="SaveNotesAsync">@_movie.Notes</textarea>
+                <textarea class="form-control" rows="3" @onchange="SaveNotesAsync">@Movie.Notes</textarea>
             </div>
         </div>
-        @if (!string.IsNullOrEmpty(_reference?.Synopsis))
+        @if (!string.IsNullOrEmpty(Reference?.Synopsis))
         {
             <hr/>
-            <p class="mb-0" style="color:var(--kt-text-muted)">@_reference.Synopsis</p>
+            <p class="mb-0" style="color:var(--kt-text-muted)">@Reference.Synopsis</p>
         }
     </div>
 
-    <OwnedVersionsEditor Versions="_movie.OwnedVersions" OnChanged="SaveMovieAsync"/>
+    <OwnedVersionsEditor Versions="Movie.OwnedVersions" OnChanged="SaveMovieAsync"/>
 
-    @if (_reference?.Cast.Count > 0)
+    @if (Reference?.Cast.Count > 0)
     {
         <h2 class="kt-section-title">Cast</h2>
-        <CastGrid Cast="_reference.Cast"/>
+        <CastGrid Cast="Reference.Cast"/>
     }
 }
 
@@ -114,90 +114,108 @@ else
     private static readonly TimeSpan RefreshMessageDuration = TimeSpan.FromSeconds(4);
 
     private bool _loading = true;
-    private MovieDto? _movie;
-    private MovieReferenceDto? _reference;
+
+    // Public properties (a framework requirement for [PersistentState]): the data loaded during the
+    // prerender pass is carried over to the interactive circuit, so the first interactive render reuses
+    // it instead of resetting to the spinner and re-fetching - the cause of the visible
+    // content -> spinner -> content flash on every detail-page open.
+    [PersistentState]
+    public MovieDto? Movie { get; set; }
+
+    [PersistentState]
+    public MovieReferenceDto? Reference { get; set; }
     private bool _refreshingReference;
     private string? _refreshMessage;
     private string _refreshMessageStyle = "neutral";
     private object? _refreshMessageToken;
 
-    protected override async Task OnParametersSetAsync() => await LoadAsync();
+    protected override async Task OnParametersSetAsync()
+    {
+        // Movie already holds this route's item when [PersistentState] restored the prerendered data;
+        // the id check keeps an in-circuit navigation to a *different* movie reloading as before.
+        if (Movie?.Id == Id)
+        {
+            _loading = false;
+            return;
+        }
+        await LoadAsync();
+    }
 
     private async Task LoadAsync()
     {
         _loading = true;
-        _movie = await MovieApi.GetOneAsync(Id);
-        _reference = string.IsNullOrEmpty(_movie?.ReferenceId) ? null : await ReferenceDataApi.GetMovieAsync(_movie.ReferenceId);
+        Movie = await MovieApi.GetOneAsync(Id);
+        Reference = string.IsNullOrEmpty(Movie?.ReferenceId) ? null : await ReferenceDataApi.GetMovieAsync(Movie.ReferenceId);
         _loading = false;
     }
 
     private async Task ToggleFavoriteAsync()
     {
-        if (_movie is null) return;
-        _movie.IsFavorite = !_movie.IsFavorite;
-        await MovieApi.UpdateAsync(_movie);
+        if (Movie is null) return;
+        Movie.IsFavorite = !Movie.IsFavorite;
+        await MovieApi.UpdateAsync(Movie);
     }
 
     private async Task ToggleWantToWatchAsync()
     {
-        if (_movie is null) return;
-        _movie.WantToWatch = !_movie.WantToWatch;
-        await MovieApi.UpdateAsync(_movie);
+        if (Movie is null) return;
+        Movie.WantToWatch = !Movie.WantToWatch;
+        await MovieApi.UpdateAsync(Movie);
     }
 
     private async Task SaveMovieAsync()
     {
-        if (_movie is null) return;
-        await MovieApi.UpdateAsync(_movie);
+        if (Movie is null) return;
+        await MovieApi.UpdateAsync(Movie);
     }
 
     private async Task ToggleWishlistedAsync()
     {
-        if (_movie is null) return;
-        _movie.IsWishlisted = !_movie.IsWishlisted;
-        await MovieApi.UpdateAsync(_movie);
+        if (Movie is null) return;
+        Movie.IsWishlisted = !Movie.IsWishlisted;
+        await MovieApi.UpdateAsync(Movie);
     }
 
     private async Task SetRatingAsync(float rating)
     {
-        if (_movie is null) return;
-        _movie.Rating = rating;
-        await MovieApi.UpdateAsync(_movie);
+        if (Movie is null) return;
+        Movie.Rating = rating;
+        await MovieApi.UpdateAsync(Movie);
     }
 
     private async Task ToggleWatchedAsync()
     {
-        if (_movie is null) return;
-        _movie.FirstSeenAt = _movie.FirstSeenAt is null ? DateOnly.FromDateTime(DateTime.Today) : null;
-        await MovieApi.UpdateAsync(_movie);
+        if (Movie is null) return;
+        Movie.FirstSeenAt = Movie.FirstSeenAt is null ? DateOnly.FromDateTime(DateTime.Today) : null;
+        await MovieApi.UpdateAsync(Movie);
     }
 
     private async Task SetWatchedDateAsync(ChangeEventArgs e)
     {
-        if (_movie is null) return;
-        _movie.FirstSeenAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
-        await MovieApi.UpdateAsync(_movie);
+        if (Movie is null) return;
+        Movie.FirstSeenAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
+        await MovieApi.UpdateAsync(Movie);
     }
 
     private async Task SaveTitleAsync(ChangeEventArgs e)
     {
-        if (_movie is null) return;
+        if (Movie is null) return;
         var title = e.Value?.ToString();
         if (string.IsNullOrWhiteSpace(title)) return;
-        _movie.Title = title;
-        await MovieApi.UpdateAsync(_movie);
+        Movie.Title = title;
+        await MovieApi.UpdateAsync(Movie);
     }
 
     private async Task RefreshReferenceAsync()
     {
-        if (_movie?.Id is null) return;
+        if (Movie?.Id is null) return;
 
-        var previousReferenceId = _movie.ReferenceId;
+        var previousReferenceId = Movie.ReferenceId;
         _refreshingReference = true;
         _refreshMessage = null;
         try
         {
-            var refreshed = await MovieApi.RefreshReferenceAsync(_movie.Id);
+            var refreshed = await MovieApi.RefreshReferenceAsync(Movie.Id);
             await LoadAsync();
 
             (_refreshMessage, _refreshMessageStyle) = string.IsNullOrEmpty(refreshed.ReferenceId)
@@ -238,15 +256,15 @@ else
 
     private async Task SaveYearAsync(ChangeEventArgs e)
     {
-        if (_movie is null) return;
-        _movie.Year = int.TryParse(e.Value?.ToString(), out var year) ? year : null;
-        await MovieApi.UpdateAsync(_movie);
+        if (Movie is null) return;
+        Movie.Year = int.TryParse(e.Value?.ToString(), out var year) ? year : null;
+        await MovieApi.UpdateAsync(Movie);
     }
 
     private async Task SaveNotesAsync(ChangeEventArgs e)
     {
-        if (_movie is null) return;
-        _movie.Notes = e.Value?.ToString();
-        await MovieApi.UpdateAsync(_movie);
+        if (Movie is null) return;
+        Movie.Notes = e.Value?.ToString();
+        await MovieApi.UpdateAsync(Movie);
     }
 }
