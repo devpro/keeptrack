@@ -6,7 +6,7 @@ namespace Keeptrack.WebApi.Contracts.Dto;
 /// <summary>
 /// One entry per platform a game is tracked on - not one entry per physical copy.
 /// </summary>
-public class VideoGamePlatformDto
+public class VideoGamePlatformDto : IOwnedCopyDto
 {
     /// <summary>
     /// Platform name (e.g. "PS5", "Xbox Series X", "PC").

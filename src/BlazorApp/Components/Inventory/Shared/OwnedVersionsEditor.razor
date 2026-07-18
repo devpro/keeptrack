@@ -1,5 +1,3 @@
-@using System.Globalization
-
 @* Shared ownership section for movie/TV show/book/album detail pages: one card per owned copy.
    An item is owned exactly when this list is non-empty - there is no separate owned flag. Video games
    don't use this component; their per-platform entries already are their copies.
@@ -27,41 +25,16 @@
 {
     var isDraft = ReferenceEquals(version, _draft);
     <div class="kt-form-card mb-3">
-        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
-            <div class="d-flex gap-2">
-                <button class="btn btn-sm @(version.CopyType == CopyType.Physical ? "btn-primary" : "btn-secondary")" @onclick="() => SetCopyTypeAsync(version, CopyType.Physical)">Physical</button>
-                <button class="btn btn-sm @(version.CopyType == CopyType.Digital ? "btn-primary" : "btn-secondary")" @onclick="() => SetCopyTypeAsync(version, CopyType.Digital)">Digital</button>
-            </div>
-            @if (!isDraft)
-            {
-                <button class="kt-icon-btn" title="Remove this copy" aria-label="Remove this copy" @onclick="() => RequestRemoveAsync(version)">
-                    <TrashIcon/>
-                </button>
-            }
-        </div>
-        <div class="row g-3 mt-0">
-            <div class="col-6 col-md-3">
-                @* the euro sign is a display choice, not stored data - a per-user currency setting may replace it later *@
-                <label class="form-label">Price (€)</label>
-                <input class="form-control form-control-sm" type="number" step="0.01" min="0" data-testid="version-price-input"
-                       value="@version.Price?.ToString(CultureInfo.InvariantCulture)" @onchange="e => SetPriceAsync(version, e)"/>
-            </div>
-            <div class="col-6 col-md-3">
-                <label class="form-label">Acquired on</label>
-                <input class="form-control form-control-sm" type="date" data-testid="version-acquired-input"
-                       value="@version.AcquiredAt?.ToString("yyyy-MM-dd")" @onchange="e => SetAcquiredAtAsync(version, e)"/>
-            </div>
-            <div class="col-6 col-md-3">
-                <label class="form-label">Vendor</label>
-                <input class="form-control form-control-sm" placeholder="Store, site, seller…" data-testid="version-vendor-input"
-                       value="@version.Vendor" @onchange="e => SetVendorAsync(version, e)"/>
-            </div>
-            <div class="col-12 col-md-3">
-                <label class="form-label">Reference</label>
-                <input class="form-control form-control-sm" placeholder="Edition, order number…" data-testid="version-reference-input"
-                       value="@version.Reference" @onchange="e => SetReferenceAsync(version, e)"/>
-            </div>
-        </div>
+        <OwnedVersionFields Copy="version" OnChanged="() => NotifyChangedAsync(version)">
+            <ButtonRowSuffix>
+                @if (!isDraft)
+                {
+                    <button class="kt-icon-btn" title="Remove this copy" aria-label="Remove this copy" @onclick="() => RequestRemoveAsync(version)">
+                        <TrashIcon/>
+                    </button>
+                }
+            </ButtonRowSuffix>
+        </OwnedVersionFields>
         @if (isDraft)
         {
             <div class="d-flex gap-2 mt-3">
@@ -148,36 +121,5 @@
         {
             await OnChanged.InvokeAsync();
         }
-    }
-
-    private async Task SetCopyTypeAsync(OwnedVersionDto version, CopyType copyType)
-    {
-        version.CopyType = copyType;
-        await NotifyChangedAsync(version);
-    }
-
-    // number inputs report invariant-formatted values regardless of UI culture, so parse them the same way
-    private async Task SetPriceAsync(OwnedVersionDto version, ChangeEventArgs e)
-    {
-        version.Price = decimal.TryParse(e.Value?.ToString(), NumberStyles.Number, CultureInfo.InvariantCulture, out var price) ? price : null;
-        await NotifyChangedAsync(version);
-    }
-
-    private async Task SetVendorAsync(OwnedVersionDto version, ChangeEventArgs e)
-    {
-        version.Vendor = e.Value?.ToString();
-        await NotifyChangedAsync(version);
-    }
-
-    private async Task SetAcquiredAtAsync(OwnedVersionDto version, ChangeEventArgs e)
-    {
-        version.AcquiredAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
-        await NotifyChangedAsync(version);
-    }
-
-    private async Task SetReferenceAsync(OwnedVersionDto version, ChangeEventArgs e)
-    {
-        version.Reference = e.Value?.ToString();
-        await NotifyChangedAsync(version);
     }
 }
