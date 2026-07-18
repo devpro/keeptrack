@@ -33,6 +33,18 @@
                     <span class="kt-stat-value">◆</span>
                     <span class="kt-stat-label">Video game</span>
                 </a>
+                <a class="kt-stat-tile" href="/add?type=car" data-testid="quickadd-type-car">
+                    <span class="kt-stat-value">◉</span>
+                    <span class="kt-stat-label">Car record</span>
+                </a>
+                <a class="kt-stat-tile" href="/add?type=house" data-testid="quickadd-type-house">
+                    <span class="kt-stat-value">▲</span>
+                    <span class="kt-stat-label">House record</span>
+                </a>
+                <a class="kt-stat-tile" href="/add?type=health" data-testid="quickadd-type-health">
+                    <span class="kt-stat-value">✚</span>
+                    <span class="kt-stat-label">Health record</span>
+                </a>
             </Authorized>
             <NotAuthorized>
                 <span class="kt-nav-note">Preview account - movies &amp; TV shows only. A membership unlocks books, albums, games and more.</span>
@@ -204,6 +216,105 @@ else
                         </div>
                     </div>
                     <button class="btn btn-primary mt-3" disabled="@_saving" @onclick="SaveVideoGameAsync" data-testid="quickadd-save-button">Save</button>
+                }
+                else if (Type == "car")
+                {
+                    @if (_cars is null)
+                    {
+                        @if (_parentsLoading)
+                        {
+                            <div class="kt-loading"><div class="kt-spinner"></div> Loading…</div>
+                        }
+                    }
+                    else if (_cars.Count == 0)
+                    {
+                        <div class="kt-empty">
+                            <div class="kt-empty-icon">◉</div>
+                            <p>No cars yet. <a href="/cars">Add one first</a>, then come back here to log a record.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        @if (_cars.Count > 1)
+                        {
+                            <div class="d-flex gap-2 flex-wrap mb-3">
+                                @foreach (var car in _cars)
+                                {
+                                    <button type="button" class="btn btn-sm @(_selectedCarId == car.Id ? "btn-primary" : "btn-secondary")" @onclick="() => SelectCar(car.Id!)">@car.Name</button>
+                                }
+                            </div>
+                        }
+                        <div class="kt-form-card">
+                            <CarHistoryForm Entry="_carEntry" ShowFuel="ShowFuel" ShowElectric="ShowElectric"/>
+                        </div>
+                        <button class="btn btn-primary mt-3" disabled="@(_selectedCarId is null || _saving)" @onclick="SaveCarRecordAsync" data-testid="quickadd-save-button">Save</button>
+                    }
+                }
+                else if (Type == "house")
+                {
+                    @if (_houses is null)
+                    {
+                        @if (_parentsLoading)
+                        {
+                            <div class="kt-loading"><div class="kt-spinner"></div> Loading…</div>
+                        }
+                    }
+                    else if (_houses.Count == 0)
+                    {
+                        <div class="kt-empty">
+                            <div class="kt-empty-icon">▲</div>
+                            <p>No houses yet. <a href="/houses">Add one first</a>, then come back here to log a record.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        @if (_houses.Count > 1)
+                        {
+                            <div class="d-flex gap-2 flex-wrap mb-3">
+                                @foreach (var house in _houses)
+                                {
+                                    <button type="button" class="btn btn-sm @(_selectedHouseId == house.Id ? "btn-primary" : "btn-secondary")" @onclick="() => SelectHouse(house.Id!)">@house.Name</button>
+                                }
+                            </div>
+                        }
+                        <div class="kt-form-card">
+                            <HouseHistoryForm Entry="_houseEntry"/>
+                        </div>
+                        <button class="btn btn-primary mt-3" disabled="@(_selectedHouseId is null || _saving)" @onclick="SaveHouseRecordAsync" data-testid="quickadd-save-button">Save</button>
+                    }
+                }
+                else if (Type == "health")
+                {
+                    @if (_healthProfiles is null)
+                    {
+                        @if (_parentsLoading)
+                        {
+                            <div class="kt-loading"><div class="kt-spinner"></div> Loading…</div>
+                        }
+                    }
+                    else if (_healthProfiles.Count == 0)
+                    {
+                        <div class="kt-empty">
+                            <div class="kt-empty-icon">✚</div>
+                            <p>No health profiles yet. <a href="/health">Add one first</a>, then come back here to log a record.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        @if (_healthProfiles.Count > 1)
+                        {
+                            <div class="d-flex gap-2 flex-wrap mb-3">
+                                @foreach (var profile in _healthProfiles)
+                                {
+                                    <button type="button" class="btn btn-sm @(_selectedProfileId == profile.Id ? "btn-primary" : "btn-secondary")" @onclick="() => SelectHealthProfile(profile.Id!)">@profile.Name</button>
+                                }
+                            </div>
+                        }
+                        <div class="kt-form-card">
+                            <HealthRecordForm Entry="_healthEntry"/>
+                        </div>
+                        <button class="btn btn-primary mt-3" disabled="@(_selectedProfileId is null || _saving)" @onclick="SaveHealthRecordAsync" data-testid="quickadd-save-button">Save</button>
+                    }
                 }
             </Authorized>
             <NotAuthorized>

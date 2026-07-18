@@ -1,3 +1,5 @@
+using Keeptrack.BlazorApp.Components.Inventory.Shared;
+using Keeptrack.BlazorApp.Components.Shared;
 using Keeptrack.Common.System;
 using Keeptrack.WebApi.Contracts.Dto;
 using Microsoft.AspNetCore.Components;
@@ -20,6 +22,18 @@ public partial class QuickAddPage : ComponentBase
     [Inject] private AlbumApiClient AlbumApi { get; set; } = null!;
 
     [Inject] private VideoGameApiClient VideoGameApi { get; set; } = null!;
+
+    [Inject] private CarApiClient CarApi { get; set; } = null!;
+
+    [Inject] private CarHistoryApiClient CarHistoryApi { get; set; } = null!;
+
+    [Inject] private HouseApiClient HouseApi { get; set; } = null!;
+
+    [Inject] private HouseHistoryApiClient HouseHistoryApi { get; set; } = null!;
+
+    [Inject] private HealthProfileApiClient HealthProfileApi { get; set; } = null!;
+
+    [Inject] private HealthRecordApiClient HealthRecordApi { get; set; } = null!;
 
     /// <summary>
     /// The selected type lives in the URL (list-page URL-state convention) so the browser back button
@@ -62,6 +76,32 @@ public partial class QuickAddPage : ComponentBase
 
     private VideoGamePlatformDto _videoGamePlatformDraft = new();
 
+    private bool _parentsLoading;
+
+    private List<CarDto>? _cars;
+
+    private string? _selectedCarId;
+
+    private CarHistoryDto _carEntry = CarHistoryForm.NewEntry("");
+
+    private List<HouseDto>? _houses;
+
+    private string? _selectedHouseId;
+
+    private HouseHistoryDto _houseEntry = HouseHistoryForm.NewEntry("");
+
+    private List<HealthProfileDto>? _healthProfiles;
+
+    private string? _selectedProfileId;
+
+    private HealthRecordDto _healthEntry = HealthRecordForm.NewEntry("");
+
+    private CarDto? SelectedCar => _cars?.FirstOrDefault(c => c.Id == _selectedCarId);
+
+    private bool ShowFuel => SelectedCar?.EnergyType != CarEnergyType.Electric;
+
+    private bool ShowElectric => SelectedCar?.EnergyType is CarEnergyType.Electric or CarEnergyType.Hybrid;
+
     private static bool IsKnownType(string? type) => type is not null && KnownTypes.Contains(type);
 
     /// <summary>
@@ -103,9 +143,75 @@ public partial class QuickAddPage : ComponentBase
                 _videoGame = new VideoGameDto();
                 _videoGamePlatformDraft = new VideoGamePlatformDto();
                 break;
+            case "car":
+                await EnsureCarsLoadedAsync();
+                _carEntry = CarHistoryForm.NewEntry(_selectedCarId ?? "");
+                break;
+            case "house":
+                await EnsureHousesLoadedAsync();
+                _houseEntry = HouseHistoryForm.NewEntry(_selectedHouseId ?? "");
+                break;
+            case "health":
+                await EnsureHealthProfilesLoadedAsync();
+                _healthEntry = HealthRecordForm.NewEntry(_selectedProfileId ?? "");
+                break;
         }
+    }
 
-        await Task.CompletedTask;
+    /// <summary>Fetches a record type's possible parents (delay-gated spinner, same as every detail page's
+    /// own load) - shared by the three record types since the fetch-and-preselect algorithm is identical,
+    /// only the DTO/client/target field differ.</summary>
+    private async Task<List<TDto>> LoadParentsAsync<TDto>(InventoryApiClientBase<TDto> api) where TDto : IHasId
+    {
+        List<TDto>? items = null;
+        await LoadingIndicator.RunAsync(FetchAsync(), v => _parentsLoading = v, StateHasChanged);
+        return items!;
+
+        async Task FetchAsync()
+        {
+            var result = await api.GetAsync("", 1, 100);
+            items = result.Items;
+        }
+    }
+
+    private async Task EnsureCarsLoadedAsync()
+    {
+        if (_cars is not null) return;
+        _cars = await LoadParentsAsync(CarApi);
+        // the common "I only have one car" case - preselect it silently instead of a one-option picker
+        if (_cars.Count == 1) _selectedCarId = _cars[0].Id;
+    }
+
+    private async Task EnsureHousesLoadedAsync()
+    {
+        if (_houses is not null) return;
+        _houses = await LoadParentsAsync(HouseApi);
+        if (_houses.Count == 1) _selectedHouseId = _houses[0].Id;
+    }
+
+    private async Task EnsureHealthProfilesLoadedAsync()
+    {
+        if (_healthProfiles is not null) return;
+        _healthProfiles = await LoadParentsAsync(HealthProfileApi);
+        if (_healthProfiles.Count == 1) _selectedProfileId = _healthProfiles[0].Id;
+    }
+
+    private void SelectCar(string carId)
+    {
+        _selectedCarId = carId;
+        _carEntry.CarId = carId;
+    }
+
+    private void SelectHouse(string houseId)
+    {
+        _selectedHouseId = houseId;
+        _houseEntry.HouseId = houseId;
+    }
+
+    private void SelectHealthProfile(string profileId)
+    {
+        _selectedProfileId = profileId;
+        _healthEntry.HealthProfileId = profileId;
     }
 
     /// <summary>Shared error/saving-state handling for every Save button; each caller only supplies the
@@ -169,4 +275,20 @@ public partial class QuickAddPage : ComponentBase
 
         return SaveMediaAsync(VideoGameApi, _videoGame, "/video-games");
     }
+
+    private Task SaveRecordAsync<TDto>(InventoryApiClientBase<TDto> api, TDto dto, string parentId, string parentRoute) where TDto : IHasId =>
+        RunSaveAsync(async () =>
+        {
+            await api.AddAsync(dto);
+            return $"{parentRoute}/{parentId}";
+        });
+
+    private Task SaveCarRecordAsync() =>
+        _selectedCarId is null ? Task.CompletedTask : SaveRecordAsync(CarHistoryApi, _carEntry, _selectedCarId, "/cars");
+
+    private Task SaveHouseRecordAsync() =>
+        _selectedHouseId is null ? Task.CompletedTask : SaveRecordAsync(HouseHistoryApi, _houseEntry, _selectedHouseId, "/houses");
+
+    private Task SaveHealthRecordAsync() =>
+        _selectedProfileId is null ? Task.CompletedTask : SaveRecordAsync(HealthRecordApi, _healthEntry, _selectedProfileId, "/health");
 }
