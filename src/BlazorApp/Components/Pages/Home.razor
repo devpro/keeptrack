@@ -7,7 +7,17 @@
     <AuthorizeView>
         <Authorized>
             <div class="kt-home-eyebrow">Your personal collection</div>
-            @if (Stats is not null && TotalItems > 0)
+            @if (!_loaded)
+            {
+                @if (_loading)
+                {
+                    <div class="kt-loading">
+                        <div class="kt-spinner"></div>
+                        Loading…
+                    </div>
+                }
+            }
+            else if (Stats is not null && TotalItems > 0)
             {
                 <h1>Welcome back —<br/><em>@TotalItems.ToString("N0") things remembered.</em></h1>
                 <p class="kt-home-sub">
@@ -66,12 +76,20 @@
 
     // Public property (a framework requirement for [PersistentState]): the stats fetched during the
     // prerender pass are carried over to the interactive circuit, so the first interactive render reuses
-    // them instead of resetting to null and re-fetching - the cause of the visible summary -> empty ->
-    // summary flash on first load. CollectionStatsDto is a handful of counts, well within the Blazor hub's
-    // 32 KB message-size limit, so this follows the detail pages' [PersistentState] pattern rather than
-    // WatchNext/Wishlist's re-fetch-on-circuit-start one (see docs/prerender-flash-fix.md).
+    // them instead of resetting to null and re-fetching. CollectionStatsDto is a handful of counts, well
+    // within the Blazor hub's 32 KB message-size limit, so this follows the detail pages' [PersistentState]
+    // pattern rather than WatchNext/Wishlist's re-fetch-on-circuit-start one (see docs/prerender-flash-fix.md).
     [PersistentState]
     public CollectionStatsDto? Stats { get; set; }
+
+    // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
+    // _loaded tracks whether a load attempt has finished at all, fresh or restored from persisted
+    // prerender state - both default false so the forced render Blazor triggers right after the
+    // synchronous prefix of OnInitializedAsync (before [PersistentState] restoration or any awaited fetch
+    // resolves) shows blank instead of the "no items yet" CTA - Stats alone being null for that one frame
+    // isn't enough to gate on, since that's indistinguishable from a genuinely empty, freshly loaded account.
+    private bool _loading;
+    private bool _loaded;
 
     private long TotalItems =>
         Stats is null
@@ -82,13 +100,32 @@
     {
         // Stats already holds the prerendered data once [PersistentState] restores it on the interactive
         // circuit - skip the redundant re-fetch.
-        if (Stats is not null) return;
+        if (Stats is not null)
+        {
+            _loaded = true;
+            return;
+        }
 
-        if (AuthenticationState is null) return;
+        if (AuthenticationState is null)
+        {
+            _loaded = true;
+            return;
+        }
 
         var authState = await AuthenticationState;
-        if (authState.User.Identity?.IsAuthenticated != true) return;
+        if (authState.User.Identity?.IsAuthenticated != true)
+        {
+            _loaded = true;
+            return;
+        }
 
+        await LoadingIndicator.RunAsync(FetchAsync(), v => _loading = v, StateHasChanged);
+        _loading = false;
+        _loaded = true;
+    }
+
+    private async Task FetchAsync()
+    {
         try
         {
             Stats = await StatsApi.GetAsync();
