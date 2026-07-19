@@ -73,6 +73,7 @@ public static class AmazonBookImportMergeService
                     Author = string.Empty,
                     Year = item.Year,
                     Isbn = item.Isbn,
+                    Notes = BuildAmazonProvenanceNotes(item.AmazonTitle, item.Isbn),
                     OwnedVersions = [item.OwnedVersion]
                 };
                 plan.BooksToCreate.Add(book);
@@ -87,5 +88,20 @@ public static class AmazonBookImportMergeService
         }
 
         return plan;
+    }
+
+    /// <summary>
+    /// Reference-data linking is expected to overwrite <see cref="BookModel.Title"/>/<see cref="BookModel.Isbn"/>
+    /// with the provider's canonical values, and the user may have already cleaned up <c>item.Title</c>
+    /// before commit - so this is the one place Amazon's own original listing text is preserved, for a book
+    /// created by this import. Only set at creation time (see the "book merges into an existing one" branch
+    /// above, which never touches <see cref="BookModel.Notes"/>): a pre-existing book's provenance isn't
+    /// this import's to invent.
+    /// </summary>
+    private static string BuildAmazonProvenanceNotes(string amazonTitle, string? isbn)
+    {
+        var lines = new List<string> { $"Title from Amazon: {amazonTitle}" };
+        if (isbn is not null) lines.Add($"ISBN from Amazon: {isbn}");
+        return string.Join('\n', lines);
     }
 }

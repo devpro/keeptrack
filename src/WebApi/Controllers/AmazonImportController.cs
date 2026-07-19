@@ -66,6 +66,7 @@ public class AmazonImportController(IBookRepository bookRepository, AmazonOrderP
         var items = request.Items.Select(item => new AmazonBookImportRequestItem
         {
             Title = item.Title,
+            AmazonTitle = item.AmazonTitle,
             Year = item.Year,
             Isbn = item.Isbn,
             OwnedVersion = new OwnedVersionModel

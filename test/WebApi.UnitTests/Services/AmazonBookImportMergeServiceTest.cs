@@ -14,9 +14,11 @@ public class AmazonBookImportMergeServiceTest
     private static BookModel Book(string title, params OwnedVersionModel[] ownedVersions) =>
         new() { Id = title, OwnerId = OwnerId, Title = title, Author = string.Empty, OwnedVersions = [.. ownedVersions] };
 
-    private static AmazonBookImportRequestItem Item(string title, string? reference = null) => new()
+    private static AmazonBookImportRequestItem Item(string title, string? reference = null, string? amazonTitle = null, string? isbn = null) => new()
     {
         Title = title,
+        AmazonTitle = amazonTitle ?? title,
+        Isbn = isbn,
         OwnedVersion = new OwnedVersionModel { Reference = reference }
     };
 
@@ -31,6 +33,38 @@ public class AmazonBookImportMergeServiceTest
         plan.BooksToCreate[0].OwnedVersions.Should().ContainSingle();
         plan.BooksToUpdate.Should().BeEmpty();
         plan.OwnedVersionsAdded.Should().Be(1);
+    }
+
+    [Fact]
+    public void ComputeCommitPlan_RecordsAmazonsOriginalTitleAndIsbnInNotes_ForANewlyCreatedBook()
+    {
+        var item = Item("The Secret", amazonTitle: "The Secret: Jack Reacher, Book 28", isbn: "0552177571");
+
+        var plan = AmazonBookImportMergeService.ComputeCommitPlan(OwnerId, [], [item]);
+
+        plan.BooksToCreate[0].Notes.Should().Be("Title from Amazon: The Secret: Jack Reacher, Book 28\nISBN from Amazon: 0552177571");
+    }
+
+    [Fact]
+    public void ComputeCommitPlan_OmitsTheIsbnNoteLine_WhenThereIsNoIsbn()
+    {
+        var item = Item("A Book With No Isbn", amazonTitle: "A Book With No Isbn");
+
+        var plan = AmazonBookImportMergeService.ComputeCommitPlan(OwnerId, [], [item]);
+
+        plan.BooksToCreate[0].Notes.Should().Be("Title from Amazon: A Book With No Isbn");
+    }
+
+    [Fact]
+    public void ComputeCommitPlan_DoesNotTouchNotes_WhenMergingIntoAnExistingBook()
+    {
+        var existing = Book("Some Book");
+        existing.Notes = "My own pre-existing notes";
+
+        var plan = AmazonBookImportMergeService.ComputeCommitPlan(OwnerId, [existing], [Item("some book", amazonTitle: "Some Book (Amazon listing)")]);
+
+        plan.BooksToCreate.Should().BeEmpty();
+        existing.Notes.Should().Be("My own pre-existing notes");
     }
 
     [Fact]

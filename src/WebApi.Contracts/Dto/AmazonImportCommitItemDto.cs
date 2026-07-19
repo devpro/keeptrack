@@ -16,6 +16,13 @@ public class AmazonImportCommitItemDto
     public required string Title { get; set; }
 
     /// <summary>
+    /// The title exactly as Amazon listed it, even if <see cref="Title"/> was edited in the review UI -
+    /// recorded in the created book's notes, since reference-data linking is expected to overwrite
+    /// <see cref="Title"/> later.
+    /// </summary>
+    public required string AmazonTitle { get; set; }
+
+    /// <summary>
     /// Publication year, if the user happens to know it - Amazon's export has no source for this (order
     /// date is the purchase year, not the book's), so it's never auto-filled.
     /// </summary>

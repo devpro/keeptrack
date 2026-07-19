@@ -8,6 +8,13 @@ public class AmazonBookImportRequestItem
 {
     public required string Title { get; set; }
 
+    /// <summary>
+    /// The title exactly as Amazon listed it (before any edit the user made in the review UI) - preserved
+    /// in <see cref="Services.AmazonBookImportMergeService.ComputeCommitPlan"/>'s notes for a newly-created
+    /// book, since reference-data linking is expected to overwrite <see cref="Title"/> later.
+    /// </summary>
+    public required string AmazonTitle { get; set; }
+
     public int? Year { get; set; }
 
     public string? Isbn { get; set; }

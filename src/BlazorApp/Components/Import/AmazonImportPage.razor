@@ -182,6 +182,10 @@
             {
                 RowId = row.Preview.RowId,
                 Title = row.Title,
+                // The original, unedited title from the parsed preview - kept separate from the editable
+                // row.Title above so it can be recorded verbatim in the created book's notes, regardless of
+                // whatever the user typed over it here.
+                AmazonTitle = row.Preview.Title,
                 // Amazon's export has no publication year (only the purchase date), so it's never pre-filled -
                 // but worth entering by hand here if known, since it sharpens the deferred reference-lookup
                 // pass's match precision later (an ambiguous multi-candidate title+year search is left

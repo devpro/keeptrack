@@ -40,6 +40,7 @@ public class AmazonImportResourceTest(KestrelWebAppFactory<Program> factory)
                     {
                         RowId = bookRow.RowId,
                         Title = bookRow.Title,
+                        AmazonTitle = bookRow.Title,
                         Year = 1997,
                         Isbn = bookRow.SuggestedIsbn,
                         AcquiredAt = bookRow.OrderDate,
@@ -63,6 +64,7 @@ public class AmazonImportResourceTest(KestrelWebAppFactory<Program> factory)
             book.OwnedVersions.Should().ContainSingle();
             book.OwnedVersions[0].Price.Should().Be(10.49m);
             book.OwnedVersions[0].Reference.Should().Contain(AmazonFixtureCsvBuilder.BookOrderId);
+            book.Notes.Should().Be($"Title from Amazon: {AmazonFixtureCsvBuilder.BookTitle}\nISBN from Amazon: {AmazonFixtureCsvBuilder.BookIsbn}");
 
             // re-preview after commit: the just-imported order must now be flagged, so re-uploading a
             // newer export later doesn't silently duplicate this book
