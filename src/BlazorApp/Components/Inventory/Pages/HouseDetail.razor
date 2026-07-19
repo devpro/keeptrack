@@ -231,8 +231,8 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
-        // House already holds this route's item when [PersistentState] restored the prerendered data;
-        // the id check keeps an in-circuit navigation to a *different* house reloading as before.
+        // House already holds this route's item when PersistentState restored the prerendered data
+        // the id check keeps an in-circuit navigation to a different house reloading as before
         if (House?.Id == Id && History is not null && Metrics is not null)
         {
             BuildDerivedState();

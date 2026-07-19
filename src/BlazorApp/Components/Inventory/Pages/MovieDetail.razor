@@ -139,7 +139,7 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
-        // Movie already holds this route's item when [PersistentState] restored the prerendered data;
+        // Movie already holds this route's item when PersistentState restored the prerendered data
         // the id check keeps an in-circuit navigation to a *different* movie reloading as before.
         if (Movie?.Id == Id)
         {

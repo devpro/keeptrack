@@ -149,8 +149,8 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
-        // Playlist already holds this route's item when [PersistentState] restored the prerendered data;
-        // the id check keeps an in-circuit navigation to a *different* playlist reloading as before.
+        // Playlist already holds this route's item when PersistentState restored the prerendered data
+        // the id check keeps an in-circuit navigation to a different playlist reloading as before
         if (Playlist?.Id == Id && Songs is not null && Albums is not null)
         {
             BuildDerivedState();

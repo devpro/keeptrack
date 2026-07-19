@@ -43,7 +43,8 @@ Decisions confirmed:
 2. `CarHistoryForm` extraction
 
     New `src/BlazorApp/Components/Inventory/Shared/CarHistoryForm.razor` — params required `CarHistoryDto` Entry, bool `ShowFuel`, bool `ShowElectric` (flags stay computed by the caller from `CarDto.EnergyType`).
-    Body = the entire row g-3 from CarDetail's modal (~195-293): DateTimeFields, Mileage, ΔMileage, CarHistoryType button group, refuel-gated fuel/electric/station/full-refill block, Garage else-branch, location, coordinates, Cost, Description.
+    Body = the entire row g-3 from CarDetail's modal (~195-293):
+    DateTimeFields, Mileage, ΔMileage, CarHistoryType button group, refuel-gated fuel/electric/station/full-refill block, Garage else-branch, location, coordinates, Cost, Description.
     public static CarHistoryDto NewEntry(string carId) (CarId, HistoryDate = DateTime.Now, EventType = Refuel) moves here so the defaults exist once.
     CarDetail keeps its modal chrome, _showModal/IsEditMode/clone-for-edit/SaveModalEntryAsync — per-page edit behaviors Quick Add doesn't need; sharing them would be over-generalization.
 
@@ -94,9 +95,12 @@ Decisions confirmed:
 
 7. Entry points + CSS
 
-    - NavMenu.razor: first item inside <AuthorizeView><Authorized> (directly below Home): <NavLink class="nav-link" href="add"><span class="nav-icon">＋</span> Quick add</NavLink>. Verify ＋ (U+FF0B) has default text presentation per the emoji gotcha; plain ASCII + is the safe fallback.
+    - NavMenu.razor: first item inside <AuthorizeView><Authorized> (directly below Home): <NavLink class="nav-link" href="add"><span class="nav-icon">＋</span> Quick add</NavLink>.
+      Verify ＋ (U+FF0B) has default text presentation per the emoji gotcha; plain ASCII + is the safe fallback.
     - Home.razor: stats variant gets a kt-home-cta "＋ Quick add" primary button above the stat grid; the empty-state variant makes Quick Add the primary CTA, "Go to my movies" secondary.
-    - CSS: mostly reuse (.kt-stat-grid/.kt-stat-tile, .kt-form-card, row g-3 with col-6/col-12 mobile splits, segmented buttons). New app.css is minimal: a .kt-quickadd block forcing the picker to 2 columns under 767px and a full-width Save button on mobile. Forms live in .kt-form-card on a page, not a modal. No sticky save bar in v1 (forms are short) — note as follow-up.
+    - CSS: mostly reuse (.kt-stat-grid/.kt-stat-tile, .kt-form-card, row g-3 with col-6/col-12 mobile splits, segmented buttons).
+      New app.css is minimal: a .kt-quickadd block forcing the picker to 2 columns under 767px and a full-width Save button on mobile. Forms live in .kt-form-card on a page, not a modal.
+      No sticky save bar in v1 (forms are short) — note as follow-up.
 
 8. Playwright coverage
 
@@ -112,7 +116,7 @@ Decisions confirmed:
 - Razor string-parameter @ prefix (Title="@_x.Title", never bare) when wiring the new components.
 - Record DTOs' required members: the moved NewEntry factories are the single construction path — never a bare new().
 - Nested AuthorizeView needs an explicit Context= (NavMenu shows the pattern).
-- CarDetail.razor.css (scoped CSS) — check whether any scoped rule targeted the moved modal markup; scoped selectors won't reach a chil component without ::deep, so relocate affected rules.
+- CarDetail.razor.css (scoped CSS) — check whether any scoped rule targeted the moved modal markup; scoped selectors won't reach a child component without ::deep, so relocate affected rules.
 
 ### Verification
 

@@ -170,8 +170,8 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
-        // Album already holds this route's item when [PersistentState] restored the prerendered data;
-        // the id check keeps an in-circuit navigation to a *different* album reloading as before.
+        // Album already holds this route's item when PersistentState restored the prerendered data
+        // the id check keeps an in-circuit navigation to a different album reloading as before
         if (Album?.Id == Id && Playlists is not null)
         {
             _loading = false;

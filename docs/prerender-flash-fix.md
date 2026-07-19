@@ -92,7 +92,8 @@ The mechanics:
 
 This explains every observation that had me going in circles:
 
-- Why only Watch Next: MoviesToWatch embeds full MovieDtos for every want-to-watch movie — TV Time "towatch" imports land there, so it's likely your largest payload. Your wishlist (ownership) is a smaller curated list that stays under 32 KB.
+- Why only Watch Next: MoviesToWatch embeds full MovieDtos for every want-to-watch movie —
+  TV Time "towatch" imports land there, so it's likely your largest payload. Your wishlist (ownership) is a smaller curated list that stays under 32 KB.
 - Why the smoke test passes: it seeds 1 show + 1 movie — a few hundred bytes.
 - Why clicking "does nothing" then errors: the circuit dies during the state handoff right after navigation; the tabs you see are dead prerendered HTML, and the click goes nowhere.
 - Why other pages break until reload: the circuit is shared across in-app navigations — once it's dead, everything is dead until a full reload builds a fresh one.
@@ -108,7 +109,8 @@ Two real options, and I have a clear preference:
 
 1. Drop `[PersistentState]` from WatchNextPage and WishlistPage only (recommended).
    Persisting an unbounded aggregate list into page HTML is the design flaw here — it also bloats every prerendered response.
-   These two pages would just re-fetch on circuit start, and your new LoadingIndicator 200 ms delay-gate already prevents the spinner flash for fast loads, which was the original point of the commit. The detail pages persist a single bounded DTO and are fine to keep as-is.
+   These two pages would just re-fetch on circuit start, and your new LoadingIndicator 200 ms delay-gate already prevents the spinner flash for fast loads, which was the original point of the commit.
+   The detail pages persist a single bounded DTO and are fine to keep as-is.
 2. Raise the limit via .AddHubOptions(o => o.MaximumReceiveMessageSize = 256 * 1024) — one line, keeps the no-refetch behavior, but the payload still grows with your collection and the cliff just moves further out.
 
 Sources:

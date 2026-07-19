@@ -4,11 +4,10 @@ using Riok.Mapperly.Abstractions;
 namespace Keeptrack.WebApi.Mappers;
 
 /// <summary>
-/// One-directional (Model -> Dto): <see cref="Domain.Services.CarMetricsService"/> is a pure Domain-level
-/// computation with no Dto dependency, so <see cref="Controllers.CarController.GetMetrics"/> maps its
-/// result here. <c>ByName</c> is required because <see cref="CarLastRecordModel.EventType"/> (Domain's
-/// <see cref="CarHistoryType"/>) maps to a differently-typed Contracts-side duplicate enum of the same name
-/// - same reason <see cref="HouseMetricsDtoMapper"/>/<see cref="HealthMetricsDtoMapper"/> set it.
+/// One-directional (Model -> Dto):
+/// <see cref="Domain.Services.CarMetricsService"/> is a pure Domain-level computation with no Dto dependency,
+/// so <see cref="Controllers.CarController.GetMetrics"/> maps its result here.
+/// <c>ByName</c> is required because <see cref="CarLastRecordModel.EventType"/> maps to a differently-typed Contracts-side duplicate enum of the same name.
 /// </summary>
 [Mapper(EnumMappingStrategy = EnumMappingStrategy.ByName)]
 public partial class CarMetricsDtoMapper

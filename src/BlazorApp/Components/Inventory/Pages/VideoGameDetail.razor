@@ -216,8 +216,8 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
-        // Game already holds this route's item when [PersistentState] restored the prerendered data;
-        // the id check keeps an in-circuit navigation to a *different* game reloading as before.
+        // Game already holds this route's item when PersistentState restored the prerendered data
+        // the id check keeps an in-circuit navigation to a different game reloading as before
         if (Game?.Id == Id)
         {
             _loading = false;

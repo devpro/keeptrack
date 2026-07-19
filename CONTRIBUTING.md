@@ -87,7 +87,7 @@ Key                                       | Description
 `Rawg:ApiKey`                             | RAWG API key, used to auto-match video games to synopses/cover art/platforms (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
 `Discogs:Token`                           | Discogs personal access token, used to auto-match albums to synopses/cover art/genres (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
 `GoogleBooks:ApiKey`                      | Google Books API key, used to auto-match books to synopses/cover art/language/genres (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
-`ReferenceData:BookProvider`              | Default `IBookReferenceClient` provider key used for automatic/background book matching - every registered provider (Google Books, Open Library, BnF) is always available for an admin to pick per search/link regardless of this setting (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below). Default: `googlebooks`
+`ReferenceData:BookProvider`              | Default `IBookReferenceClient` provider key used for automatic/background book matching (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below). Default: `googlebooks`
 
 This values can be easily provided as environment variables (replace ":" by "__") or by configuration (json).
 
@@ -160,10 +160,15 @@ Albums            | [Discogs](https://www.discogs.com/developers) | `Discogs:Tok
 Without a key/token for a given provider, new items of that type simply stay unresolved (no synopsis, no cover art) instead of erroring.
 The app degrades gracefully per type - it just won't auto-match that type until the corresponding setting is provided.
 
-Unlike the other three, books are resolved through a provider-agnostic `IBookReferenceClient` interface (`src/WebApi/ReferenceData/`), and it's the one reference domain with more than one provider registered at once: `GoogleBooksClient` (key `googlebooks`, the default - real synopses, cover art, language and the widest catalogue coverage of the three, including manga/comics), `OpenLibraryClient` (key `openlibrary`, no API key needed, kept as a fallback), and `BnfClient` (key `bnf`, BnF's free/keyless SRU Catalogue général, also kept as a fallback - in practice its records tend to have long library-catalogue-style titles, no cover art, and little to no synopsis, so it's rarely the best choice, but it can still surface a French title neither of the other two has).
-`src/WebApi/Program.cs` registers every implemented provider unconditionally; `BookReferenceClientRegistry` resolves a provider by key, falling back to `ReferenceData:BookProvider` (or the `ReferenceData__BookProvider` environment variable, default `googlebooks`) when none is specified.
+Unlike the other three, books are resolved through a provider-agnostic `IBookReferenceClient` interface (`src/WebApi/ReferenceData/`), and it's the one reference domain with more than one provider registered at once:
+`GoogleBooksClient` (key `googlebooks`, the default - real synopses, cover art, language and the widest catalogue coverage of the three, including manga/comics),
+`OpenLibraryClient` (key `openlibrary`, no API key needed, kept as a fallback), and `BnfClient` (key `bnf`, BnF's free/keyless SRU Catalogue général, also kept as a fallback -
+in practice its records tend to have long library-catalogue-style titles, no cover art, and little to no synopsis, so it's rarely the best choice, but it can still surface a French title neither of the other two has).
+`src/WebApi/Program.cs` registers every implemented provider unconditionally; `BookReferenceClientRegistry` resolves a provider by key,
+falling back to `ReferenceData:BookProvider` (or the `ReferenceData__BookProvider` environment variable, default `googlebooks`) when none is specified.
 An admin can pick any registered provider per search/link action from the reference-data admin page or a book's own detail page, regardless of that default.
-To add a new book provider, implement `IBookReferenceClient` (a new client class alongside `GoogleBooksClient.cs`/`OpenLibraryClient.cs`/`BnfClient.cs`, plus its own settings class if it needs an API key, following `RawgSettings`/`DiscogsSettings`) and add one registration block to `Program.cs` - no changes needed to the registry, enrichment service, admin controller, or admin UI.
+To add a new book provider, implement `IBookReferenceClient` (a new client class alongside `GoogleBooksClient.cs`/`OpenLibraryClient.cs`/`BnfClient.cs`,
+plus its own settings class if it needs an API key, following `RawgSettings`/`DiscogsSettings`) and add one registration block to `Program.cs` - no changes needed to the registry, enrichment service, admin controller, or admin UI.
 Nothing else in the app needs to change, since `ReferenceEnrichmentService`/`ReferenceDataAdminController` only depend on the interface and read the active provider's key from `IBookReferenceClient.ProviderKey`.
 
 ### Admin role
@@ -364,21 +369,21 @@ Integration | `E2E_ENABLED=true`, no target URL | Both apps self-hosted in-proce
 Live        | `E2E_TARGET_URL` set              | Nothing hosted; the browser drives an already-running deployment
 Read-only   | `E2E_READONLY=true`               | No provisioning, no seeding, every mutating test skips - pair with `E2E_TARGET_URL` against a real environment
 
-Variable          | Default                             | Purpose
-------------------|-------------------------------------|--------
-`E2E_ENABLED`     | `false`                             | Master switch; every e2e test dynamically skips unless this is `true`
-`E2E_TARGET_URL`  | *(empty)*                           | Live mode: base URL of an already-running BlazorApp
-`E2E_WEBAPI_URL`  | *(empty)*                           | Live mode: base URL of the matching WebApi, required for seeding/cleanup unless read-only
-`E2E_READONLY`    | `false`                             | Skips every mutating test, user creation, and seeding
-`E2E_USERNAME`    | *(empty)*                           | Existing account email; empty triggers ephemeral admin user creation (integration mode only)
-`E2E_PASSWORD`    | *(empty)*                           | Password for `E2E_USERNAME`
-`E2E_HEADLESS`    | `true`                              | `false` shows the browser window
-`E2E_SLOWMO_MS`   | `0`                                 | Milliseconds of delay injected before each Playwright action
-`E2E_BROWSER`     | `chromium`                          | `chromium`, `firefox` or `webkit`
-`E2E_TRACE`       | `on-failure`                        | `off`, `on` or `on-failure`; traces/screenshots land in `bin/<config>/net10.0/e2e-diagnostics`
-`E2E_SCREENSHOTS` | `false`                             | Opt-in for `MobileScreenshotTest`, an assertion-free visual-review walkthrough: seeds representative data, captures every page at a phone viewport, cleans up after itself
-`E2E_SHOTS_DIR`   | `bin/<config>/net10.0/mobile-shots` | Where `MobileScreenshotTest` writes its captures
-`GOOGLE_BOOKS_SMOKE_ENABLED` | `false`                   | Opt-in for `GoogleBooksSmokeTest`, which links a real book through the actual Google Books provider (requires `GoogleBooks:ApiKey` to be configured) - kept opt-in rather than always-on since Google's API has been observed to occasionally return a transient 503
+Variable                     | Default                             | Purpose
+-----------------------------|-------------------------------------|--------
+`E2E_ENABLED`                | `false`                             | Master switch; every e2e test dynamically skips unless this is `true`
+`E2E_TARGET_URL`             | *(empty)*                           | Live mode: base URL of an already-running BlazorApp
+`E2E_WEBAPI_URL`             | *(empty)*                           | Live mode: base URL of the matching WebApi, required for seeding/cleanup unless read-only
+`E2E_READONLY`               | `false`                             | Skips every mutating test, user creation, and seeding
+`E2E_USERNAME`               | *(empty)*                           | Existing account email; empty triggers ephemeral admin user creation (integration mode only)
+`E2E_PASSWORD`               | *(empty)*                           | Password for `E2E_USERNAME`
+`E2E_HEADLESS`               | `true`                              | `false` shows the browser window
+`E2E_SLOWMO_MS`              | `0`                                 | Milliseconds of delay injected before each Playwright action
+`E2E_BROWSER`                | `chromium`                          | `chromium`, `firefox` or `webkit`
+`E2E_TRACE`                  | `on-failure`                        | `off`, `on` or `on-failure`; traces/screenshots land in `bin/<config>/net10.0/e2e-diagnostics`
+`E2E_SCREENSHOTS`            | `false`                             | Opt-in for `MobileScreenshotTest`, an assertion-free visual-review walkthrough: seeds representative data, captures every page at a phone viewport, cleans up after itself
+`E2E_SHOTS_DIR`              | `bin/<config>/net10.0/mobile-shots` | Where `MobileScreenshotTest` writes its captures
+`GOOGLE_BOOKS_SMOKE_ENABLED` | `false`                             | Opt-in for `GoogleBooksSmokeTest` (requires `GoogleBooks:ApiKey` to be configured)
 
 Integration mode (the common local/CI case) reuses the same MongoDB/Firebase variables as the integration tests above, pointed at a dedicated database (e.g. `keeptrack_e2e`), plus `E2E_ENABLED=true`:
 

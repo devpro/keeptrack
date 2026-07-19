@@ -193,8 +193,8 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
-        // Profile already holds this route's item when [PersistentState] restored the prerendered data;
-        // the id check keeps an in-circuit navigation to a *different* profile reloading as before.
+        // Profile already holds this route's item when PersistentState restored the prerendered data
+        // the id check keeps an in-circuit navigation to a different profile reloading as before
         if (Profile?.Id == Id && Records is not null && Metrics is not null)
         {
             BuildDerivedState();
