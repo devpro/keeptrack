@@ -41,6 +41,19 @@ public class BookDto : IHasId, IReferenceLinkedDto
 
     public string? Genre { get; set; }
 
+    /// <summary>
+    /// Book language - free text, auto-filled on link/refresh from providers that report one (BnF does;
+    /// Open Library doesn't yet), always freely editable afterward.
+    /// </summary>
+    public string? Language { get; set; }
+
+    /// <summary>
+    /// Edited on the detail page only (never the Add form) - auto-filled from a linked reference's own
+    /// ISBN when one is reported, and usable as an optional, precise input when checking for a reference
+    /// match against Google Books specifically.
+    /// </summary>
+    public string? Isbn { get; set; }
+
     public string? Notes { get; set; }
 
     /// <summary>
@@ -54,10 +67,17 @@ public class BookDto : IHasId, IReferenceLinkedDto
     public string? ReferenceId { get; set; }
 
     /// <summary>
-    /// Cover/poster image URL from the linked reference document - read-only, hydrated server-side on
-    /// list reads and never accepted from client input.
+    /// Cover image URL shown on the list page - <see cref="CustomImageUrl"/> when set, otherwise the linked
+    /// reference document's own cover. Read-only, hydrated server-side on list reads; never accepted from
+    /// client input (edit <see cref="CustomImageUrl"/> instead).
     /// </summary>
     public string? ImageUrl { get; set; }
+
+    /// <summary>
+    /// Tenant-owned cover image override, freely editable - takes priority over the linked reference's
+    /// cover wherever one is shown. Null means "use the reference's cover, if any".
+    /// </summary>
+    public string? CustomImageUrl { get; set; }
 
     public bool IsFavorite { get; set; }
 
@@ -71,6 +91,12 @@ public class BookDto : IHasId, IReferenceLinkedDto
     /// returned item - see <see cref="VideoGameDto.Platform"/> for the convention.
     /// </summary>
     public bool IsOwned { get; set; }
+
+    /// <summary>
+    /// Filter-only query parameter: matches items with no <see cref="FirstReadAt"/> set. Never populated on
+    /// a returned item - see <see cref="IsOwned"/> for the convention.
+    /// </summary>
+    public bool IsUnread { get; set; }
 
     public bool IsWishlisted { get; set; }
 }

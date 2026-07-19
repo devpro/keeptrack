@@ -111,7 +111,7 @@ public class CarResourceTest(KestrelWebAppFactory<Program> factory)
             metrics.ElectricConsumption.Should().BeEmpty();
             metrics.CostHistory.Should().BeEmpty();
             metrics.MileageWarnings.Should().BeEmpty();
-            metrics.NextMaintenance.Should().BeNull();
+            metrics.LastRecords.Should().BeEmpty();
         }
         finally
         {

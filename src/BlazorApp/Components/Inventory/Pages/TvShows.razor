@@ -1,19 +1,19 @@
 @page "/tv-shows"
 @inherits InventoryPageBase<TvShowDto>
-@rendermode InteractiveServer
 @attribute [Authorize]
 
 <InventoryList TDto="TvShowDto"
                Title="TV Shows"
                ItemName="TV show"
                Route="@ListRoute"
-               Items="@_items"
+               Items="@(Items ?? [])"
                Loading="@_loading"
+               Loaded="@_loaded"
                Error="@_error"
                Search="@_search"
                Page="@_page"
                TotalPages="@TotalPages"
-               TotalCount="@_totalCount"
+               TotalCount="@TotalCount"
                ShowForm="@_showForm"
                Form="@_form"
                ItemTitle="@(show => show.Title)"
@@ -36,7 +36,6 @@
         <button class="btn btn-sm @(StateFilter == TvShowStatus.Stopped ? "btn-primary" : "btn-secondary")" @onclick='() => SetFilter("state", nameof(TvShowStatus.Stopped))'>Stopped</button>
         <button class="btn btn-sm kt-toggle-btn @(FavoriteFilter ? "active" : "")" @onclick='() => ToggleFilter("favorite", FavoriteFilter)'>★ Favorites</button>
         <button class="btn btn-sm kt-toggle-btn @(OwnedFilter ? "active" : "")" @onclick='() => ToggleFilter("owned", OwnedFilter)'>● Owned</button>
-        <button class="btn btn-sm kt-toggle-btn @(WishlistedFilter ? "active" : "")" @onclick='() => ToggleFilter("wishlisted", WishlistedFilter)'>○ Wishlist</button>
     </Filters>
     <MetaTemplate Context="show">
         @if (show.Year > 0)

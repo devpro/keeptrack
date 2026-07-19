@@ -31,6 +31,7 @@ public class TvShowResourceTest(KestrelWebAppFactory<Program> factory)
             var owned = await GetAsync<PagedResult<TvShowDto>>($"/{ResourceEndpoint}?IsOwned=true&search={title}");
             owned.Items.Should().ContainSingle(s => s.Id == created.Id);
 
+            // this is the WishlistController filter-probe, not a list-page UI filter (removed) - still real API behavior
             var wishlisted = await GetAsync<PagedResult<TvShowDto>>($"/{ResourceEndpoint}?IsWishlisted=true&search={title}");
             wishlisted.Items.Should().ContainSingle(s => s.Id == created.Id);
         }

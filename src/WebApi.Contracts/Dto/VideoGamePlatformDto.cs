@@ -6,7 +6,7 @@ namespace Keeptrack.WebApi.Contracts.Dto;
 /// <summary>
 /// One entry per platform a game is tracked on - not one entry per physical copy.
 /// </summary>
-public class VideoGamePlatformDto
+public class VideoGamePlatformDto : IOwnedCopyDto
 {
     /// <summary>
     /// Platform name (e.g. "PS5", "Xbox Series X", "PC").
@@ -24,6 +24,12 @@ public class VideoGamePlatformDto
     public string? State { get; set; }
 
     /// <summary>
+    /// The date this entry's <see cref="State"/> was last set to "Completed" - auto-populated. Not to be
+    /// confused with <see cref="FullyCompletedAt"/> (the platinum/100% date).
+    /// </summary>
+    public DateOnly? CompletedAt { get; set; }
+
+    /// <summary>
     /// Every recorded run through the game on this platform.
     /// </summary>
     public List<PlaythroughDto> Playthroughs { get; set; } = [];
@@ -37,4 +43,24 @@ public class VideoGamePlatformDto
     /// When the game was fully completed on this platform.
     /// </summary>
     public DateOnly? FullyCompletedAt { get; set; }
+
+    /// <summary>
+    /// Price paid, in the user's own currency (currently always displayed as euros).
+    /// </summary>
+    public decimal? Price { get; set; }
+
+    /// <summary>
+    /// Where this copy was bought (store, site, marketplace seller...).
+    /// </summary>
+    public string? Vendor { get; set; }
+
+    /// <summary>
+    /// When this copy was acquired, if recorded.
+    /// </summary>
+    public DateOnly? AcquiredAt { get; set; }
+
+    /// <summary>
+    /// Free-text reference for this copy: edition name, order number, barcode...
+    /// </summary>
+    public string? Reference { get; set; }
 }

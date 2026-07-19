@@ -27,12 +27,22 @@ public class ReferenceEnrichmentServiceTest
     private readonly Mock<IVideoGameRepository> _videoGameRepository = new();
     private readonly Mock<IAlbumRepository> _albumRepository = new();
 
+    /// <summary>
+    /// The registry always has "openlibrary" as the deployment default - matches FakeBookReferenceClient's
+    /// hardcoded ProviderKey, so every existing test that never mentions a provider keeps resolving the
+    /// same fake it always did.
+    /// </summary>
+    private const string DefaultBookProvider = "openlibrary";
+
     private ReferenceEnrichmentService CreateService(
         FakeTmdbClient tmdbClient,
         FakeBookReferenceClient? bookReferenceClient = null,
         FakeRawgClient? rawgClient = null,
-        FakeDiscogsClient? discogsClient = null) => new(
-        tmdbClient, bookReferenceClient ?? FakeBookReferenceClient.Empty(), rawgClient ?? FakeRawgClient.Empty(), discogsClient ?? FakeDiscogsClient.Empty(),
+        FakeDiscogsClient? discogsClient = null,
+        FakeBnfClient? bnfClient = null) => new(
+        tmdbClient,
+        new BookReferenceClientRegistry([bookReferenceClient ?? FakeBookReferenceClient.Empty(), bnfClient ?? FakeBnfClient.Empty()], DefaultBookProvider),
+        rawgClient ?? FakeRawgClient.Empty(), discogsClient ?? FakeDiscogsClient.Empty(),
         _tvShowReferenceRepository.Object, _movieReferenceRepository.Object, _personReferenceRepository.Object,
         _bookReferenceRepository.Object, _videoGameReferenceRepository.Object, _albumReferenceRepository.Object,
         _tvShowRepository.Object, _movieRepository.Object, _bookRepository.Object, _videoGameRepository.Object, _albumRepository.Object);
@@ -275,18 +285,23 @@ public class ReferenceEnrichmentServiceTest
     }
 
     [Fact]
-    public async Task TryLinkExistingTvShowReferenceAsync_FallsBackToTitleOnlyMatch_WhenTitleYearMatchMisses()
+    public async Task TryLinkExistingTvShowReferenceAsync_DoesNotFallBackToTitleOnlyMatch_WhenTenantHasAYearButTitleYearMatchMisses()
     {
+        // regression test: a title-only fallback that ignores a tenant-recorded year risks matching a
+        // same-titled but genuinely different reference (e.g. "Road House" 1990 vs. 2024) - once the 2024
+        // remake is linked, checking for a match on the 1990 original must not silently attach it to the
+        // 2024 reference just because no (title, 1990) alias has been confirmed yet.
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
-        var model = new TvShowModel { Id = "show-1", OwnerId = "owner", Title = "Some Show", Year = 1999 };
-        _tvShowReferenceRepository.Setup(r => r.FindByTitleYearAsync("Some Show", 1999)).ReturnsAsync((TvShowReferenceModel?)null);
+        var model = new TvShowModel { Id = "show-1", OwnerId = "owner", Title = "Road House", Year = 1990 };
+        _tvShowReferenceRepository.Setup(r => r.FindByTitleYearAsync("Road House", 1990)).ReturnsAsync((TvShowReferenceModel?)null);
         _tvShowReferenceRepository
-            .Setup(r => r.FindByTitleAsync("Some Show"))
-            .ReturnsAsync(new TvShowReferenceModel { Id = "reference-1", Title = "Some Show", TitleNormalized = "some show", ExternalIds = [] });
+            .Setup(r => r.FindByTitleAsync("Road House"))
+            .ReturnsAsync(new TvShowReferenceModel { Id = "reference-2024", Title = "Road House", TitleNormalized = "road house", Year = 2024, ExternalIds = [] });
 
         var result = await service.TryLinkExistingTvShowReferenceAsync(model);
 
-        result.ReferenceId.Should().Be("reference-1");
+        result.ReferenceId.Should().BeNullOrEmpty();
+        _tvShowReferenceRepository.Verify(r => r.FindByTitleAsync(It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -350,6 +365,53 @@ public class ReferenceEnrichmentServiceTest
 
         result.ReferenceId.Should().BeEmpty();
         _movieRepository.Verify(r => r.UpdateAsync("movie-1", It.Is<MovieModel>(m => m.ReferenceId == string.Empty), "owner"), Times.Once);
+    }
+
+    [Fact]
+    public async Task TryLinkExistingMovieReferenceAsync_DoesNotFallBackToTitleOnlyMatch_WhenTenantHasAYearButTitleYearMatchMisses()
+    {
+        // same regression as the TvShow test above, for the Movie path - see that test's own comment
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+        var model = new MovieModel { Id = "movie-1", OwnerId = "owner", Title = "Road House", Year = 1990 };
+        _movieReferenceRepository.Setup(r => r.FindByTitleYearAsync("Road House", 1990)).ReturnsAsync((MovieReferenceModel?)null);
+        _movieReferenceRepository
+            .Setup(r => r.FindByTitleAsync("Road House"))
+            .ReturnsAsync(new MovieReferenceModel { Id = "reference-2024", Title = "Road House", TitleNormalized = "road house", Year = 2024, ExternalIds = [] });
+
+        var result = await service.TryLinkExistingMovieReferenceAsync(model);
+
+        result.ReferenceId.Should().BeNullOrEmpty();
+        _movieReferenceRepository.Verify(r => r.FindByTitleAsync(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ResolveMovieAsync_DoesNotMergeIntoAnUnrelatedSameTitledReference_WhenResolvingADifferentTmdbIdWithItsOwnKnownYear()
+    {
+        // regression test for the real bug report: linking "Road House" (2024, tmdbId "2024id") first, then
+        // resolving "Road House" (1990, tmdbId "1990id") separately, used to look up the existing reference
+        // by title only once the (title, 1990) alias came up empty - finding the 2024 document and reusing
+        // its Id for the upsert, which doesn't just link wrong, it overwrites the 2024 reference's own data
+        // with the 1990 movie's data (a de-facto merge of two distinct real movies into one document).
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.MovieDetails["1990id"] = new TmdbMovieDetails("1990id", "Road House", 1990, "1989 original synopsis", [], null);
+        _movieReferenceRepository
+            .Setup(r => r.FindByExternalIdAsync("tmdb", "1990id"))
+            .ReturnsAsync((MovieReferenceModel?)null);
+        _movieReferenceRepository
+            .Setup(r => r.FindByTitleYearAsync("Road House", 1990))
+            .ReturnsAsync((MovieReferenceModel?)null);
+        // the 2024 remake was already resolved and is the only thing a title-only lookup would find
+        _movieReferenceRepository
+            .Setup(r => r.FindByTitleAsync("Road House"))
+            .ReturnsAsync(new MovieReferenceModel { Id = "reference-2024", Title = "Road House", TitleNormalized = "road house", Year = 2024, ExternalIds = new Dictionary<string, string> { ["tmdb"] = "2024id" } });
+        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => { m.Id ??= "reference-1990"; return m; });
+        var service = CreateService(tmdbClient);
+
+        var result = await service.ResolveMovieAsync("Road House", 1990, "1990id");
+
+        result.Id.Should().NotBe("reference-2024");
+        _movieReferenceRepository.Verify(r => r.FindByTitleAsync(It.IsAny<string>()), Times.Never);
+        _movieReferenceRepository.Verify(r => r.UpsertAsync(It.Is<MovieReferenceModel>(m => m.Id != "reference-2024")), Times.Once);
     }
 
     [Fact]
@@ -499,6 +561,45 @@ public class ReferenceEnrichmentServiceTest
         _bookRepository.Verify(r => r.SetReferenceLinkAsync("Some Book", 2020, "reference-1", "Some Book", It.IsAny<int?>(), "Some Author"), Times.Once);
     }
 
+    /// <summary>
+    /// An exact-identifier field must only ever record the identifier that genuinely drove a given match,
+    /// never backfilled from a different source onto an alias that didn't actually rely on it - the
+    /// canonical alias (the provider's own reported data) and the tenant-search alias (what was actually
+    /// searched with) are recorded as two distinct entries here, deliberately, not merged into one.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBookAsync_RecordsOnlyTheIsbnActuallyUsed_InEachMatchedAlias()
+    {
+        var bookReferenceClient = FakeBookReferenceClient.Empty();
+        bookReferenceClient.Details["OL1W"] = new BookDetails("OL1W", "Some Book", 2020, "Synopsis", "Some Author", "OL1A", [], null, null, "9780000000002");
+        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => { m.Id = "reference-1"; return m; });
+        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bookReferenceClient);
+
+        var result = await service.ResolveBookAsync("Some Book", 2020, "OL1W", isbn: "9780000000001");
+
+        // the reference's own canonical Isbn always reflects the provider's own reported value...
+        result.Isbn.Should().Be("9780000000002");
+        // ...but the alias list keeps the two ISBNs as separate entries rather than one merged/overwritten value
+        result.MatchedAliases.Should().Contain(a => a.Isbn == "9780000000001");
+        result.MatchedAliases.Should().Contain(a => a.Isbn == "9780000000002");
+    }
+
+    [Fact]
+    public async Task ResolveBookAsync_LeavesTheSearchAliasIsbnNull_WhenNoIsbnWasSupplied()
+    {
+        var bookReferenceClient = FakeBookReferenceClient.Empty();
+        bookReferenceClient.Details["OL1W"] = new BookDetails("OL1W", "Some Book", 2020, "Synopsis", "Some Author", "OL1A", [], null);
+        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => { m.Id = "reference-1"; return m; });
+        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bookReferenceClient);
+
+        var result = await service.ResolveBookAsync("Some Book", 2020, "OL1W");
+
+        result.Isbn.Should().BeNull();
+        result.MatchedAliases.Should().OnlyContain(a => a.Isbn == null);
+    }
+
     [Fact]
     public async Task TryLinkExistingBookReferenceAsync_LinksAndUpdatesTitleAndAuthor_OnTitleYearMatch()
     {
@@ -601,6 +702,47 @@ public class ReferenceEnrichmentServiceTest
         changed.Should().BeTrue();
         result.Title.Should().Be("Some Book - Updated");
         result.Genres.Should().Contain("Fiction");
+    }
+
+    [Fact]
+    public async Task RefreshBookReferenceAsync_RefreshesViaANonDefaultRegisteredProvider_WhenThatsTheOnlyOnePresent()
+    {
+        // regression: this used to only ever check the currently-configured DEFAULT provider's key, so a
+        // reference linked through any other registered provider (bnf here, openlibrary being the default)
+        // would silently stop refreshing forever.
+        var bnfClient = FakeBnfClient.Empty();
+        bnfClient.Details["ark:/12148/cb1"] = new BookDetails("ark:/12148/cb1", "Some Book - Updated", 2020, "Synopsis", "Some Author", null, [], null, "fre");
+        var reference = new BookReferenceModel
+        {
+            Id = "reference-1",
+            Title = "Some Book",
+            TitleNormalized = "some book",
+            ExternalIds = new Dictionary<string, string> { ["bnf"] = "ark:/12148/cb1" },
+            LastEnrichedAt = DateTime.UtcNow
+        };
+        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => m);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bnfClient: bnfClient);
+
+        var (result, changed) = await service.RefreshBookReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        changed.Should().BeTrue();
+        result.Title.Should().Be("Some Book - Updated");
+        result.Language.Should().Be("fre");
+    }
+
+    [Fact]
+    public async Task ResolveBookAsync_UsesTheExplicitlyRequestedProvider_NotTheDefault()
+    {
+        var bnfClient = FakeBnfClient.Empty();
+        bnfClient.Details["ark:/12148/cb1"] = new BookDetails("ark:/12148/cb1", "Some Book", 2020, "Synopsis", "Some Author", null, [], null, "fre");
+        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => { m.Id = "reference-1"; return m; });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bnfClient: bnfClient);
+
+        var result = await service.ResolveBookAsync("Some Book", 2020, "ark:/12148/cb1", "bnf");
+
+        result.ExternalIds["bnf"].Should().Be("ark:/12148/cb1");
+        result.ExternalIds.Should().NotContainKey("openlibrary");
+        result.Language.Should().Be("fre");
     }
 
     [Fact]
@@ -955,7 +1097,7 @@ public class ReferenceEnrichmentServiceTest
     /// </summary>
     private ReferenceEnrichmentService CreateServiceWithStrictClients() => new(
         new Mock<ITmdbClient>(MockBehavior.Strict).Object,
-        new Mock<IBookReferenceClient>(MockBehavior.Strict).Object,
+        new BookReferenceClientRegistry([new Mock<IBookReferenceClient>(MockBehavior.Strict).Object], DefaultBookProvider),
         new Mock<IRawgClient>(MockBehavior.Strict).Object,
         new Mock<IDiscogsClient>(MockBehavior.Strict).Object,
         _tvShowReferenceRepository.Object, _movieReferenceRepository.Object, _personReferenceRepository.Object,

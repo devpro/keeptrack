@@ -52,21 +52,39 @@ builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.ITmdbClient, Keept
     // see https://github.com/dotnet/extensions/issues/4770 (confirmed against this exact symptom on Discogs).
     client.Timeout = Timeout.InfiniteTimeSpan;
 }).AddProviderResilienceHandler();
-// which IBookReferenceClient implementation is registered is a deployment-time choice
-// (ReferenceData:BookProvider / ReferenceData__BookProvider) - add a case here for each new provider.
-switch (configuration.BookReferenceProvider)
+// every book provider is registered unconditionally (unlike the single-provider TMDB/RAWG/Discogs clients
+// below) - an admin picks which one to search with at request time (see BookReferenceClientRegistry),
+// ReferenceData:BookProvider only selects the *default* used for automatic/background resolution.
+// Each is registered as itself via the typed-client pattern, then bridged to the shared interface with
+// AddTransient (not AddSingleton - capturing a typed HttpClient in a singleton would pin its handler
+// forever and defeat IHttpClientFactory's rotation) so IEnumerable<IBookReferenceClient> resolves both.
+// Registration order is also display/priority order in the admin UI's provider picker (BookReferenceClientRegistry.All
+// preserves it) - Google Books first since it's the default (best synopsis/cover/language/catalogue
+// coverage of the three), Open Library and BnF after as fallbacks.
+builder.Services.AddSingleton(configuration.GoogleBooksSettings);
+builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.GoogleBooksClient>(client =>
 {
-    case "OpenLibrary":
-        builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.IBookReferenceClient, Keeptrack.WebApi.ReferenceData.OpenLibraryClient>(client =>
-        {
-            client.BaseAddress = new Uri("https://openlibrary.org/");
-            client.DefaultRequestHeaders.Add("User-Agent", "Keeptrack/1.0 (+https://github.com/devpro/keeptrack)");
-            client.Timeout = Timeout.InfiniteTimeSpan;
-        }).AddProviderResilienceHandler();
-        break;
-    default:
-        throw new InvalidOperationException($"Unknown ReferenceData:BookProvider '{configuration.BookReferenceProvider}'. Supported providers: OpenLibrary.");
-}
+    client.BaseAddress = new Uri("https://www.googleapis.com/books/v1/");
+    client.Timeout = Timeout.InfiniteTimeSpan;
+}).AddProviderResilienceHandler();
+builder.Services.AddTransient<Keeptrack.WebApi.ReferenceData.IBookReferenceClient>(sp => sp.GetRequiredService<Keeptrack.WebApi.ReferenceData.GoogleBooksClient>());
+builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.OpenLibraryClient>(client =>
+{
+    client.BaseAddress = new Uri("https://openlibrary.org/");
+    client.DefaultRequestHeaders.Add("User-Agent", "Keeptrack/1.0 (+https://github.com/devpro/keeptrack)");
+    client.Timeout = Timeout.InfiniteTimeSpan;
+}).AddProviderResilienceHandler();
+builder.Services.AddTransient<Keeptrack.WebApi.ReferenceData.IBookReferenceClient>(sp => sp.GetRequiredService<Keeptrack.WebApi.ReferenceData.OpenLibraryClient>());
+builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.BnfClient>(client =>
+{
+    client.BaseAddress = new Uri("https://catalogue.bnf.fr/api/");
+    client.Timeout = Timeout.InfiniteTimeSpan;
+}).AddProviderResilienceHandler();
+builder.Services.AddTransient<Keeptrack.WebApi.ReferenceData.IBookReferenceClient>(sp => sp.GetRequiredService<Keeptrack.WebApi.ReferenceData.BnfClient>());
+// a factory (not a plain AddScoped<BookReferenceClientRegistry>) so configuration.BookReferenceProvider -
+// a plain computed-on-access property, not cached - is read fresh on every scope, same "checked fresh"
+// requirement IsReferenceSyncEnabled already has elsewhere, without exposing all of AppConfiguration here.
+builder.Services.AddScoped(sp => new Keeptrack.WebApi.ReferenceData.BookReferenceClientRegistry(sp.GetServices<Keeptrack.WebApi.ReferenceData.IBookReferenceClient>(), configuration.BookReferenceProvider));
 builder.Services.AddSingleton(configuration.RawgSettings);
 builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.IRawgClient, Keeptrack.WebApi.ReferenceData.RawgClient>(client =>
 {

@@ -40,5 +40,18 @@ public class BookReferenceModel : IHasId
 
     public string? ImageUrl { get; set; }
 
+    /// <summary>
+    /// The book's language, when the linking provider reports one (BnF's Dublin Core reliably does; Open
+    /// Library's client doesn't populate this today - see <see cref="BookDetails.Language"/>).
+    /// </summary>
+    public string? Language { get; set; }
+
+    /// <summary>
+    /// The book's ISBN, when the linking provider reports one (Google Books' industry identifiers and
+    /// BnF's Dublin Core both can; Open Library's client doesn't populate this today, same reason as
+    /// <see cref="Language"/> - see <see cref="BookDetails.Isbn"/>).
+    /// </summary>
+    public string? Isbn { get; set; }
+
     public DateTime? LastEnrichedAt { get; set; }
 }

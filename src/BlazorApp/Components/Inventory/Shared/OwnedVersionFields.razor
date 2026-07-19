@@ -1,0 +1,78 @@
+@using System.Globalization
+
+@* Shared owned-copy field body (Physical/Digital toggle + price/acquired/vendor/reference) - used by
+   OwnedVersionsEditor.razor (movie/TV show/book/album), VideoGameDetail.razor's per-platform cards, and
+   Quick Add's own owned-copy toggle. Each caller keeps its own persistence timing (draft Save button vs.
+   auto-save vs. nothing-persists-until-Save) via OnChanged, which defaults to a no-op.
+   ButtonRowSuffix renders alongside the Physical/Digital buttons (e.g. a caller's own remove icon), so a
+   caller's header chrome doesn't need to be split awkwardly around this component. *@
+
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div class="d-flex gap-2">
+        <button class="btn btn-sm @(Copy.CopyType == CopyType.Physical ? "btn-primary" : "btn-secondary")" @onclick="() => SetCopyTypeAsync(CopyType.Physical)">Physical</button>
+        <button class="btn btn-sm @(Copy.CopyType == CopyType.Digital ? "btn-primary" : "btn-secondary")" @onclick="() => SetCopyTypeAsync(CopyType.Digital)">Digital</button>
+    </div>
+    @ButtonRowSuffix
+</div>
+<div class="row g-3 mt-0">
+    @* the euro sign is a display choice, not stored data - a per-user currency setting may replace it later *@
+    <div class="col-6 col-md-3">
+        <label class="form-label">Price (€)</label>
+        <input class="form-control form-control-sm" type="number" step="0.01" min="0" data-testid="version-price-input"
+               value="@Copy.Price?.ToString(CultureInfo.InvariantCulture)" @onchange="SetPriceAsync"/>
+    </div>
+    <div class="col-6 col-md-3">
+        <label class="form-label">Acquired on</label>
+        <input class="form-control form-control-sm" type="date" data-testid="version-acquired-input"
+               value="@Copy.AcquiredAt?.ToString("yyyy-MM-dd")" @onchange="SetAcquiredAtAsync"/>
+    </div>
+    <div class="col-6 col-md-3">
+        <label class="form-label">Vendor</label>
+        <input class="form-control form-control-sm" placeholder="Store, site, seller…" data-testid="version-vendor-input"
+               value="@Copy.Vendor" @onchange="SetVendorAsync"/>
+    </div>
+    <div class="col-12 col-md-3">
+        <label class="form-label">Reference</label>
+        <input class="form-control form-control-sm" placeholder="Edition, order number…" data-testid="version-reference-input"
+               value="@Copy.Reference" @onchange="SetReferenceAsync"/>
+    </div>
+</div>
+
+@code {
+    [Parameter] public required IOwnedCopyDto Copy { get; set; }
+
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    [Parameter] public RenderFragment? ButtonRowSuffix { get; set; }
+
+    private Task SetCopyTypeAsync(CopyType copyType)
+    {
+        Copy.CopyType = copyType;
+        return OnChanged.InvokeAsync();
+    }
+
+    // number inputs report invariant-formatted values regardless of UI culture, so parse them the same way
+    private Task SetPriceAsync(ChangeEventArgs e)
+    {
+        Copy.Price = decimal.TryParse(e.Value?.ToString(), NumberStyles.Number, CultureInfo.InvariantCulture, out var price) ? price : null;
+        return OnChanged.InvokeAsync();
+    }
+
+    private Task SetVendorAsync(ChangeEventArgs e)
+    {
+        Copy.Vendor = e.Value?.ToString();
+        return OnChanged.InvokeAsync();
+    }
+
+    private Task SetAcquiredAtAsync(ChangeEventArgs e)
+    {
+        Copy.AcquiredAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
+        return OnChanged.InvokeAsync();
+    }
+
+    private Task SetReferenceAsync(ChangeEventArgs e)
+    {
+        Copy.Reference = e.Value?.ToString();
+        return OnChanged.InvokeAsync();
+    }
+}

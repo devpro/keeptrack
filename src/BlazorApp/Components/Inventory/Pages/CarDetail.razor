@@ -1,16 +1,17 @@
 @page "/cars/{Id}"
-@rendermode InteractiveServer
 @attribute [Authorize]
-@using System.Globalization
 
-@if (_loading)
+@if (!_loaded)
 {
-    <div class="kt-loading">
-        <div class="kt-spinner"></div>
-        Loading…
-    </div>
+    @if (_loading)
+    {
+        <div class="kt-loading">
+            <div class="kt-spinner"></div>
+            Loading…
+        </div>
+    }
 }
-else if (_car is null)
+else if (Car is null)
 {
     <div class="kt-empty">
         <div class="kt-empty-icon">◈</div>
@@ -19,11 +20,11 @@ else if (_car is null)
 }
 else
 {
-    <Breadcrumb ListRoute="/cars" ListLabel="Cars" Current="@_car.Name"/>
+    <Breadcrumb ListRoute="/cars" ListLabel="Cars" Current="@Car.Name"/>
 
     <div class="kt-page-header">
         <div class="kt-title-row">
-            <input class="kt-title-input" value="@_car.Name" @onchange="SaveNameAsync"/>
+            <input class="kt-title-input" value="@Car.Name" @onchange="SaveNameAsync"/>
         </div>
     </div>
 
@@ -31,19 +32,19 @@ else
         <div class="row g-3">
             <div class="col-md-3">
                 <label class="form-label">Manufacturer</label>
-                <input class="form-control form-control-sm" value="@_car.Manufacturer" @onchange="SaveManufacturerAsync"/>
+                <input class="form-control form-control-sm" value="@Car.Manufacturer" @onchange="SaveManufacturerAsync"/>
             </div>
             <div class="col-md-3">
                 <label class="form-label">Model</label>
-                <input class="form-control form-control-sm" value="@_car.Model" @onchange="SaveModelAsync"/>
+                <input class="form-control form-control-sm" value="@Car.Model" @onchange="SaveModelAsync"/>
             </div>
             <div class="col-md-2">
                 <label class="form-label">Year</label>
-                <input class="form-control form-control-sm" type="number" min="1900" max="2100" value="@_car.Year" @onchange="SaveYearAsync"/>
+                <input class="form-control form-control-sm" type="number" min="1900" max="2100" value="@Car.Year" @onchange="SaveYearAsync"/>
             </div>
             <div class="col-md-4">
                 <label class="form-label">License plate</label>
-                <input class="form-control form-control-sm" value="@_car.LicensePlate" @onchange="SaveLicensePlateAsync"/>
+                <input class="form-control form-control-sm" value="@Car.LicensePlate" @onchange="SaveLicensePlateAsync"/>
             </div>
         </div>
         <div class="mt-3">
@@ -51,7 +52,7 @@ else
             <div class="d-flex gap-2">
                 @foreach (var energyType in Enum.GetValues<CarEnergyType>())
                 {
-                    <button class="btn btn-sm @(_car.EnergyType == energyType ? "btn-primary" : "btn-secondary")"
+                    <button class="btn btn-sm @(Car.EnergyType == energyType ? "btn-primary" : "btn-secondary")"
                             @onclick="() => SetEnergyTypeAsync(energyType)">@energyType</button>
                 }
             </div>
@@ -60,18 +61,9 @@ else
 
     @if (HasMetricsToShow)
     {
-        var metrics = _metrics!;
+        var metrics = Metrics!;
         <h2 class="kt-section-title">Metrics</h2>
         <div class="kt-form-card kt-car-metrics">
-            @if (metrics.NextMaintenance is { } next)
-            {
-                <p class="@(next.MonthsRemaining < 0 ? "kt-callout kt-callout-danger" : "kt-callout")">
-                    @(next.MonthsRemaining < 0
-                        ? $"Maintenance overdue by {-next.MonthsRemaining} month(s) - last done {next.LastMaintenanceDate:yyyy-MM-dd}."
-                        : $"Next maintenance due in {next.MonthsRemaining} month(s) ({next.DueDate:yyyy-MM-dd}).")
-                </p>
-            }
-
             @if (metrics.MileageWarnings.Count > 0)
             {
                 <p class="kt-callout kt-callout-warning">
@@ -122,6 +114,20 @@ else
         </div>
     }
 
+    @if (Metrics is { LastRecords.Count: > 0 })
+    {
+        <h2 class="kt-section-title">Last record</h2>
+        <div class="kt-form-card">
+            @foreach (var record in Metrics.LastRecords)
+            {
+                <div class="d-flex justify-content-between" style="max-width:420px">
+                    <span>@record.EventType</span>
+                    <span class="kt-card-meta">@record.LastDate.ToString("yyyy-MM-dd")</span>
+                </div>
+            }
+        </div>
+    }
+
     <div class="d-flex justify-content-between align-items-center">
         <h2 class="kt-section-title">History</h2>
         <button class="btn btn-sm btn-primary" @onclick="ShowAddModal">+ Add entry</button>
@@ -131,7 +137,7 @@ else
        (City/Description) stay desktop-only via d-none d-md-table-cell.
        One tab per year (same kt-season-picker/kt-page-btn header as TvShowDetail.razor's season tabs and
        HealthProfileDetail.razor's journal), newest year first. *@
-    @if (_history.Count == 0)
+    @if (History!.Count == 0)
     {
         <div class="kt-table-wrap kt-car-sheet">
             <div class="table-responsive">
@@ -182,120 +188,28 @@ else
 
     @if (_showModal)
     {
-        <div class="kt-modal-backdrop" @onclick="CancelModal">
-            <div class="kt-modal" @onclick:stopPropagation>
+        <div class="kt-modal-backdrop">
+            <div class="kt-modal">
                 <div class="kt-modal-header">
                     <h5>@(IsEditMode ? "Edit" : "Add") history entry</h5>
-                    <button class="kt-modal-close" @onclick="CancelModal">✕</button>
+                    <button class="kt-modal-close" @onclick="RequestCancelModal">✕</button>
                 </div>
                 <div class="kt-modal-body">
-                    <div class="row g-3">
-                        <div class="col-md-3">
-                            <label class="form-label">Date</label>
-                            <input class="form-control" type="date" @bind="ModalDate" @bind:format="yyyy-MM-dd"/>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Time (24h)</label>
-                            <input class="form-control" type="text" inputmode="numeric" placeholder="HH:mm"
-                                   pattern="[0-2][0-9]:[0-5][0-9]" @bind="ModalTimeText" @bind:event="onchange"/>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Mileage</label>
-                            <input class="form-control" type="number" @bind="_modalEntry.Mileage"/>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Δ Mileage</label>
-                            <input class="form-control" type="number" @bind="_modalEntry.DeltaMileage"/>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label d-block">Event type</label>
-                            <div class="d-flex gap-2">
-                                @foreach (var eventType in Enum.GetValues<CarHistoryType>())
-                                {
-                                    <button type="button" class="btn btn-sm @(_modalEntry.EventType == eventType ? "btn-primary" : "btn-secondary")"
-                                            @onclick="() => _modalEntry.EventType = eventType">@eventType</button>
-                                }
-                            </div>
-                        </div>
-                        @if (_modalEntry.EventType == CarHistoryType.Refuel)
-                        {
-                            @if (ShowFuel)
-                            {
-                                <div class="col-md-6">
-                                    <label class="form-label">Fuel volume (L)</label>
-                                    <input class="form-control" type="number" step="0.01" @bind="_modalEntry.FuelVolume"/>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Fuel unit price (€/L)</label>
-                                    <input class="form-control" type="number" step="0.001" @bind="_modalEntry.FuelUnitPrice"/>
-                                </div>
-                            }
-                            @if (ShowElectric)
-                            {
-                                <div class="col-md-6">
-                                    <label class="form-label">Electric energy (kWh)</label>
-                                    <input class="form-control" type="number" step="0.01" @bind="_modalEntry.ElectricVolume"/>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Electric unit price (€/kWh)</label>
-                                    <input class="form-control" type="number" step="0.001" @bind="_modalEntry.ElectricUnitPrice"/>
-                                </div>
-                            }
-                            <div class="col-md-6">
-                                <label class="form-label">Station</label>
-                                <input class="form-control" @bind="_modalEntry.StationBrandName"/>
-                            </div>
-                            <div class="col-12">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="modal-entry-full-refill" @bind="_modalEntry.IsFullRefill"/>
-                                    <label class="form-check-label" for="modal-entry-full-refill">Full tank / full charge</label>
-                                </div>
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="col-md-6">
-                                <label class="form-label">Garage / auto shop</label>
-                                <input class="form-control" @bind="_modalEntry.Garage"/>
-                            </div>
-                        }
-                        <!-- Every history entry happens somewhere, not just refuels - location isn't gated by event type. -->
-                        <div class="col-md-4">
-                            <label class="form-label">City</label>
-                            <input class="form-control" @bind="_modalEntry.City"/>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Postal code</label>
-                            <input class="form-control" @bind="_modalEntry.PostalCode"/>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Country</label>
-                            <input class="form-control" @bind="_modalEntry.Country"/>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label d-block">Coordinates</label>
-                            <div class="d-flex gap-2">
-                                <input class="form-control" type="number" step="0.000001" placeholder="Longitude" @bind="_modalEntry.Longitude"/>
-                                <input class="form-control" type="number" step="0.000001" placeholder="Latitude" @bind="_modalEntry.Latitude"/>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Cost (€)</label>
-                            <input class="form-control" type="number" step="0.01" @bind="_modalEntry.Cost"/>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label">Description</label>
-                            <textarea class="form-control" rows="3" @bind="_modalEntry.Description"></textarea>
-                        </div>
-                    </div>
+                    <CarHistoryForm Entry="_modalEntry" ShowFuel="ShowFuel" ShowElectric="ShowElectric"/>
                 </div>
                 <div class="kt-modal-footer">
-                    <button class="btn btn-secondary" @onclick="CancelModal">Cancel</button>
+                    <button class="btn btn-secondary" @onclick="RequestCancelModal">Cancel</button>
                     <button class="btn btn-success" @onclick="SaveModalEntryAsync">Save</button>
                 </div>
             </div>
         </div>
     }
+
+    <ConfirmModal Show="_showDiscardConfirm"
+                  Title="Discard unsaved changes?"
+                  Message="This entry has unsaved changes that will be lost."
+                  ConfirmLabel="Discard"
+                  OnConfirm="ConfirmDiscard" OnCancel="CancelDiscard"/>
 }
 
 @code {
@@ -305,146 +219,153 @@ else
 
     [Inject] private CarHistoryApiClient CarHistoryApi { get; set; } = null!;
 
-    private bool _loading = true;
-    private CarDto? _car;
-    private List<CarHistoryDto> _history = [];
+    // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
+    // _loaded tracks whether a load attempt has finished at all, fresh or restored from persisted
+    // prerender state - both default false so the forced render Blazor triggers right after the
+    // synchronous prefix of OnParametersSetAsync (before any awaited fetch resolves) shows blank instead
+    // of a spinner flash on every navigation to this page.
+    private bool _loading;
+    private bool _loaded;
+
+    // Public properties (a framework requirement for [PersistentState]): the data loaded during the
+    // prerender pass is carried over to the interactive circuit, so the first interactive render reuses
+    // it instead of resetting to the spinner and re-fetching - same pattern as MovieDetail. The derived
+    // by-year grouping and mileage-warning lookup are rebuilt locally from these in BuildDerivedState,
+    // same as TvShowDetail's Episodes -> _referenceEpisodesBySeason/_watchedByKey.
+    [PersistentState]
+    public CarDto? Car { get; set; }
+
+    [PersistentState]
+    public List<CarHistoryDto>? History { get; set; }
+
+    [PersistentState]
+    public CarMetricsDto? Metrics { get; set; }
     private Dictionary<int, List<CarHistoryDto>> _historyByYear = new();
     private List<int> _years = [];
     private int _selectedYear;
-    private CarMetricsDto? _metrics;
-    private CarHistoryDto _modalEntry = NewEntry("");
+    private CarHistoryDto _modalEntry = CarHistoryForm.NewEntry("");
+    private CarHistoryDto _pristineModalEntry = CarHistoryForm.NewEntry("");
     private bool _showModal;
+    private bool _showDiscardConfirm;
     private Dictionary<string, string> _warningsByEntryId = [];
 
     private bool IsEditMode => !string.IsNullOrEmpty(_modalEntry.Id);
 
-    /// <summary>Separate Date/Time proxies over the single _modalEntry.HistoryDate, so editing one doesn't
-    /// reset the other back to midnight - a plain @bind straight to HistoryDate would lose the time
-    /// whenever the date input fires (its built-in converter always parses a bare yyyy-MM-dd).</summary>
-    private DateOnly ModalDate
-    {
-        get => DateOnly.FromDateTime(_modalEntry.HistoryDate);
-        set => _modalEntry.HistoryDate = value.ToDateTime(TimeOnly.FromDateTime(_modalEntry.HistoryDate));
-    }
+    private bool ShowFuel => Car?.EnergyType != CarEnergyType.Electric;
 
-    /// <summary>
-    /// A plain text "HH:mm" field rather than &lt;input type="time"&gt; - the native time picker's 12h/24h
-    /// display is decided by the browser from the OS region format, not anything this page controls (Chrome
-    /// and Firefox both ignore the page's own language/culture for it), so it can't be forced to 24h that
-    /// way. A free-text field sidesteps the native widget entirely and always reads/writes 24h.
-    /// </summary>
-    private string ModalTimeText
-    {
-        get => TimeOnly.FromDateTime(_modalEntry.HistoryDate).ToString("HH:mm");
-        set
-        {
-            if (TimeOnly.TryParseExact(value, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var time))
-            {
-                _modalEntry.HistoryDate = DateOnly.FromDateTime(_modalEntry.HistoryDate).ToDateTime(time);
-            }
-        }
-    }
-
-    private bool ShowFuel => _car?.EnergyType != CarEnergyType.Electric;
-
-    private bool ShowElectric => _car?.EnergyType is CarEnergyType.Electric or CarEnergyType.Hybrid;
+    private bool ShowElectric => Car?.EnergyType is CarEnergyType.Electric or CarEnergyType.Hybrid;
 
     /// <summary>`ComputeMetrics` always returns a non-null result, even for a brand-new car with no history
     /// at all (empty lists, null averages/next-maintenance) - the metrics panel should only render once
     /// there's actually something in it to show, not just because the object itself isn't null.</summary>
-    private bool HasMetricsToShow => _metrics is not null && (
-        _metrics.FuelConsumption.Count > 0 ||
-        _metrics.ElectricConsumption.Count > 0 ||
-        _metrics.CostHistory.Count > 0 ||
-        _metrics.MileageWarnings.Count > 0 ||
-        _metrics.NextMaintenance is not null);
+    private bool HasMetricsToShow => Metrics is not null && (
+        Metrics.FuelConsumption.Count > 0 ||
+        Metrics.ElectricConsumption.Count > 0 ||
+        Metrics.CostHistory.Count > 0 ||
+        Metrics.MileageWarnings.Count > 0);
 
-    protected override async Task OnParametersSetAsync() => await LoadAsync();
-
-    private static CarHistoryDto NewEntry(string carId) => new()
+    protected override async Task OnParametersSetAsync()
     {
-        CarId = carId,
-        HistoryDate = DateTime.Now,
-        EventType = CarHistoryType.Refuel
-    };
+        // Car already holds this route's item when PersistentState restored the prerendered data
+        // the id check keeps an in-circuit navigation to a different car reloading as before
+        if (Car?.Id == Id && History is not null && Metrics is not null)
+        {
+            BuildDerivedState();
+            _loading = false;
+            _loaded = true;
+            return;
+        }
+        await LoadAsync();
+    }
 
     private async Task LoadAsync()
     {
-        _loading = true;
-        _car = await CarApi.GetOneAsync(Id);
-        if (_car is not null)
+        await LoadingIndicator.RunAsync(FetchAsync(), v => _loading = v, StateHasChanged);
+        _loading = false;
+        _loaded = true;
+    }
+
+    private async Task FetchAsync()
+    {
+        Car = await CarApi.GetOneAsync(Id);
+        if (Car is not null)
         {
             var result = await CarHistoryApi.GetAsync("", 1, int.MaxValue, new Dictionary<string, string> { ["CarId"] = Id });
             // most recent first - same journal convention as HealthProfileDetail/HouseDetail
-            _history = result.Items.OrderByDescending(h => h.HistoryDate).ToList();
-            _historyByYear = _history.GroupBy(h => h.HistoryDate.Year).ToDictionary(g => g.Key, g => g.ToList());
-            _years = _historyByYear.Keys.OrderByDescending(y => y).ToList();
-            // same "keep the current tab if it still exists, else default to the newest" rule as
-            // TvShowDetail.razor's own season selection
-            if (!_years.Contains(_selectedYear)) _selectedYear = _years.Count > 0 ? _years[0] : 0;
-            _metrics = await CarApi.GetMetricsAsync(Id);
-            _warningsByEntryId = _metrics.MileageWarnings
-                .GroupBy(w => w.CarHistoryId)
-                .ToDictionary(g => g.Key, g => string.Join(" ", g.Select(w => w.Message)));
+            History = result.Items.OrderByDescending(h => h.HistoryDate).ToList();
+            Metrics = await CarApi.GetMetricsAsync(Id);
+            BuildDerivedState();
         }
-        _loading = false;
+    }
+
+    private void BuildDerivedState()
+    {
+        _historyByYear = History!.GroupBy(h => h.HistoryDate.Year).ToDictionary(g => g.Key, g => g.ToList());
+        _years = _historyByYear.Keys.OrderByDescending(y => y).ToList();
+        // same "keep the current tab if it still exists, else default to the newest" rule as
+        // TvShowDetail.razor's own season selection
+        if (!_years.Contains(_selectedYear)) _selectedYear = _years.Count > 0 ? _years[0] : 0;
+        _warningsByEntryId = Metrics!.MileageWarnings
+            .GroupBy(w => w.CarHistoryId)
+            .ToDictionary(g => g.Key, g => string.Join(" ", g.Select(w => w.Message)));
     }
 
     private void SelectYear(int year) => _selectedYear = year;
 
     private async Task SaveCarAsync()
     {
-        if (_car is null) return;
-        await CarApi.UpdateAsync(_car);
+        if (Car is null) return;
+        await CarApi.UpdateAsync(Car);
     }
 
     private async Task SaveNameAsync(ChangeEventArgs e)
     {
-        if (_car is null) return;
+        if (Car is null) return;
         var name = e.Value?.ToString();
         if (string.IsNullOrWhiteSpace(name)) return;
-        _car.Name = name;
+        Car.Name = name;
         await SaveCarAsync();
     }
 
     private async Task SaveManufacturerAsync(ChangeEventArgs e)
     {
-        if (_car is null) return;
-        _car.Manufacturer = e.Value?.ToString();
+        if (Car is null) return;
+        Car.Manufacturer = e.Value?.ToString();
         await SaveCarAsync();
     }
 
     private async Task SaveModelAsync(ChangeEventArgs e)
     {
-        if (_car is null) return;
-        _car.Model = e.Value?.ToString();
+        if (Car is null) return;
+        Car.Model = e.Value?.ToString();
         await SaveCarAsync();
     }
 
     private async Task SaveYearAsync(ChangeEventArgs e)
     {
-        if (_car is null) return;
-        _car.Year = int.TryParse(e.Value?.ToString(), out var year) ? year : null;
+        if (Car is null) return;
+        Car.Year = int.TryParse(e.Value?.ToString(), out var year) ? year : null;
         await SaveCarAsync();
     }
 
     private async Task SaveLicensePlateAsync(ChangeEventArgs e)
     {
-        if (_car is null) return;
-        _car.LicensePlate = e.Value?.ToString();
+        if (Car is null) return;
+        Car.LicensePlate = e.Value?.ToString();
         await SaveCarAsync();
     }
 
     private async Task SetEnergyTypeAsync(CarEnergyType energyType)
     {
-        if (_car is null) return;
-        _car.EnergyType = energyType;
+        if (Car is null) return;
+        Car.EnergyType = energyType;
         await SaveCarAsync();
     }
 
     private void ShowAddModal()
     {
-        _modalEntry = NewEntry(Id);
+        _modalEntry = CarHistoryForm.NewEntry(Id);
+        _pristineModalEntry = CloneEntry(_modalEntry);
         _showModal = true;
     }
 
@@ -453,10 +374,27 @@ else
     private void ShowEditModal(CarHistoryDto entry)
     {
         _modalEntry = CloneEntry(entry);
+        _pristineModalEntry = CloneEntry(entry);
         _showModal = true;
     }
 
-    private void CancelModal() => _showModal = false;
+    /// <summary>
+    /// A click/drag outside the modal no longer closes it (see the backdrop markup above) - only these
+    /// explicit Cancel/✕ buttons can, and they route through this unsaved-data check first.
+    /// </summary>
+    private void RequestCancelModal()
+    {
+        if (DirtyTracking.IsDirty(_pristineModalEntry, _modalEntry)) _showDiscardConfirm = true;
+        else _showModal = false;
+    }
+
+    private void ConfirmDiscard()
+    {
+        _showDiscardConfirm = false;
+        _showModal = false;
+    }
+
+    private void CancelDiscard() => _showDiscardConfirm = false;
 
     /// <summary>
     /// Every history mutation reloads the whole car (history + metrics) rather than patching local state -

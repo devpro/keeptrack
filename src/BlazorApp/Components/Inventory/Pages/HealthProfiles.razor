@@ -1,19 +1,19 @@
 @page "/health"
 @inherits InventoryPageBase<HealthProfileDto>
-@rendermode InteractiveServer
 @attribute [Authorize]
 
 <InventoryList TDto="HealthProfileDto"
                Title="Health"
                ItemName="Profile"
                Route="@ListRoute"
-               Items="@_items"
+               Items="@(Items ?? [])"
                Loading="@_loading"
+               Loaded="@_loaded"
                Error="@_error"
                Search="@_search"
                Page="@_page"
                TotalPages="@TotalPages"
-               TotalCount="@_totalCount"
+               TotalCount="@TotalCount"
                ShowForm="@_showForm"
                Form="@_form"
                ItemTitle="@(profile => profile.Name)"

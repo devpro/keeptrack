@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
@@ -84,12 +85,22 @@ public class VideoGameResourceTest(KestrelWebAppFactory<Program> factory)
     {
         await Authenticate();
 
-        var title = System.Guid.NewGuid().ToString();
+        var title = Guid.NewGuid().ToString();
+        var platforms = new[]
+        {
+            // "owned" is derived from having at least one platform entry (a game's copies), not a stored flag -
+            // this entry also carries the same ownership fields (price/vendor/acquired/reference) as every
+            // other media type's owned copies, see OwnedVersionModel
+            new VideoGamePlatformDto
+            {
+                Platform = "PS5", CopyType = CopyType.Physical, State = "Available",
+                Price = 59.99m, Vendor = "Some store", Reference = "Collector's edition", AcquiredAt = new DateOnly(2024, 5, 17)
+            }
+        };
         var created = await PostAsync($"/{ResourceEndpoint}", new VideoGameDto
         {
             Title = title,
-            // "owned" is derived from having at least one platform entry (a game's copies), not a stored flag
-            Platforms = [new VideoGamePlatformDto { Platform = "PS5", CopyType = CopyType.Physical, State = "Available" }],
+            Platforms = [.. platforms],
             IsWishlisted = true
         });
 
@@ -98,6 +109,11 @@ public class VideoGameResourceTest(KestrelWebAppFactory<Program> factory)
             var owned = await GetAsync<PagedResult<VideoGameDto>>($"/{ResourceEndpoint}?IsOwned=true&search={title}");
             owned.Items.Should().ContainSingle(x => x.Id == created.Id);
 
+            // the platform entry's ownership fields must survive the full DTO -> model -> BSON round trip (incl. the decimal price)
+            var fetchedPlatforms = owned.Items.Single(x => x.Id == created.Id).Platforms;
+            fetchedPlatforms.Should().BeEquivalentTo(platforms);
+
+            // this is the WishlistController filter-probe, not a list-page UI filter (removed) - still real API behavior
             var wishlisted = await GetAsync<PagedResult<VideoGameDto>>($"/{ResourceEndpoint}?IsWishlisted=true&search={title}");
             wishlisted.Items.Should().ContainSingle(x => x.Id == created.Id);
         }

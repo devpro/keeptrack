@@ -63,6 +63,10 @@ app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+// Anonymous share-link recipients must never open a SignalR circuit (see SharedWishlistPage.razor) - this bypasses the now-globally-interactive Routes/Router entirely
+// rather than relying on a per-component opt-out, which isn't possible once an ancestor establishes an interactive render mode.
+app.MapGet("/shared/wishlist/{token}", (string token) =>
+    new RazorComponentResult<SharedWishlistApp>(new { Token = token }));
 app.MapControllers();
 app.MapHealthChecks("/health");
 

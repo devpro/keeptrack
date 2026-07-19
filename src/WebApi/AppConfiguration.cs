@@ -45,10 +45,14 @@ public class AppConfiguration(IConfiguration configuration)
 
     public DiscogsSettings DiscogsSettings { get; } = configuration.TryGetSection<DiscogsSettings>("Discogs");
 
+    public GoogleBooksSettings GoogleBooksSettings { get; } = configuration.TryGetSection<GoogleBooksSettings>("GoogleBooks");
+
     /// <summary>
-    /// Selects which <see cref="ReferenceData.IBookReferenceClient"/> implementation <c>Program.cs</c>
-    /// registers - see the switch there for supported values. Overridable via the
-    /// <c>ReferenceData__BookProvider</c> environment variable, same convention as every other setting.
+    /// Which book provider (<see cref="ReferenceData.IBookReferenceClient.ProviderKey"/>) is used for
+    /// automatic/background resolution when an admin doesn't pick one explicitly - see
+    /// <see cref="ReferenceData.BookReferenceClientRegistry"/>. Every registered provider stays available
+    /// to pick from regardless of this value. Overridable via the <c>ReferenceData__BookProvider</c>
+    /// environment variable, same convention as every other setting.
     /// </summary>
     public string BookReferenceProvider => configuration.TryGetSection<string>("ReferenceData:BookProvider");
 

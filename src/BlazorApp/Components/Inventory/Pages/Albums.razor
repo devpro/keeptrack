@@ -1,19 +1,19 @@
 @page "/albums"
 @inherits InventoryPageBase<AlbumDto>
-@rendermode InteractiveServer
 @attribute [Authorize]
 
 <InventoryList TDto="AlbumDto"
                Title="Albums"
                ItemName="Album"
                Route="@ListRoute"
-               Items="@_items"
+               Items="@(Items ?? [])"
                Loading="@_loading"
+               Loaded="@_loaded"
                Error="@_error"
                Search="@_search"
                Page="@_page"
                TotalPages="@TotalPages"
-               TotalCount="@_totalCount"
+               TotalCount="@TotalCount"
                ShowForm="@_showForm"
                Form="@_form"
                ItemTitle="@(album => album.Title)"

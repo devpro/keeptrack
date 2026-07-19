@@ -13,9 +13,11 @@ public partial class MovieStorageMapper : IStorageMapper<MovieModel, Movie>
     // OwnedVersions being non-empty, never stored as its own flag. See VideoGameStorageMapper for the
     // filter-only ignore convention.
     [MapperIgnoreSource(nameof(MovieModel.IsOwned))]
+    [MapperIgnoreSource(nameof(MovieModel.IsUnseen))]
     public partial Movie ToEntity(MovieModel model);
 
     [MapperIgnoreTarget(nameof(MovieModel.IsOwned))]
+    [MapperIgnoreTarget(nameof(MovieModel.IsUnseen))]
     public partial MovieModel ToModel(Movie entity);
 
     public partial List<MovieModel> ToModels(List<Movie> entities);

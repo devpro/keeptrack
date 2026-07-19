@@ -50,5 +50,11 @@ public class MovieDto : IHasId, IReferenceLinkedDto
     /// </summary>
     public bool IsOwned { get; set; }
 
+    /// <summary>
+    /// Filter-only query parameter: matches items with no <see cref="FirstSeenAt"/> set. Never populated on
+    /// a returned item - see <see cref="IsOwned"/> for the convention.
+    /// </summary>
+    public bool IsUnseen { get; set; }
+
     public bool IsWishlisted { get; set; }
 }

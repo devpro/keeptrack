@@ -23,6 +23,8 @@ public class MovieRepository(IMongoDatabase mongoDatabase, ILogger<MovieReposito
 
     protected override Expression<Func<Movie, object>> SortRatingField => x => x.Rating!;
 
+    protected override Expression<Func<Movie, object>> SortSecondaryDateField => x => x.FirstSeenAt!;
+
     protected override FilterDefinition<Movie> GetFilter(string ownerId, string? search, MovieModel input)
     {
         var builder = Builders<Movie>.Filter;
@@ -32,6 +34,9 @@ public class MovieRepository(IMongoDatabase mongoDatabase, ILogger<MovieReposito
         if (input.WantToWatch) filter &= builder.Eq(f => f.WantToWatch, true);
         // "owned" means at least one owned version - renders as { "owned_versions.0": { $exists: true } }
         if (input.IsOwned) filter &= builder.SizeGt(f => f.OwnedVersions, 0);
+        if (input.IsUnseen) filter &= builder.Eq(f => f.FirstSeenAt, null);
+        // WishlistController.BuildWishlistAsync still relies on this filter-probe clause even though the
+        // list page's own "Wishlist" toggle button was removed - don't drop it again.
         if (input.IsWishlisted) filter &= builder.Eq(f => f.IsWishlisted, true);
         return filter;
     }

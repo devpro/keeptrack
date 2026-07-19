@@ -10,7 +10,8 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 /// <summary>
 /// Proves the video game platform editor's draft-card + trash-icon flow end-to-end - the same
 /// draft-until-Save and confirm-before-remove UX as <see cref="OwnershipSmokeTest"/>'s owned-versions
-/// flow, applied here to <c>VideoGamePlatformDto</c>'s own field set (state, not price/vendor/reference).
+/// flow, applied here to <c>VideoGamePlatformDto</c>'s own field set (state and completion, on top of
+/// the price/vendor/acquired-date/reference fields it now shares with every other media type's copies).
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]

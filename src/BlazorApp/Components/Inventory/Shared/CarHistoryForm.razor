@@ -1,0 +1,115 @@
+@* Full add/edit form body for one car history entry (refuel/maintenance/other) - shared between
+   CarDetail's own history modal and Quick Add's car-record form. Modal chrome, edit-mode detection and
+   save/cancel behavior stay with each caller; this is only the fields. *@
+
+<div class="row g-3">
+    <DateTimeFields @bind-Value="Entry.HistoryDate"/>
+    <div class="col-md-3">
+        <label class="form-label">Mileage</label>
+        @* data-testid: the label/input pair has no for/id association, so GetByLabel
+           can't resolve it in e2e tests - same as every inventory Add form *@
+        <input class="form-control" type="number" data-testid="mileage-input" @bind="Entry.Mileage"/>
+    </div>
+    <div class="col-md-3">
+        <label class="form-label">Δ Mileage</label>
+        <input class="form-control" type="number" @bind="Entry.DeltaMileage"/>
+    </div>
+    <div class="col-12">
+        <label class="form-label d-block">Event type</label>
+        <div class="d-flex gap-2 flex-wrap kt-btn-row-even">
+            @foreach (var eventType in Enum.GetValues<CarHistoryType>())
+            {
+                <button type="button" class="btn btn-sm @(Entry.EventType == eventType ? "btn-primary" : "btn-secondary")"
+                        @onclick="() => Entry.EventType = eventType">@eventType</button>
+            }
+        </div>
+    </div>
+    @if (Entry.EventType == CarHistoryType.Refuel)
+    {
+        @if (ShowFuel)
+        {
+            <div class="col-md-6">
+                <label class="form-label">Fuel volume (L)</label>
+                <input class="form-control" type="number" step="0.01" @bind="Entry.FuelVolume"/>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Fuel unit price (€/L)</label>
+                <input class="form-control" type="number" step="0.001" @bind="Entry.FuelUnitPrice"/>
+            </div>
+        }
+        @if (ShowElectric)
+        {
+            <div class="col-md-6">
+                <label class="form-label">Electric energy (kWh)</label>
+                <input class="form-control" type="number" step="0.01" @bind="Entry.ElectricVolume"/>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Electric unit price (€/kWh)</label>
+                <input class="form-control" type="number" step="0.001" @bind="Entry.ElectricUnitPrice"/>
+            </div>
+        }
+        <div class="col-md-6">
+            <label class="form-label">Station</label>
+            <input class="form-control" @bind="Entry.StationBrandName"/>
+        </div>
+        <div class="col-12">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="modal-entry-full-refill" @bind="Entry.IsFullRefill"/>
+                <label class="form-check-label" for="modal-entry-full-refill">Full tank / full charge</label>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="col-md-6">
+            <label class="form-label">Garage / auto shop</label>
+            <input class="form-control" @bind="Entry.Garage"/>
+        </div>
+    }
+    <!-- Every history entry happens somewhere, not just refuels - location isn't gated by event type. -->
+    <div class="col-md-4">
+        <label class="form-label">City</label>
+        <input class="form-control" @bind="Entry.City"/>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">Postal code</label>
+        <input class="form-control" @bind="Entry.PostalCode"/>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">Country</label>
+        <input class="form-control" @bind="Entry.Country"/>
+    </div>
+    <div class="col-12">
+        <label class="form-label d-block">Coordinates</label>
+        <div class="d-flex gap-2">
+            <input class="form-control" type="number" step="0.000001" placeholder="Longitude" @bind="Entry.Longitude"/>
+            <input class="form-control" type="number" step="0.000001" placeholder="Latitude" @bind="Entry.Latitude"/>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">Cost (€)</label>
+        @* data-testid: same for/id gotcha as Mileage above *@
+        <input class="form-control" type="number" step="0.01" data-testid="cost-input" @bind="Entry.Cost"/>
+    </div>
+    <div class="col-12">
+        <label class="form-label">Description</label>
+        <textarea class="form-control" rows="3" @bind="Entry.Description"></textarea>
+    </div>
+</div>
+
+@code {
+    [Parameter] public required CarHistoryDto Entry { get; set; }
+
+    /// <summary>Whether the car's energy type has a fuel side - computed by the caller from CarDto.EnergyType.</summary>
+    [Parameter] public bool ShowFuel { get; set; }
+
+    /// <summary>Whether the car's energy type has an electric side - computed by the caller from CarDto.EnergyType.</summary>
+    [Parameter] public bool ShowElectric { get; set; }
+
+    public static CarHistoryDto NewEntry(string carId) => new()
+    {
+        CarId = carId,
+        HistoryDate = DateTime.Now,
+        EventType = CarHistoryType.Refuel
+    };
+}

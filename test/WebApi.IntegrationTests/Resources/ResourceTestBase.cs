@@ -93,6 +93,18 @@ public abstract class ResourceTestBase(KestrelWebAppFactory<Program> factory)
         response.StatusCode.Should().Be(httpStatusCode);
     }
 
+    /// <summary>
+    /// For POST endpoints that return no body (e.g. 204 No Content, like <c>POST /api/reference-data/link</c>) -
+    /// the other <c>PostAsync</c> overloads all assume a JSON response body and would throw trying to
+    /// deserialize an empty one. Same status-check-only shape as <see cref="PutAsync{T}"/>, just over POST.
+    /// </summary>
+    protected async Task PostNoContentAsync<T>(string url, T body, HttpStatusCode httpStatusCode = HttpStatusCode.NoContent)
+    {
+        var bodyContent = new StringContent(JsonSerializer.Serialize(body, JsonSerializerOptions.Web), Encoding.UTF8, MediaTypeJson);
+        var response = await _httpClient.PostAsync(url, bodyContent);
+        response.StatusCode.Should().Be(httpStatusCode);
+    }
+
     protected async Task<T> PostFileAsync<T>(string url, string fieldName, byte[] fileContent, string fileName, HttpStatusCode httpStatusCode = HttpStatusCode.OK)
     {
         using var content = new MultipartFormDataContent();

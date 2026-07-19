@@ -77,6 +77,47 @@ public class BookReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) 
         }
     }
 
+    /// <summary>
+    /// <see cref="BookReferenceModel.ExternalIds"/> can carry more than one provider's id at once (e.g. a
+    /// reference first linked via Open Library, then also confirmed via BnF for a different tenant) - both
+    /// keys must keep resolving to the same document, which is what <c>ReferenceEnrichmentService.RefreshBookReferenceAsync</c>'s
+    /// multi-provider refresh fix (see docs/code-quality-findings.md) depends on.
+    /// </summary>
+    [Fact]
+    public async Task FindByExternalIdAsync_FindsTheSameDocument_ByEitherOfTwoCoexistingProviderKeys()
+    {
+        using var scope = factory.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IBookReferenceRepository>();
+        var title = $"Multi Provider Book Title {Guid.NewGuid()}";
+        // unique per run - other tests in this file already reuse the literal "OL1W" placeholder across
+        // several documents, so FindByExternalIdAsync could otherwise resolve to one of theirs instead of
+        // this test's own document (confirmed: this is exactly what happened before this fix).
+        var openLibraryId = $"OL-{Guid.NewGuid():N}";
+        var bnfId = $"ark:/12148/{Guid.NewGuid():N}";
+
+        var created = await repository.UpsertAsync(new BookReferenceModel
+        {
+            Title = title,
+            TitleNormalized = title.ToLowerInvariant(),
+            ExternalIds = new Dictionary<string, string> { ["openlibrary"] = openLibraryId, ["bnf"] = bnfId }
+        });
+
+        try
+        {
+            var foundByOpenLibrary = await repository.FindByExternalIdAsync("openlibrary", openLibraryId);
+            var foundByBnf = await repository.FindByExternalIdAsync("bnf", bnfId);
+
+            foundByOpenLibrary.Should().NotBeNull();
+            foundByBnf.Should().NotBeNull();
+            foundByOpenLibrary!.Id.Should().Be(created.Id);
+            foundByBnf!.Id.Should().Be(created.Id);
+        }
+        finally
+        {
+            await DeleteAsync(scope, created.Id!);
+        }
+    }
+
     [Fact]
     public async Task UpsertAsync_AlwaysIncludesTheCanonicalTitleAndYearInMatchedAliases_EvenIfTheCallerForgot()
     {

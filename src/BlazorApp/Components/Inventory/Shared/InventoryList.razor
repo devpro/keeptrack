@@ -24,12 +24,15 @@
     </div>
 }
 
-@if (Loading)
+@if (!Loaded)
 {
-    <div class="kt-loading">
-        <div class="kt-spinner"></div>
-        Loading your collection…
-    </div>
+    @if (Loading)
+    {
+        <div class="kt-loading">
+            <div class="kt-spinner"></div>
+            Loading your collection…
+        </div>
+    }
 }
 else
 {
@@ -59,6 +62,10 @@ else
                 @if (HasRatingSort)
                 {
                     <option value="@ListSort.Rating">Rating</option>
+                }
+                @if (ExtraSortValue is not null)
+                {
+                    <option value="@ExtraSortValue">@ExtraSortLabel</option>
                 }
             </select>
             @if (Filters is not null)
@@ -199,6 +206,16 @@ else
     [Parameter] public required List<TDto> Items { get; set; }
     [Parameter] public required TDto Form { get; set; }
     [Parameter] public required bool Loading { get; set; }
+
+    /// <summary>
+    /// True once a load attempt (fresh or restored from persisted prerender state) has finished, found
+    /// or not - distinct from <see cref="Loading"/>, which is delay-gated and only turns on for a load
+    /// that's genuinely slow. Before this is true, nothing renders except a delayed <see cref="Loading"/>
+    /// spinner, so the forced render Blazor triggers right after the synchronous prefix of
+    /// OnParametersSetAsync (before any awaited fetch resolves) shows blank instead of a flash of the
+    /// empty-collection state. Defaults true so a hypothetical caller that never sets it renders as before.
+    /// </summary>
+    [Parameter] public bool Loaded { get; set; } = true;
     [Parameter] public required bool ShowForm { get; set; }
     [Parameter] public required string? Error { get; set; }
     [Parameter] public required string Search { get; set; }
@@ -208,6 +225,14 @@ else
 
     /// <summary>Offers the "Rating" sort option - only for types that carry a rating field.</summary>
     [Parameter] public bool HasRatingSort { get; set; }
+
+    /// <summary>
+    /// Query value for an extra, type-specific sort option (e.g. Movie's "seen", Book's "read", Video
+    /// Game's "completed") - unset means no extra option renders. Paired with <see cref="ExtraSortLabel"/>.
+    /// </summary>
+    [Parameter] public string? ExtraSortValue { get; set; }
+
+    [Parameter] public string? ExtraSortLabel { get; set; }
     [Parameter] public required int Page { get; set; }
     [Parameter] public required int TotalPages { get; set; }
     [Parameter] public required long TotalCount { get; set; }

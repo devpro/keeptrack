@@ -18,8 +18,13 @@ public partial class ReferenceEnrichmentService
         // see TryLinkExistingTvShowReferenceAsync's empty-title guard
         if (string.IsNullOrWhiteSpace(model.Title)) return model;
 
-        var reference = await videoGameReferenceRepository.FindByTitleYearAsync(model.Title, model.Year)
-                        ?? await videoGameReferenceRepository.FindByTitleAsync(model.Title);
+        // see TryLinkExistingTvShowReferenceAsync's own comment - the title-only fallback must not run when
+        // the tenant has a specific year that simply has no confirmed alias
+        var reference = await videoGameReferenceRepository.FindByTitleYearAsync(model.Title, model.Year);
+        if (reference is null && model.Year is null)
+        {
+            reference = await videoGameReferenceRepository.FindByTitleAsync(model.Title);
+        }
 
         if (reference is null)
         {
@@ -67,9 +72,15 @@ public partial class ReferenceEnrichmentService
         var details = await rawgClient.GetGameDetailsAsync(externalId)
                       ?? throw new InvalidOperationException($"RAWG game {externalId} could not be fetched.");
 
+        // see ResolveTvShowAsync's own comment - the title-only fallback (which reuses existing.Id for the
+        // upsert) must not run when year is known but simply unconfirmed yet, or it risks overwriting an
+        // unrelated same-titled reference document instead of just linking wrong
         var existing = await videoGameReferenceRepository.FindByExternalIdAsync("rawg", externalId)
-                       ?? await videoGameReferenceRepository.FindByTitleYearAsync(title, year)
-                       ?? await videoGameReferenceRepository.FindByTitleAsync(title);
+                       ?? await videoGameReferenceRepository.FindByTitleYearAsync(title, year);
+        if (existing is null && year is null)
+        {
+            existing = await videoGameReferenceRepository.FindByTitleAsync(title);
+        }
         var externalIds = existing?.ExternalIds ?? new Dictionary<string, string>();
         externalIds["rawg"] = externalId;
 
@@ -82,7 +93,7 @@ public partial class ReferenceEnrichmentService
             Synopsis = details.Synopsis,
             Platforms = details.Platforms,
             ExternalIds = externalIds,
-            MatchedAliases = MergeMatchedAliases(existing?.MatchedAliases, (details.Title, details.Year ?? year, null), (title, year, null)),
+            MatchedAliases = MergeMatchedAliases(existing?.MatchedAliases, (details.Title, details.Year ?? year, null, null), (title, year, null, null)),
             Genres = details.Genres,
             ImageUrl = details.ImageUrl,
             LastEnrichedAt = DateTime.UtcNow
@@ -113,7 +124,7 @@ public partial class ReferenceEnrichmentService
         reference.Platforms = details.Platforms;
         reference.Genres = details.Genres;
         reference.ImageUrl = details.ImageUrl ?? reference.ImageUrl;
-        reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, null));
+        reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, null, null));
         reference.LastEnrichedAt = DateTime.UtcNow;
 
         return (await videoGameReferenceRepository.UpsertAsync(reference), true);

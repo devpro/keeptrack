@@ -97,6 +97,7 @@ public class MovieResourceTest(KestrelWebAppFactory<Program> factory)
             var fetchedVersions = owned.Items.Single(m => m.Id == created.Id).OwnedVersions;
             fetchedVersions.Should().BeEquivalentTo(input.OwnedVersions);
 
+            // this is the WishlistController filter-probe, not a list-page UI filter (removed) - still real API behavior
             var wishlisted = await GetAsync<PagedResult<MovieDto>>($"/{ResourceEndpoint}?IsWishlisted=true&search={uniqueTitle}");
             wishlisted.Items.Should().ContainSingle(m => m.Id == created.Id);
         }

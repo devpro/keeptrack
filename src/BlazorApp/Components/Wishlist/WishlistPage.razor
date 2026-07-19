@@ -1,5 +1,4 @@
 @page "/wishlist"
-@rendermode InteractiveServer
 @attribute [Authorize]
 
 <div class="kt-page-header">
@@ -39,27 +38,30 @@
     </div>
 }
 
-@if (_loading)
+@if (!_loaded)
 {
-    <div class="kt-loading">
-        <div class="kt-spinner"></div>
-        Loading…
-    </div>
+    @if (_loading)
+    {
+        <div class="kt-loading">
+            <div class="kt-spinner"></div>
+            Loading…
+        </div>
+    }
 }
-else
+else if (Data is not null)
 {
     <div class="kt-tabs">
         <button class="kt-tab @(_tab == Tab.Movies ? "active" : "")" @onclick="() => SelectTab(Tab.Movies)">
-            Movies<span class="kt-tab-count">@_data.Movies.Count</span>
+            Movies<span class="kt-tab-count">@Data.Movies.Count</span>
         </button>
         <button class="kt-tab @(_tab == Tab.TvShows ? "active" : "")" @onclick="() => SelectTab(Tab.TvShows)">
-            TV shows<span class="kt-tab-count">@_data.TvShows.Count</span>
+            TV shows<span class="kt-tab-count">@Data.TvShows.Count</span>
         </button>
         <button class="kt-tab @(_tab == Tab.Books ? "active" : "")" @onclick="() => SelectTab(Tab.Books)">
-            Books<span class="kt-tab-count">@_data.Books.Count</span>
+            Books<span class="kt-tab-count">@Data.Books.Count</span>
         </button>
         <button class="kt-tab @(_tab == Tab.VideoGames ? "active" : "")" @onclick="() => SelectTab(Tab.VideoGames)">
-            Video games<span class="kt-tab-count">@_data.VideoGames.Count</span>
+            Video games<span class="kt-tab-count">@Data.VideoGames.Count</span>
         </button>
     </div>
 
@@ -108,8 +110,20 @@ else
 
     [Inject] private IJSRuntime JsRuntime { get; set; } = null!;
 
-    private bool _loading = true;
-    private WishlistDto _data = new();
+    // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
+    // _loaded tracks whether a load attempt has finished at all - both default false so the forced
+    // render Blazor triggers right after the synchronous prefix of OnInitializedAsync (before any
+    // awaited fetch resolves) shows blank instead of a spinner flash on every navigation to this page.
+    private bool _loading;
+    private bool _loaded;
+
+    // Deliberately NOT [PersistentState], unlike the detail pages: WishlistDto embeds every wishlisted
+    // item across four collections, an unbounded payload that can exceed the Blazor hub's 32 KB
+    // MaximumReceiveMessageSize and kill the circuit on the prerender-to-interactive handoff
+    // (dotnet/aspnetcore#65101, see docs/prerender-flash-fix.md). The interactive circuit re-fetches
+    // instead; the delay-gated spinner above keeps that re-fetch flash-free when it's fast.
+    private WishlistDto? Data { get; set; }
+
     private Tab _tab = Tab.Movies;
 
     private bool _showSharePanel;
@@ -120,10 +134,18 @@ else
 
     private string ShareUrl(WishlistShareDto share) => Navigation.ToAbsoluteUri($"shared/wishlist/{share.Token}").ToString();
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
     {
-        _data = await WishlistApi.GetAsync();
+        await LoadingIndicator.RunAsync(FetchAsync(), v => _loading = v, StateHasChanged);
         _loading = false;
+        _loaded = true;
+    }
+
+    private async Task FetchAsync()
+    {
+        Data = await WishlistApi.GetAsync();
     }
 
     private void SelectTab(Tab tab) => _tab = tab;
@@ -181,10 +203,10 @@ else
 
     private List<WishlistRow> CurrentRows() => _tab switch
     {
-        Tab.Movies => WishlistRow.FromMovies(_data.Movies),
-        Tab.TvShows => WishlistRow.FromTvShows(_data.TvShows),
-        Tab.Books => WishlistRow.FromBooks(_data.Books),
-        _ => WishlistRow.FromVideoGames(_data.VideoGames)
+        Tab.Movies => WishlistRow.FromMovies(Data!.Movies),
+        Tab.TvShows => WishlistRow.FromTvShows(Data!.TvShows),
+        Tab.Books => WishlistRow.FromBooks(Data!.Books),
+        _ => WishlistRow.FromVideoGames(Data!.VideoGames)
     };
 
     private string EmptyMessage => _tab switch

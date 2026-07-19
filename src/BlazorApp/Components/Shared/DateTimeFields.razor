@@ -1,0 +1,47 @@
+@using System.Globalization
+
+@* Date + time input pair proxying a single DateTime value via two separate fields, so editing one
+   doesn't reset the other back to midnight - a plain @bind straight to a DateTime input would lose the
+   time on every date change (its built-in converter always parses a bare yyyy-MM-dd). *@
+
+<div class="col-md-3">
+    <label class="form-label">Date</label>
+    <input class="form-control" type="date" @bind:get="DateValue" @bind:set="SetDateAsync" @bind:format="yyyy-MM-dd"/>
+</div>
+<div class="col-md-3">
+    <label class="form-label">Time (24h)</label>
+    @* A plain text "HH:mm" field rather than <input type="time"> - the native time picker's 12h/24h
+       display is decided by the browser from the OS region format, not anything this page controls
+       (Chrome and Firefox both ignore the page's own language/culture for it), so it can't be forced to
+       24h that way. A free-text field sidesteps the native widget entirely and always reads/writes 24h. *@
+    <input class="form-control" type="text" inputmode="numeric" placeholder="HH:mm"
+           pattern="[0-2][0-9]:[0-5][0-9]" @bind:get="TimeText" @bind:set="SetTimeTextAsync" @bind:event="onchange"/>
+</div>
+
+@code {
+    [Parameter] public DateTime Value { get; set; }
+
+    [Parameter] public EventCallback<DateTime> ValueChanged { get; set; }
+
+    private DateOnly DateValue => DateOnly.FromDateTime(Value);
+
+    private string TimeText => TimeOnly.FromDateTime(Value).ToString("HH:mm");
+
+    private Task SetDateAsync(DateOnly value) => UpdateAsync(value.ToDateTime(TimeOnly.FromDateTime(Value)));
+
+    private Task SetTimeTextAsync(string value)
+    {
+        if (TimeOnly.TryParseExact(value, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var time))
+        {
+            return UpdateAsync(DateOnly.FromDateTime(Value).ToDateTime(time));
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task UpdateAsync(DateTime value)
+    {
+        Value = value;
+        return ValueChanged.InvokeAsync(value);
+    }
+}

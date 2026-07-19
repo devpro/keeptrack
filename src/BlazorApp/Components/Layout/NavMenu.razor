@@ -1,9 +1,11 @@
-﻿<div class="top-row">
+﻿@implements IDisposable
+
+<div class="top-row">
     <a class="navbar-brand" href="">Keeptrack</a>
     <label class="navbar-toggler-label" for="nav-toggle">&#9776;</label>
 </div>
 
-<input type="checkbox" id="nav-toggle" />
+<input type="checkbox" id="nav-toggle" @bind="_menuOpen" />
 
 <div class="nav-scrollable">
     <nav class="nav flex-column">
@@ -14,6 +16,11 @@
         </div>
         <AuthorizeView>
             <Authorized>
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="add">
+                        <span class="nav-icon">+</span> Quick add
+                    </NavLink>
+                </div>
                 <div class="nav-item">
                     <NavLink class="nav-link" href="watch-next">
                         <span class="nav-icon">▶</span> Watch next
@@ -34,9 +41,8 @@
                         <span class="nav-icon">▭</span> TV shows
                     </NavLink>
                 </div>
-                @* Free preview accounts (no Firebase "member"/"admin" role) only get movies and TV shows -
-                   the two links above sit outside this block on purpose. Hiding is UX, not security:
-                   the API enforces the same policy on every request. *@
+                @* Free preview accounts (no Firebase "member"/"admin" role) only get movies and TV shows - the two links above sit outside this block on purpose.
+                   Hiding is UX, not security: the API enforces the same policy on every request. *@
                 <AuthorizeView Policy="MemberOnly" Context="memberContext">
                     <Authorized>
                         <div class="nav-item">
@@ -70,9 +76,6 @@
                             </NavLink>
                         </div>
                         <div class="nav-item">
-                            @* U+271A Heavy Greek Cross: default text presentation (not in Unicode's
-                               emoji-data), unlike the medical-cross emoji - see the theme section's
-                               emoji gotcha in CLAUDE.md *@
                             <NavLink class="nav-link" href="health">
                                 <span class="nav-icon">✚</span> Health
                             </NavLink>
@@ -100,13 +103,6 @@
                 </AuthorizeView>
                 <div class="nav-divider"></div>
                 <div class="nav-item">
-                    <button type="button" class="nav-link kt-theme-toggle" onclick="ktToggleTheme()">
-                        <span class="nav-icon kt-theme-icon-light">☀</span>
-                        <span class="nav-icon kt-theme-icon-dark">☾</span>
-                        Toggle theme
-                    </button>
-                </div>
-                <div class="nav-item">
                     <a class="nav-link nav-link-user" href="/account/manage">
                         <span class="nav-icon kt-nav-avatar">@(GetInitial(context.User.Identity?.Name))</span>
                         <span class="nav-username">@context.User.Identity?.Name</span>
@@ -130,6 +126,26 @@
 </div>
 
 @code {
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    // The mobile menu is otherwise a pure-CSS checkbox toggle (see app.css's #nav-toggle:checked rule) -
+    // this is the one bit of real Blazor state, needed to force it closed after a nav-link click.
+    // Navigating between interactively-rendered pages happens through the circuit's own router (not a raw
+    // DOM/enhanced-navigation event), so NavigationManager.LocationChanged - the one abstraction that fires
+    // reliably regardless of which navigation path Blazor takes - is what drives this, not a JS event.
+    private bool _menuOpen;
+
+    protected override void OnInitialized() => Navigation.LocationChanged += CloseMenu;
+
+    private void CloseMenu(object? sender, LocationChangedEventArgs e)
+    {
+        if (!_menuOpen) return;
+        _menuOpen = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose() => Navigation.LocationChanged -= CloseMenu;
+
     private static string GetInitial(string? name) =>
         string.IsNullOrEmpty(name) ? "" : name[..1].ToUpperInvariant();
 }

@@ -1,17 +1,19 @@
 @page "/albums/{Id}"
-@rendermode InteractiveServer
 @attribute [Authorize]
 @using Keeptrack.BlazorApp.Components.ReferenceData
 @using Keeptrack.BlazorApp.Components.ReferenceDataAdmin
 
-@if (_loading)
+@if (!_loaded)
 {
-    <div class="kt-loading">
-        <div class="kt-spinner"></div>
-        Loading…
-    </div>
+    @if (_loading)
+    {
+        <div class="kt-loading">
+            <div class="kt-spinner"></div>
+            Loading…
+        </div>
+    }
 }
-else if (_album is null)
+else if (Album is null)
 {
     <div class="kt-empty">
         <div class="kt-empty-icon">◈</div>
@@ -20,13 +22,13 @@ else if (_album is null)
 }
 else
 {
-    <Breadcrumb ListRoute="/albums" ListLabel="Albums" Current="@_album.Title"/>
+    <Breadcrumb ListRoute="/albums" ListLabel="Albums" Current="@Album.Title"/>
 
     <div class="kt-page-header">
         <div class="kt-title-row">
-            <input class="kt-title-input" value="@_album.Title" @onchange="SaveTitleAsync"/>
+            <input class="kt-title-input" value="@Album.Title" @onchange="SaveTitleAsync"/>
             <button class="kt-icon-btn" @onclick="RefreshReferenceAsync" disabled="@_refreshingReference"
-                    title="@(string.IsNullOrEmpty(_album.ReferenceId) ? "Check for reference match using the title and year below." : $"Linked to \"{_reference?.Title}\". Not right? Edit the title or year below, then check again.")">
+                    title="@(string.IsNullOrEmpty(Album.ReferenceId) ? "Check for reference match using the title and year below." : $"Linked to \"{Reference?.Title}\". Not right? Edit the title or year below, then check again.")">
                 <span class="@(_refreshingReference ? "kt-icon-spin" : "")">↻</span>
             </button>
             @if (_refreshMessage is not null)
@@ -35,65 +37,53 @@ else
             }
         </div>
         <div class="d-flex gap-2">
-            <button class="btn btn-sm kt-toggle-btn @(_album.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>
+            <button class="btn btn-sm kt-toggle-btn @(Album.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>
         </div>
     </div>
-    @if (string.IsNullOrEmpty(_album.ReferenceId))
+    @if (string.IsNullOrEmpty(Album.ReferenceId))
     {
         <AuthorizeView Policy="AdminOnly">
             <Authorized>
-                <InlineReferenceLinker Type="ReferenceItemType.Album" Title="@_album.Title" Year="_album.Year" Creator="@_album.Artist" OnLinked="LoadAsync"/>
+                <InlineReferenceLinker Type="ReferenceItemType.Album" Title="@Album.Title" Year="Album.Year" Creator="@Album.Artist" OnLinked="LoadAsync"/>
             </Authorized>
         </AuthorizeView>
     }
 
     <div class="kt-form-card">
-        <div class="kt-album-hero @(string.IsNullOrEmpty(_reference?.ImageUrl) ? "kt-album-hero-no-cover" : "")">
-            @if (!string.IsNullOrEmpty(_reference?.ImageUrl))
+        <div class="kt-album-hero @(string.IsNullOrEmpty(Reference?.ImageUrl) ? "kt-album-hero-no-cover" : "")">
+            @if (!string.IsNullOrEmpty(Reference?.ImageUrl))
             {
-                <img src="@_reference.ImageUrl" alt="@_album.Title cover" class="kt-album-cover"/>
+                <img src="@Reference.ImageUrl" alt="@Album.Title cover" class="kt-album-cover"/>
             }
             <div>
                 <div class="row g-3">
                     <div class="col-12">
                         <label class="form-label">Artist</label>
-                        <input class="form-control form-control-sm" data-testid="artist-input" value="@_album.Artist" @onchange="SaveArtistAsync"/>
+                        <input class="form-control form-control-sm" data-testid="artist-input" value="@Album.Artist" @onchange="SaveArtistAsync"/>
                     </div>
                     <div class="col-4">
                         <label class="form-label">Year</label>
                         <input class="form-control form-control-sm" type="number" min="1900" max="2100"
-                               value="@_album.Year" @onchange="SaveYearAsync"/>
+                               value="@Album.Year" @onchange="SaveYearAsync"/>
                     </div>
                     <div class="col-8">
                         <label class="form-label">Genre</label>
-                        <input class="form-control form-control-sm" value="@_album.Genre" @onchange="SaveGenreAsync"/>
+                        <input class="form-control form-control-sm" value="@Album.Genre" @onchange="SaveGenreAsync"/>
                     </div>
                     <div class="col-12">
                         <label class="form-label">Rating</label>
-                        <StarRatingInput Rating="_album.Rating" RatingChanged="SetRatingAsync"/>
+                        <StarRatingInput Rating="Album.Rating" RatingChanged="SetRatingAsync"/>
                     </div>
                 </div>
-                @if (!string.IsNullOrEmpty(_reference?.Synopsis))
-                {
-                    <p class="mt-3 mb-0" style="color:var(--kt-text-muted)">@_reference.Synopsis</p>
-                }
             </div>
         </div>
     </div>
 
-    <OwnedVersionsEditor Versions="_album.OwnedVersions" OnChanged="SaveAlbumAsync"/>
-
-    @if (!string.IsNullOrEmpty(_reference?.ArtistImageUrl))
-    {
-        <h2 class="kt-section-title">Artist</h2>
-        <CastGrid Cast="@_artistCard"/>
-    }
-
-    @if (_reference?.Tracks.Count > 0)
+    @if (Reference?.Tracks.Count > 0)
     {
         <h2 class="kt-section-title">Tracklist</h2>
         <div class="kt-form-card">
-            @foreach (var track in _reference.Tracks)
+            @foreach (var track in Reference.Tracks)
             {
                 <div class="d-flex justify-content-between align-items-center py-1 position-relative">
                     <span><span class="kt-card-meta" style="display:inline-block;width:2.5rem">@track.Position</span> @track.Title</span>
@@ -105,13 +95,13 @@ else
                     {
                         <div class="kt-menu">
                             <p class="kt-card-meta mb-1">Add to playlist</p>
-                            @if (_playlists.Count == 0)
+                            @if (Playlists is null or { Count: 0 })
                             {
                                 <p class="kt-card-meta mb-0"><a href="/playlists">Create a playlist first</a></p>
                             }
                             else
                             {
-                                @foreach (var playlist in _playlists)
+                                @foreach (var playlist in Playlists)
                                 {
                                     <button class="kt-menu-item" @onclick="() => AddTrackToPlaylistAsync(track, playlist)">@playlist.Title</button>
                                 }
@@ -121,6 +111,14 @@ else
                 </div>
             }
         </div>
+    }
+
+    <OwnedVersionsEditor Versions="Album.OwnedVersions" OnChanged="SaveAlbumAsync"/>
+
+    @if (!string.IsNullOrEmpty(Reference?.ArtistImageUrl))
+    {
+        <h2 class="kt-section-title">Artist</h2>
+        <CastGrid Cast="@_artistCard"/>
     }
 }
 
@@ -137,10 +135,27 @@ else
 
     private static readonly TimeSpan RefreshMessageDuration = TimeSpan.FromSeconds(4);
 
-    private bool _loading = true;
-    private AlbumDto? _album;
-    private AlbumReferenceDto? _reference;
-    private List<PlaylistDto> _playlists = [];
+    // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
+    // _loaded tracks whether a load attempt has finished at all, fresh or restored from persisted
+    // prerender state - both default false so the forced render Blazor triggers right after the
+    // synchronous prefix of OnParametersSetAsync (before any awaited fetch resolves) shows blank instead
+    // of a spinner flash on every navigation to this page.
+    private bool _loading;
+    private bool _loaded;
+
+    // Public properties (a framework requirement for [PersistentState]): the data loaded during the
+    // prerender pass is carried over to the interactive circuit, so the first interactive render reuses
+    // it instead of resetting to the spinner and re-fetching - same pattern as MovieDetail. Playlists is
+    // a co-fetched list (like TvShowDetail's Episodes), so it's nullable to distinguish "not loaded yet"
+    // from "loaded, no playlists".
+    [PersistentState]
+    public AlbumDto? Album { get; set; }
+
+    [PersistentState]
+    public AlbumReferenceDto? Reference { get; set; }
+
+    [PersistentState]
+    public List<PlaylistDto>? Playlists { get; set; }
     private string? _openTrackMenu;
     private bool _refreshingReference;
     private string? _refreshMessage;
@@ -149,20 +164,36 @@ else
 
     /// <summary>Reuses <c>CastGrid</c>'s "photo + name" card for the single credited artist, instead of
     /// introducing a one-off component for what's visually the same layout as a TV/movie cast member.</summary>
-    private List<CastMemberDto> _artistCard => _reference is null
+    private List<CastMemberDto> _artistCard => Reference is null
         ? []
-        : [new CastMemberDto { Name = _reference.ArtistName ?? _album?.Artist ?? "", CharacterName = "", ProfileImageUrl = _reference.ArtistImageUrl }];
+        : [new CastMemberDto { Name = Reference.ArtistName ?? Album?.Artist ?? "", CharacterName = "", ProfileImageUrl = Reference.ArtistImageUrl }];
 
-    protected override async Task OnParametersSetAsync() => await LoadAsync();
+    protected override async Task OnParametersSetAsync()
+    {
+        // Album already holds this route's item when PersistentState restored the prerendered data
+        // the id check keeps an in-circuit navigation to a different album reloading as before
+        if (Album?.Id == Id && Playlists is not null)
+        {
+            _loading = false;
+            _loaded = true;
+            return;
+        }
+        await LoadAsync();
+    }
 
     private async Task LoadAsync()
     {
-        _loading = true;
-        _album = await AlbumApi.GetOneAsync(Id);
-        _reference = string.IsNullOrEmpty(_album?.ReferenceId) ? null : await ReferenceDataApi.GetAlbumAsync(_album.ReferenceId);
-        var playlists = await PlaylistApi.GetAsync("", 1, 5000);
-        _playlists = playlists.Items;
+        await LoadingIndicator.RunAsync(FetchAsync(), v => _loading = v, StateHasChanged);
         _loading = false;
+        _loaded = true;
+    }
+
+    private async Task FetchAsync()
+    {
+        Album = await AlbumApi.GetOneAsync(Id);
+        Reference = string.IsNullOrEmpty(Album?.ReferenceId) ? null : await ReferenceDataApi.GetAlbumAsync(Album.ReferenceId);
+        var playlists = await PlaylistApi.GetAsync("", 1, 5000);
+        Playlists = playlists.Items;
     }
 
     private void ToggleTrackMenu(string position)
@@ -178,9 +209,9 @@ else
     private async Task AddTrackToPlaylistAsync(ReferenceTrackDto track, PlaylistDto playlist)
     {
         _openTrackMenu = null;
-        if (_album?.Id is null) return;
+        if (Album?.Id is null) return;
 
-        var song = await SongApi.GetOrCreateForTrackAsync(_album.Id, track.Position, track.Title, track.Duration, _album.Artist);
+        var song = await SongApi.GetOrCreateForTrackAsync(Album.Id, track.Position, track.Title, track.Duration, Album.Artist);
         if (song.Id is not null && !playlist.SongIds.Contains(song.Id))
         {
             playlist.SongIds.Add(song.Id);
@@ -190,59 +221,59 @@ else
 
     private async Task SetRatingAsync(float rating)
     {
-        if (_album is null) return;
-        _album.Rating = rating;
-        await AlbumApi.UpdateAsync(_album);
+        if (Album is null) return;
+        Album.Rating = rating;
+        await AlbumApi.UpdateAsync(Album);
     }
 
     private async Task ToggleFavoriteAsync()
     {
-        if (_album is null) return;
-        _album.IsFavorite = !_album.IsFavorite;
-        await AlbumApi.UpdateAsync(_album);
+        if (Album is null) return;
+        Album.IsFavorite = !Album.IsFavorite;
+        await AlbumApi.UpdateAsync(Album);
     }
 
     private async Task SaveAlbumAsync()
     {
-        if (_album is null) return;
-        await AlbumApi.UpdateAsync(_album);
+        if (Album is null) return;
+        await AlbumApi.UpdateAsync(Album);
     }
 
     private async Task SaveTitleAsync(ChangeEventArgs e)
     {
-        if (_album is null) return;
+        if (Album is null) return;
         var title = e.Value?.ToString();
         if (string.IsNullOrWhiteSpace(title)) return;
-        _album.Title = title;
-        await AlbumApi.UpdateAsync(_album);
+        Album.Title = title;
+        await AlbumApi.UpdateAsync(Album);
     }
 
     private async Task SaveArtistAsync(ChangeEventArgs e)
     {
-        if (_album is null) return;
+        if (Album is null) return;
         var artist = e.Value?.ToString();
         if (string.IsNullOrWhiteSpace(artist)) return;
-        _album.Artist = artist;
-        await AlbumApi.UpdateAsync(_album);
+        Album.Artist = artist;
+        await AlbumApi.UpdateAsync(Album);
     }
 
     private async Task SaveGenreAsync(ChangeEventArgs e)
     {
-        if (_album is null) return;
-        _album.Genre = e.Value?.ToString();
-        await AlbumApi.UpdateAsync(_album);
+        if (Album is null) return;
+        Album.Genre = e.Value?.ToString();
+        await AlbumApi.UpdateAsync(Album);
     }
 
     private async Task RefreshReferenceAsync()
     {
-        if (_album?.Id is null) return;
+        if (Album?.Id is null) return;
 
-        var previousReferenceId = _album.ReferenceId;
+        var previousReferenceId = Album.ReferenceId;
         _refreshingReference = true;
         _refreshMessage = null;
         try
         {
-            var refreshed = await AlbumApi.RefreshReferenceAsync(_album.Id);
+            var refreshed = await AlbumApi.RefreshReferenceAsync(Album.Id);
             await LoadAsync();
 
             (_refreshMessage, _refreshMessageStyle) = string.IsNullOrEmpty(refreshed.ReferenceId)
@@ -283,8 +314,8 @@ else
 
     private async Task SaveYearAsync(ChangeEventArgs e)
     {
-        if (_album is null) return;
-        _album.Year = int.TryParse(e.Value?.ToString(), out var year) ? year : null;
-        await AlbumApi.UpdateAsync(_album);
+        if (Album is null) return;
+        Album.Year = int.TryParse(e.Value?.ToString(), out var year) ? year : null;
+        await AlbumApi.UpdateAsync(Album);
     }
 }

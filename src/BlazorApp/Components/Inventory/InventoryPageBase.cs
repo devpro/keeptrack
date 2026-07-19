@@ -1,3 +1,4 @@
+using Keeptrack.BlazorApp.Components.Shared;
 using Keeptrack.Common.System;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -9,13 +10,35 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
 {
     private const int PageSize = 20;
 
-    protected List<TDto> _items = [];
+    // Public properties (a framework requirement for [PersistentState]): the page loaded during the
+    // prerender pass is carried over to the interactive circuit, so the first interactive render reuses
+    // it instead of resetting to the spinner and re-fetching - same pattern as the detail pages
+    // (MovieDetail, etc.). Items is nullable (no property initializer) so [PersistentState] restoration
+    // isn't fighting a default value - markup falls back to an empty list via "Items ?? []", same as
+    // every other nullable persisted list in this codebase. LoadedQuery is the query signature
+    // Items/TotalCount were loaded for, so a restore only skips the reload when it still matches the
+    // current search/filter/sort/page - any of those changing must still trigger a real reload.
+    [PersistentState]
+    public List<TDto>? Items { get; set; }
+
+    [PersistentState]
+    public long TotalCount { get; set; }
+
+    [PersistentState]
+    public string? LoadedQuery { get; set; }
 
     protected TDto _form = new();
 
     protected bool _showForm;
 
-    protected bool _loading = true;
+    // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
+    // _loaded tracks whether a load attempt has finished at all, fresh or restored from persisted
+    // prerender state - both default false so the forced render Blazor triggers right after the
+    // synchronous prefix of OnParametersSetAsync (before any awaited fetch resolves) shows blank instead
+    // of a spinner flash on every navigation to this page.
+    protected bool _loading;
+
+    protected bool _loaded;
 
     protected string? _error;
 
@@ -25,11 +48,7 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
 
     protected int _page = 1;
 
-    protected long _totalCount;
-
-    private string? _loadedQuery;
-
-    protected int TotalPages => (int)Math.Ceiling(_totalCount / (double)PageSize);
+    protected int TotalPages => (int)Math.Ceiling(TotalCount / (double)PageSize);
 
     [Inject] protected NavigationManager Navigation { get; set; } = null!;
 
@@ -63,6 +82,13 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
     protected virtual IReadOnlyDictionary<string, string>? ExtraQuery => null;
 
     /// <summary>
+    /// The sort key used when the URL carries none - "" (newest-first) for every page unless overridden.
+    /// Health/House/Car list themselves by person/vehicle/property name rather than creation order, so
+    /// their pages override this to <see cref="ListSort.Title"/> instead.
+    /// </summary>
+    protected virtual string DefaultSort => "";
+
+    /// <summary>
     /// Runs on the initial load and again whenever the router supplies new query-parameter values
     /// (a filter/page click's NavigateTo, but also browser back/forward), so every way of changing
     /// list state goes through this single reload path. The signature check keeps unrelated
@@ -71,14 +97,23 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
     protected override async Task OnParametersSetAsync()
     {
         _search = SearchQuery ?? "";
-        _sort = SortQuery ?? "";
+        _sort = SortQuery ?? DefaultSort;
         _page = PageQuery is > 0 ? PageQuery.Value : 1;
         var query = BuildQuerySignature();
-        if (query != _loadedQuery)
+
+        // Items/TotalCount already hold this exact query's results when [PersistentState] restored the
+        // prerendered data - the signature check keeps this skip from also swallowing a genuine
+        // search/filter/sort/page change (a different signature) or an unrelated parameter update (e.g.
+        // a cascading auth-state refresh), both of which must still reload.
+        if (query == LoadedQuery)
         {
-            _loadedQuery = query;
-            await LoadAsync();
+            _loading = false;
+            _loaded = true;
+            return;
         }
+
+        LoadedQuery = query;
+        await LoadAsync();
     }
 
     protected void OnSearchChanged(string value) => _search = value;
@@ -171,10 +206,7 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
     {
         try
         {
-            _loading = true;
-            var result = await Api.GetAsync(_search, _page, PageSize, ExtraQuery, _sort);
-            _items = result.Items;
-            _totalCount = result.TotalCount;
+            await LoadingIndicator.RunAsync(FetchAsync(), v => _loading = v, StateHasChanged);
         }
         catch (Exception ex)
         {
@@ -183,7 +215,15 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
         finally
         {
             _loading = false;
+            _loaded = true;
         }
+    }
+
+    private async Task FetchAsync()
+    {
+        var result = await Api.GetAsync(_search, _page, PageSize, ExtraQuery, _sort);
+        Items = result.Items;
+        TotalCount = result.TotalCount;
     }
 
     private string BuildQuerySignature()

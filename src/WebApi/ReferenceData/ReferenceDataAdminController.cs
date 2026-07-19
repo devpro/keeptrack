@@ -25,7 +25,7 @@ public class ReferenceDataAdminController(
     IVideoGameRepository videoGameRepository,
     IAlbumRepository albumRepository,
     ITmdbClient tmdbClient,
-    IBookReferenceClient bookReferenceClient,
+    BookReferenceClientRegistry bookReferenceClientRegistry,
     IRawgClient rawgClient,
     IDiscogsClient discogsClient,
     ReferenceEnrichmentService enrichmentService,
@@ -218,17 +218,35 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// Distinct (title, year) pairs, across every tenant, still missing a reference-data link.
+    /// Every registered book provider an admin can search/link with - Book is the one reference domain with
+    /// more than one (TMDB/RAWG/Discogs each have exactly one, so no equivalent listing endpoint exists for them).
+    /// </summary>
+    [HttpGet("book-providers")]
+    [ProducesResponseType(200)]
+    public ActionResult<List<BookProviderDto>> GetBookProviders() =>
+        Ok(bookReferenceClientRegistry.All.Select(c => new BookProviderDto { Key = c.ProviderKey, DisplayName = c.DisplayName }).ToList());
+
+    /// <summary>
+    /// Distinct (title, year) pairs, across every tenant, still missing a reference-data link. Book is
+    /// handled separately since it's the only domain whose <c>FindDistinctUnresolvedTitleYearsAsync</c>
+    /// also surfaces a prefill <c>Isbn</c> (see <see cref="IBookRepository.FindDistinctUnresolvedTitleYearsAsync"/>) -
+    /// forcing that onto the other four's shared tuple shape for one field only they'd never populate
+    /// wasn't worth it.
     /// </summary>
     [HttpGet("unresolved")]
     [ProducesResponseType(200)]
     public async Task<ActionResult<List<UnresolvedReferenceDto>>> GetUnresolved([FromQuery] ReferenceItemType type)
     {
+        if (type == ReferenceItemType.Book)
+        {
+            var bookPairs = await bookRepository.FindDistinctUnresolvedTitleYearsAsync();
+            return Ok(bookPairs.Select(p => new UnresolvedReferenceDto { Type = type, Title = p.Title, Year = p.Year, Creator = p.Creator, Isbn = p.Isbn }).ToList());
+        }
+
         var pairs = type switch
         {
             ReferenceItemType.TvShow => await tvShowRepository.FindDistinctUnresolvedTitleYearsAsync(),
             ReferenceItemType.Movie => await movieRepository.FindDistinctUnresolvedTitleYearsAsync(),
-            ReferenceItemType.Book => await bookRepository.FindDistinctUnresolvedTitleYearsAsync(),
             ReferenceItemType.VideoGame => await videoGameRepository.FindDistinctUnresolvedTitleYearsAsync(),
             ReferenceItemType.Album => await albumRepository.FindDistinctUnresolvedTitleYearsAsync(),
             _ => throw new ArgumentOutOfRangeException(nameof(type))
@@ -256,12 +274,16 @@ public class ReferenceDataAdminController(
     /// (see <see cref="IBookReferenceClient.SearchBooksAsync"/>/<see cref="IDiscogsClient.SearchAlbumsAsync"/>),
     /// since a common title alone often returns many unrelated candidates.
     /// Ignored for TV shows/movies/video games, which have no equivalent single-name creator field on this endpoint.
+    /// <paramref name="provider"/> selects which registered book provider to search with (see
+    /// <see cref="GetBookProviders"/>); ignored for every other type. Null falls back to the deployment default.
+    /// <paramref name="isbn"/> is Book-only - an exact identifier, only actually used by
+    /// <see cref="GoogleBooksClient"/> (see its own doc comment on <see cref="IBookReferenceClient.SearchBooksAsync"/>).
     /// </summary>
     [HttpGet("search")]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     public async Task<ActionResult<List<ReferenceSearchResultDto>>> Search([FromQuery] ReferenceItemType type, [FromQuery] string title, [FromQuery] int? year,
-        [FromQuery] string? creator = null)
+        [FromQuery] string? creator = null, [FromQuery] string? provider = null, [FromQuery] string? isbn = null)
     {
         // never hit a provider with an empty title - mapped to a 400 by ApiExceptionFilterAttribute
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
@@ -272,7 +294,7 @@ public class ReferenceDataAdminController(
             case ReferenceItemType.Movie:
                 return Ok(await SearchTvShowOrMovieAsync(type, title, year));
             case ReferenceItemType.Book:
-                var books = await bookReferenceClient.SearchBooksAsync(title, year, creator);
+                var books = await bookReferenceClientRegistry.Resolve(provider).SearchBooksAsync(title, year, creator, isbn);
                 return Ok(books.Take(MaxEnrichedCandidates)
                     .Select(r => new ReferenceSearchResultDto
                     {
@@ -348,7 +370,7 @@ public class ReferenceDataAdminController(
                 await enrichmentService.ResolveMovieAsync(request.Title, request.Year, request.ExternalId);
                 break;
             case ReferenceItemType.Book:
-                await enrichmentService.ResolveBookAsync(request.Title, request.Year, request.ExternalId);
+                await enrichmentService.ResolveBookAsync(request.Title, request.Year, request.ExternalId, request.Provider, request.Isbn);
                 break;
             case ReferenceItemType.VideoGame:
                 await enrichmentService.ResolveVideoGameAsync(request.Title, request.Year, request.ExternalId);

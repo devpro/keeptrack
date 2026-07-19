@@ -41,4 +41,32 @@ public class BookUnresolvedQueueTest(KestrelWebAppFactory<Program> factory) : IC
             await repository.DeleteAsync(bookB.Id!, "unresolved-book-tenant-b");
         }
     }
+
+    /// <summary>
+    /// Same search-prefill role as Creator, just for ISBN - regression: the admin unresolved-queue page
+    /// used to always force its ISBN search field back to null on selecting an item, discarding a tenant's
+    /// own already-recorded ISBN instead of prefilling with it.
+    /// </summary>
+    [Fact]
+    public async Task FindDistinctUnresolvedTitleYearsAsync_CarriesATenantsIsbn()
+    {
+        using var scope = factory.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IBookRepository>();
+        var title = $"Unresolved Queue Isbn Test Book {Guid.NewGuid()}";
+        const string isbn = "9780000000042";
+
+        var book = await repository.CreateAsync(new BookModel { OwnerId = "unresolved-book-isbn-tenant", Title = title, Author = "Some Author", Year = 2003, Isbn = isbn });
+
+        try
+        {
+            var unresolved = await repository.FindDistinctUnresolvedTitleYearsAsync();
+
+            unresolved.Should().ContainSingle(p => p.Title == title && p.Year == 2003)
+                .Which.Isbn.Should().Be(isbn);
+        }
+        finally
+        {
+            await repository.DeleteAsync(book.Id!, "unresolved-book-isbn-tenant");
+        }
+    }
 }

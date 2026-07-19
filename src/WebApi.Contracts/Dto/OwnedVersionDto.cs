@@ -6,7 +6,7 @@ namespace Keeptrack.WebApi.Contracts.Dto;
 /// One owned copy of a tracked item (movie, TV show, book, album) with its optional purchase details.
 /// An item is considered owned when it has at least one version.
 /// </summary>
-public class OwnedVersionDto
+public class OwnedVersionDto : IOwnedCopyDto
 {
     /// <summary>
     /// Physical or digital copy - physical by default.

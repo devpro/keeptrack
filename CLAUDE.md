@@ -706,13 +706,74 @@ that display was replaced with a plain editable `Genre` input (same shape as `Au
 there's no separate "raw reference value" display once linked.
 
 Books are the one reference domain behind a provider-agnostic interface rather than a provider-named one: `IBookReferenceClient` (`BookSearchResult`/`BookDetails` DTOs,
-an `IBookReferenceClient.ProviderKey` string) instead of `IOpenLibraryClient`.
+an `IBookReferenceClient.ProviderKey` string, plus a `DisplayName` for admin UI text) instead of `IOpenLibraryClient`.
 TV show/movie/video game/album stay hard-wired to TMDB/RAWG/Discogs directly (their DTOs and hardcoded `"tmdb"`/`"rawg"`/`"discogs"` `ExternalIds` keys are provider-named on purpose -
 swapping any of those would be a bigger redesign, not a config change).
-Which implementation of `IBookReferenceClient` is registered is a deployment-time choice, `ReferenceData:BookProvider` (`ReferenceData__BookProvider` as an environment variable, `Program.cs` switches on it), defaulting to `OpenLibrary` -
-the only implementation that ships today.
-`ReferenceEnrichmentService.Books.cs` never hardcodes a provider name; every `ExternalIds`/person-reference lookup keys off the injected `IBookReferenceClient.ProviderKey` instead,
-so a second implementation only needs its own class (`OpenLibraryClient`-shaped: base address, optional settings class, `ProviderKey`) plus one new `case` in `Program.cs` - no changes to the enrichment service or admin controller.
+
+**Book is also the one reference domain with more than one provider registered at once**: `GoogleBooksClient`/`ProviderKey` `"googlebooks"`
+(the default - real synopses, cover art, language and by far the widest catalogue coverage of the three, including manga/comics),
+`OpenLibraryClient`/`"openlibrary"` (free/keyless, kept as a fallback), and `BnfClient`/`"bnf"` (BnF's SRU Catalogue général, free/keyless, also kept as a fallback).
+Google Books became the default after both Open Library and BnF were found lacking in practice for this app's purposes:
+BnF in particular returns long library-cataloguing-style titles, no cover art at all, and little to no real synopsis, and doesn't meaningfully cover manga/comics -
+it can still occasionally surface a French title the other two lack, which is why it's kept registered rather than removed, just never the default.
+`Program.cs` registers every implemented book provider unconditionally (typed `AddHttpClient<TConcrete>` bridged to the shared interface via `AddTransient<IBookReferenceClient>(sp => sp.GetRequiredService<TConcrete>())` - `AddTransient`,
+not `AddSingleton`, so `IHttpClientFactory`'s handler rotation isn't defeated by a long-lived captured client), rather than the old switch that picked exactly one.
+Registration order in `Program.cs` doubles as the admin UI's provider-picker display order (`BookReferenceClientRegistry.All` preserves it) - Google Books is registered first for exactly that reason.
+`BookReferenceClientRegistry` (`WebApi/ReferenceData/`) is the one place that resolves a provider key (or falls back to `ReferenceData:BookProvider`'s deployment default,
+matched case-insensitively so an old PascalCase `"OpenLibrary"` setting still resolves against the new lowercase `ProviderKey` convention) to a concrete client -
+`ReferenceEnrichmentService`/`ReferenceDataAdminController` both depend on this registry instead of a single injected `IBookReferenceClient`.
+An admin picks the provider per search/link action (`GET /api/reference-data/book-providers` lists what's registered; `LinkReferenceRequestDto.Provider`/the `search` endpoint's `provider` query param carry the choice through) -
+this is deliberately a per-request admin choice, not just the old deployment-wide config switch, so every provider stays usable side by side.
+The admin UI's provider buttons are selection-only (`_selectedProvider = key`, no implicit re-search) - they used to also immediately re-run the search when one was already displayed,
+which duplicated the explicit "Search"/"↻ Search again" button's job and confused which action did what; now there is exactly one way to trigger a search.
+`RefreshBookReferenceAsync` checks every *registered* provider's key against `BookReferenceModel.ExternalIds`, not just the configured default's - it used to only check the default's key,
+so a reference linked through any other provider would have silently stopped refreshing forever once this became possible.
+BnF's ordinary catalogue records carry no cover-art field at all (only a digitized Gallica item would, via a separate API `BnfClient` doesn't call), unlike Google Books/Open Library/RAWG/Discogs -
+a book linked via BnF simply has no cover, which is expected, not a bug.
+`BnfClient` parses SRU/XML (Dublin Core embedded in each `srw:record`), the one non-JSON provider client in the codebase; its `ExternalId` is the record's bare ARK (from `srw:recordIdentifier`,
+re-queried via the `bib.persistentid` CQL criterion for `GetBookDetailsAsync`),
+and its `dc:creator` values ("LastName, FirstName (dates). Role") are cleaned up into a plain "FirstName LastName" shape to match every other provider's author format.
+**Gotcha, confirmed against the real API:** BnF's own `"and (bib.author ...)"` CQL combination is not a strict intersection -
+querying title "La Peste" and author "Victor Hugo" (who never wrote that book) returned several genuine Victor Hugo anthologies instead of zero, none of them actually titled "La Peste"
+(title "La Peste" + the correct author "Albert Camus" does correctly narrow to 69 genuine matches, so the server-side clause isn't useless, just not trustworthy on its own).
+`BnfClient.SearchBooksCoreAsync` therefore re-checks every candidate's parsed author client-side (`AuthorMatches`, a normalized word-presence check) and discards any that don't actually match, rather than trusting BnF's own filtering -
+without this, mismatched candidates silently leaked through, which read to a user as "the author isn't considered" even though it nominally was, server-side.
+`GoogleBooksClient` (JSON, like every provider except BnF) uses `intitle:`/`inauthor:` query qualifiers; `volumeInfo.description` is documented as HTML-formatted ("b", "i", "br" tags).
+`CleanDescription` keeps that formatting rather than flattening it to plain text (an admin found the flattened version disappointing) -
+it decodes HTML entities first, then replaces every `<b>`/`</b>`/`<i>`/`</i>`/`<br ...>` tag with a bare, attribute-free reconstruction of itself and removes every other tag entirely,
+discarding any attributes even on the three allowed ones.
+This fixed allowlist-and-reconstruct approach (not a general sanitizer) is what makes it safe for `BookDetail.razor` to render `Reference.Synopsis` as `MarkupString` (Blazor's raw-HTML escape hatch, otherwise never used in this app)
+instead of the plain-text interpolation every other synopsis display still uses - nothing but those three bare tags can ever survive the filter, so there's no attribute-based injection vector (a stray `onclick`, say) to worry about,
+and entities are decoded *before* stripping specifically so an entity-encoded tag can't slip through the filter and only turn into a live tag afterward.
+Never render a `MarkupString` from text that hasn't gone through this same filter.
+**Gotcha, confirmed against a real description ("The Hobbit"):** paragraph breaks aren't always literal `<br>` tags - some descriptions use plain `\n`/`\r\n` characters instead, which HTML silently collapses to whitespace,
+so a description with only bold/italic markup and no actual `<br>` tags rendered as one massive undivided paragraph even though the bold/italic themselves displayed correctly.
+`CleanDescription` converts real newline characters to `<br/>` before the tag-allowlist pass runs (not as a separate step after),
+so a newline-based break goes through the exact same reconstruction as any other `<br>` rather than needing a second, parallel code path.
+It also upgrades `volumeInfo.imageLinks.thumbnail` from `http://` to `https://` (a widely-documented characteristic of Google's own API responses) so the cover doesn't trip mixed-content blocking on this app's HTTPS pages.
+`ReferenceEnrichmentService.Books.cs` never hardcodes a provider name; every `ExternalIds`/person-reference lookup keys off the resolved client's `ProviderKey` instead,
+so a further implementation only needs its own class (`GoogleBooksClient`/`OpenLibraryClient`/`BnfClient`-shaped: base address, optional settings/API-key class, `ProviderKey`, `DisplayName`) plus one registration block in `Program.cs` -
+no changes to the enrichment service, admin controller, registry, or the admin UI's provider picker (it lists whatever's registered).
+
+`BookModel.Language` (free text, same shape as `Genre`) is auto-filled on link/refresh from providers that report one - Google Books' `volumeInfo.language` (a clean ISO 639-1 code) and BnF's Dublin Core `dc:language`
+(a MARC-style code, e.g. "fre" - shown as-is, not translated to a friendly name) both populate `BookDetails.Language`;
+Open Library's client doesn't populate it (the value lives at the edition level, not the work level the current client fetches), left as a possible future enhancement rather than guessed at.
+The reference-level `BookReferenceModel.Language`/`BookReferenceDto.Language` and `IBookRepository.SetReferenceLinkAsync`'s `canonicalLanguage` parameter follow the exact same propagation shape `Genre`/`canonicalGenre` already established:
+null (not overwritten) when the provider has none.
+
+`BookModel.Isbn` follows the same shape again, with two differences from Genre/Language. First, it's edited on `BookDetail.razor` only, never the Add form
+(`Books.razor`'s add card only carries title/author/year, per this document's own "Adding a new trackable item" convention). Second, it doubles as an optional *search input*:
+`IBookReferenceClient.SearchBooksAsync` takes an `isbn` parameter, but only `GoogleBooksClient` actually uses it (as the sole query, `isbn:{isbn}`, superseding title/author entirely -
+an ISBN is an exact identifier, so combining it with a fuzzy title/author match would only reintroduce the kind of "and" narrowing risk `BnfClient`'s own author fix (above) had to work around).
+Open Library/BnF accept the parameter (interface compliance) but ignore it as a search input; both `GoogleBooksClient` (via `volumeInfo.industryIdentifiers`, preferring ISBN_13 over ISBN_10 when a volume reports both) and `BnfClient`
+(via a `dc:identifier` value prefixed "ISBN ", confirmed against the real API) still populate `BookDetails.Isbn` for autofill on link/refresh - reporting one already-known and searching by one are different things.
+The admin search UI (`ReferenceDataAdminPage.razor`'s ISBN field, and `InlineReferenceLinker`'s `Isbn` parameter bound from `BookDetail.razor`'s own field) is Book-only, same convention as the Author/Artist `creator` field -
+there was no push to generalize the parameter name here the way `creator` was, since only one domain needs it so far.
+
+**`ReferenceMatchModel`/`ReferenceMatch` gained an `Isbn` field (null for every domain but Book) specifically so a matched alias only ever records the identifier that actually drove that particular match** -
+the canonical alias (the provider's own reported ISBN, from `BookDetails.Isbn`) and the tenant-search alias (whatever ISBN, if any, was actually supplied as search input) are two separate entries, never merged,
+and the search alias's `Isbn` is never backfilled from the provider's own value when no ISBN was actually used to find the match. `MergeMatchedAliases`' shared tuple shape grew a 4th element for this (`(Title, Year, Creator, Isbn)`);
+every non-Book call site across `.TvShowsAndMovies.cs`/`.VideoGames.cs`/`.Albums.cs` passes a literal `null` for it, same as `Creator` already does for the domains with no creator dimension.
 
 ### Blazor app
 
@@ -769,9 +830,13 @@ Always write `Title="@_movie.Title"` for string parameters bound to a field/prop
 
 ### Theme
 
-`app.css` is a light+dark theme driven by `data-bs-theme` on `<html>` (Bootstrap 5.3's native color-mode support), with Keeptrack's own `--kt-*` tokens layered on top for custom components (sidebar, `kt-table-wrap`, `kt-modal`, etc.).
-`wwwroot/theme.js` sets the initial theme from `localStorage`/`prefers-color-scheme` before first paint (avoiding a flash of the wrong theme) and exposes `ktToggleTheme()`, called directly from a plain button in `NavMenu.razor` —
-no Blazor/JS interop needed for the toggle itself.
+The app is dark-only — there is no light theme and no in-app toggle.
+`App.razor` sets `data-bs-theme="dark"` statically on `<html>`, server-rendered as part of the initial markup rather than applied by client-side JS, so there's no flash of a different theme on first paint or between page loads.
+`app.css`'s token block (`:root { --kt-bg: ...; }`, Bootstrap 5.3's native color-mode variables) only ever defines the dark values now; a previous light+dark version
+(with a `wwwroot/theme.js` that picked the initial theme from `localStorage`/`prefers-color-scheme`, a `ktToggleTheme()` toggle button in `NavMenu.razor`,
+and a `Keeptrack.BlazorApp.lib.module.js` JS initializer that re-applied `data-bs-theme` after Blazor's enhanced-navigation DOM diff) was removed entirely at the owner's request —
+the toggle caused visibly jarring light/dark flashes on every page load, and a single dark theme is simpler to maintain than two.
+Don't reintroduce `data-bs-theme` as something client-side JS sets or removes; keep it a static attribute on `<html>` so enhanced navigation can never strip it.
 Use system-ui fonts only; no decorative/display webfonts.
 
 Icons throughout the app are plain Unicode symbols with no default emoji presentation (`◈`, `✓`, `✕`, `★`, `▶`, `↻`, `⌂`, `⚙`, `♪`, and the Geometric Shapes block generally: `◼ ▭ ▬ ◆`),
@@ -786,10 +851,11 @@ and were simply dropped rather than replaced with an approximate glyph, since a 
 `.kt-icon-spin` (reuses the same `spin` keyframes as `.kt-spinner`) makes a plain glyph rotate in place for a small inline action's "in progress" state, instead of swapping to an hourglass emoji.
 
 Enhanced navigation re-fetches and diffs the whole document on every in-app link click; anything set on `<html>`/`<body>` by client-side JS
-rather than server-rendered markup (like `data-bs-theme`) gets stripped back out unless it's explicitly re-applied.
-`wwwroot/Keeptrack.BlazorApp.lib.module.js` is a JS initializer (autoloaded by Blazor because its name matches the assembly -
-don't add a manual `<script>` tag for it) that re-applies the theme via `blazor.addEventListener('enhancedload', ...)`.
-Any future client-side DOM state that isn't part of the Razor render tree needs the same treatment.
+rather than server-rendered markup gets stripped back out unless it's explicitly re-applied.
+A JS initializer (`wwwroot/Keeptrack.BlazorApp.lib.module.js`, autoloaded by Blazor because its name matches the assembly -
+don't add a manual `<script>` tag for it) is the place to hook `blazor.addEventListener('enhancedload', ...)` for that;
+it was removed when it had no remaining purpose (its only use was re-applying `data-bs-theme` after enhanced navigation, no longer needed now that the theme is a static, server-rendered `<html>` attribute),
+but recreate it if any future client-side DOM state needs the same treatment.
 
 Before assuming a rule in `app.css` will style something, check whether that element has its own scoped `{ComponentName}.razor.css` file (Blazor CSS isolation) -
 a scoped selector always wins the cascade over an equally-specific one in the shared stylesheet, since it's compiled with an extra scope attribute.

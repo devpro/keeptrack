@@ -1,16 +1,17 @@
 @page "/health/{Id}"
-@rendermode InteractiveServer
 @attribute [Authorize]
-@using System.Globalization
 
-@if (_loading)
+@if (!_loaded)
 {
-    <div class="kt-loading">
-        <div class="kt-spinner"></div>
-        Loading…
-    </div>
+    @if (_loading)
+    {
+        <div class="kt-loading">
+            <div class="kt-spinner"></div>
+            Loading…
+        </div>
+    }
 }
-else if (_profile is null)
+else if (Profile is null)
 {
     <div class="kt-empty">
         <div class="kt-empty-icon">◈</div>
@@ -19,27 +20,27 @@ else if (_profile is null)
 }
 else
 {
-    <Breadcrumb ListRoute="/health" ListLabel="Health" Current="@_profile.Name"/>
+    <Breadcrumb ListRoute="/health" ListLabel="Health" Current="@Profile.Name"/>
 
     <div class="kt-page-header">
         <div class="kt-title-row">
-            <input class="kt-title-input" value="@_profile.Name" @onchange="SaveNameAsync"/>
+            <input class="kt-title-input" value="@Profile.Name" @onchange="SaveNameAsync"/>
         </div>
     </div>
 
     <div class="kt-form-card">
         <label class="form-label">Notes</label>
-        <textarea class="form-control form-control-sm" rows="2" @onchange="SaveNotesAsync">@_profile.Notes</textarea>
+        <textarea class="form-control form-control-sm" rows="2" @onchange="SaveNotesAsync">@Profile.Notes</textarea>
     </div>
 
-    @* No summary panels before the journal on purpose (owner feedback): the journal is the page's
-       primary content, and the per-row warning sign is the whole warning surface. "Last seen" is a bare
-       specialty + last-date list - no names, no counts, no field labels. *@
-    @if (_metrics is { LastVisits.Count: > 0 })
+    @* No summary panels before the journal on purpose (owner feedback):
+       the journal is the page's primary content, and the per-row warning sign is the whole warning surface.
+       "Last seen" is a bare specialty + last-date list - no names, no counts, no field labels. *@
+    @if (Metrics is { LastVisits.Count: > 0 })
     {
         <h2 class="kt-section-title">Last seen</h2>
         <div class="kt-form-card">
-            @foreach (var visit in _metrics.LastVisits)
+            @foreach (var visit in Metrics.LastVisits)
             {
                 <div class="d-flex justify-content-between" style="max-width:420px">
                     <span>@visit.Specialty</span>
@@ -58,7 +59,7 @@ else
        sign when money remains unaccounted, and edit/delete icons. Everything else lives in the modal.
        One tab per year (same kt-season-picker/kt-page-btn header as TvShowDetail.razor's season tabs),
        newest year first, so a long-running journal doesn't render every entry on one page. *@
-    @if (_records.Count == 0)
+    @if (Records!.Count == 0)
     {
         <div class="kt-table-wrap">
             <div class="table-responsive">
@@ -92,7 +93,7 @@ else
         </div>
     }
 
-    @if (_metrics is { CostHistory.Count: > 0 })
+    @if (Metrics is { CostHistory.Count: > 0 })
     {
         <h2 class="kt-section-title">Yearly cost review</h2>
         <div class="kt-table-wrap">
@@ -107,7 +108,7 @@ else
                     </tr>
                     </thead>
                     <tbody>
-                    @foreach (var point in _metrics.CostHistory)
+                    @foreach (var point in Metrics.CostHistory)
                     {
                         <tr>
                             <td style="font-weight:500">@point.Year</td>
@@ -124,97 +125,28 @@ else
 
     @if (_showModal)
     {
-        <div class="kt-modal-backdrop" @onclick="CancelModal">
-            <div class="kt-modal" @onclick:stopPropagation>
+        <div class="kt-modal-backdrop">
+            <div class="kt-modal">
                 <div class="kt-modal-header">
                     <h5>@(IsEditMode ? "Edit" : "Add") journal entry</h5>
-                    <button class="kt-modal-close" @onclick="CancelModal">✕</button>
+                    <button class="kt-modal-close" @onclick="RequestCancelModal">✕</button>
                 </div>
                 <div class="kt-modal-body">
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label class="form-label d-block">Event type</label>
-                            <div class="d-flex gap-2 flex-wrap">
-                                @foreach (var eventType in Enum.GetValues<HealthEventType>())
-                                {
-                                    <button type="button" class="btn btn-sm @(_modalEntry.EventType == eventType ? "btn-primary" : "btn-secondary")"
-                                            @onclick="() => _modalEntry.EventType = eventType">@eventType</button>
-                                }
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Date</label>
-                            <input class="form-control" type="date" @bind="ModalDate" @bind:format="yyyy-MM-dd"/>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Time (24h)</label>
-                            <input class="form-control" type="text" inputmode="numeric" placeholder="HH:mm"
-                                   pattern="[0-2][0-9]:[0-5][0-9]" @bind="ModalTimeText" @bind:event="onchange"/>
-                        </div>
-                        @if (_modalEntry.EventType == HealthEventType.Appointment)
-                        {
-                            <div class="col-md-6">
-                                <label class="form-label">Specialty</label>
-                                <input class="form-control" placeholder="généraliste, dentiste, …" @bind="_modalEntry.Specialty"/>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Practitioner</label>
-                                @* data-testid: the label/input pair has no for/id association, so GetByLabel
-                                   can't resolve it in e2e tests - same as every inventory Add form *@
-                                <input class="form-control" placeholder="Dr …" data-testid="practitioner-input" @bind="_modalEntry.Practitioner"/>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Price paid (€)</label>
-                                <input class="form-control" type="number" step="0.01" data-testid="price-input" @bind="_modalEntry.Price"/>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Public reimb. (€)</label>
-                                <input class="form-control" type="number" step="0.01" @bind="_modalEntry.PublicReimbursement"
-                                       title="What the public health system (assurance maladie / ameli) officially reimburses for this care."/>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Insur. reimb. (€)</label>
-                                <input class="form-control" type="number" step="0.01" @bind="_modalEntry.InsuranceReimbursement"/>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Not covered (€)</label>
-                                <input class="form-control" type="number" step="0.01" @bind="_modalEntry.NotCovered"
-                                       title="Reste à charge: the accepted part no one will reimburse."/>
-                            </div>
-                            @if (_modalEntry.Price is > 0)
-                            {
-                                var missing = ModalMissingAmount;
-                                <div class="col-12">
-                                    @if (Math.Abs(missing) <= 0.005)
-                                    {
-                                        <span class="kt-card-meta" style="color:var(--kt-success)">✓ Balanced - paid, reimbursements and not-covered add up to zero.</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="kt-card-meta" style="color:var(--kt-warning)">
-                                            @missing.ToString("F2") € @(missing > 0 ? "still unaccounted for - this entry will appear under \"Reimbursements to check\"." : "received beyond the price - worth a look.")
-                                        </span>
-                                    }
-                                </div>
-                            }
-                        }
-                        <div class="col-12">
-                            <label class="form-label">Description</label>
-                            <textarea class="form-control" rows="2" placeholder="@DescriptionPlaceholder" @bind="_modalEntry.Description"></textarea>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label">Notes</label>
-                            <textarea class="form-control" rows="2" @bind="_modalEntry.Notes"></textarea>
-                        </div>
-                    </div>
+                    <HealthRecordForm Entry="_modalEntry"/>
                 </div>
                 <div class="kt-modal-footer">
-                    <button class="btn btn-secondary" @onclick="CancelModal">Cancel</button>
+                    <button class="btn btn-secondary" @onclick="RequestCancelModal">Cancel</button>
                     <button class="btn btn-success" @onclick="SaveModalEntryAsync">Save</button>
                 </div>
             </div>
         </div>
     }
+
+    <ConfirmModal Show="_showDiscardConfirm"
+                  Title="Discard unsaved changes?"
+                  Message="This entry has unsaved changes that will be lost."
+                  ConfirmLabel="Discard"
+                  OnConfirm="ConfirmDiscard" OnCancel="CancelDiscard"/>
 }
 
 @code {
@@ -224,109 +156,112 @@ else
 
     [Inject] private HealthRecordApiClient HealthRecordApi { get; set; } = null!;
 
-    private bool _loading = true;
-    private HealthProfileDto? _profile;
-    private List<HealthRecordDto> _records = [];
+    // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
+    // _loaded tracks whether a load attempt has finished at all, fresh or restored from persisted
+    // prerender state - both default false so the forced render Blazor triggers right after the
+    // synchronous prefix of OnParametersSetAsync (before any awaited fetch resolves) shows blank instead
+    // of a spinner flash on every navigation to this page.
+    private bool _loading;
+    private bool _loaded;
+
+    // Public properties (a framework requirement for [PersistentState]): the data loaded during the
+    // prerender pass is carried over to the interactive circuit, so the first interactive render reuses
+    // it instead of resetting to the spinner and re-fetching - same pattern as MovieDetail. The derived
+    // by-year grouping is rebuilt locally from these in BuildDerivedState, same as CarDetail/HouseDetail.
+    [PersistentState]
+    public HealthProfileDto? Profile { get; set; }
+
+    [PersistentState]
+    public List<HealthRecordDto>? Records { get; set; }
+
+    [PersistentState]
+    public HealthMetricsDto? Metrics { get; set; }
     private Dictionary<int, List<HealthRecordDto>> _recordsByYear = new();
     private List<int> _years = [];
     private int _selectedYear;
-    private HealthMetricsDto? _metrics;
-    private HealthRecordDto _modalEntry = NewEntry("");
+    private HealthRecordDto _modalEntry = HealthRecordForm.NewEntry("");
+    private HealthRecordDto _pristineModalEntry = HealthRecordForm.NewEntry("");
     private bool _showModal;
+    private bool _showDiscardConfirm;
 
     private bool IsEditMode => !string.IsNullOrEmpty(_modalEntry.Id);
 
     /// <summary>The journal rows' warning flags come from the metrics (the one balance computation,
     /// server-side in HealthMetricsService) rather than re-deriving the arithmetic per row.</summary>
     private HashSet<string> UnbalancedRecordIds =>
-        _metrics is null ? [] : [.. _metrics.UnbalancedRecords.Select(u => u.RecordId)];
+        Metrics is null ? [] : [.. Metrics.UnbalancedRecords.Select(u => u.RecordId)];
 
-    /// <summary>Live preview of the same balance the server computes - what the modal shows while typing.</summary>
-    private double ModalMissingAmount =>
-        (_modalEntry.Price ?? 0) - (_modalEntry.PublicReimbursement ?? 0) - (_modalEntry.InsuranceReimbursement ?? 0) - (_modalEntry.NotCovered ?? 0);
-
-    private string DescriptionPlaceholder => _modalEntry.EventType == HealthEventType.Sickness
-        ? "What was wrong (fever, migraine, gastro, …)"
-        : "Reason for the visit / what happened";
-
-    protected override async Task OnParametersSetAsync() => await LoadAsync();
-
-    private static HealthRecordDto NewEntry(string profileId) => new()
+    protected override async Task OnParametersSetAsync()
     {
-        HealthProfileId = profileId,
-        // today at the current hour, minute zeroed - a "right now" default the time field can refine
-        HistoryDate = DateTime.Today.AddHours(DateTime.Now.Hour),
-        EventType = HealthEventType.Appointment
-    };
-
-    /// <summary>Separate Date/Time proxies over the single _modalEntry.HistoryDate - see CarDetail.razor's
-    /// identical pair for why a plain @bind to HistoryDate would lose the time on every date change.</summary>
-    private DateOnly ModalDate
-    {
-        get => DateOnly.FromDateTime(_modalEntry.HistoryDate);
-        set => _modalEntry.HistoryDate = value.ToDateTime(TimeOnly.FromDateTime(_modalEntry.HistoryDate));
-    }
-
-    /// <summary>Plain "HH:mm" text instead of &lt;input type="time"&gt; - see CarDetail.razor's ModalTimeText
-    /// for why the native picker can't be forced to 24h.</summary>
-    private string ModalTimeText
-    {
-        get => TimeOnly.FromDateTime(_modalEntry.HistoryDate).ToString("HH:mm");
-        set
+        // Profile already holds this route's item when PersistentState restored the prerendered data
+        // the id check keeps an in-circuit navigation to a different profile reloading as before
+        if (Profile?.Id == Id && Records is not null && Metrics is not null)
         {
-            if (TimeOnly.TryParseExact(value, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var time))
-            {
-                _modalEntry.HistoryDate = DateOnly.FromDateTime(_modalEntry.HistoryDate).ToDateTime(time);
-            }
+            BuildDerivedState();
+            _loading = false;
+            _loaded = true;
+            return;
         }
+        await LoadAsync();
     }
 
     private async Task LoadAsync()
     {
-        _loading = true;
-        _profile = await HealthProfileApi.GetOneAsync(Id);
-        if (_profile is not null)
+        await LoadingIndicator.RunAsync(FetchAsync(), v => _loading = v, StateHasChanged);
+        _loading = false;
+        _loaded = true;
+    }
+
+    private async Task FetchAsync()
+    {
+        Profile = await HealthProfileApi.GetOneAsync(Id);
+        if (Profile is not null)
         {
             var result = await HealthRecordApi.GetAsync("", 1, int.MaxValue, new Dictionary<string, string> { ["HealthProfileId"] = Id });
             // most recent first - a journal reads with the newest entry on top, same call as HouseDetail
-            _records = result.Items.OrderByDescending(r => r.HistoryDate).ToList();
-            _recordsByYear = _records.GroupBy(r => r.HistoryDate.Year).ToDictionary(g => g.Key, g => g.ToList());
-            _years = _recordsByYear.Keys.OrderByDescending(y => y).ToList();
-            // same "keep the current tab if it still exists, else default to the newest" rule as
-            // TvShowDetail.razor's own season selection
-            if (!_years.Contains(_selectedYear)) _selectedYear = _years.Count > 0 ? _years[0] : 0;
-            _metrics = await HealthProfileApi.GetMetricsAsync(Id);
+            Records = result.Items.OrderByDescending(r => r.HistoryDate).ToList();
+            Metrics = await HealthProfileApi.GetMetricsAsync(Id);
+            BuildDerivedState();
         }
-        _loading = false;
+    }
+
+    private void BuildDerivedState()
+    {
+        _recordsByYear = Records!.GroupBy(r => r.HistoryDate.Year).ToDictionary(g => g.Key, g => g.ToList());
+        _years = _recordsByYear.Keys.OrderByDescending(y => y).ToList();
+        // same "keep the current tab if it still exists, else default to the newest" rule as
+        // TvShowDetail.razor's own season selection
+        if (!_years.Contains(_selectedYear)) _selectedYear = _years.Count > 0 ? _years[0] : 0;
     }
 
     private void SelectYear(int year) => _selectedYear = year;
 
     private async Task SaveProfileAsync()
     {
-        if (_profile is null) return;
-        await HealthProfileApi.UpdateAsync(_profile);
+        if (Profile is null) return;
+        await HealthProfileApi.UpdateAsync(Profile);
     }
 
     private async Task SaveNameAsync(ChangeEventArgs e)
     {
-        if (_profile is null) return;
+        if (Profile is null) return;
         var name = e.Value?.ToString();
         if (string.IsNullOrWhiteSpace(name)) return;
-        _profile.Name = name;
+        Profile.Name = name;
         await SaveProfileAsync();
     }
 
     private async Task SaveNotesAsync(ChangeEventArgs e)
     {
-        if (_profile is null) return;
-        _profile.Notes = e.Value?.ToString();
+        if (Profile is null) return;
+        Profile.Notes = e.Value?.ToString();
         await SaveProfileAsync();
     }
 
     private void ShowAddModal()
     {
-        _modalEntry = NewEntry(Id);
+        _modalEntry = HealthRecordForm.NewEntry(Id);
+        _pristineModalEntry = CloneEntry(_modalEntry);
         _showModal = true;
     }
 
@@ -335,10 +270,27 @@ else
     private void ShowEditModal(HealthRecordDto entry)
     {
         _modalEntry = CloneEntry(entry);
+        _pristineModalEntry = CloneEntry(entry);
         _showModal = true;
     }
 
-    private void CancelModal() => _showModal = false;
+    /// <summary>
+    /// A click/drag outside the modal no longer closes it (see the backdrop markup above) - only these
+    /// explicit Cancel/✕ buttons can, and they route through this unsaved-data check first.
+    /// </summary>
+    private void RequestCancelModal()
+    {
+        if (DirtyTracking.IsDirty(_pristineModalEntry, _modalEntry)) _showDiscardConfirm = true;
+        else _showModal = false;
+    }
+
+    private void ConfirmDiscard()
+    {
+        _showDiscardConfirm = false;
+        _showModal = false;
+    }
+
+    private void CancelDiscard() => _showDiscardConfirm = false;
 
     /// <summary>Every journal mutation reloads the whole profile (journal + metrics) rather than patching
     /// local state - an edit can change the yearly totals, the row badges and the last-visit table, so

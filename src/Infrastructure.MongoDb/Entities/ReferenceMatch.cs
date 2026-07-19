@@ -23,4 +23,7 @@ public class ReferenceMatch
     /// old behavior still store <c>""</c> instead of an absent field - see <c>MergeMatchedAliases</c>.
     /// </summary>
     public string? Creator { get; set; }
+
+    /// <summary>Null for every domain but Book - see <see cref="Keeptrack.Domain.Models.ReferenceMatchModel.Isbn"/>.</summary>
+    public string? Isbn { get; set; }
 }

@@ -1,19 +1,19 @@
 @page "/books"
 @inherits InventoryPageBase<BookDto>
-@rendermode InteractiveServer
 @attribute [Authorize]
 
 <InventoryList TDto="BookDto"
                Title="Books"
                ItemName="Book"
                Route="@ListRoute"
-               Items="@_items"
+               Items="@(Items ?? [])"
                Loading="@_loading"
+               Loaded="@_loaded"
                Error="@_error"
                Search="@_search"
                Page="@_page"
                TotalPages="@TotalPages"
-               TotalCount="@_totalCount"
+               TotalCount="@TotalCount"
                ShowForm="@_showForm"
                Form="@_form"
                ItemTitle="@(book => book.Title)"
@@ -28,11 +28,13 @@
                OnSearchChanged="@OnSearchChanged"
                Sort="@_sort"
                OnSortChanged="@SetSort"
-               HasRatingSort="true">
+               HasRatingSort="true"
+               ExtraSortValue="@ListSort.LastRead"
+               ExtraSortLabel="Read">
     <Filters>
         <button class="btn btn-sm kt-toggle-btn @(FavoriteFilter ? "active" : "")" @onclick='() => ToggleFilter("favorite", FavoriteFilter)'>★ Favorites</button>
         <button class="btn btn-sm kt-toggle-btn @(OwnedFilter ? "active" : "")" @onclick='() => ToggleFilter("owned", OwnedFilter)'>● Owned</button>
-        <button class="btn btn-sm kt-toggle-btn @(WishlistedFilter ? "active" : "")" @onclick='() => ToggleFilter("wishlisted", WishlistedFilter)'>○ Wishlist</button>
+        <button class="btn btn-sm kt-toggle-btn @(UnreadFilter ? "active" : "")" @onclick='() => ToggleFilter("unread", UnreadFilter)'>◻ Unread</button>
     </Filters>
     <MetaTemplate Context="book">
         @if (book.Year > 0)

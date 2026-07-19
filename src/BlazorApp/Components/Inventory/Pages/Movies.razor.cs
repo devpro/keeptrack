@@ -17,8 +17,8 @@ public partial class Movies : InventoryPageBase<MovieDto>
     [SupplyParameterFromQuery(Name = "owned")]
     public bool OwnedFilter { get; set; }
 
-    [SupplyParameterFromQuery(Name = "wishlisted")]
-    public bool WishlistedFilter { get; set; }
+    [SupplyParameterFromQuery(Name = "unseen")]
+    public bool UnseenFilter { get; set; }
 
     protected override IReadOnlyDictionary<string, string>? ExtraQuery
     {
@@ -27,7 +27,7 @@ public partial class Movies : InventoryPageBase<MovieDto>
             var query = new Dictionary<string, string>();
             if (FavoriteFilter) query["IsFavorite"] = "true";
             if (OwnedFilter) query["IsOwned"] = "true";
-            if (WishlistedFilter) query["IsWishlisted"] = "true";
+            if (UnseenFilter) query["IsUnseen"] = "true";
             return query.Count > 0 ? query : null;
         }
     }

@@ -15,7 +15,7 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// </summary>
 public partial class ReferenceEnrichmentService(
     ITmdbClient tmdbClient,
-    IBookReferenceClient bookReferenceClient,
+    BookReferenceClientRegistry bookReferenceClientRegistry,
     IRawgClient rawgClient,
     IDiscogsClient discogsClient,
     ITvShowReferenceRepository tvShowReferenceRepository,
@@ -31,13 +31,17 @@ public partial class ReferenceEnrichmentService(
     IAlbumRepository albumRepository)
 {
     /// <summary>
-    /// Combines whatever (title, year, creator) combinations a reference document already remembered with
-    /// the new ones just confirmed (e.g. the provider's canonical (title, year) and the (title, year) the
-    /// tenant actually searched with, which may differ from canonical in either field). Deduplicated, with
-    /// title/creator normalized. Shared by every domain - the alias shape (<see cref="Domain.Models.ReferenceMatchModel"/>)
-    /// is deliberately generic, not per-domain. <paramref name="aliases"/>' <c>Creator</c> is null for
-    /// TV show/movie/video game (no creator dimension in their match key); Book/Album always pass their
-    /// resolved author/artist text - see <see cref="ReferenceMatchModel.Creator"/> for why it matters there.
+    /// Combines whatever (title, year, creator, isbn) combinations a reference document already remembered
+    /// with the new ones just confirmed (e.g. the provider's canonical (title, year) and the (title, year)
+    /// the tenant actually searched with, which may differ from canonical in either field). Deduplicated,
+    /// with title/creator normalized. Shared by every domain - the alias shape
+    /// (<see cref="Domain.Models.ReferenceMatchModel"/>) is deliberately generic, not per-domain.
+    /// <paramref name="aliases"/>' <c>Creator</c> is null for TV show/movie/video game (no creator dimension
+    /// in their match key); Book/Album always pass their resolved author/artist text - see
+    /// <see cref="ReferenceMatchModel.Creator"/> for why it matters there. <c>Isbn</c> is null for every
+    /// domain but Book, and null even for Book unless an ISBN was genuinely part of that specific
+    /// match/search - see <see cref="ReferenceMatchModel.Isbn"/>: an exact-identifier field must never be
+    /// backfilled from data that wasn't actually used to find the match.
     /// </summary>
     /// <remarks>
     /// The dedup check compares <c>Creator</c> directly (no null/empty-string normalization needed here):
@@ -49,16 +53,16 @@ public partial class ReferenceEnrichmentService(
     /// (confirmed against a real video game reference, RAWG's "God of War", that had accumulated an exact
     /// duplicate this way) - see `scripts/dedupe-matched-aliases.js` for the one-off cleanup this needed.
     /// </remarks>
-    private static List<Domain.Models.ReferenceMatchModel> MergeMatchedAliases(List<Domain.Models.ReferenceMatchModel>? existing, params (string Title, int? Year, string? Creator)[] aliases)
+    private static List<Domain.Models.ReferenceMatchModel> MergeMatchedAliases(List<Domain.Models.ReferenceMatchModel>? existing, params (string Title, int? Year, string? Creator, string? Isbn)[] aliases)
     {
         var result = new List<Domain.Models.ReferenceMatchModel>(existing ?? []);
-        foreach (var (title, year, creator) in aliases)
+        foreach (var (title, year, creator, isbn) in aliases)
         {
             var normalized = TitleNormalizer.Normalize(title);
             var normalizedCreator = creator is null ? null : TitleNormalizer.Normalize(creator);
-            if (!result.Any(m => m.Title == normalized && m.Year == year && m.Creator == normalizedCreator))
+            if (!result.Any(m => m.Title == normalized && m.Year == year && m.Creator == normalizedCreator && m.Isbn == isbn))
             {
-                result.Add(new Domain.Models.ReferenceMatchModel { Title = normalized, Year = year, Creator = normalizedCreator });
+                result.Add(new Domain.Models.ReferenceMatchModel { Title = normalized, Year = year, Creator = normalizedCreator, Isbn = isbn });
             }
         }
 

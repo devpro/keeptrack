@@ -5,16 +5,31 @@
         <div class="kt-form-card">
             <p class="kt-card-meta mb-2">Not yet matched to a reference source (admin only).</p>
 
-            @if (!_searched)
+            @if (Type == ReferenceItemType.Book && _bookProviders.Count > 0)
             {
-                @* disabled on an empty title: the API refuses (400) to hit a provider with nothing to search for *@
-                <button class="btn btn-sm btn-secondary" @onclick="SearchAsync" disabled="@(string.IsNullOrWhiteSpace(Title))">Search @ProviderName to link</button>
+                <div class="d-flex gap-2 flex-wrap mb-2">
+                    @foreach (var bookProvider in _bookProviders)
+                    {
+                        <button type="button" class="btn btn-sm @(bookProvider.Key == _selectedProvider ? "btn-primary" : "btn-secondary")"
+                                @onclick="() => _selectedProvider = bookProvider.Key">@bookProvider.DisplayName</button>
+                    }
+                </div>
             }
-            else if (_searching)
+
+            @* One persistent button for search/re-search, re-labeled rather than swapped out for a
+               differently-labeled button after the first search - it used to be replaced by a plain
+               "↻ Search again" button post-search, which looked like the original button had vanished.
+               Re-runs with the page's *current* title/year (and author/artist) field values - the
+               wrong-candidates fix is "edit the fields above, then search again". *@
+            <button class="btn btn-sm btn-secondary mb-2" @onclick="SearchAsync" disabled="@(_searching || string.IsNullOrWhiteSpace(Title))">
+                @(_searched ? "↻ Search again" : "Search")
+            </button>
+
+            @if (_searching)
             {
                 <div class="kt-loading"><div class="kt-spinner"></div> Searching…</div>
             }
-            else if (_results.Count == 0)
+            else if (_searched && _results.Count == 0)
             {
                 <div class="alert alert-info mb-2">No @ProviderName results for this title/year.</div>
             }
@@ -44,15 +59,6 @@
                 }
             }
 
-            @if (_searched && !_searching)
-            {
-                @* Re-runs the search with the page's *current* title/year (and author/artist) field values -
-                   the wrong-candidates fix is "edit the fields above, then search again", which previously
-                   required a full page reload. *@
-                <button class="btn btn-sm btn-secondary" @onclick="SearchAsync" disabled="@(string.IsNullOrWhiteSpace(Title))"
-                        title="Searches again with the current title/year values from this page.">↻ Search again</button>
-            }
-
             @if (_error is not null)
             {
                 <div class="alert alert-danger mt-2 mb-0">@_error</div>
@@ -74,6 +80,13 @@
     /// </summary>
     [Parameter] public string? Creator { get; set; }
 
+    /// <summary>
+    /// The book's ISBN, when known - Book-only, and only actually used by Google Books (see
+    /// <see cref="IBookReferenceClient.SearchBooksAsync"/>'s own doc comment). Edited on the detail page
+    /// itself (<c>BookDetail.razor</c>'s own ISBN field), not here - same convention as <see cref="Creator"/>.
+    /// </summary>
+    [Parameter] public string? Isbn { get; set; }
+
     [Parameter] public EventCallback OnLinked { get; set; }
 
     private bool _searched;
@@ -81,22 +94,45 @@
     private bool _linking;
     private List<ReferenceSearchResultDto> _results = [];
     private string? _error;
+    private List<BookProviderDto> _bookProviders = [];
+    private string? _selectedProvider;
 
     private string ProviderName => Type switch
     {
         ReferenceItemType.TvShow or ReferenceItemType.Movie => "TMDB",
-        ReferenceItemType.Book => "Open Library",
+        ReferenceItemType.Book => _bookProviders.FirstOrDefault(p => p.Key == _selectedProvider)?.DisplayName ?? "Google Books",
         ReferenceItemType.VideoGame => "RAWG",
         ReferenceItemType.Album => "Discogs",
         _ => "reference"
     };
 
+    protected override async Task OnInitializedAsync()
+    {
+        if (Type != ReferenceItemType.Book) return;
+        _bookProviders = await Api.GetBookProvidersAsync();
+        _selectedProvider = _bookProviders.FirstOrDefault()?.Key;
+    }
+
     private async Task SearchAsync()
     {
         _searched = true;
         _searching = true;
-        _results = await Api.SearchAsync(Type, Title, Year, Creator);
-        _searching = false;
+        _error = null;
+        try
+        {
+            _results = await Api.SearchAsync(Type, Title, Year, Creator, Type == ReferenceItemType.Book ? _selectedProvider : null, Type == ReferenceItemType.Book ? Isbn : null);
+        }
+        catch (Exception ex)
+        {
+            // an uncaught exception here would crash the whole Blazor Server circuit (not just this
+            // component), forcing a full page reload - same reasoning as LinkAsync's own try/catch below.
+            _results = [];
+            _error = ex.Message;
+        }
+        finally
+        {
+            _searching = false;
+        }
     }
 
     private async Task LinkAsync(ReferenceSearchResultDto candidate)
@@ -105,7 +141,15 @@
         _error = null;
         try
         {
-            await Api.LinkAsync(new LinkReferenceRequestDto { Type = Type, Title = Title, Year = Year, ExternalId = candidate.ExternalId });
+            await Api.LinkAsync(new LinkReferenceRequestDto
+            {
+                Type = Type,
+                Title = Title,
+                Year = Year,
+                ExternalId = candidate.ExternalId,
+                Provider = Type == ReferenceItemType.Book ? _selectedProvider : null,
+                Isbn = Type == ReferenceItemType.Book ? Isbn : null
+            });
             await OnLinked.InvokeAsync();
         }
         catch (Exception ex)

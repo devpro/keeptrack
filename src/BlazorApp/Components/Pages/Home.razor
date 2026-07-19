@@ -7,43 +7,52 @@
     <AuthorizeView>
         <Authorized>
             <div class="kt-home-eyebrow">Your personal collection</div>
-            @if (_stats is not null && TotalItems > 0)
+            @if (!_loaded)
             {
-                <h1>Welcome back —<br /><em>@TotalItems.ToString("N0") things remembered.</em></h1>
+                @if (_loading)
+                {
+                    <div class="kt-loading">
+                        <div class="kt-spinner"></div>
+                        Loading…
+                    </div>
+                }
+            }
+            else if (Stats is not null && TotalItems > 0)
+            {
+                <h1>Welcome back —<br/><em>@TotalItems.ToString("N0") things remembered.</em></h1>
                 <p class="kt-home-sub">
-                    Good work building this up@(_stats.EpisodesWatched > 0 ? $" — including {_stats.EpisodesWatched:N0} episodes watched across your shows" : "").
+                    Good work building this up@(Stats.EpisodesWatched > 0 ? $" — including {Stats.EpisodesWatched:N0} episodes watched across your shows" : "").
                     Every entry below is one more thing you'll never lose.
                 </p>
                 <div class="kt-stat-grid">
-                    <a class="kt-stat-tile" href="/movies"><span class="kt-stat-value">@_stats.Movies</span><span class="kt-stat-label">Movies</span></a>
-                    <a class="kt-stat-tile" href="/tv-shows"><span class="kt-stat-value">@_stats.TvShows</span><span class="kt-stat-label">TV shows</span></a>
-                    <a class="kt-stat-tile" href="/books"><span class="kt-stat-value">@_stats.Books</span><span class="kt-stat-label">Books</span></a>
-                    <a class="kt-stat-tile" href="/albums"><span class="kt-stat-value">@_stats.Albums</span><span class="kt-stat-label">Albums</span></a>
-                    <a class="kt-stat-tile" href="/video-games"><span class="kt-stat-value">@_stats.VideoGames</span><span class="kt-stat-label">Video games</span></a>
-                    <a class="kt-stat-tile" href="/playlists"><span class="kt-stat-value">@_stats.Playlists</span><span class="kt-stat-label">Playlists</span></a>
-                    <a class="kt-stat-tile" href="/cars"><span class="kt-stat-value">@_stats.Cars</span><span class="kt-stat-label">Cars</span></a>
-                    <a class="kt-stat-tile" href="/houses"><span class="kt-stat-value">@_stats.Houses</span><span class="kt-stat-label">Houses</span></a>
+                    <a class="kt-stat-tile" href="/movies"><span class="kt-stat-value">@Stats.Movies</span><span class="kt-stat-label">Movies</span></a>
+                    <a class="kt-stat-tile" href="/tv-shows"><span class="kt-stat-value">@Stats.TvShows</span><span class="kt-stat-label">TV shows</span></a>
+                    <a class="kt-stat-tile" href="/books"><span class="kt-stat-value">@Stats.Books</span><span class="kt-stat-label">Books</span></a>
+                    <a class="kt-stat-tile" href="/albums"><span class="kt-stat-value">@Stats.Albums</span><span class="kt-stat-label">Albums</span></a>
+                    <a class="kt-stat-tile" href="/video-games"><span class="kt-stat-value">@Stats.VideoGames</span><span class="kt-stat-label">Video games</span></a>
+                    <a class="kt-stat-tile" href="/playlists"><span class="kt-stat-value">@Stats.Playlists</span><span class="kt-stat-label">Playlists</span></a>
+                    <a class="kt-stat-tile" href="/cars"><span class="kt-stat-value">@Stats.Cars</span><span class="kt-stat-label">Cars</span></a>
+                    <a class="kt-stat-tile" href="/houses"><span class="kt-stat-value">@Stats.Houses</span><span class="kt-stat-label">Houses</span></a>
                 </div>
             }
             else
             {
-                <h1>Everything you do,<br /><em>remembered.</em></h1>
+                <h1>Everything you do,<br/><em>remembered.</em></h1>
                 <p class="kt-home-sub">
-                    Your collection is waiting for its first entry -
-                    log a film watched, a book read, an album on repeat.
+                    Your collection is waiting for its first entry - log a film watched, a book read, an album on repeat.
                     Rate it, note it, never lose it.
                 </p>
                 <div class="kt-home-cta">
-                    <a class="btn btn-primary" href="/movies">Go to my movies</a>
+                    <a class="btn btn-primary" href="/add">+ Quick add</a>
+                    <a class="btn btn-secondary" href="/movies">Go to my movies</a>
                 </div>
             }
         </Authorized>
         <NotAuthorized>
             <div class="kt-home-eyebrow">Your personal collection</div>
-            <h1>Everything you do,<br /><em>remembered.</em></h1>
+            <h1>Everything you do,<br/><em>remembered.</em></h1>
             <p class="kt-home-sub">
-                Keeptrack is your quiet space to log the things that matter -
-                films watched, books read, places visited, habits tracked.
+                Keeptrack is your quiet space to log the things that matter - films watched, books read, places visited, habits tracked.
                 Rate them, note them, never lose them.
             </p>
 
@@ -65,27 +74,65 @@
 @code {
     [CascadingParameter] private Task<AuthenticationState>? AuthenticationState { get; set; }
 
-    private CollectionStatsDto? _stats;
+    // Public property (a framework requirement for [PersistentState]): the stats fetched during the
+    // prerender pass are carried over to the interactive circuit, so the first interactive render reuses
+    // them instead of resetting to null and re-fetching. CollectionStatsDto is a handful of counts, well
+    // within the Blazor hub's 32 KB message-size limit, so this follows the detail pages' [PersistentState]
+    // pattern rather than WatchNext/Wishlist's re-fetch-on-circuit-start one (see docs/prerender-flash-fix.md).
+    [PersistentState]
+    public CollectionStatsDto? Stats { get; set; }
 
-    private long TotalItems => _stats is null
-        ? 0
-        : _stats.Movies + _stats.TvShows + _stats.Books + _stats.Albums + _stats.VideoGames + _stats.Playlists + _stats.Cars + _stats.Houses;
+    // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
+    // _loaded tracks whether a load attempt has finished at all, fresh or restored from persisted
+    // prerender state - both default false so the forced render Blazor triggers right after the
+    // synchronous prefix of OnInitializedAsync (before [PersistentState] restoration or any awaited fetch
+    // resolves) shows blank instead of the "no items yet" CTA - Stats alone being null for that one frame
+    // isn't enough to gate on, since that's indistinguishable from a genuinely empty, freshly loaded account.
+    private bool _loading;
+    private bool _loaded;
+
+    private long TotalItems =>
+        Stats is null
+            ? 0
+            : Stats.Movies + Stats.TvShows + Stats.Books + Stats.Albums + Stats.VideoGames + Stats.Playlists + Stats.Cars + Stats.Houses;
 
     protected override async Task OnInitializedAsync()
     {
-        if (AuthenticationState is null) return;
+        // Stats already holds the prerendered data once [PersistentState] restores it on the interactive
+        // circuit - skip the redundant re-fetch.
+        if (Stats is not null)
+        {
+            _loaded = true;
+            return;
+        }
+
+        if (AuthenticationState is null)
+        {
+            _loaded = true;
+            return;
+        }
 
         var authState = await AuthenticationState;
-        if (authState.User.Identity?.IsAuthenticated != true) return;
+        if (authState.User.Identity?.IsAuthenticated != true)
+        {
+            _loaded = true;
+            return;
+        }
 
+        await LoadingIndicator.RunAsync(FetchAsync(), v => _loading = v, StateHasChanged);
+        _loading = false;
+        _loaded = true;
+    }
+
+    private async Task FetchAsync()
+    {
         try
         {
-            _stats = await StatsApi.GetAsync();
+            Stats = await StatsApi.GetAsync();
         }
         catch (Exception)
         {
-            // the greeting is decoration - a stats hiccup must never break the landing page,
-            // so it just falls back to the CTA variant
+            // the greeting is decoration - a stats hiccup must never break the landing page, so it just falls back to the CTA variant
         }
     }
 }

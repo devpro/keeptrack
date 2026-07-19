@@ -33,6 +33,8 @@ public class TvShowRepository(IMongoDatabase mongoDatabase, ILogger<TvShowReposi
         if (input.State is not null) filter &= builder.Eq(f => f.State, input.State);
         // "owned" means at least one owned version - see MovieRepository.GetFilter
         if (input.IsOwned) filter &= builder.SizeGt(f => f.OwnedVersions, 0);
+        // WishlistController.BuildWishlistAsync still relies on this filter-probe clause even though the
+        // list page's own "Wishlist" toggle button was removed - don't drop it again.
         if (input.IsWishlisted) filter &= builder.Eq(f => f.IsWishlisted, true);
         return filter;
     }

@@ -1,25 +1,24 @@
 ﻿@using Microsoft.Extensions.Configuration
 @inject IConfiguration Configuration
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="dark">
 
 <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <base href="/"/>
     <ResourcePreloader/>
-    <script src="@Assets["theme.js"]"></script>
     <script src="@Assets["download.js"]"></script>
     <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]"/>
     <link rel="stylesheet" href="@Assets["app.css"]"/>
     <link rel="stylesheet" href="@Assets["Keeptrack.BlazorApp.styles.css"]"/>
     <ImportMap/>
     <link rel="icon" type="image/png" href="favicon.png"/>
-    <HeadOutlet/>
+    <HeadOutlet @rendermode="RenderModeForPage" />
 </head>
 
 <body>
-<Routes/>
+<Routes @rendermode="RenderModeForPage" />
 <ReconnectModal/>
 <FirebaseSessionRefresh/>
 @if (Configuration.GetValue("Features:IsWebSocketsOnlyEnabled", true))
@@ -46,3 +45,13 @@ else
 </body>
 
 </html>
+
+@code {
+    // cascades the HttpContext to avoid static naming context conflicts
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    // Uses built-in .NET 9/10 extension method that automatically checks for [ExcludeFromInteractiveRouting]
+    private IComponentRenderMode? RenderModeForPage =>
+        HttpContext.AcceptsInteractiveRouting() ? InteractiveServer : null;
+}
