@@ -50,10 +50,11 @@ else
     }
 
     <div class="kt-form-card">
-        <div class="kt-album-hero @(string.IsNullOrEmpty(Reference?.ImageUrl) ? "kt-album-hero-no-cover" : "")">
-            @if (!string.IsNullOrEmpty(Reference?.ImageUrl))
+        @{ var coverUrl = !string.IsNullOrEmpty(Album.CustomImageUrl) ? Album.CustomImageUrl : Reference?.ImageUrl; }
+        <div class="kt-album-hero @(string.IsNullOrEmpty(coverUrl) ? "kt-album-hero-no-cover" : "")">
+            @if (!string.IsNullOrEmpty(coverUrl))
             {
-                <img src="@Reference.ImageUrl" alt="@Album.Title cover" class="kt-album-cover"/>
+                <img src="@coverUrl" alt="@Album.Title cover" class="kt-album-cover"/>
             }
             <div>
                 <div class="row g-3">
@@ -73,6 +74,11 @@ else
                     <div class="col-12">
                         <label class="form-label">Rating</label>
                         <StarRatingInput Rating="Album.Rating" RatingChanged="SetRatingAsync"/>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Cover image URL</label>
+                        <input class="form-control form-control-sm" placeholder="@(Reference?.ImageUrl is null ? "" : "Leave blank to use the linked reference's cover")"
+                               value="@Album.CustomImageUrl" @onchange="SaveCustomImageUrlAsync"/>
                     </div>
                 </div>
             </div>
@@ -261,6 +267,13 @@ else
     {
         if (Album is null) return;
         Album.Genre = e.Value?.ToString();
+        await AlbumApi.UpdateAsync(Album);
+    }
+
+    private async Task SaveCustomImageUrlAsync(ChangeEventArgs e)
+    {
+        if (Album is null) return;
+        Album.CustomImageUrl = e.Value?.ToString();
         await AlbumApi.UpdateAsync(Album);
     }
 

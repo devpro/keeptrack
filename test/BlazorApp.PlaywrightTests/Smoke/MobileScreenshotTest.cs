@@ -89,7 +89,10 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             await CaptureFirstDetailAsync("/cars", "car-detail");
             await CaptureFirstDetailAsync("/books", "book-detail");
             await CaptureFirstDetailAsync("/health", "health-detail");
-            await CaptureFirstDetailAsync("/video-games", "video-game-detail");
+            // targeted by title (not "first") so these two land on the CustomImageUrl-seeded items specifically,
+            // not whichever item happens to sort first in a list that grows over time
+            await CaptureDetailByTitleAsync("/video-games", "Hades", "video-game-detail");
+            await CaptureDetailByTitleAsync("/albums", "Nevermind", "album-detail");
 
             // The Add form modal on a list page.
             await Page.GotoAsync("/movies");
@@ -236,7 +239,10 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             Artist = "Nirvana",
             Year = 1991,
             Rating = 4.5f,
-            IsFavorite = true
+            IsFavorite = true,
+            // proves the CustomImageUrl override shows up on both the list thumbnail and the detail cover,
+            // taking priority over the linked Discogs cover it's about to be linked to below
+            CustomImageUrl = "https://picsum.photos/seed/nevermind-custom-cover/400/400"
         });
         await CreateAsync(api, created, "api/video-games", new VideoGameDto
         {
@@ -244,7 +250,10 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             Year = 2020,
             Rating = 4.5f,
             // a game's copies are its platform entries - there is no separate owned flag anymore
-            Platforms = [new VideoGamePlatformDto { Platform = "PC", CopyType = CopyType.Digital, State = "Current" }]
+            Platforms = [new VideoGamePlatformDto { Platform = "PC", CopyType = CopyType.Digital, State = "Current" }],
+            // proves the CustomImageUrl override shows up on both the list thumbnail and the detail cover,
+            // taking priority over the linked RAWG cover it's about to be linked to below
+            CustomImageUrl = "https://picsum.photos/seed/hades-custom-cover/600/300"
         });
         await LinkFirstCandidateAsync(api, ReferenceItemType.Album, "Nevermind", 1991, "Nirvana");
         await LinkFirstCandidateAsync(api, ReferenceItemType.VideoGame, "Hades", 2020, null);
@@ -384,6 +393,21 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
         }
 
         await firstItemLink.ClickAsync();
+        await Page.WaitForTimeoutAsync(1500);
+        await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(ShotsDirectory, $"{name}.png"), FullPage = true });
+    }
+
+    private async Task CaptureDetailByTitleAsync(string listRoute, string title, string name)
+    {
+        await Page.GotoAsync(listRoute);
+        await Page.WaitForTimeoutAsync(1200);
+        var itemLink = Page.Locator($"main a[href^='{listRoute}/']", new PageLocatorOptions { HasText = title }).First;
+        if (await itemLink.CountAsync() == 0)
+        {
+            return;
+        }
+
+        await itemLink.ClickAsync();
         await Page.WaitForTimeoutAsync(1500);
         await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(ShotsDirectory, $"{name}.png"), FullPage = true });
     }

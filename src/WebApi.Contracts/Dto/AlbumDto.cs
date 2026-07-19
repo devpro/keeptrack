@@ -46,10 +46,17 @@ public class AlbumDto : IHasId, IReferenceLinkedDto
     public string? ReferenceId { get; set; }
 
     /// <summary>
-    /// Cover/poster image URL from the linked reference document - read-only, hydrated server-side on
-    /// list reads and never accepted from client input.
+    /// Cover image URL shown on the list page - <see cref="CustomImageUrl"/> when set, otherwise the linked
+    /// reference document's own cover. Read-only, hydrated server-side on list reads; never accepted from
+    /// client input (edit <see cref="CustomImageUrl"/> instead).
     /// </summary>
     public string? ImageUrl { get; set; }
+
+    /// <summary>
+    /// Tenant-owned cover image override, freely editable - takes priority over the linked reference's
+    /// cover wherever one is shown. Null means "use the reference's cover, if any".
+    /// </summary>
+    public string? CustomImageUrl { get; set; }
 
     public bool IsFavorite { get; set; }
 

@@ -1,11 +1,17 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using AwesomeAssertions;
 using Bogus;
 using Keeptrack.Common.System;
+using Keeptrack.Domain.Repositories;
+using Keeptrack.Infrastructure.MongoDb.Entities;
 using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.IntegrationTests.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using MongoDB.Driver;
 using Xunit;
 
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
@@ -28,7 +34,15 @@ public class AlbumResourceTest(KestrelWebAppFactory<Program> factory)
         await Authenticate();
 
         var input = new Faker<AlbumDto>()
-            .Rules((f, o) => { o.Artist = f.Random.AlphaNumeric(8); o.Title = f.Random.AlphaNumeric(14); })
+            .Rules((f, o) =>
+            {
+                o.Artist = f.Random.AlphaNumeric(8);
+                o.Title = f.Random.AlphaNumeric(14);
+                // round-trips CustomImageUrl through the real Mapperly mappers + MongoDB - a plain scalar field
+                // with no special mapping, but a real integration test is what would catch a missed
+                // [BsonElement]/mapper ignore, not a mocked unit test.
+                o.CustomImageUrl = f.Internet.Url();
+            })
             .Generate();
         var created = await PostAsync($"/{ResourceEndpoint}", input);
         created.Id.Should().NotBeNullOrEmpty();
@@ -125,6 +139,50 @@ public class AlbumResourceTest(KestrelWebAppFactory<Program> factory)
         finally
         {
             await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
+        }
+    }
+
+    /// <summary>
+    /// <see cref="AlbumDto.CustomImageUrl"/> follows <see cref="BookDto.CustomImageUrl"/>'s exact
+    /// shape - <c>AlbumController.OnListMappedAsync</c> is expected to apply it over the linked reference's own
+    /// cover on every list read.
+    /// </summary>
+    [Fact]
+    public async Task AlbumResourceList_CustomImageUrlOverridesTheLinkedReferencesCover()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var referenceRepository = scope.ServiceProvider.GetRequiredService<IAlbumReferenceRepository>();
+        var uniqueTitle = $"CustomImageOverrideTarget-{Guid.NewGuid():N}";
+
+        var reference = await referenceRepository.UpsertAsync(new Keeptrack.Domain.Models.AlbumReferenceModel
+        {
+            Title = "Some Reference Title",
+            TitleNormalized = "some reference title",
+            ExternalIds = new Dictionary<string, string> { ["discogs"] = $"discogs-{Guid.NewGuid():N}" },
+            ImageUrl = "https://example.com/reference-cover.jpg"
+        });
+
+        await Authenticate();
+        const string customImageUrl = "https://example.com/custom-cover.jpg";
+        var created = await PostAsync($"/{ResourceEndpoint}", new AlbumDto
+        {
+            Title = uniqueTitle,
+            Artist = "Some Artist",
+            ReferenceId = reference.Id,
+            CustomImageUrl = customImageUrl
+        });
+
+        try
+        {
+            var list = await GetAsync<PagedResult<AlbumDto>>($"/{ResourceEndpoint}?search={uniqueTitle}");
+            var item = list.Items.Should().ContainSingle(x => x.Id == created.Id).Subject;
+            item.ImageUrl.Should().Be(customImageUrl);
+        }
+        finally
+        {
+            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
+            var referenceCollection = scope.ServiceProvider.GetRequiredService<IMongoDatabase>().GetCollection<AlbumReference>("album_reference");
+            await referenceCollection.DeleteOneAsync(Builders<AlbumReference>.Filter.Eq(x => x.Id, reference.Id), TestContext.Current.CancellationToken);
         }
     }
 }
