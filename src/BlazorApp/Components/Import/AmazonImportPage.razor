@@ -1,0 +1,244 @@
+@page "/import/amazon"
+@attribute [Authorize]
+@using Keeptrack.WebApi.Contracts.Dto
+
+<div class="kt-page-header">
+    <h1>Import from <span>Amazon</span></h1>
+</div>
+
+<div class="kt-form-card">
+    <p style="color:var(--kt-text-muted)">
+        Upload the order-history CSV from Amazon's "Request My Data" export.
+        Amazon's export has no category column, so every row is shown for you to review - only books are supported so far.
+        Nothing is imported until you click "Import selected" below.
+    </p>
+
+    <div class="kt-dropzone">
+        <span class="kt-dropzone-icon">⬆</span>
+        <InputFile OnChange="OnFileSelectedAsync" accept=".csv" disabled="@_previewing"/>
+    </div>
+
+    @if (_previewing)
+    {
+        <p class="kt-card-meta mt-2">Reading your export…</p>
+    }
+
+    @if (_error is not null)
+    {
+        <div class="alert alert-danger mt-3">@_error</div>
+    }
+</div>
+
+@if (_rows is not null)
+{
+    <div class="kt-form-card mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">@DisplayedRows.Count() row(s) shown</h5>
+            <button class="btn btn-sm kt-toggle-btn @(_showAll ? "active" : "")" @onclick="() => _showAll = !_showAll">Show all order items</button>
+        </div>
+
+        <div style="overflow-x:auto">
+            <table class="table kt-sheet-table">
+                <thead>
+                <tr>
+                    <th style="padding-left:0.3rem;padding-right:0.3rem">
+                        <input type="checkbox" title="Select/deselect all shown rows" checked="@AllDisplayedSelected" @onchange="e => SetAllDisplayedSelected((bool)e.Value!)"/>
+                    </th>
+                    <th style="min-width:16rem">Title</th>
+                    <th>Year</th>
+                    <th>Copy</th>
+                    <th class="kt-card-meta">Order info</th>
+                    <th class="kt-card-meta">Vendor</th>
+                    <th class="kt-card-meta">Reference</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in DisplayedRows)
+                {
+                    <tr>
+                        <td style="padding-left:0.3rem;padding-right:0.3rem">
+                            <input type="checkbox" checked="@row.Selected" @onchange="e => row.Selected = (bool)e.Value!"/>
+                            @if (row.Preview.AlreadyImported)
+                            {
+                                <span class="kt-flag-badge favorite ms-1">already imported</span>
+                            }
+                        </td>
+                        <td><input class="form-control" style="min-width:16rem" @bind="row.Title"/></td>
+                        <td><input class="form-control" style="width:4rem" type="number" @bind="row.Year"/></td>
+                        <td>
+                            <select class="form-select" style="width:6rem" @bind="row.CopyType">
+                                <option value="@CopyType.Physical">Physical</option>
+                                <option value="@CopyType.Digital">Digital</option>
+                            </select>
+                        </td>
+                        <td class="kt-card-meta" style="font-size:0.75rem;line-height:1.5">
+                            @if (row.Isbn is not null)
+                            {
+                                <div>@row.Isbn</div>
+                            }
+                            @if (row.AcquiredAt is not null)
+                            {
+                                <div>@row.AcquiredAt.Value.ToString("yyyy-MM-dd")</div>
+                            }
+                            @if (row.Price is not null)
+                            {
+                                <div>@row.Price.Value.ToString("0.00") €</div>
+                            }
+                        </td>
+                        <td class="kt-card-meta">@(row.Vendor ?? "—")</td>
+                        <td class="kt-card-meta">@(row.Reference ?? "—")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        <button class="btn btn-sm btn-primary mt-2" disabled="@(_committing || SelectedRows.Count() == 0)" @onclick="CommitAsync">
+            Import selected (@SelectedRows.Count())
+        </button>
+    </div>
+}
+
+@if (_commitError is not null)
+{
+    <div class="alert alert-danger mt-3">@_commitError</div>
+}
+
+@if (_commitResult is not null)
+{
+    <div class="alert alert-info mt-3">
+        <p class="mb-1"><strong>Books created:</strong> @_commitResult.BooksCreated</p>
+        <p class="mb-1"><strong>Existing books updated with a new copy:</strong> @_commitResult.BooksMergedInto</p>
+        <p class="mb-0"><strong>Owned versions added:</strong> @_commitResult.OwnedVersionsAdded</p>
+    </div>
+}
+
+@code {
+    private const long MaxFileSize = 20_000_000;
+
+    [Inject] private AmazonImportApiClient ImportApi { get; set; } = null!;
+
+    private bool _previewing;
+    private string? _error;
+    private List<EditableRow>? _rows;
+    private bool _showAll;
+
+    private bool _committing;
+    private string? _commitError;
+    private AmazonImportCommitResultDto? _commitResult;
+
+    private IEnumerable<EditableRow> DisplayedRows => _rows is null ? [] : _showAll ? _rows : _rows.Where(r => r.Preview.LooksLikeBook);
+
+    private IEnumerable<EditableRow> SelectedRows => _rows is null ? [] : _rows.Where(r => r.Selected);
+
+    /// <summary>Drives the header checkbox: checked only once every currently-shown row is selected.</summary>
+    private bool AllDisplayedSelected => DisplayedRows.Any() && DisplayedRows.All(r => r.Selected);
+
+    /// <summary>Applies to whatever <see cref="_showAll"/> currently shows, not the whole underlying list -
+    /// e.g. selecting all while only likely-books are shown never touches the hidden non-book rows.</summary>
+    private void SetAllDisplayedSelected(bool selected)
+    {
+        foreach (var row in DisplayedRows)
+        {
+            row.Selected = selected;
+        }
+    }
+
+    private async Task OnFileSelectedAsync(InputFileChangeEventArgs e)
+    {
+        _previewing = true;
+        _error = null;
+        _rows = null;
+        _commitResult = null;
+        _commitError = null;
+
+        try
+        {
+#pragma warning disable S5693
+            await using var stream = e.File.OpenReadStream(MaxFileSize);
+#pragma warning restore S5693
+            var preview = await ImportApi.PreviewAsync(stream, e.File.Name);
+            _rows = preview.Select(ToEditableRow).ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _previewing = false;
+        }
+    }
+
+    private async Task CommitAsync()
+    {
+        _committing = true;
+        _commitError = null;
+        _commitResult = null;
+
+        try
+        {
+            var items = SelectedRows.Select(row => new AmazonImportCommitItemDto
+            {
+                RowId = row.Preview.RowId,
+                Title = row.Title,
+                // Amazon's export has no publication year (only the purchase date), so it's never pre-filled -
+                // but worth entering by hand here if known, since it sharpens the deferred reference-lookup
+                // pass's match precision later (an ambiguous multi-candidate title+year search is left
+                // unresolved for manual review rather than guessed, same as everywhere else in the app).
+                Year = row.Year,
+                Isbn = row.Isbn,
+                AcquiredAt = row.AcquiredAt,
+                Price = row.Price,
+                Vendor = row.Vendor,
+                Reference = row.Reference,
+                CopyType = row.CopyType
+            }).ToList();
+
+            _commitResult = await ImportApi.CommitAsync(items);
+        }
+        catch (Exception ex)
+        {
+            _commitError = ex.Message;
+        }
+        finally
+        {
+            _committing = false;
+        }
+    }
+
+    private static EditableRow ToEditableRow(AmazonOrderPreviewRowDto preview) => new()
+    {
+        Preview = preview,
+        Selected = preview.LooksLikeBook && !preview.AlreadyImported,
+        Title = preview.Title,
+        Isbn = preview.SuggestedIsbn,
+        AcquiredAt = preview.OrderDate,
+        Price = preview.Price,
+        Vendor = preview.Vendor,
+        // Mirrors AmazonBookImportMergeService.FormatOrderReference's format server-side - this is just
+        // the review UI's own display/commit value, not import logic, so it stays a plain string here.
+        Reference = $"Amazon order {preview.OrderId}"
+    };
+
+    private sealed class EditableRow
+    {
+        public required AmazonOrderPreviewRowDto Preview { get; init; }
+        public bool Selected { get; set; }
+
+        /// <summary>The one field worth editing at import time - everything else below is read-only, order-derived info.</summary>
+        public string Title { get; set; } = "";
+
+        /// <summary>Never pre-filled (Amazon's export has no publication year) - worth entering by hand if known, see <see cref="CommitAsync"/>.</summary>
+        public int? Year { get; set; }
+
+        public string? Isbn { get; set; }
+        public DateOnly? AcquiredAt { get; set; }
+        public decimal? Price { get; set; }
+        public string? Vendor { get; set; }
+        public string? Reference { get; set; }
+
+        /// <summary>The other field worth a decision - Amazon's export can't reliably tell physical from digital.</summary>
+        public CopyType CopyType { get; set; }
+    }
+}
