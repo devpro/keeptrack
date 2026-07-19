@@ -493,7 +493,7 @@
         _queryTitle = item.Title;
         _queryYear = item.Year;
         _creator = item.Creator;
-        _isbn = null; // no ISBN data in the unresolved queue itself - never carry one over from a previous selection
+        _isbn = item.Isbn; // prefilled from one of the matching tenant items' own ISBN, same convenience as Creator
         await SearchAsync();
     }
 

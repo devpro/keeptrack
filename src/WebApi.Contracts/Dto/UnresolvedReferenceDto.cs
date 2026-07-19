@@ -17,4 +17,11 @@ public class UnresolvedReferenceDto
     /// (title, year) pair - a search-prefill convenience only, null for types with no creator dimension.
     /// </summary>
     public string? Creator { get; set; }
+
+    /// <summary>
+    /// A book's own ISBN, when one of the unresolved tenant items sharing this (title, year) pair already
+    /// has one recorded - a search-prefill convenience only, same role as <see cref="Creator"/>. Book-only,
+    /// null for every other type.
+    /// </summary>
+    public string? Isbn { get; set; }
 }

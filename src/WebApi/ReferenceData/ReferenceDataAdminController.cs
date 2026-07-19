@@ -227,17 +227,26 @@ public class ReferenceDataAdminController(
         Ok(bookReferenceClientRegistry.All.Select(c => new BookProviderDto { Key = c.ProviderKey, DisplayName = c.DisplayName }).ToList());
 
     /// <summary>
-    /// Distinct (title, year) pairs, across every tenant, still missing a reference-data link.
+    /// Distinct (title, year) pairs, across every tenant, still missing a reference-data link. Book is
+    /// handled separately since it's the only domain whose <c>FindDistinctUnresolvedTitleYearsAsync</c>
+    /// also surfaces a prefill <c>Isbn</c> (see <see cref="IBookRepository.FindDistinctUnresolvedTitleYearsAsync"/>) -
+    /// forcing that onto the other four's shared tuple shape for one field only they'd never populate
+    /// wasn't worth it.
     /// </summary>
     [HttpGet("unresolved")]
     [ProducesResponseType(200)]
     public async Task<ActionResult<List<UnresolvedReferenceDto>>> GetUnresolved([FromQuery] ReferenceItemType type)
     {
+        if (type == ReferenceItemType.Book)
+        {
+            var bookPairs = await bookRepository.FindDistinctUnresolvedTitleYearsAsync();
+            return Ok(bookPairs.Select(p => new UnresolvedReferenceDto { Type = type, Title = p.Title, Year = p.Year, Creator = p.Creator, Isbn = p.Isbn }).ToList());
+        }
+
         var pairs = type switch
         {
             ReferenceItemType.TvShow => await tvShowRepository.FindDistinctUnresolvedTitleYearsAsync(),
             ReferenceItemType.Movie => await movieRepository.FindDistinctUnresolvedTitleYearsAsync(),
-            ReferenceItemType.Book => await bookRepository.FindDistinctUnresolvedTitleYearsAsync(),
             ReferenceItemType.VideoGame => await videoGameRepository.FindDistinctUnresolvedTitleYearsAsync(),
             ReferenceItemType.Album => await albumRepository.FindDistinctUnresolvedTitleYearsAsync(),
             _ => throw new ArgumentOutOfRangeException(nameof(type))

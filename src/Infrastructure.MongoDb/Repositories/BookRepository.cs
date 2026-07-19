@@ -60,15 +60,15 @@ public class BookRepository(IMongoDatabase mongoDatabase, ILogger<BookRepository
         return result.ModifiedCount;
     }
 
-    public async Task<IReadOnlyList<(string Title, int? Year, string? Creator)>> FindDistinctUnresolvedTitleYearsAsync()
+    public async Task<IReadOnlyList<(string Title, int? Year, string? Creator, string? Isbn)>> FindDistinctUnresolvedTitleYearsAsync()
     {
-        // any one tenant's author works as the queue entry's creator - it only prefills the admin's
-        // search field, it is never persisted anywhere (see ReferenceDataAdminPage's SearchAsync).
+        // any one tenant's author/ISBN works as the queue entry's creator/isbn - both only prefill the
+        // admin's search fields, neither is ever persisted anywhere (see ReferenceDataAdminPage's SearchAsync).
         var groups = await GetCollection().Aggregate()
             .Match(UnresolvedFilter())
-            .Group(f => new { f.Title, f.Year }, g => new { g.Key, Creator = g.First().Author })
+            .Group(f => new { f.Title, f.Year }, g => new { g.Key, Creator = g.First().Author, Isbn = g.First().Isbn })
             .ToListAsync();
-        return groups.Select(g => (g.Key.Title, g.Key.Year, (string?)g.Creator)).ToList();
+        return groups.Select(g => (g.Key.Title, g.Key.Year, (string?)g.Creator, g.Isbn)).ToList();
     }
 
     /// <summary>

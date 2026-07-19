@@ -114,7 +114,10 @@ else
         @if (!string.IsNullOrEmpty(Reference?.Synopsis))
         {
             <hr/>
-            <p class="mb-0" style="color:var(--kt-text-muted)">@Reference.Synopsis</p>
+            @* Safe specifically because GoogleBooksClient.CleanDescription only ever lets bare, attribute-free
+               <b>/<i>/<br> tags through (everything else, including any attribute on those three, is
+               stripped) - never render a MarkupString from text that hasn't gone through that same filter. *@
+            <p class="mb-0" style="color:var(--kt-text-muted)">@((MarkupString)Reference.Synopsis)</p>
         }
     </div>
 

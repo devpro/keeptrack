@@ -35,7 +35,7 @@ public class GoogleBooksClientTest
     public void DisplayName_IsGoogleBooks() => BuildClient(_ => "").DisplayName.Should().Be("Google Books");
 
     [Fact]
-    public async Task GetBookDetailsAsync_StripsHtmlFromTheDescriptionAndUpgradesTheThumbnailToHttps()
+    public async Task GetBookDetailsAsync_KeepsBoldItalicAndBreakFormattingInTheDescriptionAndUpgradesTheThumbnailToHttps()
     {
         var client = BuildClient(_ => """
             {
@@ -58,9 +58,58 @@ public class GoogleBooksClientTest
         details.Year.Should().Be(1997);
         details.Author.Should().Be("Lee Child");
         details.Language.Should().Be("en");
-        details.Synopsis.Should().Be("A gripping thriller. The first Jack Reacher novel.");
+        details.Synopsis.Should().Be("A <b>gripping</b> thriller.<br/>The first Jack Reacher novel.");
         details.ImageUrl.Should().StartWith("https://");
         details.Genres.Should().ContainSingle().Which.Should().Be("Fiction / Thrillers");
+    }
+
+    [Fact]
+    public async Task GetBookDetailsAsync_ConvertsPlainNewlinesToBreakTags()
+    {
+        // confirmed against a real description: paragraph breaks are sometimes plain "\n" characters, not
+        // <br> tags - HTML collapses bare newlines to whitespace, so without this a description with only
+        // bold/italic markup and no actual <br> tags renders as one massive undivided paragraph.
+        var client = BuildClient(_ => """{"id":"abc123","volumeInfo":{"title":"The Hobbit","description":"Bilbo Baggins is a hobbit.\r\n\r\nA wizard visits."}}""");
+
+        var details = await client.GetBookDetailsAsync("abc123", TestContext.Current.CancellationToken);
+
+        details!.Synopsis.Should().Be("Bilbo Baggins is a hobbit.<br/><br/>A wizard visits.");
+    }
+
+    [Fact]
+    public async Task GetBookDetailsAsync_StripsAnyTagOutsideTheBoldItalicBreakAllowlist_IncludingAttributesOnAllowedTags()
+    {
+        // the fixed allowlist-and-reconstruct approach (not a general sanitizer) is what makes it safe to
+        // render the result as MarkupString: an attribute on an otherwise-allowed tag (a plausible injection
+        // vector, e.g. onclick/onmouseover) must never survive, and neither should any other tag/script.
+        var client = BuildClient(_ => """
+            {
+              "id": "abc123",
+              "volumeInfo": {
+                "title": "Killing Floor",
+                "description": "<script>alert(1)</script><b onclick=\"alert(2)\">bold</b><p class=\"x\">para</p>"
+              }
+            }
+            """);
+
+        var details = await client.GetBookDetailsAsync("abc123", TestContext.Current.CancellationToken);
+
+        // the <script>/<p> tags themselves are removed, but this is tag-stripping, not a real HTML parser -
+        // text that was between removed tags (here, the script's own "alert(1)" body) survives as inert
+        // plain text, which is exactly the intended outcome: no tag survives, so nothing can execute.
+        details!.Synopsis.Should().Be("alert(1)<b>bold</b>para");
+    }
+
+    [Fact]
+    public async Task GetBookDetailsAsync_DecodesEntitiesBeforeStrippingTags_SoAnEncodedTagCannotSurvive()
+    {
+        // if entities were decoded AFTER stripping, an entity-encoded "<script>" (harmless text at that
+        // point) would decode into a live tag only after the safety filter already ran
+        var client = BuildClient(_ => """{"id":"abc123","volumeInfo":{"title":"Killing Floor","description":"&lt;script&gt;alert(1)&lt;/script&gt; caf&eacute;"}}""");
+
+        var details = await client.GetBookDetailsAsync("abc123", TestContext.Current.CancellationToken);
+
+        details!.Synopsis.Should().Be("alert(1) café");
     }
 
     [Fact]

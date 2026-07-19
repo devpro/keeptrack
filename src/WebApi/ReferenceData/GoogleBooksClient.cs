@@ -102,16 +102,43 @@ public class GoogleBooksClient(HttpClient http, GoogleBooksSettings settings) : 
 
     /// <summary>
     /// <c>volumeInfo.description</c> is documented as HTML-formatted ("simple formatting elements, such as
-    /// b, i, and br tags"), not plain text - rendered as-is, an admin would see literal escaped tags in the
-    /// search results/synopsis instead of formatted text. Strips tags and decodes entities down to plain text.
+    /// b, i, and br tags") - decodes entities first (so an entity-encoded tag, e.g. <c>&amp;lt;script&amp;gt;</c>,
+    /// can't survive the strip below and only turn into a real tag afterward), then keeps only bare,
+    /// attribute-free <c>&lt;b&gt;</c>/<c>&lt;i&gt;</c>/<c>&lt;br/&gt;</c> tags - reconstructed from just the
+    /// tag name, discarding any attributes the original tag carried - and removes every other tag entirely.
+    /// This fixed allowlist-and-reconstruct approach (not a general sanitizer) is specifically what makes it
+    /// safe to render the result as <c>MarkupString</c> on <c>BookDetail.razor</c>: nothing but those three
+    /// bare tags can ever survive, so there's no attribute-based injection vector (e.g. a stray
+    /// <c>onclick</c>) to worry about.
     /// </summary>
+    private static readonly Regex s_tagRegex = new(@"</?(\w+)\b[^>]*>", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Real descriptions confirmed to also use plain newline characters for paragraph breaks, not just
+    /// <c>&lt;br&gt;</c> tags - a description with only bold/italic markup and no actual <c>&lt;br&gt;</c>
+    /// tags otherwise renders as one massive paragraph, since HTML collapses bare newlines to whitespace.
+    /// Converted to real <c>&lt;br/&gt;</c> tags before the tag pass above (rather than a separate step
+    /// after), so it goes through the exact same allowlist reconstruction as any other <c>&lt;br&gt;</c>.
+    /// </summary>
+    private static readonly Regex s_newlineRegex = new(@"\r\n|\r|\n", RegexOptions.Compiled);
+
     private static string? CleanDescription(string? html)
     {
         if (string.IsNullOrEmpty(html)) return null;
 
-        var withoutBreaks = Regex.Replace(html, "<br\\s*/?>", " ", RegexOptions.IgnoreCase);
-        var withoutTags = Regex.Replace(withoutBreaks, "<[^>]+>", "");
-        var text = WebUtility.HtmlDecode(withoutTags).Trim();
+        var decoded = s_newlineRegex.Replace(WebUtility.HtmlDecode(html), "<br/>");
+        var text = s_tagRegex.Replace(decoded, m =>
+        {
+            var isClosing = m.Value.StartsWith("</", StringComparison.Ordinal);
+            return m.Groups[1].Value.ToLowerInvariant() switch
+            {
+                "b" => isClosing ? "</b>" : "<b>",
+                "i" => isClosing ? "</i>" : "<i>",
+                "br" => "<br/>",
+                _ => ""
+            };
+        }).Trim();
+
         return text.Length == 0 ? null : text;
     }
 
