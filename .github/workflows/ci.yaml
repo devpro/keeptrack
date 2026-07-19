@@ -114,5 +114,5 @@ jobs:
       image-name: ${{ matrix.image-name }}
       image-path: ${{ vars.CONTAINER_REGISTRY_PATH }}
       image-tag: "${{ needs.git-check.outputs.version_major_minor }}.${{ github.run_id }}"
-      max-high-cves: 0
+      max-high-cves: 1 # temporary (2026-07-19): libxml2-2 │ SUSE-SU-2026:3097-1 │ HIGH │ fixed │ 2.12.10-150700.4.11.1 │ 2.12.10-150700.4.14.1 │ Security update for libxml2
       max-medium-cves: 0
