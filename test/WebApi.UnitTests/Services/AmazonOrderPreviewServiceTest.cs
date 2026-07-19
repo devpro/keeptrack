@@ -81,11 +81,30 @@ public class AmazonOrderPreviewServiceTest
     }
 
     [Fact]
-    public void BuildPreview_FlagsARowWhoseOrderIdIsAlreadyImported()
+    public void BuildPreview_FlagsARowWhoseOrderIdAndAsinAreAlreadyImported()
     {
-        var alreadyImported = new HashSet<string> { "405-2296545-4493925" };
+        var alreadyImported = new HashSet<string> { AmazonImportMergeService.FormatOrderReference("405-2296545-4493925", "0552177571") };
 
         var result = AmazonOrderPreviewService.BuildPreview(ToStream(Csv), alreadyImported);
+
+        result[0].AlreadyImported.Should().BeTrue();
+        result[1].AlreadyImported.Should().BeFalse();
+    }
+
+    [Fact]
+    public void BuildPreview_DoesNotFlagADifferentItemFromTheSameOrder()
+    {
+        // reproduces a real bug: an order commonly contains several different line items, so matching by
+        // order id alone incorrectly flagged every sibling item once any one of them had been imported
+        const string csv = """
+                            ASIN,Order Date,Order ID,Product Name,Product Condition,Total Amount,Website
+                            0552177571,2024-01-24T09:01:58Z,405-2296545-4493925,"The Secret",New,10.49,Amazon.fr
+                            B002KMW6ZI,2024-01-24T09:01:58Z,405-2296545-4493925,"Some Gadget",New,14.99,Amazon.fr
+                            """;
+        // only the first item (ASIN 0552177571) of this order was actually imported before
+        var alreadyImported = new HashSet<string> { AmazonImportMergeService.FormatOrderReference("405-2296545-4493925", "0552177571") };
+
+        var result = AmazonOrderPreviewService.BuildPreview(ToStream(csv), alreadyImported);
 
         result[0].AlreadyImported.Should().BeTrue();
         result[1].AlreadyImported.Should().BeFalse();

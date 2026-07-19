@@ -54,14 +54,14 @@ public class AmazonImportController(
         var existingTvShows = await FindAllAsync(tvShowRepository, ownerId, new TvShowModel { OwnerId = ownerId, Title = string.Empty });
         var existingVideoGames = await FindAllAsync(videoGameRepository, ownerId, new VideoGameModel { OwnerId = ownerId, Title = string.Empty });
 
-        var alreadyImportedOrderIds = new HashSet<string>();
-        alreadyImportedOrderIds.UnionWith(AmazonImportMergeService.FindImportedOrderIds(existingBooks, b => b.OwnedVersions.Select(v => v.Reference)));
-        alreadyImportedOrderIds.UnionWith(AmazonImportMergeService.FindImportedOrderIds(existingMovies, m => m.OwnedVersions.Select(v => v.Reference)));
-        alreadyImportedOrderIds.UnionWith(AmazonImportMergeService.FindImportedOrderIds(existingTvShows, t => t.OwnedVersions.Select(v => v.Reference)));
-        alreadyImportedOrderIds.UnionWith(AmazonImportMergeService.FindImportedOrderIds(existingVideoGames, g => g.Platforms.Select(p => p.Reference)));
+        var alreadyImportedReferences = new HashSet<string>();
+        alreadyImportedReferences.UnionWith(AmazonImportMergeService.FindImportedReferences(existingBooks, b => b.OwnedVersions.Select(v => v.Reference)));
+        alreadyImportedReferences.UnionWith(AmazonImportMergeService.FindImportedReferences(existingMovies, m => m.OwnedVersions.Select(v => v.Reference)));
+        alreadyImportedReferences.UnionWith(AmazonImportMergeService.FindImportedReferences(existingTvShows, t => t.OwnedVersions.Select(v => v.Reference)));
+        alreadyImportedReferences.UnionWith(AmazonImportMergeService.FindImportedReferences(existingVideoGames, g => g.Platforms.Select(p => p.Reference)));
 
         await using var stream = file.OpenReadStream();
-        var rows = AmazonOrderPreviewService.BuildPreview(stream, alreadyImportedOrderIds);
+        var rows = AmazonOrderPreviewService.BuildPreview(stream, alreadyImportedReferences);
 
         return Ok(rows.Select(previewMapper.ToDto).ToList());
     }
@@ -197,7 +197,7 @@ public class AmazonImportController(
             Price = item.Price,
             Vendor = item.Vendor,
             AcquiredAt = item.AcquiredAt,
-            Reference = item.Reference
+            Reference = AmazonImportMergeService.FormatOrderReference(item.OrderId, item.Asin)
         }
     };
 
@@ -207,7 +207,9 @@ public class AmazonImportController(
         Price = item.Price,
         Vendor = item.Vendor,
         AcquiredAt = item.AcquiredAt,
-        Reference = item.Reference
+        // Derived server-side from the order id + ASIN the preview row reported, never from a client-supplied
+        // Reference string - this is what disambiguates two different items sharing one Amazon order.
+        Reference = AmazonImportMergeService.FormatOrderReference(item.OrderId, item.Asin)
     };
 
     private static Keeptrack.Domain.Models.CopyType ToDomainCopyType(Keeptrack.WebApi.Contracts.Dto.CopyType copyType) =>

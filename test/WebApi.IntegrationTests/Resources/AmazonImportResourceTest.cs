@@ -146,6 +146,8 @@ public class AmazonImportResourceTest(KestrelWebAppFactory<Program> factory)
     private static AmazonImportCommitItemDto ToCommitItem(AmazonOrderPreviewRowDto row, AmazonImportMediaType mediaType, int? year = null, string? isbn = null, string? platform = null) => new()
     {
         RowId = row.RowId,
+        OrderId = row.OrderId,
+        Asin = row.Asin,
         Title = row.Title,
         AmazonTitle = row.Title,
         MediaType = mediaType,
@@ -155,7 +157,59 @@ public class AmazonImportResourceTest(KestrelWebAppFactory<Program> factory)
         AcquiredAt = row.OrderDate,
         Price = row.Price,
         Vendor = row.Vendor,
-        Reference = $"Amazon order {row.OrderId}",
         CopyType = CopyType.Physical
     };
+
+    [Fact]
+    public async Task Commit_ImportsBothItems_WhenTwoDifferentBooksShareTheSameOrder()
+    {
+        // reproduces a real bug: an Amazon order commonly contains several different line items, but the
+        // owned-copy Reference used to be built from the order id alone - so the second book from the same
+        // order was silently skipped as a "duplicate" of the first
+        await Authenticate();
+
+        const string sharedOrderId = "999-6666666-6666666";
+        const string firstTitle = "Keeptrack Amazon Import Test Multi-Item Book A";
+        const string secondTitle = "Keeptrack Amazon Import Test Multi-Item Book B";
+
+        var request = new AmazonImportCommitRequestDto
+        {
+            Items =
+            [
+                new AmazonImportCommitItemDto
+                {
+                    RowId = $"{sharedOrderId}:1111111111", OrderId = sharedOrderId, Asin = "1111111111",
+                    Title = firstTitle, AmazonTitle = firstTitle, MediaType = AmazonImportMediaType.Book, CopyType = CopyType.Physical
+                },
+                new AmazonImportCommitItemDto
+                {
+                    RowId = $"{sharedOrderId}:2222222222", OrderId = sharedOrderId, Asin = "2222222222",
+                    Title = secondTitle, AmazonTitle = secondTitle, MediaType = AmazonImportMediaType.Book, CopyType = CopyType.Physical
+                }
+            ]
+        };
+
+        try
+        {
+            var commitResult = await PostAsync<AmazonImportCommitRequestDto, AmazonImportCommitResultDto>("/api/import/amazon/commit", request);
+            commitResult.BooksCreated.Should().Be(2);
+            commitResult.BooksSkipped.Should().Be(0);
+
+            var firstBook = (await GetAsync<PagedResult<BookDto>>($"/api/books?search={Uri.EscapeDataString(firstTitle)}")).Items.Should().ContainSingle().Subject;
+            var secondBook = (await GetAsync<PagedResult<BookDto>>($"/api/books?search={Uri.EscapeDataString(secondTitle)}")).Items.Should().ContainSingle().Subject;
+            firstBook.OwnedVersions.Should().ContainSingle().Which.Reference.Should().Contain("1111111111");
+            secondBook.OwnedVersions.Should().ContainSingle().Which.Reference.Should().Contain("2222222222");
+        }
+        finally
+        {
+            foreach (var title in new[] { firstTitle, secondTitle })
+            {
+                var books = await GetAsync<PagedResult<BookDto>>($"/api/books?search={Uri.EscapeDataString(title)}");
+                foreach (var book in books.Items.Where(b => b.Id is not null))
+                {
+                    await DeleteAsync($"/api/books/{book.Id}");
+                }
+            }
+        }
+    }
 }

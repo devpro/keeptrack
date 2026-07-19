@@ -14,8 +14,8 @@ namespace Keeptrack.Domain.Services;
 
 /// <summary>
 /// Parses an Amazon.fr order-history export ("Request My Data" -> "Your Orders") into review rows. Pure:
-/// bytes in, rows out, no repository access - <see cref="alreadyImportedOrderIds"/> below is computed by
-/// the caller from already-fetched data so this stays testable without a database.
+/// bytes in, rows out, no repository access - <c>alreadyImportedReferences</c> below is computed by the
+/// caller from already-fetched data so this stays testable without a database.
 /// Amazon's export has no category column at all, so this never decides "is this a book" on its own - it
 /// only computes <see cref="AmazonOrderPreviewRow.LooksLikeBook"/> as a checksum-verified suggestion for
 /// the review UI's default filter, confirmed against a real export (an Amazon book's ASIN is routinely its
@@ -52,7 +52,7 @@ public static class AmazonOrderPreviewService
         PrepareHeaderForMatch = args => args.Header.Trim().ToLowerInvariant()
     };
 
-    public static List<AmazonOrderPreviewRow> BuildPreview(Stream csvStream, IReadOnlySet<string> alreadyImportedOrderIds)
+    public static List<AmazonOrderPreviewRow> BuildPreview(Stream csvStream, IReadOnlySet<string> alreadyImportedReferences)
     {
         using var reader = new StreamReader(csvStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
         using var csv = new CsvReader(reader, s_csvConfiguration);
@@ -79,7 +79,10 @@ public static class AmazonOrderPreviewService
                 Condition = record.ProductCondition,
                 LooksLikeBook = suggestedIsbn is not null,
                 SuggestedIsbn = suggestedIsbn,
-                AlreadyImported = alreadyImportedOrderIds.Contains(record.OrderId)
+                // Per (order, ASIN), not per order - an order commonly has several different line items, and
+                // an order-id-only check would incorrectly flag every sibling item once any one of them had
+                // actually been imported (see AmazonImportMergeService.FormatOrderReference).
+                AlreadyImported = alreadyImportedReferences.Contains(AmazonImportMergeService.FormatOrderReference(record.OrderId, record.Asin))
             };
         }).ToList();
     }

@@ -11,6 +11,8 @@ namespace Keeptrack.WebApi.UnitTests.Services;
 public class AmazonImportMergeServiceTest
 {
     private const string OwnerId = "owner-1";
+    private const string SomeOrderId = "405-1111111-1111111";
+    private const string SomeAsin = "0552177571";
 
     private static BookModel Book(string title, params OwnedVersionModel[] ownedVersions) =>
         new() { Id = title, OwnerId = OwnerId, Title = title, Author = string.Empty, OwnedVersions = [.. ownedVersions] };
@@ -116,7 +118,7 @@ public class AmazonImportMergeServiceTest
     {
         // reproduces a real bug: re-running the same commit (or re-importing the same export) created a
         // second owned version for the same order every time, because matching was title-only
-        var reference = AmazonImportMergeService.FormatOrderReference("405-1111111-1111111");
+        var reference = AmazonImportMergeService.FormatOrderReference(SomeOrderId, SomeAsin);
         var existing = Book("Some Book", new OwnedVersionModel { Reference = reference });
 
         var plan = ComputeBookPlan([existing], [Item("Some Book", reference: reference)]);
@@ -134,7 +136,7 @@ public class AmazonImportMergeServiceTest
         // reproduces a real bug: after a book's title was changed (e.g. by reference-data linking) following
         // a first import, re-importing the same order under its original Amazon title no longer matched the
         // existing book by title at all, and created a brand new duplicate record instead
-        var reference = AmazonImportMergeService.FormatOrderReference("405-1111111-1111111");
+        var reference = AmazonImportMergeService.FormatOrderReference(SomeOrderId, SomeAsin);
         var existing = Book("The Secret: Jack Reacher, Book 28", new OwnedVersionModel { Reference = reference });
         existing.Title = "No Plan B"; // renamed after the first import, e.g. by reference-data linking
 
@@ -149,12 +151,30 @@ public class AmazonImportMergeServiceTest
     [Fact]
     public void ComputeCommitPlan_StillMergesASecondCopy_WhenTheOrderReferenceIsGenuinelyDifferent()
     {
-        var existing = Book("Some Book", new OwnedVersionModel { Reference = AmazonImportMergeService.FormatOrderReference("405-1111111-1111111") });
+        var existing = Book("Some Book", new OwnedVersionModel { Reference = AmazonImportMergeService.FormatOrderReference(SomeOrderId, SomeAsin) });
 
-        var plan = ComputeBookPlan([existing], [Item("some book", reference: AmazonImportMergeService.FormatOrderReference("405-9999999-9999999"))]);
+        var plan = ComputeBookPlan([existing], [Item("some book", reference: AmazonImportMergeService.FormatOrderReference("405-9999999-9999999", SomeAsin))]);
 
         plan.ItemsToUpdate.Should().ContainSingle().Which.Should().BeSameAs(existing);
         existing.OwnedVersions.Should().HaveCount(2);
+        plan.OwnedCopiesSkipped.Should().Be(0);
+    }
+
+    [Fact]
+    public void ComputeCommitPlan_ImportsBothItems_WhenTwoDifferentItemsShareTheSameOrderId()
+    {
+        // reproduces a real bug: an Amazon order commonly contains several different line items, but the
+        // reference used to be built from the order id alone - so the second item in the same order was
+        // silently skipped as a "duplicate" of the first, even though it's a genuinely different product
+        const string sharedOrderId = "405-2222222-2222222";
+        var firstItem = Item("First Book In Order", reference: AmazonImportMergeService.FormatOrderReference(sharedOrderId, "1111111111"));
+        var secondItem = Item("Second Book In Order", reference: AmazonImportMergeService.FormatOrderReference(sharedOrderId, "2222222222"));
+
+        var plan = ComputeBookPlan([], [firstItem, secondItem]);
+
+        plan.ItemsToCreate.Should().HaveCount(2);
+        plan.ItemsToCreate.Select(b => b.Title).Should().BeEquivalentTo(["First Book In Order", "Second Book In Order"]);
+        plan.OwnedCopiesAdded.Should().Be(2);
         plan.OwnedCopiesSkipped.Should().Be(0);
     }
 
@@ -181,31 +201,38 @@ public class AmazonImportMergeServiceTest
     }
 
     [Fact]
-    public void FindImportedOrderIds_ReturnsOnlyOrderIdsFormattedByFormatOrderReference()
+    public void FormatOrderReference_IncludesBothTheOrderIdAndTheAsin()
+    {
+        AmazonImportMergeService.FormatOrderReference(SomeOrderId, SomeAsin).Should().Be($"Amazon order {SomeOrderId} (ASIN {SomeAsin})");
+    }
+
+    [Fact]
+    public void FindImportedReferences_ReturnsOnlyNonNullReferences()
     {
         var existingBooks = new List<BookModel>
         {
-            Book("Book A", new OwnedVersionModel { Reference = AmazonImportMergeService.FormatOrderReference("405-1111111-1111111") }),
+            Book("Book A", new OwnedVersionModel { Reference = AmazonImportMergeService.FormatOrderReference(SomeOrderId, SomeAsin) }),
             Book("Book B", new OwnedVersionModel { Reference = "Bought at a flea market" }),
             Book("Book C", new OwnedVersionModel { Reference = null })
         };
 
-        var result = AmazonImportMergeService.FindImportedOrderIds(existingBooks, b => b.OwnedVersions.Select(v => v.Reference));
+        var result = AmazonImportMergeService.FindImportedReferences(existingBooks, b => b.OwnedVersions.Select(v => v.Reference));
 
-        result.Should().BeEquivalentTo(["405-1111111-1111111"]);
+        result.Should().BeEquivalentTo([AmazonImportMergeService.FormatOrderReference(SomeOrderId, SomeAsin), "Bought at a flea market"]);
     }
 
     [Fact]
-    public void FindImportedOrderIds_WorksAcrossVideoGamePlatformsToo()
+    public void FindImportedReferences_WorksAcrossVideoGamePlatformsToo()
     {
+        var reference = AmazonImportMergeService.FormatOrderReference(SomeOrderId, SomeAsin);
         var existingGames = new List<VideoGameModel>
         {
-            Game("Game A", new VideoGamePlatformModel { Platform = "PS5", Reference = AmazonImportMergeService.FormatOrderReference("405-2222222-2222222") }),
+            Game("Game A", new VideoGamePlatformModel { Platform = "PS5", Reference = reference }),
             Game("Game B", new VideoGamePlatformModel { Platform = "PC", Reference = null })
         };
 
-        var result = AmazonImportMergeService.FindImportedOrderIds(existingGames, g => g.Platforms.Select(p => p.Reference));
+        var result = AmazonImportMergeService.FindImportedReferences(existingGames, g => g.Platforms.Select(p => p.Reference));
 
-        result.Should().BeEquivalentTo(["405-2222222-2222222"]);
+        result.Should().BeEquivalentTo([reference]);
     }
 }

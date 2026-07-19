@@ -221,6 +221,11 @@
             var items = SelectedRows.Select(row => new AmazonImportCommitItemDto
             {
                 RowId = row.Preview.RowId,
+                // Echoed back rather than trusting a client-computed Reference string - the server derives
+                // the actual owned-copy Reference (and dedup key) from these two itself, which is what makes
+                // two different items sharing one Amazon order distinguishable from each other.
+                OrderId = row.Preview.OrderId,
+                Asin = row.Preview.Asin,
                 Title = row.Title,
                 // The original, unedited title from the parsed preview - kept separate from the editable
                 // row.Title above so it can be recorded verbatim in the created item's notes, regardless of
@@ -238,7 +243,6 @@
                 AcquiredAt = row.AcquiredAt,
                 Price = row.Price,
                 Vendor = row.Vendor,
-                Reference = row.Reference,
                 CopyType = row.CopyType
             }).ToList();
 
@@ -265,10 +269,7 @@
         Isbn = preview.SuggestedIsbn,
         AcquiredAt = preview.OrderDate,
         Price = preview.Price,
-        Vendor = preview.Vendor,
-        // Mirrors AmazonImportMergeService.FormatOrderReference's format server-side - this is just the
-        // review UI's own display/commit value, not import logic, so it stays a plain string here.
-        Reference = $"Amazon order {preview.OrderId}"
+        Vendor = preview.Vendor
     };
 
     private sealed class EditableRow
@@ -292,7 +293,6 @@
         public DateOnly? AcquiredAt { get; set; }
         public decimal? Price { get; set; }
         public string? Vendor { get; set; }
-        public string? Reference { get; set; }
 
         /// <summary>The other field worth a decision - Amazon's export can't reliably tell physical from digital.</summary>
         public CopyType CopyType { get; set; }

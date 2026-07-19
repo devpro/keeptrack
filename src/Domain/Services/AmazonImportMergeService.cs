@@ -22,26 +22,28 @@ namespace Keeptrack.Domain.Services;
 /// </summary>
 public static class AmazonImportMergeService
 {
-    private const string OrderReferencePrefix = "Amazon order ";
-
     /// <summary>
-    /// The one place that formats an owned copy's <c>Reference</c> for an imported order - human-readable,
-    /// and also the dedup key <see cref="FindImportedOrderIds{TModel}"/> looks for on a later re-import.
+    /// The one place that formats an owned copy's <c>Reference</c> for an imported order line - human-readable,
+    /// and also the exact-match dedup key <see cref="FindImportedReferences{TModel}"/> looks for on a later
+    /// re-import. Includes the ASIN, not just the order id: a single Amazon order commonly contains several
+    /// different line items, and order-id-only matching (a real bug, found before this shipped) meant a
+    /// second, genuinely different item from the same order was silently skipped as a "duplicate" of the
+    /// first - or, at preview time, incorrectly flagged "already imported" just because a sibling item from
+    /// the same order had been. The ASIN is Amazon's own stable per-product id, already parsed from every
+    /// row, so it's a precise disambiguator - unlike the product title, which is user-editable before commit.
     /// </summary>
-    public static string FormatOrderReference(string orderId) => OrderReferencePrefix + orderId;
+    public static string FormatOrderReference(string orderId, string asin) => $"Amazon order {orderId} (ASIN {asin})";
 
     /// <summary>
-    /// Order ids already referenced by an existing owned copy - used at preview time to flag rows that look
-    /// like they were imported before, so re-uploading a newer export doesn't duplicate them.
+    /// Every reference already recorded on an existing owned copy - used at preview time to flag rows that
+    /// look like they were imported before, so re-uploading a newer export doesn't duplicate them. Compared
+    /// by exact string equality against <see cref="FormatOrderReference"/> computed for a candidate row,
+    /// which is what makes the per-line-item (not per-order) precision above actually take effect.
     /// <paramref name="getReferences"/> reads whichever collection carries the owned copies for
     /// <typeparamref name="TModel"/> (<c>OwnedVersions</c> or <c>Platforms</c>).
     /// </summary>
-    public static HashSet<string> FindImportedOrderIds<TModel>(IEnumerable<TModel> existingItems, Func<TModel, IEnumerable<string?>> getReferences) =>
-        existingItems
-            .SelectMany(getReferences)
-            .Where(reference => reference is not null && reference.StartsWith(OrderReferencePrefix, StringComparison.Ordinal))
-            .Select(reference => reference![OrderReferencePrefix.Length..])
-            .ToHashSet();
+    public static HashSet<string> FindImportedReferences<TModel>(IEnumerable<TModel> existingItems, Func<TModel, IEnumerable<string?>> getReferences) =>
+        existingItems.SelectMany(getReferences).Where(reference => reference is not null).ToHashSet()!;
 
     /// <summary>
     /// <paramref name="getExistingReferences"/>/<paramref name="getItemReference"/> make the order

@@ -13,6 +13,18 @@ public class AmazonImportCommitItemDto
     /// </summary>
     public required string RowId { get; set; }
 
+    /// <summary>
+    /// Amazon's own product id for this order line and the order number itself - together they're the
+    /// server-derived owned-copy <c>Reference</c> (see <c>AmazonImportMergeService.FormatOrderReference</c>
+    /// in the WebApi project), which also doubles as the exact dedup key. Both are echoed back from the
+    /// preview row rather than accepting a client-supplied <c>Reference</c> string directly, so the format
+    /// can't drift out of sync with what a later re-preview checks against, and so a single order's several
+    /// different line items (same order id, different ASIN) are never conflated with one another.
+    /// </summary>
+    public required string OrderId { get; set; }
+
+    public required string Asin { get; set; }
+
     public required string Title { get; set; }
 
     /// <summary>
@@ -51,8 +63,6 @@ public class AmazonImportCommitItemDto
     public decimal? Price { get; set; }
 
     public string? Vendor { get; set; }
-
-    public string? Reference { get; set; }
 
     public CopyType CopyType { get; set; }
 }
