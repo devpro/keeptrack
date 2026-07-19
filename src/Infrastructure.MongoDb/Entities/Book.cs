@@ -29,6 +29,8 @@ public class Book : IHasIdAndOwnerId
 
     public string? Language { get; set; }
 
+    public string? Isbn { get; set; }
+
     public string? Notes { get; set; }
 
     [BsonElement("first_read_at")]

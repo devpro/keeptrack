@@ -40,6 +40,8 @@ public class BookReference
 
     public string? Language { get; set; }
 
+    public string? Isbn { get; set; }
+
     [BsonElement("last_enriched_at")]
     public DateTime? LastEnrichedAt { get; set; }
 }

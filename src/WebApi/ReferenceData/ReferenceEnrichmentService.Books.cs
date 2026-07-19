@@ -9,11 +9,11 @@ public partial class ReferenceEnrichmentService
     /// User-triggered "check for reference match" for books - see
     /// <see cref="TryLinkExistingTvShowReferenceAsync"/> for the full rationale (this is the same local-only,
     /// no-HTTP-call lookup, just against <c>book_reference</c>). A successful match also sets
-    /// <see cref="BookModel.Year"/>, <see cref="BookModel.Author"/>, <see cref="BookModel.Genre"/> and
-    /// <see cref="BookModel.Language"/> to the reference's canonical values - the author's name is joined
-    /// from <see cref="PersonReferenceModel"/> via <see cref="BookReferenceModel.AuthorReferenceId"/>, and
-    /// Genre from <see cref="BookReferenceModel.Genres"/> (joined into the same single free-text field the
-    /// tenant can otherwise edit by hand).
+    /// <see cref="BookModel.Year"/>, <see cref="BookModel.Author"/>, <see cref="BookModel.Genre"/>,
+    /// <see cref="BookModel.Language"/> and <see cref="BookModel.Isbn"/> to the reference's canonical values -
+    /// the author's name is joined from <see cref="PersonReferenceModel"/> via
+    /// <see cref="BookReferenceModel.AuthorReferenceId"/>, and Genre from <see cref="BookReferenceModel.Genres"/>
+    /// (joined into the same single free-text field the tenant can otherwise edit by hand).
     /// </summary>
     public async Task<BookModel> TryLinkExistingBookReferenceAsync(BookModel model)
     {
@@ -45,8 +45,9 @@ public partial class ReferenceEnrichmentService
         if (!string.IsNullOrEmpty(authorName)) model.Author = authorName;
         if (genre is not null) model.Genre = genre;
         if (reference.Language is not null) model.Language = reference.Language;
+        if (reference.Isbn is not null) model.Isbn = reference.Isbn;
         await bookRepository.UpdateAsync(model.Id!, model, model.OwnerId);
-        await bookRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year, authorName, genre, reference.Language);
+        await bookRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year, authorName, genre, reference.Language, reference.Isbn);
 
         return model;
     }
@@ -57,15 +58,18 @@ public partial class ReferenceEnrichmentService
     /// key) - this is the unattended background path, so there's no admin picking a provider here. Passing
     /// <paramref name="author"/> narrows the search considerably - without it, a common title easily
     /// returns more than one candidate and the match is correctly left for the admin queue.
+    /// <paramref name="isbn"/> is always null on this path today (the Add form doesn't collect it, only the
+    /// detail page does), but threaded through anyway so this stays the single place that decides how a
+    /// search is issued.
     /// </summary>
-    public async Task TryAutoResolveBookAsync(string title, int? year, string? author = null)
+    public async Task TryAutoResolveBookAsync(string title, int? year, string? author = null, string? isbn = null)
     {
         if (string.IsNullOrWhiteSpace(title)) return; // see TryAutoResolveTvShowAsync
 
         var client = bookReferenceClientRegistry.Resolve(null);
-        var candidates = await client.SearchBooksAsync(title, year, author);
+        var candidates = await client.SearchBooksAsync(title, year, author, isbn);
         if (candidates.Count != 1) return;
-        await ResolveBookAsync(title, year, candidates[0].ExternalId, client.ProviderKey);
+        await ResolveBookAsync(title, year, candidates[0].ExternalId, client.ProviderKey, isbn);
     }
 
     /// <summary>
@@ -74,8 +78,12 @@ public partial class ReferenceEnrichmentService
     /// registered <see cref="IBookReferenceClient"/> <paramref name="externalId"/> came from - required from
     /// the admin's manual link action (an id is meaningless without knowing which provider issued it once
     /// more than one is registered), defaults to the deployment default for the automatic path above.
+    /// <paramref name="isbn"/> is the ISBN that was actually supplied as search input (if any) - it only
+    /// ever feeds the *tenant-search* alias entry (what the caller actually searched with), never the
+    /// canonical one (which always uses whatever the provider itself reports, <see cref="BookDetails.Isbn"/>,
+    /// regardless of what was searched for) - see <see cref="MergeMatchedAliases"/>.
     /// </summary>
-    public async Task<BookReferenceModel> ResolveBookAsync(string title, int? year, string externalId, string? providerKey = null)
+    public async Task<BookReferenceModel> ResolveBookAsync(string title, int? year, string externalId, string? providerKey = null, string? isbn = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
 
@@ -102,15 +110,18 @@ public partial class ReferenceEnrichmentService
             Synopsis = details.Synopsis,
             AuthorReferenceId = authorReferenceId,
             ExternalIds = externalIds,
-            MatchedAliases = MergeMatchedAliases(existing?.MatchedAliases, (details.Title, details.Year ?? year, details.Author), (title, year, details.Author)),
+            MatchedAliases = MergeMatchedAliases(existing?.MatchedAliases,
+                (details.Title, details.Year ?? year, details.Author, details.Isbn),
+                (title, year, details.Author, isbn)),
             Genres = details.Genres,
             ImageUrl = details.ImageUrl,
             Language = details.Language ?? existing?.Language,
+            Isbn = details.Isbn ?? existing?.Isbn,
             LastEnrichedAt = DateTime.UtcNow
         };
 
         var saved = await bookReferenceRepository.UpsertAsync(model);
-        await bookRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, details.Author, JoinGenres(details.Genres), details.Language);
+        await bookRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, details.Author, JoinGenres(details.Genres), details.Language, details.Isbn);
         return saved;
     }
 
@@ -145,7 +156,8 @@ public partial class ReferenceEnrichmentService
         reference.Genres = details.Genres;
         reference.ImageUrl = details.ImageUrl ?? reference.ImageUrl;
         reference.Language = details.Language ?? reference.Language;
-        reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, details.Author));
+        reference.Isbn = details.Isbn ?? reference.Isbn;
+        reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, details.Author, details.Isbn));
         reference.LastEnrichedAt = DateTime.UtcNow;
 
         return (await bookReferenceRepository.UpsertAsync(reference), true);

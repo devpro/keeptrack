@@ -509,6 +509,45 @@ public class ReferenceEnrichmentServiceTest
         _bookRepository.Verify(r => r.SetReferenceLinkAsync("Some Book", 2020, "reference-1", "Some Book", It.IsAny<int?>(), "Some Author"), Times.Once);
     }
 
+    /// <summary>
+    /// An exact-identifier field must only ever record the identifier that genuinely drove a given match,
+    /// never backfilled from a different source onto an alias that didn't actually rely on it - the
+    /// canonical alias (the provider's own reported data) and the tenant-search alias (what was actually
+    /// searched with) are recorded as two distinct entries here, deliberately, not merged into one.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBookAsync_RecordsOnlyTheIsbnActuallyUsed_InEachMatchedAlias()
+    {
+        var bookReferenceClient = FakeBookReferenceClient.Empty();
+        bookReferenceClient.Details["OL1W"] = new BookDetails("OL1W", "Some Book", 2020, "Synopsis", "Some Author", "OL1A", [], null, null, "9780000000002");
+        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => { m.Id = "reference-1"; return m; });
+        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bookReferenceClient);
+
+        var result = await service.ResolveBookAsync("Some Book", 2020, "OL1W", isbn: "9780000000001");
+
+        // the reference's own canonical Isbn always reflects the provider's own reported value...
+        result.Isbn.Should().Be("9780000000002");
+        // ...but the alias list keeps the two ISBNs as separate entries rather than one merged/overwritten value
+        result.MatchedAliases.Should().Contain(a => a.Isbn == "9780000000001");
+        result.MatchedAliases.Should().Contain(a => a.Isbn == "9780000000002");
+    }
+
+    [Fact]
+    public async Task ResolveBookAsync_LeavesTheSearchAliasIsbnNull_WhenNoIsbnWasSupplied()
+    {
+        var bookReferenceClient = FakeBookReferenceClient.Empty();
+        bookReferenceClient.Details["OL1W"] = new BookDetails("OL1W", "Some Book", 2020, "Synopsis", "Some Author", "OL1A", [], null);
+        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => { m.Id = "reference-1"; return m; });
+        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bookReferenceClient);
+
+        var result = await service.ResolveBookAsync("Some Book", 2020, "OL1W");
+
+        result.Isbn.Should().BeNull();
+        result.MatchedAliases.Should().OnlyContain(a => a.Isbn == null);
+    }
+
     [Fact]
     public async Task TryLinkExistingBookReferenceAsync_LinksAndUpdatesTitleAndAuthor_OnTitleYearMatch()
     {

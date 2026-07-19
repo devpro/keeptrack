@@ -18,15 +18,18 @@ internal sealed class FakeBnfClient : IBookReferenceClient
 
     public string? LastSearchAuthor { get; private set; }
 
+    public string? LastSearchIsbn { get; private set; }
+
     private FakeBnfClient(List<BookSearchResult> searchResults) => _searchResults = searchResults;
 
     public static FakeBnfClient Empty() => new([]);
 
     public static FakeBnfClient WithSearchResults(params BookSearchResult[] results) => new([.. results]);
 
-    public Task<IReadOnlyList<BookSearchResult>> SearchBooksAsync(string title, int? year, string? author = null, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<BookSearchResult>> SearchBooksAsync(string title, int? year, string? author = null, string? isbn = null, CancellationToken cancellationToken = default)
     {
         LastSearchAuthor = author;
+        LastSearchIsbn = isbn;
         return Task.FromResult<IReadOnlyList<BookSearchResult>>(_searchResults);
     }
 

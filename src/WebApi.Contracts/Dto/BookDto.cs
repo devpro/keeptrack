@@ -47,6 +47,13 @@ public class BookDto : IHasId, IReferenceLinkedDto
     /// </summary>
     public string? Language { get; set; }
 
+    /// <summary>
+    /// Edited on the detail page only (never the Add form) - auto-filled from a linked reference's own
+    /// ISBN when one is reported, and usable as an optional, precise input when checking for a reference
+    /// match against Google Books specifically.
+    /// </summary>
+    public string? Isbn { get; set; }
+
     public string? Notes { get; set; }
 
     /// <summary>

@@ -82,7 +82,7 @@ public partial class ReferenceEnrichmentService
             Synopsis = details.Synopsis,
             Platforms = details.Platforms,
             ExternalIds = externalIds,
-            MatchedAliases = MergeMatchedAliases(existing?.MatchedAliases, (details.Title, details.Year ?? year, null), (title, year, null)),
+            MatchedAliases = MergeMatchedAliases(existing?.MatchedAliases, (details.Title, details.Year ?? year, null, null), (title, year, null, null)),
             Genres = details.Genres,
             ImageUrl = details.ImageUrl,
             LastEnrichedAt = DateTime.UtcNow
@@ -113,7 +113,7 @@ public partial class ReferenceEnrichmentService
         reference.Platforms = details.Platforms;
         reference.Genres = details.Genres;
         reference.ImageUrl = details.ImageUrl ?? reference.ImageUrl;
-        reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, null));
+        reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, null, null));
         reference.LastEnrichedAt = DateTime.UtcNow;
 
         return (await videoGameReferenceRepository.UpsertAsync(reference), true);

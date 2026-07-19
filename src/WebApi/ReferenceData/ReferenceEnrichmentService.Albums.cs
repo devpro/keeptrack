@@ -93,7 +93,7 @@ public partial class ReferenceEnrichmentService
             Synopsis = details.Synopsis,
             ArtistReferenceId = artistReferenceId,
             ExternalIds = externalIds,
-            MatchedAliases = MergeMatchedAliases(existing?.MatchedAliases, (details.Title, details.Year ?? year, details.Artist), (title, year, details.Artist)),
+            MatchedAliases = MergeMatchedAliases(existing?.MatchedAliases, (details.Title, details.Year ?? year, details.Artist, null), (title, year, details.Artist, null)),
             Genres = details.Genres,
             Tracks = MapTracks(details.Tracks),
             ImageUrl = details.ImageUrl,
@@ -129,7 +129,7 @@ public partial class ReferenceEnrichmentService
         reference.Genres = details.Genres;
         reference.Tracks = MapTracks(details.Tracks);
         reference.ImageUrl = details.ImageUrl ?? reference.ImageUrl;
-        reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, details.Artist));
+        reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, details.Artist, null));
         reference.LastEnrichedAt = DateTime.UtcNow;
 
         return (await albumReferenceRepository.UpsertAsync(reference), true);

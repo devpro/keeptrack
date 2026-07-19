@@ -155,7 +155,7 @@ public partial class ReferenceEnrichmentService
             // remembers both the canonical (TMDB title, TMDB year) and whatever (title, year) the tenant
             // actually searched with - see MatchedAliases: this is what lets a later, differently-titled or
             // differently-dated tenant match instantly
-            MatchedAliases = MergeMatchedAliases(existing?.MatchedAliases, (details.Title, details.Year ?? year, null), (title, year, null)),
+            MatchedAliases = MergeMatchedAliases(existing?.MatchedAliases, (details.Title, details.Year ?? year, null, null), (title, year, null, null)),
             Episodes = details.Episodes
                 .Select(e => new ReferenceEpisodeModel { SeasonNumber = e.SeasonNumber, EpisodeNumber = e.EpisodeNumber, Title = e.Title, AirDate = e.AirDate })
                 .ToList(),
@@ -201,7 +201,7 @@ public partial class ReferenceEnrichmentService
             // remembers both the canonical (TMDB title, TMDB year) and whatever (title, year) the tenant
             // actually searched with - see MatchedAliases: this is what lets a later, differently-titled or
             // differently-dated tenant match instantly
-            MatchedAliases = MergeMatchedAliases(existing?.MatchedAliases, (details.Title, details.Year ?? year, null), (title, year, null)),
+            MatchedAliases = MergeMatchedAliases(existing?.MatchedAliases, (details.Title, details.Year ?? year, null, null), (title, year, null, null)),
             Genres = details.Genres,
             Cast = await ResolveCastAsync(cast),
             ImageUrl = details.PosterUrl,
@@ -247,7 +247,7 @@ public partial class ReferenceEnrichmentService
         reference.Genres = details.Genres;
         reference.Cast = await ResolveCastAsync(cast);
         reference.ImageUrl = details.PosterUrl ?? reference.ImageUrl;
-        reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, null));
+        reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, null, null));
         reference.LastEnrichedAt = DateTime.UtcNow;
 
         return (await tvShowReferenceRepository.UpsertAsync(reference), true);
@@ -281,7 +281,7 @@ public partial class ReferenceEnrichmentService
         reference.Genres = details.Genres;
         reference.Cast = await ResolveCastAsync(cast);
         reference.ImageUrl = details.PosterUrl ?? reference.ImageUrl;
-        reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, null));
+        reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, null, null));
         reference.LastEnrichedAt = DateTime.UtcNow;
 
         return (await movieReferenceRepository.UpsertAsync(reference), true);

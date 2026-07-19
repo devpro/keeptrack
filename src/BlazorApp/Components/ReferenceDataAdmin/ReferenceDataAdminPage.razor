@@ -62,6 +62,7 @@
                                 }
                                 @if (_type == ReferenceItemType.Book)
                                 {
+                                    <input class="form-control form-control-sm" style="max-width:160px" placeholder="ISBN" @bind="_isbn"/>
                                     @foreach (var bookProvider in _bookProviders)
                                     {
                                         <button type="button" class="btn btn-sm @(bookProvider.Key == _selectedProvider ? "btn-primary" : "btn-secondary")"
@@ -302,6 +303,7 @@
     private string? _queryTitle;
     private int? _queryYear;
     private string? _creator;
+    private string? _isbn;
     private List<BookProviderDto> _bookProviders = [];
     private string? _selectedProvider;
 
@@ -470,6 +472,7 @@
         _queryTitle = null;
         _queryYear = null;
         _creator = null;
+        _isbn = null;
     }
 
     private async Task SelectTypeAsync(ReferenceItemType type)
@@ -490,6 +493,7 @@
         _queryTitle = item.Title;
         _queryYear = item.Year;
         _creator = item.Creator;
+        _isbn = null; // no ISBN data in the unresolved queue itself - never carry one over from a previous selection
         await SearchAsync();
     }
 
@@ -507,7 +511,8 @@
         _error = null;
         try
         {
-            _searchResults = await Api.SearchAsync(_type, _queryTitle ?? _selected.Title, _queryYear, _creator, _type == ReferenceItemType.Book ? _selectedProvider : null);
+            _searchResults = await Api.SearchAsync(_type, _queryTitle ?? _selected.Title, _queryYear, _creator, _type == ReferenceItemType.Book ? _selectedProvider : null,
+                _type == ReferenceItemType.Book ? _isbn : null);
         }
         catch (Exception ex)
         {
@@ -541,7 +546,8 @@
                 Title = _selected.Title,
                 Year = _selected.Year,
                 ExternalId = candidate.ExternalId,
-                Provider = _type == ReferenceItemType.Book ? _selectedProvider : null
+                Provider = _type == ReferenceItemType.Book ? _selectedProvider : null,
+                Isbn = _type == ReferenceItemType.Book ? _isbn : null
             });
             await LoadUnresolvedAsync();
         }

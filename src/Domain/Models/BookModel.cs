@@ -24,6 +24,13 @@ public class BookModel : IHasIdAndOwnerId
 
     public string? Language { get; set; }
 
+    /// <summary>
+    /// Free text, edited on the detail page only (never the Add form) - auto-filled from a linked
+    /// reference's own ISBN when one is reported, and usable as an optional, precise search input when
+    /// checking for a reference match (see <see cref="Isbn"/> on <c>BookDetails</c>/the search flow).
+    /// </summary>
+    public string? Isbn { get; set; }
+
     public string? Notes { get; set; }
 
     public DateOnly? FirstReadAt { get; set; }

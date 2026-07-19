@@ -64,6 +64,54 @@ public class GoogleBooksClientTest
     }
 
     [Fact]
+    public async Task GetBookDetailsAsync_PrefersIsbn13OverIsbn10_WhenBothArePresent()
+    {
+        var client = BuildClient(_ => """
+            {
+              "id": "abc123",
+              "volumeInfo": {
+                "title": "Killing Floor",
+                "industryIdentifiers": [
+                  { "type": "ISBN_10", "identifier": "0399142032" },
+                  { "type": "ISBN_13", "identifier": "9780399142034" }
+                ]
+              }
+            }
+            """);
+
+        var details = await client.GetBookDetailsAsync("abc123", TestContext.Current.CancellationToken);
+
+        details!.Isbn.Should().Be("9780399142034");
+    }
+
+    [Fact]
+    public async Task GetBookDetailsAsync_FallsBackToIsbn10_WhenNoIsbn13IsPresent()
+    {
+        var client = BuildClient(_ => """{"id":"abc123","volumeInfo":{"title":"Killing Floor","industryIdentifiers":[{"type":"ISBN_10","identifier":"0399142032"}]}}""");
+
+        var details = await client.GetBookDetailsAsync("abc123", TestContext.Current.CancellationToken);
+
+        details!.Isbn.Should().Be("0399142032");
+    }
+
+    [Fact]
+    public async Task SearchBooksAsync_SearchesByIsbnAlone_WhenIsbnIsSupplied()
+    {
+        string? capturedQuery = null;
+        var client = BuildClient(request =>
+        {
+            capturedQuery = request.RequestUri!.Query;
+            return """{"items":[{"id":"id1","volumeInfo":{"title":"Killing Floor","authors":["Lee Child"],"publishedDate":"1997"}}]}""";
+        });
+
+        var results = await client.SearchBooksAsync("Some Title That Should Be Ignored", null, "Some Author That Should Be Ignored", "9780399142034",
+            TestContext.Current.CancellationToken);
+
+        results.Should().ContainSingle();
+        capturedQuery.Should().Contain("isbn").And.NotContain("intitle").And.NotContain("inauthor");
+    }
+
+    [Fact]
     public async Task GetBookDetailsAsync_ReturnsNull_WhenTheVolumeHasNoTitle()
     {
         var client = BuildClient(_ => """{"id":"abc123","volumeInfo":{}}""");
@@ -107,7 +155,7 @@ public class GoogleBooksClientTest
             return """{"items":[{"id":"id1","volumeInfo":{"title":"Killing Floor","authors":["Lee Child"],"publishedDate":"1997"}}]}""";
         });
 
-        var results = await client.SearchBooksAsync("Killing Floor", 1997, "Some Mismatched Author Text", TestContext.Current.CancellationToken);
+        var results = await client.SearchBooksAsync("Killing Floor", 1997, "Some Mismatched Author Text", cancellationToken: TestContext.Current.CancellationToken);
 
         authorSearchAttempted.Should().BeTrue();
         results.Should().ContainSingle();

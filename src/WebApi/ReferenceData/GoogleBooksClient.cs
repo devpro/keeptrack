@@ -25,24 +25,29 @@ public class GoogleBooksClient(HttpClient http, GoogleBooksSettings settings) : 
 
     private string ApiKey => settings.ApiKey;
 
-    public async Task<IReadOnlyList<BookSearchResult>> SearchBooksAsync(string title, int? year, string? author = null, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<BookSearchResult>> SearchBooksAsync(string title, int? year, string? author = null, string? isbn = null, CancellationToken cancellationToken = default)
     {
-        var results = await SearchBooksCoreAsync(title, author, cancellationToken);
+        // an ISBN is an exact identifier - when supplied it supersedes title/author entirely rather than
+        // being combined with them, since combining risks the same "and" narrowing correctness a plain
+        // identifier lookup doesn't need to worry about (see BnfClient's own gotcha with "and" combinations).
+        if (!string.IsNullOrEmpty(isbn)) return await SearchBooksCoreAsync($"isbn:{isbn}", cancellationToken);
+
+        var results = await SearchBooksCoreAsync(BuildQuery(title, author), cancellationToken);
         if (results.Count == 0 && !string.IsNullOrEmpty(author))
         {
             // same "an optional narrowing parameter must never silently zero out results" lesson as
             // OpenLibraryClient/DiscogsClient/BnfClient - an "inauthor:" qualifier that doesn't exactly
             // match Google's own indexing can zero out results the title alone would find.
-            results = await SearchBooksCoreAsync(title, null, cancellationToken);
+            results = await SearchBooksCoreAsync(BuildQuery(title, null), cancellationToken);
         }
 
         return results;
     }
 
-    private async Task<IReadOnlyList<BookSearchResult>> SearchBooksCoreAsync(string title, string? author, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<BookSearchResult>> SearchBooksCoreAsync(string query, CancellationToken cancellationToken)
     {
         var response = await http.GetFromJsonAsync<GoogleBooksSearchResponse>(
-            $"volumes?q={Encode(BuildQuery(title, author))}&maxResults={MaxResults}&key={ApiKey}", cancellationToken);
+            $"volumes?q={Encode(query)}&maxResults={MaxResults}&key={ApiKey}", cancellationToken);
 
         return response?.Items
             .Where(i => !string.IsNullOrEmpty(i.Id) && !string.IsNullOrEmpty(i.VolumeInfo?.Title))
@@ -65,7 +70,8 @@ public class GoogleBooksClient(HttpClient http, GoogleBooksSettings settings) : 
             null,
             info.Categories.Take(MaxGenres).ToList(),
             BuildImageUrl(info.ImageLinks),
-            info.Language);
+            info.Language,
+            ExtractIsbn(info.IndustryIdentifiers));
     }
 
     private static string BuildQuery(string title, string? author)
@@ -73,6 +79,10 @@ public class GoogleBooksClient(HttpClient http, GoogleBooksSettings settings) : 
         var q = $"intitle:{title}";
         return string.IsNullOrEmpty(author) ? q : $"{q} inauthor:{author}";
     }
+
+    /// <summary>Prefers ISBN_13 (the current standard) over ISBN_10 when a volume reports both.</summary>
+    private static string? ExtractIsbn(List<GoogleBooksIndustryIdentifier> identifiers) =>
+        identifiers.FirstOrDefault(i => i.Type == "ISBN_13")?.Identifier ?? identifiers.FirstOrDefault(i => i.Type == "ISBN_10")?.Identifier;
 
     private static string Encode(string value) => HttpUtility.UrlEncode(value);
 
@@ -151,11 +161,23 @@ public class GoogleBooksClient(HttpClient http, GoogleBooksSettings settings) : 
 
         [JsonPropertyName("imageLinks")]
         public GoogleBooksImageLinks? ImageLinks { get; set; }
+
+        [JsonPropertyName("industryIdentifiers")]
+        public List<GoogleBooksIndustryIdentifier> IndustryIdentifiers { get; set; } = [];
     }
 
     private sealed class GoogleBooksImageLinks
     {
         [JsonPropertyName("thumbnail")]
         public string? Thumbnail { get; set; }
+    }
+
+    private sealed class GoogleBooksIndustryIdentifier
+    {
+        [JsonPropertyName("type")]
+        public string? Type { get; set; }
+
+        [JsonPropertyName("identifier")]
+        public string? Identifier { get; set; }
     }
 }

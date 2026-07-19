@@ -267,12 +267,14 @@ public class ReferenceDataAdminController(
     /// Ignored for TV shows/movies/video games, which have no equivalent single-name creator field on this endpoint.
     /// <paramref name="provider"/> selects which registered book provider to search with (see
     /// <see cref="GetBookProviders"/>); ignored for every other type. Null falls back to the deployment default.
+    /// <paramref name="isbn"/> is Book-only - an exact identifier, only actually used by
+    /// <see cref="GoogleBooksClient"/> (see its own doc comment on <see cref="IBookReferenceClient.SearchBooksAsync"/>).
     /// </summary>
     [HttpGet("search")]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     public async Task<ActionResult<List<ReferenceSearchResultDto>>> Search([FromQuery] ReferenceItemType type, [FromQuery] string title, [FromQuery] int? year,
-        [FromQuery] string? creator = null, [FromQuery] string? provider = null)
+        [FromQuery] string? creator = null, [FromQuery] string? provider = null, [FromQuery] string? isbn = null)
     {
         // never hit a provider with an empty title - mapped to a 400 by ApiExceptionFilterAttribute
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
@@ -283,7 +285,7 @@ public class ReferenceDataAdminController(
             case ReferenceItemType.Movie:
                 return Ok(await SearchTvShowOrMovieAsync(type, title, year));
             case ReferenceItemType.Book:
-                var books = await bookReferenceClientRegistry.Resolve(provider).SearchBooksAsync(title, year, creator);
+                var books = await bookReferenceClientRegistry.Resolve(provider).SearchBooksAsync(title, year, creator, isbn);
                 return Ok(books.Take(MaxEnrichedCandidates)
                     .Select(r => new ReferenceSearchResultDto
                     {
@@ -359,7 +361,7 @@ public class ReferenceDataAdminController(
                 await enrichmentService.ResolveMovieAsync(request.Title, request.Year, request.ExternalId);
                 break;
             case ReferenceItemType.Book:
-                await enrichmentService.ResolveBookAsync(request.Title, request.Year, request.ExternalId, request.Provider);
+                await enrichmentService.ResolveBookAsync(request.Title, request.Year, request.ExternalId, request.Provider, request.Isbn);
                 break;
             case ReferenceItemType.VideoGame:
                 await enrichmentService.ResolveVideoGameAsync(request.Title, request.Year, request.ExternalId);

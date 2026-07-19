@@ -80,6 +80,13 @@
     /// </summary>
     [Parameter] public string? Creator { get; set; }
 
+    /// <summary>
+    /// The book's ISBN, when known - Book-only, and only actually used by Google Books (see
+    /// <see cref="IBookReferenceClient.SearchBooksAsync"/>'s own doc comment). Edited on the detail page
+    /// itself (<c>BookDetail.razor</c>'s own ISBN field), not here - same convention as <see cref="Creator"/>.
+    /// </summary>
+    [Parameter] public string? Isbn { get; set; }
+
     [Parameter] public EventCallback OnLinked { get; set; }
 
     private bool _searched;
@@ -113,7 +120,7 @@
         _error = null;
         try
         {
-            _results = await Api.SearchAsync(Type, Title, Year, Creator, Type == ReferenceItemType.Book ? _selectedProvider : null);
+            _results = await Api.SearchAsync(Type, Title, Year, Creator, Type == ReferenceItemType.Book ? _selectedProvider : null, Type == ReferenceItemType.Book ? Isbn : null);
         }
         catch (Exception ex)
         {
@@ -140,7 +147,8 @@
                 Title = Title,
                 Year = Year,
                 ExternalId = candidate.ExternalId,
-                Provider = Type == ReferenceItemType.Book ? _selectedProvider : null
+                Provider = Type == ReferenceItemType.Book ? _selectedProvider : null,
+                Isbn = Type == ReferenceItemType.Book ? Isbn : null
             });
             await OnLinked.InvokeAsync();
         }

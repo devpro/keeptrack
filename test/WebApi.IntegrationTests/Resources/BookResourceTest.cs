@@ -34,11 +34,12 @@ public class BookResourceTest(KestrelWebAppFactory<Program> factory)
             {
                 o.Author = f.Random.AlphaNumeric(8);
                 o.Title = f.Random.AlphaNumeric(14);
-                // round-trips Language/CustomImageUrl through the real Mapperly mappers + MongoDB - both
-                // are plain scalar fields with no special mapping, but a real integration test is what
-                // would catch a missed [BsonElement]/mapper ignore, not a mocked unit test.
+                // round-trips Language/CustomImageUrl/Isbn through the real Mapperly mappers + MongoDB -
+                // all three are plain scalar fields with no special mapping, but a real integration test is
+                // what would catch a missed [BsonElement]/mapper ignore, not a mocked unit test.
                 o.Language = f.Random.AlphaNumeric(3);
                 o.CustomImageUrl = f.Internet.Url();
+                o.Isbn = f.Random.Replace("##########");
             })
             .Generate();
         var created = await PostAsync($"/{ResourceEndpoint}", input);

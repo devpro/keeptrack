@@ -18,15 +18,19 @@ internal sealed class FakeBookReferenceClient : IBookReferenceClient
     /// <summary>The author passed to the most recent <see cref="SearchBooksAsync"/> call, for assertions.</summary>
     public string? LastSearchAuthor { get; private set; }
 
+    /// <summary>The ISBN passed to the most recent <see cref="SearchBooksAsync"/> call, for assertions.</summary>
+    public string? LastSearchIsbn { get; private set; }
+
     private FakeBookReferenceClient(List<BookSearchResult> searchResults) => _searchResults = searchResults;
 
     public static FakeBookReferenceClient Empty() => new([]);
 
     public static FakeBookReferenceClient WithSearchResults(params BookSearchResult[] results) => new([.. results]);
 
-    public Task<IReadOnlyList<BookSearchResult>> SearchBooksAsync(string title, int? year, string? author = null, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<BookSearchResult>> SearchBooksAsync(string title, int? year, string? author = null, string? isbn = null, CancellationToken cancellationToken = default)
     {
         LastSearchAuthor = author;
+        LastSearchIsbn = isbn;
         return Task.FromResult<IReadOnlyList<BookSearchResult>>(_searchResults);
     }
 

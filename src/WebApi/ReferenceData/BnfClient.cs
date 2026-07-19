@@ -34,7 +34,14 @@ public class BnfClient(HttpClient http) : IBookReferenceClient
     /// <c>dc:date</c> is still parsed and returned per candidate (<see cref="BookSearchResult.Year"/>) for
     /// the admin to use when picking, exactly like every other provider here.
     /// </summary>
-    public async Task<IReadOnlyList<BookSearchResult>> SearchBooksAsync(string title, int? year, string? author = null, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// <paramref name="isbn"/> is accepted (interface compliance) but ignored as a search input - only
+    /// <see cref="GoogleBooksClient"/> currently searches by it. BnF's own catalogue records do sometimes
+    /// carry an ISBN (via <c>dc:identifier</c>, confirmed against the real API), which is still parsed and
+    /// returned by <see cref="GetBookDetailsAsync"/> for autofill on link/refresh - searching by it and
+    /// merely reporting one already-known are different things.
+    /// </summary>
+    public async Task<IReadOnlyList<BookSearchResult>> SearchBooksAsync(string title, int? year, string? author = null, string? isbn = null, CancellationToken cancellationToken = default)
     {
         var results = await SearchBooksCoreAsync(title, author, cancellationToken);
         if (results.Count == 0 && !string.IsNullOrEmpty(author))
@@ -96,7 +103,7 @@ public class BnfClient(HttpClient http) : IBookReferenceClient
         // same single record.
         var xml = await FetchAsync($"bib.persistentid all \"{externalId}\"", cancellationToken);
         var record = ParseRecords(xml).FirstOrDefault();
-        return record is null ? null : new BookDetails(record.ExternalId, record.Title, record.Year, record.Synopsis, record.Author, null, record.Genres, null, record.Language);
+        return record is null ? null : new BookDetails(record.ExternalId, record.Title, record.Year, record.Synopsis, record.Author, null, record.Genres, null, record.Language, record.Isbn);
     }
 
     private async Task<string> FetchAsync(string cqlQuery, CancellationToken cancellationToken)
@@ -113,7 +120,7 @@ public class BnfClient(HttpClient http) : IBookReferenceClient
 
     private static string EscapeCql(string value) => value.Replace("\"", "\\\"");
 
-    private sealed record ParsedRecord(string ExternalId, string Title, int? Year, string? Author, string? Synopsis, string? Language, List<string> Genres);
+    private sealed record ParsedRecord(string ExternalId, string Title, int? Year, string? Author, string? Synopsis, string? Language, List<string> Genres, string? Isbn);
 
     /// <summary>
     /// <c>srw:recordData</c>'s only child is the <c>oai_dc:dc</c> wrapper - read it positionally rather than
@@ -138,9 +145,23 @@ public class BnfClient(HttpClient http) : IBookReferenceClient
                 ExtractAuthorName(dc.Element(s_dc + "creator")?.Value),
                 dc.Element(s_dc + "description")?.Value,
                 dc.Element(s_dc + "language")?.Value,
-                dc.Elements(s_dc + "subject").Select(e => e.Value).Where(v => !string.IsNullOrEmpty(v)).Take(MaxGenres).ToList());
+                dc.Elements(s_dc + "subject").Select(e => e.Value).Where(v => !string.IsNullOrEmpty(v)).Take(MaxGenres).ToList(),
+                ExtractIsbn(dc.Elements(s_dc + "identifier")));
         }
     }
+
+    /// <summary>
+    /// <c>dc:identifier</c> is repeatable and mixes different identifier kinds in the same element (an ARK
+    /// URL, an ISBN as plain text "ISBN 2841142787" - confirmed against the real API) - the ARK is already
+    /// captured separately via <c>srw:recordIdentifier</c>, so this only looks for the ISBN-prefixed one.
+    /// </summary>
+    private static readonly Regex s_isbnRegex = new(@"^ISBN\s+(.+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static string? ExtractIsbn(IEnumerable<XElement> identifiers) =>
+        identifiers
+            .Select(e => s_isbnRegex.Match(e.Value))
+            .FirstOrDefault(m => m.Success)
+            ?.Groups[1].Value.Trim();
 
     /// <summary>
     /// BnF's <c>dc:creator</c> is formatted "LastName, FirstName (birth-death dates). Role" (e.g. "Child,

@@ -27,4 +27,7 @@ public class BookReferenceDto : IHasId
 
     /// <summary>The book's language, when the linking provider reports one.</summary>
     public string? Language { get; set; }
+
+    /// <summary>The book's ISBN, when the linking provider reports one.</summary>
+    public string? Isbn { get; set; }
 }

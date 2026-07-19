@@ -23,8 +23,10 @@ public class OpenLibraryClient(HttpClient http) : IBookReferenceClient
     /// which routinely differs from whatever edition/printing year a tenant recorded (e.g. a 1997 first edition vs. a 2016 reprint) -
     /// filtering on it would silently drop the real match instead of just ranking it lower.
     /// This is an Open-Library-specific workaround, not a rule every <see cref="IBookReferenceClient"/> must follow.
+    /// <paramref name="isbn"/> is accepted (interface compliance) but ignored - only <see cref="GoogleBooksClient"/>
+    /// currently uses it as a search input.
     /// </summary>
-    public async Task<IReadOnlyList<BookSearchResult>> SearchBooksAsync(string title, int? year, string? author = null, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<BookSearchResult>> SearchBooksAsync(string title, int? year, string? author = null, string? isbn = null, CancellationToken cancellationToken = default)
     {
         var results = await SearchBooksCoreAsync(title, author, cancellationToken);
         if (results.Count == 0 && !string.IsNullOrEmpty(author))

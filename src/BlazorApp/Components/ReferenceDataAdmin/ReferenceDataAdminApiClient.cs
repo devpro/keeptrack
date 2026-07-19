@@ -11,12 +11,13 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
         return results ?? [];
     }
 
-    public async Task<List<ReferenceSearchResultDto>> SearchAsync(ReferenceItemType type, string title, int? year, string? creator = null, string? provider = null)
+    public async Task<List<ReferenceSearchResultDto>> SearchAsync(ReferenceItemType type, string title, int? year, string? creator = null, string? provider = null, string? isbn = null)
     {
         var query = $"/api/reference-data/search?type={type}&title={Uri.EscapeDataString(title)}";
         if (year is not null) query += $"&year={year}";
         if (!string.IsNullOrEmpty(creator)) query += $"&creator={Uri.EscapeDataString(creator)}";
         if (!string.IsNullOrEmpty(provider)) query += $"&provider={Uri.EscapeDataString(provider)}";
+        if (!string.IsNullOrEmpty(isbn)) query += $"&isbn={Uri.EscapeDataString(isbn)}";
 
         var results = await http.GetFromJsonAsync<List<ReferenceSearchResultDto>>(query);
         return results ?? [];

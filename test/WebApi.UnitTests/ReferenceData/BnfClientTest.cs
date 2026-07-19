@@ -99,6 +99,48 @@ public class BnfClientTest
     }
 
     [Fact]
+    public async Task GetBookDetailsAsync_ParsesTheIsbnFromTheIsbnPrefixedIdentifier()
+    {
+        // dc:identifier is repeatable and mixes kinds (the ARK URL and, when present, a plain "ISBN ..."
+        // string) - confirmed verbatim against the real API for this exact record.
+        var client = BuildClient(_ => """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <srw:searchRetrieveResponse xmlns:srw="http://www.loc.gov/zing/srw/">
+              <srw:numberOfRecords>1</srw:numberOfRecords>
+              <srw:records>
+                <srw:record>
+                  <srw:recordData>
+                    <oai_dc:dc xmlns:oai_dc="http://www.openarchives.org/OAI/2.0/oai_dc/" xmlns:dc="http://purl.org/dc/elements/1.1/">
+                      <dc:identifier>http://catalogue.bnf.fr/ark:/12148/cb361713613</dc:identifier>
+                      <dc:title>Du fond de l'abîme</dc:title>
+                      <dc:creator>Child, Lee (1954-....). Auteur du texte</dc:creator>
+                      <dc:date>1997</dc:date>
+                      <dc:identifier>ISBN 2841142787</dc:identifier>
+                      <dc:language>fre</dc:language>
+                    </oai_dc:dc>
+                  </srw:recordData>
+                  <srw:recordIdentifier>ark:/12148/cb361713613</srw:recordIdentifier>
+                </srw:record>
+              </srw:records>
+            </srw:searchRetrieveResponse>
+            """);
+
+        var details = await client.GetBookDetailsAsync("ark:/12148/cb361713613", TestContext.Current.CancellationToken);
+
+        details!.Isbn.Should().Be("2841142787");
+    }
+
+    [Fact]
+    public async Task GetBookDetailsAsync_LeavesIsbnNull_WhenNoIdentifierIsIsbnPrefixed()
+    {
+        var client = BuildClient(_ => OneRecordResponse("ark:/12148/cb361713613", "Du fond de l'abîme", "Child, Lee (1954-....). Auteur du texte", "1997", "fre"));
+
+        var details = await client.GetBookDetailsAsync("ark:/12148/cb361713613", TestContext.Current.CancellationToken);
+
+        details!.Isbn.Should().BeNull();
+    }
+
+    [Fact]
     public async Task SearchBooksAsync_ParsesResultsWithNoImageUrl()
     {
         // BnF's ordinary catalogue records carry no cover-art field at all - confirmed against the real API.
@@ -127,7 +169,7 @@ public class BnfClientTest
             return OneRecordResponse("ark:/12148/cb361713613", "Du fond de l'abîme", "Child, Lee (1954-....). Auteur du texte", "1997", "fre");
         });
 
-        var results = await client.SearchBooksAsync("Du fond de l'abime", 1997, "Some Mismatched Author Text", TestContext.Current.CancellationToken);
+        var results = await client.SearchBooksAsync("Du fond de l'abime", 1997, "Some Mismatched Author Text", cancellationToken: TestContext.Current.CancellationToken);
 
         authorSearchAttempted.Should().BeTrue();
         results.Should().ContainSingle();
@@ -144,7 +186,7 @@ public class BnfClientTest
             ("ark:/12148/cb1", "La peste", "Camus, Albert (1913-1960). Auteur du texte", "1947", "fre"),
             ("ark:/12148/cb2", "Chemins de la poésie", "Hugo, Victor (1802-1885). Auteur du texte", "1956", "fre")));
 
-        var results = await client.SearchBooksAsync("La Peste", null, "Albert Camus", TestContext.Current.CancellationToken);
+        var results = await client.SearchBooksAsync("La Peste", null, "Albert Camus", cancellationToken: TestContext.Current.CancellationToken);
 
         results.Should().ContainSingle();
         results[0].ExternalId.Should().Be("ark:/12148/cb1");

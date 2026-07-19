@@ -24,4 +24,12 @@ public class ReferenceMatchModel
     /// own naming rationale, which this follows.
     /// </summary>
     public string? Creator { get; set; }
+
+    /// <summary>
+    /// The ISBN this (title, year) combination was confirmed under, when one was actually used to make the
+    /// match - null for every domain but Book, and null even for Book whenever the match wasn't ISBN-driven
+    /// (an exact-identifier match must only ever record the identifier that was genuinely used, never
+    /// backfilled from the provider's own canonical value onto an alias that didn't actually rely on it).
+    /// </summary>
+    public string? Isbn { get; set; }
 }
