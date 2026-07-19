@@ -3,7 +3,7 @@ using Microsoft.Playwright;
 
 namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 
-public sealed class TvShowDetailPage(IPage page) : ReferenceableDetailPageBase(page, "TMDB")
+public sealed class TvShowDetailPage(IPage page) : ReferenceableDetailPageBase(page)
 {
     /// <summary>
     /// The episode checklist only renders once the show is linked (<c>_reference is not null</c>), grouped by season with the lowest season selected by default -

@@ -22,11 +22,20 @@ public class BookModel : IHasIdAndOwnerId
 
     public string? Genre { get; set; }
 
+    public string? Language { get; set; }
+
     public string? Notes { get; set; }
 
     public DateOnly? FirstReadAt { get; set; }
 
     public string? ReferenceId { get; set; }
+
+    /// <summary>
+    /// Tenant-owned cover image override - takes priority over the linked reference's own cover wherever
+    /// a cover is shown (list thumbnail, detail page). Null means "use the reference's cover, if any" -
+    /// the previous, only behavior.
+    /// </summary>
+    public string? CustomImageUrl { get; set; }
 
     public bool IsFavorite { get; set; }
 

@@ -60,6 +60,14 @@
                                     <input class="form-control form-control-sm" style="max-width:180px" placeholder="@(_type == ReferenceItemType.Book ? "Author" : "Artist")"
                                            @bind="_creator"/>
                                 }
+                                @if (_type == ReferenceItemType.Book)
+                                {
+                                    @foreach (var bookProvider in _bookProviders)
+                                    {
+                                        <button type="button" class="btn btn-sm @(bookProvider.Key == _selectedProvider ? "btn-primary" : "btn-secondary")"
+                                                @onclick="() => _selectedProvider = bookProvider.Key">@bookProvider.DisplayName</button>
+                                    }
+                                }
                                 <button class="btn btn-sm btn-secondary" @onclick="SearchAsync" disabled="@(_searching || string.IsNullOrWhiteSpace(_queryTitle))">Search</button>
                             </div>
 
@@ -294,11 +302,13 @@
     private string? _queryTitle;
     private int? _queryYear;
     private string? _creator;
+    private List<BookProviderDto> _bookProviders = [];
+    private string? _selectedProvider;
 
     private string ProviderName => _type switch
     {
         ReferenceItemType.TvShow or ReferenceItemType.Movie => "TMDB",
-        ReferenceItemType.Book => "Open Library",
+        ReferenceItemType.Book => _bookProviders.FirstOrDefault(p => p.Key == _selectedProvider)?.DisplayName ?? "Google Books",
         ReferenceItemType.VideoGame => "RAWG",
         ReferenceItemType.Album => "Discogs",
         _ => "reference"
@@ -428,6 +438,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _bookProviders = await Api.GetBookProvidersAsync();
+        _selectedProvider = _bookProviders.FirstOrDefault()?.Key;
         await LoadUnresolvedAsync();
         await LoadSystemStatusAsync();
     }
@@ -493,8 +505,21 @@
 
         _searching = true;
         _error = null;
-        _searchResults = await Api.SearchAsync(_type, _queryTitle ?? _selected.Title, _queryYear, _creator);
-        _searching = false;
+        try
+        {
+            _searchResults = await Api.SearchAsync(_type, _queryTitle ?? _selected.Title, _queryYear, _creator, _type == ReferenceItemType.Book ? _selectedProvider : null);
+        }
+        catch (Exception ex)
+        {
+            // an uncaught exception here would crash the whole Blazor Server circuit (not just this
+            // component), forcing a full page reload - same reasoning as LinkAsync's own try/catch below.
+            _searchResults = [];
+            _error = ex.Message;
+        }
+        finally
+        {
+            _searching = false;
+        }
     }
 
     /// <summary>
@@ -510,7 +535,14 @@
         _error = null;
         try
         {
-            await Api.LinkAsync(new LinkReferenceRequestDto { Type = _type, Title = _selected.Title, Year = _selected.Year, ExternalId = candidate.ExternalId });
+            await Api.LinkAsync(new LinkReferenceRequestDto
+            {
+                Type = _type,
+                Title = _selected.Title,
+                Year = _selected.Year,
+                ExternalId = candidate.ExternalId,
+                Provider = _type == ReferenceItemType.Book ? _selectedProvider : null
+            });
             await LoadUnresolvedAsync();
         }
         catch (Exception ex)

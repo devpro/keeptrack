@@ -15,7 +15,7 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// </summary>
 public partial class ReferenceEnrichmentService(
     ITmdbClient tmdbClient,
-    IBookReferenceClient bookReferenceClient,
+    BookReferenceClientRegistry bookReferenceClientRegistry,
     IRawgClient rawgClient,
     IDiscogsClient discogsClient,
     ITvShowReferenceRepository tvShowReferenceRepository,

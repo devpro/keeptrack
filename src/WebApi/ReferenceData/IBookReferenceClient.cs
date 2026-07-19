@@ -6,7 +6,7 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// </summary>
 public record BookSearchResult(string ExternalId, string Title, int? Year, string? Author, string? ImageUrl);
 
-public record BookDetails(string ExternalId, string Title, int? Year, string? Synopsis, string? Author, string? AuthorExternalId, List<string> Genres, string? ImageUrl);
+public record BookDetails(string ExternalId, string Title, int? Year, string? Synopsis, string? Author, string? AuthorExternalId, List<string> Genres, string? ImageUrl, string? Language = null);
 
 /// <summary>
 /// Provider-agnostic book lookup, backing <see cref="ReferenceEnrichmentService"/>'s book resolution/refresh
@@ -25,6 +25,13 @@ public interface IBookReferenceClient
     /// implementation owns its own key; callers must never hardcode a provider name.
     /// </summary>
     string ProviderKey { get; }
+
+    /// <summary>
+    /// Human-readable name shown to an admin choosing a provider (e.g. "Open Library", "BnF") - the single
+    /// source of truth for that text, instead of a per-<see cref="ReferenceItemType"/> switch hardcoding it
+    /// (fine for the single-provider domains, but Book now has more than one).
+    /// </summary>
+    string DisplayName { get; }
 
     /// <summary>
     /// <paramref name="author"/> narrows the query when known - without it, a common title can return

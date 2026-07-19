@@ -27,12 +27,22 @@ public class ReferenceEnrichmentServiceTest
     private readonly Mock<IVideoGameRepository> _videoGameRepository = new();
     private readonly Mock<IAlbumRepository> _albumRepository = new();
 
+    /// <summary>
+    /// The registry always has "openlibrary" as the deployment default - matches FakeBookReferenceClient's
+    /// hardcoded ProviderKey, so every existing test that never mentions a provider keeps resolving the
+    /// same fake it always did.
+    /// </summary>
+    private const string DefaultBookProvider = "openlibrary";
+
     private ReferenceEnrichmentService CreateService(
         FakeTmdbClient tmdbClient,
         FakeBookReferenceClient? bookReferenceClient = null,
         FakeRawgClient? rawgClient = null,
-        FakeDiscogsClient? discogsClient = null) => new(
-        tmdbClient, bookReferenceClient ?? FakeBookReferenceClient.Empty(), rawgClient ?? FakeRawgClient.Empty(), discogsClient ?? FakeDiscogsClient.Empty(),
+        FakeDiscogsClient? discogsClient = null,
+        FakeBnfClient? bnfClient = null) => new(
+        tmdbClient,
+        new BookReferenceClientRegistry([bookReferenceClient ?? FakeBookReferenceClient.Empty(), bnfClient ?? FakeBnfClient.Empty()], DefaultBookProvider),
+        rawgClient ?? FakeRawgClient.Empty(), discogsClient ?? FakeDiscogsClient.Empty(),
         _tvShowReferenceRepository.Object, _movieReferenceRepository.Object, _personReferenceRepository.Object,
         _bookReferenceRepository.Object, _videoGameReferenceRepository.Object, _albumReferenceRepository.Object,
         _tvShowRepository.Object, _movieRepository.Object, _bookRepository.Object, _videoGameRepository.Object, _albumRepository.Object);
@@ -604,6 +614,47 @@ public class ReferenceEnrichmentServiceTest
     }
 
     [Fact]
+    public async Task RefreshBookReferenceAsync_RefreshesViaANonDefaultRegisteredProvider_WhenThatsTheOnlyOnePresent()
+    {
+        // regression: this used to only ever check the currently-configured DEFAULT provider's key, so a
+        // reference linked through any other registered provider (bnf here, openlibrary being the default)
+        // would silently stop refreshing forever.
+        var bnfClient = FakeBnfClient.Empty();
+        bnfClient.Details["ark:/12148/cb1"] = new BookDetails("ark:/12148/cb1", "Some Book - Updated", 2020, "Synopsis", "Some Author", null, [], null, "fre");
+        var reference = new BookReferenceModel
+        {
+            Id = "reference-1",
+            Title = "Some Book",
+            TitleNormalized = "some book",
+            ExternalIds = new Dictionary<string, string> { ["bnf"] = "ark:/12148/cb1" },
+            LastEnrichedAt = DateTime.UtcNow
+        };
+        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => m);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bnfClient: bnfClient);
+
+        var (result, changed) = await service.RefreshBookReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        changed.Should().BeTrue();
+        result.Title.Should().Be("Some Book - Updated");
+        result.Language.Should().Be("fre");
+    }
+
+    [Fact]
+    public async Task ResolveBookAsync_UsesTheExplicitlyRequestedProvider_NotTheDefault()
+    {
+        var bnfClient = FakeBnfClient.Empty();
+        bnfClient.Details["ark:/12148/cb1"] = new BookDetails("ark:/12148/cb1", "Some Book", 2020, "Synopsis", "Some Author", null, [], null, "fre");
+        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => { m.Id = "reference-1"; return m; });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bnfClient: bnfClient);
+
+        var result = await service.ResolveBookAsync("Some Book", 2020, "ark:/12148/cb1", "bnf");
+
+        result.ExternalIds["bnf"].Should().Be("ark:/12148/cb1");
+        result.ExternalIds.Should().NotContainKey("openlibrary");
+        result.Language.Should().Be("fre");
+    }
+
+    [Fact]
     public async Task TryAutoResolveVideoGameAsync_DoesNothing_WhenSearchIsAmbiguous()
     {
         var rawgClient = FakeRawgClient.WithSearchResults(
@@ -955,7 +1006,7 @@ public class ReferenceEnrichmentServiceTest
     /// </summary>
     private ReferenceEnrichmentService CreateServiceWithStrictClients() => new(
         new Mock<ITmdbClient>(MockBehavior.Strict).Object,
-        new Mock<IBookReferenceClient>(MockBehavior.Strict).Object,
+        new BookReferenceClientRegistry([new Mock<IBookReferenceClient>(MockBehavior.Strict).Object], DefaultBookProvider),
         new Mock<IRawgClient>(MockBehavior.Strict).Object,
         new Mock<IDiscogsClient>(MockBehavior.Strict).Object,
         _tvShowReferenceRepository.Object, _movieReferenceRepository.Object, _personReferenceRepository.Object,

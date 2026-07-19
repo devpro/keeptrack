@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using AwesomeAssertions;
@@ -27,6 +28,25 @@ public class ReferenceDataAdminResourceTest(KestrelWebAppFactory<Program> factor
         await Authenticate();
 
         await GetAsync<List<UnresolvedReferenceDto>>("/api/reference-data/unresolved?type=TvShow");
+    }
+
+    /// <summary>
+    /// Registration order in Program.cs doubles as the admin UI's provider-picker display/priority order
+    /// (<c>BookReferenceClientRegistry.All</c> preserves it) - Google Books is the default, Open Library and
+    /// BnF are fallbacks in that order. This pins the contract so a future reordering in Program.cs fails a
+    /// test instead of silently changing the picker's default.
+    /// </summary>
+    [Fact]
+    public async Task GetBookProviders_ReturnsRegisteredProvidersInPriorityOrder()
+    {
+        await Authenticate();
+
+        var providers = await GetAsync<List<BookProviderDto>>("/api/reference-data/book-providers");
+
+        providers.Select(p => p.Key).Should().Equal("googlebooks", "openlibrary", "bnf");
+        providers.Should().Contain(p => p.Key == "googlebooks" && p.DisplayName == "Google Books");
+        providers.Should().Contain(p => p.Key == "openlibrary" && p.DisplayName == "Open Library");
+        providers.Should().Contain(p => p.Key == "bnf" && p.DisplayName == "BnF");
     }
 
     /// <summary>

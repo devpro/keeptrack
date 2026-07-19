@@ -41,8 +41,9 @@ public class SystemStatusController(
         {
             InstanceName = Environment.MachineName,
             IsReferenceSyncEnabled = appConfiguration.IsReferenceSyncEnabled,
-            // mirrors Program.cs's provider switch default - update both if a second provider ships
-            BookProvider = string.IsNullOrEmpty(appConfiguration.BookReferenceProvider) ? "OpenLibrary" : appConfiguration.BookReferenceProvider,
+            // the *default* provider used for automatic/background resolution - see BookReferenceClientRegistry;
+            // an admin can search/link with any registered provider regardless of this value (GET book-providers)
+            BookProvider = string.IsNullOrEmpty(appConfiguration.BookReferenceProvider) ? "googlebooks" : appConfiguration.BookReferenceProvider,
             ReferenceSyncLease = lease is null
                 ? null
                 : new SystemLeaseDto { Holder = lease.Holder, ExpiresAt = lease.ExpiresAt, IsLive = lease.ExpiresAt > DateTime.UtcNow },

@@ -38,6 +38,8 @@ public class BookReference
     [BsonElement("image_url")]
     public string? ImageUrl { get; set; }
 
+    public string? Language { get; set; }
+
     [BsonElement("last_enriched_at")]
     public DateTime? LastEnrichedAt { get; set; }
 }

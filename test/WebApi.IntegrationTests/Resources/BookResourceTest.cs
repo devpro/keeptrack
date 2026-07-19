@@ -1,11 +1,18 @@
-﻿using System.Linq;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using AwesomeAssertions;
 using Bogus;
 using Keeptrack.Common.System;
+using Keeptrack.Domain.Models;
+using Keeptrack.Domain.Repositories;
+using Keeptrack.Infrastructure.MongoDb.Entities;
 using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.IntegrationTests.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using MongoDB.Driver;
 using Xunit;
 
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
@@ -23,7 +30,16 @@ public class BookResourceTest(KestrelWebAppFactory<Program> factory)
         await Authenticate();
 
         var input = new Faker<BookDto>()
-            .Rules((f, o) => { o.Author = f.Random.AlphaNumeric(8); o.Title = f.Random.AlphaNumeric(14); })
+            .Rules((f, o) =>
+            {
+                o.Author = f.Random.AlphaNumeric(8);
+                o.Title = f.Random.AlphaNumeric(14);
+                // round-trips Language/CustomImageUrl through the real Mapperly mappers + MongoDB - both
+                // are plain scalar fields with no special mapping, but a real integration test is what
+                // would catch a missed [BsonElement]/mapper ignore, not a mocked unit test.
+                o.Language = f.Random.AlphaNumeric(3);
+                o.CustomImageUrl = f.Internet.Url();
+            })
             .Generate();
         var created = await PostAsync($"/{ResourceEndpoint}", input);
         created.Id.Should().NotBeNullOrEmpty();
@@ -77,6 +93,51 @@ public class BookResourceTest(KestrelWebAppFactory<Program> factory)
         finally
         {
             await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
+        }
+    }
+
+    /// <summary>
+    /// <see cref="BookDto.CustomImageUrl"/> is Book-specific (not shared via the generic
+    /// image-hydration helper/<see cref="IReferenceLinkedDto"/>, which the other four reference-linked types
+    /// also implement with no equivalent override) - <c>BookController.OnListMappedAsync</c> is expected to
+    /// apply it over the linked reference's own cover on every list read.
+    /// </summary>
+    [Fact]
+    public async Task BookResourceList_CustomImageUrlOverridesTheLinkedReferencesCover()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var referenceRepository = scope.ServiceProvider.GetRequiredService<IBookReferenceRepository>();
+        var uniqueTitle = $"CustomImageOverrideTarget-{Guid.NewGuid():N}";
+
+        var reference = await referenceRepository.UpsertAsync(new BookReferenceModel
+        {
+            Title = "Some Reference Title",
+            TitleNormalized = "some reference title",
+            ExternalIds = new Dictionary<string, string> { ["googlebooks"] = $"gb-{Guid.NewGuid():N}" },
+            ImageUrl = "https://example.com/reference-cover.jpg"
+        });
+
+        await Authenticate();
+        const string customImageUrl = "https://example.com/custom-cover.jpg";
+        var created = await PostAsync($"/{ResourceEndpoint}", new BookDto
+        {
+            Title = uniqueTitle,
+            Author = "Some Author",
+            ReferenceId = reference.Id,
+            CustomImageUrl = customImageUrl
+        });
+
+        try
+        {
+            var list = await GetAsync<PagedResult<BookDto>>($"/{ResourceEndpoint}?search={uniqueTitle}");
+            var item = list.Items.Should().ContainSingle(b => b.Id == created.Id).Subject;
+            item.ImageUrl.Should().Be(customImageUrl);
+        }
+        finally
+        {
+            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
+            var referenceCollection = scope.ServiceProvider.GetRequiredService<IMongoDatabase>().GetCollection<BookReference>("book_reference");
+            await referenceCollection.DeleteOneAsync(Builders<BookReference>.Filter.Eq(x => x.Id, reference.Id), TestContext.Current.CancellationToken);
         }
     }
 }

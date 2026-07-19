@@ -21,10 +21,19 @@ public class BookController(
 {
     /// <summary>
     /// Hydrates each page item's cover image from its linked reference document - one batched lookup per
-    /// page (see <see cref="ReferenceImageHydrator"/>), keyed by the id-bearing documents only.
+    /// page (see <see cref="ReferenceImageHydrator"/>), keyed by the id-bearing documents only. A book with
+    /// its own <see cref="BookDto.CustomImageUrl"/> set overrides that afterward - this is Book-specific
+    /// (not shared via <see cref="ReferenceImageHydrator"/>/<see cref="Contracts.Dto.IReferenceLinkedDto"/>,
+    /// which the other four reference-linked types also implement, with no equivalent override field).
     /// </summary>
-    protected override Task OnListMappedAsync(List<BookDto> dtos)
-        => ReferenceImageHydrator.HydrateAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl);
+    protected override async Task OnListMappedAsync(List<BookDto> dtos)
+    {
+        await ReferenceImageHydrator.HydrateAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl);
+        foreach (var dto in dtos.Where(d => !string.IsNullOrEmpty(d.CustomImageUrl)))
+        {
+            dto.ImageUrl = dto.CustomImageUrl;
+        }
+    }
 
     /// <summary>
     /// Fires a best-effort background Open Library match for the new book - see <see cref="TvShowController.OnCreatedAsync"/>.

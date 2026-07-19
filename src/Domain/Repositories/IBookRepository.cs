@@ -8,11 +8,12 @@ public interface IBookRepository : IDataRepository<BookModel>
 {
     /// <summary>
     /// Sets <see cref="BookModel.ReferenceId"/>, <see cref="BookModel.Title"/>, <see cref="BookModel.Year"/>,
-    /// <see cref="BookModel.Author"/> and <see cref="BookModel.Genre"/> (to the reference's canonical values)
-    /// on every tenant's book matching this title/year that doesn't already have a reference link - see
-    /// <see cref="ITvShowRepository.SetReferenceLinkAsync"/>.
+    /// <see cref="BookModel.Author"/>, <see cref="BookModel.Genre"/> and <see cref="BookModel.Language"/>
+    /// (to the reference's canonical values) on every tenant's book matching this title/year that doesn't
+    /// already have a reference link - see <see cref="ITvShowRepository.SetReferenceLinkAsync"/>.
     /// </summary>
-    Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null, string? canonicalAuthor = null, string? canonicalGenre = null);
+    Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null, string? canonicalAuthor = null, string? canonicalGenre = null,
+        string? canonicalLanguage = null);
 
     /// <summary>
     /// Distinct (title, year) pairs across every tenant's books that have no <see cref="BookModel.ReferenceId"/>

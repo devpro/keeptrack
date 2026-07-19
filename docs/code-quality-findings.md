@@ -6,6 +6,26 @@ Update this file as items are fixed or as new reviews are performed.
 
 ## Fixed
 
+### BnF's own `"and (bib.author ...)"` CQL combination is not a strict intersection - candidates not actually matching the requested author silently leaked into search results
+
+Found on 2026-07-19 (real user report: "when I search BnF it doesn't consider the author") while BnF was the second registered book provider.
+Confirmed directly against the real API: a query for title "La Peste" and author "Victor Hugo" (who never wrote a book by that title) returned several genuine Victor Hugo anthologies instead of zero results, none of them actually titled "La Peste".
+The same query shape correctly narrows to 69 genuine matches when the *correct* author (Albert Camus) is used, so the server-side clause isn't useless, just not trustworthy as a hard filter on its own - it appears to fall back to relevance-ranked results for the author alone when no record actually satisfies both criteria, rather than returning an empty set.
+Fixed by adding a client-side post-filter (`BnfClient.AuthorMatches`, a normalized word-presence check reusing `TitleNormalizer.Normalize`) that discards any parsed candidate whose own author text doesn't actually contain every word of the requested author, instead of trusting BnF's own filtering.
+Covered by `BnfClientTest.SearchBooksAsync_FiltersOutCandidatesWhoseAuthorDoesNotActuallyMatch`.
+
+File: `src/WebApi/ReferenceData/BnfClient.cs`
+
+### `RefreshBookReferenceAsync` only ever checked the currently-configured default provider's key, not whichever provider a reference was actually linked through
+
+Found on 2026-07-19 while adding a second book reference provider (BnF, alongside Open Library) and letting an admin pick either one per search/link action instead of only a deployment-wide config switch.
+`RefreshBookReferenceAsync` read `reference.ExternalIds.GetValueOrDefault(bookReferenceClient.ProviderKey)`, where `bookReferenceClient` was the single injected client for whichever provider `ReferenceData:BookProvider` currently names.
+Once a book reference could be linked through a *different* registered provider than the current default (e.g. linked via BnF while the deployment default stays Open Library), the periodic/on-demand sync would find no id under the default's key and silently no-op that reference forever - it would never refresh again, with no error surfaced anywhere.
+Fixed by resolving against every currently-registered provider's key (`BookReferenceClientRegistry.All.FirstOrDefault(c => reference.ExternalIds.ContainsKey(c.ProviderKey))`) instead of a single injected client's key.
+Covered by `ReferenceEnrichmentServiceTest.RefreshBookReferenceAsync_RefreshesViaANonDefaultRegisteredProvider_WhenThatsTheOnlyOnePresent`.
+
+File: `src/WebApi/ReferenceData/ReferenceEnrichmentService.Books.cs`
+
 Several findings below trace back to AutoMapper's profile-wide `AllowNullDestinationValues = false` (a null source string/collection/object silently substituted with `""`/an empty collection/a blank instance).
 AutoMapper itself was removed in favor of Riok.Mapperly (see `docs/automapper-removal-plan.md`), which preserves nulls by default.
 The entire class of gotcha these findings patched around is now structurally impossible, not just individually fixed.

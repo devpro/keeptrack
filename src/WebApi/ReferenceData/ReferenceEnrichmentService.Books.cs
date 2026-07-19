@@ -9,10 +9,11 @@ public partial class ReferenceEnrichmentService
     /// User-triggered "check for reference match" for books - see
     /// <see cref="TryLinkExistingTvShowReferenceAsync"/> for the full rationale (this is the same local-only,
     /// no-HTTP-call lookup, just against <c>book_reference</c>). A successful match also sets
-    /// <see cref="BookModel.Year"/>, <see cref="BookModel.Author"/> and <see cref="BookModel.Genre"/> to the
-    /// reference's canonical values - the author's name is joined from <see cref="PersonReferenceModel"/> via
-    /// <see cref="BookReferenceModel.AuthorReferenceId"/>, and Genre from <see cref="BookReferenceModel.Genres"/>
-    /// (joined into the same single free-text field the tenant can otherwise edit by hand).
+    /// <see cref="BookModel.Year"/>, <see cref="BookModel.Author"/>, <see cref="BookModel.Genre"/> and
+    /// <see cref="BookModel.Language"/> to the reference's canonical values - the author's name is joined
+    /// from <see cref="PersonReferenceModel"/> via <see cref="BookReferenceModel.AuthorReferenceId"/>, and
+    /// Genre from <see cref="BookReferenceModel.Genres"/> (joined into the same single free-text field the
+    /// tenant can otherwise edit by hand).
     /// </summary>
     public async Task<BookModel> TryLinkExistingBookReferenceAsync(BookModel model)
     {
@@ -43,46 +44,53 @@ public partial class ReferenceEnrichmentService
         if (reference.Year is not null) model.Year = reference.Year;
         if (!string.IsNullOrEmpty(authorName)) model.Author = authorName;
         if (genre is not null) model.Genre = genre;
+        if (reference.Language is not null) model.Language = reference.Language;
         await bookRepository.UpdateAsync(model.Id!, model, model.OwnerId);
-        await bookRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year, authorName, genre);
+        await bookRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year, authorName, genre, reference.Language);
 
         return model;
     }
 
     /// <summary>
-    /// Best-effort automatic match for books - see <see cref="TryAutoResolveTvShowAsync"/>. Passing
-    /// <paramref name="author"/> narrows the configured book provider's search considerably - without it,
-    /// a common title easily returns more than one candidate and the match is correctly left for the
-    /// admin queue.
+    /// Best-effort automatic match for books - see <see cref="TryAutoResolveTvShowAsync"/>. Always searches
+    /// the deployment's *default* provider (<see cref="BookReferenceClientRegistry.Resolve"/> with a null
+    /// key) - this is the unattended background path, so there's no admin picking a provider here. Passing
+    /// <paramref name="author"/> narrows the search considerably - without it, a common title easily
+    /// returns more than one candidate and the match is correctly left for the admin queue.
     /// </summary>
     public async Task TryAutoResolveBookAsync(string title, int? year, string? author = null)
     {
         if (string.IsNullOrWhiteSpace(title)) return; // see TryAutoResolveTvShowAsync
 
-        var candidates = await bookReferenceClient.SearchBooksAsync(title, year, author);
+        var client = bookReferenceClientRegistry.Resolve(null);
+        var candidates = await client.SearchBooksAsync(title, year, author);
         if (candidates.Count != 1) return;
-        await ResolveBookAsync(title, year, candidates[0].ExternalId);
+        await ResolveBookAsync(title, year, candidates[0].ExternalId, client.ProviderKey);
     }
 
     /// <summary>
     /// Resolves a title+year to a specific book provider id, upserts the reference document, and
-    /// propagates the link - see <see cref="ResolveTvShowAsync"/>.
+    /// propagates the link - see <see cref="ResolveTvShowAsync"/>. <paramref name="providerKey"/> is which
+    /// registered <see cref="IBookReferenceClient"/> <paramref name="externalId"/> came from - required from
+    /// the admin's manual link action (an id is meaningless without knowing which provider issued it once
+    /// more than one is registered), defaults to the deployment default for the automatic path above.
     /// </summary>
-    public async Task<BookReferenceModel> ResolveBookAsync(string title, int? year, string externalId)
+    public async Task<BookReferenceModel> ResolveBookAsync(string title, int? year, string externalId, string? providerKey = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
 
-        var details = await bookReferenceClient.GetBookDetailsAsync(externalId)
-                      ?? throw new InvalidOperationException($"Book {externalId} could not be fetched from {bookReferenceClient.ProviderKey}.");
+        var client = bookReferenceClientRegistry.Resolve(providerKey);
+        var details = await client.GetBookDetailsAsync(externalId)
+                      ?? throw new InvalidOperationException($"Book {externalId} could not be fetched from {client.ProviderKey}.");
 
-        var existing = await bookReferenceRepository.FindByExternalIdAsync(bookReferenceClient.ProviderKey, externalId)
+        var existing = await bookReferenceRepository.FindByExternalIdAsync(client.ProviderKey, externalId)
                        ?? (details.Author is not null ? await bookReferenceRepository.FindByTitleYearAsync(title, year, details.Author) : null)
                        ?? (details.Author is not null ? await bookReferenceRepository.FindByTitleAsync(title, details.Author) : null);
         var externalIds = existing?.ExternalIds ?? new Dictionary<string, string>();
-        externalIds[bookReferenceClient.ProviderKey] = externalId;
+        externalIds[client.ProviderKey] = externalId;
 
         var authorReferenceId = !string.IsNullOrEmpty(details.AuthorExternalId)
-            ? await ResolvePersonReferenceIdAsync(bookReferenceClient.ProviderKey, details.AuthorExternalId, details.Author ?? "Unknown", null)
+            ? await ResolvePersonReferenceIdAsync(client.ProviderKey, details.AuthorExternalId, details.Author ?? "Unknown", null)
             : existing?.AuthorReferenceId;
 
         var model = new BookReferenceModel
@@ -97,28 +105,34 @@ public partial class ReferenceEnrichmentService
             MatchedAliases = MergeMatchedAliases(existing?.MatchedAliases, (details.Title, details.Year ?? year, details.Author), (title, year, details.Author)),
             Genres = details.Genres,
             ImageUrl = details.ImageUrl,
+            Language = details.Language ?? existing?.Language,
             LastEnrichedAt = DateTime.UtcNow
         };
 
         var saved = await bookReferenceRepository.UpsertAsync(model);
-        await bookRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, details.Author, JoinGenres(details.Genres));
+        await bookRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, details.Author, JoinGenres(details.Genres), details.Language);
         return saved;
     }
 
     /// <summary>
-    /// Re-fetches a book reference from the configured book provider, always doing a full re-fetch when
-    /// called (unlike TMDB, none of the book providers currently supported expose a per-id "has this
-    /// changed" endpoint, so there's no cheap pre-check to skip it) - see
-    /// <see cref="RefreshTvShowReferenceAsync"/> for the shared staleness-cutoff mechanism this is invoked
-    /// from. A no-op (returns unchanged) for a reference with no id from the currently configured provider,
-    /// or that the provider no longer has details for.
+    /// Re-fetches a book reference from whichever registered provider it was actually linked through,
+    /// always doing a full re-fetch when called (unlike TMDB, none of the book providers currently
+    /// supported expose a per-id "has this changed" endpoint, so there's no cheap pre-check to skip it) -
+    /// see <see cref="RefreshTvShowReferenceAsync"/> for the shared staleness-cutoff mechanism this is
+    /// invoked from. Looks up <see cref="BookReferenceModel.ExternalIds"/> against every *currently
+    /// registered* provider, not just the deployment default - a reference linked via a non-default
+    /// provider must keep refreshing even if the default later changes (this used to only ever check the
+    /// single configured client's key, so a reference linked through any other provider silently stopped
+    /// refreshing forever). A no-op (returns unchanged) when no registered provider's id is present, or the
+    /// provider no longer has details for it.
     /// </summary>
     public async Task<(BookReferenceModel Model, bool DataChanged)> RefreshBookReferenceAsync(BookReferenceModel reference, CancellationToken cancellationToken = default)
     {
-        var externalId = reference.ExternalIds.GetValueOrDefault(bookReferenceClient.ProviderKey);
-        if (string.IsNullOrEmpty(externalId)) return (reference, false);
+        var client = bookReferenceClientRegistry.All.FirstOrDefault(c => reference.ExternalIds.ContainsKey(c.ProviderKey));
+        if (client is null) return (reference, false);
 
-        var details = await bookReferenceClient.GetBookDetailsAsync(externalId, cancellationToken);
+        var externalId = reference.ExternalIds[client.ProviderKey];
+        var details = await client.GetBookDetailsAsync(externalId, cancellationToken);
         if (details is null) return (reference, false);
 
         reference.Title = details.Title;
@@ -126,10 +140,11 @@ public partial class ReferenceEnrichmentService
         reference.Synopsis = details.Synopsis;
         if (!string.IsNullOrEmpty(details.AuthorExternalId))
         {
-            reference.AuthorReferenceId = await ResolvePersonReferenceIdAsync(bookReferenceClient.ProviderKey, details.AuthorExternalId, details.Author ?? "Unknown", null);
+            reference.AuthorReferenceId = await ResolvePersonReferenceIdAsync(client.ProviderKey, details.AuthorExternalId, details.Author ?? "Unknown", null);
         }
         reference.Genres = details.Genres;
         reference.ImageUrl = details.ImageUrl ?? reference.ImageUrl;
+        reference.Language = details.Language ?? reference.Language;
         reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, details.Author));
         reference.LastEnrichedAt = DateTime.UtcNow;
 

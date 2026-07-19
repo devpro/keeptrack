@@ -24,4 +24,7 @@ public class BookReferenceDto : IHasId
     public List<string> Genres { get; set; } = [];
 
     public string? ImageUrl { get; set; }
+
+    /// <summary>The book's language, when the linking provider reports one.</summary>
+    public string? Language { get; set; }
 }

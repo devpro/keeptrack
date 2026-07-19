@@ -27,6 +27,8 @@ public class Book : IHasIdAndOwnerId
 
     public string? Genre { get; set; }
 
+    public string? Language { get; set; }
+
     public string? Notes { get; set; }
 
     [BsonElement("first_read_at")]
@@ -34,6 +36,9 @@ public class Book : IHasIdAndOwnerId
 
     [BsonElement("reference_id")]
     public string? ReferenceId { get; set; }
+
+    [BsonElement("custom_image_url")]
+    public string? CustomImageUrl { get; set; }
 
     [BsonElement("is_favorite")]
     public bool IsFavorite { get; set; }

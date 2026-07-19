@@ -15,6 +15,8 @@ public class OpenLibraryClient(HttpClient http) : IBookReferenceClient
 {
     public string ProviderKey => "openlibrary";
 
+    public string DisplayName => "Open Library";
+
     /// <summary>
     /// Deliberately does NOT filter server-side by <paramref name="year"/>:
     /// Open Library's <c>first_publish_year</c> is the work's ORIGINAL publication year,

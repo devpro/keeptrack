@@ -42,7 +42,8 @@ public class BookRepository(IMongoDatabase mongoDatabase, ILogger<BookRepository
         return filter;
     }
 
-    public async Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null, string? canonicalAuthor = null, string? canonicalGenre = null)
+    public async Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null, string? canonicalAuthor = null, string? canonicalGenre = null,
+        string? canonicalLanguage = null)
     {
         var builder = Builders<Book>.Filter;
         var filter = builder.Regex(f => f.Title, new BsonRegularExpression($"^{Regex.Escape(title)}$", "i"))
@@ -53,6 +54,7 @@ public class BookRepository(IMongoDatabase mongoDatabase, ILogger<BookRepository
         if (canonicalYear is not null) update = update.Set(f => f.Year, canonicalYear);
         if (canonicalAuthor is not null) update = update.Set(f => f.Author, canonicalAuthor);
         if (canonicalGenre is not null) update = update.Set(f => f.Genre, canonicalGenre);
+        if (canonicalLanguage is not null) update = update.Set(f => f.Language, canonicalLanguage);
         var result = await GetCollection().UpdateManyAsync(filter, update);
         return result.ModifiedCount;
     }

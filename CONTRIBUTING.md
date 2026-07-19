@@ -86,7 +86,8 @@ Key                                       | Description
 `Tmdb:ApiKey`                             | TMDB v3 API key, used to auto-match shows/movies to episode titles and synopses (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
 `Rawg:ApiKey`                             | RAWG API key, used to auto-match video games to synopses/cover art/platforms (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
 `Discogs:Token`                           | Discogs personal access token, used to auto-match albums to synopses/cover art/genres (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
-`ReferenceData:BookProvider`              | Which `IBookReferenceClient` implementation to use for book matching (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below). Default: `OpenLibrary`
+`GoogleBooks:ApiKey`                      | Google Books API key, used to auto-match books to synopses/cover art/language/genres (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
+`ReferenceData:BookProvider`              | Default `IBookReferenceClient` provider key used for automatic/background book matching - every registered provider (Google Books, Open Library, BnF) is always available for an admin to pick per search/link regardless of this setting (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below). Default: `googlebooks`
 
 This values can be easily provided as environment variables (replace ":" by "__") or by configuration (json).
 
@@ -153,15 +154,16 @@ Albums            | [Discogs](https://www.discogs.com/developers) | `Discogs:Tok
    Set `Rawg:ApiKey` (or `Rawg__ApiKey`) to that key.
 4. **Discogs**: create a free account, then generate a personal access token at [discogs.com/settings/developers](https://www.discogs.com/settings/developers).
    Set `Discogs:Token` (or `Discogs__Token`) to that token.
+5. **Google Books**: create a project in [Google Cloud Console](https://console.cloud.google.com/), enable the Books API, then generate an API key.
+   Set `GoogleBooks:ApiKey` (or `GoogleBooks__ApiKey`) to that key.
 
 Without a key/token for a given provider, new items of that type simply stay unresolved (no synopsis, no cover art) instead of erroring.
 The app degrades gracefully per type - it just won't auto-match that type until the corresponding setting is provided.
 
-Unlike the other three, books are resolved through a provider-agnostic `IBookReferenceClient` interface (`src/WebApi/ReferenceData/`).
-Which book provider is active is itself a setting: `ReferenceData:BookProvider` (or the `ReferenceData__BookProvider` environment variable), defaulting to `OpenLibrary`.
-`src/WebApi/Program.cs` switches on this value to decide which implementation to register - `OpenLibrary` is the only one that ships today.
-To add a new book provider, implement `IBookReferenceClient` (a new client class alongside `OpenLibraryClient.cs`, plus its own settings class if it needs an API key, following `RawgSettings`/`DiscogsSettings`).
-Also add a matching `case` to that switch.
+Unlike the other three, books are resolved through a provider-agnostic `IBookReferenceClient` interface (`src/WebApi/ReferenceData/`), and it's the one reference domain with more than one provider registered at once: `GoogleBooksClient` (key `googlebooks`, the default - real synopses, cover art, language and the widest catalogue coverage of the three, including manga/comics), `OpenLibraryClient` (key `openlibrary`, no API key needed, kept as a fallback), and `BnfClient` (key `bnf`, BnF's free/keyless SRU Catalogue général, also kept as a fallback - in practice its records tend to have long library-catalogue-style titles, no cover art, and little to no synopsis, so it's rarely the best choice, but it can still surface a French title neither of the other two has).
+`src/WebApi/Program.cs` registers every implemented provider unconditionally; `BookReferenceClientRegistry` resolves a provider by key, falling back to `ReferenceData:BookProvider` (or the `ReferenceData__BookProvider` environment variable, default `googlebooks`) when none is specified.
+An admin can pick any registered provider per search/link action from the reference-data admin page or a book's own detail page, regardless of that default.
+To add a new book provider, implement `IBookReferenceClient` (a new client class alongside `GoogleBooksClient.cs`/`OpenLibraryClient.cs`/`BnfClient.cs`, plus its own settings class if it needs an API key, following `RawgSettings`/`DiscogsSettings`) and add one registration block to `Program.cs` - no changes needed to the registry, enrichment service, admin controller, or admin UI.
 Nothing else in the app needs to change, since `ReferenceEnrichmentService`/`ReferenceDataAdminController` only depend on the interface and read the active provider's key from `IBookReferenceClient.ProviderKey`.
 
 ### Admin role
@@ -376,6 +378,7 @@ Variable          | Default                             | Purpose
 `E2E_TRACE`       | `on-failure`                        | `off`, `on` or `on-failure`; traces/screenshots land in `bin/<config>/net10.0/e2e-diagnostics`
 `E2E_SCREENSHOTS` | `false`                             | Opt-in for `MobileScreenshotTest`, an assertion-free visual-review walkthrough: seeds representative data, captures every page at a phone viewport, cleans up after itself
 `E2E_SHOTS_DIR`   | `bin/<config>/net10.0/mobile-shots` | Where `MobileScreenshotTest` writes its captures
+`GOOGLE_BOOKS_SMOKE_ENABLED` | `false`                   | Opt-in for `GoogleBooksSmokeTest`, which links a real book through the actual Google Books provider (requires `GoogleBooks:ApiKey` to be configured) - kept opt-in rather than always-on since Google's API has been observed to occasionally return a transient 503
 
 Integration mode (the common local/CI case) reuses the same MongoDB/Firebase variables as the integration tests above, pointed at a dedicated database (e.g. `keeptrack_e2e`), plus `E2E_ENABLED=true`:
 
