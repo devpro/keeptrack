@@ -7,22 +7,22 @@
     <AuthorizeView>
         <Authorized>
             <div class="kt-home-eyebrow">Your personal collection</div>
-            @if (_stats is not null && TotalItems > 0)
+            @if (Stats is not null && TotalItems > 0)
             {
                 <h1>Welcome back —<br/><em>@TotalItems.ToString("N0") things remembered.</em></h1>
                 <p class="kt-home-sub">
-                    Good work building this up@(_stats.EpisodesWatched > 0 ? $" — including {_stats.EpisodesWatched:N0} episodes watched across your shows" : "").
+                    Good work building this up@(Stats.EpisodesWatched > 0 ? $" — including {Stats.EpisodesWatched:N0} episodes watched across your shows" : "").
                     Every entry below is one more thing you'll never lose.
                 </p>
                 <div class="kt-stat-grid">
-                    <a class="kt-stat-tile" href="/movies"><span class="kt-stat-value">@_stats.Movies</span><span class="kt-stat-label">Movies</span></a>
-                    <a class="kt-stat-tile" href="/tv-shows"><span class="kt-stat-value">@_stats.TvShows</span><span class="kt-stat-label">TV shows</span></a>
-                    <a class="kt-stat-tile" href="/books"><span class="kt-stat-value">@_stats.Books</span><span class="kt-stat-label">Books</span></a>
-                    <a class="kt-stat-tile" href="/albums"><span class="kt-stat-value">@_stats.Albums</span><span class="kt-stat-label">Albums</span></a>
-                    <a class="kt-stat-tile" href="/video-games"><span class="kt-stat-value">@_stats.VideoGames</span><span class="kt-stat-label">Video games</span></a>
-                    <a class="kt-stat-tile" href="/playlists"><span class="kt-stat-value">@_stats.Playlists</span><span class="kt-stat-label">Playlists</span></a>
-                    <a class="kt-stat-tile" href="/cars"><span class="kt-stat-value">@_stats.Cars</span><span class="kt-stat-label">Cars</span></a>
-                    <a class="kt-stat-tile" href="/houses"><span class="kt-stat-value">@_stats.Houses</span><span class="kt-stat-label">Houses</span></a>
+                    <a class="kt-stat-tile" href="/movies"><span class="kt-stat-value">@Stats.Movies</span><span class="kt-stat-label">Movies</span></a>
+                    <a class="kt-stat-tile" href="/tv-shows"><span class="kt-stat-value">@Stats.TvShows</span><span class="kt-stat-label">TV shows</span></a>
+                    <a class="kt-stat-tile" href="/books"><span class="kt-stat-value">@Stats.Books</span><span class="kt-stat-label">Books</span></a>
+                    <a class="kt-stat-tile" href="/albums"><span class="kt-stat-value">@Stats.Albums</span><span class="kt-stat-label">Albums</span></a>
+                    <a class="kt-stat-tile" href="/video-games"><span class="kt-stat-value">@Stats.VideoGames</span><span class="kt-stat-label">Video games</span></a>
+                    <a class="kt-stat-tile" href="/playlists"><span class="kt-stat-value">@Stats.Playlists</span><span class="kt-stat-label">Playlists</span></a>
+                    <a class="kt-stat-tile" href="/cars"><span class="kt-stat-value">@Stats.Cars</span><span class="kt-stat-label">Cars</span></a>
+                    <a class="kt-stat-tile" href="/houses"><span class="kt-stat-value">@Stats.Houses</span><span class="kt-stat-label">Houses</span></a>
                 </div>
             }
             else
@@ -64,15 +64,26 @@
 @code {
     [CascadingParameter] private Task<AuthenticationState>? AuthenticationState { get; set; }
 
-    private CollectionStatsDto? _stats;
+    // Public property (a framework requirement for [PersistentState]): the stats fetched during the
+    // prerender pass are carried over to the interactive circuit, so the first interactive render reuses
+    // them instead of resetting to null and re-fetching - the cause of the visible summary -> empty ->
+    // summary flash on first load. CollectionStatsDto is a handful of counts, well within the Blazor hub's
+    // 32 KB message-size limit, so this follows the detail pages' [PersistentState] pattern rather than
+    // WatchNext/Wishlist's re-fetch-on-circuit-start one (see docs/prerender-flash-fix.md).
+    [PersistentState]
+    public CollectionStatsDto? Stats { get; set; }
 
     private long TotalItems =>
-        _stats is null
+        Stats is null
             ? 0
-            : _stats.Movies + _stats.TvShows + _stats.Books + _stats.Albums + _stats.VideoGames + _stats.Playlists + _stats.Cars + _stats.Houses;
+            : Stats.Movies + Stats.TvShows + Stats.Books + Stats.Albums + Stats.VideoGames + Stats.Playlists + Stats.Cars + Stats.Houses;
 
     protected override async Task OnInitializedAsync()
     {
+        // Stats already holds the prerendered data once [PersistentState] restores it on the interactive
+        // circuit - skip the redundant re-fetch.
+        if (Stats is not null) return;
+
         if (AuthenticationState is null) return;
 
         var authState = await AuthenticationState;
@@ -80,7 +91,7 @@
 
         try
         {
-            _stats = await StatsApi.GetAsync();
+            Stats = await StatsApi.GetAsync();
         }
         catch (Exception)
         {

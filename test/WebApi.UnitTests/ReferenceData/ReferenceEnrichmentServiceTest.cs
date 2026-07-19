@@ -285,18 +285,23 @@ public class ReferenceEnrichmentServiceTest
     }
 
     [Fact]
-    public async Task TryLinkExistingTvShowReferenceAsync_FallsBackToTitleOnlyMatch_WhenTitleYearMatchMisses()
+    public async Task TryLinkExistingTvShowReferenceAsync_DoesNotFallBackToTitleOnlyMatch_WhenTenantHasAYearButTitleYearMatchMisses()
     {
+        // regression test: a title-only fallback that ignores a tenant-recorded year risks matching a
+        // same-titled but genuinely different reference (e.g. "Road House" 1990 vs. 2024) - once the 2024
+        // remake is linked, checking for a match on the 1990 original must not silently attach it to the
+        // 2024 reference just because no (title, 1990) alias has been confirmed yet.
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
-        var model = new TvShowModel { Id = "show-1", OwnerId = "owner", Title = "Some Show", Year = 1999 };
-        _tvShowReferenceRepository.Setup(r => r.FindByTitleYearAsync("Some Show", 1999)).ReturnsAsync((TvShowReferenceModel?)null);
+        var model = new TvShowModel { Id = "show-1", OwnerId = "owner", Title = "Road House", Year = 1990 };
+        _tvShowReferenceRepository.Setup(r => r.FindByTitleYearAsync("Road House", 1990)).ReturnsAsync((TvShowReferenceModel?)null);
         _tvShowReferenceRepository
-            .Setup(r => r.FindByTitleAsync("Some Show"))
-            .ReturnsAsync(new TvShowReferenceModel { Id = "reference-1", Title = "Some Show", TitleNormalized = "some show", ExternalIds = [] });
+            .Setup(r => r.FindByTitleAsync("Road House"))
+            .ReturnsAsync(new TvShowReferenceModel { Id = "reference-2024", Title = "Road House", TitleNormalized = "road house", Year = 2024, ExternalIds = [] });
 
         var result = await service.TryLinkExistingTvShowReferenceAsync(model);
 
-        result.ReferenceId.Should().Be("reference-1");
+        result.ReferenceId.Should().BeNullOrEmpty();
+        _tvShowReferenceRepository.Verify(r => r.FindByTitleAsync(It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -360,6 +365,53 @@ public class ReferenceEnrichmentServiceTest
 
         result.ReferenceId.Should().BeEmpty();
         _movieRepository.Verify(r => r.UpdateAsync("movie-1", It.Is<MovieModel>(m => m.ReferenceId == string.Empty), "owner"), Times.Once);
+    }
+
+    [Fact]
+    public async Task TryLinkExistingMovieReferenceAsync_DoesNotFallBackToTitleOnlyMatch_WhenTenantHasAYearButTitleYearMatchMisses()
+    {
+        // same regression as the TvShow test above, for the Movie path - see that test's own comment
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+        var model = new MovieModel { Id = "movie-1", OwnerId = "owner", Title = "Road House", Year = 1990 };
+        _movieReferenceRepository.Setup(r => r.FindByTitleYearAsync("Road House", 1990)).ReturnsAsync((MovieReferenceModel?)null);
+        _movieReferenceRepository
+            .Setup(r => r.FindByTitleAsync("Road House"))
+            .ReturnsAsync(new MovieReferenceModel { Id = "reference-2024", Title = "Road House", TitleNormalized = "road house", Year = 2024, ExternalIds = [] });
+
+        var result = await service.TryLinkExistingMovieReferenceAsync(model);
+
+        result.ReferenceId.Should().BeNullOrEmpty();
+        _movieReferenceRepository.Verify(r => r.FindByTitleAsync(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ResolveMovieAsync_DoesNotMergeIntoAnUnrelatedSameTitledReference_WhenResolvingADifferentTmdbIdWithItsOwnKnownYear()
+    {
+        // regression test for the real bug report: linking "Road House" (2024, tmdbId "2024id") first, then
+        // resolving "Road House" (1990, tmdbId "1990id") separately, used to look up the existing reference
+        // by title only once the (title, 1990) alias came up empty - finding the 2024 document and reusing
+        // its Id for the upsert, which doesn't just link wrong, it overwrites the 2024 reference's own data
+        // with the 1990 movie's data (a de-facto merge of two distinct real movies into one document).
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.MovieDetails["1990id"] = new TmdbMovieDetails("1990id", "Road House", 1990, "1989 original synopsis", [], null);
+        _movieReferenceRepository
+            .Setup(r => r.FindByExternalIdAsync("tmdb", "1990id"))
+            .ReturnsAsync((MovieReferenceModel?)null);
+        _movieReferenceRepository
+            .Setup(r => r.FindByTitleYearAsync("Road House", 1990))
+            .ReturnsAsync((MovieReferenceModel?)null);
+        // the 2024 remake was already resolved and is the only thing a title-only lookup would find
+        _movieReferenceRepository
+            .Setup(r => r.FindByTitleAsync("Road House"))
+            .ReturnsAsync(new MovieReferenceModel { Id = "reference-2024", Title = "Road House", TitleNormalized = "road house", Year = 2024, ExternalIds = new Dictionary<string, string> { ["tmdb"] = "2024id" } });
+        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => { m.Id ??= "reference-1990"; return m; });
+        var service = CreateService(tmdbClient);
+
+        var result = await service.ResolveMovieAsync("Road House", 1990, "1990id");
+
+        result.Id.Should().NotBe("reference-2024");
+        _movieReferenceRepository.Verify(r => r.FindByTitleAsync(It.IsAny<string>()), Times.Never);
+        _movieReferenceRepository.Verify(r => r.UpsertAsync(It.Is<MovieReferenceModel>(m => m.Id != "reference-2024")), Times.Once);
     }
 
     [Fact]

@@ -18,8 +18,13 @@ public partial class ReferenceEnrichmentService
         // see TryLinkExistingTvShowReferenceAsync's empty-title guard
         if (string.IsNullOrWhiteSpace(model.Title)) return model;
 
-        var reference = await videoGameReferenceRepository.FindByTitleYearAsync(model.Title, model.Year)
-                        ?? await videoGameReferenceRepository.FindByTitleAsync(model.Title);
+        // see TryLinkExistingTvShowReferenceAsync's own comment - the title-only fallback must not run when
+        // the tenant has a specific year that simply has no confirmed alias
+        var reference = await videoGameReferenceRepository.FindByTitleYearAsync(model.Title, model.Year);
+        if (reference is null && model.Year is null)
+        {
+            reference = await videoGameReferenceRepository.FindByTitleAsync(model.Title);
+        }
 
         if (reference is null)
         {
@@ -67,9 +72,15 @@ public partial class ReferenceEnrichmentService
         var details = await rawgClient.GetGameDetailsAsync(externalId)
                       ?? throw new InvalidOperationException($"RAWG game {externalId} could not be fetched.");
 
+        // see ResolveTvShowAsync's own comment - the title-only fallback (which reuses existing.Id for the
+        // upsert) must not run when year is known but simply unconfirmed yet, or it risks overwriting an
+        // unrelated same-titled reference document instead of just linking wrong
         var existing = await videoGameReferenceRepository.FindByExternalIdAsync("rawg", externalId)
-                       ?? await videoGameReferenceRepository.FindByTitleYearAsync(title, year)
-                       ?? await videoGameReferenceRepository.FindByTitleAsync(title);
+                       ?? await videoGameReferenceRepository.FindByTitleYearAsync(title, year);
+        if (existing is null && year is null)
+        {
+            existing = await videoGameReferenceRepository.FindByTitleAsync(title);
+        }
         var externalIds = existing?.ExternalIds ?? new Dictionary<string, string>();
         externalIds["rawg"] = externalId;
 

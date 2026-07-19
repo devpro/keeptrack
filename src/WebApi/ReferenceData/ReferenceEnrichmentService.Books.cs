@@ -20,8 +20,13 @@ public partial class ReferenceEnrichmentService
         // see TryLinkExistingTvShowReferenceAsync's empty-title guard
         if (string.IsNullOrWhiteSpace(model.Title)) return model;
 
-        var reference = await bookReferenceRepository.FindByTitleYearAsync(model.Title, model.Year, model.Author)
-                        ?? await bookReferenceRepository.FindByTitleAsync(model.Title, model.Author);
+        // see TryLinkExistingTvShowReferenceAsync's own comment - the title-only fallback must not run when
+        // the tenant has a specific year that simply has no confirmed alias
+        var reference = await bookReferenceRepository.FindByTitleYearAsync(model.Title, model.Year, model.Author);
+        if (reference is null && model.Year is null)
+        {
+            reference = await bookReferenceRepository.FindByTitleAsync(model.Title, model.Author);
+        }
 
         if (reference is null)
         {
@@ -91,9 +96,15 @@ public partial class ReferenceEnrichmentService
         var details = await client.GetBookDetailsAsync(externalId)
                       ?? throw new InvalidOperationException($"Book {externalId} could not be fetched from {client.ProviderKey}.");
 
+        // see ResolveTvShowAsync's own comment - the title-only fallback (which reuses existing.Id for the
+        // upsert) must not run when year is known but simply unconfirmed yet, or it risks overwriting an
+        // unrelated same-titled reference document instead of just linking wrong
         var existing = await bookReferenceRepository.FindByExternalIdAsync(client.ProviderKey, externalId)
-                       ?? (details.Author is not null ? await bookReferenceRepository.FindByTitleYearAsync(title, year, details.Author) : null)
-                       ?? (details.Author is not null ? await bookReferenceRepository.FindByTitleAsync(title, details.Author) : null);
+                       ?? (details.Author is not null ? await bookReferenceRepository.FindByTitleYearAsync(title, year, details.Author) : null);
+        if (existing is null && year is null && details.Author is not null)
+        {
+            existing = await bookReferenceRepository.FindByTitleAsync(title, details.Author);
+        }
         var externalIds = existing?.ExternalIds ?? new Dictionary<string, string>();
         externalIds[client.ProviderKey] = externalId;
 

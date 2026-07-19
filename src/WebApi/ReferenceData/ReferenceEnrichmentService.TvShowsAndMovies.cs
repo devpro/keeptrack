@@ -37,8 +37,16 @@ public partial class ReferenceEnrichmentService
         // already-linked item - empty input must be a no-op, not an action
         if (string.IsNullOrWhiteSpace(model.Title)) return model;
 
-        var reference = await tvShowReferenceRepository.FindByTitleYearAsync(model.Title, model.Year)
-                        ?? await tvShowReferenceRepository.FindByTitleAsync(model.Title);
+        // the title-only fallback only fires when the tenant has no year recorded at all - the case it
+        // exists for (FindByTitleYearAsync(title, null) can only ever match a reference whose own Year is
+        // also null). When the tenant DOES have a year and it simply isn't a confirmed alias, falling back
+        // to title-only would ignore that year entirely and risk matching a same-titled but genuinely
+        // different reference (e.g. "Road House" 1990 vs. 2024) - don't guess, leave it unresolved instead.
+        var reference = await tvShowReferenceRepository.FindByTitleYearAsync(model.Title, model.Year);
+        if (reference is null && model.Year is null)
+        {
+            reference = await tvShowReferenceRepository.FindByTitleAsync(model.Title);
+        }
 
         if (reference is null)
         {
@@ -71,8 +79,13 @@ public partial class ReferenceEnrichmentService
         // see TryLinkExistingTvShowReferenceAsync's empty-title guard
         if (string.IsNullOrWhiteSpace(model.Title)) return model;
 
-        var reference = await movieReferenceRepository.FindByTitleYearAsync(model.Title, model.Year)
-                        ?? await movieReferenceRepository.FindByTitleAsync(model.Title);
+        // see TryLinkExistingTvShowReferenceAsync's own comment - the title-only fallback must not run when
+        // the tenant has a specific year that simply has no confirmed alias
+        var reference = await movieReferenceRepository.FindByTitleYearAsync(model.Title, model.Year);
+        if (reference is null && model.Year is null)
+        {
+            reference = await movieReferenceRepository.FindByTitleAsync(model.Title);
+        }
 
         if (reference is null)
         {
@@ -138,9 +151,16 @@ public partial class ReferenceEnrichmentService
         // tmdbId is checked first and is authoritative: two tenants resolving the exact same TMDB show under
         // different title text (a translation, a typo an admin corrected) must reuse the same reference
         // document, not create a duplicate - title/year matching alone can't guarantee that, only the id can.
+        // The title-only fallback below must not run when year is known but simply unconfirmed yet - it
+        // reuses existing.Id for the upsert, so falling back across a real year mismatch (e.g. "Road House"
+        // 1990 vs. 2024) wouldn't just link wrong, it would overwrite one reference document with the
+        // other's data. See TryLinkExistingTvShowReferenceAsync's own comment for the full rationale.
         var existing = await tvShowReferenceRepository.FindByExternalIdAsync("tmdb", tmdbId)
-                       ?? await tvShowReferenceRepository.FindByTitleYearAsync(title, year)
-                       ?? await tvShowReferenceRepository.FindByTitleAsync(title);
+                       ?? await tvShowReferenceRepository.FindByTitleYearAsync(title, year);
+        if (existing is null && year is null)
+        {
+            existing = await tvShowReferenceRepository.FindByTitleAsync(title);
+        }
         var externalIds = existing?.ExternalIds ?? new Dictionary<string, string>();
         externalIds["tmdb"] = tmdbId;
 
@@ -184,9 +204,14 @@ public partial class ReferenceEnrichmentService
         // tmdbId is checked first and is authoritative: two tenants resolving the exact same TMDB movie under
         // different title text (a translation, a typo an admin corrected) must reuse the same reference
         // document, not create a duplicate - title/year matching alone can't guarantee that, only the id can.
+        // See ResolveTvShowAsync's own comment for why the title-only fallback must not run when year is
+        // known but simply unconfirmed yet.
         var existing = await movieReferenceRepository.FindByExternalIdAsync("tmdb", tmdbId)
-                       ?? await movieReferenceRepository.FindByTitleYearAsync(title, year)
-                       ?? await movieReferenceRepository.FindByTitleAsync(title);
+                       ?? await movieReferenceRepository.FindByTitleYearAsync(title, year);
+        if (existing is null && year is null)
+        {
+            existing = await movieReferenceRepository.FindByTitleAsync(title);
+        }
         var externalIds = existing?.ExternalIds ?? new Dictionary<string, string>();
         externalIds["tmdb"] = tmdbId;
 

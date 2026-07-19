@@ -19,8 +19,13 @@ public partial class ReferenceEnrichmentService
         // see TryLinkExistingTvShowReferenceAsync's empty-title guard
         if (string.IsNullOrWhiteSpace(model.Title)) return model;
 
-        var reference = await albumReferenceRepository.FindByTitleYearAsync(model.Title, model.Year, model.Artist)
-                        ?? await albumReferenceRepository.FindByTitleAsync(model.Title, model.Artist);
+        // see TryLinkExistingTvShowReferenceAsync's own comment - the title-only fallback must not run when
+        // the tenant has a specific year that simply has no confirmed alias
+        var reference = await albumReferenceRepository.FindByTitleYearAsync(model.Title, model.Year, model.Artist);
+        if (reference is null && model.Year is null)
+        {
+            reference = await albumReferenceRepository.FindByTitleAsync(model.Title, model.Artist);
+        }
 
         if (reference is null)
         {
@@ -74,9 +79,15 @@ public partial class ReferenceEnrichmentService
         var details = await discogsClient.GetAlbumDetailsAsync(externalId)
                       ?? throw new InvalidOperationException($"Discogs master {externalId} could not be fetched.");
 
+        // see ResolveTvShowAsync's own comment - the title-only fallback (which reuses existing.Id for the
+        // upsert) must not run when year is known but simply unconfirmed yet, or it risks overwriting an
+        // unrelated same-titled reference document instead of just linking wrong
         var existing = await albumReferenceRepository.FindByExternalIdAsync("discogs", externalId)
-                       ?? (details.Artist is not null ? await albumReferenceRepository.FindByTitleYearAsync(title, year, details.Artist) : null)
-                       ?? (details.Artist is not null ? await albumReferenceRepository.FindByTitleAsync(title, details.Artist) : null);
+                       ?? (details.Artist is not null ? await albumReferenceRepository.FindByTitleYearAsync(title, year, details.Artist) : null);
+        if (existing is null && year is null && details.Artist is not null)
+        {
+            existing = await albumReferenceRepository.FindByTitleAsync(title, details.Artist);
+        }
         var externalIds = existing?.ExternalIds ?? new Dictionary<string, string>();
         externalIds["discogs"] = externalId;
 

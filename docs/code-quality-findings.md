@@ -6,6 +6,18 @@ Update this file as items are fixed or as new reviews are performed.
 
 ## Fixed
 
+### Title-only fallback ignored a tenant-recorded year, so two same-titled but genuinely different items (e.g. "Road House" 1990 vs. 2024) could be silently linked to the same reference document - or, worse, merged into one via `Resolve*Async`
+
+Found on 2026-07-19 (real user report: linking "Road House" (2024) then checking the 1990 original for a match linked it to the 2024 reference instead).
+Both `TryLinkExisting{TvShow,Movie,Book,VideoGame,Album}ReferenceAsync` **and** `Resolve{TvShow,Movie,Book,VideoGame,Album}Async` looked up `FindByTitleYearAsync(title, year)` and, on a miss, unconditionally fell back to `FindByTitleAsync(title)` - a title-only lookup that ignores year entirely.
+That fallback exists for a real need (a tenant with *no* year recorded at all can never match via the title+year query, since `MatchedAliases` requires both fields on the same element - see the "title-only fallback... must run unconditionally... when Year is null" note further up this codebase's history), but the fix that made it unconditional went too far: it also fired when the tenant/admin *had* a specific year that simply wasn't yet a confirmed alias, silently ignoring that year and matching whichever same-titled reference document `FindByTitleAsync` happened to return first.
+The `TryLinkExisting*` half of the bug was fixed first and initially believed to be the whole story, but the user reproduced the exact same symptom afterward - the real, more serious instance was in `Resolve*Async` (the method the admin's manual "link" action and the automatic single-candidate resolver actually call to create/upsert the reference document).
+There, the wrongly-matched document's `Id` is reused for the upsert (`Id = existing?.Id`), so a year-blind title-only match didn't just link the wrong reference - it **overwrote** the unrelated document (e.g. the 2024 remake's reference data got replaced by the 1990 original's), a de-facto merge of two distinct real items into one.
+Fixed in both call sites by only taking the title-only fallback when the caller's `year` is `null` - when a specific year is known but doesn't match, the item is left unresolved (or unlinked) rather than guessed at, consistent with this codebase's "don't guess when you don't have the info" principle elsewhere (Watch Next, `TryAutoResolve*Async`).
+Covered by `ReferenceEnrichmentServiceTest.TryLinkExisting{TvShow,Movie}ReferenceAsync_DoesNotFallBackToTitleOnlyMatch_WhenTenantHasAYearButTitleYearMatchMisses` and `ResolveMovieAsync_DoesNotMergeIntoAnUnrelatedSameTitledReference_WhenResolvingADifferentTmdbIdWithItsOwnKnownYear`.
+
+Files: `src/WebApi/ReferenceData/ReferenceEnrichmentService.TvShowsAndMovies.cs`, `.Books.cs`, `.Albums.cs`, `.VideoGames.cs`
+
 ### BnF's own `"and (bib.author ...)"` CQL combination is not a strict intersection - candidates not actually matching the requested author silently leaked into search results
 
 Found on 2026-07-19 (real user report: "when I search BnF it doesn't consider the author") while BnF was the second registered book provider.
