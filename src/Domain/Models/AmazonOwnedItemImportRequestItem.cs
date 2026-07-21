@@ -2,7 +2,7 @@ namespace Keeptrack.Domain.Models;
 
 /// <summary>
 /// One user-selected/edited row from the review UI, already translated from the web contract - the input
-/// to <see cref="Services.AmazonImportMergeService.ComputeCommitPlan{TModel,TRequestItem}"/> for the three
+/// to <see cref="Services.OwnedItemImportMergeService.ComputeCommitPlan{TModel,TRequestItem}"/> for the three
 /// domains that use <see cref="OwnedVersionModel"/> (Book, Movie, TvShow). See
 /// <see cref="AmazonVideoGameImportRequestItem"/> for VideoGame's own shape.
 /// </summary>

@@ -55,10 +55,10 @@ public class AmazonImportController(
         var existingVideoGames = await FindAllAsync(videoGameRepository, ownerId, new VideoGameModel { OwnerId = ownerId, Title = string.Empty });
 
         var alreadyImportedReferences = new HashSet<string>();
-        alreadyImportedReferences.UnionWith(AmazonImportMergeService.FindImportedReferences(existingBooks, b => b.OwnedVersions.Select(v => v.Reference)));
-        alreadyImportedReferences.UnionWith(AmazonImportMergeService.FindImportedReferences(existingMovies, m => m.OwnedVersions.Select(v => v.Reference)));
-        alreadyImportedReferences.UnionWith(AmazonImportMergeService.FindImportedReferences(existingTvShows, t => t.OwnedVersions.Select(v => v.Reference)));
-        alreadyImportedReferences.UnionWith(AmazonImportMergeService.FindImportedReferences(existingVideoGames, g => g.Platforms.Select(p => p.Reference)));
+        alreadyImportedReferences.UnionWith(OwnedItemImportMergeService.FindImportedReferences(existingBooks, b => b.OwnedVersions.Select(v => v.Reference)));
+        alreadyImportedReferences.UnionWith(OwnedItemImportMergeService.FindImportedReferences(existingMovies, m => m.OwnedVersions.Select(v => v.Reference)));
+        alreadyImportedReferences.UnionWith(OwnedItemImportMergeService.FindImportedReferences(existingTvShows, t => t.OwnedVersions.Select(v => v.Reference)));
+        alreadyImportedReferences.UnionWith(OwnedItemImportMergeService.FindImportedReferences(existingVideoGames, g => g.Platforms.Select(p => p.Reference)));
 
         await using var stream = file.OpenReadStream();
         var rows = AmazonOrderPreviewService.BuildPreview(stream, alreadyImportedReferences);
@@ -70,7 +70,7 @@ public class AmazonImportController(
     /// Creates/updates items from the rows the user selected in the review UI, grouped by the media type
     /// each row was assigned. A row whose (normalized) title matches an existing item of the same type - or
     /// one created earlier in this same request - gets an additional owned copy instead of a duplicate
-    /// item; see <see cref="AmazonImportMergeService.ComputeCommitPlan{TModel,TRequestItem}"/>.
+    /// item; see <see cref="OwnedItemImportMergeService.ComputeCommitPlan{TModel,TRequestItem}"/>.
     /// </summary>
     [HttpPost("commit")]
     [ProducesResponseType(200)]
@@ -228,7 +228,7 @@ public class AmazonImportController(
         string ownerId)
         where TModel : class, IHasIdAndOwnerId
     {
-        var plan = AmazonImportMergeService.ComputeCommitPlan(
+        var plan = OwnedItemImportMergeService.ComputeCommitPlan(
             existingItems, requestItems, getExistingTitle, getExistingReferences, getItemTitle, getItemReference, createNew, appendOwnedCopy);
 
         foreach (var item in plan.ItemsToCreate)

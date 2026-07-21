@@ -119,6 +119,13 @@ else
                         <TrashIcon/>
                     </button>
                 </ButtonRowSuffix>
+                <ExtraFields>
+                    <div class="col-6 col-md">
+                        <label class="form-label">Product</label>
+                        <input class="form-control form-control-sm" placeholder="Store product/edition name…"
+                               value="@entry.ProductName" @onchange="e => SetPlatformProductNameAsync(entry, e)"/>
+                    </div>
+                </ExtraFields>
             </OwnedVersionFields>
 
             <div class="d-flex gap-2 mt-3 flex-wrap align-items-center">
@@ -348,7 +355,8 @@ else
         && entry.Price is null
         && entry.AcquiredAt is null
         && string.IsNullOrWhiteSpace(entry.Vendor)
-        && string.IsNullOrWhiteSpace(entry.Reference);
+        && string.IsNullOrWhiteSpace(entry.Reference)
+        && string.IsNullOrWhiteSpace(entry.ProductName);
 
     /// <summary>
     /// Clicking the already-active state button clears it back to unset - same toggle-off-on-reclick
@@ -364,6 +372,12 @@ else
     private async Task SetPlatformCompletedDateAsync(VideoGamePlatformDto entry, ChangeEventArgs e)
     {
         entry.CompletedAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
+        await SaveGameAsync();
+    }
+
+    private async Task SetPlatformProductNameAsync(VideoGamePlatformDto entry, ChangeEventArgs e)
+    {
+        entry.ProductName = e.Value?.ToString();
         await SaveGameAsync();
     }
 

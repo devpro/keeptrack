@@ -1,7 +1,7 @@
 namespace Keeptrack.Domain.Models;
 
 /// <summary>
-/// VideoGame's own shape for <see cref="Services.AmazonImportMergeService.ComputeCommitPlan{TModel,TRequestItem}"/> -
+/// VideoGame's own shape for <see cref="Services.OwnedItemImportMergeService.ComputeCommitPlan{TModel,TRequestItem}"/> -
 /// <see cref="VideoGameModel"/> has no <see cref="OwnedVersionModel"/> concept, using
 /// <see cref="VideoGamePlatformModel"/> (with a required platform name Amazon's export can never supply)
 /// instead. See <see cref="AmazonOwnedItemImportRequestItem"/> for Book/Movie/TvShow's shared shape.
