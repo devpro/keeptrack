@@ -41,4 +41,22 @@ public class AmazonImportCommitResultDto
 
     /// <summary>Rows whose order reference already matched an existing platform entry - not duplicated.</summary>
     public int VideoGamesSkipped { get; set; }
+
+    /// <summary>Brand new gear items created.</summary>
+    public int GearCreated { get; set; }
+
+    /// <summary>Existing gear items (including ones created earlier in this same commit) that received an additional owned version.</summary>
+    public int GearMergedInto { get; set; }
+
+    /// <summary>Rows whose order reference already matched an existing owned version - not duplicated.</summary>
+    public int GearSkipped { get; set; }
+
+    /// <summary>Brand new collectibles created.</summary>
+    public int CollectiblesCreated { get; set; }
+
+    /// <summary>Existing collectibles (including ones created earlier in this same commit) that received an additional owned version.</summary>
+    public int CollectiblesMergedInto { get; set; }
+
+    /// <summary>Rows whose order reference already matched an existing owned version - not duplicated.</summary>
+    public int CollectiblesSkipped { get; set; }
 }

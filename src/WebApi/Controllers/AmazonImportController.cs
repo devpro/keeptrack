@@ -11,7 +11,7 @@ namespace Keeptrack.WebApi.Controllers;
 
 /// <summary>
 /// Previews an Amazon.fr order-history export and commits the rows the user selected/edited in the review
-/// UI as books, movies, TV shows, or video games (picked per row - see <see cref="AmazonImportMediaType"/>).
+/// UI as books, movies, TV shows, video games, gear, or collectibles (picked per row - see <see cref="AmazonImportMediaType"/>).
 /// Synchronous on both ends: unlike the TV Time import, there is no external API call in the loop, so even
 /// a multi-year export completes well within a normal request.
 /// </summary>
@@ -23,6 +23,8 @@ public class AmazonImportController(
     IMovieRepository movieRepository,
     ITvShowRepository tvShowRepository,
     IVideoGameRepository videoGameRepository,
+    IGearRepository gearRepository,
+    ICollectibleRepository collectibleRepository,
     AmazonOrderPreviewRowDtoMapper previewMapper) : ControllerBase
 {
     /// <summary>
@@ -53,12 +55,16 @@ public class AmazonImportController(
         var existingMovies = await FindAllAsync(movieRepository, ownerId, new MovieModel { OwnerId = ownerId, Title = string.Empty });
         var existingTvShows = await FindAllAsync(tvShowRepository, ownerId, new TvShowModel { OwnerId = ownerId, Title = string.Empty });
         var existingVideoGames = await FindAllAsync(videoGameRepository, ownerId, new VideoGameModel { OwnerId = ownerId, Title = string.Empty });
+        var existingGear = await FindAllAsync(gearRepository, ownerId, new GearModel { OwnerId = ownerId, Title = string.Empty });
+        var existingCollectibles = await FindAllAsync(collectibleRepository, ownerId, new CollectibleModel { OwnerId = ownerId, Title = string.Empty });
 
         var alreadyImportedReferences = new HashSet<string>();
         alreadyImportedReferences.UnionWith(OwnedItemImportMergeService.FindImportedReferences(existingBooks, b => b.OwnedVersions.Select(v => v.Reference)));
         alreadyImportedReferences.UnionWith(OwnedItemImportMergeService.FindImportedReferences(existingMovies, m => m.OwnedVersions.Select(v => v.Reference)));
         alreadyImportedReferences.UnionWith(OwnedItemImportMergeService.FindImportedReferences(existingTvShows, t => t.OwnedVersions.Select(v => v.Reference)));
         alreadyImportedReferences.UnionWith(OwnedItemImportMergeService.FindImportedReferences(existingVideoGames, g => g.Platforms.Select(p => p.Reference)));
+        alreadyImportedReferences.UnionWith(OwnedItemImportMergeService.FindImportedReferences(existingGear, g => g.OwnedVersions.Select(v => v.Reference)));
+        alreadyImportedReferences.UnionWith(OwnedItemImportMergeService.FindImportedReferences(existingCollectibles, c => c.OwnedVersions.Select(v => v.Reference)));
 
         await using var stream = file.OpenReadStream();
         var rows = AmazonOrderPreviewService.BuildPreview(stream, alreadyImportedReferences);
@@ -89,6 +95,8 @@ public class AmazonImportController(
         var movieItems = request.Items.Where(i => i.MediaType == AmazonImportMediaType.Movie).ToList();
         var tvShowItems = request.Items.Where(i => i.MediaType == AmazonImportMediaType.TvShow).ToList();
         var videoGameItems = request.Items.Where(i => i.MediaType == AmazonImportMediaType.VideoGame).ToList();
+        var gearItems = request.Items.Where(i => i.MediaType == AmazonImportMediaType.Gear).ToList();
+        var collectibleItems = request.Items.Where(i => i.MediaType == AmazonImportMediaType.Collectible).ToList();
 
         foreach (var item in videoGameItems.Where(item => string.IsNullOrWhiteSpace(item.Platform)))
         {
@@ -171,6 +179,44 @@ public class AmazonImportController(
                 },
                 (game, item) => game.Platforms.Add(item.Platform), ownerId);
             (result.VideoGamesCreated, result.VideoGamesMergedInto, result.VideoGamesSkipped) = (created, mergedInto, skipped);
+        }
+
+        if (gearItems.Count > 0)
+        {
+            var existingGear = await FindAllAsync(gearRepository, ownerId, new GearModel { OwnerId = ownerId, Title = string.Empty });
+            var (created, mergedInto, skipped) = await CommitAsync(
+                gearRepository, existingGear, gearItems.Select(ToOwnedItemRequestItem).ToList(),
+                g => g.Title, g => g.OwnedVersions.Select(v => v.Reference),
+                i => i.Title, i => i.OwnedVersion.Reference,
+                item => new GearModel
+                {
+                    OwnerId = ownerId,
+                    Title = item.Title,
+                    Year = item.Year,
+                    Notes = AmazonImportMergeService.BuildAmazonProvenanceNotes(item.AmazonTitle, null),
+                    OwnedVersions = [item.OwnedVersion]
+                },
+                (gear, item) => gear.OwnedVersions.Add(item.OwnedVersion), ownerId);
+            (result.GearCreated, result.GearMergedInto, result.GearSkipped) = (created, mergedInto, skipped);
+        }
+
+        if (collectibleItems.Count > 0)
+        {
+            var existingCollectibles = await FindAllAsync(collectibleRepository, ownerId, new CollectibleModel { OwnerId = ownerId, Title = string.Empty });
+            var (created, mergedInto, skipped) = await CommitAsync(
+                collectibleRepository, existingCollectibles, collectibleItems.Select(ToOwnedItemRequestItem).ToList(),
+                c => c.Title, c => c.OwnedVersions.Select(v => v.Reference),
+                i => i.Title, i => i.OwnedVersion.Reference,
+                item => new CollectibleModel
+                {
+                    OwnerId = ownerId,
+                    Title = item.Title,
+                    Year = item.Year,
+                    Notes = AmazonImportMergeService.BuildAmazonProvenanceNotes(item.AmazonTitle, null),
+                    OwnedVersions = [item.OwnedVersion]
+                },
+                (collectible, item) => collectible.OwnedVersions.Add(item.OwnedVersion), ownerId);
+            (result.CollectiblesCreated, result.CollectiblesMergedInto, result.CollectiblesSkipped) = (created, mergedInto, skipped);
         }
 
         return Ok(result);

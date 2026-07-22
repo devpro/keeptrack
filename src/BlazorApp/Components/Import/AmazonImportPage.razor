@@ -76,6 +76,8 @@
                                 <option value="@AmazonImportMediaType.Movie">Movie</option>
                                 <option value="@AmazonImportMediaType.TvShow">TV show</option>
                                 <option value="@AmazonImportMediaType.VideoGame">Video game</option>
+                                <option value="@AmazonImportMediaType.Gear">Gear</option>
+                                <option value="@AmazonImportMediaType.Collectible">Collectible</option>
                             </select>
                         </td>
                         <td>
@@ -142,7 +144,9 @@
         <p class="mb-1"><strong>Books:</strong> @_commitResult.BooksCreated created, @_commitResult.BooksMergedInto merged into existing, @_commitResult.BooksSkipped already imported</p>
         <p class="mb-1"><strong>Movies:</strong> @_commitResult.MoviesCreated created, @_commitResult.MoviesMergedInto merged into existing, @_commitResult.MoviesSkipped already imported</p>
         <p class="mb-1"><strong>TV shows:</strong> @_commitResult.TvShowsCreated created, @_commitResult.TvShowsMergedInto merged into existing, @_commitResult.TvShowsSkipped already imported</p>
-        <p class="mb-0"><strong>Video games:</strong> @_commitResult.VideoGamesCreated created, @_commitResult.VideoGamesMergedInto merged into existing, @_commitResult.VideoGamesSkipped already imported</p>
+        <p class="mb-1"><strong>Video games:</strong> @_commitResult.VideoGamesCreated created, @_commitResult.VideoGamesMergedInto merged into existing, @_commitResult.VideoGamesSkipped already imported</p>
+        <p class="mb-1"><strong>Gear:</strong> @_commitResult.GearCreated created, @_commitResult.GearMergedInto merged into existing, @_commitResult.GearSkipped already imported</p>
+        <p class="mb-0"><strong>Collectibles:</strong> @_commitResult.CollectiblesCreated created, @_commitResult.CollectiblesMergedInto merged into existing, @_commitResult.CollectiblesSkipped already imported</p>
     </div>
 }
 

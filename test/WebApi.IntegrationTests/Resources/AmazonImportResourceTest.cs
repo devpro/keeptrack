@@ -33,10 +33,14 @@ public class AmazonImportResourceTest(KestrelWebAppFactory<Program> factory)
         var movieRow = preview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.MovieTitle).Subject;
         var tvShowRow = preview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.TvShowTitle).Subject;
         var videoGameRow = preview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.VideoGameTitle).Subject;
-        // none of these three have an ISBN-shaped ASIN - confirms the heuristic never mistakes them for books
+        var gearRow = preview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.GearTitle).Subject;
+        var collectibleRow = preview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.CollectibleTitle).Subject;
+        // none of these have an ISBN-shaped ASIN - confirms the heuristic never mistakes them for books
         movieRow.LooksLikeBook.Should().BeFalse();
         tvShowRow.LooksLikeBook.Should().BeFalse();
         videoGameRow.LooksLikeBook.Should().BeFalse();
+        gearRow.LooksLikeBook.Should().BeFalse();
+        collectibleRow.LooksLikeBook.Should().BeFalse();
 
         try
         {
@@ -57,7 +61,9 @@ public class AmazonImportResourceTest(KestrelWebAppFactory<Program> factory)
                     ToCommitItem(bookRow, AmazonImportMediaType.Book, isbn: bookRow.SuggestedIsbn, year: 1997),
                     ToCommitItem(movieRow, AmazonImportMediaType.Movie),
                     ToCommitItem(tvShowRow, AmazonImportMediaType.TvShow),
-                    ToCommitItem(videoGameRow, AmazonImportMediaType.VideoGame, platform: "PS5")
+                    ToCommitItem(videoGameRow, AmazonImportMediaType.VideoGame, platform: "PS5"),
+                    ToCommitItem(gearRow, AmazonImportMediaType.Gear),
+                    ToCommitItem(collectibleRow, AmazonImportMediaType.Collectible)
                 ]
             };
 
@@ -66,6 +72,8 @@ public class AmazonImportResourceTest(KestrelWebAppFactory<Program> factory)
             commitResult.MoviesCreated.Should().Be(1);
             commitResult.TvShowsCreated.Should().Be(1);
             commitResult.VideoGamesCreated.Should().Be(1);
+            commitResult.GearCreated.Should().Be(1);
+            commitResult.CollectiblesCreated.Should().Be(1);
 
             var books = await GetAsync<PagedResult<BookDto>>($"/api/books?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.BookTitle)}");
             var book = books.Items.Should().ContainSingle().Subject;
@@ -91,6 +99,16 @@ public class AmazonImportResourceTest(KestrelWebAppFactory<Program> factory)
             videoGame.Platforms[0].Platform.Should().Be("PS5");
             videoGame.Platforms[0].Reference.Should().Contain(AmazonFixtureCsvBuilder.VideoGameOrderId);
 
+            var gearList = await GetAsync<PagedResult<GearDto>>($"/api/gear?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.GearTitle)}");
+            var gear = gearList.Items.Should().ContainSingle().Subject;
+            gear.OwnedVersions.Should().ContainSingle();
+            gear.OwnedVersions[0].Reference.Should().Contain(AmazonFixtureCsvBuilder.GearOrderId);
+
+            var collectibles = await GetAsync<PagedResult<CollectibleDto>>($"/api/collectibles?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.CollectibleTitle)}");
+            var collectible = collectibles.Items.Should().ContainSingle().Subject;
+            collectible.OwnedVersions.Should().ContainSingle();
+            collectible.OwnedVersions[0].Reference.Should().Contain(AmazonFixtureCsvBuilder.CollectibleOrderId);
+
             // re-preview after commit: every just-imported order must now be flagged, regardless of which
             // type it was imported as, so re-uploading a newer export later doesn't silently duplicate any of them
             var secondPreview = await PostFileAsync<List<AmazonOrderPreviewRowDto>>("/api/import/amazon/preview", "file", csv, "orders.csv");
@@ -98,6 +116,8 @@ public class AmazonImportResourceTest(KestrelWebAppFactory<Program> factory)
             secondPreview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.MovieTitle && r.AlreadyImported);
             secondPreview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.TvShowTitle && r.AlreadyImported);
             secondPreview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.VideoGameTitle && r.AlreadyImported);
+            secondPreview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.GearTitle && r.AlreadyImported);
+            secondPreview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.CollectibleTitle && r.AlreadyImported);
 
             // committing the exact same rows again (e.g. the user re-runs the import without noticing the
             // "already imported" badge) must not duplicate anything - this is the bug reported in practice
@@ -108,12 +128,20 @@ public class AmazonImportResourceTest(KestrelWebAppFactory<Program> factory)
             secondCommitResult.MoviesSkipped.Should().Be(1);
             secondCommitResult.TvShowsSkipped.Should().Be(1);
             secondCommitResult.VideoGamesSkipped.Should().Be(1);
+            secondCommitResult.GearSkipped.Should().Be(1);
+            secondCommitResult.CollectiblesSkipped.Should().Be(1);
 
             var booksAfterReimport = await GetAsync<PagedResult<BookDto>>($"/api/books?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.BookTitle)}");
             booksAfterReimport.Items.Should().ContainSingle().Which.OwnedVersions.Should().ContainSingle();
 
             var videoGamesAfterReimport = await GetAsync<PagedResult<VideoGameDto>>($"/api/video-games?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.VideoGameTitle)}");
             videoGamesAfterReimport.Items.Should().ContainSingle().Which.Platforms.Should().ContainSingle();
+
+            var gearAfterReimport = await GetAsync<PagedResult<GearDto>>($"/api/gear?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.GearTitle)}");
+            gearAfterReimport.Items.Should().ContainSingle().Which.OwnedVersions.Should().ContainSingle();
+
+            var collectiblesAfterReimport = await GetAsync<PagedResult<CollectibleDto>>($"/api/collectibles?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.CollectibleTitle)}");
+            collectiblesAfterReimport.Items.Should().ContainSingle().Which.OwnedVersions.Should().ContainSingle();
         }
         finally
         {
@@ -139,6 +167,18 @@ public class AmazonImportResourceTest(KestrelWebAppFactory<Program> factory)
             foreach (var videoGame in videoGames.Items.Where(g => g.Id is not null))
             {
                 await DeleteAsync($"/api/video-games/{videoGame.Id}");
+            }
+
+            var gearList = await GetAsync<PagedResult<GearDto>>($"/api/gear?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.GearTitle)}");
+            foreach (var gear in gearList.Items.Where(g => g.Id is not null))
+            {
+                await DeleteAsync($"/api/gear/{gear.Id}");
+            }
+
+            var collectibles = await GetAsync<PagedResult<CollectibleDto>>($"/api/collectibles?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.CollectibleTitle)}");
+            foreach (var collectible in collectibles.Items.Where(c => c.Id is not null))
+            {
+                await DeleteAsync($"/api/collectibles/{collectible.Id}");
             }
         }
     }

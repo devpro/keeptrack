@@ -9,5 +9,7 @@ public enum AmazonImportMediaType
     Book,
     Movie,
     TvShow,
-    VideoGame
+    VideoGame,
+    Gear,
+    Collectible
 }

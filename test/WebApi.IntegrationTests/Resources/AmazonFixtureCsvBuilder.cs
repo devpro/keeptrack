@@ -38,6 +38,14 @@ internal static class AmazonFixtureCsvBuilder
     private const string VideoGameAsin = "B000000004";
     public const string VideoGameOrderId = "999-5555555-5555555";
 
+    public const string GearTitle = "Keeptrack Amazon Import Test Gear";
+    private const string GearAsin = "B000000005";
+    public const string GearOrderId = "999-8888888-8888888";
+
+    public const string CollectibleTitle = "Keeptrack Amazon Import Test Collectible";
+    private const string CollectibleAsin = "B000000006";
+    public const string CollectibleOrderId = "999-9999999-9999999";
+
     public static byte[] Build()
     {
         var csv = $"""
@@ -47,6 +55,8 @@ internal static class AmazonFixtureCsvBuilder
                    {MovieAsin},2019-05-01T10:00:00Z,{MovieOrderId},{MovieTitle},New,12.99,Amazon.fr
                    {TvShowAsin},2018-03-15T10:00:00Z,{TvShowOrderId},{TvShowTitle},New,29.99,Amazon.fr
                    {VideoGameAsin},2021-07-20T10:00:00Z,{VideoGameOrderId},{VideoGameTitle},New,49.99,Amazon.fr
+                   {GearAsin},2022-02-10T10:00:00Z,{GearOrderId},{GearTitle},New,89.99,Amazon.fr
+                   {CollectibleAsin},2023-11-05T10:00:00Z,{CollectibleOrderId},{CollectibleTitle},New,39.99,Amazon.fr
 
                    """;
         return Encoding.UTF8.GetBytes(csv);

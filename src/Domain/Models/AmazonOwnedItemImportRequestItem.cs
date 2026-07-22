@@ -2,8 +2,8 @@ namespace Keeptrack.Domain.Models;
 
 /// <summary>
 /// One user-selected/edited row from the review UI, already translated from the web contract - the input
-/// to <see cref="Services.OwnedItemImportMergeService.ComputeCommitPlan{TModel,TRequestItem}"/> for the three
-/// domains that use <see cref="OwnedVersionModel"/> (Book, Movie, TvShow). See
+/// to <see cref="Services.OwnedItemImportMergeService.ComputeCommitPlan{TModel,TRequestItem}"/> for the domains
+/// that use <see cref="OwnedVersionModel"/> (Book, Movie, TvShow, Gear, Collectible). See
 /// <see cref="AmazonVideoGameImportRequestItem"/> for VideoGame's own shape.
 /// </summary>
 public class AmazonOwnedItemImportRequestItem
@@ -19,7 +19,7 @@ public class AmazonOwnedItemImportRequestItem
 
     public int? Year { get; set; }
 
-    /// <summary>Book-only (null for Movie/TvShow) - see <see cref="Services.AmazonImportMergeService.BuildAmazonProvenanceNotes"/>.</summary>
+    /// <summary>Book-only (null for Movie/TvShow/Gear/Collectible) - see <see cref="Services.AmazonImportMergeService.BuildAmazonProvenanceNotes"/>.</summary>
     public string? Isbn { get; set; }
 
     public required OwnedVersionModel OwnedVersion { get; set; }
