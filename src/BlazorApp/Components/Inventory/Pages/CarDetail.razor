@@ -57,17 +57,18 @@ else
                 }
             </div>
         </div>
-        @if (!string.IsNullOrEmpty(Car.ImageUrl))
-        {
-            <div class="mt-3" style="overflow:hidden;border-radius:var(--kt-radius)">
-                <img src="@Car.ImageUrl" alt="@Car.Name" style="width:100%;max-height:320px;object-fit:cover;display:block"/>
-            </div>
-        }
         <div class="mt-3">
             <label class="form-label">Cover image URL</label>
             <input class="form-control form-control-sm" value="@Car.ImageUrl" @onchange="SaveImageUrlAsync"/>
         </div>
     </div>
+
+    @if (!string.IsNullOrEmpty(Car.ImageUrl))
+    {
+        <div class="kt-form-card p-0 mb-3" style="overflow:hidden">
+            <img src="@Car.ImageUrl" alt="@Car.Name" style="width:100%;max-height:320px;object-fit:cover;display:block"/>
+        </div>
+    }
 
     @if (HasMetricsToShow)
     {
