@@ -102,7 +102,7 @@ public class AlbumResourceTest(KestrelWebAppFactory<Program> factory)
             Title = title,
             Artist = "Owned Filter Artist",
             // "owned" is derived from having at least one owned version, not a stored flag
-            OwnedVersions = [new OwnedVersionDto { CopyType = CopyType.Physical, Price = 24.50m, Vendor = "Record store", Reference = "Vinyl reissue" }]
+            OwnedVersions = [new OwnedVersionDto { CopyType = CopyType.Physical, Price = 24.50m, Vendor = "Record store", Reference = "Vinyl reissue", ProductName = "Deluxe vinyl edition" }]
         });
         var notOwned = await PostAsync($"/{ResourceEndpoint}", new AlbumDto { Title = title, Artist = "Owned Filter Artist" });
 

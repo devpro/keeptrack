@@ -34,6 +34,13 @@
                     </button>
                 }
             </ButtonRowSuffix>
+            <ExtraFields>
+                <div class="col-6 col-md">
+                    <label class="form-label">Product</label>
+                    <input class="form-control form-control-sm" placeholder="Store product/edition name…"
+                           value="@version.ProductName" @onchange="e => SetProductNameAsync(version, e)"/>
+                </div>
+            </ExtraFields>
         </OwnedVersionFields>
         @if (isDraft)
         {
@@ -112,7 +119,14 @@
         version.Price is null
         && version.AcquiredAt is null
         && string.IsNullOrWhiteSpace(version.Vendor)
-        && string.IsNullOrWhiteSpace(version.Reference);
+        && string.IsNullOrWhiteSpace(version.Reference)
+        && string.IsNullOrWhiteSpace(version.ProductName);
+
+    private async Task SetProductNameAsync(OwnedVersionDto version, ChangeEventArgs e)
+    {
+        version.ProductName = e.Value?.ToString();
+        await NotifyChangedAsync(version);
+    }
 
     /// <summary>Saves after a mutation on a saved copy; a draft's edits stay local until its Save button.</summary>
     private async Task NotifyChangedAsync(OwnedVersionDto version)
