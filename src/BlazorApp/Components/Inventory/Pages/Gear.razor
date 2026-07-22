@@ -1,0 +1,64 @@
+@page "/gear"
+@inherits InventoryPageBase<GearDto>
+@attribute [Authorize]
+
+<InventoryList TDto="GearDto"
+               Title="Gear"
+               ItemName="Gear"
+               Route="@ListRoute"
+               Items="@(Items ?? [])"
+               Loading="@_loading"
+               Loaded="@_loaded"
+               Error="@_error"
+               Search="@_search"
+               Page="@_page"
+               TotalPages="@TotalPages"
+               TotalCount="@TotalCount"
+               ShowForm="@_showForm"
+               Form="@_form"
+               ItemTitle="@(gear => gear.Title)"
+               ItemImageUrl="@(gear => gear.ImageUrl)"
+               OnSearchKeyUp="@OnSearchKeyUp"
+               OnClearSearch="@ClearSearch"
+               OnGoToPage="@GoToPage"
+               OnShowAddForm="@ShowAddForm"
+               OnCancelForm="@CancelForm"
+               OnSave="@SaveAsync"
+               OnDelete="@DeleteAsync"
+               OnSearchChanged="@OnSearchChanged"
+               Sort="@_sort"
+               OnSortChanged="@SetSort">
+    <Filters>
+        <button class="btn btn-sm kt-toggle-btn @(FavoriteFilter ? "active" : "")" @onclick='() => ToggleFilter("favorite", FavoriteFilter)'>★ Favorites</button>
+        <button class="btn btn-sm kt-toggle-btn @(OwnedFilter ? "active" : "")" @onclick='() => ToggleFilter("owned", OwnedFilter)'>● Owned</button>
+    </Filters>
+    <MetaTemplate Context="gear">
+        @if (!string.IsNullOrEmpty(gear.Brand))
+        {
+            <span>@gear.Brand</span>
+        }
+        @if (gear.Year > 0)
+        {
+            <span>@gear.Year</span>
+        }
+        @if (gear.IsFavorite)
+        {
+            <span class="kt-flag-badge favorite">Favorite</span>
+        }
+        @if (gear.OwnedVersions.Count > 0)
+        {
+            <span class="kt-flag-badge">Owned</span>
+        }
+    </MetaTemplate>
+    <FormTemplate Context="gear">
+        <div class="col-12">
+            <input class="form-control" placeholder="Title" data-testid="title-input" @bind="gear.Title" />
+        </div>
+        <div class="col-12">
+            <input class="form-control" placeholder="Brand" @bind="gear.Brand" />
+        </div>
+        <div class="col-6 col-md-4">
+            <input class="form-control" placeholder="Year" @bind="gear.Year" type="number" min="1900" max="2100" />
+        </div>
+    </FormTemplate>
+</InventoryList>

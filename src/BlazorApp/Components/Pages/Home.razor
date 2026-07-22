@@ -33,6 +33,8 @@
                     <a class="kt-stat-tile" href="/playlists"><span class="kt-stat-value">@Stats.Playlists</span><span class="kt-stat-label">Playlists</span></a>
                     <a class="kt-stat-tile" href="/cars"><span class="kt-stat-value">@Stats.Cars</span><span class="kt-stat-label">Cars</span></a>
                     <a class="kt-stat-tile" href="/houses"><span class="kt-stat-value">@Stats.Houses</span><span class="kt-stat-label">Houses</span></a>
+                    <a class="kt-stat-tile" href="/collectibles"><span class="kt-stat-value">@Stats.Collectibles</span><span class="kt-stat-label">Collectibles</span></a>
+                    <a class="kt-stat-tile" href="/gear"><span class="kt-stat-value">@Stats.Gear</span><span class="kt-stat-label">Gear</span></a>
                 </div>
             }
             else
@@ -94,7 +96,7 @@
     private long TotalItems =>
         Stats is null
             ? 0
-            : Stats.Movies + Stats.TvShows + Stats.Books + Stats.Albums + Stats.VideoGames + Stats.Playlists + Stats.Cars + Stats.Houses;
+            : Stats.Movies + Stats.TvShows + Stats.Books + Stats.Albums + Stats.VideoGames + Stats.Playlists + Stats.Cars + Stats.Houses + Stats.Collectibles + Stats.Gear;
 
     protected override async Task OnInitializedAsync()
     {

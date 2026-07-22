@@ -19,6 +19,8 @@ builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<HouseDto, Keep
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<HouseHistoryDto, Keeptrack.Domain.Models.HouseHistoryModel>, Keeptrack.WebApi.Mappers.HouseHistoryDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<HealthProfileDto, Keeptrack.Domain.Models.HealthProfileModel>, Keeptrack.WebApi.Mappers.HealthProfileDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<HealthRecordDto, Keeptrack.Domain.Models.HealthRecordModel>, Keeptrack.WebApi.Mappers.HealthRecordDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<CollectibleDto, Keeptrack.Domain.Models.CollectibleModel>, Keeptrack.WebApi.Mappers.CollectibleDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<GearDto, Keeptrack.Domain.Models.GearModel>, Keeptrack.WebApi.Mappers.GearDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<EpisodeDto, Keeptrack.Domain.Models.EpisodeModel>, Keeptrack.WebApi.Mappers.EpisodeDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<MovieDto, Keeptrack.Domain.Models.MovieModel>, Keeptrack.WebApi.Mappers.MovieDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<AlbumDto, Keeptrack.Domain.Models.AlbumModel>, Keeptrack.WebApi.Mappers.AlbumDtoMapper>();

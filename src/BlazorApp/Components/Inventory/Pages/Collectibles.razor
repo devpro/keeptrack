@@ -1,0 +1,64 @@
+@page "/collectibles"
+@inherits InventoryPageBase<CollectibleDto>
+@attribute [Authorize]
+
+<InventoryList TDto="CollectibleDto"
+               Title="Collectibles"
+               ItemName="Collectible"
+               Route="@ListRoute"
+               Items="@(Items ?? [])"
+               Loading="@_loading"
+               Loaded="@_loaded"
+               Error="@_error"
+               Search="@_search"
+               Page="@_page"
+               TotalPages="@TotalPages"
+               TotalCount="@TotalCount"
+               ShowForm="@_showForm"
+               Form="@_form"
+               ItemTitle="@(collectible => collectible.Title)"
+               ItemImageUrl="@(collectible => collectible.ImageUrl)"
+               OnSearchKeyUp="@OnSearchKeyUp"
+               OnClearSearch="@ClearSearch"
+               OnGoToPage="@GoToPage"
+               OnShowAddForm="@ShowAddForm"
+               OnCancelForm="@CancelForm"
+               OnSave="@SaveAsync"
+               OnDelete="@DeleteAsync"
+               OnSearchChanged="@OnSearchChanged"
+               Sort="@_sort"
+               OnSortChanged="@SetSort">
+    <Filters>
+        <button class="btn btn-sm kt-toggle-btn @(FavoriteFilter ? "active" : "")" @onclick='() => ToggleFilter("favorite", FavoriteFilter)'>★ Favorites</button>
+        <button class="btn btn-sm kt-toggle-btn @(OwnedFilter ? "active" : "")" @onclick='() => ToggleFilter("owned", OwnedFilter)'>● Owned</button>
+    </Filters>
+    <MetaTemplate Context="collectible">
+        @if (!string.IsNullOrEmpty(collectible.Brand))
+        {
+            <span>@collectible.Brand</span>
+        }
+        @if (collectible.Year > 0)
+        {
+            <span>@collectible.Year</span>
+        }
+        @if (collectible.IsFavorite)
+        {
+            <span class="kt-flag-badge favorite">Favorite</span>
+        }
+        @if (collectible.OwnedVersions.Count > 0)
+        {
+            <span class="kt-flag-badge">Owned</span>
+        }
+    </MetaTemplate>
+    <FormTemplate Context="collectible">
+        <div class="col-12">
+            <input class="form-control" placeholder="Title" data-testid="title-input" @bind="collectible.Title" />
+        </div>
+        <div class="col-12">
+            <input class="form-control" placeholder="Brand" @bind="collectible.Brand" />
+        </div>
+        <div class="col-6 col-md-4">
+            <input class="form-control" placeholder="Year" @bind="collectible.Year" type="number" min="1900" max="2100" />
+        </div>
+    </FormTemplate>
+</InventoryList>

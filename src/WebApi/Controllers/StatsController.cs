@@ -22,7 +22,9 @@ public class StatsController(
     IPlaylistRepository playlistRepository,
     IVideoGameRepository videoGameRepository,
     ICarRepository carRepository,
-    IHouseRepository houseRepository) : ControllerBase
+    IHouseRepository houseRepository,
+    ICollectibleRepository collectibleRepository,
+    IGearRepository gearRepository) : ControllerBase
 {
     /// <summary>
     /// How many items the caller has in each collection.
@@ -43,7 +45,9 @@ public class StatsController(
             Playlists = await playlistRepository.CountAsync(ownerId),
             VideoGames = await videoGameRepository.CountAsync(ownerId),
             Cars = await carRepository.CountAsync(ownerId),
-            Houses = await houseRepository.CountAsync(ownerId)
+            Houses = await houseRepository.CountAsync(ownerId),
+            Collectibles = await collectibleRepository.CountAsync(ownerId),
+            Gear = await gearRepository.CountAsync(ownerId)
         });
     }
 }

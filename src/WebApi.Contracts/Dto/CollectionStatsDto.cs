@@ -31,4 +31,10 @@ public class CollectionStatsDto
 
     /// <summary>Number of houses.</summary>
     public long Houses { get; set; }
+
+    /// <summary>Number of collectibles.</summary>
+    public long Collectibles { get; set; }
+
+    /// <summary>Number of gear items.</summary>
+    public long Gear { get; set; }
 }
