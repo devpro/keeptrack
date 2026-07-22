@@ -110,6 +110,13 @@ else if (Data is not null)
 
     [Inject] private IJSRuntime JsRuntime { get; set; } = null!;
 
+    // Persisted in the URL (?tab=) the same way list pages persist search/page/filters - see
+    // InventoryPageBase's ApplyQueryChanges/SetFilter for the pattern this mirrors. Unlike a list page's
+    // query params, changing this one never triggers a reload: Data isn't query-dependent here (WishlistDto
+    // is one full, unpaged aggregate), so OnParametersSet only ever reparses the tab, it never calls LoadAsync.
+    [SupplyParameterFromQuery(Name = "tab")]
+    public string? TabQuery { get; set; }
+
     // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
     // _loaded tracks whether a load attempt has finished at all - both default false so the forced
     // render Blazor triggers right after the synchronous prefix of OnInitializedAsync (before any
@@ -136,6 +143,8 @@ else if (Data is not null)
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
+    protected override void OnParametersSet() => _tab = Enum.TryParse<Tab>(TabQuery, out var tab) ? tab : Tab.Movies;
+
     private async Task LoadAsync()
     {
         await LoadingIndicator.RunAsync(FetchAsync(), v => _loading = v, StateHasChanged);
@@ -148,7 +157,8 @@ else if (Data is not null)
         Data = await WishlistApi.GetAsync();
     }
 
-    private void SelectTab(Tab tab) => _tab = tab;
+    private void SelectTab(Tab tab) =>
+        Navigation.NavigateTo(Navigation.GetUriWithQueryParameters(new Dictionary<string, object?> { ["tab"] = tab.ToString() }));
 
     private async Task ToggleSharePanelAsync()
     {
