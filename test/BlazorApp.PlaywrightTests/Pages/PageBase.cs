@@ -93,5 +93,9 @@ public abstract class PageBase(IPage page)
 
     public Task<ListPage> OpenHealthAsync() => NavigateAsync("Health", new ListPage(Page, "/health", "Health"));
 
+    public Task<ListPage> OpenCollectiblesAsync() => NavigateAsync("Collectibles", new ListPage(Page, "/collectibles", "Collectibles"));
+
+    public Task<ListPage> OpenGearAsync() => NavigateAsync("Gear", new ListPage(Page, "/gear", "Gear"));
+
     public Task<HomePage> LogoutAsync() => NavigateAsync("Log out", new HomePage(Page));
 }

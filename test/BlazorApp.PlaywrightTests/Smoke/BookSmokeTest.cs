@@ -30,7 +30,7 @@ public class BookSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
         await detail.WaitForReadyAsync();
         await Assertions.Expect(detail.TitleInput).ToHaveValueAsync(title);
 
-        await BookDetailPage.SetFieldAsync(detail.SeriesInput, Series);
+        await DetailPageBase.SetFieldAsync(detail.SeriesInput, Series);
 
         // Round-tripping via the list (rather than a raw page reload) proves the edit persisted server-side just as well -
         // BookDetail.razor re-fetches via GetOneAsync on every navigation to it -

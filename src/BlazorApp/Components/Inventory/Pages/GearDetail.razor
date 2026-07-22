@@ -54,7 +54,7 @@ else
             </div>
             <div class="col-12">
                 <label class="form-label">Cover image URL</label>
-                <input class="form-control form-control-sm" value="@Item.ImageUrl" @onchange="SaveImageUrlAsync"/>
+                <input class="form-control form-control-sm" data-testid="image-url-input" value="@Item.ImageUrl" @onchange="SaveImageUrlAsync"/>
             </div>
         </div>
     </div>

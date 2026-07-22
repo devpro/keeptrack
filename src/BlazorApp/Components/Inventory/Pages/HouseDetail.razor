@@ -38,7 +38,7 @@ else
     @if (!string.IsNullOrEmpty(House.ImageUrl))
     {
         <div class="kt-form-card p-0 mb-3" style="overflow:hidden">
-            <img src="@House.ImageUrl" alt="@House.Name" style="width:100%;max-height:320px;object-fit:cover;display:block"/>
+            <img src="@House.ImageUrl" alt="@House.Name cover" style="width:100%;max-height:320px;object-fit:cover;display:block"/>
         </div>
     }
 
@@ -62,7 +62,7 @@ else
             </div>
             <div class="col-12">
                 <label class="form-label">Cover image URL</label>
-                <input class="form-control form-control-sm" value="@House.ImageUrl" @onchange="SaveImageUrlAsync"/>
+                <input class="form-control form-control-sm" data-testid="image-url-input" value="@House.ImageUrl" @onchange="SaveImageUrlAsync"/>
             </div>
         </div>
     </div>
