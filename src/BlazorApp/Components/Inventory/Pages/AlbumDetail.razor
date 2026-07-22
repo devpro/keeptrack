@@ -31,6 +31,17 @@ else
                     title="@(string.IsNullOrEmpty(Album.ReferenceId) ? "Check for reference match using the title and year below." : $"Linked to \"{Reference?.Title}\". Not right? Edit the title or year below, then check again.")">
                 <span class="@(_refreshingReference ? "kt-icon-spin" : "")">↻</span>
             </button>
+            @if (!string.IsNullOrEmpty(Album.ReferenceId))
+            {
+                <AuthorizeView Policy="AdminOnly">
+                    <Authorized>
+                        <button class="kt-icon-btn" title="Unlink and remove this reference" aria-label="Unlink reference"
+                                @onclick="() => _pendingUnlink = true">
+                            <TrashIcon/>
+                        </button>
+                    </Authorized>
+                </AuthorizeView>
+            }
             @if (_refreshMessage is not null)
             {
                 <span class="kt-inline-toast @_refreshMessageStyle">@_refreshMessage</span>
@@ -48,6 +59,12 @@ else
             </Authorized>
         </AuthorizeView>
     }
+
+    <ConfirmModal Show="_pendingUnlink"
+                  Title="Unlink this reference?"
+                  Message="This clears the link on this item and permanently deletes the matched reference data (cover, tracklist, artist). This can't be undone."
+                  ConfirmLabel="Unlink"
+                  OnConfirm="UnlinkReferenceAsync" OnCancel="() => _pendingUnlink = false"/>
 
     <div class="kt-form-card">
         @{ var coverUrl = !string.IsNullOrEmpty(Album.CustomImageUrl) ? Album.CustomImageUrl : Reference?.ImageUrl; }
@@ -167,6 +184,7 @@ else
     private string? _refreshMessage;
     private string _refreshMessageStyle = "neutral";
     private object? _refreshMessageToken;
+    private bool _pendingUnlink;
 
     /// <summary>Reuses <c>CastGrid</c>'s "photo + name" card for the single credited artist, instead of
     /// introducing a one-off component for what's visually the same layout as a TV/movie cast member.</summary>
@@ -301,6 +319,26 @@ else
         finally
         {
             _refreshingReference = false;
+        }
+
+        ScheduleRefreshMessageClear();
+    }
+
+    private async Task UnlinkReferenceAsync()
+    {
+        _pendingUnlink = false;
+        if (Album?.Id is null) return;
+
+        try
+        {
+            await AlbumApi.UnlinkReferenceAsync(Album.Id);
+            await LoadAsync();
+            (_refreshMessage, _refreshMessageStyle) = ("Unlinked and reference removed.", "success");
+        }
+        catch (Exception ex)
+        {
+            _refreshMessage = $"Error: {ex.Message}";
+            _refreshMessageStyle = "danger";
         }
 
         ScheduleRefreshMessageClear();

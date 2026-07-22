@@ -55,6 +55,24 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
+    /// Admin-triggered "unlink" for albums - see <see cref="UnlinkTvShowReferenceAsync"/> for the full
+    /// rationale (clears the tenant's link and permanently deletes the shared reference document, rather
+    /// than only detaching this one item).
+    /// </summary>
+    public async Task<AlbumModel> UnlinkAlbumReferenceAsync(AlbumModel model)
+    {
+        var referenceId = model.ReferenceId;
+        model.ReferenceId = string.Empty;
+        await albumRepository.UpdateAsync(model.Id!, model, model.OwnerId);
+        if (!string.IsNullOrEmpty(referenceId))
+        {
+            await albumReferenceRepository.DeleteAsync(referenceId);
+        }
+
+        return model;
+    }
+
+    /// <summary>
     /// Best-effort automatic match for albums - see <see cref="TryAutoResolveTvShowAsync"/>. Passing
     /// <paramref name="artist"/> narrows the Discogs search considerably - without it, a common album
     /// title easily returns more than one candidate and the match is correctly left for the admin queue.

@@ -31,6 +31,17 @@ else
                     title="@(string.IsNullOrEmpty(Game.ReferenceId) ? "Check for reference match using the title and year below." : $"Linked to \"{Reference?.Title}\". Not right? Edit the title or year below, then check again.")">
                 <span class="@(_refreshingReference ? "kt-icon-spin" : "")">↻</span>
             </button>
+            @if (!string.IsNullOrEmpty(Game.ReferenceId))
+            {
+                <AuthorizeView Policy="AdminOnly">
+                    <Authorized>
+                        <button class="kt-icon-btn" title="Unlink and remove this reference" aria-label="Unlink reference"
+                                @onclick="() => _pendingUnlink = true">
+                            <TrashIcon/>
+                        </button>
+                    </Authorized>
+                </AuthorizeView>
+            }
             @if (_refreshMessage is not null)
             {
                 <span class="kt-inline-toast @_refreshMessageStyle">@_refreshMessage</span>
@@ -49,6 +60,12 @@ else
             </Authorized>
         </AuthorizeView>
     }
+
+    <ConfirmModal Show="_pendingUnlink"
+                  Title="Unlink this reference?"
+                  Message="This clears the link on this item and permanently deletes the matched reference data (cover, synopsis, genres/platforms). This can't be undone."
+                  ConfirmLabel="Unlink"
+                  OnConfirm="UnlinkReferenceAsync" OnCancel="() => _pendingUnlink = false"/>
 
     var coverUrl = !string.IsNullOrEmpty(Game.CustomImageUrl) ? Game.CustomImageUrl : Reference?.ImageUrl;
     @if (!string.IsNullOrEmpty(coverUrl))
@@ -226,6 +243,7 @@ else
     private object? _refreshMessageToken;
     private VideoGamePlatformDto? _draftPlatform;
     private VideoGamePlatformDto? _pendingRemovePlatform;
+    private bool _pendingUnlink;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -442,6 +460,26 @@ else
         finally
         {
             _refreshingReference = false;
+        }
+
+        ScheduleRefreshMessageClear();
+    }
+
+    private async Task UnlinkReferenceAsync()
+    {
+        _pendingUnlink = false;
+        if (Game?.Id is null) return;
+
+        try
+        {
+            await VideoGameApi.UnlinkReferenceAsync(Game.Id);
+            await LoadAsync();
+            (_refreshMessage, _refreshMessageStyle) = ("Unlinked and reference removed.", "success");
+        }
+        catch (Exception ex)
+        {
+            _refreshMessage = $"Error: {ex.Message}";
+            _refreshMessageStyle = "danger";
         }
 
         ScheduleRefreshMessageClear();

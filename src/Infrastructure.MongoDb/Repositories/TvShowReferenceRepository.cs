@@ -86,4 +86,9 @@ public class TvShowReferenceRepository(IMongoDatabase mongoDatabase, TvShowRefer
 
         return mapper.ToModel(entity);
     }
+
+    public async Task DeleteAsync(string id)
+    {
+        await Collection.DeleteOneAsync(x => x.Id == id);
+    }
 }
