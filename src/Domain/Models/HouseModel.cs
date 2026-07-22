@@ -22,4 +22,9 @@ public class HouseModel : IHasIdAndOwnerId
     public DateOnly? MovedOutAt { get; set; }
 
     public string? Notes { get; set; }
+
+    /// <summary>
+    /// Tenant-owned cover image URL, shown on the list thumbnail and detail page header. Optional.
+    /// </summary>
+    public string? ImageUrl { get; set; }
 }

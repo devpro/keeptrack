@@ -24,13 +24,22 @@ else
 
     <div class="kt-page-header">
         <div class="kt-title-row">
+            <ItemThumb ImageUrl="@Profile.ImageUrl"/>
             <input class="kt-title-input" value="@Profile.Name" @onchange="SaveNameAsync"/>
         </div>
     </div>
 
     <div class="kt-form-card">
-        <label class="form-label">Notes</label>
-        <textarea class="form-control form-control-sm" rows="2" @onchange="SaveNotesAsync">@Profile.Notes</textarea>
+        <div class="row g-3">
+            <div class="col-12">
+                <label class="form-label">Notes</label>
+                <textarea class="form-control form-control-sm" rows="2" @onchange="SaveNotesAsync">@Profile.Notes</textarea>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Cover image URL</label>
+                <input class="form-control form-control-sm" value="@Profile.ImageUrl" @onchange="SaveImageUrlAsync"/>
+            </div>
+        </div>
     </div>
 
     @* No summary panels before the journal on purpose (owner feedback):
@@ -255,6 +264,13 @@ else
     {
         if (Profile is null) return;
         Profile.Notes = e.Value?.ToString();
+        await SaveProfileAsync();
+    }
+
+    private async Task SaveImageUrlAsync(ChangeEventArgs e)
+    {
+        if (Profile is null) return;
+        Profile.ImageUrl = e.Value?.ToString();
         await SaveProfileAsync();
     }
 

@@ -24,6 +24,7 @@ else
 
     <div class="kt-page-header">
         <div class="kt-title-row">
+            <ItemThumb ImageUrl="@Car.ImageUrl"/>
             <input class="kt-title-input" value="@Car.Name" @onchange="SaveNameAsync"/>
         </div>
     </div>
@@ -45,6 +46,10 @@ else
             <div class="col-md-4">
                 <label class="form-label">License plate</label>
                 <input class="form-control form-control-sm" value="@Car.LicensePlate" @onchange="SaveLicensePlateAsync"/>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Cover image URL</label>
+                <input class="form-control form-control-sm" value="@Car.ImageUrl" @onchange="SaveImageUrlAsync"/>
             </div>
         </div>
         <div class="mt-3">
@@ -359,6 +364,13 @@ else
     {
         if (Car is null) return;
         Car.EnergyType = energyType;
+        await SaveCarAsync();
+    }
+
+    private async Task SaveImageUrlAsync(ChangeEventArgs e)
+    {
+        if (Car is null) return;
+        Car.ImageUrl = e.Value?.ToString();
         await SaveCarAsync();
     }
 

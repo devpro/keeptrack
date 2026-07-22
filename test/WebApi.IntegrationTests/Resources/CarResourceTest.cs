@@ -36,6 +36,7 @@ public class CarResourceTest(KestrelWebAppFactory<Program> factory)
                 o.Year = f.Random.Int(1990, 2024);
                 o.LicensePlate = f.Random.AlphaNumeric(8);
                 o.EnergyType = CarEnergyType.Combustion;
+                o.ImageUrl = f.Internet.Url();
             })
             .Generate();
         var created = await PostAsync($"/{ResourceEndpoint}", input);
