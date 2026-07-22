@@ -15,4 +15,22 @@ internal static class ProviderResilienceExtensions
     /// </summary>
     internal static void AddProviderResilienceHandler(this IHttpClientBuilder builder) =>
         builder.AddStandardResilienceHandler(options => options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(10));
+
+    /// <summary>
+    /// Same pipeline as <see cref="AddProviderResilienceHandler"/>, with a larger retry budget - confirmed
+    /// against the real API that Google Books returns a transient 500/503 noticeably more often than
+    /// TMDB/RAWG/Discogs, and 3 retries (the shared default) isn't always enough to ride it out.
+    /// Applied to all three book providers (not just Google Books) for consistency, since Open Library/BnF
+    /// share the same registry/fallback shape and there's no reason to special-case just one of the three.
+    /// The retry delay is shortened (1s base instead of the default 2s) so the extra attempts still fit
+    /// comfortably under the widened total budget instead of mostly being eaten by exponential backoff.
+    /// </summary>
+    internal static void AddBookProviderResilienceHandler(this IHttpClientBuilder builder) =>
+        builder.AddStandardResilienceHandler(options =>
+        {
+            options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(10);
+            options.Retry.MaxRetryAttempts = 5;
+            options.Retry.Delay = TimeSpan.FromSeconds(1);
+            options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(40);
+        });
 }

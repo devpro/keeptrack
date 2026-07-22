@@ -70,20 +70,20 @@ builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.GoogleBooksClient>
 {
     client.BaseAddress = new Uri("https://www.googleapis.com/books/v1/");
     client.Timeout = Timeout.InfiniteTimeSpan;
-}).AddProviderResilienceHandler();
+}).AddBookProviderResilienceHandler();
 builder.Services.AddTransient<Keeptrack.WebApi.ReferenceData.IBookReferenceClient>(sp => sp.GetRequiredService<Keeptrack.WebApi.ReferenceData.GoogleBooksClient>());
 builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.OpenLibraryClient>(client =>
 {
     client.BaseAddress = new Uri("https://openlibrary.org/");
     client.DefaultRequestHeaders.Add("User-Agent", "Keeptrack/1.0 (+https://github.com/devpro/keeptrack)");
     client.Timeout = Timeout.InfiniteTimeSpan;
-}).AddProviderResilienceHandler();
+}).AddBookProviderResilienceHandler();
 builder.Services.AddTransient<Keeptrack.WebApi.ReferenceData.IBookReferenceClient>(sp => sp.GetRequiredService<Keeptrack.WebApi.ReferenceData.OpenLibraryClient>());
 builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.BnfClient>(client =>
 {
     client.BaseAddress = new Uri("https://catalogue.bnf.fr/api/");
     client.Timeout = Timeout.InfiniteTimeSpan;
-}).AddProviderResilienceHandler();
+}).AddBookProviderResilienceHandler();
 builder.Services.AddTransient<Keeptrack.WebApi.ReferenceData.IBookReferenceClient>(sp => sp.GetRequiredService<Keeptrack.WebApi.ReferenceData.BnfClient>());
 // a factory (not a plain AddScoped<BookReferenceClientRegistry>) so configuration.BookReferenceProvider -
 // a plain computed-on-access property, not cached - is read fresh on every scope, same "checked fresh"
