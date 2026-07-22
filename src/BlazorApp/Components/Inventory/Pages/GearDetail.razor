@@ -24,13 +24,19 @@ else
 
     <div class="kt-page-header">
         <div class="kt-title-row">
-            <ItemThumb ImageUrl="@Item.ImageUrl"/>
             <input class="kt-title-input" value="@Item.Title" @onchange="SaveTitleAsync"/>
         </div>
         <div class="d-flex gap-2">
             <button class="btn btn-sm kt-toggle-btn @(Item.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>
         </div>
     </div>
+
+    @if (!string.IsNullOrEmpty(Item.ImageUrl))
+    {
+        <div class="kt-form-card p-0 mb-3" style="overflow:hidden">
+            <img src="@Item.ImageUrl" alt="@Item.Title cover" style="width:100%;max-height:320px;object-fit:cover;display:block"/>
+        </div>
+    }
 
     <div class="kt-form-card">
         <div class="row g-3">

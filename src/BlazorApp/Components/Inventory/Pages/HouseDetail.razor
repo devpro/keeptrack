@@ -24,7 +24,6 @@ else
 
     <div class="kt-page-header">
         <div class="kt-title-row">
-            <ItemThumb ImageUrl="@House.ImageUrl"/>
             <input class="kt-title-input" value="@House.Name" @onchange="SaveNameAsync"/>
         </div>
     </div>
@@ -54,10 +53,16 @@ else
                 <label class="form-label">Notes</label>
                 <textarea class="form-control form-control-sm" rows="2" @onchange="SaveNotesAsync">@House.Notes</textarea>
             </div>
-            <div class="col-12">
-                <label class="form-label">Cover image URL</label>
-                <input class="form-control form-control-sm" value="@House.ImageUrl" @onchange="SaveImageUrlAsync"/>
+        </div>
+        @if (!string.IsNullOrEmpty(House.ImageUrl))
+        {
+            <div class="mt-3" style="overflow:hidden;border-radius:var(--kt-radius)">
+                <img src="@House.ImageUrl" alt="@House.Name" style="width:100%;max-height:320px;object-fit:cover;display:block"/>
             </div>
+        }
+        <div class="mt-3">
+            <label class="form-label">Cover image URL</label>
+            <input class="form-control form-control-sm" value="@House.ImageUrl" @onchange="SaveImageUrlAsync"/>
         </div>
     </div>
 
