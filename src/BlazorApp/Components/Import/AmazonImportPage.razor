@@ -127,7 +127,12 @@
             <p class="text-danger small mb-2">Pick a type for every selected row before importing.</p>
         }
 
-        <button class="btn btn-sm btn-primary mt-2" disabled="@(_committing || SelectedRows.Count() == 0 || SelectedRows.Any(r => r.MediaType is null))" @onclick="CommitAsync">
+        @if (SelectedRows.Any(IsMissingPlatform))
+        {
+            <p class="text-danger small mb-2">Pick a platform for every selected video game before importing.</p>
+        }
+
+        <button class="btn btn-sm btn-primary mt-2" disabled="@(_committing || SelectedRows.Count() == 0 || SelectedRows.Any(r => r.MediaType is null) || SelectedRows.Any(IsMissingPlatform))" @onclick="CommitAsync">
             Import selected (@SelectedRows.Count())
         </button>
     </div>
@@ -174,6 +179,8 @@
         .Where(r => !_hideAlreadyImported || !r.Preview.AlreadyImported);
 
     private IEnumerable<EditableRow> SelectedRows => _rows is null ? [] : _rows.Where(r => r.Selected);
+
+    private static bool IsMissingPlatform(EditableRow row) => row.MediaType == AmazonImportMediaType.VideoGame && string.IsNullOrEmpty(row.Platform);
 
     /// <summary>Drives the header checkbox: checked only once every currently-shown row is selected.</summary>
     private bool AllDisplayedSelected => DisplayedRows.Any() && DisplayedRows.All(r => r.Selected);
