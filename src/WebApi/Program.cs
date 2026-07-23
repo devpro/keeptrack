@@ -128,7 +128,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", policy => policy.RequireClaim("role", "admin"));
-    // members (and admins - a membership must never be *less* than the owner's own account) get the full app;
+    // members (and admins - a membership must never be *less* than the owner's own account) get the full app.
     // authenticated users without the role are the free preview tier (movies + TV shows, capped - see DataCrudControllerBase).
     // Granted the same way as admin: a Firebase custom claim role=member via the Admin SDK (see CONTRIBUTING.md).
     options.AddPolicy("MemberOnly", policy => policy.RequireClaim("role", "member", "admin"));

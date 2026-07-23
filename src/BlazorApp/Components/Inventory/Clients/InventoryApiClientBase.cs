@@ -42,7 +42,7 @@ public abstract class InventoryApiClientBase<TDto>(HttpClient http)
         var response = await http.PostAsJsonAsync($"{ApiResourceName}", movie);
         if (!response.IsSuccessStatusCode)
         {
-            // the API returns error bodies (free-tier quota 403s, ApiExceptionFilterAttribute's 400s/500s);
+            // the API returns error bodies (free-tier quota 403s, ApiExceptionFilterAttribute's 400s/500s) -
             // surfacing that text beats EnsureSuccessStatusCode's opaque "403 (Forbidden)" in the Add form
             var body = await response.Content.ReadFromJsonAsync<ApiError>();
             throw new InvalidOperationException(string.IsNullOrEmpty(body?.Error)

@@ -41,7 +41,7 @@ public class SystemStatusController(
         {
             InstanceName = Environment.MachineName,
             IsReferenceSyncEnabled = appConfiguration.IsReferenceSyncEnabled,
-            // the *default* provider used for automatic/background resolution - see BookReferenceClientRegistry;
+            // the *default* provider used for automatic/background resolution - see BookReferenceClientRegistry.
             // an admin can search/link with any registered provider regardless of this value (GET book-providers)
             BookProvider = string.IsNullOrEmpty(appConfiguration.BookReferenceProvider) ? "googlebooks" : appConfiguration.BookReferenceProvider,
             ReferenceSyncLease = lease is null
