@@ -115,7 +115,16 @@ else
                 </div>
                 <div class="mt-3">
                     <label class="form-label">ISBN</label>
-                    <input class="form-control form-control-sm" value="@Book.Isbn" @onchange="SaveIsbnAsync"/>
+                    <div class="d-flex gap-2 align-items-center">
+                        <input class="form-control form-control-sm" value="@Book.Isbn" @onchange="SaveIsbnAsync"/>
+                        @if (!string.IsNullOrEmpty(Book.Isbn) && ShowChasseAuxLivresLink)
+                        {
+                            <a class="kt-icon-btn" href="@($"https://www.chasse-aux-livres.fr/{Book.Isbn}")"
+                               target="_blank" rel="noopener noreferrer" title="Open on chasse-aux-livres.fr">
+                                <ExternalLinkIcon/>
+                            </a>
+                        }
+                    </div>
                 </div>
                 <div class="mt-3">
                     <label class="form-label">Cover image URL</label>
@@ -148,6 +157,8 @@ else
 
     [Inject] private ReferenceDataApiClient ReferenceDataApi { get; set; } = null!;
 
+    [Inject] private UserPreferencesApiClient PreferencesApi { get; set; } = null!;
+
     private static readonly TimeSpan RefreshMessageDuration = TimeSpan.FromSeconds(4);
 
     // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
@@ -166,6 +177,9 @@ else
 
     [PersistentState]
     public BookReferenceDto? Reference { get; set; }
+
+    [PersistentState]
+    public bool ShowChasseAuxLivresLink { get; set; }
     private bool _refreshingReference;
     private string? _refreshMessage;
     private string _refreshMessageStyle = "neutral";
@@ -196,6 +210,7 @@ else
     {
         Book = await BookApi.GetOneAsync(Id);
         Reference = string.IsNullOrEmpty(Book?.ReferenceId) ? null : await ReferenceDataApi.GetBookAsync(Book.ReferenceId);
+        ShowChasseAuxLivresLink = (await PreferencesApi.GetAsync()).ShowChasseAuxLivresLink;
     }
 
     private async Task SetRatingAsync(float rating)

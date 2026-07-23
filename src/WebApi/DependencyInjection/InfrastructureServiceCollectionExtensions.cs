@@ -46,6 +46,7 @@ internal static class InfrastructureServiceCollectionExtensions
 
         services.AddSingleton<BackgroundJobStorageMapper>();
         services.AddSingleton<WishlistShareStorageMapper>();
+        services.AddSingleton<UserPreferencesStorageMapper>();
         services.AddSingleton<TvShowReferenceStorageMapper>();
         services.AddSingleton<MovieReferenceStorageMapper>();
         services.AddSingleton<PersonReferenceStorageMapper>();
@@ -56,6 +57,7 @@ internal static class InfrastructureServiceCollectionExtensions
         services.TryAddScoped<Domain.Repositories.IBackgroundJobRepository, BackgroundJobRepository>();
         services.TryAddScoped<Domain.Repositories.IWishlistShareRepository, WishlistShareRepository>();
         services.TryAddScoped<Domain.Repositories.ILeaseRepository, LeaseRepository>();
+        services.TryAddScoped<Domain.Repositories.IUserPreferencesRepository, UserPreferencesRepository>();
         services.TryAddScoped<Domain.Repositories.IAlbumRepository, AlbumRepository>();
         services.TryAddScoped<Domain.Repositories.ISongRepository, SongRepository>();
         services.TryAddScoped<Domain.Repositories.IPlaylistRepository, PlaylistRepository>();

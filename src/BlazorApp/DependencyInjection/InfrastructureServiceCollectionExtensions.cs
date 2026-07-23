@@ -57,6 +57,8 @@ internal static class InfrastructureServiceCollectionExtensions
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
         services.AddHttpClient<Components.Pages.StatsApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
+        services.AddHttpClient<Components.Account.UserPreferencesApiClient>(client => client.BaseAddress = webApiUri)
+            .AddHttpMessageHandler<AuthenticationTokenHandler>();
         // deliberately NO AuthenticationTokenHandler: the shared-wishlist view is anonymous by design
         services.AddHttpClient<Components.Wishlist.SharedWishlistApiClient>(client => client.BaseAddress = webApiUri);
     }
