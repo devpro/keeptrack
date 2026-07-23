@@ -9,7 +9,7 @@ namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
 public class UserPreferencesRepository(IMongoDatabase mongoDatabase, UserPreferencesStorageMapper mapper) : IUserPreferencesRepository
 {
-    private const string CollectionName = "user_preferences";
+    private const string CollectionName = "user_preference";
 
     private IMongoCollection<UserPreferences> Collection => mongoDatabase.GetCollection<UserPreferences>(CollectionName);
 

@@ -3,10 +3,9 @@ using Keeptrack.Common.System;
 namespace Keeptrack.Domain.Models;
 
 /// <summary>
-/// One document per user, holding opt-in/opt-out toggles for features that are useful but not something
-/// every user wants surfaced (see <see cref="Repositories.IUserPreferencesRepository"/>). A new feature of
-/// this kind adds its own named boolean property here, the same convention every other flag in this
-/// codebase already follows (e.g. <see cref="MovieModel.IsFavorite"/>) - not a generic settings dictionary.
+/// One document per user (see <see cref="Repositories.IUserPreferencesRepository"/>). The opt-in/opt-out
+/// toggles themselves live under <see cref="Features"/>, not as flat properties here, so a new one only
+/// ever means adding a property to <see cref="UserPreferencesFeaturesModel"/>.
 /// </summary>
 public class UserPreferencesModel : IHasIdAndOwnerId
 {
@@ -14,9 +13,5 @@ public class UserPreferencesModel : IHasIdAndOwnerId
 
     public required string OwnerId { get; set; }
 
-    /// <summary>
-    /// Shows an "open in a new tab" link to https://www.chasse-aux-livres.fr/{isbn} next to a book's ISBN
-    /// field on <c>BookDetail.razor</c>, for users who use that site to price-check/verify French books.
-    /// </summary>
-    public bool ShowChasseAuxLivresLink { get; set; }
+    public UserPreferencesFeaturesModel Features { get; set; } = new();
 }

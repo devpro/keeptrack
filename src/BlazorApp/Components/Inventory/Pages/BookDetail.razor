@@ -157,7 +157,7 @@ else
 
     [Inject] private ReferenceDataApiClient ReferenceDataApi { get; set; } = null!;
 
-    [Inject] private UserPreferencesApiClient PreferencesApi { get; set; } = null!;
+    [Inject] private UserPreferencesState PreferencesState { get; set; } = null!;
 
     private static readonly TimeSpan RefreshMessageDuration = TimeSpan.FromSeconds(4);
 
@@ -210,7 +210,7 @@ else
     {
         Book = await BookApi.GetOneAsync(Id);
         Reference = string.IsNullOrEmpty(Book?.ReferenceId) ? null : await ReferenceDataApi.GetBookAsync(Book.ReferenceId);
-        ShowChasseAuxLivresLink = (await PreferencesApi.GetAsync()).ShowChasseAuxLivresLink;
+        ShowChasseAuxLivresLink = (await PreferencesState.GetAsync()).Features.ShowChasseAuxLivresLink;
     }
 
     private async Task SetRatingAsync(float rating)

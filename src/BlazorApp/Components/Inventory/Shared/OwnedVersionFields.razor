@@ -1,4 +1,5 @@
 @using System.Globalization
+@inject UserPreferencesState PreferencesState
 
 @* Shared owned-copy field body (Physical/Digital toggle + price/acquired/vendor/reference) - used by
    OwnedVersionsEditor.razor (movie/TV show/book/album), VideoGameDetail.razor's per-platform cards, and
@@ -39,8 +40,17 @@
     </div>
     <div class="col-6 col-md">
         <label class="form-label">Reference</label>
-        <input class="form-control form-control-sm" placeholder="Edition, order number…" data-testid="version-reference-input"
-               value="@Copy.Reference" @onchange="SetReferenceAsync"/>
+        <div class="d-flex gap-2 align-items-center">
+            <input class="form-control form-control-sm" placeholder="Edition, order number…" data-testid="version-reference-input"
+                   value="@Copy.Reference" @onchange="SetReferenceAsync"/>
+            @if (_showAmazonProductLink && AmazonReference.TryExtractAsin(Copy.Reference) is { } asin)
+            {
+                <a class="kt-icon-btn" href="@AmazonReference.BuildProductUrl(asin, Copy.Vendor)"
+                   target="_blank" rel="noopener noreferrer" title="Open on Amazon">
+                    <ExternalLinkIcon/>
+                </a>
+            }
+        </div>
     </div>
     @ExtraFields
 </div>
@@ -53,6 +63,13 @@
     [Parameter] public RenderFragment? ButtonRowSuffix { get; set; }
 
     [Parameter] public RenderFragment? ExtraFields { get; set; }
+
+    private bool _showAmazonProductLink;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _showAmazonProductLink = (await PreferencesState.GetAsync()).Features.ShowAmazonProductLink;
+    }
 
     private Task SetCopyTypeAsync(CopyType copyType)
     {

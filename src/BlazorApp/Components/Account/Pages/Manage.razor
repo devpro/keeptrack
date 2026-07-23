@@ -1,6 +1,6 @@
 @page "/account/manage"
 @attribute [Authorize]
-@inject UserPreferencesApiClient PreferencesApi
+@inject UserPreferencesState PreferencesState
 
 <h1>Manage</h1>
 <AuthorizeView>
@@ -17,9 +17,16 @@
     <h3 class="mt-4">Preferences</h3>
     <div class="form-check">
         <input class="form-check-input" type="checkbox" id="pref-chasse-aux-livres-link"
-               checked="@_preferences.ShowChasseAuxLivresLink" @onchange="e => SetShowChasseAuxLivresLinkAsync((bool)e.Value!)"/>
+               checked="@_preferences.Features.ShowChasseAuxLivresLink" @onchange="e => SetFeatureAsync((f, v) => f.ShowChasseAuxLivresLink = v, (bool)e.Value!)"/>
         <label class="form-check-label" for="pref-chasse-aux-livres-link">
             Show chasse-aux-livres.fr link on book pages
+        </label>
+    </div>
+    <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="pref-amazon-product-link"
+               checked="@_preferences.Features.ShowAmazonProductLink" @onchange="e => SetFeatureAsync((f, v) => f.ShowAmazonProductLink = v, (bool)e.Value!)"/>
+        <label class="form-check-label" for="pref-amazon-product-link">
+            Show Amazon product link on owned copies imported from Amazon
         </label>
     </div>
 }
@@ -29,13 +36,13 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _preferences = await PreferencesApi.GetAsync();
+        _preferences = await PreferencesState.GetAsync();
     }
 
-    private async Task SetShowChasseAuxLivresLinkAsync(bool value)
+    private async Task SetFeatureAsync(Action<UserPreferencesFeaturesDto, bool> apply, bool value)
     {
         if (_preferences is null) return;
-        _preferences.ShowChasseAuxLivresLink = value;
-        await PreferencesApi.UpdateAsync(_preferences);
+        apply(_preferences.Features, value);
+        await PreferencesState.UpdateAsync(_preferences);
     }
 }

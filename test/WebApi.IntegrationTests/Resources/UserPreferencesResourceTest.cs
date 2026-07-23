@@ -30,7 +30,7 @@ public class UserPreferencesResourceTest(KestrelWebAppFactory<Program> factory)
 
         var preferences = await GetAsync<UserPreferencesDto>($"/{ResourceEndpoint}");
 
-        preferences.ShowChasseAuxLivresLink.Should().BeFalse();
+        preferences.Features.ShowChasseAuxLivresLink.Should().BeFalse();
     }
 
     [Fact]
@@ -38,13 +38,13 @@ public class UserPreferencesResourceTest(KestrelWebAppFactory<Program> factory)
     {
         await Authenticate();
 
-        await PutAsync($"/{ResourceEndpoint}", new UserPreferencesDto { ShowChasseAuxLivresLink = true });
+        await PutAsync($"/{ResourceEndpoint}", new UserPreferencesDto { Features = new UserPreferencesFeaturesDto { ShowChasseAuxLivresLink = true } });
         var afterFirstSave = await GetAsync<UserPreferencesDto>($"/{ResourceEndpoint}");
-        afterFirstSave.ShowChasseAuxLivresLink.Should().BeTrue();
+        afterFirstSave.Features.ShowChasseAuxLivresLink.Should().BeTrue();
 
         // a second PUT must update the same document (upsert by owner_id), not collide with the unique index
-        await PutAsync($"/{ResourceEndpoint}", new UserPreferencesDto { ShowChasseAuxLivresLink = false });
+        await PutAsync($"/{ResourceEndpoint}", new UserPreferencesDto { Features = new UserPreferencesFeaturesDto { ShowChasseAuxLivresLink = false } });
         var afterSecondSave = await GetAsync<UserPreferencesDto>($"/{ResourceEndpoint}");
-        afterSecondSave.ShowChasseAuxLivresLink.Should().BeFalse();
+        afterSecondSave.Features.ShowChasseAuxLivresLink.Should().BeFalse();
     }
 }

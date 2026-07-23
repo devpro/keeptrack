@@ -13,6 +13,6 @@ public class UserPreferences : IHasIdAndOwnerId
     [BsonElement("owner_id")]
     public required string OwnerId { get; set; }
 
-    [BsonElement("show_chasse_aux_livres_link")]
-    public bool ShowChasseAuxLivresLink { get; set; }
+    [BsonElement("features")]
+    public UserPreferencesFeatures Features { get; set; } = new();
 }

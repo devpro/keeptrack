@@ -271,7 +271,7 @@ ensureIndex(
   { name: "album_reference_discogs_id", unique: true, partialFilterExpression: { "external_ids.discogs": { $exists: true } } }
 );
 
-// user_preferences: exactly one document per owner (upserted by owner_id, never listed) - the unique
+// user_preference: exactly one document per owner (upserted by owner_id, never listed) - the unique
 // index is what actually guarantees that, the same way the application-level upsert-by-owner-id logic in
 // UserPreferencesRepository is only "supposed to" prevent a second document.
-ensureIndex(db.user_preferences, { owner_id: 1 }, { name: "user_preferences_owner", unique: true });
+ensureIndex(db.user_preference, { owner_id: 1 }, { name: "user_preference_owner", unique: true });
