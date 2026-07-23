@@ -48,6 +48,10 @@ else
                 <label class="form-label">Year</label>
                 <input class="form-control form-control-sm" type="number" min="1900" max="2100" value="@Item.Year" @onchange="SaveYearAsync"/>
             </div>
+            <div class="col-md-6">
+                <label class="form-label">Category</label>
+                <SuggestInput Value="@Item.Category" ValueChanged="SaveCategoryAsync" Suggestions="@_categories" Placeholder="e.g. Electronics"/>
+            </div>
             <div class="col-12">
                 <label class="form-label">Notes</label>
                 <textarea class="form-control form-control-sm" rows="2" @onchange="SaveNotesAsync">@Item.Notes</textarea>
@@ -75,12 +79,21 @@ else
     private bool _loading;
     private bool _loaded;
 
+    // Suggested values for the Category input's datalist - fetched once, not tied to Item/Id like the
+    // rest of this page's state (a category typed on this item shouldn't wait on a second round trip).
+    private List<string> _categories = [];
+
     // Public property (a framework requirement for [PersistentState]): the data loaded during the
     // prerender pass is carried over to the interactive circuit, so the first interactive render reuses
     // it instead of resetting to the spinner and re-fetching - same pattern as AlbumDetail/CarDetail.
     // Named "Item" rather than "Gear" - a property can't share its containing partial class's own name.
     [PersistentState]
     public GearDto? Item { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _categories = await GearApi.GetCategoriesAsync();
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -133,6 +146,13 @@ else
     {
         if (Item is null) return;
         Item.Year = int.TryParse(e.Value?.ToString(), out var year) ? year : null;
+        await SaveItemAsync();
+    }
+
+    private async Task SaveCategoryAsync(string? category)
+    {
+        if (Item is null) return;
+        Item.Category = category;
         await SaveItemAsync();
     }
 

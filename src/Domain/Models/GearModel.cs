@@ -13,6 +13,12 @@ public class GearModel : IHasIdAndOwnerId
 
     public string? Brand { get; set; }
 
+    /// <summary>
+    /// Free-text category (e.g. "Electronics", "Camping") - suggested from the tenant's other gear but
+    /// not a closed list. Unlike a blog's tags, one gear item has exactly one category.
+    /// </summary>
+    public string? Category { get; set; }
+
     public int? Year { get; set; }
 
     public string? Notes { get; set; }

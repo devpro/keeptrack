@@ -26,6 +26,13 @@ public class GearDto : IHasId
     public string? Brand { get; set; }
 
     /// <summary>
+    /// Free-text category (e.g. "Electronics", "Camping") - suggested from the tenant's other gear but
+    /// not a closed list. Unlike a blog's tags, one gear item has exactly one category.
+    /// </summary>
+    /// <example>Electronics</example>
+    public string? Category { get; set; }
+
+    /// <summary>
     /// Year.
     /// </summary>
     public int? Year { get; set; }

@@ -998,6 +998,60 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   flex: 0 0 auto;
 }
 
+/* Gear's category filter, sizing SuggestInput.razor's wrapper to a fixed compact width instead of the
+   .form-control default of 100% - a percentage width inside a flex row (like .kt-search-filters) resolves
+   against the row's own size, which is what pushed the whole filters row onto a wrapped second line for
+   no reason. Same fixed-width-flex-item shape as .kt-sort-select above, just wide enough for typed text. */
+.kt-category-select {
+  width: 150px;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 576px) {
+  .kt-category-select { width: 45vw; }
+}
+
+/* ── Suggest input (SuggestInput.razor) ───────────────────────────────
+   A plain text input with a filtered, click-to-fill suggestion menu - the app's own dark-themed
+   replacement for an HTML <datalist> popup, which is unstyleable browser chrome that ignores
+   data-bs-theme and floats over whatever markup sits below it. */
+.kt-autocomplete {
+  position: relative;
+}
+.kt-autocomplete-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--kt-surface-2);
+  border: 1px solid var(--kt-border);
+  border-radius: var(--kt-radius);
+  box-shadow: var(--kt-shadow);
+}
+.kt-autocomplete-item {
+  padding: 0.4rem 0.65rem;
+  border-radius: calc(var(--kt-radius) - 4px);
+  font-size: 0.85rem;
+  color: var(--kt-text);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kt-autocomplete-item:hover {
+  background: var(--kt-surface-3);
+}
+.kt-autocomplete-item.active {
+  background: var(--kt-accent-glow);
+  color: var(--kt-accent);
+}
+
 .kt-search-filters {
   display: flex;
   align-items: center;

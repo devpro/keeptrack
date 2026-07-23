@@ -28,15 +28,30 @@
                OnDelete="@DeleteAsync"
                OnSearchChanged="@OnSearchChanged"
                Sort="@_sort"
-               OnSortChanged="@SetSort">
+               OnSortChanged="@SetSort"
+               ExtraSortValue="@ListSort.Bought"
+               ExtraSortLabel="Bought">
     <Filters>
         <button class="btn btn-sm kt-toggle-btn @(FavoriteFilter ? "active" : "")" @onclick='() => ToggleFilter("favorite", FavoriteFilter)'>★ Favorites</button>
         <button class="btn btn-sm kt-toggle-btn @(OwnedFilter ? "active" : "")" @onclick='() => ToggleFilter("owned", OwnedFilter)'>● Owned</button>
+        @if (Categories.Count > 0)
+        {
+            @* a button per category (VideoGame's State pattern) doesn't scale here - Category is an open,
+               tenant-grown list rather than a small fixed set. A plain <select> was tried and dropped: its
+               required width:100% fought the flex row's own sizing and forced the whole Filters group onto
+               a wrapped second line even with room to spare - SuggestInput is a fixed-width flex item instead. *@
+            <SuggestInput Value="@CategoryFilter" ValueChanged="@(v => SetFilter("category", v))"
+                          Suggestions="@Categories" Placeholder="Category" CssClass="kt-category-select"/>
+        }
     </Filters>
     <MetaTemplate Context="gear">
         @if (!string.IsNullOrEmpty(gear.Brand))
         {
             <span>@gear.Brand</span>
+        }
+        @if (!string.IsNullOrEmpty(gear.Category))
+        {
+            <span>@gear.Category</span>
         }
         @if (gear.Year > 0)
         {

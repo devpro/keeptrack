@@ -17,6 +17,13 @@ public partial class Gear : InventoryPageBase<GearDto>
     [SupplyParameterFromQuery(Name = "owned")]
     public bool OwnedFilter { get; set; }
 
+    [SupplyParameterFromQuery(Name = "category")]
+    public string? CategoryFilter { get; set; }
+
+    /// <summary>Distinct categories across this tenant's gear, for the Filters row - fetched once, not
+    /// tied to search/page/sort state like <see cref="InventoryPageBase{TDto}.Items"/> is.</summary>
+    protected List<string> Categories { get; private set; } = [];
+
     protected override IReadOnlyDictionary<string, string>? ExtraQuery
     {
         get
@@ -24,7 +31,14 @@ public partial class Gear : InventoryPageBase<GearDto>
             var query = new Dictionary<string, string>();
             if (FavoriteFilter) query["IsFavorite"] = "true";
             if (OwnedFilter) query["IsOwned"] = "true";
+            if (!string.IsNullOrEmpty(CategoryFilter)) query["Category"] = CategoryFilter;
             return query.Count > 0 ? query : null;
         }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        Categories = await GearApi.GetCategoriesAsync();
     }
 }

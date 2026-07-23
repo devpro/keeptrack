@@ -18,6 +18,8 @@ public class Gear : IHasIdAndOwnerId
 
     public string? Brand { get; set; }
 
+    public string? Category { get; set; }
+
     public int? Year { get; set; }
 
     public string? Notes { get; set; }

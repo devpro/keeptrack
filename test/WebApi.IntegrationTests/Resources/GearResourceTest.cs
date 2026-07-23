@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
@@ -74,6 +76,94 @@ public class GearResourceTest(KestrelWebAppFactory<Program> factory)
         finally
         {
             await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
+        }
+    }
+
+    [Fact]
+    public async Task GearResourceCategoryFilter_OnlyReturnsMatchingItems_IsOk()
+    {
+        await Authenticate();
+
+        var title = $"CategoryTarget-{System.Guid.NewGuid():N}";
+        var electronics = await PostAsync($"/{ResourceEndpoint}", new GearDto { Title = title, Category = "Electronics" });
+        var camping = await PostAsync($"/{ResourceEndpoint}", new GearDto { Title = title, Category = "Camping" });
+        var uncategorized = await PostAsync($"/{ResourceEndpoint}", new GearDto { Title = title });
+
+        try
+        {
+            var results = await GetAsync<PagedResult<GearDto>>($"/{ResourceEndpoint}?Category=Electronics&search={title}");
+            results.Items.Should().ContainSingle(x => x.Id == electronics.Id);
+            results.Items.Should().NotContain(x => x.Id == camping.Id || x.Id == uncategorized.Id);
+        }
+        finally
+        {
+            await DeleteAsync($"/{ResourceEndpoint}/{electronics.Id}");
+            await DeleteAsync($"/{ResourceEndpoint}/{camping.Id}");
+            await DeleteAsync($"/{ResourceEndpoint}/{uncategorized.Id}");
+        }
+    }
+
+    [Fact]
+    public async Task GearCategoriesEndpoint_ReturnsDistinctSortedCategories_IsOk()
+    {
+        await Authenticate();
+
+        var title = $"CategoryList-{System.Guid.NewGuid():N}";
+        var first = await PostAsync($"/{ResourceEndpoint}", new GearDto { Title = title, Category = "Zetatools" });
+        var second = await PostAsync($"/{ResourceEndpoint}", new GearDto { Title = title, Category = "Anvils" });
+        // same category twice must appear only once, and an unset category must never appear at all
+        var duplicate = await PostAsync($"/{ResourceEndpoint}", new GearDto { Title = title, Category = "Zetatools" });
+        var uncategorized = await PostAsync($"/{ResourceEndpoint}", new GearDto { Title = title });
+
+        try
+        {
+            var categories = await GetAsync<List<string>>($"/{ResourceEndpoint}/categories");
+            categories.Should().Contain(["Anvils", "Zetatools"]);
+            categories.Should().OnlyHaveUniqueItems();
+            var anvilsIndex = categories.IndexOf("Anvils");
+            var zetatoolsIndex = categories.IndexOf("Zetatools");
+            anvilsIndex.Should().BeLessThan(zetatoolsIndex, "results are sorted alphabetically");
+        }
+        finally
+        {
+            await DeleteAsync($"/{ResourceEndpoint}/{first.Id}");
+            await DeleteAsync($"/{ResourceEndpoint}/{second.Id}");
+            await DeleteAsync($"/{ResourceEndpoint}/{duplicate.Id}");
+            await DeleteAsync($"/{ResourceEndpoint}/{uncategorized.Id}");
+        }
+    }
+
+    [Fact]
+    public async Task GearResourceBoughtSort_OrdersByMostRecentlyAcquiredCopyDescending_IsOk()
+    {
+        await Authenticate();
+
+        var title = $"BoughtSort-{System.Guid.NewGuid():N}";
+        var olderPurchase = await PostAsync($"/{ResourceEndpoint}", new GearDto
+        {
+            Title = title,
+            OwnedVersions = [new OwnedVersionDto { CopyType = CopyType.Physical, AcquiredAt = new DateOnly(2020, 1, 1) }]
+        });
+        var recentPurchase = await PostAsync($"/{ResourceEndpoint}", new GearDto
+        {
+            Title = title,
+            OwnedVersions = [new OwnedVersionDto { CopyType = CopyType.Physical, AcquiredAt = new DateOnly(2024, 6, 1) }]
+        });
+        var neverOwned = await PostAsync($"/{ResourceEndpoint}", new GearDto { Title = title });
+
+        try
+        {
+            var results = await GetAsync<PagedResult<GearDto>>($"/{ResourceEndpoint}?sort=bought&search={title}");
+            var ids = results.Items.Select(x => x.Id).ToList();
+            ids.IndexOf(recentPurchase.Id).Should().BeLessThan(ids.IndexOf(olderPurchase.Id),
+                "the most recently acquired copy sorts first");
+            ids.Should().Contain(neverOwned.Id, "an unset acquisition date still falls back to the newest-first tie-break, it isn't excluded");
+        }
+        finally
+        {
+            await DeleteAsync($"/{ResourceEndpoint}/{olderPurchase.Id}");
+            await DeleteAsync($"/{ResourceEndpoint}/{recentPurchase.Id}");
+            await DeleteAsync($"/{ResourceEndpoint}/{neverOwned.Id}");
         }
     }
 
