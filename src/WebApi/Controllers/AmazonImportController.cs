@@ -86,9 +86,10 @@ public class AmazonImportController(
         var ownerId = this.GetUserId();
         var result = new AmazonImportCommitResultDto();
 
-        foreach (var item in request.Items.Where(item => item.MediaType is null))
+        var itemMissingMediaType = request.Items.FirstOrDefault(item => item.MediaType is null);
+        if (itemMissingMediaType is not null)
         {
-            throw new ArgumentException($"A media type is required to import '{item.Title}'.");
+            throw new ArgumentException($"A media type is required to import '{itemMissingMediaType.Title}'.");
         }
 
         var bookItems = request.Items.Where(i => i.MediaType == AmazonImportMediaType.Book).ToList();
@@ -98,9 +99,10 @@ public class AmazonImportController(
         var gearItems = request.Items.Where(i => i.MediaType == AmazonImportMediaType.Gear).ToList();
         var collectibleItems = request.Items.Where(i => i.MediaType == AmazonImportMediaType.Collectible).ToList();
 
-        foreach (var item in videoGameItems.Where(item => string.IsNullOrWhiteSpace(item.Platform)))
+        var videoGameItemMissingPlatform = videoGameItems.FirstOrDefault(item => string.IsNullOrWhiteSpace(item.Platform));
+        if (videoGameItemMissingPlatform is not null)
         {
-            throw new ArgumentException($"A platform is required to import '{item.Title}' as a video game.");
+            throw new ArgumentException($"A platform is required to import '{videoGameItemMissingPlatform.Title}' as a video game.");
         }
 
         if (bookItems.Count > 0)

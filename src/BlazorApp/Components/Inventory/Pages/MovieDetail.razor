@@ -225,7 +225,7 @@ else
     private async Task SetWatchedDateAsync(ChangeEventArgs e)
     {
         if (Movie is null) return;
-        Movie.FirstSeenAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
+        Movie.FirstSeenAt = DateOnlyInput.Parse(e.Value);
         await MovieApi.UpdateAsync(Movie);
     }
 
@@ -250,9 +250,7 @@ else
             var refreshed = await MovieApi.RefreshReferenceAsync(Movie.Id);
             await LoadAsync();
 
-            (_refreshMessage, _refreshMessageStyle) = string.IsNullOrEmpty(refreshed.ReferenceId)
-                ? string.IsNullOrEmpty(previousReferenceId) ? ("No match found", "neutral") : ("Unlinked - no match", "danger")
-                : refreshed.ReferenceId == previousReferenceId ? ("Already linked", "neutral") : ("Linked!", "success");
+            (_refreshMessage, _refreshMessageStyle) = ReferenceRefreshMessage.Compute(previousReferenceId, refreshed.ReferenceId);
         }
         catch (Exception ex)
         {

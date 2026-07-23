@@ -65,14 +65,7 @@ public static class OwnedItemImportMergeService
 
         var byNormalizedTitle = new Dictionary<string, TModel>();
         var byReference = new Dictionary<string, TModel>();
-        foreach (var existing in existingItems)
-        {
-            byNormalizedTitle.TryAdd(TitleNormalizer.Normalize(getExistingTitle(existing)), existing);
-            foreach (var reference in getExistingReferences(existing))
-            {
-                if (reference is not null) byReference.TryAdd(reference, existing);
-            }
-        }
+        IndexExistingItems(existingItems, getExistingTitle, getExistingReferences, byNormalizedTitle, byReference);
 
         // Items created earlier in this same batch are tracked separately from pre-existing ones: a later
         // row matching one must only get its owned copy appended (already reflected via ItemsToCreate),
@@ -81,46 +74,79 @@ public static class OwnedItemImportMergeService
 
         foreach (var item in items)
         {
-            var reference = getItemReference(item);
-            if (reference is not null && byReference.ContainsKey(reference))
-            {
-                plan.OwnedCopiesSkipped++;
-                plan.SkippedTitles.Add(getItemTitle(item));
-                continue;
-            }
-
-            var key = TitleNormalizer.Normalize(getItemTitle(item));
-            TModel target;
-
-            if (byNormalizedTitle.TryGetValue(key, out var existing))
-            {
-                appendOwnedCopy(existing, item);
-                if (!createdThisBatch.Contains(existing) && !plan.ItemsToUpdate.Contains(existing))
-                {
-                    plan.ItemsToUpdate.Add(existing);
-                }
-
-                target = existing;
-            }
-            else
-            {
-                var created = createNew(item);
-                plan.ItemsToCreate.Add(created);
-                createdThisBatch.Add(created);
-
-                // so a later row in the same batch sharing this title merges into it too, instead of
-                // creating a second item
-                byNormalizedTitle[key] = created;
-                target = created;
-            }
-
-            // registers this reference immediately (not just from the initial existingItems scan), so a
-            // second row in the same batch carrying the same reference is caught by the check above too
-            if (reference is not null) byReference[reference] = target;
-
-            plan.OwnedCopiesAdded++;
+            MergeItem(item, plan, byNormalizedTitle, byReference, createdThisBatch, getItemTitle, getItemReference, createNew, appendOwnedCopy);
         }
 
         return plan;
+    }
+
+    private static void IndexExistingItems<TModel>(
+        IReadOnlyCollection<TModel> existingItems,
+        Func<TModel, string> getExistingTitle,
+        Func<TModel, IEnumerable<string?>> getExistingReferences,
+        Dictionary<string, TModel> byNormalizedTitle,
+        Dictionary<string, TModel> byReference)
+        where TModel : class
+    {
+        foreach (var existing in existingItems)
+        {
+            byNormalizedTitle.TryAdd(TitleNormalizer.Normalize(getExistingTitle(existing)), existing);
+            foreach (var reference in getExistingReferences(existing).OfType<string>())
+            {
+                byReference.TryAdd(reference, existing);
+            }
+        }
+    }
+
+    private static void MergeItem<TModel, TRequestItem>(
+        TRequestItem item,
+        ImportCommitPlan<TModel> plan,
+        Dictionary<string, TModel> byNormalizedTitle,
+        Dictionary<string, TModel> byReference,
+        HashSet<TModel> createdThisBatch,
+        Func<TRequestItem, string> getItemTitle,
+        Func<TRequestItem, string?> getItemReference,
+        Func<TRequestItem, TModel> createNew,
+        Action<TModel, TRequestItem> appendOwnedCopy)
+        where TModel : class
+    {
+        var reference = getItemReference(item);
+        if (reference is not null && byReference.ContainsKey(reference))
+        {
+            plan.OwnedCopiesSkipped++;
+            plan.SkippedTitles.Add(getItemTitle(item));
+            return;
+        }
+
+        var key = TitleNormalizer.Normalize(getItemTitle(item));
+        TModel target;
+
+        if (byNormalizedTitle.TryGetValue(key, out var existing))
+        {
+            appendOwnedCopy(existing, item);
+            if (!createdThisBatch.Contains(existing) && !plan.ItemsToUpdate.Contains(existing))
+            {
+                plan.ItemsToUpdate.Add(existing);
+            }
+
+            target = existing;
+        }
+        else
+        {
+            var created = createNew(item);
+            plan.ItemsToCreate.Add(created);
+            createdThisBatch.Add(created);
+
+            // so a later row in the same batch sharing this title merges into it too, instead of
+            // creating a second item
+            byNormalizedTitle[key] = created;
+            target = created;
+        }
+
+        // registers this reference immediately (not just from the initial existingItems scan), so a
+        // second row in the same batch carrying the same reference is caught by the check above too
+        if (reference is not null) byReference[reference] = target;
+
+        plan.OwnedCopiesAdded++;
     }
 }

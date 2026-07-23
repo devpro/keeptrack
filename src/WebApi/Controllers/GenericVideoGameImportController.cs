@@ -65,9 +65,10 @@ public class GenericVideoGameImportController(
     {
         var ownerId = this.GetUserId();
 
-        foreach (var item in request.Items.Where(item => string.IsNullOrWhiteSpace(item.Platform)))
+        var itemMissingPlatform = request.Items.FirstOrDefault(item => string.IsNullOrWhiteSpace(item.Platform));
+        if (itemMissingPlatform is not null)
         {
-            throw new ArgumentException($"A platform is required to import '{item.Title}'.");
+            throw new ArgumentException($"A platform is required to import '{itemMissingPlatform.Title}'.");
         }
 
         var existingVideoGames = await FindAllAsync(ownerId);

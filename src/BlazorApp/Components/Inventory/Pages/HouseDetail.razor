@@ -317,14 +317,14 @@ else
     private async Task SaveMovedInAtAsync(ChangeEventArgs e)
     {
         if (House is null) return;
-        House.MovedInAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
+        House.MovedInAt = DateOnlyInput.Parse(e.Value);
         await SaveHouseAsync();
     }
 
     private async Task SaveMovedOutAtAsync(ChangeEventArgs e)
     {
         if (House is null) return;
-        House.MovedOutAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
+        House.MovedOutAt = DateOnlyInput.Parse(e.Value);
         await SaveHouseAsync();
     }
 

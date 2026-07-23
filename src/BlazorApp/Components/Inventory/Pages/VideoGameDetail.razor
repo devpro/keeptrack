@@ -389,7 +389,7 @@ else
 
     private async Task SetPlatformCompletedDateAsync(VideoGamePlatformDto entry, ChangeEventArgs e)
     {
-        entry.CompletedAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
+        entry.CompletedAt = DateOnlyInput.Parse(e.Value);
         await SaveGameAsync();
     }
 
@@ -408,7 +408,7 @@ else
 
     private async Task SetFullyCompletedDateAsync(VideoGamePlatformDto entry, ChangeEventArgs e)
     {
-        entry.FullyCompletedAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
+        entry.FullyCompletedAt = DateOnlyInput.Parse(e.Value);
         await SaveGameAsync();
     }
 
@@ -432,7 +432,7 @@ else
 
     private async Task UpdatePlaythroughDateAsync(PlaythroughDto playthrough, ChangeEventArgs e)
     {
-        playthrough.CompletedAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
+        playthrough.CompletedAt = DateOnlyInput.Parse(e.Value);
         await SaveGameAsync();
     }
 
@@ -448,9 +448,7 @@ else
             var refreshed = await VideoGameApi.RefreshReferenceAsync(Game.Id);
             await LoadAsync();
 
-            (_refreshMessage, _refreshMessageStyle) = string.IsNullOrEmpty(refreshed.ReferenceId)
-                ? string.IsNullOrEmpty(previousReferenceId) ? ("No match found", "neutral") : ("Unlinked - no match", "danger")
-                : refreshed.ReferenceId == previousReferenceId ? ("Already linked", "neutral") : ("Linked!", "success");
+            (_refreshMessage, _refreshMessageStyle) = ReferenceRefreshMessage.Compute(previousReferenceId, refreshed.ReferenceId);
         }
         catch (Exception ex)
         {

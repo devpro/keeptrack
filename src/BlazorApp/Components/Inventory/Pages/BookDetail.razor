@@ -250,7 +250,7 @@ else
     private async Task SetReadDateAsync(ChangeEventArgs e)
     {
         if (Book is null) return;
-        Book.FirstReadAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
+        Book.FirstReadAt = DateOnlyInput.Parse(e.Value);
         await BookApi.UpdateAsync(Book);
     }
 
@@ -319,9 +319,7 @@ else
             var refreshed = await BookApi.RefreshReferenceAsync(Book.Id);
             await LoadAsync();
 
-            (_refreshMessage, _refreshMessageStyle) = string.IsNullOrEmpty(refreshed.ReferenceId)
-                ? string.IsNullOrEmpty(previousReferenceId) ? ("No match found", "neutral") : ("Unlinked - no match", "danger")
-                : refreshed.ReferenceId == previousReferenceId ? ("Already linked", "neutral") : ("Linked!", "success");
+            (_refreshMessage, _refreshMessageStyle) = ReferenceRefreshMessage.Compute(previousReferenceId, refreshed.ReferenceId);
         }
         catch (Exception ex)
         {

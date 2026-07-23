@@ -92,7 +92,7 @@
 
     private Task SetAcquiredAtAsync(ChangeEventArgs e)
     {
-        Copy.AcquiredAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
+        Copy.AcquiredAt = DateOnlyInput.Parse(e.Value);
         return OnChanged.InvokeAsync();
     }
 
