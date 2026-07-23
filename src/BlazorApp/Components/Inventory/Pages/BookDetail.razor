@@ -266,9 +266,7 @@ else
     private async Task SaveAuthorAsync(ChangeEventArgs e)
     {
         if (Book is null) return;
-        var author = e.Value?.ToString();
-        if (string.IsNullOrWhiteSpace(author)) return;
-        Book.Author = author;
+        Book.Author = e.Value?.ToString();
         await BookApi.UpdateAsync(Book);
     }
 

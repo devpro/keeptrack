@@ -275,9 +275,7 @@ else
     private async Task SaveArtistAsync(ChangeEventArgs e)
     {
         if (Album is null) return;
-        var artist = e.Value?.ToString();
-        if (string.IsNullOrWhiteSpace(artist)) return;
-        Album.Artist = artist;
+        Album.Artist = e.Value?.ToString();
         await AlbumApi.UpdateAsync(Album);
     }
 
