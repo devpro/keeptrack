@@ -1,0 +1,80 @@
+@page "/gear"
+@inherits InventoryPageBase<GearDto>
+@attribute [Authorize]
+
+<InventoryList TDto="GearDto"
+               Title="Gear"
+               ItemName="Gear"
+               Route="@ListRoute"
+               Items="@(Items ?? [])"
+               Loading="@_loading"
+               Loaded="@_loaded"
+               Error="@_error"
+               Search="@_search"
+               Page="@_page"
+               TotalPages="@TotalPages"
+               TotalCount="@TotalCount"
+               ShowForm="@_showForm"
+               Form="@_form"
+               ItemTitle="@(gear => gear.Title)"
+               ItemImageUrl="@(gear => gear.ImageUrl)"
+               ItemImageShape="wide"
+               OnSearchKeyUp="@OnSearchKeyUp"
+               OnClearSearch="@ClearSearch"
+               OnGoToPage="@GoToPage"
+               OnShowAddForm="@ShowAddForm"
+               OnCancelForm="@CancelForm"
+               OnSave="@SaveAsync"
+               OnDelete="@DeleteAsync"
+               OnSearchChanged="@OnSearchChanged"
+               Sort="@_sort"
+               OnSortChanged="@SetSort"
+               ExtraSortValue="@ListSort.Bought"
+               ExtraSortLabel="Bought">
+    <Filters>
+        <button class="btn btn-sm kt-toggle-btn @(FavoriteFilter ? "active" : "")" @onclick='() => ToggleFilter("favorite", FavoriteFilter)'>★ Favorites</button>
+        <button class="btn btn-sm kt-toggle-btn @(OwnedFilter ? "active" : "")" @onclick='() => ToggleFilter("owned", OwnedFilter)'>● Owned</button>
+        @if (Categories.Count > 0)
+        {
+            @* a button per category (VideoGame's State pattern) doesn't scale here - Category is an open,
+               tenant-grown list rather than a small fixed set. A plain <select> was tried and dropped: its
+               required width:100% fought the flex row's own sizing and forced the whole Filters group onto
+               a wrapped second line even with room to spare - SuggestInput is a fixed-width flex item instead. *@
+            <SuggestInput Value="@CategoryFilter" ValueChanged="@(v => SetFilter("category", v))"
+                          Suggestions="@Categories" Placeholder="Category" CssClass="kt-category-select"/>
+        }
+    </Filters>
+    <MetaTemplate Context="gear">
+        @if (!string.IsNullOrEmpty(gear.Brand))
+        {
+            <span>@gear.Brand</span>
+        }
+        @if (!string.IsNullOrEmpty(gear.Category))
+        {
+            <span>@gear.Category</span>
+        }
+        @if (gear.Year > 0)
+        {
+            <span>@gear.Year</span>
+        }
+        @if (gear.IsFavorite)
+        {
+            <span class="kt-flag-badge favorite">Favorite</span>
+        }
+        @if (gear.OwnedVersions.Count > 0)
+        {
+            <span class="kt-flag-badge">Owned</span>
+        }
+    </MetaTemplate>
+    <FormTemplate Context="gear">
+        <div class="col-12">
+            <input class="form-control" placeholder="Title" data-testid="title-input" @bind="gear.Title" />
+        </div>
+        <div class="col-12">
+            <input class="form-control" placeholder="Brand" @bind="gear.Brand" />
+        </div>
+        <div class="col-6 col-md-4">
+            <input class="form-control" placeholder="Year" @bind="gear.Year" type="number" min="1900" max="2100" />
+        </div>
+    </FormTemplate>
+</InventoryList>

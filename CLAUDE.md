@@ -154,6 +154,48 @@ Existing data needs the one-off `scripts/migrate-is-owned-to-owned-versions.js` 
 then a `scripts/mongodb-create-index.js` re-run to replace the old `is_owned` index definitions.
 Covered by the resource tests' owned-filter cases (including a full decimal/date round-trip in `MovieResourceTest`/`AlbumResourceTest`) and `OwnershipSmokeTest` (Playwright, end-to-end through the editor).
 
+`VideoGamePlatformModel.ProductName` (free text) is the store's own specific product/edition text for that copy (e.g. "Grand Theft Auto V : Édition Premium"), distinct from the game's own `Title` -
+added for the generic video game transaction import below, but it's a plain field on the shared model/entity/DTO, editable on `VideoGameDetail.razor` like any other copy detail regardless of how the platform entry was created.
+It renders via a new `ExtraFields` render-fragment slot on the shared `OwnedVersionFields` component (`Components/Inventory/Shared/`), not by adding it to `IOwnedCopyDto`:
+Movie/TvShow/Book/Album's `OwnedVersionDto` has no equivalent concept, so the interface every `OwnedVersionFields` caller shares stays free of a field only one of them needs.
+The component's own Price/Acquired/Vendor/Reference columns switched from a fixed `col-md-3` to an unnumbered `col-md` (Bootstrap's equal-width auto layout) for this -
+with no `ExtraFields` supplied they still fill one row identically to the old fixed split,
+but a 5th `ExtraFields` column (VideoGame's Product field) joins the same row and every column re-shares the width automatically instead of wrapping to a second row on desktop,
+while `col-6` still stacks two-per-row on mobile like the others.
+
+### Bulk store/retailer transaction imports (Amazon, generic video game transactions)
+
+`AmazonImportController`/`AmazonOrderPreviewService` (preview an uploaded order-history CSV, let the user pick a type and edit fields per row, then commit) was the first of this shape,
+followed by `GenericVideoGameImportController`/`GenericVideoGameImportService` for a video-game-only transaction-history CSV (PSN's own GDPR export today; the format isn't PlayStation-specific -
+`Vendor` is a per-row column, not hardcoded - so any store exporting the same shape would work).
+Both follow `WatchNextController`/`WishlistController`'s split (controller in `Controllers/`, pure parsing/computation in `Domain/Services/`), not the older `WebApi/Import/` feature-folder shape.
+The create/merge/dedup engine behind both (`ComputeCommitPlan`/`FindImportedReferences`, matching by normalized title via `TitleNormalizer`,
+merging within the same commit batch too) started out Amazon-only (`AmazonImportMergeService`) but was already fully generic - it moved to `Domain/Services/OwnedItemImportMergeService.cs`
+(and its return type to `Domain/Models/ImportCommitPlan.cs`, renamed off `AmazonImportPlan<TModel>`) once the video game importer needed the exact same engine, rather than duplicating it.
+`AmazonImportMergeService` kept only what's genuinely Amazon-specific: `FormatOrderReference` (ASIN + order id) and `BuildAmazonProvenanceNotes`.
+
+**Gotcha, confirmed against a real PSN export:** a transaction/order id pair is *not* reliably unique per line the way Amazon's ASIN is.
+A single PSN transaction can bundle several different products under one shared Transaction Id/Order Id (confirmed with a real export:
+one transaction contained three separate "Far Cry 4" DLC packs, each its own CSV line, distinguishable only by Product Name).
+`GenericVideoGameImportService.FormatReference` originally built the owned-copy `Reference` (and dedup key) from transaction id + order id alone,
+the same class of bug `AmazonImportMergeService.FormatOrderReference` already avoids by including the ASIN -
+without a per-product disambiguator, the second and third bundled lines collided with the first's reference and were silently skipped as "already imported" duplicates,
+so only 1 of the 3 platform entries actually got created from a 3-line selection.
+Fixed by appending the row's own Product Name (falling back to the title when blank) to the reference text, mirroring the ASIN's role for Amazon.
+`GenericVideoGameImportPreviewRow.RowId` had the identical problem (plain `TransactionId`, colliding across the same bundled lines) and got the same fix.
+Covered by `GenericVideoGameImportServiceTest.FormatReference_Disambiguates_WhenTwoLinesShareTheSameTransactionAndOrder`
+and `GenericVideoGameImportResourceTest.PreviewThenCommit_ImportsAllThreeLines_WhenTheyShareOneTransactionAndOrderButDifferentProducts`.
+
+**`VideoGamesCreated`/`VideoGamesMergedInto` count distinct video games, not selected rows - this undercounts rows on purpose, not a bug.**
+Several selected rows sharing a normalized title consolidate into one item within a single commit batch (`ComputeCommitPlan`'s existing same-batch-merge behavior),
+which is correct but means `Created + MergedInto` can come out lower than the number of rows the user selected,
+which read as a discrepancy on first use of the real 104-row PSN export (98 selected, "1 created, 0 merged, 2 already imported" summed to only 3 - actually the *bundling* bug above,
+but the created/merged-vs-selected gap is real and independent of it).
+`ImportCommitPlan<TModel>.OwnedCopiesAdded`/`GenericVideoGameImportCommitResultDto.RowsImported` is the true per-row count (`RowsImported + VideoGamesSkipped` always equals the number of rows submitted),
+and `SkippedRowTitles` lists exactly which selected rows were skipped as already-imported duplicates -
+together they let `GenericVideoGameImportPage.razor` show a reconciling "X of Y selected rows imported" line plus a named list of anything actually skipped,
+so the user can trust nothing was silently dropped instead of having to guess from the per-item counts alone.
+
 ### Child entities (1-to-many owned by another entity)
 
 `CarHistory` (owned by `Car`) and `Episode` (owned by `TvShow`) are separate top-level collections referencing their parent by id (`car_id`, `tv_show_id`), not embedded arrays.

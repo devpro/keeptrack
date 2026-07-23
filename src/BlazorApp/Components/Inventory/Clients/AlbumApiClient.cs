@@ -13,4 +13,15 @@ public sealed class AlbumApiClient(HttpClient http)
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<AlbumDto>())!;
     }
+
+    /// <summary>
+    /// Admin-only: unlinks and permanently deletes the shared reference document
+    /// (POST api/albums/{id}/unlink-reference on WebApi).
+    /// </summary>
+    public async Task<AlbumDto> UnlinkReferenceAsync(string id)
+    {
+        var response = await Http.PostAsync($"{ApiResourceName}/{id}/unlink-reference", null);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<AlbumDto>())!;
+    }
 }

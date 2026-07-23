@@ -22,6 +22,13 @@ public class VideoGameModel : IHasIdAndOwnerId
     public string? ReferenceId { get; set; }
 
     /// <summary>
+    /// Tenant-owned cover image override - takes priority over the linked reference's own cover wherever
+    /// a cover is shown (list thumbnail, detail page). Null means "use the reference's cover, if any" -
+    /// the previous, only behavior.
+    /// </summary>
+    public string? CustomImageUrl { get; set; }
+
+    /// <summary>
     /// Filter-only: matches if <see cref="Platforms"/> is non-empty. Never persisted - a platform entry
     /// (with its own <see cref="CopyType"/>) is this type's owned copy, so ownership derives from having
     /// at least one, the same rule as <see cref="MovieModel.IsOwned"/> over its owned versions.

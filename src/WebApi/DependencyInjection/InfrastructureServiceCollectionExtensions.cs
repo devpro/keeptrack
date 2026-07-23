@@ -41,9 +41,12 @@ internal static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IStorageMapper<Domain.Models.HouseHistoryModel, HouseHistory>, HouseHistoryStorageMapper>();
         services.AddSingleton<IStorageMapper<Domain.Models.HealthProfileModel, HealthProfile>, HealthProfileStorageMapper>();
         services.AddSingleton<IStorageMapper<Domain.Models.HealthRecordModel, HealthRecord>, HealthRecordStorageMapper>();
+        services.AddSingleton<IStorageMapper<Domain.Models.CollectibleModel, Collectible>, CollectibleStorageMapper>();
+        services.AddSingleton<IStorageMapper<Domain.Models.GearModel, Gear>, GearStorageMapper>();
 
         services.AddSingleton<BackgroundJobStorageMapper>();
         services.AddSingleton<WishlistShareStorageMapper>();
+        services.AddSingleton<UserPreferencesStorageMapper>();
         services.AddSingleton<TvShowReferenceStorageMapper>();
         services.AddSingleton<MovieReferenceStorageMapper>();
         services.AddSingleton<PersonReferenceStorageMapper>();
@@ -54,6 +57,7 @@ internal static class InfrastructureServiceCollectionExtensions
         services.TryAddScoped<Domain.Repositories.IBackgroundJobRepository, BackgroundJobRepository>();
         services.TryAddScoped<Domain.Repositories.IWishlistShareRepository, WishlistShareRepository>();
         services.TryAddScoped<Domain.Repositories.ILeaseRepository, LeaseRepository>();
+        services.TryAddScoped<Domain.Repositories.IUserPreferencesRepository, UserPreferencesRepository>();
         services.TryAddScoped<Domain.Repositories.IAlbumRepository, AlbumRepository>();
         services.TryAddScoped<Domain.Repositories.ISongRepository, SongRepository>();
         services.TryAddScoped<Domain.Repositories.IPlaylistRepository, PlaylistRepository>();
@@ -64,6 +68,8 @@ internal static class InfrastructureServiceCollectionExtensions
         services.TryAddScoped<Domain.Repositories.IHouseHistoryRepository, HouseHistoryRepository>();
         services.TryAddScoped<Domain.Repositories.IHealthProfileRepository, HealthProfileRepository>();
         services.TryAddScoped<Domain.Repositories.IHealthRecordRepository, HealthRecordRepository>();
+        services.TryAddScoped<Domain.Repositories.ICollectibleRepository, CollectibleRepository>();
+        services.TryAddScoped<Domain.Repositories.IGearRepository, GearRepository>();
         services.TryAddScoped<Domain.Repositories.IEpisodeRepository, EpisodeRepository>();
         services.TryAddScoped<Domain.Repositories.IMovieRepository, MovieRepository>();
         services.TryAddScoped<Domain.Repositories.ITvShowRepository, TvShowRepository>();

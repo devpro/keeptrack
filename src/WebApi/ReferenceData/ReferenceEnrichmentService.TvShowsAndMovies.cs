@@ -111,6 +111,43 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
+    /// Admin-triggered "unlink" - clears this tenant's own <see cref="TvShowModel.ReferenceId"/> and, unlike
+    /// the implicit clear-on-no-match branch inside <see cref="TryLinkExistingTvShowReferenceAsync"/>,
+    /// permanently deletes the shared reference document itself (the whole point: the admin has determined
+    /// this specific match was wrong, so the document behind it is bad data, not just wrong for this tenant).
+    /// Deliberately doesn't check whether any other tenant document still points at the same reference id -
+    /// an accepted, rare edge case, not worth the complexity of guarding against.
+    /// </summary>
+    public async Task<TvShowModel> UnlinkTvShowReferenceAsync(TvShowModel model)
+    {
+        var referenceId = model.ReferenceId;
+        model.ReferenceId = string.Empty;
+        await tvShowRepository.UpdateAsync(model.Id!, model, model.OwnerId);
+        if (!string.IsNullOrEmpty(referenceId))
+        {
+            await tvShowReferenceRepository.DeleteAsync(referenceId);
+        }
+
+        return model;
+    }
+
+    /// <summary>
+    /// Movie equivalent of <see cref="UnlinkTvShowReferenceAsync"/>.
+    /// </summary>
+    public async Task<MovieModel> UnlinkMovieReferenceAsync(MovieModel model)
+    {
+        var referenceId = model.ReferenceId;
+        model.ReferenceId = string.Empty;
+        await movieRepository.UpdateAsync(model.Id!, model, model.OwnerId);
+        if (!string.IsNullOrEmpty(referenceId))
+        {
+            await movieReferenceRepository.DeleteAsync(referenceId);
+        }
+
+        return model;
+    }
+
+    /// <summary>
     /// Best-effort automatic match: does nothing if the search returns zero or more than one candidate,
     /// leaving the show unresolved for the admin queue instead of guessing.
     /// </summary>

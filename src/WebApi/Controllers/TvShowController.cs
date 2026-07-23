@@ -69,4 +69,26 @@ public class TvShowController(
         model = await enrichmentService.TryLinkExistingTvShowReferenceAsync(model);
         return Ok(Mapper.ToDto(model));
     }
+
+    /// <summary>
+    /// Admin-only: clears this show's reference link and permanently deletes the shared reference document
+    /// itself, rather than merely detaching this one tenant's link - the admin has determined the match was
+    /// wrong, so the document behind it is bad data. Unlike <see cref="RefreshReference"/> (open to any
+    /// owner, harmless/idempotent), this mutates shared data other tenants could theoretically point at, so
+    /// it's gated to admins via a method-level policy on top of the controller's own plain <c>[Authorize]</c>.
+    /// Clearing <c>ReferenceId</c> is also what makes the Blazor detail page's <c>InlineReferenceLinker</c>
+    /// search card reappear, letting the admin immediately pick the correct match.
+    /// </summary>
+    [HttpPost("{id}/unlink-reference")]
+    [Authorize(Policy = "AdminOnly")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(404)]
+    public async Task<ActionResult<TvShowDto>> UnlinkReference(string id)
+    {
+        var model = await dataRepository.FindOneAsync(id, this.GetUserId());
+        if (model is null) return NotFound();
+
+        model = await enrichmentService.UnlinkTvShowReferenceAsync(model);
+        return Ok(Mapper.ToDto(model));
+    }
 }

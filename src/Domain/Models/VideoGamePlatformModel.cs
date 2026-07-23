@@ -47,4 +47,11 @@ public class VideoGamePlatformModel
     /// Unrelated to the reference-data <c>ReferenceId</c> concept.
     /// </summary>
     public string? Reference { get; set; }
+
+    /// <summary>
+    /// The store's own specific product/edition text for this copy (e.g. "Grand Theft Auto V : Édition
+    /// Premium"), as opposed to the game's own <see cref="VideoGameModel.Title"/>. Populated by the generic
+    /// video game transaction import from its "Product Name" column.
+    /// </summary>
+    public string? ProductName { get; set; }
 }

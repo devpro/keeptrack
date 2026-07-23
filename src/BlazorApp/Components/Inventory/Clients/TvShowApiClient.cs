@@ -18,4 +18,15 @@ public class TvShowApiClient(HttpClient http)
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<TvShowDto>())!;
     }
+
+    /// <summary>
+    /// Admin-only: unlinks and permanently deletes the shared reference document
+    /// (POST api/tv-shows/{id}/unlink-reference on WebApi).
+    /// </summary>
+    public async Task<TvShowDto> UnlinkReferenceAsync(string id)
+    {
+        var response = await Http.PostAsync($"{ApiResourceName}/{id}/unlink-reference", null);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<TvShowDto>())!;
+    }
 }

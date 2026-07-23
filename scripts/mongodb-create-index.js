@@ -26,6 +26,8 @@ ensureIndex(db.house, { owner_id: 1 }, { name: "house_owner" });
 ensureIndex(db.house_history, { owner_id: 1 }, { name: "house_history_owner" });
 ensureIndex(db.health_profile, { owner_id: 1 }, { name: "health_profile_owner" });
 ensureIndex(db.health_record, { owner_id: 1 }, { name: "health_record_owner" });
+ensureIndex(db.collectible, { owner_id: 1 }, { name: "collectible_owner" });
+ensureIndex(db.gear, { owner_id: 1 }, { name: "gear_owner" });
 ensureIndex(db.movie, { owner_id: 1 }, { name: "movie_owner" });
 ensureIndex(db.tvshow, { owner_id: 1 }, { name: "tvshow_owner" });
 ensureIndex(db.videogame, { owner_id: 1 }, { name: "videogame_owner" });
@@ -91,6 +93,16 @@ ensureIndex(
   { owner_id: 1, is_favorite: 1 },
   { name: "book_favorite", partialFilterExpression: { is_favorite: true } }
 );
+ensureIndex(
+  db.collectible,
+  { owner_id: 1, is_favorite: 1 },
+  { name: "collectible_favorite", partialFilterExpression: { is_favorite: true } }
+);
+ensureIndex(
+  db.gear,
+  { owner_id: 1, is_favorite: 1 },
+  { name: "gear_favorite", partialFilterExpression: { is_favorite: true } }
+);
 
 // movie / tvshow / book / videogame: same sparse-flag partial-index rationale as the favorite/want-to-watch
 // indexes above, for the is_wishlisted flag. VideoGame has no favorite/want-to-watch flags, so this is its
@@ -146,6 +158,16 @@ ensureIndex(
   db.videogame,
   { owner_id: 1 },
   { name: "videogame_owned", partialFilterExpression: { "platforms.0": { $exists: true } } }
+);
+ensureIndex(
+  db.collectible,
+  { owner_id: 1 },
+  { name: "collectible_owned", partialFilterExpression: { "owned_versions.0": { $exists: true } } }
+);
+ensureIndex(
+  db.gear,
+  { owner_id: 1 },
+  { name: "gear_owned", partialFilterExpression: { "owned_versions.0": { $exists: true } } }
 );
 
 // background_job: transient job-progress documents (TV Time import, reference-data "sync now") polled by
@@ -248,3 +270,8 @@ ensureIndex(
   { "external_ids.discogs": 1 },
   { name: "album_reference_discogs_id", unique: true, partialFilterExpression: { "external_ids.discogs": { $exists: true } } }
 );
+
+// user_preference: exactly one document per owner (upserted by owner_id, never listed) - the unique
+// index is what actually guarantees that, the same way the application-level upsert-by-owner-id logic in
+// UserPreferencesRepository is only "supposed to" prevent a second document.
+ensureIndex(db.user_preference, { owner_id: 1 }, { name: "user_preference_owner", unique: true });

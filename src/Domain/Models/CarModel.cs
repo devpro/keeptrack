@@ -19,4 +19,9 @@ public class CarModel : IHasIdAndOwnerId
     public string? LicensePlate { get; set; }
 
     public required CarEnergyType EnergyType { get; set; }
+
+    /// <summary>
+    /// Tenant-owned cover image URL, shown on the list thumbnail and detail page header. Optional.
+    /// </summary>
+    public string? ImageUrl { get; set; }
 }

@@ -29,7 +29,7 @@
             {
                 <div class="kt-loading"><div class="kt-spinner"></div> Searching…</div>
             }
-            else if (_searched && _results.Count == 0)
+            else if (_searched && _results.Count == 0 && _error is null)
             {
                 <div class="alert alert-info mb-2">No @ProviderName results for this title/year.</div>
             }
@@ -126,8 +126,11 @@
         {
             // an uncaught exception here would crash the whole Blazor Server circuit (not just this
             // component), forcing a full page reload - same reasoning as LinkAsync's own try/catch below.
+            // The provider's own exchange (which HTTP client, which status code) is an implementation
+            // detail the admin shouldn't have to parse out of a raw HttpRequestException message -
+            // "Search failed" plus a retry hint says the one thing that's actually actionable.
             _results = [];
-            _error = ex.Message;
+            _error = $"{ProviderName} search failed ({ex.Message}). This is usually transient - wait a moment and try again.";
         }
         finally
         {

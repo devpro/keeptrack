@@ -35,6 +35,13 @@ else
         }
     </div>
 
+    @if (!string.IsNullOrEmpty(House.ImageUrl))
+    {
+        <div class="kt-form-card p-0 mb-3" style="overflow:hidden">
+            <img src="@House.ImageUrl" alt="@House.Name cover" style="width:100%;max-height:320px;object-fit:cover;display:block"/>
+        </div>
+    }
+
     <div class="kt-form-card">
         <div class="row g-3">
             <div class="col-md-6">
@@ -52,6 +59,10 @@ else
             <div class="col-12">
                 <label class="form-label">Notes</label>
                 <textarea class="form-control form-control-sm" rows="2" @onchange="SaveNotesAsync">@House.Notes</textarea>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Cover image URL</label>
+                <input class="form-control form-control-sm" data-testid="image-url-input" value="@House.ImageUrl" @onchange="SaveImageUrlAsync"/>
             </div>
         </div>
     </div>
@@ -306,14 +317,14 @@ else
     private async Task SaveMovedInAtAsync(ChangeEventArgs e)
     {
         if (House is null) return;
-        House.MovedInAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
+        House.MovedInAt = DateOnlyInput.Parse(e.Value);
         await SaveHouseAsync();
     }
 
     private async Task SaveMovedOutAtAsync(ChangeEventArgs e)
     {
         if (House is null) return;
-        House.MovedOutAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
+        House.MovedOutAt = DateOnlyInput.Parse(e.Value);
         await SaveHouseAsync();
     }
 
@@ -321,6 +332,13 @@ else
     {
         if (House is null) return;
         House.Notes = e.Value?.ToString();
+        await SaveHouseAsync();
+    }
+
+    private async Task SaveImageUrlAsync(ChangeEventArgs e)
+    {
+        if (House is null) return;
+        House.ImageUrl = e.Value?.ToString();
         await SaveHouseAsync();
     }
 

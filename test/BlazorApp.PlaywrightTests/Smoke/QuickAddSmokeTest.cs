@@ -45,9 +45,9 @@ public class QuickAddSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
         var quickAdd = await home.OpenQuickAddAsync();
         await quickAdd.SelectTypeAsync("movie");
 
-        await BookDetailPage.SetFieldAsync(quickAdd.TitleInput, title);
+        await DetailPageBase.SetFieldAsync(quickAdd.TitleInput, title);
         await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "I own a copy" }).ClickAsync();
-        await BookDetailPage.SetFieldAsync(Page.GetByTestId("version-price-input"), "19.99");
+        await DetailPageBase.SetFieldAsync(Page.GetByTestId("version-price-input"), "19.99");
         await quickAdd.SaveButton.ClickAsync();
 
         var detail = new MovieDetailPage(Page);
@@ -82,8 +82,8 @@ public class QuickAddSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
             await quickAdd.SelectTypeAsync("car");
 
             // the tenant now has exactly one car - it's preselected silently, no segmented picker to click
-            await BookDetailPage.SetFieldAsync(Page.GetByTestId("mileage-input"), mileage.ToString());
-            await BookDetailPage.SetFieldAsync(Page.GetByTestId("cost-input"), "65.40");
+            await DetailPageBase.SetFieldAsync(Page.GetByTestId("mileage-input"), mileage.ToString());
+            await DetailPageBase.SetFieldAsync(Page.GetByTestId("cost-input"), "65.40");
             await quickAdd.SaveButton.ClickAsync();
 
             var detail = new CarDetailPage(Page);

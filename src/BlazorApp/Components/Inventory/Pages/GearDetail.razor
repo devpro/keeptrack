@@ -1,0 +1,179 @@
+@page "/gear/{Id}"
+@attribute [Authorize]
+
+@if (!_loaded)
+{
+    @if (_loading)
+    {
+        <div class="kt-loading">
+            <div class="kt-spinner"></div>
+            Loading…
+        </div>
+    }
+}
+else if (Item is null)
+{
+    <div class="kt-empty">
+        <div class="kt-empty-icon">◈</div>
+        <p>Gear not found.</p>
+    </div>
+}
+else
+{
+    <Breadcrumb ListRoute="/gear" ListLabel="Gear" Current="@Item.Title"/>
+
+    <div class="kt-page-header">
+        <div class="kt-title-row">
+            <input class="kt-title-input" value="@Item.Title" @onchange="SaveTitleAsync"/>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm kt-toggle-btn @(Item.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Item.ImageUrl))
+    {
+        <div class="kt-product-cover-box mb-3">
+            <img src="@Item.ImageUrl" alt="@Item.Title cover"/>
+        </div>
+    }
+
+    <div class="kt-form-card">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Brand</label>
+                <input class="form-control form-control-sm" value="@Item.Brand" @onchange="SaveBrandAsync"/>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Year</label>
+                <input class="form-control form-control-sm" type="number" min="1900" max="2100" value="@Item.Year" @onchange="SaveYearAsync"/>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Category</label>
+                <SuggestInput Value="@Item.Category" ValueChanged="SaveCategoryAsync" Suggestions="@_categories" Placeholder="e.g. Electronics"/>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Notes</label>
+                <textarea class="form-control form-control-sm" rows="2" @onchange="SaveNotesAsync">@Item.Notes</textarea>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Cover image URL</label>
+                <input class="form-control form-control-sm" data-testid="image-url-input" value="@Item.ImageUrl" @onchange="SaveImageUrlAsync"/>
+            </div>
+        </div>
+    </div>
+
+    <OwnedVersionsEditor Versions="Item.OwnedVersions" OnChanged="SaveItemAsync"/>
+}
+
+@code {
+    [Parameter] public required string Id { get; set; }
+
+    [Inject] private GearApiClient GearApi { get; set; } = null!;
+
+    // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
+    // _loaded tracks whether a load attempt has finished at all, fresh or restored from persisted
+    // prerender state - both default false so the forced render Blazor triggers right after the
+    // synchronous prefix of OnParametersSetAsync (before any awaited fetch resolves) shows blank instead
+    // of a spinner flash on every navigation to this page.
+    private bool _loading;
+    private bool _loaded;
+
+    // Suggested values for the Category input's datalist - fetched once, not tied to Item/Id like the
+    // rest of this page's state (a category typed on this item shouldn't wait on a second round trip).
+    private List<string> _categories = [];
+
+    // Public property (a framework requirement for [PersistentState]): the data loaded during the
+    // prerender pass is carried over to the interactive circuit, so the first interactive render reuses
+    // it instead of resetting to the spinner and re-fetching - same pattern as AlbumDetail/CarDetail.
+    // Named "Item" rather than "Gear" - a property can't share its containing partial class's own name.
+    [PersistentState]
+    public GearDto? Item { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _categories = await GearApi.GetCategoriesAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Item already holds this route's item when PersistentState restored the prerendered data
+        // the id check keeps an in-circuit navigation to a different item reloading as before
+        if (Item?.Id == Id)
+        {
+            _loading = false;
+            _loaded = true;
+            return;
+        }
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        await LoadingIndicator.RunAsync(FetchAsync(), v => _loading = v, StateHasChanged);
+        _loading = false;
+        _loaded = true;
+    }
+
+    private async Task FetchAsync()
+    {
+        Item = await GearApi.GetOneAsync(Id);
+    }
+
+    private async Task SaveItemAsync()
+    {
+        if (Item is null) return;
+        await GearApi.UpdateAsync(Item);
+    }
+
+    private async Task SaveTitleAsync(ChangeEventArgs e)
+    {
+        if (Item is null) return;
+        var title = e.Value?.ToString();
+        if (string.IsNullOrWhiteSpace(title)) return;
+        Item.Title = title;
+        await SaveItemAsync();
+    }
+
+    private async Task SaveBrandAsync(ChangeEventArgs e)
+    {
+        if (Item is null) return;
+        Item.Brand = e.Value?.ToString();
+        await SaveItemAsync();
+    }
+
+    private async Task SaveYearAsync(ChangeEventArgs e)
+    {
+        if (Item is null) return;
+        Item.Year = int.TryParse(e.Value?.ToString(), out var year) ? year : null;
+        await SaveItemAsync();
+    }
+
+    private async Task SaveCategoryAsync(string? category)
+    {
+        if (Item is null) return;
+        Item.Category = category;
+        await SaveItemAsync();
+    }
+
+    private async Task SaveNotesAsync(ChangeEventArgs e)
+    {
+        if (Item is null) return;
+        Item.Notes = e.Value?.ToString();
+        await SaveItemAsync();
+    }
+
+    private async Task SaveImageUrlAsync(ChangeEventArgs e)
+    {
+        if (Item is null) return;
+        Item.ImageUrl = e.Value?.ToString();
+        await SaveItemAsync();
+    }
+
+    private async Task ToggleFavoriteAsync()
+    {
+        if (Item is null) return;
+        Item.IsFavorite = !Item.IsFavorite;
+        await SaveItemAsync();
+    }
+}

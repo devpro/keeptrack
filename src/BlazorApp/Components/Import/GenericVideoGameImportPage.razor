@@ -1,0 +1,274 @@
+@page "/import/video-games"
+@attribute [Authorize]
+@using Keeptrack.WebApi.Contracts.Dto
+@using Keeptrack.BlazorApp.Components.Inventory.Pages
+
+<div class="kt-page-header">
+    <h1>Import <span>video game transactions</span></h1>
+</div>
+
+<div class="kt-form-card">
+    <p style="color:var(--kt-text-muted)">
+        Upload a video game transaction-history CSV with columns:
+        Transaction Date, Game Name, Product Name, Platform, Vendor, Transaction Id, Order Id, Final Price (€).
+        This isn't store-specific - it works for any export shaped this way (e.g. a PlayStation Store GDPR export).
+        Nothing is imported until you click "Import selected" below.
+    </p>
+
+    <div class="kt-dropzone">
+        <span class="kt-dropzone-icon">⬆</span>
+        <InputFile OnChange="OnFileSelectedAsync" accept=".csv" disabled="@_previewing"/>
+    </div>
+
+    @if (_previewing)
+    {
+        <p class="kt-card-meta mt-2">Reading your export…</p>
+    }
+
+    @if (_error is not null)
+    {
+        <div class="alert alert-danger mt-3">@_error</div>
+    }
+</div>
+
+@if (_rows is not null)
+{
+    <div class="kt-form-card mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">@DisplayedRows.Count() row(s) shown</h5>
+            <button class="btn btn-sm kt-toggle-btn @(_hideAlreadyImported ? "active" : "")" @onclick="() => _hideAlreadyImported = !_hideAlreadyImported">Hide already imported</button>
+        </div>
+
+        <div style="overflow-x:auto">
+            <table class="table kt-sheet-table">
+                <thead>
+                <tr>
+                    <th style="padding-left:0.3rem;padding-right:0.3rem">
+                        <input type="checkbox" title="Select/deselect all shown rows" checked="@AllDisplayedSelected" @onchange="e => SetAllDisplayedSelected((bool)e.Value!)"/>
+                    </th>
+                    <th style="min-width:16rem">Title</th>
+                    <th>Year</th>
+                    <th>Copy</th>
+                    <th>Platform</th>
+                    <th class="kt-card-meta">Order info</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in DisplayedRows)
+                {
+                    <tr>
+                        <td style="padding-left:0.3rem;padding-right:0.3rem">
+                            <input type="checkbox" checked="@row.Selected" @onchange="e => row.Selected = (bool)e.Value!"/>
+                            @if (row.Preview.AlreadyImported)
+                            {
+                                <span title="Already imported">✓</span>
+                            }
+                        </td>
+                        <td><input class="form-control" style="min-width:16rem" @bind="row.Title"/></td>
+                        <td><input class="form-control" style="width:4rem" type="number" @bind="row.Year"/></td>
+                        <td>
+                            <select class="form-select" style="width:6rem" @bind="row.CopyType">
+                                <option value="@CopyType.Physical">Physical</option>
+                                <option value="@CopyType.Digital">Digital</option>
+                            </select>
+                        </td>
+                        <td>
+                            <select class="form-select" style="width:7rem" @bind="row.Platform">
+                                <option value="">—</option>
+                                @foreach (var platform in VideoGames.VideoGamePlatforms)
+                                {
+                                    <option>@platform</option>
+                                }
+                            </select>
+                        </td>
+                        <td class="kt-card-meta" style="font-size:0.75rem;line-height:1.5">
+                            @if (row.Preview.ProductName is not null)
+                            {
+                                <div>@row.Preview.ProductName</div>
+                            }
+                            @if (row.Preview.TransactionDate is not null)
+                            {
+                                <div>@row.Preview.TransactionDate.Value.ToString("yyyy-MM-dd")</div>
+                            }
+                            @if (row.Preview.Price is not null)
+                            {
+                                <div>@row.Preview.Price.Value.ToString("0.00") €</div>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        @if (SelectedRows.Any(r => string.IsNullOrWhiteSpace(r.Platform)))
+        {
+            <p class="text-danger small mb-2">Pick a platform for every selected row before importing.</p>
+        }
+
+        <button class="btn btn-sm btn-primary mt-2" disabled="@(_committing || SelectedRows.Count() == 0 || SelectedRows.Any(r => string.IsNullOrWhiteSpace(r.Platform)))" @onclick="CommitAsync">
+            Import selected (@SelectedRows.Count())
+        </button>
+    </div>
+}
+
+@if (_commitError is not null)
+{
+    <div class="alert alert-danger mt-3">@_commitError</div>
+}
+
+@if (_commitResult is not null)
+{
+    <div class="alert alert-info mt-3">
+        <p class="mb-1"><strong>Video games:</strong> @_commitResult.VideoGamesCreated created, @_commitResult.VideoGamesMergedInto merged into existing, @_commitResult.VideoGamesSkipped already imported</p>
+        <p class="mb-0 kt-card-meta">
+            @_commitResult.RowsImported of @_lastCommitRowCount selected row(s) imported.
+            @if (_commitResult.VideoGamesCreated + _commitResult.VideoGamesMergedInto < _commitResult.RowsImported)
+            {
+                <text> Several rows shared a title and were combined into the same video game, so the created/merged count above is lower than the row count - nothing was lost.</text>
+            }
+        </p>
+        @if (_commitResult.SkippedRowTitles.Count > 0)
+        {
+            <hr/>
+            <p class="mb-1"><strong>Not imported (already imported before):</strong></p>
+            <ul class="mb-0">
+                @foreach (var title in _commitResult.SkippedRowTitles)
+                {
+                    <li>@title</li>
+                }
+            </ul>
+        }
+    </div>
+}
+
+@code {
+    private const long MaxFileSize = 20_000_000;
+
+    [Inject] private GenericVideoGameImportApiClient ImportApi { get; set; } = null!;
+
+    private bool _previewing;
+    private string? _error;
+    private List<EditableRow>? _rows;
+
+    /// <summary>Defaults on - a re-uploaded export is mostly already-imported rows, and hiding them by
+    /// default is what actually keeps the review list short.</summary>
+    private bool _hideAlreadyImported = true;
+
+    private bool _committing;
+    private string? _commitError;
+    private GenericVideoGameImportCommitResultDto? _commitResult;
+
+    /// <summary>How many rows the last commit actually submitted - the reconciliation total shown next to
+    /// <see cref="GenericVideoGameImportCommitResultDto.RowsImported"/>.</summary>
+    private int _lastCommitRowCount;
+
+    private IEnumerable<EditableRow> DisplayedRows => (_rows ?? [])
+        .Where(r => !_hideAlreadyImported || !r.Preview.AlreadyImported);
+
+    private IEnumerable<EditableRow> SelectedRows => _rows is null ? [] : _rows.Where(r => r.Selected);
+
+    /// <summary>Drives the header checkbox: checked only once every currently-shown row is selected.</summary>
+    private bool AllDisplayedSelected => DisplayedRows.Any() && DisplayedRows.All(r => r.Selected);
+
+    private void SetAllDisplayedSelected(bool selected)
+    {
+        foreach (var row in DisplayedRows)
+        {
+            row.Selected = selected;
+        }
+    }
+
+    private async Task OnFileSelectedAsync(InputFileChangeEventArgs e)
+    {
+        _previewing = true;
+        _error = null;
+        _rows = null;
+        _commitResult = null;
+        _commitError = null;
+
+        try
+        {
+#pragma warning disable S5693
+            await using var stream = e.File.OpenReadStream(MaxFileSize);
+#pragma warning restore S5693
+            var preview = await ImportApi.PreviewAsync(stream, e.File.Name);
+            _rows = preview.Select(ToEditableRow).ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _previewing = false;
+        }
+    }
+
+    private async Task CommitAsync()
+    {
+        _committing = true;
+        _commitError = null;
+        _commitResult = null;
+
+        try
+        {
+            var items = SelectedRows.Select(row => new GenericVideoGameImportCommitItemDto
+            {
+                RowId = row.Preview.RowId,
+                Title = row.Title,
+                // The original, unedited title from the parsed preview - kept separate from the editable
+                // row.Title above so it can be recorded verbatim in the created item's notes, regardless of
+                // whatever the user typed over it here.
+                SourceTitle = row.Preview.Title,
+                Platform = row.Platform,
+                ProductName = row.Preview.ProductName,
+                TransactionId = row.Preview.TransactionId,
+                OrderId = row.Preview.OrderId,
+                Vendor = row.Preview.Vendor,
+                Year = row.Year,
+                AcquiredAt = row.Preview.TransactionDate,
+                Price = row.Preview.Price,
+                CopyType = row.CopyType
+            }).ToList();
+
+            _lastCommitRowCount = items.Count;
+            _commitResult = await ImportApi.CommitAsync(items);
+        }
+        catch (Exception ex)
+        {
+            _commitError = ex.Message;
+        }
+        finally
+        {
+            _committing = false;
+        }
+    }
+
+    private static EditableRow ToEditableRow(GenericVideoGameImportPreviewRowDto preview) => new()
+    {
+        Preview = preview,
+        Selected = !preview.AlreadyImported,
+        Title = preview.Title,
+        Platform = preview.Platform,
+        // This export is store purchase history, so a copy is inherently digital - still editable in case
+        // of an oddity (e.g. a listed physical bundle/voucher line).
+        CopyType = CopyType.Digital
+    };
+
+    private sealed class EditableRow
+    {
+        public required GenericVideoGameImportPreviewRowDto Preview { get; init; }
+        public bool Selected { get; set; }
+
+        /// <summary>The one field worth editing at import time besides Year/Platform/Copy - everything else is read-only, order-derived info.</summary>
+        public string Title { get; set; } = "";
+
+        /// <summary>Never pre-filled - the export has no publication/release year.</summary>
+        public int? Year { get; set; }
+
+        public string? Platform { get; set; }
+
+        public CopyType CopyType { get; set; }
+    }
+}

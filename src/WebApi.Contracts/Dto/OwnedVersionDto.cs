@@ -32,4 +32,10 @@ public class OwnedVersionDto : IOwnedCopyDto
     /// Free-text reference for this copy: edition name, order number, barcode...
     /// </summary>
     public string? Reference { get; set; }
+
+    /// <summary>
+    /// The store's own specific product/edition text for this copy (e.g. a retailer's listing title),
+    /// distinct from the item's own Title. Optional free text.
+    /// </summary>
+    public string? ProductName { get; set; }
 }

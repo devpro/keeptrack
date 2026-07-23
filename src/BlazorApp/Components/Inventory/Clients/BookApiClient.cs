@@ -13,4 +13,15 @@ public sealed class BookApiClient(HttpClient http)
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<BookDto>())!;
     }
+
+    /// <summary>
+    /// Admin-only: unlinks and permanently deletes the shared reference document
+    /// (POST api/books/{id}/unlink-reference on WebApi).
+    /// </summary>
+    public async Task<BookDto> UnlinkReferenceAsync(string id)
+    {
+        var response = await Http.PostAsync($"{ApiResourceName}/{id}/unlink-reference", null);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<BookDto>())!;
+    }
 }

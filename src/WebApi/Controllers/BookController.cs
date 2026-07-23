@@ -74,4 +74,21 @@ public class BookController(
         model = await enrichmentService.TryLinkExistingBookReferenceAsync(model);
         return Ok(Mapper.ToDto(model));
     }
+
+    /// <summary>
+    /// Admin-only: clears this book's reference link and permanently deletes the shared reference
+    /// document - see <see cref="TvShowController.UnlinkReference"/>.
+    /// </summary>
+    [HttpPost("{id}/unlink-reference")]
+    [Authorize(Policy = "AdminOnly")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(404)]
+    public async Task<ActionResult<BookDto>> UnlinkReference(string id)
+    {
+        var model = await dataRepository.FindOneAsync(id, this.GetUserId());
+        if (model is null) return NotFound();
+
+        model = await enrichmentService.UnlinkBookReferenceAsync(model);
+        return Ok(Mapper.ToDto(model));
+    }
 }

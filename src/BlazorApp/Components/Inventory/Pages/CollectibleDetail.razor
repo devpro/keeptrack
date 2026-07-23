@@ -1,0 +1,158 @@
+@page "/collectibles/{Id}"
+@attribute [Authorize]
+
+@if (!_loaded)
+{
+    @if (_loading)
+    {
+        <div class="kt-loading">
+            <div class="kt-spinner"></div>
+            Loading…
+        </div>
+    }
+}
+else if (Collectible is null)
+{
+    <div class="kt-empty">
+        <div class="kt-empty-icon">◈</div>
+        <p>Collectible not found.</p>
+    </div>
+}
+else
+{
+    <Breadcrumb ListRoute="/collectibles" ListLabel="Collectibles" Current="@Collectible.Title"/>
+
+    <div class="kt-page-header">
+        <div class="kt-title-row">
+            <input class="kt-title-input" value="@Collectible.Title" @onchange="SaveTitleAsync"/>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm kt-toggle-btn @(Collectible.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Collectible.ImageUrl))
+    {
+        <div class="kt-product-cover-box mb-3">
+            <img src="@Collectible.ImageUrl" alt="@Collectible.Title cover"/>
+        </div>
+    }
+
+    <div class="kt-form-card">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Brand</label>
+                <input class="form-control form-control-sm" value="@Collectible.Brand" @onchange="SaveBrandAsync"/>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Year</label>
+                <input class="form-control form-control-sm" type="number" min="1900" max="2100" value="@Collectible.Year" @onchange="SaveYearAsync"/>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Notes</label>
+                <textarea class="form-control form-control-sm" rows="2" @onchange="SaveNotesAsync">@Collectible.Notes</textarea>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Cover image URL</label>
+                <input class="form-control form-control-sm" data-testid="image-url-input" value="@Collectible.ImageUrl" @onchange="SaveImageUrlAsync"/>
+            </div>
+        </div>
+    </div>
+
+    <OwnedVersionsEditor Versions="Collectible.OwnedVersions" OnChanged="SaveCollectibleAsync"/>
+}
+
+@code {
+    [Parameter] public required string Id { get; set; }
+
+    [Inject] private CollectibleApiClient CollectibleApi { get; set; } = null!;
+
+    // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
+    // _loaded tracks whether a load attempt has finished at all, fresh or restored from persisted
+    // prerender state - both default false so the forced render Blazor triggers right after the
+    // synchronous prefix of OnParametersSetAsync (before any awaited fetch resolves) shows blank instead
+    // of a spinner flash on every navigation to this page.
+    private bool _loading;
+    private bool _loaded;
+
+    // Public property (a framework requirement for [PersistentState]): the data loaded during the
+    // prerender pass is carried over to the interactive circuit, so the first interactive render reuses
+    // it instead of resetting to the spinner and re-fetching - same pattern as AlbumDetail/CarDetail.
+    [PersistentState]
+    public CollectibleDto? Collectible { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Collectible already holds this route's item when PersistentState restored the prerendered data
+        // the id check keeps an in-circuit navigation to a different collectible reloading as before
+        if (Collectible?.Id == Id)
+        {
+            _loading = false;
+            _loaded = true;
+            return;
+        }
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        await LoadingIndicator.RunAsync(FetchAsync(), v => _loading = v, StateHasChanged);
+        _loading = false;
+        _loaded = true;
+    }
+
+    private async Task FetchAsync()
+    {
+        Collectible = await CollectibleApi.GetOneAsync(Id);
+    }
+
+    private async Task SaveCollectibleAsync()
+    {
+        if (Collectible is null) return;
+        await CollectibleApi.UpdateAsync(Collectible);
+    }
+
+    private async Task SaveTitleAsync(ChangeEventArgs e)
+    {
+        if (Collectible is null) return;
+        var title = e.Value?.ToString();
+        if (string.IsNullOrWhiteSpace(title)) return;
+        Collectible.Title = title;
+        await SaveCollectibleAsync();
+    }
+
+    private async Task SaveBrandAsync(ChangeEventArgs e)
+    {
+        if (Collectible is null) return;
+        Collectible.Brand = e.Value?.ToString();
+        await SaveCollectibleAsync();
+    }
+
+    private async Task SaveYearAsync(ChangeEventArgs e)
+    {
+        if (Collectible is null) return;
+        Collectible.Year = int.TryParse(e.Value?.ToString(), out var year) ? year : null;
+        await SaveCollectibleAsync();
+    }
+
+    private async Task SaveNotesAsync(ChangeEventArgs e)
+    {
+        if (Collectible is null) return;
+        Collectible.Notes = e.Value?.ToString();
+        await SaveCollectibleAsync();
+    }
+
+    private async Task SaveImageUrlAsync(ChangeEventArgs e)
+    {
+        if (Collectible is null) return;
+        Collectible.ImageUrl = e.Value?.ToString();
+        await SaveCollectibleAsync();
+    }
+
+    private async Task ToggleFavoriteAsync()
+    {
+        if (Collectible is null) return;
+        Collectible.IsFavorite = !Collectible.IsFavorite;
+        await SaveCollectibleAsync();
+    }
+}

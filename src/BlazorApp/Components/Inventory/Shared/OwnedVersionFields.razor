@@ -1,11 +1,18 @@
 @using System.Globalization
+@inject UserPreferencesState PreferencesState
 
 @* Shared owned-copy field body (Physical/Digital toggle + price/acquired/vendor/reference) - used by
    OwnedVersionsEditor.razor (movie/TV show/book/album), VideoGameDetail.razor's per-platform cards, and
    Quick Add's own owned-copy toggle. Each caller keeps its own persistence timing (draft Save button vs.
    auto-save vs. nothing-persists-until-Save) via OnChanged, which defaults to a no-op.
    ButtonRowSuffix renders alongside the Physical/Digital buttons (e.g. a caller's own remove icon), so a
-   caller's header chrome doesn't need to be split awkwardly around this component. *@
+   caller's header chrome doesn't need to be split awkwardly around this component.
+   ExtraFields renders as one more column in the same field row (e.g. VideoGamePlatformDto.ProductName,
+   which has no equivalent on the shared IOwnedCopyDto - not every caller has an extra field like this, so
+   this stays a slot rather than a member on the interface). The four columns below use unnumbered col-md
+   (equal-width auto layout) rather than a fixed col-md-3 for exactly this reason: with no ExtraFields they
+   still fill one row identically to a fixed 3/3/3/3 split, but a 5th ExtraFields column joins the same row
+   and everyone re-shares the width automatically, instead of wrapping to a second row. *@
 
 <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
     <div class="d-flex gap-2">
@@ -16,26 +23,36 @@
 </div>
 <div class="row g-3 mt-0">
     @* the euro sign is a display choice, not stored data - a per-user currency setting may replace it later *@
-    <div class="col-6 col-md-3">
+    <div class="col-6 col-md">
         <label class="form-label">Price (€)</label>
         <input class="form-control form-control-sm" type="number" step="0.01" min="0" data-testid="version-price-input"
                value="@Copy.Price?.ToString(CultureInfo.InvariantCulture)" @onchange="SetPriceAsync"/>
     </div>
-    <div class="col-6 col-md-3">
+    <div class="col-6 col-md">
         <label class="form-label">Acquired on</label>
         <input class="form-control form-control-sm" type="date" data-testid="version-acquired-input"
                value="@Copy.AcquiredAt?.ToString("yyyy-MM-dd")" @onchange="SetAcquiredAtAsync"/>
     </div>
-    <div class="col-6 col-md-3">
+    <div class="col-6 col-md">
         <label class="form-label">Vendor</label>
         <input class="form-control form-control-sm" placeholder="Store, site, seller…" data-testid="version-vendor-input"
                value="@Copy.Vendor" @onchange="SetVendorAsync"/>
     </div>
-    <div class="col-12 col-md-3">
+    <div class="col-6 col-md">
         <label class="form-label">Reference</label>
-        <input class="form-control form-control-sm" placeholder="Edition, order number…" data-testid="version-reference-input"
-               value="@Copy.Reference" @onchange="SetReferenceAsync"/>
+        <div class="d-flex gap-2 align-items-center">
+            <input class="form-control form-control-sm" placeholder="Edition, order number…" data-testid="version-reference-input"
+                   value="@Copy.Reference" @onchange="SetReferenceAsync"/>
+            @if (_showAmazonProductLink && AmazonReference.TryExtractAsin(Copy.Reference) is { } asin)
+            {
+                <a class="kt-icon-btn" href="@AmazonReference.BuildProductUrl(asin, Copy.Vendor)"
+                   target="_blank" rel="noopener noreferrer" title="Open on Amazon">
+                    <ExternalLinkIcon/>
+                </a>
+            }
+        </div>
     </div>
+    @ExtraFields
 </div>
 
 @code {
@@ -44,6 +61,15 @@
     [Parameter] public EventCallback OnChanged { get; set; }
 
     [Parameter] public RenderFragment? ButtonRowSuffix { get; set; }
+
+    [Parameter] public RenderFragment? ExtraFields { get; set; }
+
+    private bool _showAmazonProductLink;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _showAmazonProductLink = (await PreferencesState.GetAsync()).Features.ShowAmazonProductLink;
+    }
 
     private Task SetCopyTypeAsync(CopyType copyType)
     {
@@ -66,7 +92,7 @@
 
     private Task SetAcquiredAtAsync(ChangeEventArgs e)
     {
-        Copy.AcquiredAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
+        Copy.AcquiredAt = DateOnlyInput.Parse(e.Value);
         return OnChanged.InvokeAsync();
     }
 

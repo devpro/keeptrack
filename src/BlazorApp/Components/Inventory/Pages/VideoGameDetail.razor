@@ -31,6 +31,17 @@ else
                     title="@(string.IsNullOrEmpty(Game.ReferenceId) ? "Check for reference match using the title and year below." : $"Linked to \"{Reference?.Title}\". Not right? Edit the title or year below, then check again.")">
                 <span class="@(_refreshingReference ? "kt-icon-spin" : "")">↻</span>
             </button>
+            @if (!string.IsNullOrEmpty(Game.ReferenceId))
+            {
+                <AuthorizeView Policy="AdminOnly">
+                    <Authorized>
+                        <button class="kt-icon-btn" title="Unlink and remove this reference" aria-label="Unlink reference"
+                                @onclick="() => _pendingUnlink = true">
+                            <TrashIcon/>
+                        </button>
+                    </Authorized>
+                </AuthorizeView>
+            }
             @if (_refreshMessage is not null)
             {
                 <span class="kt-inline-toast @_refreshMessageStyle">@_refreshMessage</span>
@@ -50,10 +61,17 @@ else
         </AuthorizeView>
     }
 
-    @if (!string.IsNullOrEmpty(Reference?.ImageUrl))
+    <ConfirmModal Show="_pendingUnlink"
+                  Title="Unlink this reference?"
+                  Message="This clears the link on this item and permanently deletes the matched reference data (cover, synopsis, genres/platforms). This can't be undone."
+                  ConfirmLabel="Unlink"
+                  OnConfirm="UnlinkReferenceAsync" OnCancel="() => _pendingUnlink = false"/>
+
+    var coverUrl = !string.IsNullOrEmpty(Game.CustomImageUrl) ? Game.CustomImageUrl : Reference?.ImageUrl;
+    @if (!string.IsNullOrEmpty(coverUrl))
     {
         <div class="kt-form-card p-0 mb-3" style="overflow:hidden">
-            <img src="@Reference.ImageUrl" alt="@Game.Title cover" style="width:100%;max-height:320px;object-fit:cover;display:block"/>
+            <img src="@coverUrl" alt="@Game.Title cover" style="width:100%;max-height:320px;object-fit:cover;display:block"/>
         </div>
     }
 
@@ -77,6 +95,11 @@ else
                 {
                     <p class="kt-card-meta mb-0">@string.Join(", ", Reference.Genres)</p>
                 }
+                <div class="mt-3">
+                    <label class="form-label">Cover image URL</label>
+                    <input class="form-control form-control-sm" placeholder="@(Reference?.ImageUrl is null ? "" : "Leave blank to use the linked reference's cover")"
+                           value="@Game.CustomImageUrl" @onchange="SaveCustomImageUrlAsync"/>
+                </div>
             </div>
             <div class="col-md-8">
                 <label class="form-label">Notes</label>
@@ -113,6 +136,13 @@ else
                         <TrashIcon/>
                     </button>
                 </ButtonRowSuffix>
+                <ExtraFields>
+                    <div class="col-6 col-md">
+                        <label class="form-label">Product</label>
+                        <input class="form-control form-control-sm" placeholder="Store product/edition name…"
+                               value="@entry.ProductName" @onchange="e => SetPlatformProductNameAsync(entry, e)"/>
+                    </div>
+                </ExtraFields>
             </OwnedVersionFields>
 
             <div class="d-flex gap-2 mt-3 flex-wrap align-items-center">
@@ -213,6 +243,7 @@ else
     private object? _refreshMessageToken;
     private VideoGamePlatformDto? _draftPlatform;
     private VideoGamePlatformDto? _pendingRemovePlatform;
+    private bool _pendingUnlink;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -285,6 +316,13 @@ else
         await SaveGameAsync();
     }
 
+    private async Task SaveCustomImageUrlAsync(ChangeEventArgs e)
+    {
+        if (Game is null) return;
+        Game.CustomImageUrl = e.Value?.ToString();
+        await SaveGameAsync();
+    }
+
     private void StartDraftPlatform() => _draftPlatform = new VideoGamePlatformDto();
 
     private void CancelDraftPlatform() => _draftPlatform = null;
@@ -335,7 +373,8 @@ else
         && entry.Price is null
         && entry.AcquiredAt is null
         && string.IsNullOrWhiteSpace(entry.Vendor)
-        && string.IsNullOrWhiteSpace(entry.Reference);
+        && string.IsNullOrWhiteSpace(entry.Reference)
+        && string.IsNullOrWhiteSpace(entry.ProductName);
 
     /// <summary>
     /// Clicking the already-active state button clears it back to unset - same toggle-off-on-reclick
@@ -350,7 +389,13 @@ else
 
     private async Task SetPlatformCompletedDateAsync(VideoGamePlatformDto entry, ChangeEventArgs e)
     {
-        entry.CompletedAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
+        entry.CompletedAt = DateOnlyInput.Parse(e.Value);
+        await SaveGameAsync();
+    }
+
+    private async Task SetPlatformProductNameAsync(VideoGamePlatformDto entry, ChangeEventArgs e)
+    {
+        entry.ProductName = e.Value?.ToString();
         await SaveGameAsync();
     }
 
@@ -363,7 +408,7 @@ else
 
     private async Task SetFullyCompletedDateAsync(VideoGamePlatformDto entry, ChangeEventArgs e)
     {
-        entry.FullyCompletedAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
+        entry.FullyCompletedAt = DateOnlyInput.Parse(e.Value);
         await SaveGameAsync();
     }
 
@@ -387,7 +432,7 @@ else
 
     private async Task UpdatePlaythroughDateAsync(PlaythroughDto playthrough, ChangeEventArgs e)
     {
-        playthrough.CompletedAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
+        playthrough.CompletedAt = DateOnlyInput.Parse(e.Value);
         await SaveGameAsync();
     }
 
@@ -403,9 +448,7 @@ else
             var refreshed = await VideoGameApi.RefreshReferenceAsync(Game.Id);
             await LoadAsync();
 
-            (_refreshMessage, _refreshMessageStyle) = string.IsNullOrEmpty(refreshed.ReferenceId)
-                ? string.IsNullOrEmpty(previousReferenceId) ? ("No match found", "neutral") : ("Unlinked - no match", "danger")
-                : refreshed.ReferenceId == previousReferenceId ? ("Already linked", "neutral") : ("Linked!", "success");
+            (_refreshMessage, _refreshMessageStyle) = ReferenceRefreshMessage.Compute(previousReferenceId, refreshed.ReferenceId);
         }
         catch (Exception ex)
         {
@@ -415,6 +458,26 @@ else
         finally
         {
             _refreshingReference = false;
+        }
+
+        ScheduleRefreshMessageClear();
+    }
+
+    private async Task UnlinkReferenceAsync()
+    {
+        _pendingUnlink = false;
+        if (Game?.Id is null) return;
+
+        try
+        {
+            await VideoGameApi.UnlinkReferenceAsync(Game.Id);
+            await LoadAsync();
+            (_refreshMessage, _refreshMessageStyle) = ("Unlinked and reference removed.", "success");
+        }
+        catch (Exception ex)
+        {
+            _refreshMessage = $"Error: {ex.Message}";
+            _refreshMessageStyle = "danger";
         }
 
         ScheduleRefreshMessageClear();

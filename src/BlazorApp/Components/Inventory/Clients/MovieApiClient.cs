@@ -18,4 +18,15 @@ public sealed class MovieApiClient(HttpClient http)
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<MovieDto>())!;
     }
+
+    /// <summary>
+    /// Admin-only: unlinks and permanently deletes the shared reference document
+    /// (POST api/movies/{id}/unlink-reference on WebApi).
+    /// </summary>
+    public async Task<MovieDto> UnlinkReferenceAsync(string id)
+    {
+        var response = await Http.PostAsync($"{ApiResourceName}/{id}/unlink-reference", null);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<MovieDto>())!;
+    }
 }

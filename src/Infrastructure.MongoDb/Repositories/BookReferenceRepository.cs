@@ -90,4 +90,9 @@ public class BookReferenceRepository(IMongoDatabase mongoDatabase, BookReference
 
         return mapper.ToModel(entity);
     }
+
+    public async Task DeleteAsync(string id)
+    {
+        await Collection.DeleteOneAsync(x => x.Id == id);
+    }
 }
