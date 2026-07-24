@@ -41,4 +41,7 @@ public partial class Gear : InventoryPageBase<GearDto>
         await base.OnInitializedAsync();
         Categories = await GearApi.GetCategoriesAsync();
     }
+
+    protected void OnCategoryFilterChanged(ChangeEventArgs e) =>
+        SetFilter("category", string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value.ToString());
 }

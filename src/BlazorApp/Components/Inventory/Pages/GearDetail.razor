@@ -50,7 +50,17 @@ else
             </div>
             <div class="col-md-6">
                 <label class="form-label">Category</label>
-                <SuggestInput Value="@Item.Category" ValueChanged="SaveCategoryAsync" Suggestions="@_categories" Placeholder="e.g. Electronics"/>
+                <div class="d-flex gap-2 align-items-start">
+                    <div class="flex-grow-1">
+                        <SuggestInput Value="@Item.Category" ValueChanged="SaveCategoryAsync" Suggestions="@_categories" Placeholder="e.g. Electronics"/>
+                    </div>
+                    @if (!string.IsNullOrEmpty(Item.Category))
+                    {
+                        <button class="kt-icon-btn" title="Clear category" aria-label="Clear category" @onclick="() => SaveCategoryAsync(null)">
+                            <TrashIcon/>
+                        </button>
+                    }
+                </div>
             </div>
             <div class="col-12">
                 <label class="form-label">Notes</label>
