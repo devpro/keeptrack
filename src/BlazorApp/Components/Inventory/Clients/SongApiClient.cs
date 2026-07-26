@@ -15,7 +15,14 @@ public sealed class SongApiClient(HttpClient http)
     /// </summary>
     public async Task<SongDto> GetOrCreateForTrackAsync(string albumId, string position, string title, string? duration, string? artist)
     {
-        var existing = await GetAsync("", 1, 1, new Dictionary<string, string> { ["AlbumId"] = albumId, ["TrackPosition"] = position });
+        var existing = await GetAsync(search: "",
+            page: 1,
+            pageSize: 1,
+            extraQuery: new Dictionary<string, string>
+            {
+                ["AlbumId"] = albumId,
+                ["TrackPosition"] = position
+            });
         if (existing.Items.Count > 0) return existing.Items[0];
 
         return await AddAsync(new SongDto
