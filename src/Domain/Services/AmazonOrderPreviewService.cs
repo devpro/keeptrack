@@ -106,7 +106,7 @@ public static class AmazonOrderPreviewService
         }
 
         var repaired = Encoding.UTF8.GetString(bytes);
-        return repaired.Contains('�') ? text : repaired;
+        return repaired.Contains('\uFFFD') ? text : repaired;
     }
 
     /// <summary>
