@@ -162,16 +162,14 @@ else
     private static readonly TimeSpan RefreshMessageDuration = TimeSpan.FromSeconds(4);
 
     // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
-    // _loaded tracks whether a load attempt has finished at all, fresh or restored from persisted
-    // prerender state - both default false so the forced render Blazor triggers right after the
-    // synchronous prefix of OnParametersSetAsync (before any awaited fetch resolves) shows blank instead
-    // of a spinner flash on every navigation to this page.
+    // _loaded tracks whether a load attempt has finished at all, fresh or restored from persisted prerender state -
+    // both default false so the forced render Blazor triggers right after the synchronous prefix of OnParametersSetAsync (before any awaited fetch resolves)
+    // shows blank instead of a spinner flash on every navigation to this page.
     private bool _loading;
     private bool _loaded;
 
-    // Public properties (a framework requirement for [PersistentState]): the data loaded during the
-    // prerender pass is carried over to the interactive circuit, so the first interactive render reuses
-    // it instead of resetting to the spinner and re-fetching - same pattern as MovieDetail.
+    // Public properties (a framework requirement for [PersistentState]): the data loaded during the prerender pass is carried over to the interactive circuit,
+    // so the first interactive render reuses it instead of resetting to the spinner and re-fetching - same pattern as MovieDetail.
     [PersistentState]
     public BookDto? Book { get; set; }
 

@@ -34,7 +34,7 @@ if (!string.IsNullOrEmpty(dataProtectionConnectionString))
         .AddKeyManagementOptions(options => options.XmlRepository = new MongoDbXmlRepository(keyCollection));
 }
 builder.Services.AddControllers();
-builder.Services.AddSingleton(builder.Configuration.TryGetSection<FirebaseClientSettings>("Firebase:WebAppConfiguration"));
+builder.Services.AddSingleton(builder.Configuration.TryGetSection<Keeptrack.BlazorApp.Components.Account.FirebaseClientSettings>("Firebase:WebAppConfiguration"));
 if (FirebaseApp.DefaultInstance is null)
 {
     var firebaseJson = builder.Configuration.TryGetSection<string>("Firebase:ServiceAccount");
@@ -42,7 +42,7 @@ if (FirebaseApp.DefaultInstance is null)
     FirebaseApp.Create(new AppOptions { Credential = googleCredential });
 }
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<AuthenticationTokenHandler>();
+builder.Services.AddScoped<Keeptrack.BlazorApp.Components.Account.AuthenticationTokenHandler>();
 builder.Services.AddScoped<Keeptrack.BlazorApp.Components.Account.UserPreferencesState>();
 builder.Services.AddWebApiHttpClient(builder.Configuration.TryGetSection<string>("WebApi:BaseUrl"));
 builder.Services.AddHealthChecks();
@@ -67,7 +67,7 @@ app.MapRazorComponents<App>()
 // Anonymous share-link recipients must never open a SignalR circuit (see SharedWishlistPage.razor) - this bypasses the now-globally-interactive Routes/Router entirely
 // rather than relying on a per-component opt-out, which isn't possible once an ancestor establishes an interactive render mode.
 app.MapGet("/shared/wishlist/{token}", (string token) =>
-    new RazorComponentResult<SharedWishlistApp>(new { Token = token }));
+    new RazorComponentResult<Keeptrack.BlazorApp.Components.Wishlist.SharedWishlistApp>(new { Token = token }));
 app.MapControllers();
 app.MapHealthChecks("/health");
 

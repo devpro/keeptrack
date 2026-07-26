@@ -2,9 +2,11 @@
 
 namespace Keeptrack.BlazorApp.Components.Inventory.Clients;
 
-public abstract class InventoryApiClientBase<TDto>(HttpClient http)
+public abstract class InventoryApiClientBase<TDto>(HttpClient http, bool hasReference = false)
     where TDto : IHasId
 {
+    private sealed record ApiError(string? Error);
+
     protected abstract string ApiResourceName { get; }
 
     /// <summary>
@@ -40,20 +42,19 @@ public abstract class InventoryApiClientBase<TDto>(HttpClient http)
     public async Task<TDto> AddAsync(TDto movie)
     {
         var response = await http.PostAsJsonAsync($"{ApiResourceName}", movie);
-        if (!response.IsSuccessStatusCode)
+        if (response.IsSuccessStatusCode)
         {
-            // the API returns error bodies (free-tier quota 403s, ApiExceptionFilterAttribute's 400s/500s) -
-            // surfacing that text beats EnsureSuccessStatusCode's opaque "403 (Forbidden)" in the Add form
-            var body = await response.Content.ReadFromJsonAsync<ApiError>();
-            throw new InvalidOperationException(string.IsNullOrEmpty(body?.Error)
-                ? $"The request failed ({(int)response.StatusCode})."
-                : body.Error);
+            return (await response.Content.ReadFromJsonAsync<TDto>())!;
         }
 
-        return (await response.Content.ReadFromJsonAsync<TDto>())!;
-    }
+        // the API returns error bodies (free-tier quota 403s, ApiExceptionFilterAttribute's 400s/500s) -
+        // surfacing that text beats EnsureSuccessStatusCode's opaque "403 (Forbidden)" in the Add form
+        var body = await response.Content.ReadFromJsonAsync<ApiError>();
+        throw new InvalidOperationException(string.IsNullOrEmpty(body?.Error)
+            ? $"The request failed ({(int)response.StatusCode})."
+            : body.Error);
 
-    private sealed record ApiError(string? Error);
+    }
 
     public async Task UpdateAsync(TDto movie)
     {
@@ -63,5 +64,36 @@ public abstract class InventoryApiClientBase<TDto>(HttpClient http)
     public async Task DeleteAsync(string id)
     {
         (await http.DeleteAsync($"{ApiResourceName}/{id}")).EnsureSuccessStatusCode();
+    }
+
+    /// <summary>
+    /// User-triggered, exact-match-only re-check against the local reference collection (POST api/{type}/{id}/refresh-reference on WebApi).
+    /// Returns the (possibly now-linked) item so the caller can tell whether a match was actually found.
+    /// </summary>
+    public async Task<TDto> RefreshReferenceAsync(string id)
+    {
+        if (!hasReference)
+        {
+            throw new NotImplementedException();
+        }
+
+        var response = await Http.PostAsync($"{ApiResourceName}/{id}/refresh-reference", null);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<TDto>())!;
+    }
+
+    /// <summary>
+    /// Admin-only: unlinks and permanently deletes the shared reference document (POST api/{type}/{id}/unlink-reference on WebApi).
+    /// </summary>
+    public async Task<TDto> UnlinkReferenceAsync(string id)
+    {
+        if (!hasReference)
+        {
+            throw new NotImplementedException();
+        }
+
+        var response = await Http.PostAsync($"{ApiResourceName}/{id}/unlink-reference", null);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<TDto>())!;
     }
 }
