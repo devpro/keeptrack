@@ -74,7 +74,7 @@ jobs:
       fossa-enabled: true
       sonar-enabled: true
       sonar-cpd-exclusions: "**/*.g.cs,**/*.generated.cs,**/src/WebApi.Contracts/Dto/*.cs,**/src/Domain/Models/*.cs,**/src/Infrastructure.MongoDb/Entities/*.cs"
-      sonar-exclusions: "**/samples/**"
+      sonar-exclusions: "**/samples/**,**/*.png"
       sonar-organization: ${{ vars.SONAR_ORG }}
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
       sonar-project-name: Keeptrack
