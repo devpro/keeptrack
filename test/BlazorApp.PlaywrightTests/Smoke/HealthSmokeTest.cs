@@ -33,6 +33,12 @@ public class HealthSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
         await detail.WaitForReadyAsync();
         await Assertions.Expect(detail.TitleInput).ToHaveValueAsync(name);
 
+        // cover image: HealthProfile keeps the default portrait list shape (a person's photo, unlike
+        // Car/House/Collectible/Gear's "wide" objects/spaces) - just the detail banner round trip here.
+        const string imageUrl = "https://picsum.photos/seed/e2e-health/300/400";
+        await DetailPageBase.SetFieldAsync(detail.ImageUrlInput, imageUrl);
+        await Assertions.Expect(detail.CoverImage).ToHaveAttributeAsync("src", imageUrl);
+
         // add an appointment paid 60 with nothing reimbursed yet - it must come back flagged
         await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "+ Add entry" }).ClickAsync();
         // data-testid, not GetByLabel: the modal's label/input pairs have no for/id association (the

@@ -33,6 +33,7 @@ public class HouseResourceTest(KestrelWebAppFactory<Program> factory)
                 o.PropertyType = f.PickRandom<PropertyType>();
                 o.MovedInAt = System.DateOnly.FromDateTime(f.Date.Past());
                 o.MovedOutAt = System.DateOnly.FromDateTime(f.Date.Recent());
+                o.ImageUrl = f.Internet.Url();
             })
             .Generate();
         var created = await PostAsync($"/{ResourceEndpoint}", input);

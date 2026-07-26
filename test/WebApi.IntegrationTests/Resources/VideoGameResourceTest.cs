@@ -1,12 +1,17 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using AwesomeAssertions;
 using Bogus;
 using Keeptrack.Common.System;
+using Keeptrack.Domain.Repositories;
+using Keeptrack.Infrastructure.MongoDb.Entities;
 using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.IntegrationTests.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using MongoDB.Driver;
 using Xunit;
 
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
@@ -32,6 +37,10 @@ public class VideoGameResourceTest(KestrelWebAppFactory<Program> factory)
             {
                 o.Title = f.Random.AlphaNumeric(14);
                 o.Platforms = [new VideoGamePlatformDto { Platform = "PC", CopyType = CopyType.Physical, State = "Current" }];
+                // round-trips CustomImageUrl through the real Mapperly mappers + MongoDB - a plain scalar field
+                // with no special mapping, but a real integration test is what would catch a missed
+                // [BsonElement]/mapper ignore, not a mocked unit test.
+                o.CustomImageUrl = f.Internet.Url();
             })
             .Generate();
         var created = await PostAsync($"/{ResourceEndpoint}", input);
@@ -120,6 +129,49 @@ public class VideoGameResourceTest(KestrelWebAppFactory<Program> factory)
         finally
         {
             await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
+        }
+    }
+
+    /// <summary>
+    /// <see cref="VideoGameDto.CustomImageUrl"/> follows <see cref="BookDto.CustomImageUrl"/>'s exact shape -
+    /// <c>VideoGameController.OnListMappedAsync</c> is expected to apply it over the linked reference's own
+    /// cover on every list read.
+    /// </summary>
+    [Fact]
+    public async Task VideoGameResourceList_CustomImageUrlOverridesTheLinkedReferencesCover()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var referenceRepository = scope.ServiceProvider.GetRequiredService<IVideoGameReferenceRepository>();
+        var uniqueTitle = $"CustomImageOverrideTarget-{Guid.NewGuid():N}";
+
+        var reference = await referenceRepository.UpsertAsync(new Keeptrack.Domain.Models.VideoGameReferenceModel
+        {
+            Title = "Some Reference Title",
+            TitleNormalized = "some reference title",
+            ExternalIds = new Dictionary<string, string> { ["rawg"] = $"rawg-{Guid.NewGuid():N}" },
+            ImageUrl = "https://example.com/reference-cover.jpg"
+        });
+
+        await Authenticate();
+        const string customImageUrl = "https://example.com/custom-cover.jpg";
+        var created = await PostAsync($"/{ResourceEndpoint}", new VideoGameDto
+        {
+            Title = uniqueTitle,
+            ReferenceId = reference.Id,
+            CustomImageUrl = customImageUrl
+        });
+
+        try
+        {
+            var list = await GetAsync<PagedResult<VideoGameDto>>($"/{ResourceEndpoint}?search={uniqueTitle}");
+            var item = list.Items.Should().ContainSingle(x => x.Id == created.Id).Subject;
+            item.ImageUrl.Should().Be(customImageUrl);
+        }
+        finally
+        {
+            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
+            var referenceCollection = scope.ServiceProvider.GetRequiredService<IMongoDatabase>().GetCollection<VideoGameReference>("videogame_reference");
+            await referenceCollection.DeleteOneAsync(Builders<VideoGameReference>.Filter.Eq(x => x.Id, reference.Id), TestContext.Current.CancellationToken);
         }
     }
 }

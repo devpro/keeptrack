@@ -33,6 +33,7 @@ public class HealthProfileResourceTest(KestrelWebAppFactory<Program> factory)
         try
         {
             created.Notes = "Allergic to penicillin";
+            created.ImageUrl = "https://example.com/profile.jpg";
             await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
 
             var updated = await GetAsync<HealthProfileDto>($"/{ResourceEndpoint}/{created.Id}");

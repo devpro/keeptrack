@@ -58,6 +58,24 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
+    /// Admin-triggered "unlink" for books - see <see cref="UnlinkTvShowReferenceAsync"/> for the full
+    /// rationale (clears the tenant's link and permanently deletes the shared reference document, rather
+    /// than only detaching this one item).
+    /// </summary>
+    public async Task<BookModel> UnlinkBookReferenceAsync(BookModel model)
+    {
+        var referenceId = model.ReferenceId;
+        model.ReferenceId = string.Empty;
+        await bookRepository.UpdateAsync(model.Id!, model, model.OwnerId);
+        if (!string.IsNullOrEmpty(referenceId))
+        {
+            await bookReferenceRepository.DeleteAsync(referenceId);
+        }
+
+        return model;
+    }
+
+    /// <summary>
     /// Best-effort automatic match for books - see <see cref="TryAutoResolveTvShowAsync"/>. Always searches
     /// the deployment's *default* provider (<see cref="BookReferenceClientRegistry.Resolve"/> with a null
     /// key) - this is the unattended background path, so there's no admin picking a provider here. Passing

@@ -45,4 +45,10 @@ public interface IAlbumReferenceRepository
     /// full unpaged read is fine.
     /// </summary>
     Task<List<AlbumReferenceModel>> FindAllAsync();
+
+    /// <summary>
+    /// Permanently removes a reference document - backs the admin "unlink" action, which deletes the
+    /// shared document outright rather than merely detaching one tenant's link.
+    /// </summary>
+    Task DeleteAsync(string id);
 }

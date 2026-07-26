@@ -39,13 +39,13 @@ jobs:
 
   markup-lint:
     name: Markup
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-markup-lint.yml@f9d8c00db1ed723e39cfff6c4c7addc77a23c54d
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-markup-lint.yml@58dbfe0e9927f2191796ac616a4bb43126e59d98
 
   code-quality:
     name: Code
     needs: git-check
     if: needs.git-check.outputs.app_changed == 'true' || (github.event_name == 'workflow_dispatch' && inputs.run-code-quality)
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-dotnet-quality.yml@f9d8c00db1ed723e39cfff6c4c7addc77a23c54d
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-dotnet-quality.yml@58dbfe0e9927f2191796ac616a4bb43126e59d98
     with:
       # TODO: need a safe solution for service account json content
       #
@@ -73,11 +73,12 @@ jobs:
         Infrastructure__MongoDB__DatabaseName=keeptrack_ci
       fossa-enabled: true
       sonar-enabled: true
-      sonar-exclusions: "samples/**,**/*.g.cs,**/*.generated.cs"
+      sonar-cpd-exclusions: "**/*.g.cs,**/*.generated.cs,**/src/WebApi.Contracts/Dto/*.cs,**/src/Domain/Models/*.cs,**/src/Infrastructure.MongoDb/Entities/*.cs"
+      sonar-exclusions: "**/samples/**,**/*.png"
       sonar-organization: ${{ vars.SONAR_ORG }}
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
       sonar-project-name: Keeptrack
-      workflow-parts-version: f9d8c00db1ed723e39cfff6c4c7addc77a23c54d
+      workflow-parts-version: 58dbfe0e9927f2191796ac616a4bb43126e59d98
     secrets:
       fossa-api-key: ${{ secrets.FOSSA_API_KEY }}
       sonar-token: ${{ secrets.SONAR_TOKEN }}
@@ -108,7 +109,7 @@ jobs:
           - name: "Web Api"
             image-name: "keeptrack-webapi"
             image-definition: "src/WebApi/Dockerfile"
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-scan.yml@f9d8c00db1ed723e39cfff6c4c7addc77a23c54d
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-scan.yml@58dbfe0e9927f2191796ac616a4bb43126e59d98
     with:
       image-definition: ${{ matrix.image-definition }}
       image-name: ${{ matrix.image-name }}
@@ -116,3 +117,4 @@ jobs:
       image-tag: "${{ needs.git-check.outputs.version_major_minor }}.${{ github.run_id }}"
       max-high-cves: 1 # temporary (2026-07-19): libxml2-2 │ SUSE-SU-2026:3097-1 │ HIGH │ fixed │ 2.12.10-150700.4.11.1 │ 2.12.10-150700.4.14.1 │ Security update for libxml2
       max-medium-cves: 0
+      workflow-parts-version: 58dbfe0e9927f2191796ac616a4bb43126e59d98

@@ -22,4 +22,7 @@ public static class ListSort
 
     /// <summary>Most recently completed video game first (max <c>CompletedAt</c> across a game's platform entries); items with none last.</summary>
     public const string LastCompleted = "completed";
+
+    /// <summary>Most recently bought gear first (max <c>AcquiredAt</c> across a gear item's owned versions); items with none last.</summary>
+    public const string Bought = "bought";
 }

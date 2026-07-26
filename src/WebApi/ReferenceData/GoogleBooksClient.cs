@@ -40,10 +40,25 @@ public partial class GoogleBooksClient(HttpClient http, GoogleBooksSettings sett
         return results;
     }
 
+    /// <summary>
+    /// Google's own <c>fields=</c> partial-response parameter (https://developers.google.com/books/docs/v1/performance),
+    /// restricted to exactly what <see cref="BookSearchResult"/> reads - confirmed against the real API that
+    /// the unfiltered response is ~75KB/20 results (a full <c>volumeInfo</c>, including the long HTML
+    /// description and every industry identifier, per item) against TMDB's ~14KB for a comparable movie
+    /// search; this is why a Google Books lookup was observed to be consistently slower than the other three
+    /// providers even on a successful call, not just during today's provider-side 500/503s.
+    /// </summary>
+    private const string SearchFields = "fields=items(id,volumeInfo(title,authors,publishedDate,imageLinks/thumbnail))";
+
+    /// <summary>
+    /// Same idea as <see cref="SearchFields"/>, restricted to what <see cref="BookDetails"/> reads.
+    /// </summary>
+    private const string DetailsFields = "fields=volumeInfo(title,publishedDate,description,authors,categories,imageLinks/thumbnail,language,industryIdentifiers)";
+
     private async Task<IReadOnlyList<BookSearchResult>> SearchBooksCoreAsync(string query, CancellationToken cancellationToken)
     {
         var response = await http.GetFromJsonAsync<GoogleBooksSearchResponse>(
-            $"volumes?q={Encode(query)}&maxResults={MaxResults}&key={ApiKey}", cancellationToken);
+            $"volumes?q={Encode(query)}&maxResults={MaxResults}&key={ApiKey}&{SearchFields}", cancellationToken);
 
         return response?.Items
             .Where(i => !string.IsNullOrEmpty(i.Id) && !string.IsNullOrEmpty(i.VolumeInfo?.Title))
@@ -54,7 +69,7 @@ public partial class GoogleBooksClient(HttpClient http, GoogleBooksSettings sett
 
     public async Task<BookDetails?> GetBookDetailsAsync(string externalId, CancellationToken cancellationToken = default)
     {
-        var volume = await http.GetFromJsonAsync<GoogleBooksVolume>($"volumes/{externalId}?key={ApiKey}", cancellationToken);
+        var volume = await http.GetFromJsonAsync<GoogleBooksVolume>($"volumes/{externalId}?key={ApiKey}&{DetailsFields}", cancellationToken);
         var info = volume?.VolumeInfo;
         if (info?.Title is null) return null;
 

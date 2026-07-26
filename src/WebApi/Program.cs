@@ -19,6 +19,8 @@ builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<HouseDto, Keep
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<HouseHistoryDto, Keeptrack.Domain.Models.HouseHistoryModel>, Keeptrack.WebApi.Mappers.HouseHistoryDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<HealthProfileDto, Keeptrack.Domain.Models.HealthProfileModel>, Keeptrack.WebApi.Mappers.HealthProfileDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<HealthRecordDto, Keeptrack.Domain.Models.HealthRecordModel>, Keeptrack.WebApi.Mappers.HealthRecordDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<CollectibleDto, Keeptrack.Domain.Models.CollectibleModel>, Keeptrack.WebApi.Mappers.CollectibleDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<GearDto, Keeptrack.Domain.Models.GearModel>, Keeptrack.WebApi.Mappers.GearDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<EpisodeDto, Keeptrack.Domain.Models.EpisodeModel>, Keeptrack.WebApi.Mappers.EpisodeDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<MovieDto, Keeptrack.Domain.Models.MovieModel>, Keeptrack.WebApi.Mappers.MovieDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<AlbumDto, Keeptrack.Domain.Models.AlbumModel>, Keeptrack.WebApi.Mappers.AlbumDtoMapper>();
@@ -26,7 +28,10 @@ builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<TvShowDto, Kee
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<SongDto, Keeptrack.Domain.Models.SongModel>, Keeptrack.WebApi.Mappers.SongDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<PlaylistDto, Keeptrack.Domain.Models.PlaylistModel>, Keeptrack.WebApi.Mappers.PlaylistDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<VideoGameDto, Keeptrack.Domain.Models.VideoGameModel>, Keeptrack.WebApi.Mappers.VideoGameDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<UserPreferencesDto, Keeptrack.Domain.Models.UserPreferencesModel>, Keeptrack.WebApi.Mappers.UserPreferencesDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.InProgressShowDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.AmazonOrderPreviewRowDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.GenericVideoGameImportPreviewRowDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.CarMetricsDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.HouseMetricsDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.HealthMetricsDtoMapper>();
@@ -66,20 +71,20 @@ builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.GoogleBooksClient>
 {
     client.BaseAddress = new Uri("https://www.googleapis.com/books/v1/");
     client.Timeout = Timeout.InfiniteTimeSpan;
-}).AddProviderResilienceHandler();
+}).AddBookProviderResilienceHandler();
 builder.Services.AddTransient<Keeptrack.WebApi.ReferenceData.IBookReferenceClient>(sp => sp.GetRequiredService<Keeptrack.WebApi.ReferenceData.GoogleBooksClient>());
 builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.OpenLibraryClient>(client =>
 {
     client.BaseAddress = new Uri("https://openlibrary.org/");
     client.DefaultRequestHeaders.Add("User-Agent", "Keeptrack/1.0 (+https://github.com/devpro/keeptrack)");
     client.Timeout = Timeout.InfiniteTimeSpan;
-}).AddProviderResilienceHandler();
+}).AddBookProviderResilienceHandler();
 builder.Services.AddTransient<Keeptrack.WebApi.ReferenceData.IBookReferenceClient>(sp => sp.GetRequiredService<Keeptrack.WebApi.ReferenceData.OpenLibraryClient>());
 builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.BnfClient>(client =>
 {
     client.BaseAddress = new Uri("https://catalogue.bnf.fr/api/");
     client.Timeout = Timeout.InfiniteTimeSpan;
-}).AddProviderResilienceHandler();
+}).AddBookProviderResilienceHandler();
 builder.Services.AddTransient<Keeptrack.WebApi.ReferenceData.IBookReferenceClient>(sp => sp.GetRequiredService<Keeptrack.WebApi.ReferenceData.BnfClient>());
 // a factory (not a plain AddScoped<BookReferenceClientRegistry>) so configuration.BookReferenceProvider -
 // a plain computed-on-access property, not cached - is read fresh on every scope, same "checked fresh"
@@ -123,7 +128,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", policy => policy.RequireClaim("role", "admin"));
-    // members (and admins - a membership must never be *less* than the owner's own account) get the full app;
+    // members (and admins - a membership must never be *less* than the owner's own account) get the full app.
     // authenticated users without the role are the free preview tier (movies + TV shows, capped - see DataCrudControllerBase).
     // Granted the same way as admin: a Firebase custom claim role=member via the Admin SDK (see CONTRIBUTING.md).
     options.AddPolicy("MemberOnly", policy => policy.RequireClaim("role", "member", "admin"));

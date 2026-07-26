@@ -1,4 +1,6 @@
-﻿namespace Keeptrack.BlazorApp.DependencyInjection;
+﻿using Keeptrack.BlazorApp.Components.Account;
+
+namespace Keeptrack.BlazorApp.DependencyInjection;
 
 internal static class InfrastructureServiceCollectionExtensions
 {
@@ -20,6 +22,10 @@ internal static class InfrastructureServiceCollectionExtensions
         services.AddHttpClient<HealthProfileApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
         services.AddHttpClient<HealthRecordApiClient>(client => client.BaseAddress = webApiUri)
+            .AddHttpMessageHandler<AuthenticationTokenHandler>();
+        services.AddHttpClient<CollectibleApiClient>(client => client.BaseAddress = webApiUri)
+            .AddHttpMessageHandler<AuthenticationTokenHandler>();
+        services.AddHttpClient<GearApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
         services.AddHttpClient<EpisodeApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
@@ -43,11 +49,17 @@ internal static class InfrastructureServiceCollectionExtensions
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
         services.AddHttpClient<Components.Import.HealthImportApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
+        services.AddHttpClient<Components.Import.AmazonImportApiClient>(client => client.BaseAddress = webApiUri)
+            .AddHttpMessageHandler<AuthenticationTokenHandler>();
+        services.AddHttpClient<Components.Import.GenericVideoGameImportApiClient>(client => client.BaseAddress = webApiUri)
+            .AddHttpMessageHandler<AuthenticationTokenHandler>();
         services.AddHttpClient<Components.ReferenceData.ReferenceDataApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
         services.AddHttpClient<Components.ReferenceDataAdmin.ReferenceDataAdminApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
         services.AddHttpClient<Components.Pages.StatsApiClient>(client => client.BaseAddress = webApiUri)
+            .AddHttpMessageHandler<AuthenticationTokenHandler>();
+        services.AddHttpClient<UserPreferencesApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
         // deliberately NO AuthenticationTokenHandler: the shared-wishlist view is anonymous by design
         services.AddHttpClient<Components.Wishlist.SharedWishlistApiClient>(client => client.BaseAddress = webApiUri);

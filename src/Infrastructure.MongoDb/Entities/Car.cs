@@ -28,4 +28,7 @@ public class Car : IHasIdAndOwnerId
 
     [BsonElement("energy_type")]
     public required CarEnergyType EnergyType { get; set; }
+
+    [BsonElement("image_url")]
+    public string? ImageUrl { get; set; }
 }

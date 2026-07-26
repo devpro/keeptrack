@@ -29,4 +29,7 @@ public class House : IHasIdAndOwnerId
     public DateTime? MovedOutAt { get; set; }
 
     public string? Notes { get; set; }
+
+    [BsonElement("image_url")]
+    public string? ImageUrl { get; set; }
 }

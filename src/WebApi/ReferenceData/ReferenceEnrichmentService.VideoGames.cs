@@ -50,6 +50,24 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
+    /// Admin-triggered "unlink" for video games - see <see cref="UnlinkTvShowReferenceAsync"/> for the full
+    /// rationale (clears the tenant's link and permanently deletes the shared reference document, rather
+    /// than only detaching this one item).
+    /// </summary>
+    public async Task<VideoGameModel> UnlinkVideoGameReferenceAsync(VideoGameModel model)
+    {
+        var referenceId = model.ReferenceId;
+        model.ReferenceId = string.Empty;
+        await videoGameRepository.UpdateAsync(model.Id!, model, model.OwnerId);
+        if (!string.IsNullOrEmpty(referenceId))
+        {
+            await videoGameReferenceRepository.DeleteAsync(referenceId);
+        }
+
+        return model;
+    }
+
+    /// <summary>
     /// Best-effort automatic match for video games - see <see cref="TryAutoResolveTvShowAsync"/>.
     /// </summary>
     public async Task TryAutoResolveVideoGameAsync(string title, int? year)

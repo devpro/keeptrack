@@ -42,4 +42,9 @@ public class HouseDto : IHasId
     /// Free-text notes.
     /// </summary>
     public string? Notes { get; set; }
+
+    /// <summary>
+    /// Tenant-owned cover image URL, shown on the list thumbnail and detail page header. Optional.
+    /// </summary>
+    public string? ImageUrl { get; set; }
 }

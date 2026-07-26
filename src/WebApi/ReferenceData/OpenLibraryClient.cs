@@ -17,6 +17,8 @@ public class OpenLibraryClient(HttpClient http) : IBookReferenceClient
 
     public string DisplayName => "Open Library";
 
+    private static readonly TimeSpan s_regexTimeout = TimeSpan.FromSeconds(1);
+
     /// <summary>
     /// Deliberately does NOT filter server-side by <paramref name="year"/>:
     /// Open Library's <c>first_publish_year</c> is the work's ORIGINAL publication year,
@@ -68,7 +70,7 @@ public class OpenLibraryClient(HttpClient http) : IBookReferenceClient
         string? authorExternalId = null;
         if (!string.IsNullOrEmpty(authorKey))
         {
-            authorExternalId = authorKey.Split('/').Last();
+            authorExternalId = authorKey.Split('/')[^1];
             var author = await http.GetFromJsonAsync<OpenLibraryAuthorResponse>($"{authorKey}.json", cancellationToken);
             authorName = author?.Name;
         }
@@ -124,7 +126,7 @@ public class OpenLibraryClient(HttpClient http) : IBookReferenceClient
     /// Fellowship of the Ring" (OL27513W). The year is the last such token, since it's always what trails
     /// the day/month when both are present, and the only token when the date is a bare year.
     /// </summary>
-    private static readonly Regex s_yearRegex = new(@"\b\d{4}\b", RegexOptions.Compiled);
+    private static readonly Regex s_yearRegex = new(@"\b\d{4}\b", RegexOptions.Compiled, s_regexTimeout);
 
     private static int? ParseYear(string? date)
     {

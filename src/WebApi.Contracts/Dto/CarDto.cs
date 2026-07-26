@@ -41,4 +41,9 @@ public class CarDto : IHasId
     /// Energy type (Combustion, Hybrid, Electric).
     /// </summary>
     public CarEnergyType? EnergyType { get; set; }
+
+    /// <summary>
+    /// Tenant-owned cover image URL, shown on the list thumbnail and detail page header. Optional.
+    /// </summary>
+    public string? ImageUrl { get; set; }
 }

@@ -16,10 +16,4 @@ public class BookDetailPage(IPage page) : ReferenceableDetailPageBase(page)
     /// </summary>
     public async Task SelectProviderAsync(string displayName) =>
         await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = displayName, Exact = true }).ClickAsync();
-
-    public static async Task SetFieldAsync(ILocator input, string value)
-    {
-        await input.FillAsync(value);
-        await input.BlurAsync();
-    }
 }

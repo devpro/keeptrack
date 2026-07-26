@@ -35,4 +35,7 @@ public class VideoGamePlatform
     public DateTime? AcquiredAt { get; set; }
 
     public string? Reference { get; set; }
+
+    [BsonElement("product_name")]
+    public string? ProductName { get; set; }
 }

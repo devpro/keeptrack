@@ -26,6 +26,8 @@ public class BnfClient(HttpClient http) : IBookReferenceClient
 
     private const int MaxGenres = 5;
 
+    private static readonly TimeSpan s_regexTimeout = TimeSpan.FromSeconds(1);
+
     /// <summary>
     /// <paramref name="year"/> is deliberately never sent to BnF as a query criterion, same choice
     /// <see cref="OpenLibraryClient"/> makes (see its own doc comment) though for a different reason here:
@@ -155,7 +157,7 @@ public class BnfClient(HttpClient http) : IBookReferenceClient
     /// URL, an ISBN as plain text "ISBN 2841142787" - confirmed against the real API) - the ARK is already
     /// captured separately via <c>srw:recordIdentifier</c>, so this only looks for the ISBN-prefixed one.
     /// </summary>
-    private static readonly Regex s_isbnRegex = new(@"^ISBN\s+(.+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex s_isbnRegex = new(@"^ISBN\s+(.+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled, s_regexTimeout);
 
     private static string? ExtractIsbn(IEnumerable<XElement> identifiers) =>
         identifiers
@@ -175,7 +177,7 @@ public class BnfClient(HttpClient http) : IBookReferenceClient
         if (string.IsNullOrWhiteSpace(raw)) return null;
 
         var namePart = raw.Split(". ", 2)[0];
-        namePart = Regex.Replace(namePart, @"\s*\([^)]*\)", "").Trim();
+        namePart = Regex.Replace(namePart, @"\s*\([^)]*\)", "", RegexOptions.None, s_regexTimeout).Trim();
 
         var parts = namePart.Split(", ", 2);
         return parts.Length == 2 ? $"{parts[1]} {parts[0]}".Trim() : namePart;
@@ -186,7 +188,7 @@ public class BnfClient(HttpClient http) : IBookReferenceClient
     /// catalogue dates can carry uncertainty markers or ranges - a defensive last-4-digit-token extraction,
     /// same shape as <see cref="OpenLibraryClient"/>'s own year parsing, rather than a bare <c>int.Parse</c>.
     /// </summary>
-    private static readonly Regex s_yearRegex = new(@"\b\d{4}\b", RegexOptions.Compiled);
+    private static readonly Regex s_yearRegex = new(@"\b\d{4}\b", RegexOptions.Compiled, s_regexTimeout);
 
     private static int? ParseYear(string? date)
     {

@@ -17,6 +17,8 @@
                ShowForm="@_showForm"
                Form="@_form"
                ItemTitle="@(car => car.Name)"
+               ItemImageUrl="@(car => car.ImageUrl)"
+               ItemImageShape="wide"
                OnSearchKeyUp="@OnSearchKeyUp"
                OnClearSearch="@ClearSearch"
                OnGoToPage="@GoToPage"

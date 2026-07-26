@@ -27,6 +27,9 @@ public class VideoGame : IHasIdAndOwnerId
     [BsonElement("reference_id")]
     public string? ReferenceId { get; set; }
 
+    [BsonElement("custom_image_url")]
+    public string? CustomImageUrl { get; set; }
+
     [BsonElement("is_wishlisted")]
     public bool IsWishlisted { get; set; }
 }

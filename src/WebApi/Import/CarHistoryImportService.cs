@@ -174,7 +174,7 @@ public class CarHistoryImportService(ICarRepository carRepository, ICarHistoryRe
         var headers = new Dictionary<string, int>();
         foreach (var cell in headerRow.CellsUsed())
         {
-            // Some headers (e.g. "Autoroute\nEloigné") span two lines within a single cell;
+            // Some headers (e.g. "Autoroute\nEloigné") span two lines within a single cell -
             // normalize whitespace so a lookup doesn't have to guess the exact line-break character used in the file.
             var text = string.Join(' ', cell.GetString().Split([' ', '\r', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries));
             if (text.Length > 0) headers.TryAdd(text, cell.Address.ColumnNumber);

@@ -41,10 +41,10 @@ public class OwnershipSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 
         // add a version (defaults to Physical), fill in its purchase details, and save the draft
         await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "+ Add version" }).ClickAsync();
-        await BookDetailPage.SetFieldAsync(Page.GetByTestId("version-price-input"), "12.50");
-        await BookDetailPage.SetFieldAsync(Page.GetByTestId("version-acquired-input"), "2024-05-17");
-        await BookDetailPage.SetFieldAsync(Page.GetByTestId("version-vendor-input"), "E2e Bookshop");
-        await BookDetailPage.SetFieldAsync(Page.GetByTestId("version-reference-input"), "Paperback 2nd edition");
+        await DetailPageBase.SetFieldAsync(Page.GetByTestId("version-price-input"), "12.50");
+        await DetailPageBase.SetFieldAsync(Page.GetByTestId("version-acquired-input"), "2024-05-17");
+        await DetailPageBase.SetFieldAsync(Page.GetByTestId("version-vendor-input"), "E2e Bookshop");
+        await DetailPageBase.SetFieldAsync(Page.GetByTestId("version-reference-input"), "Paperback 2nd edition");
         await Page.GetByTestId("version-save-button").ClickAsync();
 
         // round-trip via the list: the row must show the derived Owned badge, and reopening the

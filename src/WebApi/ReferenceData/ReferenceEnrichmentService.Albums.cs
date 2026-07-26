@@ -5,6 +5,8 @@ namespace Keeptrack.WebApi.ReferenceData;
 
 public partial class ReferenceEnrichmentService
 {
+    private const string DiscogsProviderKey = "discogs";
+
     /// <summary>
     /// User-triggered "check for reference match" for albums - see
     /// <see cref="TryLinkExistingTvShowReferenceAsync"/> for the full rationale (this is the same local-only,
@@ -55,6 +57,24 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
+    /// Admin-triggered "unlink" for albums - see <see cref="UnlinkTvShowReferenceAsync"/> for the full
+    /// rationale (clears the tenant's link and permanently deletes the shared reference document, rather
+    /// than only detaching this one item).
+    /// </summary>
+    public async Task<AlbumModel> UnlinkAlbumReferenceAsync(AlbumModel model)
+    {
+        var referenceId = model.ReferenceId;
+        model.ReferenceId = string.Empty;
+        await albumRepository.UpdateAsync(model.Id!, model, model.OwnerId);
+        if (!string.IsNullOrEmpty(referenceId))
+        {
+            await albumReferenceRepository.DeleteAsync(referenceId);
+        }
+
+        return model;
+    }
+
+    /// <summary>
     /// Best-effort automatic match for albums - see <see cref="TryAutoResolveTvShowAsync"/>. Passing
     /// <paramref name="artist"/> narrows the Discogs search considerably - without it, a common album
     /// title easily returns more than one candidate and the match is correctly left for the admin queue.
@@ -82,17 +102,17 @@ public partial class ReferenceEnrichmentService
         // see ResolveTvShowAsync's own comment - the title-only fallback (which reuses existing.Id for the
         // upsert) must not run when year is known but simply unconfirmed yet, or it risks overwriting an
         // unrelated same-titled reference document instead of just linking wrong
-        var existing = await albumReferenceRepository.FindByExternalIdAsync("discogs", externalId)
+        var existing = await albumReferenceRepository.FindByExternalIdAsync(DiscogsProviderKey, externalId)
                        ?? (details.Artist is not null ? await albumReferenceRepository.FindByTitleYearAsync(title, year, details.Artist) : null);
         if (existing is null && year is null && details.Artist is not null)
         {
             existing = await albumReferenceRepository.FindByTitleAsync(title, details.Artist);
         }
         var externalIds = existing?.ExternalIds ?? new Dictionary<string, string>();
-        externalIds["discogs"] = externalId;
+        externalIds[DiscogsProviderKey] = externalId;
 
         var artistReferenceId = !string.IsNullOrEmpty(details.ArtistExternalId)
-            ? await ResolvePersonReferenceIdAsync("discogs", details.ArtistExternalId, details.Artist ?? "Unknown", null)
+            ? await ResolvePersonReferenceIdAsync(DiscogsProviderKey, details.ArtistExternalId, details.Artist ?? "Unknown", null)
             : existing?.ArtistReferenceId;
 
         var model = new AlbumReferenceModel
@@ -124,7 +144,7 @@ public partial class ReferenceEnrichmentService
     /// </summary>
     public async Task<(AlbumReferenceModel Model, bool DataChanged)> RefreshAlbumReferenceAsync(AlbumReferenceModel reference, CancellationToken cancellationToken = default)
     {
-        var externalId = reference.ExternalIds.GetValueOrDefault("discogs");
+        var externalId = reference.ExternalIds.GetValueOrDefault(DiscogsProviderKey);
         if (string.IsNullOrEmpty(externalId)) return (reference, false);
 
         var details = await discogsClient.GetAlbumDetailsAsync(externalId, cancellationToken);
@@ -135,7 +155,7 @@ public partial class ReferenceEnrichmentService
         reference.Synopsis = details.Synopsis;
         if (!string.IsNullOrEmpty(details.ArtistExternalId))
         {
-            reference.ArtistReferenceId = await ResolvePersonReferenceIdAsync("discogs", details.ArtistExternalId, details.Artist ?? "Unknown", null);
+            reference.ArtistReferenceId = await ResolvePersonReferenceIdAsync(DiscogsProviderKey, details.ArtistExternalId, details.Artist ?? "Unknown", null);
         }
         reference.Genres = details.Genres;
         reference.Tracks = MapTracks(details.Tracks);

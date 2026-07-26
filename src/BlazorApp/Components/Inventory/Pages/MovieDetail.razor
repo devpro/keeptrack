@@ -31,6 +31,17 @@ else
                     title="@(string.IsNullOrEmpty(Movie.ReferenceId) ? "Check for reference match using the title and year below." : $"Linked to \"{Reference?.Title}\". Not right? Edit the title or year below, then check again.")">
                 <span class="@(_refreshingReference ? "kt-icon-spin" : "")">↻</span>
             </button>
+            @if (!string.IsNullOrEmpty(Movie.ReferenceId))
+            {
+                <AuthorizeView Policy="AdminOnly">
+                    <Authorized>
+                        <button class="kt-icon-btn" title="Unlink and remove this reference" aria-label="Unlink reference"
+                                @onclick="() => _pendingUnlink = true">
+                            <TrashIcon/>
+                        </button>
+                    </Authorized>
+                </AuthorizeView>
+            }
             @if (_refreshMessage is not null)
             {
                 <span class="kt-inline-toast @_refreshMessageStyle">@_refreshMessage</span>
@@ -50,6 +61,12 @@ else
             </Authorized>
         </AuthorizeView>
     }
+
+    <ConfirmModal Show="_pendingUnlink"
+                  Title="Unlink this reference?"
+                  Message="This clears the link on this item and permanently deletes the matched reference data (cover, synopsis, cast/genres). This can't be undone."
+                  ConfirmLabel="Unlink"
+                  OnConfirm="UnlinkReferenceAsync" OnCancel="() => _pendingUnlink = false"/>
 
     <div class="kt-form-card">
         <span class="kt-corner-flag @(Movie.FirstSeenAt is not null ? "active" : "")" @onclick="ToggleWatchedAsync">
@@ -136,6 +153,7 @@ else
     private string? _refreshMessage;
     private string _refreshMessageStyle = "neutral";
     private object? _refreshMessageToken;
+    private bool _pendingUnlink;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -207,7 +225,7 @@ else
     private async Task SetWatchedDateAsync(ChangeEventArgs e)
     {
         if (Movie is null) return;
-        Movie.FirstSeenAt = DateOnly.TryParse(e.Value?.ToString(), out var date) ? date : null;
+        Movie.FirstSeenAt = DateOnlyInput.Parse(e.Value);
         await MovieApi.UpdateAsync(Movie);
     }
 
@@ -232,9 +250,7 @@ else
             var refreshed = await MovieApi.RefreshReferenceAsync(Movie.Id);
             await LoadAsync();
 
-            (_refreshMessage, _refreshMessageStyle) = string.IsNullOrEmpty(refreshed.ReferenceId)
-                ? string.IsNullOrEmpty(previousReferenceId) ? ("No match found", "neutral") : ("Unlinked - no match", "danger")
-                : refreshed.ReferenceId == previousReferenceId ? ("Already linked", "neutral") : ("Linked!", "success");
+            (_refreshMessage, _refreshMessageStyle) = ReferenceRefreshMessage.Compute(previousReferenceId, refreshed.ReferenceId);
         }
         catch (Exception ex)
         {
@@ -244,6 +260,26 @@ else
         finally
         {
             _refreshingReference = false;
+        }
+
+        ScheduleRefreshMessageClear();
+    }
+
+    private async Task UnlinkReferenceAsync()
+    {
+        _pendingUnlink = false;
+        if (Movie?.Id is null) return;
+
+        try
+        {
+            await MovieApi.UnlinkReferenceAsync(Movie.Id);
+            await LoadAsync();
+            (_refreshMessage, _refreshMessageStyle) = ("Unlinked and reference removed.", "success");
+        }
+        catch (Exception ex)
+        {
+            _refreshMessage = $"Error: {ex.Message}";
+            _refreshMessageStyle = "danger";
         }
 
         ScheduleRefreshMessageClear();

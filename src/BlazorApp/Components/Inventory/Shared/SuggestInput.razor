@@ -1,0 +1,106 @@
+@* Free-text input with a filtered, click-to-fill suggestion dropdown - not a closed choice, the app's own
+   styled stand-in for an HTML <datalist> (whose popup is unstyleable native chrome that clashes with the
+   dark theme and floats over content below it - see GearDetail.razor's Category field, the first caller). *@
+<div class="kt-autocomplete @CssClass">
+    <input class="form-control form-control-sm" placeholder="@Placeholder" autocomplete="off"
+           value="@_query" @oninput="OnInput" @onfocus="OnFocus" @onfocusout="OnBlurAsync" @onkeydown="OnKeyDownAsync"/>
+    @if (_open && FilteredSuggestions.Any())
+    {
+        <ul class="kt-autocomplete-menu">
+            @foreach (var suggestion in FilteredSuggestions)
+            {
+                <li class="kt-autocomplete-item @(suggestion == Value ? "active" : "")" @onclick="() => SelectAsync(suggestion)">@suggestion</li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    private const int MaxSuggestions = 8;
+
+    [Parameter] public string? Value { get; set; }
+
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+
+    [Parameter] public IReadOnlyList<string> Suggestions { get; set; } = [];
+
+    [Parameter] public string? Placeholder { get; set; }
+
+    /// <summary>Applied to the wrapper div - lets a caller size this differently than the default
+    /// full-width detail-page field (e.g. Gear.razor's fixed-width list-filter usage).</summary>
+    [Parameter] public string? CssClass { get; set; }
+
+    private string _query = "";
+    private string? _lastValueParam;
+    private bool _open;
+
+    // guards OnBlurAsync's delayed close against a suggestion click that's still in flight - see SelectAsync
+    private bool _suppressBlurClose;
+
+    private IEnumerable<string> FilteredSuggestions =>
+        Suggestions.Where(s => string.IsNullOrEmpty(_query) || s.Contains(_query, StringComparison.OrdinalIgnoreCase)).Take(MaxSuggestions);
+
+    protected override void OnParametersSet()
+    {
+        // only adopt an externally-changed Value - typing of our own must never be clobbered by the
+        // re-render our own CommitAsync triggers, same "sent vs received" shape as InventoryList's search box
+        if (Value == _lastValueParam) return;
+        _lastValueParam = Value;
+        _query = Value ?? "";
+    }
+
+    private void OnFocus() => _open = true;
+
+    private void OnInput(ChangeEventArgs e)
+    {
+        _query = e.Value?.ToString() ?? "";
+        _open = true;
+    }
+
+    /// <summary>
+    /// A suggestion is a plain, non-focusable &lt;li&gt; rather than a &lt;button&gt;, so clicking it never
+    /// steals focus from the input in the first place - the input's blur handler still fires on a real
+    /// blur (tab away, click elsewhere), just not from this click. The delay/flag pair only has to cover
+    /// touch, where a tap can blur before the click event finishes.
+    /// </summary>
+    private async Task SelectAsync(string suggestion)
+    {
+        _suppressBlurClose = true;
+        _query = suggestion;
+        _open = false;
+        await CommitAsync(suggestion);
+    }
+
+    private async Task OnBlurAsync()
+    {
+        await Task.Delay(150);
+        if (_suppressBlurClose)
+        {
+            _suppressBlurClose = false;
+            return;
+        }
+        _open = false;
+        await CommitAsync(_query);
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case "Escape":
+                _open = false;
+                break;
+            case "Enter":
+                _open = false;
+                await CommitAsync(_query);
+                break;
+        }
+    }
+
+    private async Task CommitAsync(string? value)
+    {
+        var normalized = string.IsNullOrWhiteSpace(value) ? null : value;
+        if (normalized == Value) return;
+        await ValueChanged.InvokeAsync(normalized);
+    }
+}

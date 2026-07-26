@@ -11,4 +11,10 @@
     <ProjectReference Include="..\Common.System\Common.System.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Used by AmazonOrderPreviewService to parse the Amazon order-history export - a pure data-format
+         parser, no persistence/web concern, same rationale as System.Text.Json being fine anywhere. -->
+    <PackageReference Include="CsvHelper" />
+  </ItemGroup>
+
 </Project>

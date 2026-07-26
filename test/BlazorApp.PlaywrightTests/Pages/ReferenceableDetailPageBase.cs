@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Playwright;
 
@@ -8,17 +7,13 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 /// Shared shape for the five detail pages that carry a reference-data concept (Book/Movie/TvShow/VideoGame/Album) -
 /// all five render the exact same "check for reference match" icon button + toast,
 /// and the exact same admin-only <c>InlineReferenceLinker</c> (search the real provider, pick a candidate, click "Link").
+/// <see cref="CoverImage"/> is inherited from <see cref="DetailPageBase"/> - shared with the non-reference-linked types too.
 /// </summary>
-public abstract partial class ReferenceableDetailPageBase(IPage page) : DetailPageBase(page)
+public abstract class ReferenceableDetailPageBase(IPage page) : DetailPageBase(page)
 {
-    [GeneratedRegex("(cover|poster)$")]
-    private static partial Regex CoverRegex();
-
     private ILocator RefreshReferenceButton => Page.Locator("button.kt-icon-btn");
 
     private ILocator ReferenceToast => Page.Locator(".kt-inline-toast");
-
-    public ILocator CoverImage => Page.GetByRole(AriaRole.Img, new PageGetByRoleOptions { NameRegex = CoverRegex() });
 
     /// <summary>
     /// The non-admin, local-only-lookup "check for reference match" icon button - never calls a real provider, only used against pre-seeded/already-resolved data.

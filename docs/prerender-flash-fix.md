@@ -113,6 +113,14 @@ Two real options, and I have a clear preference:
    The detail pages persist a single bounded DTO and are fine to keep as-is.
 2. Raise the limit via .AddHubOptions(o => o.MaximumReceiveMessageSize = 256 * 1024) — one line, keeps the no-refetch behavior, but the payload still grows with your collection and the cliff just moves further out.
 
+**Update**: "the detail pages persist a single bounded DTO" turned out not to hold for TvShowDetail.
+`TvShowReferenceModel.Episodes` is embedded (see CLAUDE.md's "Reference data" section) and unbounded per show,
+so `[PersistentState]`-serializing `Reference` plus the raw `Episodes` list hit the exact same 32 KB SignalR ceiling for shows with many seasons/episodes.
+`[PersistentState]` was reverted from `TvShowDetail.razor`
+(back to plain private fields `_show`/`_reference`/`_episodes`, `OnParametersSetAsync` always calls `LoadAsync`, no restore-skip path) for the same reason it was dropped from Watch Next/Wishlist above.
+The `_loaded`/`_loading` flash fix from "Fix loading flash" stays — it isn't part of the persisted-state mechanism and never caused this issue.
+Movie/Book/Album/VideoGame/Car/House/HealthProfile/Playlist detail pages keep `[PersistentState]` since their persisted DTOs stay genuinely bounded (no embedded unbounded list like `Episodes`).
+
 Sources:
 [dotnet/aspnetcore#65101](https://github.com/dotnet/aspnetcore/issues/65101),
 [Blazor SignalR guidance — message size](https://learn.microsoft.com/en-us/aspnet/core/blazor/fundamentals/signalr),

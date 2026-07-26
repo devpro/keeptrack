@@ -27,6 +27,9 @@ public class Album : IHasIdAndOwnerId
     [BsonElement("reference_id")]
     public string? ReferenceId { get; set; }
 
+    [BsonElement("custom_image_url")]
+    public string? CustomImageUrl { get; set; }
+
     [BsonElement("is_favorite")]
     public bool IsFavorite { get; set; }
 

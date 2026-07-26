@@ -78,58 +78,74 @@ public class HealthImportService(IHealthProfileRepository healthProfileRepositor
 
         foreach (var row in sheet.RowsUsed().Skip(1))
         {
-            var dateCell = row.Cell(columns.Date.Value);
-            if (dateCell.IsEmpty()) continue;
-            if (!dateCell.TryGetValue(out DateTime date))
-            {
-                result.Warnings.Add($"Row {row.RowNumber()}: skipped, unreadable date (\"{dateCell.GetString()}\").");
-                continue;
-            }
-
-            var personName = ExcelCellParser.StringOrNull(Cell(row, columns.Person));
-            if (personName is null)
-            {
-                result.Warnings.Add($"Row {row.RowNumber()}: skipped, no \"Personne\" to attach the entry to.");
-                continue;
-            }
-
-            if (!profilesByName.TryGetValue(personName, out var target))
-            {
-                target = await healthProfileRepository.CreateAsync(new HealthProfileModel { OwnerId = ownerId, Name = personName });
-                profilesByName[personName] = target;
-                result.ProfilesCreated++;
-            }
-
-            var time = ExcelCellParser.ParseTime(Cell(row, columns.Time)) ?? TimeOnly.MinValue;
-
-            await healthRecordRepository.CreateAsync(new HealthRecordModel
-            {
-                OwnerId = ownerId,
-                HealthProfileId = target.Id!,
-                HistoryDate = DateOnly.FromDateTime(date).ToDateTime(time),
-                // every row in this journal is a care event; sicknesses weren't tracked in the spreadsheet
-                EventType = HealthEventType.Appointment,
-                Specialty = ExcelCellParser.StringOrNull(Cell(row, columns.Specialty)),
-                Practitioner = ExcelCellParser.StringOrNull(Cell(row, columns.Practitioner)),
-                Description = ExcelCellParser.StringOrNull(Cell(row, columns.Description)),
-                Price = ExcelCellParser.PriceOrNull(Cell(row, columns.Paid)),
-                PublicReimbursement = ExcelCellParser.PriceOrNull(Cell(row, columns.PublicReimbursement)),
-                InsuranceReimbursement = ExcelCellParser.PriceOrNull(Cell(row, columns.InsuranceReimbursement)),
-                // the sparse bookkeeping columns (place, actual ameli bank transfer, payment dates, comment) have no dedicated fields -
-                // preserved as labeled notes instead of dropped
-                Notes = ExcelCellParser.JoinNonEmpty("; ",
-                    ExcelCellParser.StringOrNull(Cell(row, columns.Notes)),
-                    ExcelCellParser.StringOrNull(Cell(row, columns.Location)) is { } location ? $"Lieu : {location}" : null,
-                    ExcelCellParser.PriceOrNull(Cell(row, columns.PublicTransfer)) is { } transfer ? $"Virement Ameli : {transfer:F2}" : null,
-                    DateTextOrNull(Cell(row, columns.PublicDate)) is { } publicDate ? $"Payé Ameli le {publicDate}" : null,
-                    DateTextOrNull(Cell(row, columns.InsuranceDate)) is { } insuranceDate ? $"Payé mutuelle le {insuranceDate}" : null,
-                    ExcelCellParser.StringOrNull(Cell(row, columns.Comment)))
-            });
-            result.RecordsCreated++;
+            await ImportRowAsync(row, columns, ownerId, profilesByName, result);
         }
 
         result.ProfilesSkipped = profilesByName.Count - result.ProfilesCreated;
         return result;
+    }
+
+    private async Task ImportRowAsync(IXLRow row, SheetColumns columns, string ownerId,
+        Dictionary<string, HealthProfileModel> profilesByName, HealthImportResultDto result)
+    {
+        var dateCell = row.Cell(columns.Date!.Value);
+        if (dateCell.IsEmpty()) return;
+        if (!dateCell.TryGetValue(out DateTime date))
+        {
+            result.Warnings.Add($"Row {row.RowNumber()}: skipped, unreadable date (\"{dateCell.GetString()}\").");
+            return;
+        }
+
+        var personName = ExcelCellParser.StringOrNull(Cell(row, columns.Person));
+        if (personName is null)
+        {
+            result.Warnings.Add($"Row {row.RowNumber()}: skipped, no \"Personne\" to attach the entry to.");
+            return;
+        }
+
+        var target = await GetOrCreateProfileAsync(personName, ownerId, profilesByName, result);
+        await healthRecordRepository.CreateAsync(BuildRecord(row, columns, ownerId, target, date));
+        result.RecordsCreated++;
+    }
+
+    private async Task<HealthProfileModel> GetOrCreateProfileAsync(string personName, string ownerId,
+        Dictionary<string, HealthProfileModel> profilesByName, HealthImportResultDto result)
+    {
+        if (profilesByName.TryGetValue(personName, out var target)) return target;
+
+        target = await healthProfileRepository.CreateAsync(new HealthProfileModel { OwnerId = ownerId, Name = personName });
+        profilesByName[personName] = target;
+        result.ProfilesCreated++;
+        return target;
+    }
+
+    private static HealthRecordModel BuildRecord(IXLRow row, SheetColumns columns, string ownerId, HealthProfileModel target, DateTime date)
+    {
+        var time = ExcelCellParser.ParseTime(Cell(row, columns.Time)) ?? TimeOnly.MinValue;
+
+        return new HealthRecordModel
+        {
+            OwnerId = ownerId,
+            HealthProfileId = target.Id!,
+            HistoryDate = DateOnly.FromDateTime(date).ToDateTime(time),
+            // every row in this journal is a care event; sicknesses weren't tracked in the spreadsheet
+            EventType = HealthEventType.Appointment,
+            Specialty = ExcelCellParser.StringOrNull(Cell(row, columns.Specialty)),
+            Practitioner = ExcelCellParser.StringOrNull(Cell(row, columns.Practitioner)),
+            Description = ExcelCellParser.StringOrNull(Cell(row, columns.Description)),
+            Price = ExcelCellParser.PriceOrNull(Cell(row, columns.Paid)),
+            PublicReimbursement = ExcelCellParser.PriceOrNull(Cell(row, columns.PublicReimbursement)),
+            InsuranceReimbursement = ExcelCellParser.PriceOrNull(Cell(row, columns.InsuranceReimbursement)),
+            // the sparse bookkeeping columns (place, actual ameli bank transfer, payment dates, comment) have no dedicated fields -
+            // preserved as labeled notes instead of dropped
+            Notes = ExcelCellParser.JoinNonEmpty("; ",
+                ExcelCellParser.StringOrNull(Cell(row, columns.Notes)),
+                ExcelCellParser.StringOrNull(Cell(row, columns.Location)) is { } location ? $"Lieu : {location}" : null,
+                ExcelCellParser.PriceOrNull(Cell(row, columns.PublicTransfer)) is { } transfer ? $"Virement Ameli : {transfer:F2}" : null,
+                DateTextOrNull(Cell(row, columns.PublicDate)) is { } publicDate ? $"Payé Ameli le {publicDate}" : null,
+                DateTextOrNull(Cell(row, columns.InsuranceDate)) is { } insuranceDate ? $"Payé mutuelle le {insuranceDate}" : null,
+                ExcelCellParser.StringOrNull(Cell(row, columns.Comment)))
+        };
     }
 
     private static SheetColumns ReadColumns(IXLWorksheet sheet)

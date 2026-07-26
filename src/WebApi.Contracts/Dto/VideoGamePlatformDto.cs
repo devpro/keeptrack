@@ -63,4 +63,10 @@ public class VideoGamePlatformDto : IOwnedCopyDto
     /// Free-text reference for this copy: edition name, order number, barcode...
     /// </summary>
     public string? Reference { get; set; }
+
+    /// <summary>
+    /// The store's own specific product/edition text for this copy (e.g. "Grand Theft Auto V : Édition Premium"),
+    /// as opposed to the game's own title.
+    /// </summary>
+    public string? ProductName { get; set; }
 }

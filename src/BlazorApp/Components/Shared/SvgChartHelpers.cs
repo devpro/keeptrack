@@ -29,6 +29,13 @@ public static class SvgChartHelpers
     public static readonly ChartGeometry FullWidthGeometry =
         new(ViewWidth: 600, ViewHeight: 170, PlotLeft: 40, PlotRight: 588, PlotTop: 14, PlotBottom: 132);
 
+    private const string AttrStroke = "stroke";
+    private const string AttrStrokeWidth = "stroke-width";
+    private const string AttrVectorEffect = "vector-effect";
+    private const string NonScalingStroke = "non-scaling-stroke";
+    private const string AttrTextAnchor = "text-anchor";
+    private const string AttrClass = "class";
+
     /// <summary>
     /// Draws a graduated X/Y axis pair (arrowhead, tick marks, tick labels, axis title).
     /// Ticks are computed by the caller, since what counts as an evenly-spaced value differs between a continuous line chart and a per-bar categorical one.
@@ -65,9 +72,9 @@ public static class SvgChartHelpers
         builder.AddAttribute(seq++, "y1", plotBottom.ToString("F1"));
         builder.AddAttribute(seq++, "x2", plotLeft.ToString("F1"));
         builder.AddAttribute(seq++, "y2", plotTop.ToString("F1"));
-        builder.AddAttribute(seq++, "stroke", AxisColor);
-        builder.AddAttribute(seq++, "stroke-width", "1");
-        builder.AddAttribute(seq++, "vector-effect", "non-scaling-stroke");
+        builder.AddAttribute(seq++, AttrStroke, AxisColor);
+        builder.AddAttribute(seq++, AttrStrokeWidth, "1");
+        builder.AddAttribute(seq++, AttrVectorEffect, NonScalingStroke);
         builder.AddAttribute(seq++, "marker-end", $"url(#{markerId})");
         builder.CloseElement();
 
@@ -77,9 +84,9 @@ public static class SvgChartHelpers
         builder.AddAttribute(seq++, "y1", plotBottom.ToString("F1"));
         builder.AddAttribute(seq++, "x2", plotRight.ToString("F1"));
         builder.AddAttribute(seq++, "y2", plotBottom.ToString("F1"));
-        builder.AddAttribute(seq++, "stroke", AxisColor);
-        builder.AddAttribute(seq++, "stroke-width", "1");
-        builder.AddAttribute(seq++, "vector-effect", "non-scaling-stroke");
+        builder.AddAttribute(seq++, AttrStroke, AxisColor);
+        builder.AddAttribute(seq++, AttrStrokeWidth, "1");
+        builder.AddAttribute(seq++, AttrVectorEffect, NonScalingStroke);
         builder.AddAttribute(seq++, "marker-end", $"url(#{markerId})");
         builder.CloseElement();
 
@@ -90,16 +97,16 @@ public static class SvgChartHelpers
             builder.AddAttribute(seq++, "y1", y.ToString("F1"));
             builder.AddAttribute(seq++, "x2", plotLeft.ToString("F1"));
             builder.AddAttribute(seq++, "y2", y.ToString("F1"));
-            builder.AddAttribute(seq++, "stroke", AxisColor);
-            builder.AddAttribute(seq++, "stroke-width", "1");
-            builder.AddAttribute(seq++, "vector-effect", "non-scaling-stroke");
+            builder.AddAttribute(seq++, AttrStroke, AxisColor);
+            builder.AddAttribute(seq++, AttrStrokeWidth, "1");
+            builder.AddAttribute(seq++, AttrVectorEffect, NonScalingStroke);
             builder.CloseElement();
 
             builder.OpenElement(seq++, "text");
             builder.AddAttribute(seq++, "x", (plotLeft - 5).ToString("F1"));
             builder.AddAttribute(seq++, "y", (y + 2.5).ToString("F1"));
-            builder.AddAttribute(seq++, "text-anchor", "end");
-            builder.AddAttribute(seq++, "class", "kt-chart-axis-text");
+            builder.AddAttribute(seq++, AttrTextAnchor, "end");
+            builder.AddAttribute(seq++, AttrClass, "kt-chart-axis-text");
             builder.AddContent(seq++, label);
             builder.CloseElement();
         }
@@ -111,16 +118,16 @@ public static class SvgChartHelpers
             builder.AddAttribute(seq++, "y1", plotBottom.ToString("F1"));
             builder.AddAttribute(seq++, "x2", x.ToString("F1"));
             builder.AddAttribute(seq++, "y2", (plotBottom + 3).ToString("F1"));
-            builder.AddAttribute(seq++, "stroke", AxisColor);
-            builder.AddAttribute(seq++, "stroke-width", "1");
-            builder.AddAttribute(seq++, "vector-effect", "non-scaling-stroke");
+            builder.AddAttribute(seq++, AttrStroke, AxisColor);
+            builder.AddAttribute(seq++, AttrStrokeWidth, "1");
+            builder.AddAttribute(seq++, AttrVectorEffect, NonScalingStroke);
             builder.CloseElement();
 
             builder.OpenElement(seq++, "text");
             builder.AddAttribute(seq++, "x", x.ToString("F1"));
             builder.AddAttribute(seq++, "y", (plotBottom + 12).ToString("F1"));
-            builder.AddAttribute(seq++, "text-anchor", "middle");
-            builder.AddAttribute(seq++, "class", "kt-chart-axis-text");
+            builder.AddAttribute(seq++, AttrTextAnchor, "middle");
+            builder.AddAttribute(seq++, AttrClass, "kt-chart-axis-text");
             builder.AddContent(seq++, label);
             builder.CloseElement();
         }
@@ -129,8 +136,8 @@ public static class SvgChartHelpers
         builder.OpenElement(seq++, "text");
         builder.AddAttribute(seq++, "x", "2");
         builder.AddAttribute(seq++, "y", (plotTop - 4).ToString("F1"));
-        builder.AddAttribute(seq++, "text-anchor", "start");
-        builder.AddAttribute(seq++, "class", "kt-chart-axis-title");
+        builder.AddAttribute(seq++, AttrTextAnchor, "start");
+        builder.AddAttribute(seq++, AttrClass, "kt-chart-axis-title");
         builder.AddContent(seq++, yAxisLabel);
         builder.CloseElement();
 
@@ -138,8 +145,8 @@ public static class SvgChartHelpers
         builder.OpenElement(seq++, "text");
         builder.AddAttribute(seq++, "x", xTitleCenter.ToString("F1"));
         builder.AddAttribute(seq++, "y", (viewHeight - 4).ToString("F1"));
-        builder.AddAttribute(seq++, "text-anchor", "middle");
-        builder.AddAttribute(seq++, "class", "kt-chart-axis-title");
+        builder.AddAttribute(seq++, AttrTextAnchor, "middle");
+        builder.AddAttribute(seq++, AttrClass, "kt-chart-axis-title");
         builder.AddContent(seq++, xAxisLabel);
         builder.CloseElement();
     }
