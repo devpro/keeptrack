@@ -117,3 +117,4 @@ jobs:
       image-tag: "${{ needs.git-check.outputs.version_major_minor }}.${{ github.run_id }}"
       max-high-cves: 1 # temporary (2026-07-19): libxml2-2 │ SUSE-SU-2026:3097-1 │ HIGH │ fixed │ 2.12.10-150700.4.11.1 │ 2.12.10-150700.4.14.1 │ Security update for libxml2
       max-medium-cves: 0
+      workflow-parts-version: 188783567fd98cf7e0b211e078486db7ac365ff8
