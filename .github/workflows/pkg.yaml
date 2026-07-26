@@ -28,13 +28,14 @@ jobs:
     permissions:
       id-token: write
       contents: read
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-publication.yml@f9d8c00db1ed723e39cfff6c4c7addc77a23c54d
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-publication.yml@58dbfe0e9927f2191796ac616a4bb43126e59d98
     with:
       create-latest: ${{ github.ref_name == 'main' }}
       image-definition: ${{ matrix.image-definition }}
       image-name: ${{ matrix.image-name }}
       image-path: ${{ vars.CONTAINER_REGISTRY_PATH }}
       image-tag: "${{ needs.git-check.outputs.version_major_minor }}.${{ github.run_id }}"
+      workflow-parts-version: 58dbfe0e9927f2191796ac616a4bb43126e59d98
     secrets:
       container-registry-password: ${{ secrets.DOCKERHUB_TOKEN }}
       container-registry-username: ${{ secrets.DOCKERHUB_USERNAME }}

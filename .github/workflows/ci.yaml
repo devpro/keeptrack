@@ -39,13 +39,13 @@ jobs:
 
   markup-lint:
     name: Markup
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-markup-lint.yml@188783567fd98cf7e0b211e078486db7ac365ff8
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-markup-lint.yml@58dbfe0e9927f2191796ac616a4bb43126e59d98
 
   code-quality:
     name: Code
     needs: git-check
     if: needs.git-check.outputs.app_changed == 'true' || (github.event_name == 'workflow_dispatch' && inputs.run-code-quality)
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-dotnet-quality.yml@188783567fd98cf7e0b211e078486db7ac365ff8
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-dotnet-quality.yml@58dbfe0e9927f2191796ac616a4bb43126e59d98
     with:
       # TODO: need a safe solution for service account json content
       #
@@ -78,7 +78,7 @@ jobs:
       sonar-organization: ${{ vars.SONAR_ORG }}
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
       sonar-project-name: Keeptrack
-      workflow-parts-version: 188783567fd98cf7e0b211e078486db7ac365ff8
+      workflow-parts-version: 58dbfe0e9927f2191796ac616a4bb43126e59d98
     secrets:
       fossa-api-key: ${{ secrets.FOSSA_API_KEY }}
       sonar-token: ${{ secrets.SONAR_TOKEN }}
@@ -109,7 +109,7 @@ jobs:
           - name: "Web Api"
             image-name: "keeptrack-webapi"
             image-definition: "src/WebApi/Dockerfile"
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-scan.yml@188783567fd98cf7e0b211e078486db7ac365ff8
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-scan.yml@58dbfe0e9927f2191796ac616a4bb43126e59d98
     with:
       image-definition: ${{ matrix.image-definition }}
       image-name: ${{ matrix.image-name }}
@@ -117,4 +117,4 @@ jobs:
       image-tag: "${{ needs.git-check.outputs.version_major_minor }}.${{ github.run_id }}"
       max-high-cves: 1 # temporary (2026-07-19): libxml2-2 │ SUSE-SU-2026:3097-1 │ HIGH │ fixed │ 2.12.10-150700.4.11.1 │ 2.12.10-150700.4.14.1 │ Security update for libxml2
       max-medium-cves: 0
-      workflow-parts-version: 188783567fd98cf7e0b211e078486db7ac365ff8
+      workflow-parts-version: 58dbfe0e9927f2191796ac616a4bb43126e59d98
