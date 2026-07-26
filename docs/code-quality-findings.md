@@ -4,6 +4,36 @@ This document tracks a code review performed on 2026-07-06 against current .NET 
 Each finding is classified as a confirmed bug, a confirmed by-design behavior, or a known gap that is not yet implemented.
 Update this file as items are fixed or as new reviews are performed.
 
+## Sonar issues
+
+1. S8970 — null-forgiving operator (60 of 67 issues, MINOR)
+
+    Verdict: false positive, don't touch the code.
+    
+    This rule fires when Sonar's engine believes nullable warnings are disabled at that point, making ! a no-op.
+    But BlazorApp.csproj has <Nullable>enable</Nullable> project-wide, and every flagged ! (e.g. context.User.Identity!.Name! in Manage.razor:8, (bool)e.Value! in several @onchange handlers)
+    is a genuine, meaningful suppression against a real nullable-annotated API (ClaimsPrincipal.Identity, ChangeEventArgs.Value).
+    
+    This is a known SonarC# limitation with Razor-generated code: the source generator's nullable-context pragmas don't map cleanly back onto markup-embedded lambdas/expressions,
+    so Sonar loses track of the enclosing #nullable enable region.
+    
+    Removing these ! would just reintroduce real CS8600/CS8602 build warnings.
+    
+    Recommendation: bulk-resolve rule S8970 as "False Positive" in the SonarCloud UI rather than editing 60 call sites.
+
+2. S107 — too many parameters (3 issues, MAJOR) — legitimate design smell
+
+    `OwnedItemImportMergeService.ComputeCommitPlan` (8 params), `.MergeItem` (9 params), and `AmazonImportController.CommitAsync` (10 params) all carry the same six-delegate bundle
+    (getExistingTitle, getExistingReferences, getItemTitle, getItemReference, createNew, appendOwnedCopy) repeated across three call sites.
+    This is the intentional "generic engine over delegates instead of an interface" design documented in CLAUDE.md, but Sonar's flag is fair:
+    bundling those six delegates into one small record (e.g. ItemTypeAdapter<TModel, TRequestItem>) would cut each signature to 2–4 params with zero behavior change and no loss of genericity.
+
+    Recommendation: worth doing, low risk.
+
+3. CA1859 (2 issues, INFO)
+
+    Test-only, "return MemoryStream instead of Stream" in two fixture builder helpers. Harmless, informational, not worth spending time on.
+
 ## Fixed
 
 ### Title-only fallback ignored a tenant-recorded year, so two same-titled but genuinely different items could be silently linked to the same reference document - or, worse, merged into one via `Resolve*Async`
