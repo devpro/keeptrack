@@ -451,7 +451,7 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 1.25rem 1rem;
-  padding: 0.5rem 1rem 0;
+  padding: 0.5rem 1rem 1.5rem;
 }
 /* per-shape column sizing: square art reads fine a touch wider than portrait, and wide (16:9) imagery
    needs a much larger min so the tiles don't shrink to unreadable strips (video games, cars, houses, ...) */
@@ -510,7 +510,7 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   color: var(--kt-text-muted);
 }
 @media (max-width: 575.98px) {
-  .kt-item-grid { grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)); gap: 0.9rem 0.6rem; padding: 0.5rem 0.75rem 0; }
+  .kt-item-grid { grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)); gap: 0.9rem 0.6rem; padding: 0.5rem 0.75rem 1.25rem; }
   .kt-item-grid.square { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
   .kt-item-grid.wide { grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); }
 }
