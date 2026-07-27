@@ -73,6 +73,8 @@ public abstract class PageBase(IPage page)
 
     public Task<ImportPage> OpenImportAsync() => NavigateAsync("Import", new ImportPage(Page));
 
+    public Task<ReferenceDataAdminPage> OpenAdminAsync() => NavigateAsync("Admin", new ReferenceDataAdminPage(Page));
+
     public Task<WatchNextPage> OpenWatchNextAsync() => NavigateAsync("Watch next", new WatchNextPage(Page));
 
     public Task<WishlistPage> OpenWishlistAsync() => NavigateAsync("Wishlist", new WishlistPage(Page));
