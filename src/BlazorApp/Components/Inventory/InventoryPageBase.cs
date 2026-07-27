@@ -46,6 +46,10 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
 
     protected string _sort = "";
 
+    // View mode is deliberately kept out of the query signature below: switching list<->grid is a pure
+    // display change over the already-loaded page, so flipping it must never trigger a refetch.
+    protected string _view = "";
+
     protected int _page = 1;
 
     protected int TotalPages => (int)Math.Ceiling(TotalCount / (double)PageSize);
@@ -65,6 +69,14 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
 
     [SupplyParameterFromQuery(Name = "sort")]
     public string? SortQuery { get; set; }
+
+    /// <summary>
+    /// The list's display mode ("" = the default detailed list, "grid" = poster thumbnails). Like the
+    /// other list-state parameters it lives in the URL so it's restored on back-nav and bookmarkable, but
+    /// unlike them it's a pure display change - see <see cref="_view"/>/<see cref="SetView"/>.
+    /// </summary>
+    [SupplyParameterFromQuery(Name = "view")]
+    public string? ViewQuery { get; set; }
 
     protected abstract InventoryApiClientBase<TDto> Api { get; }
 
@@ -98,6 +110,7 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
     {
         _search = SearchQuery ?? "";
         _sort = SortQuery ?? DefaultSort;
+        _view = ViewQuery ?? "";
         _page = PageQuery is > 0 ? PageQuery.Value : 1;
         var query = BuildQuerySignature();
 
@@ -154,6 +167,16 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
     /// </summary>
     protected void SetSort(string value) =>
         ApplyQueryChanges(new Dictionary<string, object?> { ["sort"] = string.IsNullOrEmpty(value) ? null : value, ["page"] = null });
+
+    /// <summary>
+    /// Switches the list/thumbnail display mode ("" = the default detailed list, kept out of the URL,
+    /// "grid" = poster thumbnails) through the same URL-navigation path as sort/filters, so it's restored
+    /// on back-nav and bookmarkable. Unlike a filter it deliberately does not reset the page, and (being
+    /// absent from the query signature) never refetches - the router-supplied reload in
+    /// <see cref="OnParametersSetAsync"/> short-circuits and only re-renders with the new view.
+    /// </summary>
+    protected void SetView(string value) =>
+        ApplyQueryChanges(new Dictionary<string, object?> { ["view"] = string.IsNullOrEmpty(value) ? null : value });
 
     /// <summary>
     /// Navigates to the current list URL with the given query-parameter changes applied (a null value

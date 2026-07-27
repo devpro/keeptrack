@@ -77,6 +77,13 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
                 await CaptureAsync(route, name);
             }
 
+            // Thumbnail/grid view at the phone viewport, one per cover-art shape (portrait/square/wide) plus
+            // movies (no linked art here, so it exercises the placeholder tile).
+            await CaptureAsync("/books?view=grid", "books-grid");
+            await CaptureAsync("/albums?view=grid", "albums-grid");
+            await CaptureAsync("/video-games?view=grid", "video-games-grid");
+            await CaptureAsync("/movies?view=grid", "movies-grid");
+
             // The collapsed sidebar opened via the hamburger toggle.
             await Page.GotoAsync("/");
             await Page.WaitForTimeoutAsync(500);
@@ -149,6 +156,13 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
 
             await Page.SetViewportSizeAsync(1280, 900);
             await CaptureFirstDetailAsync("/video-games", "video-game-detail-desktop");
+
+            // The same grid + list views at desktop width, to verify the responsive grid columns and the
+            // list/thumbnail toggle at both breakpoints.
+            await CaptureAsync("/books?view=grid", "books-grid-desktop");
+            await CaptureAsync("/albums?view=grid", "albums-grid-desktop");
+            await CaptureAsync("/video-games?view=grid", "video-games-grid-desktop");
+            await CaptureAsync("/books", "books-list-desktop");
 
             // A dark-theme sample of the densest pages.
             await Page.EmulateMediaAsync(new PageEmulateMediaOptions { ColorScheme = ColorScheme.Dark });
@@ -305,6 +319,11 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             IsWishlisted = true
         });
 
+        // Thumbnail/grid-view showcase: several items per shape carrying a deterministic CustomImageUrl
+        // (portrait book covers, square album art, wide game art) so the grid captures below show a full
+        // wall of cover art without depending on a live provider link winning a race.
+        await SeedGridShowcaseAsync(api, created);
+
         var carId = await CreateAsync(api, created, "api/cars", new CarDto
         {
             Name = "Daily driver",
@@ -347,6 +366,77 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
                 Cost = 389.90,
                 Garage = "Renault Lyon Est"
             });
+    }
+
+    /// <summary>
+    /// Seeds a wall of cover-art items (portrait books, square albums, wide games) via CustomImageUrl so the
+    /// thumbnail/grid-view captures show a populated grid deterministically, independent of provider linking.
+    /// </summary>
+    private static async Task SeedGridShowcaseAsync(HttpClient api, List<string> created)
+    {
+        var books = new (string Title, string Author, int Year, float Rating, bool Favorite, bool Read)[]
+        {
+            ("The Hobbit", "J. R. R. Tolkien", 1937, 5f, true, true),
+            ("Dune", "Frank Herbert", 1965, 4.5f, true, true),
+            ("Neuromancer", "William Gibson", 1984, 4f, false, true),
+            ("The Name of the Wind", "Patrick Rothfuss", 2007, 4.5f, false, false),
+            ("Project Hail Mary", "Andy Weir", 2021, 5f, true, false),
+            ("Foundation", "Isaac Asimov", 1951, 4f, false, true)
+        };
+        foreach (var (title, author, year, rating, favorite, read) in books)
+        {
+            await CreateAsync(api, created, "api/books", new BookDto
+            {
+                Title = title,
+                Author = author,
+                Year = year,
+                Rating = rating,
+                IsFavorite = favorite,
+                FirstReadAt = read ? new DateOnly(2024, 1, 1) : null,
+                CustomImageUrl = $"https://picsum.photos/seed/kt-book-{Uri.EscapeDataString(title)}/400/600"
+            });
+        }
+
+        var albums = new (string Title, string Artist, int Year, float Rating, bool Favorite)[]
+        {
+            ("OK Computer", "Radiohead", 1997, 5f, true),
+            ("Rumours", "Fleetwood Mac", 1977, 4.5f, false),
+            ("Random Access Memories", "Daft Punk", 2013, 4.5f, true),
+            ("To Pimp a Butterfly", "Kendrick Lamar", 2015, 5f, true),
+            ("The Dark Side of the Moon", "Pink Floyd", 1973, 5f, false)
+        };
+        foreach (var (title, artist, year, rating, favorite) in albums)
+        {
+            await CreateAsync(api, created, "api/albums", new AlbumDto
+            {
+                Title = title,
+                Artist = artist,
+                Year = year,
+                Rating = rating,
+                IsFavorite = favorite,
+                CustomImageUrl = $"https://picsum.photos/seed/kt-album-{Uri.EscapeDataString(title)}/400/400"
+            });
+        }
+
+        var games = new (string Title, int Year, float Rating, string State)[]
+        {
+            ("Hollow Knight", 2017, 4.5f, "Completed"),
+            ("Celeste", 2018, 5f, "Completed"),
+            ("Stardew Valley", 2016, 4.5f, "Current"),
+            ("Disco Elysium", 2019, 5f, "On-hold"),
+            ("Elden Ring", 2022, 5f, "Current")
+        };
+        foreach (var (title, year, rating, state) in games)
+        {
+            await CreateAsync(api, created, "api/video-games", new VideoGameDto
+            {
+                Title = title,
+                Year = year,
+                Rating = rating,
+                Platforms = [new VideoGamePlatformDto { Platform = "PC", CopyType = CopyType.Digital, State = state }],
+                CustomImageUrl = $"https://picsum.photos/seed/kt-game-{Uri.EscapeDataString(title)}/600/338"
+            });
+        }
     }
 
     /// <summary>Links an item to its provider's first search candidate via the admin API (best-effort).</summary>

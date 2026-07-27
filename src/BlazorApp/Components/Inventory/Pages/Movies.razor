@@ -6,6 +6,8 @@
                Title="Movies"
                ItemName="Movie"
                Route="@ListRoute"
+               View="@_view"
+               OnViewChanged="@SetView"
                Items="@(Items ?? [])"
                Loading="@_loading"
                Loaded="@_loaded"

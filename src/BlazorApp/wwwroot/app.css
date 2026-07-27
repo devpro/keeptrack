@@ -421,6 +421,94 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 .kt-flag-badge.done     { background: var(--kt-success-bg); color: var(--kt-success); }
 .kt-flag-badge.wishlist { background: var(--kt-accent-glow); color: var(--kt-accent); }
 
+/* ── List/thumbnail view toggle ────────────────────────────────────── */
+/* segmented control in the search bar, only rendered for image-bearing types (see InventoryList) */
+.kt-view-toggle {
+  display: inline-flex;
+  flex-shrink: 0;
+  border: 1px solid var(--kt-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.kt-view-btn {
+  border: 0;
+  background: transparent;
+  color: var(--kt-text-muted);
+  padding: 0.35rem 0.6rem;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--kt-transition), color var(--kt-transition);
+}
+.kt-view-btn + .kt-view-btn { border-left: 1px solid var(--kt-border); }
+.kt-view-btn:hover { background: var(--kt-surface-2); color: var(--kt-text); }
+.kt-view-btn.active { background: var(--kt-accent); color: #fff; }
+
+/* ── Inventory thumbnail (grid) view ───────────────────────────────── */
+/* poster cards: the cover art is the hero, title + meta captioned underneath. The whole card opens the
+   detail page via a stretched-link over the cover; the delete button is raised above it via z-index. */
+.kt-item-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 1.25rem 1rem;
+  padding-top: 0.5rem;
+}
+.kt-grid-card { position: relative; min-width: 0; }
+.kt-grid-cover {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--kt-surface-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--kt-text-subtle);
+  font-size: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: transform var(--kt-transition), box-shadow var(--kt-transition);
+}
+.kt-grid-cover.square { aspect-ratio: 1 / 1; }
+.kt-grid-cover.wide { aspect-ratio: 16 / 9; }
+.kt-grid-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.kt-grid-card:hover .kt-grid-cover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+}
+/* delete floats top-right over the cover, hidden until hover so it never obscures the art at rest */
+.kt-grid-delete {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  z-index: 2;
+  opacity: 0;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 6px;
+  transition: opacity var(--kt-transition);
+}
+.kt-grid-card:hover .kt-grid-delete,
+.kt-grid-delete:focus-visible { opacity: 1; }
+.kt-grid-caption { padding: 0.5rem 0.15rem 0; }
+.kt-grid-title {
+  font-weight: 500;
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kt-grid-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.45rem;
+  margin-top: 0.2rem;
+  font-size: 0.75rem;
+  color: var(--kt-text-muted);
+}
+@media (max-width: 575.98px) {
+  .kt-item-grid { grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)); gap: 0.9rem 0.6rem; }
+}
+
 /* candidate synopsis in the admin linking queue - TMDB synopses can run very long, pushing the Link
    action below the fold; clamp to a teaser so the card stays scannable */
 .kt-ref-synopsis {
