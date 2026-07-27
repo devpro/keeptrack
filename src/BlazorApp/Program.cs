@@ -12,14 +12,12 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
         options.SlidingExpiration = true;
     });
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("AdminOnly", policy => policy.RequireClaim("role", "admin"));
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy("AdminOnly", policy => policy.RequireClaim("role", "admin"))
     // mirrors WebApi's policy (the cookie principal carries the same Firebase "role" claim): members and
     // admins see the whole app; everyone else is the free preview tier (movies + TV shows). This only
     // drives what the UI shows - the API enforces the same rule on every request.
-    options.AddPolicy("MemberOnly", policy => policy.RequireClaim("role", "member", "admin"));
-});
+    .AddPolicy("MemberOnly", policy => policy.RequireClaim("role", "member", "admin"));
 // opt-in shared Data Protection key ring (see MongoDbXmlRepository) - required before running more than
 // one replica of this app, since the auth cookie and antiforgery tokens must decrypt on every replica.
 // Left unset (the default), the framework keeps its usual per-instance ephemeral keys.

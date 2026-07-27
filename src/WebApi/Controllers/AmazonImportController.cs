@@ -110,19 +110,20 @@ public class AmazonImportController(
             var existingBooks = await FindAllAsync(bookRepository, ownerId, new BookModel { OwnerId = ownerId, Title = string.Empty, Author = string.Empty });
             var (created, mergedInto, skipped) = await CommitAsync(
                 bookRepository, existingBooks, bookItems.Select(ToOwnedItemRequestItem).ToList(),
-                b => b.Title, b => b.OwnedVersions.Select(v => v.Reference),
-                i => i.Title, i => i.OwnedVersion.Reference,
-                item => new BookModel
-                {
-                    OwnerId = ownerId,
-                    Title = item.Title,
-                    Author = string.Empty,
-                    Year = item.Year,
-                    Isbn = item.Isbn,
-                    Notes = AmazonImportMergeService.BuildAmazonProvenanceNotes(item.AmazonTitle, item.Isbn),
-                    OwnedVersions = [item.OwnedVersion]
-                },
-                (book, item) => book.OwnedVersions.Add(item.OwnedVersion), ownerId);
+                new OwnedItemImportAdapter<BookModel, AmazonOwnedItemImportRequestItem>(
+                    b => b.Title, b => b.OwnedVersions.Select(v => v.Reference),
+                    i => i.Title, i => i.OwnedVersion.Reference,
+                    item => new BookModel
+                    {
+                        OwnerId = ownerId,
+                        Title = item.Title,
+                        Author = string.Empty,
+                        Year = item.Year,
+                        Isbn = item.Isbn,
+                        Notes = AmazonImportMergeService.BuildAmazonProvenanceNotes(item.AmazonTitle, item.Isbn),
+                        OwnedVersions = [item.OwnedVersion]
+                    },
+                    (book, item) => book.OwnedVersions.Add(item.OwnedVersion)), ownerId);
             (result.BooksCreated, result.BooksMergedInto, result.BooksSkipped) = (created, mergedInto, skipped);
         }
 
@@ -131,17 +132,18 @@ public class AmazonImportController(
             var existingMovies = await FindAllAsync(movieRepository, ownerId, new MovieModel { OwnerId = ownerId, Title = string.Empty });
             var (created, mergedInto, skipped) = await CommitAsync(
                 movieRepository, existingMovies, movieItems.Select(ToOwnedItemRequestItem).ToList(),
-                m => m.Title, m => m.OwnedVersions.Select(v => v.Reference),
-                i => i.Title, i => i.OwnedVersion.Reference,
-                item => new MovieModel
-                {
-                    OwnerId = ownerId,
-                    Title = item.Title,
-                    Year = item.Year,
-                    Notes = AmazonImportMergeService.BuildAmazonProvenanceNotes(item.AmazonTitle, null),
-                    OwnedVersions = [item.OwnedVersion]
-                },
-                (movie, item) => movie.OwnedVersions.Add(item.OwnedVersion), ownerId);
+                new OwnedItemImportAdapter<MovieModel, AmazonOwnedItemImportRequestItem>(
+                    m => m.Title, m => m.OwnedVersions.Select(v => v.Reference),
+                    i => i.Title, i => i.OwnedVersion.Reference,
+                    item => new MovieModel
+                    {
+                        OwnerId = ownerId,
+                        Title = item.Title,
+                        Year = item.Year,
+                        Notes = AmazonImportMergeService.BuildAmazonProvenanceNotes(item.AmazonTitle, null),
+                        OwnedVersions = [item.OwnedVersion]
+                    },
+                    (movie, item) => movie.OwnedVersions.Add(item.OwnedVersion)), ownerId);
             (result.MoviesCreated, result.MoviesMergedInto, result.MoviesSkipped) = (created, mergedInto, skipped);
         }
 
@@ -150,17 +152,18 @@ public class AmazonImportController(
             var existingTvShows = await FindAllAsync(tvShowRepository, ownerId, new TvShowModel { OwnerId = ownerId, Title = string.Empty });
             var (created, mergedInto, skipped) = await CommitAsync(
                 tvShowRepository, existingTvShows, tvShowItems.Select(ToOwnedItemRequestItem).ToList(),
-                t => t.Title, t => t.OwnedVersions.Select(v => v.Reference),
-                i => i.Title, i => i.OwnedVersion.Reference,
-                item => new TvShowModel
-                {
-                    OwnerId = ownerId,
-                    Title = item.Title,
-                    Year = item.Year,
-                    Notes = AmazonImportMergeService.BuildAmazonProvenanceNotes(item.AmazonTitle, null),
-                    OwnedVersions = [item.OwnedVersion]
-                },
-                (tvShow, item) => tvShow.OwnedVersions.Add(item.OwnedVersion), ownerId);
+                new OwnedItemImportAdapter<TvShowModel, AmazonOwnedItemImportRequestItem>(
+                    t => t.Title, t => t.OwnedVersions.Select(v => v.Reference),
+                    i => i.Title, i => i.OwnedVersion.Reference,
+                    item => new TvShowModel
+                    {
+                        OwnerId = ownerId,
+                        Title = item.Title,
+                        Year = item.Year,
+                        Notes = AmazonImportMergeService.BuildAmazonProvenanceNotes(item.AmazonTitle, null),
+                        OwnedVersions = [item.OwnedVersion]
+                    },
+                    (tvShow, item) => tvShow.OwnedVersions.Add(item.OwnedVersion)), ownerId);
             (result.TvShowsCreated, result.TvShowsMergedInto, result.TvShowsSkipped) = (created, mergedInto, skipped);
         }
 
@@ -169,17 +172,18 @@ public class AmazonImportController(
             var existingVideoGames = await FindAllAsync(videoGameRepository, ownerId, new VideoGameModel { OwnerId = ownerId, Title = string.Empty });
             var (created, mergedInto, skipped) = await CommitAsync(
                 videoGameRepository, existingVideoGames, videoGameItems.Select(ToVideoGameRequestItem).ToList(),
-                g => g.Title, g => g.Platforms.Select(p => p.Reference),
-                i => i.Title, i => i.Platform.Reference,
-                item => new VideoGameModel
-                {
-                    OwnerId = ownerId,
-                    Title = item.Title,
-                    Year = item.Year,
-                    Notes = AmazonImportMergeService.BuildAmazonProvenanceNotes(item.AmazonTitle, null),
-                    Platforms = [item.Platform]
-                },
-                (game, item) => game.Platforms.Add(item.Platform), ownerId);
+                new OwnedItemImportAdapter<VideoGameModel, AmazonVideoGameImportRequestItem>(
+                    g => g.Title, g => g.Platforms.Select(p => p.Reference),
+                    i => i.Title, i => i.Platform.Reference,
+                    item => new VideoGameModel
+                    {
+                        OwnerId = ownerId,
+                        Title = item.Title,
+                        Year = item.Year,
+                        Notes = AmazonImportMergeService.BuildAmazonProvenanceNotes(item.AmazonTitle, null),
+                        Platforms = [item.Platform]
+                    },
+                    (game, item) => game.Platforms.Add(item.Platform)), ownerId);
             (result.VideoGamesCreated, result.VideoGamesMergedInto, result.VideoGamesSkipped) = (created, mergedInto, skipped);
         }
 
@@ -188,17 +192,18 @@ public class AmazonImportController(
             var existingGear = await FindAllAsync(gearRepository, ownerId, new GearModel { OwnerId = ownerId, Title = string.Empty });
             var (created, mergedInto, skipped) = await CommitAsync(
                 gearRepository, existingGear, gearItems.Select(ToOwnedItemRequestItem).ToList(),
-                g => g.Title, g => g.OwnedVersions.Select(v => v.Reference),
-                i => i.Title, i => i.OwnedVersion.Reference,
-                item => new GearModel
-                {
-                    OwnerId = ownerId,
-                    Title = item.Title,
-                    Year = item.Year,
-                    Notes = AmazonImportMergeService.BuildAmazonProvenanceNotes(item.AmazonTitle, null),
-                    OwnedVersions = [item.OwnedVersion]
-                },
-                (gear, item) => gear.OwnedVersions.Add(item.OwnedVersion), ownerId);
+                new OwnedItemImportAdapter<GearModel, AmazonOwnedItemImportRequestItem>(
+                    g => g.Title, g => g.OwnedVersions.Select(v => v.Reference),
+                    i => i.Title, i => i.OwnedVersion.Reference,
+                    item => new GearModel
+                    {
+                        OwnerId = ownerId,
+                        Title = item.Title,
+                        Year = item.Year,
+                        Notes = AmazonImportMergeService.BuildAmazonProvenanceNotes(item.AmazonTitle, null),
+                        OwnedVersions = [item.OwnedVersion]
+                    },
+                    (gear, item) => gear.OwnedVersions.Add(item.OwnedVersion)), ownerId);
             (result.GearCreated, result.GearMergedInto, result.GearSkipped) = (created, mergedInto, skipped);
         }
 
@@ -207,17 +212,18 @@ public class AmazonImportController(
             var existingCollectibles = await FindAllAsync(collectibleRepository, ownerId, new CollectibleModel { OwnerId = ownerId, Title = string.Empty });
             var (created, mergedInto, skipped) = await CommitAsync(
                 collectibleRepository, existingCollectibles, collectibleItems.Select(ToOwnedItemRequestItem).ToList(),
-                c => c.Title, c => c.OwnedVersions.Select(v => v.Reference),
-                i => i.Title, i => i.OwnedVersion.Reference,
-                item => new CollectibleModel
-                {
-                    OwnerId = ownerId,
-                    Title = item.Title,
-                    Year = item.Year,
-                    Notes = AmazonImportMergeService.BuildAmazonProvenanceNotes(item.AmazonTitle, null),
-                    OwnedVersions = [item.OwnedVersion]
-                },
-                (collectible, item) => collectible.OwnedVersions.Add(item.OwnedVersion), ownerId);
+                new OwnedItemImportAdapter<CollectibleModel, AmazonOwnedItemImportRequestItem>(
+                    c => c.Title, c => c.OwnedVersions.Select(v => v.Reference),
+                    i => i.Title, i => i.OwnedVersion.Reference,
+                    item => new CollectibleModel
+                    {
+                        OwnerId = ownerId,
+                        Title = item.Title,
+                        Year = item.Year,
+                        Notes = AmazonImportMergeService.BuildAmazonProvenanceNotes(item.AmazonTitle, null),
+                        OwnedVersions = [item.OwnedVersion]
+                    },
+                    (collectible, item) => collectible.OwnedVersions.Add(item.OwnedVersion)), ownerId);
             (result.CollectiblesCreated, result.CollectiblesMergedInto, result.CollectiblesSkipped) = (created, mergedInto, skipped);
         }
 
@@ -267,17 +273,11 @@ public class AmazonImportController(
         IDataRepository<TModel> repository,
         List<TModel> existingItems,
         List<TRequestItem> requestItems,
-        Func<TModel, string> getExistingTitle,
-        Func<TModel, IEnumerable<string?>> getExistingReferences,
-        Func<TRequestItem, string> getItemTitle,
-        Func<TRequestItem, string?> getItemReference,
-        Func<TRequestItem, TModel> createNew,
-        Action<TModel, TRequestItem> appendOwnedCopy,
+        OwnedItemImportAdapter<TModel, TRequestItem> adapter,
         string ownerId)
         where TModel : class, IHasIdAndOwnerId
     {
-        var plan = OwnedItemImportMergeService.ComputeCommitPlan(
-            existingItems, requestItems, getExistingTitle, getExistingReferences, getItemTitle, getItemReference, createNew, appendOwnedCopy);
+        var plan = OwnedItemImportMergeService.ComputeCommitPlan(existingItems, requestItems, adapter);
 
         foreach (var item in plan.ItemsToCreate)
         {

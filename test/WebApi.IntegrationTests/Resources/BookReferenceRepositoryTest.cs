@@ -141,7 +141,7 @@ public class BookReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) 
             var found = await repository.FindByIdAsync(created.Id!);
 
             found.Should().NotBeNull();
-            found!.MatchedAliases.Should().ContainSingle(m => m.Title == title.ToLowerInvariant() && m.Year == 2010);
+            found!.MatchedAliases.Should().ContainSingle(m => string.Equals(m.Title, title, StringComparison.OrdinalIgnoreCase) && m.Year == 2010);
         }
         finally
         {

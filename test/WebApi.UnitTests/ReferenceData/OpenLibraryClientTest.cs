@@ -30,7 +30,7 @@ public class OpenLibraryClientTest
             });
     }
 
-    private static IBookReferenceClient BuildClient(Func<HttpRequestMessage, string> respond)
+    private static OpenLibraryClient BuildClient(Func<HttpRequestMessage, string> respond)
     {
         var http = new HttpClient(new StubHttpMessageHandler(respond)) { BaseAddress = new Uri("https://openlibrary.org/") };
         return new OpenLibraryClient(http);

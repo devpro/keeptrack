@@ -41,6 +41,7 @@ async function retry() {
         }
     } catch (err) {
         // We got an exception, server is currently unavailable
+        console.error("Blazor reconnect failed:", err);
         document.addEventListener("visibilitychange", retryWhenDocumentBecomesVisible);
     }
 }
