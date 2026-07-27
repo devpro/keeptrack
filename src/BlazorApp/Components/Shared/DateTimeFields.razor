@@ -13,9 +13,12 @@
     @* A plain text "HH:mm" field rather than <input type="time"> - the native time picker's 12h/24h
        display is decided by the browser from the OS region format, not anything this page controls
        (Chrome and Firefox both ignore the page's own language/culture for it), so it can't be forced to
-       24h that way. A free-text field sidesteps the native widget entirely and always reads/writes 24h. *@
+       24h that way. A free-text field sidesteps the native widget entirely and always reads/writes 24h.
+       The colon is optional on input: a phone's numeric keypad has no ":" key, so bare digits like "1430"
+       (or "930") are accepted too and reformatted to "HH:mm" on blur. *@
     <input class="form-control" type="text" inputmode="numeric" placeholder="HH:mm"
-           pattern="[0-2][0-9]:[0-5][0-9]" @bind:get="TimeText" @bind:set="SetTimeTextAsync" @bind:event="onchange"/>
+           title="Type HH:mm, or just the digits (e.g. 1430) - the colon is optional."
+           pattern="[0-2]?[0-9]:?[0-5][0-9]" @bind:get="TimeText" @bind:set="SetTimeTextAsync" @bind:event="onchange"/>
 </div>
 
 @code {
@@ -29,14 +32,34 @@
 
     private Task SetDateAsync(DateOnly value) => UpdateAsync(value.ToDateTime(TimeOnly.FromDateTime(Value)));
 
-    private Task SetTimeTextAsync(string value)
+    private Task SetTimeTextAsync(string? value)
     {
-        if (TimeOnly.TryParseExact(value, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var time))
+        if (TryParseTime(value, out var time))
         {
             return UpdateAsync(DateOnly.FromDateTime(Value).ToDateTime(time));
         }
 
         return Task.CompletedTask;
+    }
+
+    // Accept "HH:mm" (typed on a full keyboard) but also bare digits ("1430", "930") so a phone's
+    // numeric keypad - which has no ":" key - can still enter a time. An invalid entry is ignored,
+    // leaving the previous value untouched, same as before.
+    private static bool TryParseTime(string? value, out TimeOnly time)
+    {
+        if (TimeOnly.TryParseExact(value, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out time))
+        {
+            return true;
+        }
+
+        var digits = new string((value ?? "").Where(char.IsDigit).ToArray());
+        if (digits.Length is 3 or 4)
+        {
+            return TimeOnly.TryParseExact(digits.PadLeft(4, '0'), "HHmm", CultureInfo.InvariantCulture, DateTimeStyles.None, out time);
+        }
+
+        time = default;
+        return false;
     }
 
     private Task UpdateAsync(DateTime value)
