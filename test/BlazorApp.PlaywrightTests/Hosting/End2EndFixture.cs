@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using FirebaseAdmin.Auth;
@@ -226,6 +227,21 @@ public sealed class End2EndFixture : IAsyncLifetime
             await Console.Error.WriteLineAsync($"Failed to clean up {resourcePathAndId}: {ex.Message}");
         }
     }
+
+    /// <summary>
+    /// Reads the ids of the items returned by a paged list query (e.g. <c>"/api/books?search=..."</c> or <c>"/api/episodes?TvShowId=..."</c>),
+    /// so an import smoke test can find whatever the commit created and delete it via <see cref="DeleteItemAsync"/>.
+    /// Every list endpoint shares the one <c>PagedResult</c> shape, so this single helper serves all of them rather than a per-type variant.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> GetItemIdsAsync(string listQueryUrl)
+    {
+        var page = await ApiHttpClient.GetFromJsonAsync<PagedItemIds>(listQueryUrl);
+        return page?.Items.Where(item => item.Id is not null).Select(item => item.Id!).ToList() ?? [];
+    }
+
+    private sealed record PagedItemIds(List<ItemId> Items);
+
+    private sealed record ItemId(string? Id);
 
     public async ValueTask DisposeAsync()
     {
