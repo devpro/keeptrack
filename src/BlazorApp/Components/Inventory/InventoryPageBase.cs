@@ -2,6 +2,7 @@ using Keeptrack.BlazorApp.Components.Shared;
 using Keeptrack.Common.System;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.JSInterop;
 
 namespace Keeptrack.BlazorApp.Components.Inventory;
 
@@ -46,8 +47,10 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
 
     protected string _sort = "";
 
-    // View mode is deliberately kept out of the query signature below: switching list<->grid is a pure
-    // display change over the already-loaded page, so flipping it must never trigger a refetch.
+    // View mode ("" = list, "grid" = thumbnails) is a global user preference, not list state: it never
+    // changes which items are shown or their order, only their presentation. So it lives in the shared,
+    // circuit-scoped ListViewPreference (seeded once from localStorage) rather than in the URL/query
+    // signature - flipping it must never refetch, and it carries to every list page for the session.
     protected string _view = "";
 
     protected int _page = 1;
@@ -55,6 +58,10 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
     protected int TotalPages => (int)Math.Ceiling(TotalCount / (double)PageSize);
 
     [Inject] protected NavigationManager Navigation { get; set; } = null!;
+
+    [Inject] protected IJSRuntime JS { get; set; } = null!;
+
+    [Inject] protected ListViewPreference ViewPreference { get; set; } = null!;
 
     /// <summary>
     /// List state (search, page, and each page's own filters) lives in the URL query string, so that
@@ -69,14 +76,6 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
 
     [SupplyParameterFromQuery(Name = "sort")]
     public string? SortQuery { get; set; }
-
-    /// <summary>
-    /// The list's display mode ("" = the default detailed list, "grid" = poster thumbnails). Like the
-    /// other list-state parameters it lives in the URL so it's restored on back-nav and bookmarkable, but
-    /// unlike them it's a pure display change - see <see cref="_view"/>/<see cref="SetView"/>.
-    /// </summary>
-    [SupplyParameterFromQuery(Name = "view")]
-    public string? ViewQuery { get; set; }
 
     protected abstract InventoryApiClientBase<TDto> Api { get; }
 
@@ -110,7 +109,7 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
     {
         _search = SearchQuery ?? "";
         _sort = SortQuery ?? DefaultSort;
-        _view = ViewQuery ?? "";
+        _view = ViewPreference.View;
         _page = PageQuery is > 0 ? PageQuery.Value : 1;
         var query = BuildQuerySignature();
 
@@ -127,6 +126,38 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
 
         LoadedQuery = query;
         await LoadAsync();
+    }
+
+    /// <summary>
+    /// Seeds the shared <see cref="ViewPreference"/> from the browser's localStorage exactly once per
+    /// circuit. localStorage isn't reachable during the server-side prerender, so this runs on the first
+    /// interactive render; every later in-circuit navigation reads the already-seeded value synchronously
+    /// in <see cref="OnParametersSetAsync"/>, so only the very first list page of a session can briefly
+    /// show the default view before the saved one applies.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || ViewPreference.Seeded)
+        {
+            return;
+        }
+
+        ViewPreference.Seeded = true;
+        try
+        {
+            var saved = await JS.InvokeAsync<string?>("localStorage.getItem", ListViewPreference.StorageKey);
+            ViewPreference.View = saved ?? "";
+        }
+        catch (JSException)
+        {
+            // localStorage unavailable (e.g. private-mode restrictions) - keep the default list view.
+        }
+
+        if (_view != ViewPreference.View)
+        {
+            _view = ViewPreference.View;
+            StateHasChanged();
+        }
     }
 
     protected void OnSearchChanged(string value) => _search = value;
@@ -169,14 +200,26 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
         ApplyQueryChanges(new Dictionary<string, object?> { ["sort"] = string.IsNullOrEmpty(value) ? null : value, ["page"] = null });
 
     /// <summary>
-    /// Switches the list/thumbnail display mode ("" = the default detailed list, kept out of the URL,
-    /// "grid" = poster thumbnails) through the same URL-navigation path as sort/filters, so it's restored
-    /// on back-nav and bookmarkable. Unlike a filter it deliberately does not reset the page, and (being
-    /// absent from the query signature) never refetches - the router-supplied reload in
-    /// <see cref="OnParametersSetAsync"/> short-circuits and only re-renders with the new view.
+    /// Switches the list/thumbnail display mode ("" = detailed list, "grid" = poster thumbnails) and
+    /// persists it as a global preference: it updates the shared <see cref="ViewPreference"/> (so every
+    /// other list page in the session inherits it) and writes localStorage (so it survives reloads and
+    /// future sessions). This is a pure presentation change over the already-loaded page, so it just
+    /// re-renders in place - no navigation, no refetch.
     /// </summary>
-    protected void SetView(string value) =>
-        ApplyQueryChanges(new Dictionary<string, object?> { ["view"] = string.IsNullOrEmpty(value) ? null : value });
+    protected async Task SetView(string value)
+    {
+        _view = value;
+        ViewPreference.View = value;
+        ViewPreference.Seeded = true;
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", ListViewPreference.StorageKey, value);
+        }
+        catch (JSException)
+        {
+            // localStorage unavailable - the in-memory ViewPreference still carries the choice for the session.
+        }
+    }
 
     /// <summary>
     /// Navigates to the current list URL with the given query-parameter changes applied (a null value

@@ -42,6 +42,7 @@ if (FirebaseApp.DefaultInstance is null)
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<Keeptrack.BlazorApp.Components.Account.AuthenticationTokenHandler>();
 builder.Services.AddScoped<Keeptrack.BlazorApp.Components.Account.UserPreferencesState>();
+builder.Services.AddScoped<Keeptrack.BlazorApp.Components.Inventory.ListViewPreference>();
 builder.Services.AddWebApiHttpClient(builder.Configuration.TryGetSection<string>("WebApi:BaseUrl"));
 builder.Services.AddHealthChecks();
 

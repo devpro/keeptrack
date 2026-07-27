@@ -77,12 +77,18 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
                 await CaptureAsync(route, name);
             }
 
-            // Thumbnail/grid view at the phone viewport, one per cover-art shape (portrait/square/wide) plus
-            // movies (no linked art here, so it exercises the placeholder tile).
-            await CaptureAsync("/books?view=grid", "books-grid");
-            await CaptureAsync("/albums?view=grid", "albums-grid");
-            await CaptureAsync("/video-games?view=grid", "video-games-grid");
-            await CaptureAsync("/movies?view=grid", "movies-grid");
+            // Thumbnail/grid view at the phone viewport. Click the real toggle once (exercises SetView and
+            // its localStorage persistence), then the sibling list pages inherit the saved preference across
+            // full reloads - which is the whole point of the feature. Restore list view for the later shots.
+            await Page.GotoAsync("/books");
+            await Page.WaitForTimeoutAsync(1200);
+            await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Thumbnail view" }).ClickAsync();
+            await Page.WaitForTimeoutAsync(800);
+            await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(ShotsDirectory, "books-grid.png"), FullPage = true });
+            await CaptureAsync("/albums", "albums-grid");
+            await CaptureAsync("/video-games", "video-games-grid");
+            await CaptureAsync("/movies", "movies-grid");
+            await SetListViewPreferenceAsync(null);
 
             // The collapsed sidebar opened via the hamburger toggle.
             await Page.GotoAsync("/");
@@ -157,11 +163,13 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             await Page.SetViewportSizeAsync(1280, 900);
             await CaptureFirstDetailAsync("/video-games", "video-game-detail-desktop");
 
-            // The same grid + list views at desktop width, to verify the responsive grid columns and the
-            // list/thumbnail toggle at both breakpoints.
-            await CaptureAsync("/books?view=grid", "books-grid-desktop");
-            await CaptureAsync("/albums?view=grid", "albums-grid-desktop");
-            await CaptureAsync("/video-games?view=grid", "video-games-grid-desktop");
+            // The same grid + list views at desktop width, to verify the responsive grid columns at both
+            // breakpoints. Drive the view via the persisted preference, then restore list for the list shot.
+            await SetListViewPreferenceAsync("grid");
+            await CaptureAsync("/books", "books-grid-desktop");
+            await CaptureAsync("/albums", "albums-grid-desktop");
+            await CaptureAsync("/video-games", "video-games-grid-desktop");
+            await SetListViewPreferenceAsync(null);
             await CaptureAsync("/books", "books-list-desktop");
 
             // A dark-theme sample of the densest pages.
@@ -461,6 +469,18 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
         var id = body.RootElement.GetProperty("id").GetString()!;
         created.Add($"{path}/{id}");
         return id;
+    }
+
+    /// <summary>
+    /// Sets (or clears, when null) the per-device list-view preference in localStorage. Each subsequent
+    /// full navigation re-seeds a fresh circuit from it, so this deterministically drives grid vs list for
+    /// the captures without depending on the (removed) ?view= URL parameter.
+    /// </summary>
+    private async Task SetListViewPreferenceAsync(string? view)
+    {
+        await Page.EvaluateAsync(view is null
+            ? "() => localStorage.removeItem('kt-list-view')"
+            : $"() => localStorage.setItem('kt-list-view', '{view}')");
     }
 
     private async Task CaptureAsync(string route, string name)
