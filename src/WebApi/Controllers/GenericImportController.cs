@@ -7,36 +7,37 @@ using Keeptrack.WebApi.Mappers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 // Both Domain.Models (imported above) and Contracts.Dto (a global using) declare ImportMediaType/CopyType.
-// The DTOs the request carries use the Contracts ones; these aliases keep the mapping below unambiguous.
-using AmazonMediaType = Keeptrack.WebApi.Contracts.Dto.AmazonImportMediaType;
+// The DTOs the request carries use the Contracts ones; this alias keeps the comparisons below unambiguous.
+using ContractsImportMediaType = Keeptrack.WebApi.Contracts.Dto.ImportMediaType;
 
 namespace Keeptrack.WebApi.Controllers;
 
 /// <summary>
-/// Previews an Amazon.fr order-history export and commits the rows the user selected/edited in the review
-/// UI as books, movies, TV shows, video games, gear, or collectibles (picked per row - see <see cref="AmazonImportMediaType"/>).
-/// Synchronous on both ends: unlike the TV Time import, there is no external API call in the loop, so even
-/// a multi-year export completes well within a normal request.
-/// The create/merge/dedup work is delegated to the shared <see cref="OwnedItemImportCommitCoordinator"/> (the
-/// same engine the generic store/CSV importer uses); this controller only parses Amazon's specific export and
-/// builds the reference/provenance text that is genuinely Amazon-specific.
+/// Previews a generic store/CSV import (any retailer export the user has reshaped into the canonical column set
+/// in a spreadsheet) and commits the rows the user selected/edited in the review UI. The store-agnostic
+/// generalization of <see cref="AmazonImportController"/>: vendor and each row's media type are read from
+/// columns rather than hardcoded/guessed, so a well-prepared "Type" column pre-selects every row's type. Both
+/// controllers share the same create/merge orchestration - <see cref="OwnedItemImportCommitCoordinator"/> -
+/// and the same dedup engine, differing only in parsing and reference/provenance text.
+/// Synchronous on both ends: there is no external API call in the loop, so even a multi-year export completes
+/// well within a normal request.
 /// </summary>
 [ApiController]
 [Authorize(Policy = "MemberOnly")]
-[Route("api/import/amazon")]
-public class AmazonImportController(
+[Route("api/import/generic")]
+public class GenericImportController(
     IBookRepository bookRepository,
     IMovieRepository movieRepository,
     ITvShowRepository tvShowRepository,
     IVideoGameRepository videoGameRepository,
     IGearRepository gearRepository,
     ICollectibleRepository collectibleRepository,
-    AmazonOrderPreviewRowDtoMapper previewMapper) : ControllerBase
+    GenericImportPreviewRowDtoMapper previewMapper) : ControllerBase
 {
     /// <summary>
-    /// Parses the uploaded order-history CSV and returns every line item for review - nothing is persisted
-    /// by this call. Amazon's export carries no category column, so every row is returned; the review UI
-    /// defaults to showing only <see cref="AmazonOrderPreviewRowDto.LooksLikeBook"/> rows.
+    /// Parses the uploaded CSV and returns every line item for review - nothing is persisted by this call. A
+    /// row is flagged <see cref="GenericImportPreviewRowDto.AlreadyImported"/> when its order reference already
+    /// exists on an owned copy of any type.
     /// </summary>
     [HttpPost("preview")]
     [RequestSizeLimit(20_000_000)]
@@ -44,9 +45,9 @@ public class AmazonImportController(
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     [SuppressMessage("Security", "S5693:Make sure the content length limit is safe here",
-        Justification = "The limit IS set (20 MB), deliberately above Sonar's 8 MB default: a multi-year Amazon order-history " +
-                        "export can be sizeable, and the endpoint is authenticated, member-only, admin-of-your-own-data.")]
-    public async Task<ActionResult<List<AmazonOrderPreviewRowDto>>> Preview(IFormFile file)
+        Justification = "The limit IS set (20 MB), deliberately above Sonar's 8 MB default: a multi-year " +
+                        "order-history export can be sizeable, and the endpoint is authenticated, member-only, admin-of-your-own-data.")]
+    public async Task<ActionResult<List<GenericImportPreviewRowDto>>> Preview(IFormFile file)
     {
         if (file.Length == 0)
         {
@@ -55,8 +56,8 @@ public class AmazonImportController(
 
         var ownerId = this.GetUserId();
 
-        // "Already imported" must be checked across every type, not just books - a row previously imported
-        // as a movie must still be flagged when the same export is uploaded again.
+        // "Already imported" is checked across every type, not just one - a row previously imported as a movie
+        // must still be flagged when the same file is uploaded again.
         var existingBooks = await FindAllAsync(bookRepository, ownerId, new BookModel { OwnerId = ownerId, Title = string.Empty, Author = string.Empty });
         var existingMovies = await FindAllAsync(movieRepository, ownerId, new MovieModel { OwnerId = ownerId, Title = string.Empty });
         var existingTvShows = await FindAllAsync(tvShowRepository, ownerId, new TvShowModel { OwnerId = ownerId, Title = string.Empty });
@@ -73,32 +74,32 @@ public class AmazonImportController(
         alreadyImportedReferences.UnionWith(OwnedItemImportMergeService.FindImportedReferences(existingCollectibles, c => c.OwnedVersions.Select(v => v.Reference)));
 
         await using var stream = file.OpenReadStream();
-        var rows = AmazonOrderPreviewService.BuildPreview(stream, alreadyImportedReferences);
+        var rows = GenericImportService.BuildPreview(stream, alreadyImportedReferences);
 
         return Ok(rows.Select(previewMapper.ToDto).ToList());
     }
 
     /// <summary>
-    /// Creates/updates items from the rows the user selected in the review UI, grouped by the media type
-    /// each row was assigned. A row whose (normalized) title matches an existing item of the same type - or
-    /// one created earlier in this same request - gets an additional owned copy instead of a duplicate
-    /// item; see <see cref="OwnedItemImportCommitCoordinator.CommitAsync"/>.
+    /// Creates/updates items from the rows the user selected, grouped by the media type each row was assigned.
+    /// A row whose (normalized) title matches an existing item of the same type - or one created earlier in
+    /// this same request - gets an additional owned copy instead of a duplicate; see
+    /// <see cref="OwnedItemImportCommitCoordinator.CommitAsync"/>.
     /// </summary>
     [HttpPost("commit")]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
-    public async Task<ActionResult<AmazonImportCommitResultDto>> Commit(AmazonImportCommitRequestDto request)
+    public async Task<ActionResult<GenericImportCommitResultDto>> Commit(GenericImportCommitRequestDto request)
     {
         var ownerId = this.GetUserId();
 
         var itemMissingMediaType = request.Items.FirstOrDefault(item => item.MediaType is null);
         if (itemMissingMediaType is not null)
         {
-            throw new ArgumentException($"A media type is required to import '{itemMissingMediaType.Title}'.");
+            throw new ArgumentException($"A type is required to import '{itemMissingMediaType.Title}'.");
         }
 
         var videoGameItemMissingPlatform = request.Items.FirstOrDefault(item =>
-            item.MediaType == AmazonMediaType.VideoGame && string.IsNullOrWhiteSpace(item.Platform));
+            item.MediaType == ContractsImportMediaType.VideoGame && string.IsNullOrWhiteSpace(item.Platform));
         if (videoGameItemMissingPlatform is not null)
         {
             throw new ArgumentException($"A platform is required to import '{videoGameItemMissingPlatform.Title}' as a video game.");
@@ -110,7 +111,7 @@ public class AmazonImportController(
             ownerId, inputs,
             bookRepository, movieRepository, tvShowRepository, videoGameRepository, gearRepository, collectibleRepository);
 
-        return Ok(new AmazonImportCommitResultDto
+        return Ok(new GenericImportCommitResultDto
         {
             BooksCreated = counts.Books.Created,
             BooksMergedInto = counts.Books.MergedInto,
@@ -129,43 +130,45 @@ public class AmazonImportController(
             GearSkipped = counts.Gear.Skipped,
             CollectiblesCreated = counts.Collectibles.Created,
             CollectiblesMergedInto = counts.Collectibles.MergedInto,
-            CollectiblesSkipped = counts.Collectibles.Skipped
+            CollectiblesSkipped = counts.Collectibles.Skipped,
+            RowsImported = counts.RowsImported,
+            SkippedRowTitles = counts.SkippedTitles
         });
     }
 
-    private static OwnedItemImportInput ToInput(AmazonImportCommitItemDto item)
+    private static OwnedItemImportInput ToInput(GenericImportCommitItemDto item)
     {
-        var isBook = item.MediaType == AmazonMediaType.Book;
-        var isVideoGame = item.MediaType == AmazonMediaType.VideoGame;
+        var isBook = item.MediaType == ContractsImportMediaType.Book;
+        var isVideoGame = item.MediaType == ContractsImportMediaType.VideoGame;
 
         return new OwnedItemImportInput
         {
             MediaType = Enum.Parse<Keeptrack.Domain.Models.ImportMediaType>(item.MediaType!.Value.ToString()),
             Title = item.Title,
-            // The original, unedited Amazon listing text - kept in the created item's notes since reference-data
-            // linking is expected to overwrite Title (and, for a book, ISBN) with canonical values later.
-            ProvenanceNotes = AmazonImportMergeService.BuildAmazonProvenanceNotes(item.AmazonTitle, isBook ? item.Isbn : null),
+            // Provenance notes preserve the source's original listing text, since reference-data linking is
+            // expected to overwrite Title later. The ISBN line is only meaningful for a book.
+            ProvenanceNotes = GenericImportService.BuildProvenanceNotes(item.Vendor, item.SourceTitle, isBook ? item.Isbn : null),
             Year = item.Year,
-            // Amazon's export has no author column; books are created author-less (the coordinator stores "").
-            Author = null,
+            Author = isBook ? item.Author : null,
             Isbn = isBook ? item.Isbn : null,
             Platform = isVideoGame ? item.Platform : null,
             OwnedVersion = new OwnedVersionModel
             {
-                CopyType = ToDomainCopyType(item.CopyType),
+                CopyType = Enum.Parse<Keeptrack.Domain.Models.CopyType>(item.CopyType.ToString()),
                 Price = item.Price,
                 Vendor = item.Vendor,
                 AcquiredAt = item.AcquiredAt,
-                // Derived server-side from the order id + ASIN the preview row reported, never from a
-                // client-supplied Reference string - this is what disambiguates two different items sharing one
-                // Amazon order and what a later re-preview dedups against.
-                Reference = AmazonImportMergeService.FormatOrderReference(item.OrderId, item.Asin)
+                // The reference carries the Website label + order id + product id (with SourceTitle as the
+                // product-id fallback so it matches what preview checked against) - derived server-side, never
+                // from a client-supplied Reference string. Independent of the Vendor field above; the order
+                // id + product id are what disambiguate two different items sharing one order on re-import.
+                Reference = GenericImportService.FormatReference(item.Website, item.OrderId, item.ProductId, item.SourceTitle),
+                // Condition is preserved on the copy's Product field rather than dropped (the one behavioral
+                // difference from the Amazon importer).
+                ProductName = string.IsNullOrWhiteSpace(item.Condition) ? null : item.Condition.Trim()
             }
         };
     }
-
-    private static Keeptrack.Domain.Models.CopyType ToDomainCopyType(Keeptrack.WebApi.Contracts.Dto.CopyType copyType) =>
-        Enum.Parse<Keeptrack.Domain.Models.CopyType>(copyType.ToString());
 
     private static async Task<List<TModel>> FindAllAsync<TModel>(IDataRepository<TModel> repository, string ownerId, TModel blankSample)
         where TModel : IHasIdAndOwnerId =>

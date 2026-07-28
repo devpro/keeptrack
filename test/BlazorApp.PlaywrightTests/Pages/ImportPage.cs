@@ -36,6 +36,14 @@ public class ImportPage(IPage page) : PageBase(page)
         return next;
     }
 
+    public async Task<GenericImportPage> GoToGenericImportAsync()
+    {
+        await Page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Import from a CSV" }).ClickAsync();
+        var next = new GenericImportPage(Page);
+        await next.WaitForReadyAsync();
+        return next;
+    }
+
     public async Task<GenericVideoGameImportPage> GoToVideoGameImportAsync()
     {
         await Page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Import video game transactions" }).ClickAsync();
