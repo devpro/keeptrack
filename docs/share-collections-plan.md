@@ -189,7 +189,32 @@ detailed revision plan). Done and building clean:
 - **Fixed after owner UI review**: the shared list's `Search`/`Sort`/`View` were binding literal strings
   (the CLAUDE.md `@`-prefix gotcha) — now `@`-prefixed; tab now persists in the URL.
 
-Still deferred: Playwright `SharingSmokeTest` (WSL E2E env); Phase 2 personal (car/house/health) read views.
+## Progress log — Phase 2 (personal read views) + smoke test
+
+- **Phase 2: DONE (not committed).** Personal (car/house/health) sharing is view-only end to end:
+  - **Backend**: `SharedWithMeController` gained `GET /{shareId}/{cars|houses|health-profiles}` (list) and
+    `GET /{shareId}/.../{itemId}` (parent + full child history + computed metrics), via two generic helpers
+    (`ReadPersonalListAsync`, `LoadSharedParentAsync`) that keep grant resolution the single security choke point.
+    Metrics reuse the existing static `CarMetricsService`/`HouseMetricsService`/`HealthMetricsService` and their DTO
+    mappers. No copy routes for personal categories (view-only).
+  - **Contracts**: one generic `SharedDetailDto<TParent,TChild,TMetrics>` (Parent/Children/Metrics + OwnerDisplayName).
+  - **Recipient UI**: the owner detail pages themselves (`CarDetail`/`HouseDetail`/`HealthProfileDetail`) are reused
+    read-only via a new `ShareId` parameter (`CanEdit => ShareId is null`) that switches the data source to the
+    ownership-scoped shared endpoints and gates every edit affordance; three thin route wrappers
+    (`Shared{Car,House,Health}DetailPage`) own the `/account/manage/shared/{shareId}/…/{id}` routes + MemberOnly auth.
+    History rows gained a `ReadOnly` flag (hides edit/delete). `SharedCollectionPage` gained Cars/Houses/Health tabs
+    rendering a new generic `SharedPersonalList` (list of links to the read-only detail). Breadcrumb reads
+    `Shared with me › <owner> › <item>`.
+  - **Owner UI**: `SharingPage` now offers a Personal group (Cars/Houses/Health); Health requires an explicit
+    ConfirmModal before it can be enabled (never bundled).
+  - **Tests**: `ShareResourceTest.PersonalShare_IsReadableAsListAndReadOnlyDetail_ButNeverCopyable` (integration, real
+    MongoDB — list + read-only detail + metrics, category-not-in-scope 404, and the copy route absent = not copyable)
+    passes (4/4 in the class). `FreeTierTest` still green (26/26). Whole solution builds with 0 warnings.
+  - **Playwright `SharingSmokeTest`** written (media badge + personal read-only detail, self-shared), plus page
+    objects `SharingOwnerPage`/`SharedWithMePage`/`SharedCollectionViewPage` and `End2EndFixture.SignedInEmail`.
+    Deferred to the WSL `E2E_ENABLED` env like every other smoke test.
+
+Still deferred: running the Playwright `SharingSmokeTest` in the WSL E2E env.
 
 ## Progress log — Phase 1 (superseded by the rework above)
 

@@ -81,6 +81,54 @@ public class ShareResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     [Fact]
+    public async Task PersonalShare_IsReadableAsListAndReadOnlyDetail_ButNeverCopyable()
+    {
+        await Authenticate();
+        var ownEmail = FirebaseConfiguration.Username;
+        var tag = Guid.NewGuid().ToString("N");
+
+        var car = await PostAsync<CarDto>("/api/cars", new CarDto { Name = $"ShareCar-{tag}", EnergyType = CarEnergyType.Combustion });
+        var entry = await PostAsync<CarHistoryDto>("/api/car-history", new CarHistoryDto
+        {
+            CarId = car.Id!,
+            HistoryDate = new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc),
+            EventType = CarHistoryType.Maintenance,
+            Cost = 120.50,
+            Description = "Service"
+        });
+
+        var share = await PostAsync<CreateShareRequestDto, ShareDto>("/api/shares", new CreateShareRequestDto
+        {
+            RecipientEmail = ownEmail,
+            IncludedCategories = [ShareCategory.Cars]
+        });
+
+        try
+        {
+            // the shared car appears in the recipient's read-only list
+            (await GetAsync<List<CarDto>>($"/api/shared-with-me/{share.Id}/cars"))
+                .Should().Contain(c => c.Id == car.Id && c.Name == $"ShareCar-{tag}");
+
+            // the read-only detail returns the parent, its full history and computed metrics
+            var detail = await GetAsync<SharedDetailDto<CarDto, CarHistoryDto, CarMetricsDto>>($"/api/shared-with-me/{share.Id}/cars/{car.Id}");
+            detail.Parent.Id.Should().Be(car.Id);
+            detail.Children.Should().Contain(h => h.Id == entry.Id);
+            detail.Metrics.Should().NotBeNull();
+
+            // a personal category not in this grant is an indistinguishable 404
+            await GetAsync($"/api/shared-with-me/{share.Id}/houses", HttpStatusCode.NotFound);
+
+            // personal data is never copyable - there is deliberately no copy route for it
+            await PostNoContentAsync($"/api/shared-with-me/{share.Id}/cars/{car.Id}/copy", new { }, HttpStatusCode.NotFound);
+        }
+        finally
+        {
+            await DeleteAsync($"/api/shares/{share.Id}");
+            await DeleteAsync($"/api/cars/{car.Id}");
+        }
+    }
+
+    [Fact]
     public async Task ShareToADifferentEmail_IsNotVisibleToOthers()
     {
         await Authenticate();

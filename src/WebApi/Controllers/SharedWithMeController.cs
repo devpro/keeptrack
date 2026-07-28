@@ -36,7 +36,22 @@ public class SharedWithMeController(
     IDtoMapper<TvShowDto, TvShowModel> tvShowMapper,
     IDtoMapper<BookDto, BookModel> bookMapper,
     IDtoMapper<AlbumDto, AlbumModel> albumMapper,
-    IDtoMapper<VideoGameDto, VideoGameModel> videoGameMapper) : ControllerBase
+    IDtoMapper<VideoGameDto, VideoGameModel> videoGameMapper,
+    ICarRepository carRepository,
+    ICarHistoryRepository carHistoryRepository,
+    IHouseRepository houseRepository,
+    IHouseHistoryRepository houseHistoryRepository,
+    IHealthProfileRepository healthProfileRepository,
+    IHealthRecordRepository healthRecordRepository,
+    IDtoMapper<CarDto, CarModel> carMapper,
+    IDtoMapper<CarHistoryDto, CarHistoryModel> carHistoryMapper,
+    IDtoMapper<HouseDto, HouseModel> houseMapper,
+    IDtoMapper<HouseHistoryDto, HouseHistoryModel> houseHistoryMapper,
+    IDtoMapper<HealthProfileDto, HealthProfileModel> healthProfileMapper,
+    IDtoMapper<HealthRecordDto, HealthRecordModel> healthRecordMapper,
+    CarMetricsDtoMapper carMetricsMapper,
+    HouseMetricsDtoMapper houseMetricsMapper,
+    HealthMetricsDtoMapper healthMetricsMapper) : ControllerBase
 {
     /// <summary>Every collection shared with the caller (matched by their account email), oldest first.</summary>
     [HttpGet]
@@ -127,6 +142,92 @@ public class SharedWithMeController(
     [ProducesResponseType(404)]
     public Task<ActionResult<CopyResultDto<VideoGameDto>>> CopyVideoGame(string shareId, string itemId) =>
         CopyAsync(shareId, DomainShareCategory.VideoGames, itemId, videoGameRepository, videoGameMapper, SharedItemCopyService.CopyVideoGame, VideoGameKey);
+
+    // ---- personal reads (cars/houses/health: list + full read-only detail, never copyable) ----
+
+    [HttpGet("{shareId}/cars")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(404)]
+    public Task<ActionResult<List<CarDto>>> GetCars(string shareId) =>
+        ReadPersonalListAsync(shareId, DomainShareCategory.Cars, carRepository, carMapper);
+
+    [HttpGet("{shareId}/cars/{carId}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(404)]
+    public async Task<ActionResult<SharedDetailDto<CarDto, CarHistoryDto, CarMetricsDto>>> GetCar(string shareId, string carId)
+    {
+        var loaded = await LoadSharedParentAsync(shareId, DomainShareCategory.Cars, carId, carRepository, carHistoryRepository,
+            (id, owner) => new CarHistoryModel { OwnerId = owner, CarId = id, EventType = default, HistoryDate = default });
+        if (loaded is null)
+        {
+            return NotFound();
+        }
+
+        var (car, history, ownerName) = loaded.Value;
+        return Ok(new SharedDetailDto<CarDto, CarHistoryDto, CarMetricsDto>
+        {
+            Parent = carMapper.ToDto(car),
+            Children = history.ConvertAll(carHistoryMapper.ToDto),
+            Metrics = carMetricsMapper.ToDto(CarMetricsService.ComputeMetrics(history)),
+            OwnerDisplayName = ownerName
+        });
+    }
+
+    [HttpGet("{shareId}/houses")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(404)]
+    public Task<ActionResult<List<HouseDto>>> GetHouses(string shareId) =>
+        ReadPersonalListAsync(shareId, DomainShareCategory.Houses, houseRepository, houseMapper);
+
+    [HttpGet("{shareId}/houses/{houseId}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(404)]
+    public async Task<ActionResult<SharedDetailDto<HouseDto, HouseHistoryDto, HouseMetricsDto>>> GetHouse(string shareId, string houseId)
+    {
+        var loaded = await LoadSharedParentAsync(shareId, DomainShareCategory.Houses, houseId, houseRepository, houseHistoryRepository,
+            (id, owner) => new HouseHistoryModel { OwnerId = owner, HouseId = id, EventType = default, HistoryDate = default });
+        if (loaded is null)
+        {
+            return NotFound();
+        }
+
+        var (house, history, ownerName) = loaded.Value;
+        return Ok(new SharedDetailDto<HouseDto, HouseHistoryDto, HouseMetricsDto>
+        {
+            Parent = houseMapper.ToDto(house),
+            Children = history.ConvertAll(houseHistoryMapper.ToDto),
+            Metrics = houseMetricsMapper.ToDto(HouseMetricsService.ComputeMetrics(history)),
+            OwnerDisplayName = ownerName
+        });
+    }
+
+    [HttpGet("{shareId}/health-profiles")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(404)]
+    public Task<ActionResult<List<HealthProfileDto>>> GetHealthProfiles(string shareId) =>
+        ReadPersonalListAsync(shareId, DomainShareCategory.Health, healthProfileRepository, healthProfileMapper);
+
+    [HttpGet("{shareId}/health-profiles/{profileId}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(404)]
+    public async Task<ActionResult<SharedDetailDto<HealthProfileDto, HealthRecordDto, HealthMetricsDto>>> GetHealthProfile(string shareId, string profileId)
+    {
+        var loaded = await LoadSharedParentAsync(shareId, DomainShareCategory.Health, profileId, healthProfileRepository, healthRecordRepository,
+            (id, owner) => new HealthRecordModel { OwnerId = owner, HealthProfileId = id, EventType = default, HistoryDate = default });
+        if (loaded is null)
+        {
+            return NotFound();
+        }
+
+        var (profile, records, ownerName) = loaded.Value;
+        return Ok(new SharedDetailDto<HealthProfileDto, HealthRecordDto, HealthMetricsDto>
+        {
+            Parent = healthProfileMapper.ToDto(profile),
+            Children = records.ConvertAll(healthRecordMapper.ToDto),
+            Metrics = healthMetricsMapper.ToDto(HealthMetricsService.ComputeMetrics(records)),
+            OwnerDisplayName = ownerName
+        });
+    }
 
     // ---- match keys (creator is the book author / album artist, null for the rest) ----
 
@@ -254,6 +355,53 @@ public class SharedWithMeController(
     {
         var page = await repository.FindAllAsync(this.GetUserId(), 1, int.MaxValue, null, mapper.ToModel(new TDto()), null);
         return page.Items;
+    }
+
+    /// <summary>
+    /// A personal category's parent items (cars/houses/health profiles), read-only, scoped to the sharer.
+    /// Small collections, so an unpaged read is fine - the same call shape the media dedup path uses.
+    /// </summary>
+    private async Task<ActionResult<List<TDto>>> ReadPersonalListAsync<TModel, TDto>(
+        string shareId, DomainShareCategory category, IDataRepository<TModel> repository, IDtoMapper<TDto, TModel> mapper)
+        where TModel : class, IHasIdAndOwnerId
+        where TDto : new()
+    {
+        var share = await ResolveGrantAsync(shareId, category);
+        if (share is null)
+        {
+            return NotFound();
+        }
+
+        var page = await repository.FindAllAsync(share.OwnerId, 1, int.MaxValue, null, mapper.ToModel(new TDto()));
+        return Ok(page.Items.ConvertAll(mapper.ToDto));
+    }
+
+    /// <summary>
+    /// Resolves the grant, then loads one parent item plus its full child history, both scoped to the sharer.
+    /// Returns null (caller sees a 404) for any grant/ownership failure, same as <see cref="ResolveGrantAsync"/>.
+    /// The metrics computation stays in the caller so each type uses its own (static) metrics service.
+    /// </summary>
+    private async Task<(TParent Parent, List<TChild> Children, string? OwnerName)?> LoadSharedParentAsync<TParent, TChild>(
+        string shareId, DomainShareCategory category, string parentId,
+        IDataRepository<TParent> parentRepository, IDataRepository<TChild> childRepository,
+        Func<string, string, TChild> makeChildFilter)
+        where TParent : class, IHasIdAndOwnerId
+        where TChild : class, IHasIdAndOwnerId
+    {
+        var share = await ResolveGrantAsync(shareId, category);
+        if (share is null)
+        {
+            return null;
+        }
+
+        var parent = await parentRepository.FindOneAsync(parentId, share.OwnerId);
+        if (parent is null)
+        {
+            return null;
+        }
+
+        var children = await childRepository.FindAllAsync(share.OwnerId, 1, int.MaxValue, null, makeChildFilter(parentId, share.OwnerId));
+        return (parent, children.Items, share.OwnerDisplayName);
     }
 
     /// <summary>

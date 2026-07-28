@@ -1,0 +1,77 @@
+@typeparam TDto where TDto : class, IHasId
+
+@* A read-only list of one shared personal category (cars/houses/health). Unlike media, personal items are
+   never copyable and each row opens a full read-only detail page (the value is in the detail, not the list),
+   so this is a plain list of links - same markup shape as SharedWithMeListPage's list of sharers. *@
+
+@if (!_loaded)
+{
+    <div class="kt-loading">
+        <div class="kt-spinner"></div>
+        Loading…
+    </div>
+}
+else if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+else if (_items.Count == 0)
+{
+    <div class="kt-empty">
+        <div class="kt-empty-icon">◈</div>
+        <p>Nothing shared here yet.</p>
+    </div>
+}
+else
+{
+    <div class="kt-item-list">
+        @foreach (var item in _items)
+        {
+            <a class="kt-item-row" href="@DetailHref(item)">
+                <div class="kt-item-main">
+                    <span class="kt-item-title">@ItemTitle(item)</span>
+                    @if (ItemSubtitle is not null && !string.IsNullOrEmpty(ItemSubtitle(item)))
+                    {
+                        <div class="kt-item-meta">
+                            <span>@ItemSubtitle(item)</span>
+                        </div>
+                    }
+                </div>
+            </a>
+        }
+    </div>
+}
+
+@code {
+    /// <summary>Fetches the sharer's items of this category (read-only).</summary>
+    [Parameter] public required Func<Task<List<TDto>>> Fetch { get; set; }
+
+    [Parameter] public required Func<TDto, string?> ItemTitle { get; set; }
+
+    [Parameter] public Func<TDto, string?>? ItemSubtitle { get; set; }
+
+    /// <summary>Builds the read-only detail route for one item (e.g. /account/manage/shared/{id}/cars/{itemId}).</summary>
+    [Parameter] public required Func<TDto, string> DetailHref { get; set; }
+
+    private List<TDto> _items = [];
+    private bool _loaded;
+    private string? _error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loaded = false;
+        try
+        {
+            _items = await Fetch();
+            _error = null;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loaded = true;
+        }
+    }
+}

@@ -16,12 +16,15 @@
             <span class="kt-history-warning-icon" title="@WarningMessage">⚠</span>
         }
     </td>
-    <td>
-        <div class="d-flex gap-1 justify-content-end">
-            <button class="kt-icon-btn" title="Edit this entry" aria-label="Edit this entry" @onclick="() => OnEdit.InvokeAsync(Entry)">✎</button>
-            <button class="kt-icon-btn" title="Delete this entry" aria-label="Delete this entry" @onclick="() => OnDelete.InvokeAsync(Entry.Id!)">✕</button>
-        </div>
-    </td>
+    @if (!ReadOnly)
+    {
+        <td>
+            <div class="d-flex gap-1 justify-content-end">
+                <button class="kt-icon-btn" title="Edit this entry" aria-label="Edit this entry" @onclick="() => OnEdit.InvokeAsync(Entry)">✎</button>
+                <button class="kt-icon-btn" title="Delete this entry" aria-label="Delete this entry" @onclick="() => OnDelete.InvokeAsync(Entry.Id!)">✕</button>
+            </div>
+        </td>
+    }
 </tr>
 
 @code {
@@ -30,6 +33,9 @@
     [Parameter] public bool HasWarning { get; set; }
 
     [Parameter] public string? WarningMessage { get; set; }
+
+    /// <summary>Read-only mode (a recipient viewing a shared car) hides the edit/delete actions column.</summary>
+    [Parameter] public bool ReadOnly { get; set; }
 
     [Parameter] public EventCallback<CarHistoryDto> OnEdit { get; set; }
 

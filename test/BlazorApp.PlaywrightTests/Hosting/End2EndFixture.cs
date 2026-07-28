@@ -49,6 +49,14 @@ public sealed class End2EndFixture : IAsyncLifetime
 
     public string StorageStatePath { get; private set; } = "";
 
+    /// <summary>
+    /// The email of the single signed-in identity for the run - the ephemeral user's generated address in
+    /// integration mode, or the configured E2E_USERNAME otherwise. The sharing smoke test self-shares to this
+    /// address (the recipient is matched by email server-side), the same way ShareResourceTest uses
+    /// FirebaseConfiguration.Username.
+    /// </summary>
+    public string SignedInEmail { get; private set; } = "";
+
     public async ValueTask InitializeAsync()
     {
         if (!End2EndConfiguration.Enabled) return;
@@ -84,6 +92,7 @@ public sealed class End2EndFixture : IAsyncLifetime
         }
 
         var (username, password) = await ResolveCredentialsAsync();
+        SignedInEmail = username;
 
         _idToken = await AccountRepository.AuthenticateAsync(username, password, FirebaseConfiguration.ApplicationKey)
                    ?? throw new InvalidOperationException("Firebase sign-in did not return an id token.");

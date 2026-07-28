@@ -26,7 +26,7 @@
         </div>
     </div>
 
-    <label class="form-label mt-3 d-block">Categories to share</label>
+    <label class="form-label mt-3 d-block">Media (viewable, addable to their collection)</label>
     <div class="d-flex gap-2 flex-wrap">
         @foreach (var (category, text) in s_mediaCategories)
         {
@@ -34,7 +34,15 @@
                     data-testid="share-category" @onclick="() => ToggleCategory(category)">@text</button>
         }
     </div>
-    <p class="kt-card-meta mt-2 mb-0">Sharing personal data (cars, houses, health) is coming soon.</p>
+
+    <label class="form-label mt-3 d-block">Personal (view-only, never copied)</label>
+    <div class="d-flex gap-2 flex-wrap">
+        @foreach (var (category, text) in s_personalCategories)
+        {
+            <button type="button" class="btn btn-sm kt-toggle-btn @(_selected.Contains(category) ? "active" : "")"
+                    data-testid="share-category" @onclick="() => TogglePersonalCategory(category)">@text</button>
+        }
+    </div>
 
     <div class="mt-3">
         <button class="btn btn-sm btn-primary" data-testid="share-create" @onclick="CreateShareAsync" disabled="@_saving">
@@ -87,10 +95,15 @@ else
               ConfirmLabel="Revoke"
               OnConfirm="RevokeAsync" OnCancel="() => _pendingRevoke = null"/>
 
+<ConfirmModal Show="_pendingHealthConfirm"
+              Title="Share your health journal?"
+              Message="@HealthConfirmMessage"
+              ConfirmLabel="Share health"
+              OnConfirm="ConfirmHealth" OnCancel="() => _pendingHealthConfirm = false"/>
+
 @code {
     [Inject] private ShareApiClient ShareApi { get; set; } = null!;
 
-    // Phase 1 offers the media categories only; personal read views (cars/houses/health) land in Phase 2.
     private static readonly (ShareCategory Category, string Text)[] s_mediaCategories =
     [
         (ShareCategory.Movies, "Movies"),
@@ -100,6 +113,15 @@ else
         (ShareCategory.VideoGames, "Video games")
     ];
 
+    // Personal categories are view-only for the recipient (never copyable) - the classifier enforces that
+    // server-side. Health is the strictest and is never bundled: it only toggles on after an explicit confirm.
+    private static readonly (ShareCategory Category, string Text)[] s_personalCategories =
+    [
+        (ShareCategory.Cars, "Cars"),
+        (ShareCategory.Houses, "Houses"),
+        (ShareCategory.Health, "Health")
+    ];
+
     private List<ShareDto> _shares = [];
     private readonly HashSet<ShareCategory> _selected = [];
     private string? _recipientEmail;
@@ -107,10 +129,20 @@ else
     private string? _error;
     private bool _saving;
     private ShareDto? _pendingRevoke;
+    private bool _pendingHealthConfirm;
 
     private string RevokeMessage => _pendingRevoke is null
         ? ""
         : $"{_pendingRevoke.RecipientEmail} will immediately lose access to everything you shared with them. You can share again later.";
+
+    private string HealthConfirmMessage
+    {
+        get
+        {
+            var who = string.IsNullOrWhiteSpace(_recipientEmail) ? "this person" : _recipientEmail!.Trim();
+            return $"You are about to share your full health journal - appointments, sicknesses and reimbursement amounts - with {who}, read-only. Only do this for someone you trust with that information.";
+        }
+    }
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -133,6 +165,24 @@ else
         {
             _selected.Remove(category);
         }
+    }
+
+    /// <summary>Health is never enabled without an explicit confirmation; the others toggle like media.</summary>
+    private void TogglePersonalCategory(ShareCategory category)
+    {
+        if (category == ShareCategory.Health && !_selected.Contains(ShareCategory.Health))
+        {
+            _pendingHealthConfirm = true;
+            return;
+        }
+
+        ToggleCategory(category);
+    }
+
+    private void ConfirmHealth()
+    {
+        _pendingHealthConfirm = false;
+        _selected.Add(ShareCategory.Health);
     }
 
     private async Task CreateShareAsync()
