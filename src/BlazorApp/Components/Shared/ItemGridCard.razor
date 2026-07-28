@@ -13,8 +13,11 @@
         {
             <span>&#9672;</span>
         }
-        @Actions
     </div>
+    @* Actions (e.g. delete) sit as a direct child of the card, not inside .kt-grid-cover: the cover gets a
+       transform on hover, which would create a stacking context trapping the button's z-index below the
+       card-level stretched-link and making it unclickable. Kept a sibling of the link, its z-index wins. *@
+    @Actions
     <div class="kt-grid-caption">
         <div class="kt-grid-title">@Title</div>
         @if (MetaContent is not null)
