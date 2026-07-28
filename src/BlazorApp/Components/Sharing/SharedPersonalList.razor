@@ -1,68 +1,76 @@
+@using Keeptrack.BlazorApp.Components.Inventory
 @typeparam TDto where TDto : class, IHasId
 
-@* A read-only list of one shared personal category (cars/houses/health). Unlike media, personal items are
-   never copyable and each row opens a full read-only detail page (the value is in the detail, not the list),
-   so this is a plain list of links - same markup shape as SharedWithMeListPage's list of sharers. *@
+@* A read-only list of one shared personal category (cars/houses/health). Reuses the exact InventoryList the
+   owner's own Cars/Houses/Health pages use - cover thumbnails, grid/list toggle, search, sort and per-type
+   meta - so the shared view matches the in-app item lists instead of a bare list of links. Unlike media, each
+   row opens a full read-only detail page (via DetailHref) rather than offering a copy action, and there is no
+   server paging: a person has only a handful of cars/houses/profiles, so the whole set is fetched once and
+   search/sort run client-side over it. *@
 
-@if (!_loaded)
-{
-    <div class="kt-loading">
-        <div class="kt-spinner"></div>
-        Loading…
-    </div>
-}
-else if (_error is not null)
-{
-    <div class="alert alert-danger">@_error</div>
-}
-else if (_items.Count == 0)
-{
-    <div class="kt-empty">
-        <div class="kt-empty-icon">◈</div>
-        <p>Nothing shared here yet.</p>
-    </div>
-}
-else
-{
-    <div class="kt-item-list">
-        @foreach (var item in _items)
-        {
-            <a class="kt-item-row" href="@DetailHref(item)">
-                <div class="kt-item-main">
-                    <span class="kt-item-title">@ItemTitle(item)</span>
-                    @if (ItemSubtitle is not null && !string.IsNullOrEmpty(ItemSubtitle(item)))
-                    {
-                        <div class="kt-item-meta">
-                            <span>@ItemSubtitle(item)</span>
-                        </div>
-                    }
-                </div>
-            </a>
-        }
-    </div>
-}
+<InventoryList TDto="TDto"
+               ReadOnly="true"
+               Title="@Title"
+               Route=""
+               Items="_visible"
+               Loading="!_loaded"
+               Loaded="_loaded"
+               Error="@_error"
+               Search="@_search"
+               Sort="@_sort"
+               Page="1"
+               TotalPages="1"
+               TotalCount="_visible.Count"
+               View="@_view"
+               OnViewChanged="v => _view = v"
+               ItemTitle="ItemTitle"
+               ItemImageUrl="ItemImageUrl"
+               ItemImageShape="wide"
+               DetailHref="DetailHref"
+               MetaTemplate="MetaTemplate"
+               EmptyText="Nothing shared here yet."
+               OnSearchChanged="OnSearchChanged"
+               OnSearchKeyUp="_ => Task.CompletedTask"
+               OnClearSearch="OnClearSearch"
+               OnSortChanged="OnSortChanged"
+               OnGoToPage="_ => Task.CompletedTask"/>
 
 @code {
-    /// <summary>Fetches the sharer's items of this category (read-only).</summary>
+    [Inject] private ListViewPreference ViewPreference { get; set; } = null!;
+
+    /// <summary>The category label shown as the list heading (e.g. "Cars").</summary>
+    [Parameter] public required string Title { get; set; }
+
+    /// <summary>Fetches the sharer's items of this category (read-only, unpaged).</summary>
     [Parameter] public required Func<Task<List<TDto>>> Fetch { get; set; }
 
     [Parameter] public required Func<TDto, string?> ItemTitle { get; set; }
 
-    [Parameter] public Func<TDto, string?>? ItemSubtitle { get; set; }
+    /// <summary>Cover thumbnail selector (each personal type carries an optional tenant-owned ImageUrl).</summary>
+    [Parameter] public required Func<TDto, string?> ItemImageUrl { get; set; }
+
+    /// <summary>The per-type second line (same component the owner's own list page uses).</summary>
+    [Parameter] public required RenderFragment<TDto> MetaTemplate { get; set; }
 
     /// <summary>Builds the read-only detail route for one item (e.g. /account/manage/shared/{id}/cars/{itemId}).</summary>
     [Parameter] public required Func<TDto, string> DetailHref { get; set; }
 
-    private List<TDto> _items = [];
+    private List<TDto> _all = [];
+    private List<TDto> _visible = [];
     private bool _loaded;
     private string? _error;
+    private string _search = "";
+    private string _sort = "";
+    private string _view = "";
+
+    protected override void OnInitialized() => _view = ViewPreference.View;
 
     protected override async Task OnParametersSetAsync()
     {
         _loaded = false;
         try
         {
-            _items = await Fetch();
+            _all = await Fetch();
             _error = null;
         }
         catch (Exception ex)
@@ -72,6 +80,42 @@ else
         finally
         {
             _loaded = true;
+            ApplyView();
         }
+    }
+
+    private void OnSearchChanged(string search)
+    {
+        _search = search;
+        ApplyView();
+    }
+
+    private void OnClearSearch()
+    {
+        _search = "";
+        ApplyView();
+    }
+
+    private void OnSortChanged(string sort)
+    {
+        _sort = sort;
+        ApplyView();
+    }
+
+    // Client-side search + sort over the already-fetched small set. Mirrors the server-side defaults: a
+    // case-insensitive title Contains, and the same "" (owner order) / title A-Z sort keys the picker offers
+    // for these types (personal categories have no rating field, so no Rating option is shown).
+    private void ApplyView()
+    {
+        IEnumerable<TDto> query = _all;
+        if (!string.IsNullOrWhiteSpace(_search))
+        {
+            query = query.Where(i => (ItemTitle(i) ?? "").Contains(_search, StringComparison.OrdinalIgnoreCase));
+        }
+        if (_sort == ListSort.Title)
+        {
+            query = query.OrderBy(i => ItemTitle(i), StringComparer.OrdinalIgnoreCase);
+        }
+        _visible = query.ToList();
     }
 }

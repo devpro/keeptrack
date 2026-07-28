@@ -87,7 +87,7 @@ else
                 <div class="kt-item-grid @ItemImageShape">
                     @foreach (var item in Items)
                     {
-                        <ItemGridCard Href="@(ReadOnly ? null : $"{Route}/{item.Id}")" Title="@ItemTitle(item)"
+                        <ItemGridCard Href="@(ReadOnly ? DetailHref?.Invoke(item) : $"{Route}/{item.Id}")" Title="@ItemTitle(item)"
                                       ImageUrl="@ItemImageUrl(item)" Shape="@ItemImageShape">
                             <Actions>
                                 @if (ReadOnly)
@@ -120,13 +120,19 @@ else
                                 <ItemThumb ImageUrl="@ItemImageUrl(item)" Shape="@ItemImageShape"/>
                             }
                             <div class="kt-item-main">
-                                @if (ReadOnly)
+                                @if (!ReadOnly)
                                 {
-                                    <span class="kt-item-title">@ItemTitle(item)</span>
+                                    <a class="kt-item-title stretched-link" href="@($"{Route}/{item.Id}")">@ItemTitle(item)</a>
+                                }
+                                else if (DetailHref is not null)
+                                {
+                                    @* Read-only but navigable: personal shared items (cars/houses/health) open a full
+                                       read-only detail page, unlike media shared rows which don't link anywhere. *@
+                                    <a class="kt-item-title stretched-link" href="@DetailHref(item)">@ItemTitle(item)</a>
                                 }
                                 else
                                 {
-                                    <a class="kt-item-title stretched-link" href="@($"{Route}/{item.Id}")">@ItemTitle(item)</a>
+                                    <span class="kt-item-title">@ItemTitle(item)</span>
                                 }
                                 <div class="kt-item-meta">@MetaTemplate(item)</div>
                             </div>
@@ -267,6 +273,13 @@ else
     /// puts its add-to-collection icon here. Ignored unless <see cref="ReadOnly"/>.
     /// </summary>
     [Parameter] public RenderFragment<TDto>? RowActions { get; set; }
+
+    /// <summary>
+    /// Read-only detail route selector. When set (only meaningful with <see cref="ReadOnly"/>), each row/card
+    /// links to it - used by the shared personal categories (cars/houses/health), which do have a full
+    /// read-only detail page. Left unset by the media shared list, whose rows don't navigate anywhere.
+    /// </summary>
+    [Parameter] public Func<TDto, string?>? DetailHref { get; set; }
 
     /// <summary>Empty-state message; defaults to the owner-facing "Your collection is empty."</summary>
     [Parameter] public string? EmptyText { get; set; }

@@ -93,26 +93,33 @@ else
             break;
 
         case ShareCategory.Cars:
-            <SharedPersonalList TDto="CarDto"
+            <SharedPersonalList TDto="CarDto" Title="Cars"
                                 Fetch="() => Api.GetCarsAsync(ShareId)"
                                 ItemTitle="c => c.Name"
-                                ItemSubtitle="CarSubtitle"
-                                DetailHref="CarHref"/>
+                                ItemImageUrl="c => c.ImageUrl"
+                                DetailHref="CarHref">
+                <MetaTemplate Context="c"><CarMetaRow Item="c"/></MetaTemplate>
+            </SharedPersonalList>
             break;
 
         case ShareCategory.Houses:
-            <SharedPersonalList TDto="HouseDto"
+            <SharedPersonalList TDto="HouseDto" Title="Houses"
                                 Fetch="() => Api.GetHousesAsync(ShareId)"
                                 ItemTitle="h => h.Name"
-                                ItemSubtitle="h => h.City"
-                                DetailHref="HouseHref"/>
+                                ItemImageUrl="h => h.ImageUrl"
+                                DetailHref="HouseHref">
+                <MetaTemplate Context="h"><HouseMetaRow Item="h"/></MetaTemplate>
+            </SharedPersonalList>
             break;
 
         case ShareCategory.Health:
-            <SharedPersonalList TDto="HealthProfileDto"
+            <SharedPersonalList TDto="HealthProfileDto" Title="Health"
                                 Fetch="() => Api.GetHealthProfilesAsync(ShareId)"
                                 ItemTitle="p => p.Name"
-                                DetailHref="HealthHref"/>
+                                ItemImageUrl="p => p.ImageUrl"
+                                DetailHref="HealthHref">
+                <MetaTemplate Context="p"><HealthMetaRow Item="p"/></MetaTemplate>
+            </SharedPersonalList>
             break;
     }
 }
@@ -158,10 +165,8 @@ else
     private void SelectTab(ShareCategory category) =>
         Navigation.NavigateTo(Navigation.GetUriWithQueryParameters(new Dictionary<string, object?> { ["tab"] = category.ToString() }));
 
-    // Personal-list projections. Kept as methods (not inline lambdas in the markup) because a $"" interpolation
-    // inside a razor attribute value can't be delimited by the same double quotes the attribute uses.
-    private static string? CarSubtitle(CarDto car) => $"{car.Manufacturer} {car.Model}".Trim();
-
+    // Personal-list detail-route projections. Kept as methods (not inline lambdas in the markup) because a $""
+    // interpolation inside a razor attribute value can't be delimited by the same double quotes the attribute uses.
     private string CarHref(CarDto car) => $"/account/manage/shared/{ShareId}/cars/{car.Id}";
 
     private string HouseHref(HouseDto house) => $"/account/manage/shared/{ShareId}/houses/{house.Id}";

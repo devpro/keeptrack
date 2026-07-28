@@ -32,10 +32,7 @@
                Sort="@_sort"
                OnSortChanged="@SetSort">
     <MetaTemplate Context="profile">
-        @if (!string.IsNullOrEmpty(profile.Notes))
-        {
-            <span>@profile.Notes</span>
-        }
+        <HealthMetaRow Item="profile"/>
     </MetaTemplate>
     <FormTemplate Context="profile">
         <div class="col-12">
