@@ -12,6 +12,8 @@ public enum ShareCategory
     Books,
     Albums,
     VideoGames,
+    Collectibles,
+    Gears,
     Cars,
     Houses,
     Health

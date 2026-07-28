@@ -22,6 +22,12 @@ public enum ShareCategory
     /// <summary>The caller's video games.</summary>
     VideoGames,
 
+    /// <summary>The caller's collectibles (view-only list, never copyable).</summary>
+    Collectibles,
+
+    /// <summary>The caller's gear (view-only list, never copyable).</summary>
+    Gears,
+
     /// <summary>The caller's cars (personal - view-only, never copyable).</summary>
     Cars,
 

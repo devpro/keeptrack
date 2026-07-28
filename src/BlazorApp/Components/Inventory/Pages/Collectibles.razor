@@ -36,22 +36,7 @@
         <button class="btn btn-sm kt-toggle-btn @(OwnedFilter ? "active" : "")" @onclick='() => ToggleFilter("owned", OwnedFilter)'>● Owned</button>
     </Filters>
     <MetaTemplate Context="collectible">
-        @if (!string.IsNullOrEmpty(collectible.Brand))
-        {
-            <span>@collectible.Brand</span>
-        }
-        @if (collectible.Year > 0)
-        {
-            <span>@collectible.Year</span>
-        }
-        @if (collectible.IsFavorite)
-        {
-            <span class="kt-flag-badge favorite">Favorite</span>
-        }
-        @if (collectible.OwnedVersions.Count > 0)
-        {
-            <span class="kt-flag-badge">Owned</span>
-        }
+        <CollectibleMetaRow Item="collectible"/>
     </MetaTemplate>
     <FormTemplate Context="collectible">
         <div class="col-12">

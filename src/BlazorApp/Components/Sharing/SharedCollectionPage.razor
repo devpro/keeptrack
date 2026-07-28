@@ -92,6 +92,24 @@ else
             </SharedCategoryList>
             break;
 
+        case ShareCategory.Collectibles:
+            <SharedCategoryList TDto="CollectibleDto" Title="Collectibles"
+                                Fetch="q => Api.GetCollectiblesAsync(ShareId, q)"
+                                ItemTitle="c => c.Title" ItemImageUrl="c => c.ImageUrl" ItemImageShape="wide"
+                                ShowFavoriteFilter="true" ShowOwnedFilter="true">
+                <MetaTemplate Context="c"><CollectibleMetaRow Item="c"/></MetaTemplate>
+            </SharedCategoryList>
+            break;
+
+        case ShareCategory.Gears:
+            <SharedCategoryList TDto="GearDto" Title="Gear"
+                                Fetch="q => Api.GetGearAsync(ShareId, q)"
+                                ItemTitle="g => g.Title" ItemImageUrl="g => g.ImageUrl" ItemImageShape="wide"
+                                ShowFavoriteFilter="true" ShowOwnedFilter="true">
+                <MetaTemplate Context="g"><GearMetaRow Item="g"/></MetaTemplate>
+            </SharedCategoryList>
+            break;
+
         case ShareCategory.Cars:
             <SharedPersonalList TDto="CarDto" Title="Cars"
                                 Fetch="() => Api.GetCarsAsync(ShareId)"

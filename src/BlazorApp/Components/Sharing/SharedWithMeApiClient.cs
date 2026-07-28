@@ -26,6 +26,10 @@ public sealed class SharedWithMeApiClient(HttpClient http)
     public Task<SharedCategoryPageDto<AlbumDto>?> GetAlbumsAsync(string shareId, SharedListQuery query) => GetPageAsync<AlbumDto>(shareId, "albums", query);
     public Task<SharedCategoryPageDto<VideoGameDto>?> GetVideoGamesAsync(string shareId, SharedListQuery query) => GetPageAsync<VideoGameDto>(shareId, "video-games", query);
 
+    // Collection categories (collectibles/gear): same read-only list as media, but view-only (never copyable).
+    public Task<SharedCategoryPageDto<CollectibleDto>?> GetCollectiblesAsync(string shareId, SharedListQuery query) => GetPageAsync<CollectibleDto>(shareId, "collectibles", query);
+    public Task<SharedCategoryPageDto<GearDto>?> GetGearAsync(string shareId, SharedListQuery query) => GetPageAsync<GearDto>(shareId, "gear", query);
+
     // Personal categories (cars/houses/health): list + full read-only detail, never copyable.
     public async Task<List<CarDto>> GetCarsAsync(string shareId) => await GetListAsync<CarDto>(shareId, "cars");
     public async Task<List<HouseDto>> GetHousesAsync(string shareId) => await GetListAsync<HouseDto>(shareId, "houses");

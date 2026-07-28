@@ -52,26 +52,7 @@
         }
     </Filters>
     <MetaTemplate Context="gear">
-        @if (!string.IsNullOrEmpty(gear.Brand))
-        {
-            <span>@gear.Brand</span>
-        }
-        @if (!string.IsNullOrEmpty(gear.Category))
-        {
-            <span>@gear.Category</span>
-        }
-        @if (gear.Year > 0)
-        {
-            <span>@gear.Year</span>
-        }
-        @if (gear.IsFavorite)
-        {
-            <span class="kt-flag-badge favorite">Favorite</span>
-        }
-        @if (gear.OwnedVersions.Count > 0)
-        {
-            <span class="kt-flag-badge">Owned</span>
-        }
+        <GearMetaRow Item="gear"/>
     </MetaTemplate>
     <FormTemplate Context="gear">
         <div class="col-12">

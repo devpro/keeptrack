@@ -21,6 +21,15 @@ public class ShareCategoryClassifierTest
     }
 
     [Theory]
+    [InlineData(ShareCategory.Collectibles)]
+    [InlineData(ShareCategory.Gears)]
+    public void CollectionCategories_AreCollection_AndNeverCopyable(ShareCategory category)
+    {
+        ShareCategoryClassifier.KindOf(category).Should().Be(ShareKind.Collection);
+        ShareCategoryClassifier.IsCopyable(category).Should().BeFalse();
+    }
+
+    [Theory]
     [InlineData(ShareCategory.Cars)]
     [InlineData(ShareCategory.Houses)]
     [InlineData(ShareCategory.Health)]

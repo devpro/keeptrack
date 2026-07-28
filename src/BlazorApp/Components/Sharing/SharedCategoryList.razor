@@ -50,7 +50,11 @@
             var id = item.Id!;
             var inCollection = _added.Contains(id) || _alreadyInCollection.Contains(id);
         }
-        @if (inCollection)
+        @if (Copy is null)
+        {
+            @* View-only category (collectibles/gear): a read-only list with no "add to my collection" action. *@
+        }
+        else if (inCollection)
         {
             <span class="kt-flag-badge done" title="@(_added.Contains(id) ? "Added to your collection" : "Already in your collection")">✓ In collection</span>
         }
@@ -79,8 +83,11 @@
     /// <summary>Fetches one page for the current query.</summary>
     [Parameter] public required Func<SharedListQuery, Task<SharedCategoryPageDto<TDto>?>> Fetch { get; set; }
 
-    /// <summary>Copies the item with the given id into the caller's own collection.</summary>
-    [Parameter] public required Func<string, Task<CopyResultDto<TDto>?>> Copy { get; set; }
+    /// <summary>
+    /// Copies the item with the given id into the caller's own collection. Null for view-only categories
+    /// (collectibles/gear) that have no shared reference to copy - the list then renders no per-row action.
+    /// </summary>
+    [Parameter] public Func<string, Task<CopyResultDto<TDto>?>>? Copy { get; set; }
 
     [Parameter] public required Func<TDto, string?> ItemTitle { get; set; }
     [Parameter] public Func<TDto, string?>? ItemImageUrl { get; set; }
@@ -194,6 +201,11 @@
 
     private async Task AddAsync(string id)
     {
+        if (Copy is null)
+        {
+            return;
+        }
+
         _copyingId = id;
         try
         {

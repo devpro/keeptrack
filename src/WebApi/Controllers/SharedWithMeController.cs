@@ -27,6 +27,8 @@ public class SharedWithMeController(
     IBookRepository bookRepository,
     IAlbumRepository albumRepository,
     IVideoGameRepository videoGameRepository,
+    ICollectibleRepository collectibleRepository,
+    IGearRepository gearRepository,
     IMovieReferenceRepository movieReferenceRepository,
     ITvShowReferenceRepository tvShowReferenceRepository,
     IBookReferenceRepository bookReferenceRepository,
@@ -37,6 +39,8 @@ public class SharedWithMeController(
     IDtoMapper<BookDto, BookModel> bookMapper,
     IDtoMapper<AlbumDto, AlbumModel> albumMapper,
     IDtoMapper<VideoGameDto, VideoGameModel> videoGameMapper,
+    IDtoMapper<CollectibleDto, CollectibleModel> collectibleMapper,
+    IDtoMapper<GearDto, GearModel> gearMapper,
     ICarRepository carRepository,
     ICarHistoryRepository carHistoryRepository,
     IHouseRepository houseRepository,
@@ -105,6 +109,21 @@ public class SharedWithMeController(
     public Task<ActionResult<SharedCategoryPageDto<VideoGameDto>>> GetVideoGames(string shareId, [FromQuery] PagedRequest paging, [FromQuery] VideoGameDto filter) =>
         ReadAsync(shareId, DomainShareCategory.VideoGames, videoGameRepository, videoGameMapper, filter, paging, VideoGameKey,
             items => HydrateWithCustomOverrideAsync(items, videoGameReferenceRepository.FindByIdsAsync, x => x.ImageUrl, x => x.CustomImageUrl));
+
+    // ---- collection reads (collectibles/gear: same read-only list as media, but view-only - no shared
+    //      reference to hydrate a cover from and no copy, so a leaner paged read than the media path) ----
+
+    [HttpGet("{shareId}/collectibles")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(404)]
+    public Task<ActionResult<SharedCategoryPageDto<CollectibleDto>>> GetCollectibles(string shareId, [FromQuery] PagedRequest paging, [FromQuery] CollectibleDto filter) =>
+        ReadOwnedListAsync(shareId, DomainShareCategory.Collectibles, collectibleRepository, collectibleMapper, filter, paging);
+
+    [HttpGet("{shareId}/gear")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(404)]
+    public Task<ActionResult<SharedCategoryPageDto<GearDto>>> GetGear(string shareId, [FromQuery] PagedRequest paging, [FromQuery] GearDto filter) =>
+        ReadOwnedListAsync(shareId, DomainShareCategory.Gears, gearRepository, gearMapper, filter, paging);
 
     // ---- copy into the caller's own collection (media only, idempotent) ----
 
@@ -287,6 +306,38 @@ public class SharedWithMeController(
             Page = page.Page,
             PageSize = page.PageSize,
             AlreadyInCollectionIds = await ComputeAlreadyOwnedIdsAsync(page.Items, repository, mapper, keyOf)
+        });
+    }
+
+    /// <summary>
+    /// A view-only shared list (collectibles/gear): the same paged read as the media path - honouring the
+    /// recipient's search/sort/favourite/owned query - but with no reference-image hydration (these types
+    /// carry their own tenant image) and no copy dedup (they're never copyable), so
+    /// <see cref="SharedCategoryPageDto{TDto}.AlreadyInCollectionIds"/> stays empty. Unlike
+    /// <see cref="ReadAsync{TModel,TDto}"/> the DTO need not be an <see cref="IReferenceLinkedDto"/>.
+    /// </summary>
+    private async Task<ActionResult<SharedCategoryPageDto<TDto>>> ReadOwnedListAsync<TModel, TDto>(
+        string shareId, DomainShareCategory category,
+        IDataRepository<TModel> repository, IDtoMapper<TDto, TModel> mapper,
+        TDto filter, PagedRequest paging)
+        where TModel : class, IHasIdAndOwnerId
+        where TDto : IHasId, new()
+    {
+        var share = await ResolveGrantAsync(shareId, category);
+        if (share is null)
+        {
+            return NotFound();
+        }
+
+        var page = await repository.FindAllAsync(share.OwnerId, paging.Page, paging.PageSize, paging.Search, mapper.ToModel(filter), paging.Sort);
+        var dtoPage = page.Map(mapper.ToDto);
+
+        return Ok(new SharedCategoryPageDto<TDto>
+        {
+            Items = dtoPage.Items,
+            TotalCount = page.TotalCount,
+            Page = page.Page,
+            PageSize = page.PageSize
         });
     }
 

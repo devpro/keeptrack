@@ -129,6 +129,51 @@ public class ShareResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     [Fact]
+    public async Task CollectionShare_IsReadableAsAFilterableList_ButNeverCopyable()
+    {
+        await Authenticate();
+        var ownEmail = FirebaseConfiguration.Username;
+        var tag = Guid.NewGuid().ToString("N");
+
+        var favourite = await PostAsync<CollectibleDto>("/api/collectibles", new CollectibleDto { Title = $"ShareColFav-{tag}", Brand = "Lego", Year = 2015, IsFavorite = true });
+        var plain = await PostAsync<CollectibleDto>("/api/collectibles", new CollectibleDto { Title = $"ShareColPlain-{tag}", Year = 2018 });
+
+        var share = await PostAsync<CreateShareRequestDto, ShareDto>("/api/shares", new CreateShareRequestDto
+        {
+            RecipientEmail = ownEmail,
+            IncludedCategories = [ShareCategory.Collectibles]
+        });
+
+        try
+        {
+            (await GetAsync<List<SharedCollectionSummaryDto>>("/api/shared-with-me"))
+                .Should().Contain(s => s.ShareId == share.Id && s.IncludedCategories.Contains(ShareCategory.Collectibles));
+
+            // the shared collectibles read as a normal paged list, searchable like the owner's own list
+            var page = await GetAsync<SharedCategoryPageDto<CollectibleDto>>($"/api/shared-with-me/{share.Id}/collectibles?search={tag}");
+            page.Items.Should().Contain(c => c.Id == favourite.Id).And.Contain(c => c.Id == plain.Id);
+            // a view-only category never advertises copy-ability
+            page.AlreadyInCollectionIds.Should().BeEmpty();
+
+            // the favourites filter narrows to the favourite only
+            var favPage = await GetAsync<SharedCategoryPageDto<CollectibleDto>>($"/api/shared-with-me/{share.Id}/collectibles?search={tag}&IsFavorite=true");
+            favPage.Items.Should().Contain(c => c.Id == favourite.Id).And.NotContain(c => c.Id == plain.Id);
+
+            // a category not in scope is an indistinguishable 404
+            await GetAsync($"/api/shared-with-me/{share.Id}/gear", HttpStatusCode.NotFound);
+
+            // collections are never copyable - there is deliberately no copy route for them
+            await PostNoContentAsync($"/api/shared-with-me/{share.Id}/collectibles/{favourite.Id}/copy", new { }, HttpStatusCode.NotFound);
+        }
+        finally
+        {
+            await DeleteAsync($"/api/collectibles/{favourite.Id}");
+            await DeleteAsync($"/api/collectibles/{plain.Id}");
+            await DeleteAsync($"/api/shares/{share.Id}");
+        }
+    }
+
+    [Fact]
     public async Task ShareToADifferentEmail_IsNotVisibleToOthers()
     {
         await Authenticate();

@@ -12,6 +12,7 @@ public static class SharingLabels
     {
         ShareCategory.TvShows => "TV shows",
         ShareCategory.VideoGames => "Video games",
+        ShareCategory.Gears => "Gear",
         _ => category.ToString()
     };
 }

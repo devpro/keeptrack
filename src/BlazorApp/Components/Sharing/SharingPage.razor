@@ -35,6 +35,15 @@
         }
     </div>
 
+    <label class="form-label mt-3 d-block">Collections (view-only)</label>
+    <div class="d-flex gap-2 flex-wrap">
+        @foreach (var (category, text) in s_collectionCategories)
+        {
+            <button type="button" class="btn btn-sm kt-toggle-btn @(_selected.Contains(category) ? "active" : "")"
+                    data-testid="share-category" @onclick="() => ToggleCategory(category)">@text</button>
+        }
+    </div>
+
     <label class="form-label mt-3 d-block">Personal (view-only, never copied)</label>
     <div class="d-flex gap-2 flex-wrap">
         @foreach (var (category, text) in s_personalCategories)
@@ -111,6 +120,14 @@ else
         (ShareCategory.Books, "Books"),
         (ShareCategory.Albums, "Albums"),
         (ShareCategory.VideoGames, "Video games")
+    ];
+
+    // Collection categories are view-only for the recipient (never copyable, no shared reference to copy) but
+    // render as an ordinary list, unlike the personal categories' read-only detail views.
+    private static readonly (ShareCategory Category, string Text)[] s_collectionCategories =
+    [
+        (ShareCategory.Collectibles, "Collectibles"),
+        (ShareCategory.Gears, "Gear")
     ];
 
     // Personal categories are view-only for the recipient (never copyable) - the classifier enforces that

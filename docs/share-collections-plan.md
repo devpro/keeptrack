@@ -216,6 +216,29 @@ detailed revision plan). Done and building clean:
 
 Still deferred: running the Playwright `SharingSmokeTest` in the WSL E2E env.
 
+## Progress log — collection categories (collectibles + gear)
+
+Two trackable types were missed by the original media/personal split: **collectibles** and **gear**.
+They are ordinary owned collections (title/brand/year, favourite flag, owned versions, a tenant-owned `ImageUrl`) with no shared reference document to link or copy.
+The owner asked for these to be shareable **read-only as a list**, like media - just the list of items, no "add to my collection" and no per-item detail page.
+That is a genuinely third shape: media is a copyable list, personal is a view-only detail, and these are a **view-only list**.
+
+- **Kind model**: `ShareKind` gained a third value `Collection` (view-only list, non-sensitive) alongside `Media` (copyable list) and `Personal` (view-only detail).
+  `ShareCategoryClassifier.KindOf` maps `Collectibles`/`Gears` to `Collection`; `IsCopyable` stays the single one-liner `KindOf(category) == ShareKind.Media`, so collections and personal data are both non-copyable from one rule.
+  `ShareCategory` gained `Collectibles`/`Gears` in both the Domain and Contracts enums (mapped by name like every other pair).
+- **Backend**: `SharedWithMeController` gained `GET /{shareId}/collectibles` and `GET /{shareId}/gear`, backed by one new generic helper `ReadOwnedListAsync<TModel,TDto>`.
+  It is the media `ReadAsync` minus the two things collections don't have: reference-image hydration (these carry their own image) and copy-dedup (`AlreadyInCollectionIds` stays empty), so its DTO constraint is a plain `IHasId`, not `IReferenceLinkedDto`.
+  Grant resolution still routes through the single `ResolveGrantAsync` choke point, and there are deliberately **no** copy routes for these categories.
+  Search / sort / favourite / owned filters work for free because the existing `CollectibleRepository`/`GearRepository.GetFilter` already honour them.
+- **Recipient UI**: `SharedCategoryList.Copy` became optional (nullable); when null the list renders no per-row "add" action - the same full `InventoryList` (search/sort/filters/thumbnails/grid) the owner sees, but purely read-only.
+  `SharedCollectionPage` gained `Collectibles`/`Gears` tabs rendering `SharedCategoryList` with no `Copy` and no `DetailHref`.
+  Per-type meta was extracted into `Components/Inventory/Meta/CollectibleMetaRow.razor` and `GearMetaRow.razor` and reused by both the owner list pages and the shared view (same pattern the media rows already follow), so the meta line has one definition.
+- **Owner UI**: `SharingPage` gained a third **"Collections (view-only)"** group (Collectibles/Gear) between the Media and Personal groups; `SharingLabels` maps `Gears` → "Gear".
+- **Tests**: `ShareCategoryClassifierTest` gained a `Collection`-kind/never-copyable theory for both categories; `ShareResourceTest.CollectionShare_IsReadableAsAFilterableList_ButNeverCopyable` (integration) covers the paged/searchable/favourite-filtered read, empty `AlreadyInCollectionIds`, category-not-in-scope 404, and the copy route being absent (404).
+  Whole solution builds with 0 warnings; the classifier unit test passes.
+
+Deferred (same as the other phases): a Playwright leg for the two collection tabs, run in the WSL `E2E_ENABLED` env.
+
 ## Progress log — Phase 1 (superseded by the rework above)
 
 - **Phase 1: DONE (not committed).** Full media loop implemented and green at every layer:
