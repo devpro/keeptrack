@@ -84,7 +84,7 @@ else
                             @(string.IsNullOrEmpty(share.Label) ? share.RecipientEmail : $"{share.Label} · {share.RecipientEmail}")
                         </span>
                         <div class="kt-item-meta">
-                            <span>@string.Join(", ", share.IncludedCategories.Select(SharingLabels.Category))</span>
+                            <span>@string.Join(", ", SharingLabels.Ordered(share.IncludedCategories).Select(SharingLabels.Category))</span>
                             <span>@share.CreatedAt.ToString("yyyy-MM-dd")</span>
                         </div>
                     </div>

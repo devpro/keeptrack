@@ -27,7 +27,7 @@ else
     </div>
 
     <div class="kt-tabs">
-        @foreach (var category in _summary.IncludedCategories)
+        @foreach (var category in SharingLabels.Ordered(_summary.IncludedCategories))
         {
             <button class="kt-tab @(_category == category ? "active" : "")" @onclick="() => SelectTab(category)">
                 @SharingLabels.Category(category)
@@ -177,7 +177,7 @@ else
 
         _category = Enum.TryParse<ShareCategory>(TabQuery, out var tab) && _summary.IncludedCategories.Contains(tab)
             ? tab
-            : _summary.IncludedCategories.FirstOrDefault();
+            : SharingLabels.Ordered(_summary.IncludedCategories).FirstOrDefault();
     }
 
     private void SelectTab(ShareCategory category) =>

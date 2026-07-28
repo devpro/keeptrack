@@ -35,7 +35,7 @@ else
                 <div class="kt-item-main">
                     <span class="kt-item-title">@(collection.OwnerDisplayName ?? "A Keeptrack user")</span>
                     <div class="kt-item-meta">
-                        <span>@string.Join(", ", collection.IncludedCategories.Select(SharingLabels.Category))</span>
+                        <span>@string.Join(", ", SharingLabels.Ordered(collection.IncludedCategories).Select(SharingLabels.Category))</span>
                     </div>
                 </div>
             </a>
