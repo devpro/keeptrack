@@ -1,0 +1,43 @@
+@* One poster card for the thumbnail/grid view - the cover art is the hero, with a title + optional meta
+   captioned underneath. Shared by the inventory list pages, Wishlist and Watch Next so the card markup
+   (and its stretched-link-opens-detail / actions-above-via-z-index model) exists exactly once. *@
+
+<div class="kt-grid-card">
+    <a class="stretched-link" href="@Href" aria-label="@Title"></a>
+    <div class="kt-grid-cover @Shape">
+        @if (!string.IsNullOrEmpty(ImageUrl))
+        {
+            <img src="@ImageUrl" alt="" loading="lazy"/>
+        }
+        else
+        {
+            <span>&#9672;</span>
+        }
+        @Actions
+    </div>
+    <div class="kt-grid-caption">
+        <div class="kt-grid-title">@Title</div>
+        @if (MetaContent is not null)
+        {
+            <div class="kt-grid-meta">@MetaContent</div>
+        }
+    </div>
+</div>
+
+@code {
+    /// <summary>Detail-page URL the whole card links to.</summary>
+    [Parameter] public string? Href { get; set; }
+
+    [Parameter] public string? Title { get; set; }
+
+    [Parameter] public string? ImageUrl { get; set; }
+
+    /// <summary>See <see cref="ItemThumb.Shape"/>: unset = portrait, "square" (albums), "wide" (games).</summary>
+    [Parameter] public string? Shape { get; set; }
+
+    /// <summary>The caption's second line (year/creator text, flag pills, badges). Named to avoid the HTML &lt;meta&gt; element.</summary>
+    [Parameter] public RenderFragment? MetaContent { get; set; }
+
+    /// <summary>Optional overlay(s) on the cover, e.g. a delete button - raised above the stretched link via z-index.</summary>
+    [Parameter] public RenderFragment? Actions { get; set; }
+}

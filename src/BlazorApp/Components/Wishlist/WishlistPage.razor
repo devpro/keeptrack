@@ -1,9 +1,11 @@
 @page "/wishlist"
 @attribute [Authorize]
+@using Keeptrack.BlazorApp.Components.Inventory
 
 <div class="kt-page-header">
     <h1>Wish<span>list</span></h1>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 align-items-center">
+        <ListViewToggle View="@_view" ViewChanged="@OnViewChanged"/>
         <button class="btn btn-sm kt-toggle-btn @(_showSharePanel ? "active" : "")" @onclick="ToggleSharePanelAsync">↗ Share</button>
     </div>
 </div>
@@ -76,14 +78,13 @@ else if (Data is not null)
     else
     {
         <div class="kt-table-wrap">
-            <div class="kt-item-list">
-                @foreach (var row in rows)
-                {
-                    <a class="kt-item-row" href="@row.Href">
-                        <ItemThumb ImageUrl="@row.ImageUrl" Shape="@row.Shape"/>
-                        <div class="kt-item-main">
-                            <span class="kt-item-title">@row.Title</span>
-                            <div class="kt-item-meta">
+            @if (_view == "grid")
+            {
+                <div class="kt-item-grid @CurrentShape">
+                    @foreach (var row in rows)
+                    {
+                        <ItemGridCard Href="@row.Href" Title="@row.Title" ImageUrl="@row.ImageUrl" Shape="@row.Shape">
+                            <MetaContent>
                                 @if (row.Year > 0)
                                 {
                                     <span>@row.Year</span>
@@ -92,11 +93,35 @@ else if (Data is not null)
                                 {
                                     <span>@row.Subtitle</span>
                                 }
+                            </MetaContent>
+                        </ItemGridCard>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="kt-item-list">
+                    @foreach (var row in rows)
+                    {
+                        <a class="kt-item-row" href="@row.Href">
+                            <ItemThumb ImageUrl="@row.ImageUrl" Shape="@row.Shape"/>
+                            <div class="kt-item-main">
+                                <span class="kt-item-title">@row.Title</span>
+                                <div class="kt-item-meta">
+                                    @if (row.Year > 0)
+                                    {
+                                        <span>@row.Year</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(row.Subtitle))
+                                    {
+                                        <span>@row.Subtitle</span>
+                                    }
+                                </div>
                             </div>
-                        </div>
-                    </a>
-                }
-            </div>
+                        </a>
+                    }
+                </div>
+            }
         </div>
     }
 }
@@ -109,6 +134,8 @@ else if (Data is not null)
     [Inject] private NavigationManager Navigation { get; set; } = null!;
 
     [Inject] private IJSRuntime JsRuntime { get; set; } = null!;
+
+    [Inject] private ListViewPreference ViewPreference { get; set; } = null!;
 
     // Persisted in the URL (?tab=) the same way list pages persist search/page/filters - see
     // InventoryPageBase's ApplyQueryChanges/SetFilter for the pattern this mirrors. Unlike a list page's
@@ -133,6 +160,12 @@ else if (Data is not null)
 
     private Tab _tab = Tab.Movies;
 
+    // The shared list/thumbnail preference (see ListViewToggle). Video games are the only wide-cover tab, so
+    // the grid uses that column shape there and the default portrait shape for movies/TV shows/books.
+    private string _view = "";
+
+    private string CurrentShape => _tab == Tab.VideoGames ? "wide" : "";
+
     private bool _showSharePanel;
     private List<WishlistShareDto> _shares = [];
     private string? _shareError;
@@ -141,9 +174,15 @@ else if (Data is not null)
 
     private string ShareUrl(WishlistShareDto share) => Navigation.ToAbsoluteUri($"shared/wishlist/{share.Token}").ToString();
 
-    protected override Task OnInitializedAsync() => LoadAsync();
+    protected override Task OnInitializedAsync()
+    {
+        _view = ViewPreference.View;
+        return LoadAsync();
+    }
 
     protected override void OnParametersSet() => _tab = Enum.TryParse<Tab>(TabQuery, out var tab) ? tab : Tab.Movies;
+
+    private void OnViewChanged(string view) => _view = view;
 
     private async Task LoadAsync()
     {

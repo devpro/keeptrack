@@ -1,8 +1,10 @@
 @page "/watch-next"
 @attribute [Authorize]
+@using Keeptrack.BlazorApp.Components.Inventory
 
 <div class="kt-page-header">
     <h1>Watch <span>next</span></h1>
+    <ListViewToggle View="@_view" ViewChanged="@OnViewChanged"/>
 </div>
 
 @if (!_loaded)
@@ -41,22 +43,39 @@ else if (Data is not null)
         else
         {
             <div class="kt-table-wrap">
-                <div class="kt-item-list">
-                    @foreach (var show in Data.InProgressShows)
-                    {
-                        <a class="kt-item-row" href="@($"/tv-shows/{show.TvShowId}")">
-                            <ItemThumb ImageUrl="@show.ImageUrl"/>
-                            <div class="kt-item-main">
-                                <span class="kt-item-title">@show.TvShowTitle</span>
-                                <div class="kt-item-meta">
+                @if (_view == "grid")
+                {
+                    <div class="kt-item-grid">
+                        @foreach (var show in Data.InProgressShows)
+                        {
+                            <ItemGridCard Href="@($"/tv-shows/{show.TvShowId}")" Title="@show.TvShowTitle" ImageUrl="@show.ImageUrl">
+                                <MetaContent>
                                     <span class="kt-card-badge">Next: S@(show.NextSeasonNumber.ToString("00"))E@(show.NextEpisodeNumber.ToString("00"))</span>
                                     <span>@show.NextEpisodeTitle</span>
-                                    <span>Last seen S@(show.LastSeasonNumber.ToString("00"))E@(show.LastEpisodeNumber.ToString("00"))</span>
+                                </MetaContent>
+                            </ItemGridCard>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="kt-item-list">
+                        @foreach (var show in Data.InProgressShows)
+                        {
+                            <a class="kt-item-row" href="@($"/tv-shows/{show.TvShowId}")">
+                                <ItemThumb ImageUrl="@show.ImageUrl"/>
+                                <div class="kt-item-main">
+                                    <span class="kt-item-title">@show.TvShowTitle</span>
+                                    <div class="kt-item-meta">
+                                        <span class="kt-card-badge">Next: S@(show.NextSeasonNumber.ToString("00"))E@(show.NextEpisodeNumber.ToString("00"))</span>
+                                        <span>@show.NextEpisodeTitle</span>
+                                        <span>Last seen S@(show.LastSeasonNumber.ToString("00"))E@(show.LastEpisodeNumber.ToString("00"))</span>
+                                    </div>
                                 </div>
-                            </div>
-                        </a>
-                    }
-                </div>
+                            </a>
+                        }
+                    </div>
+                }
             </div>
         }
     }
@@ -72,23 +91,42 @@ else if (Data is not null)
         else
         {
             <div class="kt-table-wrap">
-                <div class="kt-item-list">
-                    @foreach (var movie in Data.MoviesToWatch)
-                    {
-                        <a class="kt-item-row" href="@($"/movies/{movie.Id}")">
-                            <ItemThumb ImageUrl="@movie.ImageUrl"/>
-                            <div class="kt-item-main">
-                                <span class="kt-item-title">@movie.Title</span>
-                                <div class="kt-item-meta">
+                @if (_view == "grid")
+                {
+                    <div class="kt-item-grid">
+                        @foreach (var movie in Data.MoviesToWatch)
+                        {
+                            <ItemGridCard Href="@($"/movies/{movie.Id}")" Title="@movie.Title" ImageUrl="@movie.ImageUrl">
+                                <MetaContent>
                                     @if (movie.Year > 0)
                                     {
                                         <span>@movie.Year</span>
                                     }
+                                </MetaContent>
+                            </ItemGridCard>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="kt-item-list">
+                        @foreach (var movie in Data.MoviesToWatch)
+                        {
+                            <a class="kt-item-row" href="@($"/movies/{movie.Id}")">
+                                <ItemThumb ImageUrl="@movie.ImageUrl"/>
+                                <div class="kt-item-main">
+                                    <span class="kt-item-title">@movie.Title</span>
+                                    <div class="kt-item-meta">
+                                        @if (movie.Year > 0)
+                                        {
+                                            <span>@movie.Year</span>
+                                        }
+                                    </div>
                                 </div>
-                            </div>
-                        </a>
-                    }
-                </div>
+                            </a>
+                        }
+                    </div>
+                }
             </div>
         }
     }
@@ -100,6 +138,8 @@ else if (Data is not null)
     [Inject] private WatchNextApiClient WatchNextApi { get; set; } = null!;
 
     [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    [Inject] private ListViewPreference ViewPreference { get; set; } = null!;
 
     // Persisted in the URL (?tab=) the same way list pages persist search/page/filters - see
     // InventoryPageBase's ApplyQueryChanges/SetFilter for the pattern this mirrors. Unlike a list page's
@@ -124,9 +164,19 @@ else if (Data is not null)
 
     private Tab _tab = Tab.TvShows;
 
-    protected override Task OnInitializedAsync() => LoadAsync();
+    // The shared list/thumbnail preference (see ListViewToggle). Both tabs (shows, movies) use portrait
+    // covers, so the grid needs no per-tab column-shape override here.
+    private string _view = "";
+
+    protected override Task OnInitializedAsync()
+    {
+        _view = ViewPreference.View;
+        return LoadAsync();
+    }
 
     protected override void OnParametersSet() => _tab = Enum.TryParse<Tab>(TabQuery, out var tab) ? tab : Tab.TvShows;
+
+    private void OnViewChanged(string view) => _view = view;
 
     private async Task LoadAsync()
     {

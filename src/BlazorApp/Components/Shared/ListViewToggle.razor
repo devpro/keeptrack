@@ -1,0 +1,65 @@
+@using Keeptrack.BlazorApp.Components.Inventory
+@inject ListViewPreference Preference
+@inject IJSRuntime JS
+
+@* The list/thumbnail segmented control, shared by every list page plus Wishlist and Watch Next. It owns the
+   single copy of the view-preference plumbing: seed once per circuit from localStorage, persist on toggle,
+   and notify the parent (which owns rendering list vs grid) via ViewChanged. *@
+
+<div class="kt-view-toggle" role="group" aria-label="View mode">
+    <button type="button" class="kt-view-btn @(View != "grid" ? "active" : "")"
+            title="List view" aria-label="List view" @onclick='() => SetAsync("")'>&#9776;</button>
+    <button type="button" class="kt-view-btn @(View == "grid" ? "active" : "")"
+            title="Thumbnail view" aria-label="Thumbnail view" @onclick='() => SetAsync("grid")'>&#9638;</button>
+</div>
+
+@code {
+    /// <summary>Current view ("" = detailed list, "grid" = poster thumbnails) - the parent owns this value.</summary>
+    [Parameter] public string View { get; set; } = "";
+
+    [Parameter] public EventCallback<string> ViewChanged { get; set; }
+
+    // Seeds the shared preference from localStorage once per circuit. localStorage isn't reachable during the
+    // server-side prerender, so this runs on the first interactive render; every later page reads the
+    // already-seeded value synchronously, so only the very first page of a session can briefly show the
+    // default view before the saved one applies.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || Preference.Seeded)
+        {
+            return;
+        }
+
+        Preference.Seeded = true;
+        try
+        {
+            var saved = await JS.InvokeAsync<string?>("localStorage.getItem", ListViewPreference.StorageKey);
+            Preference.View = saved ?? "";
+        }
+        catch (JSException)
+        {
+            // localStorage unavailable (e.g. private-mode restrictions) - keep the default list view.
+        }
+
+        if (View != Preference.View)
+        {
+            await ViewChanged.InvokeAsync(Preference.View);
+        }
+    }
+
+    private async Task SetAsync(string value)
+    {
+        Preference.View = value;
+        Preference.Seeded = true;
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", ListViewPreference.StorageKey, value);
+        }
+        catch (JSException)
+        {
+            // localStorage unavailable - the in-memory preference still carries the choice for the session.
+        }
+
+        await ViewChanged.InvokeAsync(value);
+    }
+}

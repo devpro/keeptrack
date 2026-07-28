@@ -2,7 +2,6 @@ using Keeptrack.BlazorApp.Components.Shared;
 using Keeptrack.Common.System;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
-using Microsoft.JSInterop;
 
 namespace Keeptrack.BlazorApp.Components.Inventory;
 
@@ -58,8 +57,6 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
     protected int TotalPages => (int)Math.Ceiling(TotalCount / (double)PageSize);
 
     [Inject] protected NavigationManager Navigation { get; set; } = null!;
-
-    [Inject] protected IJSRuntime JS { get; set; } = null!;
 
     [Inject] protected ListViewPreference ViewPreference { get; set; } = null!;
 
@@ -128,38 +125,6 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
         await LoadAsync();
     }
 
-    /// <summary>
-    /// Seeds the shared <see cref="ViewPreference"/> from the browser's localStorage exactly once per
-    /// circuit. localStorage isn't reachable during the server-side prerender, so this runs on the first
-    /// interactive render; every later in-circuit navigation reads the already-seeded value synchronously
-    /// in <see cref="OnParametersSetAsync"/>, so only the very first list page of a session can briefly
-    /// show the default view before the saved one applies.
-    /// </summary>
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!firstRender || ViewPreference.Seeded)
-        {
-            return;
-        }
-
-        ViewPreference.Seeded = true;
-        try
-        {
-            var saved = await JS.InvokeAsync<string?>("localStorage.getItem", ListViewPreference.StorageKey);
-            ViewPreference.View = saved ?? "";
-        }
-        catch (JSException)
-        {
-            // localStorage unavailable (e.g. private-mode restrictions) - keep the default list view.
-        }
-
-        if (_view != ViewPreference.View)
-        {
-            _view = ViewPreference.View;
-            StateHasChanged();
-        }
-    }
-
     protected void OnSearchChanged(string value) => _search = value;
 
     protected void OnSearchKeyUp(KeyboardEventArgs e)
@@ -200,26 +165,11 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
         ApplyQueryChanges(new Dictionary<string, object?> { ["sort"] = string.IsNullOrEmpty(value) ? null : value, ["page"] = null });
 
     /// <summary>
-    /// Switches the list/thumbnail display mode ("" = detailed list, "grid" = poster thumbnails) and
-    /// persists it as a global preference: it updates the shared <see cref="ViewPreference"/> (so every
-    /// other list page in the session inherits it) and writes localStorage (so it survives reloads and
-    /// future sessions). This is a pure presentation change over the already-loaded page, so it just
-    /// re-renders in place - no navigation, no refetch.
+    /// Adopts a new view reported by the <see cref="ListViewToggle"/> (which owns persisting it to the
+    /// shared <see cref="ViewPreference"/> and localStorage). This is a pure presentation change over the
+    /// already-loaded page, so it just re-renders in place - no navigation, no refetch.
     /// </summary>
-    protected async Task SetView(string value)
-    {
-        _view = value;
-        ViewPreference.View = value;
-        ViewPreference.Seeded = true;
-        try
-        {
-            await JS.InvokeVoidAsync("localStorage.setItem", ListViewPreference.StorageKey, value);
-        }
-        catch (JSException)
-        {
-            // localStorage unavailable - the in-memory ViewPreference still carries the choice for the session.
-        }
-    }
+    protected void SetView(string value) => _view = value;
 
     /// <summary>
     /// Navigates to the current list URL with the given query-parameter changes applied (a null value

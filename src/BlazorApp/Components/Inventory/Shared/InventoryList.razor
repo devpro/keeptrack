@@ -71,14 +71,7 @@ else
             @if (ItemImageUrl is not null)
             {
                 @* Grid view leverages cover art, so the toggle only appears for types that have it. *@
-                <div class="kt-view-toggle" role="group" aria-label="View mode">
-                    <button type="button" class="kt-view-btn @(View != "grid" ? "active" : "")"
-                            title="List view" aria-label="List view"
-                            @onclick='() => OnViewChanged.InvokeAsync("")'>&#9776;</button>
-                    <button type="button" class="kt-view-btn @(View == "grid" ? "active" : "")"
-                            title="Thumbnail view" aria-label="Thumbnail view"
-                            @onclick='() => OnViewChanged.InvokeAsync("grid")'>&#9638;</button>
-                </div>
+                <ListViewToggle View="@View" ViewChanged="@OnViewChanged"/>
             }
             @if (Filters is not null)
             {
@@ -94,29 +87,16 @@ else
                 <div class="kt-item-grid @ItemImageShape">
                     @foreach (var item in Items)
                     {
-                        <div class="kt-grid-card">
-                            @* stretched-link spans the whole card (cover + caption); the delete button sits
-                               above it via z-index, same model as the list rows. *@
-                            <a class="stretched-link" href="@($"{Route}/{item.Id}")" aria-label="@ItemTitle(item)"></a>
-                            <div class="kt-grid-cover @ItemImageShape">
-                                @if (!string.IsNullOrEmpty(ItemImageUrl(item)))
-                                {
-                                    <img src="@ItemImageUrl(item)" alt="" loading="lazy"/>
-                                }
-                                else
-                                {
-                                    <span>&#9672;</span>
-                                }
+                        <ItemGridCard Href="@($"{Route}/{item.Id}")" Title="@ItemTitle(item)"
+                                      ImageUrl="@ItemImageUrl(item)" Shape="@ItemImageShape">
+                            <Actions>
                                 <button type="button" class="kt-icon-btn kt-grid-delete" title="Delete" aria-label="Delete"
                                         @onclick="() => RequestDelete(item)">
                                     <TrashIcon/>
                                 </button>
-                            </div>
-                            <div class="kt-grid-caption">
-                                <div class="kt-grid-title">@ItemTitle(item)</div>
-                                <div class="kt-grid-meta">@MetaTemplate(item)</div>
-                            </div>
-                        </div>
+                            </Actions>
+                            <MetaContent>@MetaTemplate(item)</MetaContent>
+                        </ItemGridCard>
                     }
                 </div>
             }
