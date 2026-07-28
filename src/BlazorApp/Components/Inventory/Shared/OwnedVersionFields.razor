@@ -40,7 +40,9 @@
     </div>
     <div class="col-6 col-md">
         <label class="form-label">Reference</label>
-        <div class="d-flex gap-2 align-items-center">
+        @* align-items-start, not -center: the optional Amazon link is a taller (2.25rem) .kt-icon-btn, and
+           centering it would push this input a few px below the Price/Acquired/Vendor inputs in the same row. *@
+        <div class="d-flex gap-2 align-items-start">
             <input class="form-control form-control-sm" placeholder="Edition, order number…" data-testid="version-reference-input"
                    value="@Copy.Reference" @onchange="SetReferenceAsync"/>
             @if (_showAmazonProductLink && AmazonReference.TryExtractAsin(Copy.Reference) is { } asin)
