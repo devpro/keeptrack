@@ -10,7 +10,7 @@
               Message="@($"This will permanently delete this {ItemName ?? "item"}. This can't be undone.")"
               OnConfirm="ConfirmDeleteAsync" OnCancel="CancelDelete"/>
 
-@if (ShowForm)
+@if (!ReadOnly && ShowForm && FormTemplate is not null && Form is not null)
 {
     <div class="kt-form-card">
         <h5>New @(ItemName ?? "item")</h5>
@@ -30,7 +30,7 @@
     {
         <div class="kt-loading">
             <div class="kt-spinner"></div>
-            Loading your collection…
+            Loading…
         </div>
     }
 }
@@ -38,8 +38,8 @@ else
 {
     <div class="kt-table-wrap">
         <div class="kt-table-header">
-            <h1 class="kt-table-title">My <span>@Title</span></h1>
-            @if (!ShowForm)
+            <h1 class="kt-table-title">@if (!ReadOnly){<text>My </text>}<span>@Title</span></h1>
+            @if (!ReadOnly && !ShowForm)
             {
                 <button class="btn btn-primary" @onclick="OnShowAddForm">+ Add</button>
             }
@@ -87,13 +87,20 @@ else
                 <div class="kt-item-grid @ItemImageShape">
                     @foreach (var item in Items)
                     {
-                        <ItemGridCard Href="@($"{Route}/{item.Id}")" Title="@ItemTitle(item)"
+                        <ItemGridCard Href="@(ReadOnly ? null : $"{Route}/{item.Id}")" Title="@ItemTitle(item)"
                                       ImageUrl="@ItemImageUrl(item)" Shape="@ItemImageShape">
                             <Actions>
-                                <button type="button" class="kt-icon-btn kt-grid-delete" title="Delete" aria-label="Delete"
-                                        @onclick="() => RequestDelete(item)">
-                                    <TrashIcon/>
-                                </button>
+                                @if (ReadOnly)
+                                {
+                                    @RowActions?.Invoke(item)
+                                }
+                                else
+                                {
+                                    <button type="button" class="kt-icon-btn kt-grid-delete" title="Delete" aria-label="Delete"
+                                            @onclick="() => RequestDelete(item)">
+                                        <TrashIcon/>
+                                    </button>
+                                }
                             </Actions>
                             <MetaContent>@MetaTemplate(item)</MetaContent>
                         </ItemGridCard>
@@ -113,13 +120,27 @@ else
                                 <ItemThumb ImageUrl="@ItemImageUrl(item)" Shape="@ItemImageShape"/>
                             }
                             <div class="kt-item-main">
-                                <a class="kt-item-title stretched-link" href="@($"{Route}/{item.Id}")">@ItemTitle(item)</a>
+                                @if (ReadOnly)
+                                {
+                                    <span class="kt-item-title">@ItemTitle(item)</span>
+                                }
+                                else
+                                {
+                                    <a class="kt-item-title stretched-link" href="@($"{Route}/{item.Id}")">@ItemTitle(item)</a>
+                                }
                                 <div class="kt-item-meta">@MetaTemplate(item)</div>
                             </div>
-                            <button type="button" class="kt-icon-btn kt-item-delete" title="Delete" aria-label="Delete"
-                                    @onclick="() => RequestDelete(item)">
-                                <TrashIcon/>
-                            </button>
+                            @if (ReadOnly)
+                            {
+                                @RowActions?.Invoke(item)
+                            }
+                            else
+                            {
+                                <button type="button" class="kt-icon-btn kt-item-delete" title="Delete" aria-label="Delete"
+                                        @onclick="() => RequestDelete(item)">
+                                    <TrashIcon/>
+                                </button>
+                            }
                         </div>
                     }
                 </div>
@@ -129,7 +150,7 @@ else
         {
             <div class="kt-empty">
                 <div class="kt-empty-icon">◈</div>
-                <p>Your collection is empty.</p>
+                <p>@(EmptyText ?? "Your collection is empty.")</p>
             </div>
         }
 
@@ -232,8 +253,26 @@ else
     [Parameter] public required string Title { get; set; }
     [Parameter] public string? ItemName { get; set; }
     [Parameter] public required List<TDto> Items { get; set; }
-    [Parameter] public required TDto Form { get; set; }
     [Parameter] public required bool Loading { get; set; }
+
+    /// <summary>
+    /// Read-only mode: no "My" title prefix, no Add form/button, no per-row delete, and rows don't link to a
+    /// detail page. Used by the shared-collection view - a recipient browses someone else's items and can't
+    /// edit them, only <see cref="RowActions"/> (an "add to my collection" affordance).
+    /// </summary>
+    [Parameter] public bool ReadOnly { get; set; }
+
+    /// <summary>
+    /// Per-row action rendered in place of the delete button when <see cref="ReadOnly"/> - the shared view
+    /// puts its add-to-collection icon here. Ignored unless <see cref="ReadOnly"/>.
+    /// </summary>
+    [Parameter] public RenderFragment<TDto>? RowActions { get; set; }
+
+    /// <summary>Empty-state message; defaults to the owner-facing "Your collection is empty."</summary>
+    [Parameter] public string? EmptyText { get; set; }
+
+    // Add-form inputs, only used in the editable (owner) mode - optional so a read-only caller omits them.
+    [Parameter] public TDto? Form { get; set; }
 
     /// <summary>
     /// True once a load attempt (fresh or restored from persisted prerender state) has finished, found
@@ -244,7 +283,7 @@ else
     /// empty-collection state. Defaults true so a hypothetical caller that never sets it renders as before.
     /// </summary>
     [Parameter] public bool Loaded { get; set; } = true;
-    [Parameter] public required bool ShowForm { get; set; }
+    [Parameter] public bool ShowForm { get; set; }
     [Parameter] public required string? Error { get; set; }
     [Parameter] public required string Search { get; set; }
 
@@ -288,15 +327,17 @@ else
     /// </summary>
     [Parameter] public required RenderFragment<TDto> MetaTemplate { get; set; }
 
-    [Parameter] public required RenderFragment<TDto> FormTemplate { get; set; }
+    // Add-form/delete callbacks, only used in the editable (owner) mode - a default EventCallback is a safe
+    // no-op, so a read-only caller simply omits them.
+    [Parameter] public RenderFragment<TDto>? FormTemplate { get; set; }
     [Parameter] public RenderFragment? Filters { get; set; }
-    [Parameter] public required EventCallback OnSave { get; set; }
-    [Parameter] public required EventCallback OnCancelForm { get; set; }
-    [Parameter] public required EventCallback OnShowAddForm { get; set; }
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public EventCallback OnCancelForm { get; set; }
+    [Parameter] public EventCallback OnShowAddForm { get; set; }
     [Parameter] public required EventCallback OnClearSearch { get; set; }
     [Parameter] public required EventCallback<KeyboardEventArgs> OnSearchKeyUp { get; set; }
     [Parameter] public required EventCallback<int> OnGoToPage { get; set; }
-    [Parameter] public required EventCallback<string> OnDelete { get; set; }
+    [Parameter] public EventCallback<string> OnDelete { get; set; }
     [Parameter] public required EventCallback<string> OnSearchChanged { get; set; }
     [Parameter] public required EventCallback<string> OnSortChanged { get; set; }
     [Parameter] public EventCallback<string> OnViewChanged { get; set; }

@@ -30,6 +30,7 @@ builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<PlaylistDto, K
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<VideoGameDto, Keeptrack.Domain.Models.VideoGameModel>, Keeptrack.WebApi.Mappers.VideoGameDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<UserPreferencesDto, Keeptrack.Domain.Models.UserPreferencesModel>, Keeptrack.WebApi.Mappers.UserPreferencesDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.InProgressShowDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.ShareDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.AmazonOrderPreviewRowDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.GenericVideoGameImportPreviewRowDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.GenericImportPreviewRowDtoMapper>();

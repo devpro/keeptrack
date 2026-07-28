@@ -81,18 +81,12 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IDtoMapper<TDto, TMod
     [ProducesResponseType(403)]
     public async Task<IActionResult> Post([FromBody] TDto dto)
     {
-        // free-tier creation quota - enforced server-side because hiding UI is not security; a non-member
-        // talking to the API directly hits the exact same wall. Members and admins are never counted.
-        if (FreeTierLimitFactor > 0 && !this.IsMember())
+        // free-tier creation quota, shared with the shared-item copy path (see FreeTierQuota)
+        var quotaError = await FreeTierQuota.CheckAsync(this, FreeTierLimitFactor, () => dataRepository.CountAsync(this.GetUserId()));
+        if (quotaError is not null)
         {
-            var configuration = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
-            var limit = AppConfiguration.GetFreeTierItemLimit(configuration) * FreeTierLimitFactor;
-            if (await dataRepository.CountAsync(this.GetUserId()) >= limit)
-            {
-                // same { error } body shape as ApiExceptionFilterAttribute, so clients parse one format
-                return StatusCode(StatusCodes.Status403Forbidden,
-                    new { error = $"Free preview accounts are limited to {limit} items in this collection - a membership unlocks unlimited tracking." });
-            }
+            // same { error } body shape as ApiExceptionFilterAttribute, so clients parse one format
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = quotaError });
         }
 
         var input = mapper.ToModel(dto);

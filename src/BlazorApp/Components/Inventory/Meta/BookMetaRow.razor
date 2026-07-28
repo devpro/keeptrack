@@ -1,0 +1,34 @@
+@* The book list row's second line. Shared by the owner list page and the shared-collection view. *@
+
+@if (Item.Year > 0)
+{
+    <span>@Item.Year</span>
+}
+@if (!string.IsNullOrEmpty(Item.Author))
+{
+    <span>@Item.Author</span>
+}
+@if (Item.Rating is not null)
+{
+    <span class="kt-stars"><StarRating Rating="Item.Rating"/></span>
+}
+@if (Item.IsFavorite)
+{
+    <span class="kt-flag-badge favorite">Favorite</span>
+}
+@if (Item.FirstReadAt is not null)
+{
+    <span class="kt-flag-badge done">Read</span>
+}
+@if (Item.OwnedVersions.Count > 0)
+{
+    <span class="kt-flag-badge">Owned</span>
+}
+@if (Item.IsWishlisted)
+{
+    <span class="kt-flag-badge wishlist">Wishlist</span>
+}
+
+@code {
+    [Parameter] public required BookDto Item { get; set; }
+}

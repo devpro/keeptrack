@@ -113,10 +113,11 @@
                 </AuthorizeView>
                 <div class="nav-divider"></div>
                 <div class="nav-item">
-                    <a class="nav-link nav-link-user" href="/account/manage">
+                    @* Prefix match so every /account/manage/* page (profile, sharing, shared-with-me) keeps this item current. *@
+                    <NavLink class="nav-link nav-link-user" href="account/manage" Match="NavLinkMatch.Prefix">
                         <span class="nav-icon kt-nav-avatar">@(GetInitial(context.User.Identity?.Name))</span>
                         <span class="nav-username">@context.User.Identity?.Name</span>
-                    </a>
+                    </NavLink>
                 </div>
                 <div class="nav-item">
                     <a class="nav-link nav-link-logout" href="/auth/logout">

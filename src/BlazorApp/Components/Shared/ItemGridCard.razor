@@ -3,7 +3,12 @@
    (and its stretched-link-opens-detail / actions-above-via-z-index model) exists exactly once. *@
 
 <div class="kt-grid-card">
-    <a class="stretched-link" href="@Href" aria-label="@Title"></a>
+    @* No Href (e.g. a read-only shared card the recipient can't open) → no stretched link, so the card
+       isn't a dead link and its own action overlay stays the only clickable thing. *@
+    @if (!string.IsNullOrEmpty(Href))
+    {
+        <a class="stretched-link" href="@Href" aria-label="@Title"></a>
+    }
     <div class="kt-grid-cover @Shape">
         @if (!string.IsNullOrEmpty(ImageUrl))
         {

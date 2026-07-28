@@ -37,26 +37,7 @@
         <button class="btn btn-sm kt-toggle-btn @(OwnedFilter ? "active" : "")" @onclick='() => ToggleFilter("owned", OwnedFilter)'>● Owned</button>
     </Filters>
     <MetaTemplate Context="album">
-        @if (!string.IsNullOrEmpty(album.Artist))
-        {
-            <span>@album.Artist</span>
-        }
-        @if (album.Year > 0)
-        {
-            <span>@album.Year</span>
-        }
-        @if (album.Rating is not null)
-        {
-            <span class="kt-stars"><StarRating Rating="album.Rating"/></span>
-        }
-        @if (album.IsFavorite)
-        {
-            <span class="kt-flag-badge favorite">Favorite</span>
-        }
-        @if (album.OwnedVersions.Count > 0)
-        {
-            <span class="kt-flag-badge">Owned</span>
-        }
+        <AlbumMetaRow Item="album"/>
     </MetaTemplate>
     <FormTemplate Context="album">
         <div class="col-12">

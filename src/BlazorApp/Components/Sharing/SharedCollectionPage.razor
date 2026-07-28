@@ -1,0 +1,137 @@
+@page "/account/manage/shared/{ShareId}"
+@attribute [Authorize(Policy = "MemberOnly")]
+
+@if (!_loaded)
+{
+    <div class="kt-loading">
+        <div class="kt-spinner"></div>
+        Loading…
+    </div>
+}
+else if (_summary is null)
+{
+    <Breadcrumb ParentRoute="/account/manage" ParentLabel="Profile" ListRoute="/account/manage/shared-with-me" ListLabel="Shared with me"/>
+    <div class="kt-empty">
+        <div class="kt-empty-icon">◈</div>
+        <p>This collection isn't shared with you (any more). Ask its owner for access.</p>
+    </div>
+}
+else
+{
+    var owner = _summary.OwnerDisplayName ?? "A Keeptrack user";
+    <Breadcrumb ParentRoute="/account/manage" ParentLabel="Profile"
+                ListRoute="/account/manage/shared-with-me" ListLabel="Shared with me" Current="@owner"/>
+
+    <div class="kt-page-header">
+        <h1>@owner<span>'s collection</span></h1>
+    </div>
+
+    <div class="kt-tabs">
+        @foreach (var category in _summary.IncludedCategories)
+        {
+            <button class="kt-tab @(_category == category ? "active" : "")" @onclick="() => SelectTab(category)">
+                @SharingLabels.Category(category)
+            </button>
+        }
+    </div>
+
+    @switch (_category)
+    {
+        case ShareCategory.Movies:
+            <SharedCategoryList TDto="MovieDto" Title="Movies"
+                                Fetch="q => Api.GetMoviesAsync(ShareId, q)"
+                                Copy="id => Api.CopyMovieAsync(ShareId, id)"
+                                ItemTitle="m => m.Title" ItemImageUrl="m => m.ImageUrl"
+                                HasRatingSort="true" ExtraSortValue="@ListSort.LastSeen" ExtraSortLabel="Seen"
+                                ShowFavoriteFilter="true" ShowOwnedFilter="true">
+                <MetaTemplate Context="m"><MovieMetaRow Item="m"/></MetaTemplate>
+            </SharedCategoryList>
+            break;
+
+        case ShareCategory.TvShows:
+            <SharedCategoryList TDto="TvShowDto" Title="TV shows"
+                                Fetch="q => Api.GetTvShowsAsync(ShareId, q)"
+                                Copy="id => Api.CopyTvShowAsync(ShareId, id)"
+                                ItemTitle="s => s.Title" ItemImageUrl="s => s.ImageUrl"
+                                HasRatingSort="true"
+                                ShowFavoriteFilter="true" ShowOwnedFilter="true">
+                <MetaTemplate Context="s"><TvShowMetaRow Item="s"/></MetaTemplate>
+            </SharedCategoryList>
+            break;
+
+        case ShareCategory.Books:
+            <SharedCategoryList TDto="BookDto" Title="Books"
+                                Fetch="q => Api.GetBooksAsync(ShareId, q)"
+                                Copy="id => Api.CopyBookAsync(ShareId, id)"
+                                ItemTitle="b => b.Title" ItemImageUrl="b => b.ImageUrl"
+                                HasRatingSort="true" ExtraSortValue="@ListSort.LastRead" ExtraSortLabel="Read"
+                                ShowFavoriteFilter="true" ShowOwnedFilter="true">
+                <MetaTemplate Context="b"><BookMetaRow Item="b"/></MetaTemplate>
+            </SharedCategoryList>
+            break;
+
+        case ShareCategory.Albums:
+            <SharedCategoryList TDto="AlbumDto" Title="Albums"
+                                Fetch="q => Api.GetAlbumsAsync(ShareId, q)"
+                                Copy="id => Api.CopyAlbumAsync(ShareId, id)"
+                                ItemTitle="a => a.Title" ItemImageUrl="a => a.ImageUrl" ItemImageShape="square"
+                                HasRatingSort="true"
+                                ShowFavoriteFilter="true" ShowOwnedFilter="true">
+                <MetaTemplate Context="a"><AlbumMetaRow Item="a"/></MetaTemplate>
+            </SharedCategoryList>
+            break;
+
+        case ShareCategory.VideoGames:
+            <SharedCategoryList TDto="VideoGameDto" Title="Video games"
+                                Fetch="q => Api.GetVideoGamesAsync(ShareId, q)"
+                                Copy="id => Api.CopyVideoGameAsync(ShareId, id)"
+                                ItemTitle="g => g.Title" ItemImageUrl="g => g.ImageUrl" ItemImageShape="wide"
+                                HasRatingSort="true" ExtraSortValue="@ListSort.LastCompleted" ExtraSortLabel="Ended"
+                                ShowOwnedFilter="true">
+                <MetaTemplate Context="g"><VideoGameMetaRow Item="g"/></MetaTemplate>
+            </SharedCategoryList>
+            break;
+    }
+}
+
+@code {
+    [Parameter] public required string ShareId { get; set; }
+
+    // The selected category lives in the URL (?tab=), same as Wishlist / Watch Next, so back/forward and a
+    // bookmarked link land on the right tab.
+    [SupplyParameterFromQuery(Name = "tab")]
+    public string? TabQuery { get; set; }
+
+    [Inject] private SharedWithMeApiClient Api { get; set; } = null!;
+
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    private SharedCollectionSummaryDto? _summary;
+    private ShareCategory? _category;
+    private bool _loaded;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var collections = await Api.GetSharedWithMeAsync();
+        _summary = collections.FirstOrDefault(c => c.ShareId == ShareId);
+        _loaded = true;
+    }
+
+    // Runs after OnInitializedAsync (so _summary is loaded) and on every ?tab= change (button click,
+    // browser back/forward), keeping the active tab in sync with the URL.
+    protected override void OnParametersSet()
+    {
+        if (_summary is null)
+        {
+            _category = null;
+            return;
+        }
+
+        _category = Enum.TryParse<ShareCategory>(TabQuery, out var tab) && _summary.IncludedCategories.Contains(tab)
+            ? tab
+            : _summary.IncludedCategories.FirstOrDefault();
+    }
+
+    private void SelectTab(ShareCategory category) =>
+        Navigation.NavigateTo(Navigation.GetUriWithQueryParameters(new Dictionary<string, object?> { ["tab"] = category.ToString() }));
+}

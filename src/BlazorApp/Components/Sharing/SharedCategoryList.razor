@@ -1,0 +1,216 @@
+@using Keeptrack.BlazorApp.Components.Inventory
+@typeparam TDto where TDto : class, IHasId
+
+@* A read-only, full-featured list of one shared category: the same InventoryList the owner's own pages use
+   (search / sort / favourites+owned filters / thumbnails / grid), but with an "add to my collection" icon per
+   row instead of edit/delete, and a badge for items the recipient already owns. *@
+
+<InventoryList TDto="TDto"
+               ReadOnly="true"
+               Title="@Title"
+               Route=""
+               Items="_items"
+               Loading="_loading"
+               Loaded="_loaded"
+               Error="@_error"
+               Search="@_search"
+               Sort="@_sort"
+               Page="_page"
+               TotalPages="TotalPages"
+               TotalCount="_totalCount"
+               View="@_view"
+               OnViewChanged="v => _view = v"
+               ItemTitle="ItemTitle"
+               ItemImageUrl="ItemImageUrl"
+               ItemImageShape="@ItemImageShape"
+               HasRatingSort="HasRatingSort"
+               ExtraSortValue="@ExtraSortValue"
+               ExtraSortLabel="@ExtraSortLabel"
+               EmptyText="Nothing shared here yet."
+               OnSearchChanged="v => _search = v"
+               OnSearchKeyUp="OnSearchKeyUp"
+               OnClearSearch="OnClearSearch"
+               OnSortChanged="OnSortChanged"
+               OnGoToPage="OnGoToPage">
+    <Filters>
+        @if (ShowFavoriteFilter)
+        {
+            <button class="btn btn-sm kt-toggle-btn @(_favorite ? "active" : "")" @onclick="ToggleFavorite">★ Favorites</button>
+        }
+        @if (ShowOwnedFilter)
+        {
+            <button class="btn btn-sm kt-toggle-btn @(_owned ? "active" : "")" @onclick="ToggleOwned">● Owned</button>
+        }
+    </Filters>
+    <MetaTemplate Context="item">
+        @MetaTemplate(item)
+    </MetaTemplate>
+    <RowActions Context="item">
+        @{
+            var id = item.Id!;
+            var inCollection = _added.Contains(id) || _alreadyInCollection.Contains(id);
+        }
+        @if (inCollection)
+        {
+            <span class="kt-flag-badge done" title="@(_added.Contains(id) ? "Added to your collection" : "Already in your collection")">✓ In collection</span>
+        }
+        else if (_copyingId == id)
+        {
+            <span class="kt-icon-btn" aria-label="Adding"><span class="kt-icon-spin">↻</span></span>
+        }
+        else
+        {
+            <button class="kt-icon-btn" title="Add to my collection" aria-label="Add to my collection"
+                    data-testid="share-add" @onclick="() => AddAsync(id)">
+                <AddToCollectionIcon/>
+            </button>
+        }
+    </RowActions>
+</InventoryList>
+
+@code {
+    private const int PageSize = 24;
+
+    [Inject] private ListViewPreference ViewPreference { get; set; } = null!;
+
+    /// <summary>The category label shown as the list heading (e.g. "Movies").</summary>
+    [Parameter] public required string Title { get; set; }
+
+    /// <summary>Fetches one page for the current query.</summary>
+    [Parameter] public required Func<SharedListQuery, Task<SharedCategoryPageDto<TDto>?>> Fetch { get; set; }
+
+    /// <summary>Copies the item with the given id into the caller's own collection.</summary>
+    [Parameter] public required Func<string, Task<CopyResultDto<TDto>?>> Copy { get; set; }
+
+    [Parameter] public required Func<TDto, string?> ItemTitle { get; set; }
+    [Parameter] public Func<TDto, string?>? ItemImageUrl { get; set; }
+    [Parameter] public string? ItemImageShape { get; set; }
+    [Parameter] public required RenderFragment<TDto> MetaTemplate { get; set; }
+    [Parameter] public bool HasRatingSort { get; set; }
+    [Parameter] public string? ExtraSortValue { get; set; }
+    [Parameter] public string? ExtraSortLabel { get; set; }
+    [Parameter] public bool ShowFavoriteFilter { get; set; }
+    [Parameter] public bool ShowOwnedFilter { get; set; }
+
+    private List<TDto> _items = [];
+    private readonly HashSet<string> _alreadyInCollection = [];
+    private readonly HashSet<string> _added = [];
+    private string? _copyingId;
+
+    private string _search = "";
+    private string _sort = "";
+    private int _page = 1;
+    private long _totalCount;
+    private bool _favorite;
+    private bool _owned;
+    private string _view = "";
+    private bool _loading;
+    private bool _loaded;
+    private string? _error;
+
+    private int TotalPages => (int)Math.Ceiling(_totalCount / (double)PageSize);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _view = ViewPreference.View;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            var filters = new Dictionary<string, string>();
+            if (_favorite) filters["IsFavorite"] = "true";
+            if (_owned) filters["IsOwned"] = "true";
+
+            var page = await Fetch(new SharedListQuery(_search, _page, PageSize, _sort, filters));
+            _items = page?.Items ?? [];
+            _totalCount = page?.TotalCount ?? 0;
+            _alreadyInCollection.Clear();
+            if (page is not null)
+            {
+                foreach (var id in page.AlreadyInCollectionIds)
+                {
+                    _alreadyInCollection.Add(id);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+            _loaded = true;
+        }
+    }
+
+    private async Task OnSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            _page = 1;
+            await LoadAsync();
+        }
+    }
+
+    private async Task OnClearSearch()
+    {
+        _search = "";
+        _page = 1;
+        await LoadAsync();
+    }
+
+    private async Task OnSortChanged(string sort)
+    {
+        _sort = sort;
+        _page = 1;
+        await LoadAsync();
+    }
+
+    private async Task OnGoToPage(int page)
+    {
+        _page = page;
+        await LoadAsync();
+    }
+
+    private async Task ToggleFavorite()
+    {
+        _favorite = !_favorite;
+        _page = 1;
+        await LoadAsync();
+    }
+
+    private async Task ToggleOwned()
+    {
+        _owned = !_owned;
+        _page = 1;
+        await LoadAsync();
+    }
+
+    private async Task AddAsync(string id)
+    {
+        _copyingId = id;
+        try
+        {
+            var result = await Copy(id);
+            if (result is not null)
+            {
+                (result.AlreadyInCollection ? _alreadyInCollection : _added).Add(id);
+            }
+            _error = null;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _copyingId = null;
+        }
+    }
+}

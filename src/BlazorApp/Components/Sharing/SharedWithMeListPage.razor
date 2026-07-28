@@ -1,0 +1,68 @@
+@page "/account/manage/shared-with-me"
+@attribute [Authorize(Policy = "MemberOnly")]
+
+<Breadcrumb ListRoute="/account/manage" ListLabel="Profile" Current="Shared with me"/>
+
+<div class="kt-page-header">
+    <h1>Shared with <span>me</span></h1>
+</div>
+
+@if (!_loaded)
+{
+    <div class="kt-loading">
+        <div class="kt-spinner"></div>
+        Loading…
+    </div>
+}
+else if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+else if (_collections.Count == 0)
+{
+    <div class="kt-empty">
+        <div class="kt-empty-icon">◈</div>
+        <p>Nobody has shared a collection with you yet. Shares are matched to your account email.</p>
+    </div>
+}
+else
+{
+    <p style="color:var(--kt-text-muted)">Pick a person to browse what they shared with you.</p>
+    <div class="kt-item-list">
+        @foreach (var collection in _collections)
+        {
+            <a class="kt-item-row" href="@($"/account/manage/shared/{collection.ShareId}")">
+                <div class="kt-item-main">
+                    <span class="kt-item-title">@(collection.OwnerDisplayName ?? "A Keeptrack user")</span>
+                    <div class="kt-item-meta">
+                        <span>@string.Join(", ", collection.IncludedCategories.Select(SharingLabels.Category))</span>
+                    </div>
+                </div>
+            </a>
+        }
+    </div>
+}
+
+@code {
+    [Inject] private SharedWithMeApiClient Api { get; set; } = null!;
+
+    private List<SharedCollectionSummaryDto> _collections = [];
+    private bool _loaded;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _collections = await Api.GetSharedWithMeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loaded = true;
+        }
+    }
+}

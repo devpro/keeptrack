@@ -40,34 +40,7 @@
         <button class="btn btn-sm kt-toggle-btn @(OwnedFilter ? "active" : "")" @onclick='() => ToggleFilter("owned", OwnedFilter)'>● Owned</button>
     </Filters>
     <MetaTemplate Context="show">
-        @if (show.Year > 0)
-        {
-            <span>@show.Year</span>
-        }
-        @if (show.State is not null)
-        {
-            <span class="kt-status-badge @show.State.ToString()!.ToLowerInvariant()">@show.State</span>
-        }
-        @if (show.Rating is not null)
-        {
-            <span class="kt-stars"><StarRating Rating="show.Rating"/></span>
-        }
-        @if (show.IsFavorite)
-        {
-            <span class="kt-flag-badge favorite">Favorite</span>
-        }
-        @if (show.WantToWatch)
-        {
-            <span class="kt-flag-badge wishlist">To watch</span>
-        }
-        @if (show.OwnedVersions.Count > 0)
-        {
-            <span class="kt-flag-badge">Owned</span>
-        }
-        @if (show.IsWishlisted)
-        {
-            <span class="kt-flag-badge wishlist">Wishlist</span>
-        }
+        <TvShowMetaRow Item="show"/>
     </MetaTemplate>
     <FormTemplate Context="show">
         <div class="col-12">

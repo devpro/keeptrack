@@ -12,13 +12,6 @@ public partial class VideoGames : InventoryPageBase<VideoGameDto>
     internal static readonly string[] VideoGamePlatforms =
         ["PC", "PS1", "PS2", "PSP", "PS3", "PS4", "PS5", "Xbox 360", "Xbox One X", "Xbox Series X", "Nintendo 64", "WII", "Switch", "Switch 2"];
 
-    /// <summary>
-    /// The <c>kt-status-badge</c> modifier class for a state value (see app.css) - same badge/color
-    /// pattern as <c>TvShows.razor</c>'s status column, sharing its "current" modifier for the identical
-    /// in-progress meaning and adding the three states with no TV show equivalent.
-    /// </summary>
-    internal static string StateBadgeClass(string state) => state.ToLowerInvariant().Replace(" ", "-");
-
     [Inject] private VideoGameApiClient VideoGameApi { get; set; } = null!;
 
     protected override InventoryApiClientBase<VideoGameDto> Api => VideoGameApi;

@@ -164,6 +164,10 @@ public class FreeTierTest
     [InlineData(typeof(MovieController), null)]
     [InlineData(typeof(TvShowController), null)]
     [InlineData(typeof(EpisodeController), null)]
+    // Sharing (both issuing grants and browsing what was shared) is a members-only feature, not part of the
+    // free preview tier.
+    [InlineData(typeof(ShareController), "MemberOnly")]
+    [InlineData(typeof(SharedWithMeController), "MemberOnly")]
     public void Controller_CarriesTheExpectedAuthorizationPolicy(Type controllerType, string? expectedPolicy)
     {
         var attribute = controllerType.GetCustomAttributes(typeof(AuthorizeAttribute), inherit: false)

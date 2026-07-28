@@ -39,34 +39,7 @@
         <button class="btn btn-sm kt-toggle-btn @(UnreadFilter ? "active" : "")" @onclick='() => ToggleFilter("unread", UnreadFilter)'>◻ Unread</button>
     </Filters>
     <MetaTemplate Context="book">
-        @if (book.Year > 0)
-        {
-            <span>@book.Year</span>
-        }
-        @if (!string.IsNullOrEmpty(book.Author))
-        {
-            <span>@book.Author</span>
-        }
-        @if (book.Rating is not null)
-        {
-            <span class="kt-stars"><StarRating Rating="book.Rating"/></span>
-        }
-        @if (book.IsFavorite)
-        {
-            <span class="kt-flag-badge favorite">Favorite</span>
-        }
-        @if (book.FirstReadAt is not null)
-        {
-            <span class="kt-flag-badge done">Read</span>
-        }
-        @if (book.OwnedVersions.Count > 0)
-        {
-            <span class="kt-flag-badge">Owned</span>
-        }
-        @if (book.IsWishlisted)
-        {
-            <span class="kt-flag-badge wishlist">Wishlist</span>
-        }
+        <BookMetaRow Item="book"/>
     </MetaTemplate>
     <FormTemplate Context="book">
         <div class="col-12">

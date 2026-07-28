@@ -188,6 +188,12 @@ ensureIndex(
 ensureIndex(db.wishlist_share, { owner_id: 1 }, { name: "wishlist_share_owner" });
 ensureIndex(db.wishlist_share, { token: 1 }, { name: "wishlist_share_token", unique: true });
 
+// share: one document per (owner -> recipient email) directed grant of whole collection categories - an
+// owner holds several at once (one per person, individually revocable), so owner_id is NOT unique. The
+// recipient looks their grants up by their own authenticated email, so recipient_email gets its own index.
+ensureIndex(db.share, { owner_id: 1 }, { name: "share_owner" });
+ensureIndex(db.share, { recipient_email: 1 }, { name: "share_recipient" });
+
 // tvshow_reference / movie_reference: shared, owner-less lookup tables (see CLAUDE.md) keyed by
 // matched_aliases (every (title, year) combination ever confirmed for that reference, not just its
 // canonical one - see MatchedAliases/ReferenceMatchModel in CLAUDE.md), the primary automatic-match key.
