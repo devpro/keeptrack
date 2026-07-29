@@ -27,6 +27,12 @@ else
     <div class="kt-page-header">
         <div class="kt-title-row">
             <input class="kt-title-input" value="@Album.Title" @onchange="SaveTitleAsync"/>
+            <span class="kt-title-toast-slot">
+                @if (_refreshMessage is not null)
+                {
+                    <span class="kt-inline-toast @_refreshMessageStyle">@_refreshMessage</span>
+                }
+            </span>
             <button class="kt-icon-btn" @onclick="RefreshReferenceAsync" disabled="@_refreshingReference"
                     title="@(string.IsNullOrEmpty(Album.ReferenceId) ? "Check for reference match using the title and year below." : $"Linked to \"{Reference?.Title}\". Not right? Edit the title or year below, then check again.")">
                 <span class="@(_refreshingReference ? "kt-icon-spin" : "")">↻</span>
@@ -41,10 +47,6 @@ else
                         </button>
                     </Authorized>
                 </AuthorizeView>
-            }
-            @if (_refreshMessage is not null)
-            {
-                <span class="kt-inline-toast @_refreshMessageStyle">@_refreshMessage</span>
             }
         </div>
         <div class="d-flex gap-2">

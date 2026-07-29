@@ -644,6 +644,20 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 .kt-inline-toast.danger  { background: var(--kt-danger-bg); color: var(--kt-danger); }
 @keyframes kt-toast-in { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: translateY(0); } }
 
+/* fixed-width reserved slot for the transient refresh-reference toast, sitting to the left of the
+   refresh/unlink icons. The width is reserved permanently (even with no message) so the responsive
+   kt-title-input never resizes - and the icon buttons never shift - as a message appears and then
+   auto-dismisses a few seconds later. A longer-than-usual message overflows leftward over the title's
+   tail rather than widening the slot, so the geometry stays constant regardless of message length. */
+.kt-title-toast-slot {
+  flex: 0 0 auto;
+  width: 6rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  overflow: visible;
+}
+
 /* small "more options" popup anchored under a kt-icon-btn (e.g. a track row's "⋮" menu) - the row it's
    anchored to needs position:relative so this absolute box lands directly under the button, not the page. */
 .kt-menu {
@@ -1009,6 +1023,9 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   /* the title group must wrap to its own full-width row - its desktop flex:1 + min-width:0 otherwise lets
      it shrink to (near) zero width beside the flag toggles instead of ever wrapping */
   .kt-title-row { flex-basis: 100%; }
+  /* don't permanently reserve toast space on mobile - the title is already narrow here, so let the slot
+     collapse to nothing when empty and only take room while a message is actually showing */
+  .kt-title-toast-slot { width: auto; flex: 0 1 auto; }
   .kt-table-wrap { border-radius: var(--kt-radius); }
   .table thead { display: none; }
   .table, .table tbody, .table tr, .table td { display: block; width: 100%; }
