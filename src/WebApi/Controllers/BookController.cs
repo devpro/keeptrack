@@ -22,9 +22,10 @@ public class BookController(
     /// <summary>
     /// Hydrates each page item's cover image from its linked reference document - one batched lookup per
     /// page (see <see cref="ReferenceImageHydrator"/>), keyed by the id-bearing documents only. A book with
-    /// its own <see cref="BookDto.CustomImageUrl"/> set overrides that afterward - this is Book-specific
-    /// (not shared via <see cref="ReferenceImageHydrator"/>/<see cref="Contracts.Dto.IReferenceLinkedDto"/>,
-    /// which the other four reference-linked types also implement, with no equivalent override field).
+    /// its own <see cref="BookDto.CustomImageUrl"/> set overrides that afterward, via the shared
+    /// <see cref="ReferenceImageHydrator.HydrateWithCustomOverrideAsync"/>. Only Book/Album/VideoGame carry a
+    /// <c>CustomImageUrl</c>; the other reference-linked types (movie, TV show) have no equivalent override and
+    /// use the plain <see cref="ReferenceImageHydrator.HydrateAsync"/> path instead.
     /// </summary>
     protected override Task OnListMappedAsync(List<BookDto> dtos) =>
         ReferenceImageHydrator.HydrateWithCustomOverrideAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl, x => x.CustomImageUrl);

@@ -33,7 +33,7 @@ dotnet test
 dotnet test test/WebApi.UnitTests/WebApi.UnitTests.csproj
 dotnet test test/WebApi.IntegrationTests/WebApi.IntegrationTests.csproj
 
-# run a single test by fully qualified name
+# run a single test by fully qualified name (--filter-method / --filter-class / --filter-namespace, '*' wildcard allowed)
 dotnet test --filter-method "Keeptrack.WebApi.UnitTests.Services.WatchNextServiceTest.ComputeInProgressShows_IncludesShowWithAConfirmedAiredUnwatchedNextEpisode"
 
 # build container images
@@ -50,6 +50,18 @@ docker run --name mongodb -d -p 27017:27017 mongo:8.2
 Integration tests also need Firebase test-user credentials and MongoDB connection settings.
 Provide them as environment variables, or in a `Local.runsettings` file at the repository root (see `CONTRIBUTING.md` for the template).
 Never commit this file.
+
+**Gotcha:** `--settings Local.runsettings` and `--filter-method`/`--filter-class` cannot be combined.
+`--settings` switches `dotnet test` into legacy VSTest mode, which rejects the Microsoft.Testing.Platform simple-filter flags and silently runs zero tests (exit code 5, "error: 1").
+To run a *filtered* subset of the integration tests, load the runsettings' env vars into the shell instead of passing `--settings`, then filter in MTP mode:
+
+```powershell
+[xml]$rs = Get-Content Local.runsettings
+$rs.RunSettings.RunConfiguration.EnvironmentVariables.ChildNodes | Where-Object { $_.NodeType -eq 'Element' } | ForEach-Object { Set-Item -Path "env:$($_.Name)" -Value $_.InnerText }
+dotnet test test/WebApi.IntegrationTests/WebApi.IntegrationTests.csproj --filter-method "Keeptrack.WebApi.IntegrationTests.Resources.WishlistResourceTest.*"
+```
+
+A full run with no filter can still use `--settings Local.runsettings` as before.
 
 ## Architecture
 
