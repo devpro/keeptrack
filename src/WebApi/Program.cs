@@ -107,6 +107,7 @@ builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.IDiscogsClient, Ke
 }).AddProviderResilienceHandler();
 builder.Services.AddScoped<Keeptrack.WebApi.ReferenceData.ReferenceEnrichmentService>();
 builder.Services.AddScoped<Keeptrack.WebApi.ReferenceData.ReferenceSyncService>();
+builder.Services.AddScoped<Keeptrack.WebApi.ReferenceData.TvShowStatusReconciliationService>();
 builder.Services.AddHostedService<Keeptrack.WebApi.ReferenceData.ReferenceSyncBackgroundService>();
 builder.Services.AddMongoDbInfrastructure(configuration);
 builder.Services.AddOpenApiWithBearerAuth(configuration);

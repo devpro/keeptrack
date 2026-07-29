@@ -51,6 +51,17 @@ public class TvShowRepository(IMongoDatabase mongoDatabase, ILogger<TvShowReposi
         return result.ModifiedCount;
     }
 
+    public async Task<IReadOnlyList<TvShowModel>> FindFinishedLinkedShowsAsync()
+    {
+        var builder = Builders<TvShow>.Filter;
+        // "linked" is the inverse of UnresolvedFilter: a real reference id, not null and not the legacy empty-string sentinel.
+        var filter = builder.Eq(f => f.State, TvShowStatus.Finished)
+                     & builder.Ne(f => f.ReferenceId, null)
+                     & builder.Ne(f => f.ReferenceId, string.Empty);
+        var entities = await GetCollection().Find(filter).ToListAsync();
+        return mapper.ToModels(entities);
+    }
+
     public async Task<IReadOnlyList<(string Title, int? Year, string? Creator)>> FindDistinctUnresolvedTitleYearsAsync()
     {
         var groups = await GetCollection().Aggregate()

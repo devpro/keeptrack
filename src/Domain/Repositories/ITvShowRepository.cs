@@ -21,4 +21,14 @@ public interface ITvShowRepository : IDataRepository<TvShowModel>
     /// yet - feeds the admin curation queue.
     /// </summary>
     Task<IReadOnlyList<(string Title, int? Year, string? Creator)>> FindDistinctUnresolvedTitleYearsAsync();
+
+    /// <summary>
+    /// Every tenant's shows marked <see cref="TvShowStatus.Finished"/> that carry a reference link - the
+    /// candidates the periodic finished-show status reconciliation re-checks against their (freshly synced)
+    /// reference episode guide. Cross-tenant and unscoped, like <see cref="SetReferenceLinkAsync"/>: it's
+    /// driven by a background pass, not an owner request. Only <c>Finished</c> shows are returned, never
+    /// <see cref="TvShowStatus.Stopped"/> or an unset status - those mean the tenant has deliberately stopped
+    /// tracking, so a new season must not reopen them.
+    /// </summary>
+    Task<IReadOnlyList<TvShowModel>> FindFinishedLinkedShowsAsync();
 }

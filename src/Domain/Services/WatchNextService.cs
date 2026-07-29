@@ -37,13 +37,7 @@ public static class WatchNextService
 
                 if (!referencesByShowId.TryGetValue(group.Key, out var reference)) return null;
 
-                var nextEpisode = reference.Episodes
-                    .Where(e => e.SeasonNumber > lastWatched.SeasonNumber
-                                || (e.SeasonNumber == lastWatched.SeasonNumber && e.EpisodeNumber > lastWatched.EpisodeNumber))
-                    .Where(e => e.AirDate is null || e.AirDate <= today)
-                    .OrderBy(e => e.SeasonNumber)
-                    .ThenBy(e => e.EpisodeNumber)
-                    .FirstOrDefault();
+                var nextEpisode = FindNextAiredEpisode(lastWatched.SeasonNumber, lastWatched.EpisodeNumber, reference, today);
                 if (nextEpisode is null) return null;
 
                 return new InProgressShowModel
@@ -63,6 +57,22 @@ public static class WatchNextService
             .OrderByDescending(n => n.LastWatchedAt)
             .ToList();
     }
+
+    /// <summary>
+    /// The first episode in the reference guide that comes after the last-watched <paramref name="lastWatchedSeason"/>/<paramref name="lastWatchedEpisode"/>
+    /// and has already aired (<see cref="ReferenceEpisodeModel.AirDate"/> unset or in the past relative to <paramref name="today"/>), or null if none exists.
+    /// Ordered by (season, episode), not by title or air-date order.
+    /// Shared by <see cref="ComputeInProgressShows"/> (which surfaces this as the "next to watch" episode for a current show)
+    /// and by the finished-show status reconciliation (which treats a non-null result as "a newer episode exists, so this finished show should reopen as current").
+    /// </summary>
+    public static ReferenceEpisodeModel? FindNextAiredEpisode(int lastWatchedSeason, int lastWatchedEpisode, TvShowReferenceModel reference, DateOnly today) =>
+        reference.Episodes
+            .Where(e => e.SeasonNumber > lastWatchedSeason
+                        || (e.SeasonNumber == lastWatchedSeason && e.EpisodeNumber > lastWatchedEpisode))
+            .Where(e => e.AirDate is null || e.AirDate <= today)
+            .OrderBy(e => e.SeasonNumber)
+            .ThenBy(e => e.EpisodeNumber)
+            .FirstOrDefault();
 
     /// <summary>
     /// A movie flagged "want to watch" that has since been marked seen shouldn't linger in the watchlist -

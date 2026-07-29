@@ -48,4 +48,11 @@ public class ReferenceSyncResultDto
     /// is always fully re-fetched - this count is always equal to <see cref="AlbumsChecked"/>.
     /// </summary>
     public int AlbumsUpdated { get; set; }
+
+    /// <summary>
+    /// How many finished TV shows were reopened as "current" because their (freshly synced) reference episode
+    /// guide now lists an aired episode beyond the last one watched - see the finished-show status
+    /// reconciliation that runs right after the reference refresh.
+    /// </summary>
+    public int FinishedShowsReopened { get; set; }
 }

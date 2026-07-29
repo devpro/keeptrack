@@ -204,11 +204,14 @@ public class ReferenceDataAdminController(
     {
         using var scope = scopeFactory.CreateScope();
         var scopedSyncService = scope.ServiceProvider.GetRequiredService<ReferenceSyncService>();
+        var scopedReconciliationService = scope.ServiceProvider.GetRequiredService<TvShowStatusReconciliationService>();
         var scopedJobStore = scope.ServiceProvider.GetRequiredService<JobStore<ReferenceSyncStage, ReferenceSyncResultDto>>();
 
         try
         {
             var result = await scopedSyncService.SyncStaleReferencesAsync(TimeSpan.Zero, stage => scopedJobStore.UpdateStageAsync(jobId, stage));
+            // an on-demand "sync now" reconciles finished-show status too, so its result matches the periodic pass's.
+            result.FinishedShowsReopened = await scopedReconciliationService.ReconcileFinishedShowsAsync();
             await scopedJobStore.CompleteAsync(jobId, ReferenceSyncStage.Completed, result);
         }
         catch (Exception ex)

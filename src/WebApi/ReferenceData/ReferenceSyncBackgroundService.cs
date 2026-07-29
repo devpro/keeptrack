@@ -66,10 +66,16 @@ public class ReferenceSyncBackgroundService(
 
                 var syncService = scope.ServiceProvider.GetRequiredService<ReferenceSyncService>();
                 var result = await syncService.SyncStaleReferencesAsync(s_staleAfter, cancellationToken: stoppingToken);
+
+                // reconcile finished shows against the just-refreshed reference episode guides, in the same
+                // lease-held tick so it never runs against stale data or races another replica.
+                var reconciliationService = scope.ServiceProvider.GetRequiredService<TvShowStatusReconciliationService>();
+                result.FinishedShowsReopened = await reconciliationService.ReconcileFinishedShowsAsync(stoppingToken);
+
                 await jobStore.CompleteAsync(jobId.Value, ReferenceSyncStage.Completed, result);
                 logger.LogInformation(
-                    "Reference sync: {TvShowsChecked} TV show(s) checked ({TvShowsUpdated} updated), {MoviesChecked} movie(s) checked ({MoviesUpdated} updated).",
-                    result.TvShowsChecked, result.TvShowsUpdated, result.MoviesChecked, result.MoviesUpdated);
+                    "Reference sync: {TvShowsChecked} TV show(s) checked ({TvShowsUpdated} updated), {MoviesChecked} movie(s) checked ({MoviesUpdated} updated), {FinishedShowsReopened} finished show(s) reopened.",
+                    result.TvShowsChecked, result.TvShowsUpdated, result.MoviesChecked, result.MoviesUpdated, result.FinishedShowsReopened);
             }
             catch (Exception ex)
             {
