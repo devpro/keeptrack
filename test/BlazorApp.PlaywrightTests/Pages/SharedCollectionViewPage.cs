@@ -26,6 +26,12 @@ public class SharedCollectionViewPage(IPage page) : PageBase(page)
     /// <summary>The "In collection" badge shown for a shared media item the caller already owns.</summary>
     public ILocator InCollectionBadge(string itemTitle) => Row(itemTitle).GetByText("In collection");
 
+    /// <summary>
+    /// The per-row "add to my collection" action. Present on media rows (copyable), absent on collection
+    /// (collectibles/gear) rows, which are view-only - a test asserts <c>ToHaveCountAsync(0)</c> to pin that.
+    /// </summary>
+    public ILocator AddButton(string itemTitle) => Row(itemTitle).GetByTestId("share-add");
+
     /// <summary>Opens a personal item's read-only detail page (the personal rows are links).</summary>
     public async Task<CarDetailPage> OpenCarAsync(string name)
     {

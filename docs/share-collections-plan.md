@@ -237,7 +237,11 @@ That is a genuinely third shape: media is a copyable list, personal is a view-on
 - **Tests**: `ShareCategoryClassifierTest` gained a `Collection`-kind/never-copyable theory for both categories; `ShareResourceTest.CollectionShare_IsReadableAsAFilterableList_ButNeverCopyable` (integration) covers the paged/searchable/favourite-filtered read, empty `AlreadyInCollectionIds`, category-not-in-scope 404, and the copy route being absent (404).
   Whole solution builds with 0 warnings; the classifier unit test passes.
 
-Deferred (same as the other phases): a Playwright leg for the two collection tabs, run in the WSL `E2E_ENABLED` env.
+- **Playwright leg for the collection tabs: WRITTEN.** `SharingSmokeTest.ShareCollections_RecipientSeesReadOnlyListWithNoAddAction`
+  self-shares Collectibles + Gear, then asserts each tab lists its item read-only with **no** per-row "add to my
+  collection" action (`SharedCollectionViewPage.AddButton` → `ToHaveCountAsync(0)`) and no "In collection" badge -
+  the view-only-list distinction from the copyable media tabs. Builds clean; deferred to the WSL `E2E_ENABLED` env
+  to actually run, like every other smoke test.
 
 ## Progress log — Phase 1 (superseded by the rework above)
 

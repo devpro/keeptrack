@@ -85,6 +85,65 @@ public class SharingSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
         }
     }
 
+    /// <summary>
+    /// The collection categories (Collectibles, Gear) are the third sharing shape, distinct from the other two:
+    /// a full read-only list (search / sort / filters, like media) but with no shared reference to copy - so no
+    /// per-row "add to my collection" action and no "In collection" badge, and no read-only detail page either
+    /// (unlike personal). This pins that view-only-list distinction, self-shared to the fixture's own email.
+    /// </summary>
+    [Fact]
+    public async Task ShareCollections_RecipientSeesReadOnlyListWithNoAddAction()
+    {
+        SkipIfReadOnly();
+
+        var tag = Guid.NewGuid().ToString("N")[..8];
+        var collectibleTitle = $"E2e Share Collectible {tag}";
+        var gearTitle = $"E2e Share Gear {tag}";
+        var label = $"E2e Coll {tag}";
+        var api = Fixture.ApiHttpClient;
+
+        var collectible = await CreateAsync<CollectibleDto>(api, "api/collectibles", new CollectibleDto { Title = collectibleTitle, Brand = "Lego", Year = 2020 });
+        var gear = await CreateAsync<GearDto>(api, "api/gear", new GearDto { Title = gearTitle, Brand = "Sony", Year = 2021 });
+
+        string? shareId = null;
+        try
+        {
+            // Owner creates the grant (Collectibles + Gear) through the profile UI's "Collections" group.
+            var sharing = await new SharingOwnerPage(Page).OpenAsync();
+            await sharing.FillRecipientEmailAsync(Fixture.SignedInEmail);
+            await sharing.FillLabelAsync(label);
+            await sharing.ToggleCategoryAsync("Collectibles");
+            await sharing.ToggleCategoryAsync("Gear");
+            await sharing.CreateShareAsync();
+            await Assertions.Expect(sharing.ActiveShareRow(label)).ToBeVisibleAsync();
+
+            shareId = await FindShareIdByLabelAsync(api, label);
+
+            var sharedWithMe = await new SharedWithMePage(Page).OpenAsync();
+            var collection = await sharedWithMe.OpenCollectionByIdAsync(shareId);
+
+            // Collectibles: listed read-only, with no "add to my collection" action and no "In collection" badge.
+            await collection.SelectTabAsync("Collectibles");
+            await Assertions.Expect(collection.Row(collectibleTitle)).ToBeVisibleAsync();
+            await Assertions.Expect(collection.AddButton(collectibleTitle)).ToHaveCountAsync(0);
+            await Assertions.Expect(collection.InCollectionBadge(collectibleTitle)).ToHaveCountAsync(0);
+
+            // Gear: the same view-only-list shape.
+            await collection.SelectTabAsync("Gear");
+            await Assertions.Expect(collection.Row(gearTitle)).ToBeVisibleAsync();
+            await Assertions.Expect(collection.AddButton(gearTitle)).ToHaveCountAsync(0);
+        }
+        finally
+        {
+            if (shareId is not null)
+            {
+                await Fixture.DeleteItemAsync($"api/shares/{shareId}");
+            }
+            await Fixture.DeleteItemAsync($"api/collectibles/{collectible.Id}");
+            await Fixture.DeleteItemAsync($"api/gear/{gear.Id}");
+        }
+    }
+
     private static async Task<T> CreateAsync<T>(HttpClient api, string path, T body)
     {
         var response = await api.PostAsJsonAsync(path, body, TestContext.Current.CancellationToken);
