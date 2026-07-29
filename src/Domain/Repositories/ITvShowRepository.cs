@@ -14,7 +14,13 @@ public interface ITvShowRepository : IDataRepository<TvShowModel>
     /// newly-linked show starts with a trustworthy year instead of whatever the tenant originally guessed
     /// (still freely editable afterward). Otherwise never touches any tenant's own rating/notes/episodes.
     /// </summary>
-    Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null);
+    Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null, double? canonicalRating = null, double? canonicalRatingScale = null);
+
+    /// <summary>
+    /// Re-propagates the denormalized <see cref="TvShowModel.ReferenceRating"/>/<see cref="TvShowModel.ReferenceRatingScale"/>
+    /// to every tenant show already linked to <paramref name="referenceId"/> - see <see cref="IMovieRepository.SetReferenceRatingAsync"/>.
+    /// </summary>
+    Task<long> SetReferenceRatingAsync(string referenceId, double? rating, double? ratingScale);
 
     /// <summary>
     /// Distinct (title, year) pairs across every tenant's shows that have no <see cref="TvShowModel.ReferenceId"/>

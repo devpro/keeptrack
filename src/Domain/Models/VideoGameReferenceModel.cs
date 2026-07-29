@@ -37,6 +37,12 @@ public class VideoGameReferenceModel : IHasId
 
     public List<string> Genres { get; set; } = [];
 
+    /// <summary>
+    /// Aggregate ratings keyed by source: "rawg" (0-5 user score, the primary) and "metacritic" (0-100
+    /// critic score) when present - see <see cref="ReferenceRatingModel"/>.
+    /// </summary>
+    public Dictionary<string, ReferenceRatingModel> Ratings { get; set; } = [];
+
     public string? ImageUrl { get; set; }
 
     public DateTime? LastEnrichedAt { get; set; }

@@ -89,6 +89,13 @@ else
                     <label class="form-label">Rating</label>
                     <StarRatingInput Rating="Game.Rating" RatingChanged="SetRatingAsync"/>
                 </div>
+                @if (Reference?.Ratings.Count > 0)
+                {
+                    <div class="mt-3">
+                        <label class="form-label">Reference rating</label>
+                        <ReferenceRatings Ratings="Reference.Ratings"/>
+                    </div>
+                }
                 @if (Reference?.Platforms.Count > 0)
                 {
                     <p class="kt-card-meta mt-3 mb-0">Available on: @string.Join(", ", Reference.Platforms)</p>

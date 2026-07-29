@@ -37,6 +37,9 @@ public class AlbumReference
 
     public List<ReferenceTrack> Tracks { get; set; } = [];
 
+    /// <summary>Aggregate ratings keyed by source name ("discogs") - see <see cref="ReferenceRating"/>.</summary>
+    public Dictionary<string, ReferenceRating> Ratings { get; set; } = [];
+
     [BsonElement("image_url")]
     public string? ImageUrl { get; set; }
 

@@ -22,6 +22,16 @@ public class AlbumModel : IHasIdAndOwnerId
     public string? ReferenceId { get; set; }
 
     /// <summary>
+    /// Denormalized copy of the linked reference's primary-source (Discogs, 0-5) rating, on
+    /// <see cref="ReferenceRatingScale"/>. Copied down on link/refresh for fast list display and sorting;
+    /// the authoritative data is on <see cref="AlbumReferenceModel.Ratings"/>.
+    /// </summary>
+    public double? ReferenceRating { get; set; }
+
+    /// <summary>Scale of <see cref="ReferenceRating"/> (5 for Discogs); null when there is no reference rating.</summary>
+    public double? ReferenceRatingScale { get; set; }
+
+    /// <summary>
     /// Tenant-owned cover image override - takes priority over the linked reference's own cover wherever
     /// a cover is shown (list thumbnail, detail page). Null means "use the reference's cover, if any" -
     /// the previous, only behavior.

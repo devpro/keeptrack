@@ -56,9 +56,24 @@ public class DiscogsClient(HttpClient http, DiscogsSettings settings) : IDiscogs
             .Select(t => new DiscogsTrack(t.Position ?? "", t.Title ?? "", t.Duration))
             .ToList();
 
+        // A Discogs community rating lives on an individual *release*, not the master grouping we search/fetch,
+        // so fetch the master's canonical main_release to read it. Best-effort: a missing release or rating
+        // just leaves the album without a reference rating rather than failing the whole resolve.
+        var (rating, ratingCount) = await GetCommunityRatingAsync(details.MainRelease, cancellationToken);
+
         return new DiscogsAlbumDetails(
             externalId, details.Title ?? string.Empty, details.Year, details.Notes,
-            primaryArtist?.Name, primaryArtist?.Id.ToString(System.Globalization.CultureInfo.InvariantCulture), genres, image, tracks);
+            primaryArtist?.Name, primaryArtist?.Id.ToString(System.Globalization.CultureInfo.InvariantCulture), genres, image, tracks,
+            rating, ratingCount);
+    }
+
+    private async Task<(double? Rating, int? Count)> GetCommunityRatingAsync(int? mainReleaseId, CancellationToken cancellationToken)
+    {
+        if (mainReleaseId is null or 0) return (null, null);
+        var release = await http.GetFromJsonAsync<DiscogsReleaseResponse>($"releases/{mainReleaseId}?token={Token}", cancellationToken);
+        var rating = release?.Community?.Rating;
+        // Discogs reports average 0 / count 0 for an unrated release - treat that as "no rating", not a real 0.
+        return rating is { Average: > 0, Count: > 0 } ? (rating.Average, rating.Count) : (null, null);
     }
 
     private string Token => settings.Token;
@@ -103,6 +118,9 @@ public class DiscogsClient(HttpClient http, DiscogsSettings settings) : IDiscogs
 
     private sealed class DiscogsMasterResponse
     {
+        [JsonPropertyName("main_release")]
+        public int? MainRelease { get; set; }
+
         [JsonPropertyName("title")]
         public string? Title { get; set; }
 
@@ -151,6 +169,28 @@ public class DiscogsClient(HttpClient http, DiscogsSettings settings) : IDiscogs
     {
         [JsonPropertyName("uri")]
         public string? Uri { get; set; }
+    }
+
+    /// <summary>The individual-release resource (fetched via a master's <c>main_release</c>) - the only place Discogs exposes a community rating.</summary>
+    private sealed class DiscogsReleaseResponse
+    {
+        [JsonPropertyName("community")]
+        public DiscogsCommunity? Community { get; set; }
+    }
+
+    private sealed class DiscogsCommunity
+    {
+        [JsonPropertyName("rating")]
+        public DiscogsRating? Rating { get; set; }
+    }
+
+    private sealed class DiscogsRating
+    {
+        [JsonPropertyName("average")]
+        public double Average { get; set; }
+
+        [JsonPropertyName("count")]
+        public int Count { get; set; }
     }
 
     private sealed class DiscogsArtist

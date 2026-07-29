@@ -94,6 +94,13 @@ else
                         <label class="form-label">Rating</label>
                         <StarRatingInput Rating="Album.Rating" RatingChanged="SetRatingAsync"/>
                     </div>
+                    @if (Reference?.Ratings.Count > 0)
+                    {
+                        <div class="col-12">
+                            <label class="form-label">Reference rating</label>
+                            <ReferenceRatings Ratings="Reference.Ratings"/>
+                        </div>
+                    }
                     <div class="col-12">
                         <label class="form-label">Cover image URL</label>
                         <input class="form-control form-control-sm" placeholder="@(Reference?.ImageUrl is null ? "" : "Leave blank to use the linked reference's cover")"

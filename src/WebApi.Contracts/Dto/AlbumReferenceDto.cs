@@ -25,5 +25,8 @@ public class AlbumReferenceDto : IHasId
 
     public List<ReferenceTrackDto> Tracks { get; set; } = [];
 
+    /// <summary>Aggregate ratings keyed by source name ("discogs") - see <see cref="ReferenceRatingDto"/>.</summary>
+    public Dictionary<string, ReferenceRatingDto> Ratings { get; set; } = [];
+
     public string? ImageUrl { get; set; }
 }

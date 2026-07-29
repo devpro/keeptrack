@@ -6,6 +6,26 @@ namespace Keeptrack.WebApi.ReferenceData;
 public partial class ReferenceEnrichmentService
 {
     /// <summary>
+    /// Builds the reference <c>Ratings</c> map for a book, keyed by the provider that resolved it
+    /// (a book links through exactly one provider, so the map holds at most one entry - that provider is
+    /// therefore the primary). Google Books and Open Library both report a 0-5 average; BnF reports none.
+    /// A 0/absent value is omitted, never stored as a real zero.
+    /// </summary>
+    private static Dictionary<string, ReferenceRatingModel> BuildBookRatings(string providerKey, double? rating, int? ratingCount)
+    {
+        var ratings = new Dictionary<string, ReferenceRatingModel>();
+        if (rating is > 0)
+        {
+            ratings[providerKey] = new ReferenceRatingModel { Value = rating.Value, Scale = 5, Count = ratingCount };
+        }
+        return ratings;
+    }
+
+    /// <summary>The book's single stored rating (from whichever provider linked it), or (null, null) when it has none.</summary>
+    private static (double? Value, double? Scale) BookPrimaryRating(BookReferenceModel reference) =>
+        reference.Ratings.Count == 0 ? (null, null) : PrimaryRating(reference.Ratings, reference.Ratings.Keys.First());
+
+    /// <summary>
     /// User-triggered "check for reference match" for books - see
     /// <see cref="TryLinkExistingTvShowReferenceAsync"/> for the full rationale (this is the same local-only,
     /// no-HTTP-call lookup, just against <c>book_reference</c>). A successful match also sets
@@ -33,6 +53,8 @@ public partial class ReferenceEnrichmentService
             if (!string.IsNullOrEmpty(model.ReferenceId))
             {
                 model.ReferenceId = string.Empty;
+                model.ReferenceRating = null;
+                model.ReferenceRatingScale = null;
                 await bookRepository.UpdateAsync(model.Id!, model, model.OwnerId);
             }
 
@@ -43,6 +65,7 @@ public partial class ReferenceEnrichmentService
         var originalYear = model.Year;
         var authorName = await ResolvePersonNameAsync(reference.AuthorReferenceId);
         var genre = JoinGenres(reference.Genres);
+        var (ratingValue, ratingScale) = BookPrimaryRating(reference);
 
         model.ReferenceId = reference.Id;
         model.Title = reference.Title;
@@ -51,8 +74,10 @@ public partial class ReferenceEnrichmentService
         if (genre is not null) model.Genre = genre;
         if (reference.Language is not null) model.Language = reference.Language;
         if (reference.Isbn is not null) model.Isbn = reference.Isbn;
+        model.ReferenceRating = ratingValue;
+        model.ReferenceRatingScale = ratingScale;
         await bookRepository.UpdateAsync(model.Id!, model, model.OwnerId);
-        await bookRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year, authorName, genre, reference.Language, reference.Isbn);
+        await bookRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year, authorName, genre, reference.Language, reference.Isbn, ratingValue, ratingScale);
 
         return model;
     }
@@ -66,6 +91,8 @@ public partial class ReferenceEnrichmentService
     {
         var referenceId = model.ReferenceId;
         model.ReferenceId = string.Empty;
+        model.ReferenceRating = null;
+        model.ReferenceRatingScale = null;
         await bookRepository.UpdateAsync(model.Id!, model, model.OwnerId);
         if (!string.IsNullOrEmpty(referenceId))
         {
@@ -143,6 +170,7 @@ public partial class ReferenceEnrichmentService
                 (details.Title, details.Year ?? year, details.Author, details.Isbn),
                 (title, year, details.Author, isbn)),
             Genres = details.Genres,
+            Ratings = BuildBookRatings(client.ProviderKey, details.Rating, details.RatingCount),
             ImageUrl = details.ImageUrl,
             Language = details.Language ?? existing?.Language,
             Isbn = details.Isbn ?? existing?.Isbn,
@@ -150,7 +178,8 @@ public partial class ReferenceEnrichmentService
         };
 
         var saved = await bookReferenceRepository.UpsertAsync(model);
-        await bookRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, details.Author, JoinGenres(details.Genres), details.Language, details.Isbn);
+        var (ratingValue, ratingScale) = BookPrimaryRating(saved);
+        await bookRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, details.Author, JoinGenres(details.Genres), details.Language, details.Isbn, ratingValue, ratingScale);
         return saved;
     }
 
@@ -183,12 +212,16 @@ public partial class ReferenceEnrichmentService
             reference.AuthorReferenceId = await ResolvePersonReferenceIdAsync(client.ProviderKey, details.AuthorExternalId, details.Author ?? "Unknown", null);
         }
         reference.Genres = details.Genres;
+        reference.Ratings = BuildBookRatings(client.ProviderKey, details.Rating, details.RatingCount);
         reference.ImageUrl = details.ImageUrl ?? reference.ImageUrl;
         reference.Language = details.Language ?? reference.Language;
         reference.Isbn = details.Isbn ?? reference.Isbn;
         reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, details.Author, details.Isbn));
         reference.LastEnrichedAt = DateTime.UtcNow;
 
-        return (await bookReferenceRepository.UpsertAsync(reference), true);
+        var saved = await bookReferenceRepository.UpsertAsync(reference);
+        var (ratingValue, ratingScale) = BookPrimaryRating(saved);
+        await bookRepository.SetReferenceRatingAsync(saved.Id!, ratingValue, ratingScale);
+        return (saved, true);
     }
 }

@@ -43,6 +43,16 @@ public class TvShowDto : IHasId, IReferenceLinkedDto
     /// </summary>
     public string? ImageUrl { get; set; }
 
+    /// <summary>
+    /// Denormalized primary-source (TMDB) rating from the linked reference, on <see cref="ReferenceRatingScale"/>.
+    /// Server-managed on link/refresh, round-tripped on edits; null until linked. Full breakdown on
+    /// <see cref="TvShowReferenceDto.Ratings"/>.
+    /// </summary>
+    public double? ReferenceRating { get; set; }
+
+    /// <summary>Scale of <see cref="ReferenceRating"/> (10 for TMDB); null when there is no reference rating.</summary>
+    public double? ReferenceRatingScale { get; set; }
+
     public TvShowStatus? State { get; set; }
 
     public bool IsFavorite { get; set; }

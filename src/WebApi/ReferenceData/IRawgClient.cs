@@ -6,7 +6,7 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// </summary>
 public record RawgSearchResult(string ExternalId, string Title, int? Year, string? ImageUrl);
 
-public record RawgGameDetails(string ExternalId, string Title, int? Year, string? Synopsis, List<string> Genres, List<string> Platforms, string? ImageUrl);
+public record RawgGameDetails(string ExternalId, string Title, int? Year, string? Synopsis, List<string> Genres, List<string> Platforms, string? ImageUrl, double? Rating = null, int? RatingsCount = null, int? Metacritic = null);
 
 /// <summary>
 /// Thin wrapper over the RAWG Video Games Database REST API. Interface exists so tests use a fake -

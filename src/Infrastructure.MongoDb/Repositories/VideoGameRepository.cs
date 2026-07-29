@@ -24,6 +24,8 @@ public class VideoGameRepository(IMongoDatabase mongoDatabase, ILogger<VideoGame
 
     protected override Expression<Func<VideoGame, object>> SortRatingField => x => x.Rating!;
 
+    protected override Expression<Func<VideoGame, object>> SortReferenceRatingField => x => x.ReferenceRating!;
+
     /// <summary>
     /// "Last completed" needs the max <c>CompletedAt</c> across a game's <see cref="VideoGame.Platforms"/>
     /// array, not a single scalar field, so it can't use the shared <c>SortSecondaryDateField</c> hook.
@@ -52,15 +54,24 @@ public class VideoGameRepository(IMongoDatabase mongoDatabase, ILogger<VideoGame
         return filter;
     }
 
-    public async Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null)
+    public async Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null, double? canonicalRating = null, double? canonicalRatingScale = null)
     {
         var builder = Builders<VideoGame>.Filter;
         var filter = builder.Regex(f => f.Title, new BsonRegularExpression($"^{Regex.Escape(title)}$", "i"))
                      & builder.Eq(f => f.Year, year)
                      & UnresolvedFilter();
 
-        var update = Builders<VideoGame>.Update.Set(f => f.ReferenceId, referenceId).Set(f => f.Title, canonicalTitle);
+        var update = Builders<VideoGame>.Update.Set(f => f.ReferenceId, referenceId).Set(f => f.Title, canonicalTitle)
+            .Set(f => f.ReferenceRating, canonicalRating).Set(f => f.ReferenceRatingScale, canonicalRatingScale);
         if (canonicalYear is not null) update = update.Set(f => f.Year, canonicalYear);
+        var result = await GetCollection().UpdateManyAsync(filter, update);
+        return result.ModifiedCount;
+    }
+
+    public async Task<long> SetReferenceRatingAsync(string referenceId, double? rating, double? ratingScale)
+    {
+        var filter = Builders<VideoGame>.Filter.Eq(f => f.ReferenceId, referenceId);
+        var update = Builders<VideoGame>.Update.Set(f => f.ReferenceRating, rating).Set(f => f.ReferenceRatingScale, ratingScale);
         var result = await GetCollection().UpdateManyAsync(filter, update);
         return result.ModifiedCount;
     }

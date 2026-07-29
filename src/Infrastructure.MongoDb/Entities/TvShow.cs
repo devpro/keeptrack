@@ -32,6 +32,12 @@ public class TvShow : IHasIdAndOwnerId
     [BsonElement("reference_id")]
     public string? ReferenceId { get; set; }
 
+    [BsonElement("reference_rating")]
+    public double? ReferenceRating { get; set; }
+
+    [BsonElement("reference_rating_scale")]
+    public double? ReferenceRatingScale { get; set; }
+
     // storage name kept as "status" deliberately - only the C# property was renamed to State (for parity
     // with VideoGame.State), so existing documents need no migration.
     [BsonElement("status")]

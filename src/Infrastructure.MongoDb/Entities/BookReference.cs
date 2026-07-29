@@ -35,6 +35,9 @@ public class BookReference
 
     public List<string> Genres { get; set; } = [];
 
+    /// <summary>Aggregate ratings keyed by provider key ("googlebooks"/"openlibrary") - see <see cref="ReferenceRating"/>.</summary>
+    public Dictionary<string, ReferenceRating> Ratings { get; set; } = [];
+
     [BsonElement("image_url")]
     public string? ImageUrl { get; set; }
 

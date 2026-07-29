@@ -76,6 +76,7 @@ public class OpenLibraryClient(HttpClient http) : IBookReferenceClient
         }
 
         var year = ParseYear(work.FirstPublishDate) ?? await FindPublishYearViaSearchAsync(externalId, cancellationToken);
+        var (rating, ratingCount) = await GetRatingAsync(externalId, cancellationToken);
 
         return new BookDetails(
             externalId,
@@ -85,7 +86,21 @@ public class OpenLibraryClient(HttpClient http) : IBookReferenceClient
             authorName,
             authorExternalId,
             work.Subjects.Take(MaxGenres).ToList(),
-            BuildCoverUrl(work.Covers.FirstOrDefault()));
+            BuildCoverUrl(work.Covers.FirstOrDefault()),
+            Rating: rating,
+            RatingCount: ratingCount);
+    }
+
+    /// <summary>
+    /// Open Library exposes a work's aggregate rating on a dedicated <c>/works/{id}/ratings.json</c> endpoint
+    /// (not on the work document itself) - one extra call, best-effort: a missing summary just leaves the
+    /// book without a reference rating. A 0/absent average is treated as "no rating", not a real zero.
+    /// </summary>
+    private async Task<(double? Rating, int? Count)> GetRatingAsync(string workKey, CancellationToken cancellationToken)
+    {
+        var response = await http.GetFromJsonAsync<OpenLibraryRatingsResponse>($"{workKey}/ratings.json", cancellationToken);
+        var summary = response?.Summary;
+        return summary is { Average: > 0, Count: > 0 } ? (summary.Average, summary.Count) : (null, null);
     }
 
     /// <summary>
@@ -203,5 +218,20 @@ public class OpenLibraryClient(HttpClient http) : IBookReferenceClient
     {
         [JsonPropertyName("name")]
         public string? Name { get; set; }
+    }
+
+    private sealed class OpenLibraryRatingsResponse
+    {
+        [JsonPropertyName("summary")]
+        public OpenLibraryRatingsSummary? Summary { get; set; }
+    }
+
+    private sealed class OpenLibraryRatingsSummary
+    {
+        [JsonPropertyName("average")]
+        public double? Average { get; set; }
+
+        [JsonPropertyName("count")]
+        public int Count { get; set; }
     }
 }

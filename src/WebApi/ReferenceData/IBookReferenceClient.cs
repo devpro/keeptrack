@@ -6,7 +6,7 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// </summary>
 public record BookSearchResult(string ExternalId, string Title, int? Year, string? Author, string? ImageUrl);
 
-public record BookDetails(string ExternalId, string Title, int? Year, string? Synopsis, string? Author, string? AuthorExternalId, List<string> Genres, string? ImageUrl, string? Language = null, string? Isbn = null);
+public record BookDetails(string ExternalId, string Title, int? Year, string? Synopsis, string? Author, string? AuthorExternalId, List<string> Genres, string? ImageUrl, string? Language = null, string? Isbn = null, double? Rating = null, int? RatingCount = null);
 
 /// <summary>
 /// Provider-agnostic book lookup, backing <see cref="ReferenceEnrichmentService"/>'s book resolution/refresh

@@ -27,6 +27,12 @@ public class Album : IHasIdAndOwnerId
     [BsonElement("reference_id")]
     public string? ReferenceId { get; set; }
 
+    [BsonElement("reference_rating")]
+    public double? ReferenceRating { get; set; }
+
+    [BsonElement("reference_rating_scale")]
+    public double? ReferenceRatingScale { get; set; }
+
     [BsonElement("custom_image_url")]
     public string? CustomImageUrl { get; set; }
 

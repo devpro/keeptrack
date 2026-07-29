@@ -53,7 +53,7 @@ public partial class GoogleBooksClient(HttpClient http, GoogleBooksSettings sett
     /// <summary>
     /// Same idea as <see cref="SearchFields"/>, restricted to what <see cref="BookDetails"/> reads.
     /// </summary>
-    private const string DetailsFields = "fields=volumeInfo(title,publishedDate,description,authors,categories,imageLinks/thumbnail,language,industryIdentifiers)";
+    private const string DetailsFields = "fields=volumeInfo(title,publishedDate,description,authors,categories,imageLinks/thumbnail,language,industryIdentifiers,averageRating,ratingsCount)";
 
     private async Task<IReadOnlyList<BookSearchResult>> SearchBooksCoreAsync(string query, CancellationToken cancellationToken)
     {
@@ -83,7 +83,9 @@ public partial class GoogleBooksClient(HttpClient http, GoogleBooksSettings sett
             info.Categories.Take(MaxGenres).ToList(),
             BuildImageUrl(info.ImageLinks),
             info.Language,
-            ExtractIsbn(info.IndustryIdentifiers));
+            ExtractIsbn(info.IndustryIdentifiers),
+            info.AverageRating,
+            info.RatingsCount);
     }
 
     private static string BuildQuery(string title, string? author)
@@ -212,6 +214,12 @@ public partial class GoogleBooksClient(HttpClient http, GoogleBooksSettings sett
 
         [JsonPropertyName("language")]
         public string? Language { get; set; }
+
+        [JsonPropertyName("averageRating")]
+        public double? AverageRating { get; set; }
+
+        [JsonPropertyName("ratingsCount")]
+        public int? RatingsCount { get; set; }
 
         [JsonPropertyName("imageLinks")]
         public GoogleBooksImageLinks? ImageLinks { get; set; }

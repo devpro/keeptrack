@@ -14,7 +14,13 @@ public interface IBookRepository : IDataRepository<BookModel>
     /// <see cref="ITvShowRepository.SetReferenceLinkAsync"/>.
     /// </summary>
     Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null, string? canonicalAuthor = null, string? canonicalGenre = null,
-        string? canonicalLanguage = null, string? canonicalIsbn = null);
+        string? canonicalLanguage = null, string? canonicalIsbn = null, double? canonicalRating = null, double? canonicalRatingScale = null);
+
+    /// <summary>
+    /// Re-propagates the denormalized <see cref="BookModel.ReferenceRating"/>/<see cref="BookModel.ReferenceRatingScale"/>
+    /// to every tenant book already linked to <paramref name="referenceId"/> - see <see cref="IMovieRepository.SetReferenceRatingAsync"/>.
+    /// </summary>
+    Task<long> SetReferenceRatingAsync(string referenceId, double? rating, double? ratingScale);
 
     /// <summary>
     /// Distinct (title, year) pairs across every tenant's books that have no <see cref="BookModel.ReferenceId"/>

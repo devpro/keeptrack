@@ -48,6 +48,9 @@ public class TvShowReferenceModel : IHasId
 
     public List<CastMemberModel> Cast { get; set; } = [];
 
+    /// <summary>Aggregate ratings keyed by source ("tmdb") - see <see cref="ReferenceRatingModel"/>.</summary>
+    public Dictionary<string, ReferenceRatingModel> Ratings { get; set; } = [];
+
     public string? ImageUrl { get; set; }
 
     public DateTime? LastEnrichedAt { get; set; }

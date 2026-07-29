@@ -25,6 +25,8 @@ public class BookRepository(IMongoDatabase mongoDatabase, ILogger<BookRepository
 
     protected override Expression<Func<Book, object>> SortSecondaryDateField => x => x.FirstReadAt!;
 
+    protected override Expression<Func<Book, object>> SortReferenceRatingField => x => x.ReferenceRating!;
+
     protected override FilterDefinition<Book> GetFilter(string ownerId, string? search, BookModel input)
     {
         var builder = Builders<Book>.Filter;
@@ -43,19 +45,28 @@ public class BookRepository(IMongoDatabase mongoDatabase, ILogger<BookRepository
     }
 
     public async Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null, string? canonicalAuthor = null, string? canonicalGenre = null,
-        string? canonicalLanguage = null, string? canonicalIsbn = null)
+        string? canonicalLanguage = null, string? canonicalIsbn = null, double? canonicalRating = null, double? canonicalRatingScale = null)
     {
         var builder = Builders<Book>.Filter;
         var filter = builder.Regex(f => f.Title, new BsonRegularExpression($"^{Regex.Escape(title)}$", "i"))
                      & builder.Eq(f => f.Year, year)
                      & UnresolvedFilter();
 
-        var update = Builders<Book>.Update.Set(f => f.ReferenceId, referenceId).Set(f => f.Title, canonicalTitle);
+        var update = Builders<Book>.Update.Set(f => f.ReferenceId, referenceId).Set(f => f.Title, canonicalTitle)
+            .Set(f => f.ReferenceRating, canonicalRating).Set(f => f.ReferenceRatingScale, canonicalRatingScale);
         if (canonicalYear is not null) update = update.Set(f => f.Year, canonicalYear);
         if (canonicalAuthor is not null) update = update.Set(f => f.Author, canonicalAuthor);
         if (canonicalGenre is not null) update = update.Set(f => f.Genre, canonicalGenre);
         if (canonicalLanguage is not null) update = update.Set(f => f.Language, canonicalLanguage);
         if (canonicalIsbn is not null) update = update.Set(f => f.Isbn, canonicalIsbn);
+        var result = await GetCollection().UpdateManyAsync(filter, update);
+        return result.ModifiedCount;
+    }
+
+    public async Task<long> SetReferenceRatingAsync(string referenceId, double? rating, double? ratingScale)
+    {
+        var filter = Builders<Book>.Filter.Eq(f => f.ReferenceId, referenceId);
+        var update = Builders<Book>.Update.Set(f => f.ReferenceRating, rating).Set(f => f.ReferenceRatingScale, ratingScale);
         var result = await GetCollection().UpdateManyAsync(filter, update);
         return result.ModifiedCount;
     }

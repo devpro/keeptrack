@@ -94,6 +94,13 @@ else
                     <label class="form-label">Rating</label>
                     <StarRatingInput Rating="_show.Rating" RatingChanged="SetRatingAsync"/>
                 </div>
+                @if (_reference?.Ratings.Count > 0)
+                {
+                    <div class="mt-3">
+                        <label class="form-label">Reference rating</label>
+                        <ReferenceRatings Ratings="_reference.Ratings"/>
+                    </div>
+                }
                 @if (_reference?.Genres.Count > 0)
                 {
                     <p class="kt-card-meta mt-3 mb-0">@string.Join(", ", _reference.Genres)</p>

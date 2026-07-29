@@ -21,5 +21,8 @@ public class VideoGameReferenceDto : IHasId
 
     public List<string> Genres { get; set; } = [];
 
+    /// <summary>Aggregate ratings keyed by source name ("rawg", "metacritic") - see <see cref="ReferenceRatingDto"/>.</summary>
+    public Dictionary<string, ReferenceRatingDto> Ratings { get; set; } = [];
+
     public string? ImageUrl { get; set; }
 }

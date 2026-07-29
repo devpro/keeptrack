@@ -38,6 +38,12 @@ public class BookReferenceModel : IHasId
 
     public List<string> Genres { get; set; } = [];
 
+    /// <summary>
+    /// Aggregate ratings keyed by the linking provider's key ("googlebooks"/"openlibrary"; BnF reports
+    /// none) - see <see cref="ReferenceRatingModel"/>.
+    /// </summary>
+    public Dictionary<string, ReferenceRatingModel> Ratings { get; set; } = [];
+
     public string? ImageUrl { get; set; }
 
     /// <summary>

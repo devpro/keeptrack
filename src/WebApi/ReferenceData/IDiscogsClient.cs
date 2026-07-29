@@ -6,7 +6,7 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// </summary>
 public record DiscogsSearchResult(string ExternalId, string Title, int? Year, string? Artist, string? ImageUrl);
 
-public record DiscogsAlbumDetails(string ExternalId, string Title, int? Year, string? Synopsis, string? Artist, string? ArtistExternalId, List<string> Genres, string? ImageUrl, List<DiscogsTrack> Tracks);
+public record DiscogsAlbumDetails(string ExternalId, string Title, int? Year, string? Synopsis, string? Artist, string? ArtistExternalId, List<string> Genres, string? ImageUrl, List<DiscogsTrack> Tracks, double? Rating = null, int? RatingCount = null);
 
 /// <summary>
 /// One tracklist entry from Discogs' <c>/masters/{id}</c> response - <paramref name="Position"/> isn't

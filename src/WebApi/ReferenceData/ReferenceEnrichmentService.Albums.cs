@@ -7,6 +7,17 @@ public partial class ReferenceEnrichmentService
 {
     private const string DiscogsProviderKey = "discogs";
 
+    /// <summary>Builds the reference <c>Ratings</c> map from Discogs' 0-5 community rating; a 0/absent value is omitted, not stored as a real zero.</summary>
+    private static Dictionary<string, ReferenceRatingModel> BuildDiscogsRatings(double? rating, int? ratingCount)
+    {
+        var ratings = new Dictionary<string, ReferenceRatingModel>();
+        if (rating is > 0)
+        {
+            ratings[DiscogsProviderKey] = new ReferenceRatingModel { Value = rating.Value, Scale = 5, Count = ratingCount };
+        }
+        return ratings;
+    }
+
     /// <summary>
     /// User-triggered "check for reference match" for albums - see
     /// <see cref="TryLinkExistingTvShowReferenceAsync"/> for the full rationale (this is the same local-only,
@@ -34,6 +45,8 @@ public partial class ReferenceEnrichmentService
             if (!string.IsNullOrEmpty(model.ReferenceId))
             {
                 model.ReferenceId = string.Empty;
+                model.ReferenceRating = null;
+                model.ReferenceRatingScale = null;
                 await albumRepository.UpdateAsync(model.Id!, model, model.OwnerId);
             }
 
@@ -44,14 +57,17 @@ public partial class ReferenceEnrichmentService
         var originalYear = model.Year;
         var artistName = await ResolvePersonNameAsync(reference.ArtistReferenceId);
         var genre = JoinGenres(reference.Genres);
+        var (ratingValue, ratingScale) = PrimaryRating(reference.Ratings, DiscogsProviderKey);
 
         model.ReferenceId = reference.Id;
         model.Title = reference.Title;
         if (reference.Year is not null) model.Year = reference.Year;
         if (!string.IsNullOrEmpty(artistName)) model.Artist = artistName;
         if (genre is not null) model.Genre = genre;
+        model.ReferenceRating = ratingValue;
+        model.ReferenceRatingScale = ratingScale;
         await albumRepository.UpdateAsync(model.Id!, model, model.OwnerId);
-        await albumRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year, artistName, genre);
+        await albumRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year, artistName, genre, ratingValue, ratingScale);
 
         return model;
     }
@@ -65,6 +81,8 @@ public partial class ReferenceEnrichmentService
     {
         var referenceId = model.ReferenceId;
         model.ReferenceId = string.Empty;
+        model.ReferenceRating = null;
+        model.ReferenceRatingScale = null;
         await albumRepository.UpdateAsync(model.Id!, model, model.OwnerId);
         if (!string.IsNullOrEmpty(referenceId))
         {
@@ -127,12 +145,14 @@ public partial class ReferenceEnrichmentService
             MatchedAliases = MergeMatchedAliases(existing?.MatchedAliases, (details.Title, details.Year ?? year, details.Artist, null), (title, year, details.Artist, null)),
             Genres = details.Genres,
             Tracks = MapTracks(details.Tracks),
+            Ratings = BuildDiscogsRatings(details.Rating, details.RatingCount),
             ImageUrl = details.ImageUrl,
             LastEnrichedAt = DateTime.UtcNow
         };
 
         var saved = await albumReferenceRepository.UpsertAsync(model);
-        await albumRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, details.Artist, JoinGenres(details.Genres));
+        var (ratingValue, ratingScale) = PrimaryRating(saved.Ratings, DiscogsProviderKey);
+        await albumRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, details.Artist, JoinGenres(details.Genres), ratingValue, ratingScale);
         return saved;
     }
 
@@ -159,11 +179,15 @@ public partial class ReferenceEnrichmentService
         }
         reference.Genres = details.Genres;
         reference.Tracks = MapTracks(details.Tracks);
+        reference.Ratings = BuildDiscogsRatings(details.Rating, details.RatingCount);
         reference.ImageUrl = details.ImageUrl ?? reference.ImageUrl;
         reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, details.Artist, null));
         reference.LastEnrichedAt = DateTime.UtcNow;
 
-        return (await albumReferenceRepository.UpsertAsync(reference), true);
+        var saved = await albumReferenceRepository.UpsertAsync(reference);
+        var (ratingValue, ratingScale) = PrimaryRating(saved.Ratings, DiscogsProviderKey);
+        await albumRepository.SetReferenceRatingAsync(saved.Id!, ratingValue, ratingScale);
+        return (saved, true);
     }
 
     private static List<ReferenceTrackModel> MapTracks(List<DiscogsTrack> tracks) =>

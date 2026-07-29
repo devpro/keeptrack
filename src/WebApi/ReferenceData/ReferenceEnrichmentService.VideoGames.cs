@@ -5,6 +5,31 @@ namespace Keeptrack.WebApi.ReferenceData;
 
 public partial class ReferenceEnrichmentService
 {
+    /// <summary>The source denormalized onto the tenant game as the primary (list/sort) value - RAWG's own 0-5 user score.</summary>
+    private const string RawgRatingSource = "rawg";
+
+    private const string MetacriticRatingSource = "metacritic";
+
+    /// <summary>
+    /// Builds the reference <c>Ratings</c> map from RAWG's aggregates: RAWG's own 0-5 user score (the
+    /// primary, usually present) plus Metacritic's 0-100 critic score as a second source when RAWG reports
+    /// one (frequently absent). A 0/absent value is treated as "no rating" and omitted, never stored as a
+    /// genuine zero.
+    /// </summary>
+    private static Dictionary<string, ReferenceRatingModel> BuildRawgRatings(double? rating, int? ratingsCount, int? metacritic)
+    {
+        var ratings = new Dictionary<string, ReferenceRatingModel>();
+        if (rating is > 0)
+        {
+            ratings[RawgRatingSource] = new ReferenceRatingModel { Value = rating.Value, Scale = 5, Count = ratingsCount };
+        }
+        if (metacritic is > 0)
+        {
+            ratings[MetacriticRatingSource] = new ReferenceRatingModel { Value = metacritic.Value, Scale = 100 };
+        }
+        return ratings;
+    }
+
     /// <summary>
     /// User-triggered "check for reference match" for video games - see
     /// <see cref="TryLinkExistingTvShowReferenceAsync"/> for the full rationale (this is the same local-only,
@@ -31,6 +56,8 @@ public partial class ReferenceEnrichmentService
             if (!string.IsNullOrEmpty(model.ReferenceId))
             {
                 model.ReferenceId = string.Empty;
+                model.ReferenceRating = null;
+                model.ReferenceRatingScale = null;
                 await videoGameRepository.UpdateAsync(model.Id!, model, model.OwnerId);
             }
 
@@ -39,12 +66,15 @@ public partial class ReferenceEnrichmentService
 
         var originalTitle = model.Title;
         var originalYear = model.Year;
+        var (ratingValue, ratingScale) = PrimaryRating(reference.Ratings, RawgRatingSource);
 
         model.ReferenceId = reference.Id;
         model.Title = reference.Title;
         if (reference.Year is not null) model.Year = reference.Year;
+        model.ReferenceRating = ratingValue;
+        model.ReferenceRatingScale = ratingScale;
         await videoGameRepository.UpdateAsync(model.Id!, model, model.OwnerId);
-        await videoGameRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year);
+        await videoGameRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year, ratingValue, ratingScale);
 
         return model;
     }
@@ -58,6 +88,8 @@ public partial class ReferenceEnrichmentService
     {
         var referenceId = model.ReferenceId;
         model.ReferenceId = string.Empty;
+        model.ReferenceRating = null;
+        model.ReferenceRatingScale = null;
         await videoGameRepository.UpdateAsync(model.Id!, model, model.OwnerId);
         if (!string.IsNullOrEmpty(referenceId))
         {
@@ -113,12 +145,14 @@ public partial class ReferenceEnrichmentService
             ExternalIds = externalIds,
             MatchedAliases = MergeMatchedAliases(existing?.MatchedAliases, (details.Title, details.Year ?? year, null, null), (title, year, null, null)),
             Genres = details.Genres,
+            Ratings = BuildRawgRatings(details.Rating, details.RatingsCount, details.Metacritic),
             ImageUrl = details.ImageUrl,
             LastEnrichedAt = DateTime.UtcNow
         };
 
         var saved = await videoGameReferenceRepository.UpsertAsync(model);
-        await videoGameRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year);
+        var (ratingValue, ratingScale) = PrimaryRating(saved.Ratings, RawgRatingSource);
+        await videoGameRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, ratingValue, ratingScale);
         return saved;
     }
 
@@ -141,10 +175,14 @@ public partial class ReferenceEnrichmentService
         reference.Synopsis = details.Synopsis;
         reference.Platforms = details.Platforms;
         reference.Genres = details.Genres;
+        reference.Ratings = BuildRawgRatings(details.Rating, details.RatingsCount, details.Metacritic);
         reference.ImageUrl = details.ImageUrl ?? reference.ImageUrl;
         reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, null, null));
         reference.LastEnrichedAt = DateTime.UtcNow;
 
-        return (await videoGameReferenceRepository.UpsertAsync(reference), true);
+        var saved = await videoGameReferenceRepository.UpsertAsync(reference);
+        var (ratingValue, ratingScale) = PrimaryRating(saved.Ratings, RawgRatingSource);
+        await videoGameRepository.SetReferenceRatingAsync(saved.Id!, ratingValue, ratingScale);
+        return (saved, true);
     }
 }

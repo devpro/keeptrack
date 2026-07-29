@@ -11,6 +11,10 @@
         @entry.Platform@(string.IsNullOrEmpty(entry.State) ? "" : $" ({entry.State})")
     </span>
 }
+@if (Item.ReferenceRating is not null)
+{
+    <span class="kt-ref-rating" title="Rating from the linked reference"><span class="kt-ref-rating-star">★</span> @Item.ReferenceRating.Value.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)</span>
+}
 @if (Item.Rating is not null)
 {
     <span class="kt-stars"><StarRating Rating="Item.Rating"/></span>

@@ -29,6 +29,16 @@ public class TvShowModel : IHasIdAndOwnerId, IHasTvTimeId
 
     public string? ReferenceId { get; set; }
 
+    /// <summary>
+    /// Denormalized copy of the linked reference's primary-source (TMDB) rating value, on a 0-10 scale
+    /// given by <see cref="ReferenceRatingScale"/>. Copied down on link/refresh for fast list display and
+    /// sorting; the authoritative multi-source data is on <see cref="TvShowReferenceModel.Ratings"/>.
+    /// </summary>
+    public double? ReferenceRating { get; set; }
+
+    /// <summary>Scale of <see cref="ReferenceRating"/> (10 for TMDB); null when there is no reference rating.</summary>
+    public double? ReferenceRatingScale { get; set; }
+
     public TvShowStatus? State { get; set; }
 
     public bool IsFavorite { get; set; }

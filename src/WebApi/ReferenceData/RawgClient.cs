@@ -27,7 +27,7 @@ public class RawgClient(HttpClient http, RawgSettings settings) : IRawgClient
                 externalId, details.Name ?? string.Empty, ParseYear(details.Released), details.DescriptionRaw,
                 details.Genres.Select(g => g.Name).ToList(),
                 details.Platforms.Select(p => p.Platform?.Name).OfType<string>().ToList(),
-                details.BackgroundImage);
+                details.BackgroundImage, details.Rating, details.RatingsCount, details.Metacritic);
     }
 
     private const int MaxResults = 5;
@@ -73,6 +73,15 @@ public class RawgClient(HttpClient http, RawgSettings settings) : IRawgClient
 
         [JsonPropertyName("background_image")]
         public string? BackgroundImage { get; set; }
+
+        [JsonPropertyName("rating")]
+        public double? Rating { get; set; }
+
+        [JsonPropertyName("ratings_count")]
+        public int? RatingsCount { get; set; }
+
+        [JsonPropertyName("metacritic")]
+        public int? Metacritic { get; set; }
 
         [JsonPropertyName("genres")]
         public List<RawgGenre> Genres { get; set; } = [];

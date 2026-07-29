@@ -22,6 +22,16 @@ public class VideoGameModel : IHasIdAndOwnerId
     public string? ReferenceId { get; set; }
 
     /// <summary>
+    /// Denormalized copy of the linked reference's primary-source (RAWG) 0-5 rating, on
+    /// <see cref="ReferenceRatingScale"/>. Copied down on link/refresh for fast list display and sorting;
+    /// the authoritative multi-source data (RAWG + Metacritic) is on <see cref="VideoGameReferenceModel.Ratings"/>.
+    /// </summary>
+    public double? ReferenceRating { get; set; }
+
+    /// <summary>Scale of <see cref="ReferenceRating"/> (5 for RAWG); null when there is no reference rating.</summary>
+    public double? ReferenceRatingScale { get; set; }
+
+    /// <summary>
     /// Tenant-owned cover image override - takes priority over the linked reference's own cover wherever
     /// a cover is shown (list thumbnail, detail page). Null means "use the reference's cover, if any" -
     /// the previous, only behavior.

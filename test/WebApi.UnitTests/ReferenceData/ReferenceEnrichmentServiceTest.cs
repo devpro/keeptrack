@@ -549,6 +549,9 @@ public class ReferenceEnrichmentServiceTest
             Title = "Some Show",
             TitleNormalized = "some show",
             ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" },
+            // already has a rating, so the no-change short-circuit applies (an empty Ratings would instead
+            // force a full backfill fetch - covered separately below)
+            Ratings = new Dictionary<string, ReferenceRatingModel> { ["tmdb"] = new() { Value = 8.0, Scale = 10, Count = 100 } },
             LastEnrichedAt = lastEnrichedAt
         };
         _tvShowReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>())).ReturnsAsync((TvShowReferenceModel m) => m);

@@ -34,6 +34,9 @@ public class VideoGameReference
 
     public List<string> Genres { get; set; } = [];
 
+    /// <summary>Aggregate ratings keyed by source name ("rawg", "metacritic") - see <see cref="ReferenceRating"/>.</summary>
+    public Dictionary<string, ReferenceRating> Ratings { get; set; } = [];
+
     [BsonElement("image_url")]
     public string? ImageUrl { get; set; }
 

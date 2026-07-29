@@ -40,6 +40,9 @@ public class AlbumReferenceModel : IHasId
 
     public List<ReferenceTrackModel> Tracks { get; set; } = [];
 
+    /// <summary>Aggregate ratings keyed by source ("discogs") - see <see cref="ReferenceRatingModel"/>.</summary>
+    public Dictionary<string, ReferenceRatingModel> Ratings { get; set; } = [];
+
     public string? ImageUrl { get; set; }
 
     public DateTime? LastEnrichedAt { get; set; }
