@@ -483,21 +483,20 @@ public class TvTimeImportService(
     }
 
     /// <summary>
-    /// Per-show rating/favorite/want-to-watch/notes, keyed by TV Time's show id. Built once from
+    /// Per-show rating/favorite/notes, keyed by TV Time's show id. Built once from
     /// tv_show_rate.csv/user_show_special_status.csv/show_comment.csv and applied both to shows found
     /// via followed_tv_show.csv and to shows discovered only through episode watch history.
+    /// TV Time's "for_later" status has no Keeptrack counterpart for shows and is intentionally not imported.
     /// </summary>
     private sealed class ShowEnrichment(
         Dictionary<string, float> ratingByShowId,
         HashSet<string> favoriteShowIds,
-        HashSet<string> wantToWatchShowIds,
         Dictionary<string, string> notesByShowId)
     {
         public static ShowEnrichment Build(List<ShowRatingRecord> showRatings, List<ShowStatusRecord> showStatuses, List<ShowCommentRecord> showComments) =>
             new(
                 showRatings.GroupBy(r => r.TvShowId).ToDictionary(g => g.Key, g => g.Last().Rating),
                 showStatuses.Where(s => s.Status == ShowStatusCsvParser.FavoriteStatus).Select(s => s.TvShowId).ToHashSet(),
-                showStatuses.Where(s => s.Status == ShowStatusCsvParser.ForLaterStatus).Select(s => s.TvShowId).ToHashSet(),
                 showComments.GroupBy(c => c.TvShowId).ToDictionary(g => g.Key, g => FormatComments(g.Select(c => (c.CreatedAt, c.Comment)))));
 
         public void ApplyTo(TvShowModel show, string? tvShowId)
@@ -506,7 +505,6 @@ public class TvTimeImportService(
 
             if (ratingByShowId.TryGetValue(tvShowId, out var rating)) show.Rating = rating;
             if (favoriteShowIds.Contains(tvShowId)) show.IsFavorite = true;
-            if (wantToWatchShowIds.Contains(tvShowId)) show.WantToWatch = true;
             if (notesByShowId.TryGetValue(tvShowId, out var notes)) show.Notes = notes;
         }
     }

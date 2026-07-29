@@ -567,6 +567,12 @@ That heuristic guessed without confirming an episode existed; this checks a real
 Toggling that flag on a movie's own detail page doesn't clear it on watch (unlike the TV Time import's "towatch" event handling, which never flags an already-watched movie in the first place).
 So the exclusion has to happen at read time here instead of relying on the flag never going stale.
 
+**`WantToWatch` is a movie-only concept - TV shows deliberately don't have it.** A TV show reaches Watch Next through `ComputeInProgressShows` (`State == Current` plus a confirmed unseen episode), which never consulted a want-to-watch flag,
+and there is no "shows to watch" section for a not-yet-started show to surface in either.
+The flag briefly existed on `TvShowModel`/entity/DTO (populated by the TV Time import's "for_later" status and a detail-page "Watchlist" toggle) but had no consuming feature, so it was removed across every layer along with the `tvshow_want_to_watch` index -
+existing documents are cleaned up by the one-off `scripts/unset-tvshow-want-to-watch.js`.
+Don't reintroduce it as a plain flag; if a "shows I want to start" surface is ever wanted, build it as a real Watch Next section, not a dead flag.
+
 `TvShowDetail.razor`'s episode checklist filters `_reference.Episodes` to `AirDate is null || AirDate <= today` before grouping into seasons.
 This is the same air-date filter `WatchNextService` already applies for its "next episode" calc.
 An episode TMDB lists with a future air date (a confirmed-but-unaired next season, e.g. a renewal announced months ahead) hasn't happened yet from the viewer's perspective - it shouldn't appear as a checkbox to mark watched.
@@ -702,7 +708,7 @@ The list page's filter buttons are a different control with different semantics 
 The enum type itself keeps its `TvShowStatus` name - only the property that holds it moved to `State`, since `VideoGameModel.State` has no equivalent enum to rename against.
 Unlike the `PosterUrl`→`ImageUrl` rename below, this one needed **no** data migration: `TvShow`'s entity property kept an explicit `[BsonElement("status")]` pointing at the unchanged storage name,
 so existing documents (confirmed directly against the real dev database - `status: 'Finished'` reads back correctly through the renamed `State` property) deserialize with no script required.
-`TvTimeImportService`/`ShowStatusCsvParser`'s `ShowStatusRecord.Status` is a same-named but *entirely unrelated* field - TV Time's own CSV column for favorite/for_later, mapped to `IsFavorite`/`WantToWatch`,never to this enum -
+`TvTimeImportService`/`ShowStatusCsvParser`'s `ShowStatusRecord.Status` is a same-named but *entirely unrelated* field - TV Time's own CSV column for favorite/for_later, mapped to `IsFavorite` (the "for_later" value has no counterpart for shows and is not imported), never to this enum -
 so the import pipeline needed no changes at all for this rename; verified by tracing every consumer before renaming, not just running the test suite.
 `WatchNextService`/`WatchNextController`'s `Status == TvShowStatus.Current` checks were updated to `State == TvShowStatus.Current` and covered by `WatchNextServiceTest`, which still passes.
 

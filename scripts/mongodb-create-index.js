@@ -77,11 +77,8 @@ ensureIndex(
   { owner_id: 1, is_favorite: 1 },
   { name: "tvshow_favorite", partialFilterExpression: { is_favorite: true } }
 );
-ensureIndex(
-  db.tvshow,
-  { owner_id: 1, want_to_watch: 1 },
-  { name: "tvshow_want_to_watch", partialFilterExpression: { want_to_watch: true } }
-);
+// tvshow has no want_to_watch index: the flag was removed (Watch Next drives shows from State/episodes,
+// not a want-to-watch flag - that's a movie-only concept). See scripts/unset-tvshow-want-to-watch.js.
 // album / book: same sparse-flag partial-index rationale as movie/tvshow above.
 ensureIndex(
   db.album,

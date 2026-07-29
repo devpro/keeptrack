@@ -33,8 +33,6 @@ public class TvShowModel : IHasIdAndOwnerId, IHasTvTimeId
 
     public bool IsFavorite { get; set; }
 
-    public bool WantToWatch { get; set; }
-
     public List<OwnedVersionModel> OwnedVersions { get; set; } = [];
 
     /// <summary>

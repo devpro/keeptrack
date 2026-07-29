@@ -47,8 +47,6 @@ public class TvShowDto : IHasId, IReferenceLinkedDto
 
     public bool IsFavorite { get; set; }
 
-    public bool WantToWatch { get; set; }
-
     /// <summary>
     /// Every owned copy of this show - the show counts as owned when this list is non-empty.
     /// </summary>

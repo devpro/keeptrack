@@ -40,9 +40,6 @@ public class TvShow : IHasIdAndOwnerId
     [BsonElement("is_favorite")]
     public bool IsFavorite { get; set; }
 
-    [BsonElement("want_to_watch")]
-    public bool WantToWatch { get; set; }
-
     [BsonElement("owned_versions")]
     public List<OwnedVersion> OwnedVersions { get; set; } = [];
 

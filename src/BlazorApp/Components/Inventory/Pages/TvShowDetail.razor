@@ -51,7 +51,6 @@ else
         </div>
         <div class="d-flex gap-2">
             <button class="btn btn-sm kt-toggle-btn @(_show.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>
-            <button class="btn btn-sm kt-toggle-btn @(_show.WantToWatch ? "active" : "")" @onclick="ToggleWantToWatchAsync">Watchlist</button>
             <button class="btn btn-sm kt-toggle-btn @(_show.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync">○ Wishlist</button>
         </div>
     </div>
@@ -312,13 +311,6 @@ else
     {
         if (_show is null) return;
         _show.IsFavorite = !_show.IsFavorite;
-        await TvShowApi.UpdateAsync(_show);
-    }
-
-    private async Task ToggleWantToWatchAsync()
-    {
-        if (_show is null) return;
-        _show.WantToWatch = !_show.WantToWatch;
         await TvShowApi.UpdateAsync(_show);
     }
 
