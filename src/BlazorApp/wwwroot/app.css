@@ -509,6 +509,17 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   font-size: 0.75rem;
   color: var(--kt-text-muted);
 }
+/* Watch Next thumbnails: stack the "Next: SxxExx" badge and the episode title in a centered column so a
+   short episode title drops below the badge instead of sitting beside it, and the whole caption stays
+   evenly spaced and horizontally centered under the cover. */
+.kt-watchnext-grid .kt-grid-caption { text-align: center; }
+.kt-watchnext-grid .kt-grid-meta {
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.3rem;
+}
+.kt-watchnext-grid .kt-card-badge { margin-bottom: 0; }
 @media (max-width: 575.98px) {
   .kt-item-grid { grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)); gap: 0.9rem 0.6rem; padding: 0.5rem 0.75rem 1.25rem; }
   .kt-item-grid.square { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }

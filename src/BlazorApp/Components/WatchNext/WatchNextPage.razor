@@ -45,7 +45,7 @@ else if (Data is not null)
             <div class="kt-table-wrap">
                 @if (_view == "grid")
                 {
-                    <div class="kt-item-grid">
+                    <div class="kt-item-grid kt-watchnext-grid">
                         @foreach (var show in Data.InProgressShows)
                         {
                             <ItemGridCard Href="@($"/tv-shows/{show.TvShowId}")" Title="@show.TvShowTitle" ImageUrl="@show.ImageUrl">
