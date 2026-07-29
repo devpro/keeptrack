@@ -3,12 +3,12 @@ using System.Net;
 using System.Net.Http.Headers;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Keeptrack.BlazorApp.Components.Account;
 
 public class AuthenticationTokenHandler(
-    IHttpContextAccessor httpContextAccessor,
-    NavigationManager navigationManager)
+    IHttpContextAccessor httpContextAccessor)
     : DelegatingHandler
 {
     private const string AuthorizationScheme = "Bearer";
@@ -20,7 +20,7 @@ public class AuthenticationTokenHandler(
         var httpContext = httpContextAccessor.HttpContext ?? throw new InvalidOperationException("HttpContext is not available");
 
         var token = await httpContext.GetTokenAsync(FirebaseTokenName);
-        if (token is null) RedirectToLogin();
+        if (token is null) RedirectToLogin(httpContext);
 
         request.Headers.Authorization = new AuthenticationHeaderValue(AuthorizationScheme, token);
 
@@ -35,15 +35,22 @@ public class AuthenticationTokenHandler(
         if (response.StatusCode == HttpStatusCode.Unauthorized)
         {
             response.Dispose();
-            RedirectToLogin();
+            RedirectToLogin(httpContext);
         }
 
         return response;
     }
 
     [DoesNotReturn]
-    private void RedirectToLogin()
+    private static void RedirectToLogin(HttpContext httpContext)
     {
+        // The NavigationManager is resolved from the request's own DI scope, NOT constructor-injected:
+        // IHttpClientFactory builds this DelegatingHandler in a separate handler scope whose
+        // RemoteNavigationManager the renderer never initialized, so its .Uri / .NavigateTo throw
+        // "RemoteNavigationManager has not been initialized" during the SSR/prerender pass (the intermittent
+        // red error a page refresh worked around). The request scope's NavigationManager is the one the
+        // endpoint renderer already initialized before running OnInitializedAsync, so it is safe to use here.
+        var navigationManager = httpContext.RequestServices.GetRequiredService<NavigationManager>();
         var returnUrl = Uri.EscapeDataString(navigationManager.Uri);
         // forceLoad so the browser does a full navigation to the login page (re-running the Firebase sign-in
         // flow and re-issuing the cookie) instead of an in-circuit render that would keep the dead session.
