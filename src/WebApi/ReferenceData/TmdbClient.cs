@@ -55,7 +55,8 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
             ? null
             : new TmdbMovieDetails(
                 tmdbId, details.Title ?? string.Empty, ParseYear(details.ReleaseDate), details.Overview,
-                details.Genres.Select(g => g.Name).ToList(), BuildImageUrl(details.PosterPath, PosterImageSize));
+                details.Genres.Select(g => g.Name).ToList(), BuildImageUrl(details.PosterPath, PosterImageSize),
+                details.VoteAverage, details.VoteCount);
     }
 
     public async Task<IReadOnlyList<TmdbCastMember>> GetTvShowCastAsync(string tmdbId, CancellationToken cancellationToken = default) =>
@@ -208,6 +209,12 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
 
         [JsonPropertyName("genres")]
         public List<TmdbGenre> Genres { get; set; } = [];
+
+        [JsonPropertyName("vote_average")]
+        public double? VoteAverage { get; set; }
+
+        [JsonPropertyName("vote_count")]
+        public int? VoteCount { get; set; }
     }
 
     private sealed class TmdbCreditsResponse

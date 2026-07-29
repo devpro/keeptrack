@@ -29,6 +29,12 @@ public class Movie : IHasIdAndOwnerId
     [BsonElement("reference_id")]
     public string? ReferenceId { get; set; }
 
+    [BsonElement("reference_rating")]
+    public double? ReferenceRating { get; set; }
+
+    [BsonElement("reference_rating_scale")]
+    public double? ReferenceRatingScale { get; set; }
+
     [BsonElement("first_seen_at")]
     public DateTime? FirstSeenAt { get; set; }
 

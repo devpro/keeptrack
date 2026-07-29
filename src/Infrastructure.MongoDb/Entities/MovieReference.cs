@@ -34,6 +34,9 @@ public class MovieReference
 
     public List<CastMember> Cast { get; set; } = [];
 
+    /// <summary>Aggregate ratings keyed by source name (e.g. "tmdb") - see <see cref="ReferenceRating"/>.</summary>
+    public Dictionary<string, ReferenceRating> Ratings { get; set; } = [];
+
     [BsonElement("image_url")]
     public string? ImageUrl { get; set; }
 

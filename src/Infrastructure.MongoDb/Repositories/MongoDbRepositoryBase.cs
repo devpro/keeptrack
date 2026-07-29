@@ -70,6 +70,13 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
     protected virtual Expression<Func<TEntity, object>>? SortRatingField => null;
 
     /// <summary>
+    /// Field behind the <see cref="ListSort.ReferenceRating"/> sort key (descending, items with no linked
+    /// reference rating last) - the denormalized copy on the tenant entity, so this stays a plain indexed
+    /// sort with no join. Same contract as <see cref="SortTitleField"/>.
+    /// </summary>
+    protected virtual Expression<Func<TEntity, object>>? SortReferenceRatingField => null;
+
+    /// <summary>
     /// Field behind <see cref="ListSort.LastSeen"/>/<see cref="ListSort.LastRead"/> (descending, unset
     /// items last) - same contract as <see cref="SortTitleField"/>. A single hook covers both keys: a
     /// collection only ever advertises one of the two via its own list page's UI (Movie: last seen, Book:
@@ -90,6 +97,7 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
         {
             ListSort.Title when SortTitleField is not null => builder.Ascending(SortTitleField).Descending("_id"),
             ListSort.Rating when SortRatingField is not null => builder.Descending(SortRatingField).Descending("_id"),
+            ListSort.ReferenceRating when SortReferenceRatingField is not null => builder.Descending(SortReferenceRatingField).Descending("_id"),
             ListSort.LastSeen or ListSort.LastRead when SortSecondaryDateField is not null => builder.Descending(SortSecondaryDateField).Descending("_id"),
             _ => builder.Descending("_id")
         };

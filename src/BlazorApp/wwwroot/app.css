@@ -421,6 +421,31 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 .kt-flag-badge.done     { background: var(--kt-success-bg); color: var(--kt-success); }
 .kt-flag-badge.wishlist { background: var(--kt-accent-glow); color: var(--kt-accent); }
 
+/* reference (provider) rating pill on list/grid rows - the linked reference's own score, a bare number
+   with no scale. Distinct from the user's personal star rating (.kt-stars) and the flag pills. */
+.kt-ref-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.05rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 20px;
+  white-space: nowrap;
+  background: var(--kt-surface-3);
+  color: var(--kt-text);
+}
+.kt-ref-rating .kt-ref-rating-star { color: var(--kt-accent); font-weight: 400; }
+
+/* per-source rating breakdown on the detail page (ReferenceRatings component) */
+.kt-ref-ratings { display: flex; flex-wrap: wrap; gap: 0.4rem 0.9rem; align-items: baseline; }
+.kt-ref-rating-detail { display: inline-flex; align-items: baseline; gap: 0.28rem; white-space: nowrap; }
+.kt-ref-rating-detail .kt-ref-rating-star { color: var(--kt-accent); }
+.kt-ref-rating-detail .kt-ref-rating-value { font-weight: 700; font-size: 1.05rem; }
+.kt-ref-rating-detail .kt-ref-rating-scale { color: var(--kt-text-subtle); font-size: 0.8rem; }
+.kt-ref-rating-detail .kt-ref-rating-source { color: var(--kt-text-muted); font-size: 0.8rem; }
+.kt-ref-rating-detail .kt-ref-rating-count { color: var(--kt-text-subtle); font-size: 0.75rem; }
+
 /* ── List/thumbnail view toggle ────────────────────────────────────── */
 /* segmented control in the search bar, only rendered for image-bearing types (see InventoryList) */
 .kt-view-toggle {

@@ -28,6 +28,17 @@ public class MovieModel : IHasIdAndOwnerId, IHasTvTimeId
 
     public string? ReferenceId { get; set; }
 
+    /// <summary>
+    /// Denormalized copy of the linked reference's primary-source rating value (TMDB's, on a 0-10 scale
+    /// given by <see cref="ReferenceRatingScale"/>). Copied down from the shared reference document on
+    /// link/refresh purely so the list page can display and sort by it without a per-page join; the
+    /// authoritative multi-source data lives on <see cref="MovieReferenceModel.Ratings"/>. Null until linked.
+    /// </summary>
+    public double? ReferenceRating { get; set; }
+
+    /// <summary>Scale of <see cref="ReferenceRating"/> (10 for TMDB); null when there is no reference rating.</summary>
+    public double? ReferenceRatingScale { get; set; }
+
     public DateOnly? FirstSeenAt { get; set; }
 
     public bool IsFavorite { get; set; }

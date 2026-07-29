@@ -393,7 +393,7 @@ public class ReferenceEnrichmentServiceTest
         // its Id for the upsert, which doesn't just link wrong, it overwrites the 2024 reference's own data
         // with the 1990 movie's data (a de-facto merge of two distinct real movies into one document).
         var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
-        tmdbClient.MovieDetails["1990id"] = new TmdbMovieDetails("1990id", "Road House", 1990, "1989 original synopsis", [], null);
+        tmdbClient.MovieDetails["1990id"] = new TmdbMovieDetails("1990id", "Road House", 1990, "1989 original synopsis", [], null, null, null);
         _movieReferenceRepository
             .Setup(r => r.FindByExternalIdAsync("tmdb", "1990id"))
             .ReturnsAsync((MovieReferenceModel?)null);
@@ -412,6 +412,115 @@ public class ReferenceEnrichmentServiceTest
         result.Id.Should().NotBe("reference-2024");
         _movieReferenceRepository.Verify(r => r.FindByTitleAsync(It.IsAny<string>()), Times.Never);
         _movieReferenceRepository.Verify(r => r.UpsertAsync(It.Is<MovieReferenceModel>(m => m.Id != "reference-2024")), Times.Once);
+    }
+
+    [Fact]
+    public async Task ResolveMovieAsync_StoresTheTmdbRating_AndPropagatesThePrimaryScalar()
+    {
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.MovieDetails["42"] = new TmdbMovieDetails("42", "Some Movie", 2020, "Synopsis", [], null, 7.8, 1234);
+        _movieReferenceRepository
+            .Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>()))
+            .ReturnsAsync((MovieReferenceModel m) => { m.Id = "reference-1"; return m; });
+        var service = CreateService(tmdbClient);
+
+        var result = await service.ResolveMovieAsync("Some Movie", 2020, "42");
+
+        result.Ratings.Should().ContainKey("tmdb");
+        result.Ratings["tmdb"].Value.Should().Be(7.8);
+        result.Ratings["tmdb"].Scale.Should().Be(10);
+        result.Ratings["tmdb"].Count.Should().Be(1234);
+        // the primary source's value/scale is denormalized onto every matching tenant movie
+        _movieRepository.Verify(r => r.SetReferenceLinkAsync("Some Movie", 2020, "reference-1", "Some Movie", It.IsAny<int?>(), 7.8, 10), Times.Once);
+    }
+
+    [Fact]
+    public async Task ResolveMovieAsync_StoresNoRating_WhenTmdbHasNoVotes()
+    {
+        // TMDB returns vote_average 0 / vote_count 0 for an unrated title - that must not be stored as a real 0
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.MovieDetails["42"] = new TmdbMovieDetails("42", "Some Movie", 2020, "Synopsis", [], null, 0, 0);
+        _movieReferenceRepository
+            .Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>()))
+            .ReturnsAsync((MovieReferenceModel m) => { m.Id = "reference-1"; return m; });
+        var service = CreateService(tmdbClient);
+
+        var result = await service.ResolveMovieAsync("Some Movie", 2020, "42");
+
+        result.Ratings.Should().BeEmpty();
+        _movieRepository.Verify(r => r.SetReferenceLinkAsync("Some Movie", 2020, "reference-1", "Some Movie", It.IsAny<int?>(), null, null), Times.Once);
+    }
+
+    [Fact]
+    public async Task RefreshMovieReferenceAsync_ForcesAFullFetch_WhenReferenceHasNoRatingsYet_EvenIfTmdbReportsNoChange()
+    {
+        // an already-linked reference created before ratings existed must backfill a rating on the next sync,
+        // so the cheap "nothing changed" short-circuit must not fire while Ratings is still empty
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.ChangedSince["42"] = false;
+        tmdbClient.MovieDetails["42"] = new TmdbMovieDetails("42", "Some Movie", 2020, "Synopsis", [], null, 6.5, 500);
+        _movieReferenceRepository
+            .Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>()))
+            .ReturnsAsync((MovieReferenceModel m) => { m.Id = "reference-1"; return m; });
+        var reference = new MovieReferenceModel
+        {
+            Id = "reference-1", Title = "Some Movie", TitleNormalized = "some movie", Year = 2020,
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" }, LastEnrichedAt = DateTime.UtcNow.AddDays(-5)
+        };
+        var service = CreateService(tmdbClient);
+
+        var (result, changed) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        changed.Should().BeTrue();
+        tmdbClient.MovieDetailsRequested.Should().Contain("42");
+        result.Ratings["tmdb"].Value.Should().Be(6.5);
+        // and the refreshed rating is re-propagated to every already-linked tenant movie
+        _movieRepository.Verify(r => r.SetReferenceRatingAsync("reference-1", 6.5, 10), Times.Once);
+    }
+
+    [Fact]
+    public async Task RefreshMovieReferenceAsync_TakesTheNoChangeShortCircuit_WhenAlreadyRated()
+    {
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.ChangedSince["42"] = false;
+        _movieReferenceRepository
+            .Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>()))
+            .ReturnsAsync((MovieReferenceModel m) => m);
+        var reference = new MovieReferenceModel
+        {
+            Id = "reference-1", Title = "Some Movie", TitleNormalized = "some movie", Year = 2020,
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" }, LastEnrichedAt = DateTime.UtcNow.AddDays(-5),
+            Ratings = new Dictionary<string, ReferenceRatingModel> { ["tmdb"] = new() { Value = 6.5, Scale = 10, Count = 500 } }
+        };
+        var service = CreateService(tmdbClient);
+
+        var (_, changed) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        changed.Should().BeFalse();
+        tmdbClient.MovieDetailsRequested.Should().NotContain("42");
+        _movieRepository.Verify(r => r.SetReferenceRatingAsync(It.IsAny<string>(), It.IsAny<double?>(), It.IsAny<double?>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task TryLinkExistingMovieReferenceAsync_SetsTheDenormalizedRating_FromTheMatchedReference()
+    {
+        _movieReferenceRepository
+            .Setup(r => r.FindByTitleYearAsync("Some Movie", 2020))
+            .ReturnsAsync(new MovieReferenceModel
+            {
+                Id = "reference-1", Title = "Some Movie", TitleNormalized = "some movie", Year = 2020,
+                ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" },
+                Ratings = new Dictionary<string, ReferenceRatingModel> { ["tmdb"] = new() { Value = 8.1, Scale = 10, Count = 900 } }
+            });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+        var model = new MovieModel { Id = "movie-1", OwnerId = "owner-1", Title = "Some Movie", Year = 2020 };
+
+        var result = await service.TryLinkExistingMovieReferenceAsync(model);
+
+        result.ReferenceRating.Should().Be(8.1);
+        result.ReferenceRatingScale.Should().Be(10);
+        _movieRepository.Verify(r => r.UpdateAsync("movie-1", It.Is<MovieModel>(m => m.ReferenceRating == 8.1 && m.ReferenceRatingScale == 10), "owner-1"), Times.Once);
+        _movieRepository.Verify(r => r.SetReferenceLinkAsync("Some Movie", 2020, "reference-1", "Some Movie", It.IsAny<int?>(), 8.1, 10), Times.Once);
     }
 
     [Fact]
@@ -1179,6 +1288,8 @@ public class ReferenceEnrichmentServiceTest
 
         public List<string> TvShowDetailsRequested { get; } = [];
 
+        public List<string> MovieDetailsRequested { get; } = [];
+
         public List<string> ChangesRequested { get; } = [];
 
         private FakeTmdbClient(List<TmdbSearchResult> tvShowSearchResults) => _tvShowSearchResults = tvShowSearchResults;
@@ -1197,8 +1308,11 @@ public class ReferenceEnrichmentServiceTest
             return Task.FromResult(TvShowDetails.GetValueOrDefault(tmdbId));
         }
 
-        public Task<TmdbMovieDetails?> GetMovieDetailsAsync(string tmdbId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(MovieDetails.GetValueOrDefault(tmdbId));
+        public Task<TmdbMovieDetails?> GetMovieDetailsAsync(string tmdbId, CancellationToken cancellationToken = default)
+        {
+            MovieDetailsRequested.Add(tmdbId);
+            return Task.FromResult(MovieDetails.GetValueOrDefault(tmdbId));
+        }
 
         public Task<IReadOnlyList<TmdbCastMember>> GetTvShowCastAsync(string tmdbId, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<TmdbCastMember>>(Cast.GetValueOrDefault(tmdbId) ?? []);

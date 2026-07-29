@@ -14,6 +14,13 @@ public static class ListSort
     /// <summary>Best rated first; unrated items last.</summary>
     public const string Rating = "rating";
 
+    /// <summary>
+    /// Best rated first by the linked reference's own (provider) rating - the denormalized
+    /// <c>ReferenceRating</c> copied onto the tenant item on link/refresh; items with no linked rating last.
+    /// Distinct from <see cref="Rating"/>, which is the user's own star rating.
+    /// </summary>
+    public const string ReferenceRating = "refrating";
+
     /// <summary>Most recently watched movie first (Movie's <c>FirstSeenAt</c>); unwatched items last.</summary>
     public const string LastSeen = "seen";
 

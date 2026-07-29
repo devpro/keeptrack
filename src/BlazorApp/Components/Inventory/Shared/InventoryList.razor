@@ -63,6 +63,11 @@ else
                 {
                     <option value="@ListSort.Rating">Rating</option>
                 }
+                @if (HasReferenceRatingSort)
+                {
+                    @* short label so the selected text fits the narrow (mobile-sized) sort control *@
+                    <option value="@ListSort.ReferenceRating">Ref ★</option>
+                }
                 @if (ExtraSortValue is not null)
                 {
                     <option value="@ExtraSortValue">@ExtraSortLabel</option>
@@ -308,6 +313,12 @@ else
 
     /// <summary>Offers the "Rating" sort option - only for types that carry a rating field.</summary>
     [Parameter] public bool HasRatingSort { get; set; }
+
+    /// <summary>
+    /// Offers the "Reference rating" sort option (the linked reference's provider score) - only for the
+    /// reference-bearing types that denormalize it onto the tenant item.
+    /// </summary>
+    [Parameter] public bool HasReferenceRatingSort { get; set; }
 
     /// <summary>
     /// Query value for an extra, type-specific sort option (e.g. Movie's "seen", Book's "read", Video

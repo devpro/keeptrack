@@ -23,6 +23,8 @@ public class MovieRepository(IMongoDatabase mongoDatabase, ILogger<MovieReposito
 
     protected override Expression<Func<Movie, object>> SortRatingField => x => x.Rating!;
 
+    protected override Expression<Func<Movie, object>> SortReferenceRatingField => x => x.ReferenceRating!;
+
     protected override Expression<Func<Movie, object>> SortSecondaryDateField => x => x.FirstSeenAt!;
 
     protected override FilterDefinition<Movie> GetFilter(string ownerId, string? search, MovieModel input)
@@ -41,15 +43,24 @@ public class MovieRepository(IMongoDatabase mongoDatabase, ILogger<MovieReposito
         return filter;
     }
 
-    public async Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null)
+    public async Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null, double? canonicalRating = null, double? canonicalRatingScale = null)
     {
         var builder = Builders<Movie>.Filter;
         var filter = builder.Regex(f => f.Title, new BsonRegularExpression($"^{Regex.Escape(title)}$", "i"))
                      & builder.Eq(f => f.Year, year)
                      & UnresolvedFilter();
 
-        var update = Builders<Movie>.Update.Set(f => f.ReferenceId, referenceId).Set(f => f.Title, canonicalTitle);
+        var update = Builders<Movie>.Update.Set(f => f.ReferenceId, referenceId).Set(f => f.Title, canonicalTitle)
+            .Set(f => f.ReferenceRating, canonicalRating).Set(f => f.ReferenceRatingScale, canonicalRatingScale);
         if (canonicalYear is not null) update = update.Set(f => f.Year, canonicalYear);
+        var result = await GetCollection().UpdateManyAsync(filter, update);
+        return result.ModifiedCount;
+    }
+
+    public async Task<long> SetReferenceRatingAsync(string referenceId, double? rating, double? ratingScale)
+    {
+        var filter = Builders<Movie>.Filter.Eq(f => f.ReferenceId, referenceId);
+        var update = Builders<Movie>.Update.Set(f => f.ReferenceRating, rating).Set(f => f.ReferenceRatingScale, ratingScale);
         var result = await GetCollection().UpdateManyAsync(filter, update);
         return result.ModifiedCount;
     }

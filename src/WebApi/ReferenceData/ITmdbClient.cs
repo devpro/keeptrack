@@ -10,7 +10,7 @@ public record TmdbEpisode(int SeasonNumber, int EpisodeNumber, string Title, Dat
 
 public record TmdbTvShowDetails(string TmdbId, string Title, int? Year, string? Synopsis, List<TmdbEpisode> Episodes, List<string> Genres, string? PosterUrl);
 
-public record TmdbMovieDetails(string TmdbId, string Title, int? Year, string? Synopsis, List<string> Genres, string? PosterUrl);
+public record TmdbMovieDetails(string TmdbId, string Title, int? Year, string? Synopsis, List<string> Genres, string? PosterUrl, double? VoteAverage, int? VoteCount);
 
 /// <summary>
 /// One credited cast member - <see cref="PersonTmdbId"/> is TMDB's person id, used to deduplicate

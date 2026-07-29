@@ -91,6 +91,13 @@ else
                     <label class="form-label">Rating</label>
                     <StarRatingInput Rating="Movie.Rating" RatingChanged="SetRatingAsync"/>
                 </div>
+                @if (Reference?.Ratings.Count > 0)
+                {
+                    <div class="mt-3">
+                        <label class="form-label">Reference rating</label>
+                        <ReferenceRatings Ratings="Reference.Ratings"/>
+                    </div>
+                }
                 @if (Movie.FirstSeenAt is not null)
                 {
                     <div class="mt-3">

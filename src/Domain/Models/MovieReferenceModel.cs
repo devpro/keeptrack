@@ -33,6 +33,13 @@ public class MovieReferenceModel : IHasId
 
     public List<CastMemberModel> Cast { get; set; } = [];
 
+    /// <summary>
+    /// Aggregate ratings for this movie keyed by source ("tmdb" today; "imdb"/others later) - see
+    /// <see cref="ReferenceRatingModel"/>. Canonical here on the shared reference document; the primary
+    /// source's value is denormalized onto each tenant's <see cref="MovieModel.ReferenceRating"/> on link.
+    /// </summary>
+    public Dictionary<string, ReferenceRatingModel> Ratings { get; set; } = [];
+
     public string? ImageUrl { get; set; }
 
     public DateTime? LastEnrichedAt { get; set; }
