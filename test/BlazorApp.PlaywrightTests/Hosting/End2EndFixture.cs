@@ -5,15 +5,20 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using FirebaseAdmin.Auth;
+using Keeptrack.BlazorApp.Components.Account;
 using Keeptrack.BlazorApp.PlaywrightTests.Hosting;
 using Keeptrack.BlazorApp.PlaywrightTests.Support;
 using Keeptrack.Testing.Shared.Firebase;
 using Keeptrack.Testing.Shared.Hosting;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.Playwright;
 using Xunit;
 
@@ -251,6 +256,56 @@ public sealed class End2EndFixture : IAsyncLifetime
     private sealed record PagedItemIds(List<ItemId> Items);
 
     private sealed record ItemId(string? Id);
+
+    /// <summary>
+    /// Forges a Blazor auth cookie whose principal is a fully-authorized member but whose stored Firebase token
+    /// is a value WebApi rejects (a malformed JWT), reproducing a live session whose Firebase ID token has gone
+    /// stale (expired or revoked) while the 8h auth cookie is still valid. The next server-rendered page's API
+    /// call then comes back 401, driving <c>AuthenticationTokenHandler.RedirectToLogin</c> during the
+    /// SSR/prerender pass - the path that used to throw "RemoteNavigationManager has not been initialized",
+    /// showing a red error until the user manually refreshed.
+    /// Returns <c>null</c> in live mode (E2E_TARGET_URL): forging the ticket needs the in-process Blazor host's
+    /// own data-protection keys, which a remote deployment can't expose - the test self-skips there.
+    /// </summary>
+    public Cookie? ForgeStaleTokenMemberCookie()
+    {
+        if (_blazorFactory is null) return null;
+
+        var cookieOptions = _blazorFactory.Services
+            .GetRequiredService<IOptionsMonitor<CookieAuthenticationOptions>>()
+            .Get(CookieAuthenticationDefaults.AuthenticationScheme);
+
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, _ephemeralUserUid ?? "e2e-forged-uid"),
+            new(ClaimTypes.Name, SignedInEmail),
+            new(ClaimTypes.Email, SignedInEmail),
+            // admin satisfies the MemberOnly policy the shared-collection page requires, so the page renders and
+            // makes its API call rather than being bounced by [Authorize] first (which would exercise the wrong
+            // redirect path - the cookie-challenge one, not the stale-token one under test).
+            new("role", "admin"),
+        };
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme));
+
+        var properties = new AuthenticationProperties
+        {
+            IsPersistent = true,
+            IssuedUtc = DateTimeOffset.UtcNow,
+            ExpiresUtc = DateTimeOffset.UtcNow.AddHours(1),
+        };
+        properties.StoreTokens([
+            new AuthenticationToken { Name = AuthenticationTokenHandler.FirebaseTokenName, Value = "stale.firebase.token" }
+        ]);
+
+        var ticket = new AuthenticationTicket(principal, properties, CookieAuthenticationDefaults.AuthenticationScheme);
+
+        return new Cookie
+        {
+            Name = cookieOptions.Cookie.Name!,
+            Value = cookieOptions.TicketDataFormat!.Protect(ticket),
+            Url = BlazorBaseUrl,
+        };
+    }
 
     public async ValueTask DisposeAsync()
     {
