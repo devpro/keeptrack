@@ -25,14 +25,8 @@ public class AlbumController(
     /// its own <see cref="AlbumDto.CustomImageUrl"/> set overrides that afterward - see
     /// <see cref="BookController.OnListMappedAsync"/>.
     /// </summary>
-    protected override async Task OnListMappedAsync(List<AlbumDto> dtos)
-    {
-        await ReferenceImageHydrator.HydrateAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl);
-        foreach (var dto in dtos.Where(d => !string.IsNullOrEmpty(d.CustomImageUrl)))
-        {
-            dto.ImageUrl = dto.CustomImageUrl;
-        }
-    }
+    protected override Task OnListMappedAsync(List<AlbumDto> dtos) =>
+        ReferenceImageHydrator.HydrateWithCustomOverrideAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl, x => x.CustomImageUrl);
 
     /// <summary>
     /// Fires a best-effort background Discogs match for the new album - see <see cref="TvShowController.OnCreatedAsync"/>.

@@ -26,14 +26,8 @@ public class BookController(
     /// (not shared via <see cref="ReferenceImageHydrator"/>/<see cref="Contracts.Dto.IReferenceLinkedDto"/>,
     /// which the other four reference-linked types also implement, with no equivalent override field).
     /// </summary>
-    protected override async Task OnListMappedAsync(List<BookDto> dtos)
-    {
-        await ReferenceImageHydrator.HydrateAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl);
-        foreach (var dto in dtos.Where(d => !string.IsNullOrEmpty(d.CustomImageUrl)))
-        {
-            dto.ImageUrl = dto.CustomImageUrl;
-        }
-    }
+    protected override Task OnListMappedAsync(List<BookDto> dtos) =>
+        ReferenceImageHydrator.HydrateWithCustomOverrideAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl, x => x.CustomImageUrl);
 
     /// <summary>
     /// Fires a best-effort background Open Library match for the new book - see <see cref="TvShowController.OnCreatedAsync"/>.

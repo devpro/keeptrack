@@ -94,21 +94,21 @@ public class SharedWithMeController(
     [ProducesResponseType(404)]
     public Task<ActionResult<SharedCategoryPageDto<BookDto>>> GetBooks(string shareId, [FromQuery] PagedRequest paging, [FromQuery] BookDto filter) =>
         ReadAsync(shareId, DomainShareCategory.Books, bookRepository, bookMapper, filter, paging, BookKey,
-            items => HydrateWithCustomOverrideAsync(items, bookReferenceRepository.FindByIdsAsync, x => x.ImageUrl, x => x.CustomImageUrl));
+            items => ReferenceImageHydrator.HydrateWithCustomOverrideAsync(items, bookReferenceRepository.FindByIdsAsync, x => x.ImageUrl, x => x.CustomImageUrl));
 
     [HttpGet("{shareId}/albums")]
     [ProducesResponseType(200)]
     [ProducesResponseType(404)]
     public Task<ActionResult<SharedCategoryPageDto<AlbumDto>>> GetAlbums(string shareId, [FromQuery] PagedRequest paging, [FromQuery] AlbumDto filter) =>
         ReadAsync(shareId, DomainShareCategory.Albums, albumRepository, albumMapper, filter, paging, AlbumKey,
-            items => HydrateWithCustomOverrideAsync(items, albumReferenceRepository.FindByIdsAsync, x => x.ImageUrl, x => x.CustomImageUrl));
+            items => ReferenceImageHydrator.HydrateWithCustomOverrideAsync(items, albumReferenceRepository.FindByIdsAsync, x => x.ImageUrl, x => x.CustomImageUrl));
 
     [HttpGet("{shareId}/video-games")]
     [ProducesResponseType(200)]
     [ProducesResponseType(404)]
     public Task<ActionResult<SharedCategoryPageDto<VideoGameDto>>> GetVideoGames(string shareId, [FromQuery] PagedRequest paging, [FromQuery] VideoGameDto filter) =>
         ReadAsync(shareId, DomainShareCategory.VideoGames, videoGameRepository, videoGameMapper, filter, paging, VideoGameKey,
-            items => HydrateWithCustomOverrideAsync(items, videoGameReferenceRepository.FindByIdsAsync, x => x.ImageUrl, x => x.CustomImageUrl));
+            items => ReferenceImageHydrator.HydrateWithCustomOverrideAsync(items, videoGameReferenceRepository.FindByIdsAsync, x => x.ImageUrl, x => x.CustomImageUrl));
 
     // ---- collection reads (collectibles/gear: same read-only list as media, but view-only - no shared
     //      reference to hydrate a cover from and no copy, so a leaner paged read than the media path) ----
@@ -453,28 +453,5 @@ public class SharedWithMeController(
 
         var children = await childRepository.FindAllAsync(share.OwnerId, 1, int.MaxValue, null, makeChildFilter(parentId, share.OwnerId));
         return (parent, children.Items, share.OwnerDisplayName);
-    }
-
-    /// <summary>
-    /// Reference-image hydration plus the tenant's own <c>CustomImageUrl</c> override (book/album/game
-    /// only), matching what those types' own list controllers do - the recipient sees the same cover.
-    /// </summary>
-    private static async Task HydrateWithCustomOverrideAsync<TDto, TReference>(
-        IReadOnlyList<TDto> dtos,
-        Func<IReadOnlyCollection<string>, Task<List<TReference>>> findReferencesByIds,
-        Func<TReference, string?> referenceImageUrl,
-        Func<TDto, string?> customImageUrl)
-        where TDto : IReferenceLinkedDto
-        where TReference : IHasId
-    {
-        await ReferenceImageHydrator.HydrateAsync(dtos, findReferencesByIds, referenceImageUrl);
-        foreach (var dto in dtos)
-        {
-            var custom = customImageUrl(dto);
-            if (!string.IsNullOrEmpty(custom))
-            {
-                dto.ImageUrl = custom;
-            }
-        }
     }
 }

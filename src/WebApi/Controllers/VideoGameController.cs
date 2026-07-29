@@ -25,14 +25,8 @@ public class VideoGameController(
     /// its own <see cref="VideoGameDto.CustomImageUrl"/> set overrides that afterward - see
     /// <see cref="BookController.OnListMappedAsync"/>.
     /// </summary>
-    protected override async Task OnListMappedAsync(List<VideoGameDto> dtos)
-    {
-        await ReferenceImageHydrator.HydrateAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl);
-        foreach (var dto in dtos.Where(d => !string.IsNullOrEmpty(d.CustomImageUrl)))
-        {
-            dto.ImageUrl = dto.CustomImageUrl;
-        }
-    }
+    protected override Task OnListMappedAsync(List<VideoGameDto> dtos) =>
+        ReferenceImageHydrator.HydrateWithCustomOverrideAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl, x => x.CustomImageUrl);
 
     /// <summary>
     /// Fires a best-effort background RAWG match for the new game - see <see cref="TvShowController.OnCreatedAsync"/>.
