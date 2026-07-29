@@ -190,5 +190,9 @@ public class TvTimeImportServiceIdempotencyTest
     }
 
     private sealed class FakeEpisodeRepository()
-        : InMemoryRepository<EpisodeModel>((episode, input) => episode.TvShowId == input.TvShowId), IEpisodeRepository;
+        : InMemoryRepository<EpisodeModel>((episode, input) => episode.TvShowId == input.TvShowId), IEpisodeRepository
+    {
+        public Task<List<EpisodeModel>> FindByShowIdsAsync(string ownerId, IReadOnlyCollection<string> tvShowIds) =>
+            Task.FromResult(Items.Where(e => e.OwnerId == ownerId && tvShowIds.Contains(e.TvShowId)).ToList());
+    }
 }
