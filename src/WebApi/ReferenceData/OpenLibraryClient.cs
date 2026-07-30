@@ -11,7 +11,7 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// No API key required;
 /// registered as a typed <see cref="HttpClient"/> with a descriptive User-Agent header (Open Library's stated best practice for API consumers) - see Program.cs.
 /// </summary>
-public class OpenLibraryClient(HttpClient http) : IBookReferenceClient
+public class OpenLibraryClient(HttpClient http) : IBookReferenceClient, IBookRatingByIsbnLookup
 {
     public string ProviderKey => "openlibrary";
 
@@ -89,6 +89,20 @@ public class OpenLibraryClient(HttpClient http) : IBookReferenceClient
             BuildCoverUrl(work.Covers.FirstOrDefault()),
             Rating: rating,
             RatingCount: ratingCount);
+    }
+
+    /// <summary>
+    /// Cross-provider rating fallback (see <see cref="IBookRatingByIsbnLookup"/>): the search index carries
+    /// <c>ratings_average</c>/<c>ratings_count</c> directly, so an <c>isbn:</c> query returns the work's
+    /// rating in a single call. First hit only, as agreed - a clean resolved ISBN maps to one work. A
+    /// 0/absent average is treated as "no rating", not a real zero.
+    /// </summary>
+    public async Task<(double? Average, int? Count)> GetRatingByIsbnAsync(string isbn, CancellationToken cancellationToken = default)
+    {
+        var response = await http.GetFromJsonAsync<OpenLibrarySearchResponse>(
+            $"search.json?q={Encode($"isbn:{isbn}")}&fields=ratings_average,ratings_count&limit=1", cancellationToken);
+        var doc = response?.Docs.FirstOrDefault();
+        return doc is { RatingsAverage: > 0 } ? (doc.RatingsAverage, doc.RatingsCount) : (null, null);
     }
 
     /// <summary>
@@ -179,6 +193,12 @@ public class OpenLibraryClient(HttpClient http) : IBookReferenceClient
 
         [JsonPropertyName("cover_i")]
         public int? CoverId { get; set; }
+
+        [JsonPropertyName("ratings_average")]
+        public double? RatingsAverage { get; set; }
+
+        [JsonPropertyName("ratings_count")]
+        public int? RatingsCount { get; set; }
     }
 
     private sealed class OpenLibraryWorkResponse

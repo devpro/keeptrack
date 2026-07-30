@@ -34,8 +34,10 @@ public class ReferenceSyncServiceTest
         _videoGameReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync([]);
         _albumReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync([]);
 
+        var bookRatingLookup = new Mock<IBookRatingByIsbnLookup>();
+        bookRatingLookup.Setup(x => x.GetRatingByIsbnAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(((double?)null, (int?)null));
         var enrichmentService = new ReferenceEnrichmentService(
-            tmdbClient, new BookReferenceClientRegistry([FakeBookReferenceClient.Empty()], "openlibrary"), FakeRawgClient.Empty(), FakeDiscogsClient.Empty(),
+            tmdbClient, new BookReferenceClientRegistry([FakeBookReferenceClient.Empty()], "openlibrary"), bookRatingLookup.Object, FakeRawgClient.Empty(), FakeDiscogsClient.Empty(),
             _tvShowReferenceRepository.Object, _movieReferenceRepository.Object, _personReferenceRepository.Object,
             _bookReferenceRepository.Object, _videoGameReferenceRepository.Object, _albumReferenceRepository.Object,
             _tvShowRepository.Object, _movieRepository.Object, _bookRepository.Object, _videoGameRepository.Object, _albumRepository.Object);

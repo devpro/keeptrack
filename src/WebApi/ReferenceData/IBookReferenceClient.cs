@@ -47,3 +47,16 @@ public interface IBookReferenceClient
 
     Task<BookDetails?> GetBookDetailsAsync(string externalId, CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// Looks up an aggregate book rating by ISBN. A small, single-purpose capability kept off
+/// <see cref="IBookReferenceClient"/> because only one provider needs to implement it: it's a cross-provider
+/// fallback for the rating field alone. The default book provider (Google Books) no longer serves ratings at
+/// all (confirmed against the live API), so a book linked through it - or any provider without ratings - can
+/// still get one from Open Library via the clean ISBN the link already resolved. Implemented by
+/// <see cref="OpenLibraryClient"/>.
+/// </summary>
+public interface IBookRatingByIsbnLookup
+{
+    Task<(double? Average, int? Count)> GetRatingByIsbnAsync(string isbn, CancellationToken cancellationToken = default);
+}

@@ -26,6 +26,7 @@ public class ReferenceEnrichmentServiceTest
     private readonly Mock<IBookRepository> _bookRepository = new();
     private readonly Mock<IVideoGameRepository> _videoGameRepository = new();
     private readonly Mock<IAlbumRepository> _albumRepository = new();
+    private readonly FakeBookRatingByIsbnLookup _bookRatingByIsbnLookup = new();
 
     /// <summary>
     /// The registry always has "openlibrary" as the deployment default - matches FakeBookReferenceClient's
@@ -42,6 +43,7 @@ public class ReferenceEnrichmentServiceTest
         FakeBnfClient? bnfClient = null) => new(
         tmdbClient,
         new BookReferenceClientRegistry([bookReferenceClient ?? FakeBookReferenceClient.Empty(), bnfClient ?? FakeBnfClient.Empty()], DefaultBookProvider),
+        _bookRatingByIsbnLookup,
         rawgClient ?? FakeRawgClient.Empty(), discogsClient ?? FakeDiscogsClient.Empty(),
         _tvShowReferenceRepository.Object, _movieReferenceRepository.Object, _personReferenceRepository.Object,
         _bookReferenceRepository.Object, _videoGameReferenceRepository.Object, _albumReferenceRepository.Object,
@@ -713,6 +715,42 @@ public class ReferenceEnrichmentServiceTest
     }
 
     [Fact]
+    public async Task ResolveBookAsync_FallsBackToOpenLibraryRatingByIsbn_WhenTheLinkingProviderReportsNone()
+    {
+        // BnF (like Google Books, the production default) serves no rating; the resolved ISBN lets Open
+        // Library supply one, stored under its own source key and denormalized as the book's primary rating.
+        var bnfClient = FakeBnfClient.Empty();
+        bnfClient.Details["ark:/12148/cb1"] = new BookDetails("ark:/12148/cb1", "Some Book", 2020, "Synopsis", "Some Author", null, [], null, "fre", "9780000000001");
+        _bookRatingByIsbnLookup.Result = (4.2, 100);
+        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => { m.Id = "reference-1"; return m; });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bnfClient: bnfClient);
+
+        var result = await service.ResolveBookAsync("Some Book", 2020, "ark:/12148/cb1", "bnf");
+
+        _bookRatingByIsbnLookup.RequestedIsbns.Should().Contain("9780000000001");
+        result.Ratings.Should().ContainKey("openlibrary");
+        result.Ratings["openlibrary"].Value.Should().Be(4.2);
+        result.Ratings["openlibrary"].Scale.Should().Be(5);
+        _bookRepository.Verify(r => r.SetReferenceLinkAsync("Some Book", 2020, "reference-1", "Some Book", It.IsAny<int?>(),
+            "Some Author", It.IsAny<string?>(), "fre", "9780000000001", 4.2, 5), Times.Once);
+    }
+
+    [Fact]
+    public async Task ResolveBookAsync_DoesNotCallTheOpenLibraryFallback_WhenTheLinkingProviderIsOpenLibrary()
+    {
+        // the default provider IS Open Library here - a rating (or its absence) already comes from the link itself
+        var bookReferenceClient = FakeBookReferenceClient.Empty();
+        bookReferenceClient.Details["OL1W"] = new BookDetails("OL1W", "Some Book", 2020, "Synopsis", "Some Author", "OL1A", [], null, null, "9780000000001");
+        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => { m.Id = "reference-1"; return m; });
+        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bookReferenceClient);
+
+        await service.ResolveBookAsync("Some Book", 2020, "OL1W");
+
+        _bookRatingByIsbnLookup.RequestedIsbns.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task TryLinkExistingBookReferenceAsync_LinksAndUpdatesTitleAndAuthor_OnTitleYearMatch()
     {
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
@@ -1210,6 +1248,7 @@ public class ReferenceEnrichmentServiceTest
     private ReferenceEnrichmentService CreateServiceWithStrictClients() => new(
         new Mock<ITmdbClient>(MockBehavior.Strict).Object,
         new BookReferenceClientRegistry([new Mock<IBookReferenceClient>(MockBehavior.Strict).Object], DefaultBookProvider),
+        new Mock<IBookRatingByIsbnLookup>(MockBehavior.Strict).Object,
         new Mock<IRawgClient>(MockBehavior.Strict).Object,
         new Mock<IDiscogsClient>(MockBehavior.Strict).Object,
         _tvShowReferenceRepository.Object, _movieReferenceRepository.Object, _personReferenceRepository.Object,
@@ -1274,6 +1313,20 @@ public class ReferenceEnrichmentServiceTest
         await ((Func<Task>)(() => service.ResolveBookAsync(" ", 2020, "42"))).Should().ThrowAsync<ArgumentException>();
         await ((Func<Task>)(() => service.ResolveVideoGameAsync("", 2020, "42"))).Should().ThrowAsync<ArgumentException>();
         await ((Func<Task>)(() => service.ResolveAlbumAsync(" ", 2020, "42"))).Should().ThrowAsync<ArgumentException>();
+    }
+
+    private sealed class FakeBookRatingByIsbnLookup : IBookRatingByIsbnLookup
+    {
+        /// <summary>Result the fallback returns; defaults to "no rating" so tests not exercising it are unaffected.</summary>
+        public (double? Average, int? Count) Result { get; set; } = (null, null);
+
+        public List<string> RequestedIsbns { get; } = [];
+
+        public Task<(double? Average, int? Count)> GetRatingByIsbnAsync(string isbn, CancellationToken cancellationToken = default)
+        {
+            RequestedIsbns.Add(isbn);
+            return Task.FromResult(Result);
+        }
     }
 
     private sealed class FakeTmdbClient : ITmdbClient

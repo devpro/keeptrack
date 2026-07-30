@@ -21,9 +21,29 @@ public partial class ReferenceEnrichmentService
         return ratings;
     }
 
-    /// <summary>The book's single stored rating (from whichever provider linked it), or (null, null) when it has none.</summary>
+    /// <summary>The book's single stored rating (from whichever provider linked it, or the OL fallback), or (null, null) when it has none.</summary>
     private static (double? Value, double? Scale) BookPrimaryRating(BookReferenceModel reference) =>
         reference.Ratings.Count == 0 ? (null, null) : PrimaryRating(reference.Ratings, reference.Ratings.Keys.First());
+
+    private const string OpenLibraryProviderKey = "openlibrary";
+
+    /// <summary>
+    /// Cross-provider rating fallback for books: when the linking provider supplied no rating (Google Books,
+    /// the default, no longer serves any) and there's a resolved ISBN to look up by, fetch Open Library's
+    /// rating by ISBN and store it under its own source key. No-op when a rating already exists, the linking
+    /// provider IS Open Library (already covered), or there's no ISBN. Best-effort - a failed/empty lookup
+    /// just leaves the book unrated rather than failing the resolve.
+    /// </summary>
+    private async Task AddOpenLibraryRatingFallbackAsync(Dictionary<string, ReferenceRatingModel> ratings, string providerKey, string? isbn, CancellationToken cancellationToken)
+    {
+        if (ratings.Count > 0 || providerKey == OpenLibraryProviderKey || string.IsNullOrWhiteSpace(isbn)) return;
+
+        var (average, count) = await bookRatingByIsbnLookup.GetRatingByIsbnAsync(isbn, cancellationToken);
+        if (average is > 0)
+        {
+            ratings[OpenLibraryProviderKey] = new ReferenceRatingModel { Value = average.Value, Scale = 5, Count = count };
+        }
+    }
 
     /// <summary>
     /// User-triggered "check for reference match" for books - see
@@ -157,6 +177,9 @@ public partial class ReferenceEnrichmentService
             ? await ResolvePersonReferenceIdAsync(client.ProviderKey, details.AuthorExternalId, details.Author ?? "Unknown", null)
             : existing?.AuthorReferenceId;
 
+        var ratings = BuildBookRatings(client.ProviderKey, details.Rating, details.RatingCount);
+        await AddOpenLibraryRatingFallbackAsync(ratings, client.ProviderKey, details.Isbn ?? existing?.Isbn, CancellationToken.None);
+
         var model = new BookReferenceModel
         {
             Id = existing?.Id,
@@ -170,7 +193,7 @@ public partial class ReferenceEnrichmentService
                 (details.Title, details.Year ?? year, details.Author, details.Isbn),
                 (title, year, details.Author, isbn)),
             Genres = details.Genres,
-            Ratings = BuildBookRatings(client.ProviderKey, details.Rating, details.RatingCount),
+            Ratings = ratings,
             ImageUrl = details.ImageUrl,
             Language = details.Language ?? existing?.Language,
             Isbn = details.Isbn ?? existing?.Isbn,
@@ -216,6 +239,7 @@ public partial class ReferenceEnrichmentService
         reference.ImageUrl = details.ImageUrl ?? reference.ImageUrl;
         reference.Language = details.Language ?? reference.Language;
         reference.Isbn = details.Isbn ?? reference.Isbn;
+        await AddOpenLibraryRatingFallbackAsync(reference.Ratings, client.ProviderKey, reference.Isbn, cancellationToken);
         reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, details.Author, details.Isbn));
         reference.LastEnrichedAt = DateTime.UtcNow;
 

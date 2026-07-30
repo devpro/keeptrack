@@ -82,6 +82,8 @@ builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.OpenLibraryClient>
     client.Timeout = Timeout.InfiniteTimeSpan;
 }).AddBookProviderResilienceHandler();
 builder.Services.AddTransient<Keeptrack.WebApi.ReferenceData.IBookReferenceClient>(sp => sp.GetRequiredService<Keeptrack.WebApi.ReferenceData.OpenLibraryClient>());
+// Open Library also backs the cross-provider ISBN rating fallback (Google Books, the default, serves no ratings).
+builder.Services.AddTransient<Keeptrack.WebApi.ReferenceData.IBookRatingByIsbnLookup>(sp => sp.GetRequiredService<Keeptrack.WebApi.ReferenceData.OpenLibraryClient>());
 builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.BnfClient>(client =>
 {
     client.BaseAddress = new Uri("https://catalogue.bnf.fr/api/");
