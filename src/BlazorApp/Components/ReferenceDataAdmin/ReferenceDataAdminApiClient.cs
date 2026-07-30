@@ -63,6 +63,17 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
         return await response.Content.ReadFromJsonAsync<RecomputeRatingsResultDto>() ?? new RecomputeRatingsResultDto();
     }
 
+    /// <summary>The global Explore-feature settings.</summary>
+    public async Task<ExploreSettingsDto> GetExploreSettingsAsync() =>
+        await http.GetFromJsonAsync<ExploreSettingsDto>("/api/reference-data/explore-settings") ?? new ExploreSettingsDto();
+
+    /// <summary>Updates the global Explore-feature settings.</summary>
+    public async Task SetExploreSettingsAsync(bool useTmdbRanking)
+    {
+        var response = await http.PutAsJsonAsync("/api/reference-data/explore-settings", new ExploreSettingsDto { UseTmdbRanking = useTmdbRanking });
+        response.EnsureSuccessStatusCode();
+    }
+
     public async Task LinkAsync(LinkReferenceRequestDto request)
     {
         var response = await http.PostAsJsonAsync("/api/reference-data/link", request);

@@ -517,6 +517,22 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 }
 .kt-grid-card:hover .kt-grid-delete,
 .kt-grid-delete:focus-visible { opacity: 1; }
+/* Explore card actions (add / dismiss). Unlike the delete button they are the card's whole purpose, so
+   they stay visible at rest rather than appearing on hover. Add sits left, dismiss right, across the top. */
+.kt-explore-actions {
+  position: absolute;
+  top: 0.35rem;
+  left: 0.35rem;
+  right: 0.35rem;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+.kt-explore-actions .kt-icon-btn { background: rgba(0, 0, 0, 0.55); border-radius: 6px; }
+/* list-row variant: actions on the right, always visible */
+.kt-explore-row-actions { position: relative; z-index: 2; display: flex; align-items: center; gap: 0.4rem; }
+
 .kt-grid-caption { padding: 0.5rem 0.15rem 0; }
 .kt-grid-title {
   font-weight: 500;

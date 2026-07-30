@@ -192,6 +192,14 @@
                 }
             </div>
         }
+        <hr class="my-3"/>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="explore-use-tmdb" checked="@_exploreUseTmdb" @onchange="OnExploreUseTmdbChangedAsync"/>
+            <label class="form-check-label" for="explore-use-tmdb" style="color:var(--kt-text-muted)">
+                <strong>Explore:</strong> always rank and show TMDB ratings for movies &amp; TV shows, even when IMDb is the
+                default source above. Keeps discovery fast by avoiding a per-title OMDb lookup on every page load.
+            </label>
+        </div>
         @if (_ratingSourceError is not null)
         {
             <div class="alert alert-danger mt-2 mb-0">@_ratingSourceError</div>
@@ -480,14 +488,30 @@
     private RecomputeRatingsResultDto? _recomputeResult;
     private ReferenceItemType? _recomputedDomain;
     private string? _ratingSourceError;
+    private bool _exploreUseTmdb;
 
     protected override async Task OnInitializedAsync()
     {
         _bookProviders = await Api.GetBookProvidersAsync();
         _selectedProvider = _bookProviders.FirstOrDefault()?.Key;
         _ratingSources = await Api.GetRatingSourcesAsync();
+        _exploreUseTmdb = (await Api.GetExploreSettingsAsync()).UseTmdbRanking;
         await LoadUnresolvedAsync();
         await LoadSystemStatusAsync();
+    }
+
+    private async Task OnExploreUseTmdbChangedAsync(ChangeEventArgs e)
+    {
+        _exploreUseTmdb = e.Value as bool? ?? false;
+        try
+        {
+            await Api.SetExploreSettingsAsync(_exploreUseTmdb);
+            _ratingSourceError = null;
+        }
+        catch (Exception ex)
+        {
+            _ratingSourceError = ex.Message;
+        }
     }
 
     private static string SourceLabel(string source) => source switch

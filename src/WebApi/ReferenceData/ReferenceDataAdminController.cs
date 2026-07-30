@@ -273,6 +273,21 @@ public class ReferenceDataAdminController(
         return NoContent();
     }
 
+    /// <summary>The global Explore-feature settings (see <see cref="ExploreSettingsDto"/>).</summary>
+    [HttpGet("explore-settings")]
+    [ProducesResponseType(200)]
+    public async Task<ActionResult<ExploreSettingsDto>> GetExploreSettings() =>
+        Ok(new ExploreSettingsDto { UseTmdbRanking = await appSettingRepository.GetExploreUseTmdbAsync() });
+
+    /// <summary>Updates the global Explore-feature settings.</summary>
+    [HttpPut("explore-settings")]
+    [ProducesResponseType(204)]
+    public async Task<IActionResult> SetExploreSettings([FromBody] ExploreSettingsDto request)
+    {
+        await appSettingRepository.SetExploreUseTmdbAsync(request.UseTmdbRanking);
+        return NoContent();
+    }
+
     /// <summary>
     /// Re-applies a domain's current primary rating source to every already-linked tenant item - a single
     /// bulk pass over the (small, shared) reference collection, no provider calls. Run after switching the

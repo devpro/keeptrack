@@ -6,6 +6,12 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// </summary>
 public record TmdbSearchResult(string TmdbId, string Title, int? Year, string? Synopsis, string? PosterUrl);
 
+/// <summary>
+/// One entry from a TMDB "top rated" list - the same fields as a search hit plus TMDB's own aggregate
+/// vote average (0-10), which is what the Explore discovery feature ranks and displays by.
+/// </summary>
+public record TmdbTopRatedItem(string TmdbId, string Title, int? Year, string? Synopsis, string? PosterUrl, double? VoteAverage);
+
 public record TmdbEpisode(int SeasonNumber, int EpisodeNumber, string Title, DateOnly? AirDate);
 
 public record TmdbTvShowDetails(string TmdbId, string Title, int? Year, string? Synopsis, List<TmdbEpisode> Episodes, List<string> Genres, string? PosterUrl, double? VoteAverage = null, int? VoteCount = null, string? ImdbId = null);
@@ -27,6 +33,16 @@ public interface ITmdbClient
     Task<IReadOnlyList<TmdbSearchResult>> SearchTvShowAsync(string title, int? year, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<TmdbSearchResult>> SearchMovieAsync(string title, int? year, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// One page (TMDB returns ~20 per page) of TMDB's top-rated movies, highest-rated first - the source
+    /// the Explore discovery feature reads. Fetching from the provider (not the local reference collection)
+    /// is the whole point: it surfaces acclaimed titles the user hasn't tracked yet.
+    /// </summary>
+    Task<IReadOnlyList<TmdbTopRatedItem>> GetTopRatedMoviesAsync(int page, CancellationToken cancellationToken = default);
+
+    /// <summary>TV equivalent of <see cref="GetTopRatedMoviesAsync"/>.</summary>
+    Task<IReadOnlyList<TmdbTopRatedItem>> GetTopRatedTvShowsAsync(int page, CancellationToken cancellationToken = default);
 
     Task<TmdbTvShowDetails?> GetTvShowDetailsAsync(string tmdbId, CancellationToken cancellationToken = default);
 

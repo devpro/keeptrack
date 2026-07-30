@@ -22,4 +22,13 @@ public interface IAppSettingRepository
     /// Sets (or replaces) the primary rating source for one domain. Upserts the single settings document.
     /// </summary>
     Task SetReferenceRatingSourceAsync(string domainKey, string source);
+
+    /// <summary>
+    /// Whether the Explore discovery feature should rank/show TMDB ratings for movies and TV shows even when
+    /// IMDb is the selected primary source (avoiding a per-title OMDb lookup). Defaults to false.
+    /// </summary>
+    Task<bool> GetExploreUseTmdbAsync();
+
+    /// <summary>Sets the Explore "use TMDB ranking" flag. Upserts the single settings document.</summary>
+    Task SetExploreUseTmdbAsync(bool useTmdb);
 }

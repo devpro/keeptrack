@@ -278,3 +278,9 @@ ensureIndex(
 // index is what actually guarantees that, the same way the application-level upsert-by-owner-id logic in
 // UserPreferencesRepository is only "supposed to" prevent a second document.
 ensureIndex(db.user_preference, { owner_id: 1 }, { name: "user_preference_owner", unique: true });
+
+// explore_dismissal: one document per (owner, type, provider external id) a user hid from their Explore list
+// (Explore suggests provider titles - TMDB top-rated - not local references). Read by (owner_id,
+// reference_type) to build the exclusion set; unique on the full natural key so a double-dismiss (the
+// application also upserts idempotently) can never create a duplicate.
+ensureIndex(db.explore_dismissal, { owner_id: 1, reference_type: 1, external_id: 1 }, { name: "explore_dismissal_key", unique: true });

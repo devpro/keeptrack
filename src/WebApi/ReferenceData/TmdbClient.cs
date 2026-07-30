@@ -27,6 +27,22 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
             r.Id.ToString(CultureInfo.InvariantCulture), r.Title ?? title, ParseYear(r.ReleaseDate), r.Overview, BuildImageUrl(r.PosterPath, PosterImageSize))).ToList() ?? [];
     }
 
+    public async Task<IReadOnlyList<TmdbTopRatedItem>> GetTopRatedMoviesAsync(int page, CancellationToken cancellationToken = default)
+    {
+        var response = await http.GetFromJsonAsync<TmdbSearchResponse>($"movie/top_rated?api_key={ApiKey}&page={page}", cancellationToken);
+        return response?.Results.Select(r => new TmdbTopRatedItem(
+            r.Id.ToString(CultureInfo.InvariantCulture), r.Title ?? string.Empty, ParseYear(r.ReleaseDate), r.Overview,
+            BuildImageUrl(r.PosterPath, PosterImageSize), r.VoteAverage)).ToList() ?? [];
+    }
+
+    public async Task<IReadOnlyList<TmdbTopRatedItem>> GetTopRatedTvShowsAsync(int page, CancellationToken cancellationToken = default)
+    {
+        var response = await http.GetFromJsonAsync<TmdbSearchResponse>($"tv/top_rated?api_key={ApiKey}&page={page}", cancellationToken);
+        return response?.Results.Select(r => new TmdbTopRatedItem(
+            r.Id.ToString(CultureInfo.InvariantCulture), r.Name ?? string.Empty, ParseYear(r.FirstAirDate), r.Overview,
+            BuildImageUrl(r.PosterPath, PosterImageSize), r.VoteAverage)).ToList() ?? [];
+    }
+
     public async Task<TmdbTvShowDetails?> GetTvShowDetailsAsync(string tmdbId, CancellationToken cancellationToken = default)
     {
         // append_to_response=external_ids folds the imdb id into this same details call - no extra request,
@@ -156,6 +172,9 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
 
         [JsonPropertyName("poster_path")]
         public string? PosterPath { get; set; }
+
+        [JsonPropertyName("vote_average")]
+        public double? VoteAverage { get; set; }
     }
 
     private sealed class TmdbTvShowDetailsResponse

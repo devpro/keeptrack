@@ -1646,6 +1646,12 @@ public class ReferenceEnrichmentServiceTest
 
         public static FakeTmdbClient WithTvShowSearchResults(params TmdbSearchResult[] results) => new([.. results]);
 
+        public Task<IReadOnlyList<TmdbTopRatedItem>> GetTopRatedMoviesAsync(int page, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<TmdbTopRatedItem>>([]);
+
+        public Task<IReadOnlyList<TmdbTopRatedItem>> GetTopRatedTvShowsAsync(int page, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<TmdbTopRatedItem>>([]);
+
         public Task<IReadOnlyList<TmdbSearchResult>> SearchTvShowAsync(string title, int? year, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<TmdbSearchResult>>(_tvShowSearchResults);
 

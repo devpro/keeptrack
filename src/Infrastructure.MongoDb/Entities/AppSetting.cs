@@ -17,4 +17,12 @@ public class AppSetting
     /// <summary>Domain key (e.g. <c>VideoGame</c>) → primary rating source key (e.g. <c>metacritic</c>).</summary>
     [BsonElement("reference_rating_source")]
     public Dictionary<string, string> ReferenceRatingSources { get; set; } = new();
+
+    /// <summary>
+    /// When true, the Explore discovery feature ranks/shows TMDB ratings for movies and TV shows even when
+    /// IMDb is the selected primary rating source - avoiding a per-title OMDb lookup on every page load.
+    /// Defaults to false (Explore follows the primary source).
+    /// </summary>
+    [BsonElement("explore_use_tmdb")]
+    public bool ExploreUseTmdb { get; set; }
 }

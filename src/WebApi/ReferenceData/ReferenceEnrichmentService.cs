@@ -43,9 +43,7 @@ public partial class ReferenceEnrichmentService(
     public async Task<string> GetPrimaryRatingSourceAsync(ReferenceItemType domain)
     {
         var overrides = await appSettingRepository.GetReferenceRatingSourcesAsync();
-        return overrides.TryGetValue(domain.ToString(), out var stored) && RatingSourceCatalog.AvailableSources(domain).Contains(stored)
-            ? stored
-            : RatingSourceCatalog.DefaultSource(domain);
+        return RatingSourceCatalog.Resolve(overrides, domain);
     }
 
     /// <summary>

@@ -32,4 +32,17 @@ public class AppSettingRepository(IMongoDatabase mongoDatabase) : IAppSettingRep
         var update = Builders<AppSetting>.Update.Set($"reference_rating_source.{domainKey}", source);
         await Collection.UpdateOneAsync(s => s.Id == GlobalId, update, new UpdateOptions { IsUpsert = true });
     }
+
+    public async Task<bool> GetExploreUseTmdbAsync()
+    {
+        var entity = await Collection.Find(s => s.Id == GlobalId).FirstOrDefaultAsync();
+        return entity?.ExploreUseTmdb ?? false;
+    }
+
+    public async Task SetExploreUseTmdbAsync(bool useTmdb)
+    {
+        // targeted $set on just this field, same as the rating-source setter above
+        var update = Builders<AppSetting>.Update.Set(s => s.ExploreUseTmdb, useTmdb);
+        await Collection.UpdateOneAsync(s => s.Id == GlobalId, update, new UpdateOptions { IsUpsert = true });
+    }
 }

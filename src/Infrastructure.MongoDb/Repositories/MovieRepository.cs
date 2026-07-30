@@ -75,6 +75,17 @@ public class MovieRepository(IMongoDatabase mongoDatabase, ILogger<MovieReposito
         return groups.Select(g => (g.Title, g.Year, (string?)null)).ToList();
     }
 
+    public async Task<IReadOnlyList<string>> FindLinkedReferenceIdsAsync(string ownerId)
+    {
+        var builder = Builders<Movie>.Filter;
+        // "linked" is the inverse of UnresolvedFilter: a real reference id, not null and not the legacy empty-string sentinel.
+        var filter = builder.Eq(f => f.OwnerId, ownerId)
+                     & builder.Ne(f => f.ReferenceId, null)
+                     & builder.Ne(f => f.ReferenceId, string.Empty);
+        var ids = await GetCollection().Distinct(f => f.ReferenceId, filter).ToListAsync();
+        return ids.Where(id => !string.IsNullOrEmpty(id)).Select(id => id!).ToList();
+    }
+
     /// <summary>
     /// "Has no reference link yet" means <see cref="Movie.ReferenceId"/> is null OR empty string, not
     /// just null: old documents (written before the AutoMapper -> Mapperly migration) can still store ""

@@ -45,4 +45,15 @@ public static class RatingSourceCatalog
     public static string DefaultSource(ReferenceItemType domain) =>
         AvailableSources(domain).FirstOrDefault()
         ?? throw new ArgumentOutOfRangeException(nameof(domain), $"No rating sources are declared for {domain}.");
+
+    /// <summary>
+    /// The effective primary source for <paramref name="domain"/> given the admin's stored overrides: the
+    /// stored choice when it still names an available source, otherwise the code default (an override for a
+    /// source since removed from the catalog is ignored). The single resolver shared by
+    /// <c>ReferenceEnrichmentService.GetPrimaryRatingSourceAsync</c> and the Explore feature.
+    /// </summary>
+    public static string Resolve(IReadOnlyDictionary<string, string> overrides, ReferenceItemType domain) =>
+        overrides.TryGetValue(domain.ToString(), out var stored) && AvailableSources(domain).Contains(stored)
+            ? stored
+            : DefaultSource(domain);
 }

@@ -1,0 +1,223 @@
+@page "/explore"
+@attribute [Authorize]
+@using System.Globalization
+@using Keeptrack.BlazorApp.Components.Inventory
+@using Keeptrack.BlazorApp.Components.Shared
+@using Keeptrack.WebApi.Contracts.Dto
+
+<div class="kt-page-header">
+    <h1>Ex<span>plore</span></h1>
+    <div class="d-flex gap-2 align-items-center">
+        <ListViewToggle View="@_view" ViewChanged="@OnViewChanged"/>
+        <button class="btn btn-sm kt-toggle-btn" @onclick="RefreshAsync" disabled="@_loading" title="Refresh suggestions">↻ Refresh</button>
+    </div>
+</div>
+
+<p class="mb-3" style="color:var(--kt-text-muted)">
+    Top-rated @(_tab == Tab.Movies ? "movies" : "TV shows") from TMDB you don't track yet. Add one to your
+    collection in a tap, or dismiss it to stop it coming back.
+</p>
+
+<div class="kt-tabs">
+    <button class="kt-tab @(_tab == Tab.Movies ? "active" : "")" @onclick="() => SelectTab(Tab.Movies)">Movies</button>
+    <button class="kt-tab @(_tab == Tab.TvShows ? "active" : "")" @onclick="() => SelectTab(Tab.TvShows)">TV shows</button>
+</div>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+
+@if (_loading && Current is null)
+{
+    <div class="kt-loading">
+        <div class="kt-spinner"></div>
+        Loading…
+    </div>
+}
+else if (Current is { Count: 0 })
+{
+    <div class="kt-empty">
+        <div class="kt-empty-icon">◈</div>
+        <p>No new suggestions right now - you already track the top-rated titles. Try Refresh, or dismiss fewer.</p>
+    </div>
+}
+else if (Current is { } items)
+{
+    <div class="kt-table-wrap">
+        @if (_view == "grid")
+        {
+            <div class="kt-item-grid">
+                @foreach (var item in items)
+                {
+                    <ItemGridCard Href="@null" Title="@item.Title" ImageUrl="@item.ImageUrl">
+                        <Actions>
+                            <div class="kt-explore-actions">
+                                @if (_busy.Contains(item.ExternalId))
+                                {
+                                    <span class="kt-icon-btn" aria-label="Adding"><span class="kt-icon-spin">↻</span></span>
+                                }
+                                else
+                                {
+                                    <button type="button" class="kt-icon-btn" title="Add to my collection" aria-label="Add to my collection"
+                                            @onclick="() => AddAsync(item)">
+                                        <AddToCollectionIcon/>
+                                    </button>
+                                }
+                                <button type="button" class="kt-icon-btn" title="Dismiss" aria-label="Dismiss"
+                                        disabled="@_busy.Contains(item.ExternalId)" @onclick="() => DismissAsync(item)">✕</button>
+                            </div>
+                        </Actions>
+                        <MetaContent>
+                            @if (item.Year > 0)
+                            {
+                                <span>@item.Year</span>
+                            }
+                            @if (item.Rating is not null)
+                            {
+                                <span class="kt-ref-rating"><span class="kt-ref-rating-star">★</span> @item.Rating.Value.ToString("0.0", CultureInfo.InvariantCulture)</span>
+                            }
+                        </MetaContent>
+                    </ItemGridCard>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="kt-item-list">
+                @foreach (var item in items)
+                {
+                    <div class="kt-item-row">
+                        <ItemThumb ImageUrl="@item.ImageUrl" Shape="@null"/>
+                        <div class="kt-item-main">
+                            <span class="kt-item-title">@item.Title</span>
+                            <div class="kt-item-meta">
+                                @if (item.Year > 0)
+                                {
+                                    <span>@item.Year</span>
+                                }
+                                @if (item.Rating is not null)
+                                {
+                                    <span class="kt-ref-rating"><span class="kt-ref-rating-star">★</span> @item.Rating.Value.ToString("0.0", CultureInfo.InvariantCulture)</span>
+                                }
+                            </div>
+                        </div>
+                        <div class="kt-explore-row-actions">
+                            @if (_busy.Contains(item.ExternalId))
+                            {
+                                <span class="kt-icon-btn" aria-label="Adding"><span class="kt-icon-spin">↻</span></span>
+                            }
+                            else
+                            {
+                                <button type="button" class="kt-icon-btn" title="Add to my collection" aria-label="Add to my collection"
+                                        @onclick="() => AddAsync(item)">
+                                    <AddToCollectionIcon/>
+                                </button>
+                            }
+                            <button type="button" class="kt-icon-btn" title="Dismiss" aria-label="Dismiss"
+                                    disabled="@_busy.Contains(item.ExternalId)" @onclick="() => DismissAsync(item)">✕</button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private enum Tab { Movies, TvShows }
+
+    [Inject] private ExploreApiClient Api { get; set; } = null!;
+
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+
+    [Inject] private ListViewPreference ViewPreference { get; set; } = null!;
+
+    // Persisted in the URL (?tab=) like the Wishlist page, so back/forward and a refresh keep the active tab.
+    [SupplyParameterFromQuery(Name = "tab")]
+    public string? TabQuery { get; set; }
+
+    /// <summary>How many suggestions to keep on screen; also the number requested per fetch.</summary>
+    private const int PageCount = 24;
+
+    private Tab _tab;
+    private string _view = "";
+    private bool _loading;
+    private string? _error;
+
+    // one loaded list per tab, so switching back and forth doesn't refetch; the external ids currently being
+    // added/dismissed, to swap their button for a spinner and guard against a double click.
+    private readonly Dictionary<Tab, List<ExploreSuggestionDto>> _cache = [];
+    private readonly HashSet<string> _busy = [];
+
+    private List<ExploreSuggestionDto>? Current => _cache.TryGetValue(_tab, out var list) ? list : null;
+
+    private string TypeName => _tab == Tab.Movies ? nameof(ReferenceItemType.Movie) : nameof(ReferenceItemType.TvShow);
+
+    protected override void OnInitialized() => _view = ViewPreference.View;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _tab = Enum.TryParse<Tab>(TabQuery, out var tab) ? tab : Tab.Movies;
+        if (!_cache.ContainsKey(_tab)) await LoadAsync();
+    }
+
+    private void OnViewChanged(string view) => _view = view;
+
+    private void SelectTab(Tab tab) =>
+        Navigation.NavigateTo(Navigation.GetUriWithQueryParameters(new Dictionary<string, object?> { ["tab"] = tab.ToString() }));
+
+    private async Task LoadAsync()
+    {
+        _error = null;
+        await LoadingIndicator.RunAsync(FetchAsync(), v => _loading = v, StateHasChanged);
+        _loading = false;
+    }
+
+    private async Task FetchAsync() => _cache[_tab] = await Api.GetAsync(TypeName, PageCount);
+
+    private async Task RefreshAsync()
+    {
+        _cache.Remove(_tab);
+        await LoadAsync();
+    }
+
+    private async Task AddAsync(ExploreSuggestionDto item) => await ActAsync(item, () => Api.AddAsync(TypeName, item.ExternalId, item.Title, item.Year));
+
+    private async Task DismissAsync(ExploreSuggestionDto item) => await ActAsync(item, () => Api.DismissAsync(TypeName, item.ExternalId));
+
+    // Add and dismiss share everything but the one call: run it, drop the card, and top the list back up if
+    // it's getting short - so the two handlers never duplicate the busy-guard / remove / top-up logic.
+    private async Task ActAsync(ExploreSuggestionDto item, Func<Task> action)
+    {
+        if (!_busy.Add(item.ExternalId)) return;
+        try
+        {
+            await action();
+            Current?.Remove(item);
+            await TopUpAsync();
+            _error = null;
+        }
+        catch (Exception)
+        {
+            _error = "Something went wrong - please try again.";
+        }
+        finally
+        {
+            _busy.Remove(item.ExternalId);
+        }
+    }
+
+    // Keep the list topped up after an add/dismiss: append any newly-available suggestions below the current
+    // ones (never reshuffling what's on screen), so removing a card is promptly backfilled. A no-op once the
+    // server has nothing new left to add.
+    private async Task TopUpAsync()
+    {
+        var list = Current;
+        if (list is null || list.Count >= PageCount) return;
+
+        var fresh = await Api.GetAsync(TypeName, PageCount);
+        var have = list.Select(x => x.ExternalId).ToHashSet();
+        list.AddRange(fresh.Where(x => !have.Contains(x.ExternalId)));
+    }
+}
