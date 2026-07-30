@@ -170,19 +170,21 @@
             Which provider score is shown as the rating pill and drives the "Ref ★" sort. Changing the source
             only affects new links and syncs until you recompute - use Recompute to re-apply the selected
             source to every already-linked item at once. Note: Metacritic is out of 100 and often absent on
-            RAWG, so switching video games to it blanks the pill for many games and sorts them last.
+            RAWG, so switching video games to it blanks the pill for many games and sorts them last. IMDb
+            (movies/TV) is out of 10 like TMDB, so switching rarely changes the pill, but a few titles have no
+            IMDb rating and will blank/sort last.
         </p>
         @foreach (var option in _ratingSources)
         {
             <div class="d-flex align-items-center gap-3 flex-wrap mb-2">
                 <strong style="min-width:110px">@DomainLabel(option.Domain)</strong>
-                <div class="btn-group btn-group-sm" role="group">
+                <select class="form-select form-select-sm" style="max-width:170px" value="@option.SelectedSource"
+                        @onchange="e => SelectRatingSourceAsync(option, e.Value?.ToString() ?? option.SelectedSource)">
                     @foreach (var source in option.AvailableSources)
                     {
-                        <button type="button" class="btn @(source == option.SelectedSource ? "btn-primary" : "btn-secondary")"
-                                @onclick="() => SelectRatingSourceAsync(option, source)">@source</button>
+                        <option value="@source">@SourceLabel(source)</option>
                     }
-                </div>
+                </select>
                 <button class="btn btn-sm btn-secondary" @onclick="() => RecomputeRatingsAsync(option.Domain)" disabled="@_recomputing">Recompute</button>
                 @if (_recomputedDomain == option.Domain && _recomputeResult is not null)
                 {
@@ -487,6 +489,15 @@
         await LoadUnresolvedAsync();
         await LoadSystemStatusAsync();
     }
+
+    private static string SourceLabel(string source) => source switch
+    {
+        "tmdb" => "TMDB",
+        "imdb" => "IMDb",
+        "rawg" => "RAWG",
+        "metacritic" => "Metacritic",
+        _ => source
+    };
 
     private static string DomainLabel(ReferenceItemType domain) => domain switch
     {

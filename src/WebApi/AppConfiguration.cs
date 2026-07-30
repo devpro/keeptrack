@@ -41,6 +41,13 @@ public class AppConfiguration(IConfiguration configuration)
 
     public TmdbSettings TmdbSettings { get; } = configuration.TryGetSection<TmdbSettings>("Tmdb");
 
+    /// <summary>
+    /// OMDb (IMDb ratings) is optional - a missing <c>Omdb</c> section is a supported state (IMDb enrichment
+    /// disabled), so this coalesces to an empty settings object rather than a null the DI container would then
+    /// hand a client. See <see cref="OmdbSettings"/>.
+    /// </summary>
+    public OmdbSettings OmdbSettings { get; } = configuration.TryGetSection<OmdbSettings>("Omdb") ?? new OmdbSettings();
+
     public RawgSettings RawgSettings { get; } = configuration.TryGetSection<RawgSettings>("Rawg");
 
     public DiscogsSettings DiscogsSettings { get; } = configuration.TryGetSection<DiscogsSettings>("Discogs");

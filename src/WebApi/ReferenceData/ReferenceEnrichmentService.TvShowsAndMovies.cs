@@ -12,25 +12,75 @@ public partial class ReferenceEnrichmentService
     /// </summary>
     private const int MaxCastMembers = 15;
 
-    /// <summary>
-    /// The single source whose rating is denormalized onto the tenant item as the primary (list display /
-    /// sort) value. TMDB for both movies and shows; other domains use their own provider.
-    /// </summary>
-    private const string PrimaryRatingSource = "tmdb";
+    // the two rating source keys movies/TV can carry (see RatingSourceCatalog, the single home for these
+    // literals); used here purely as the Ratings-dict keys when building the map. Which of the two is the
+    // *primary* (denormalized onto the tenant item as the list pill / sort value) is resolved per-domain via
+    // GetPrimaryRatingSourceAsync (admin-selectable), not hardcoded here.
+    private const string TmdbRatingSource = RatingSourceCatalog.Tmdb;
+
+    private const string ImdbRatingSource = RatingSourceCatalog.Imdb;
 
     /// <summary>
     /// Builds the reference <c>Ratings</c> map from a TMDB vote aggregate. TMDB returns <c>vote_average</c> 0
     /// with <c>vote_count</c> 0 for a title nobody has rated - that's "no rating", not a genuine zero, so it's
-    /// omitted rather than stored (a stored 0 would sort as a real score and render a "0" pill).
+    /// omitted rather than stored (a stored 0 would sort as a real score and render a "0" pill). IMDb is added
+    /// separately (<see cref="AddImdbRatingAsync"/>) since it needs an OMDb HTTP call this static builder can't make.
     /// </summary>
     private static Dictionary<string, ReferenceRatingModel> BuildTmdbRatings(double? voteAverage, int? voteCount)
     {
         var ratings = new Dictionary<string, ReferenceRatingModel>();
         if (voteAverage is > 0 && voteCount is > 0)
         {
-            ratings[PrimaryRatingSource] = new ReferenceRatingModel { Value = voteAverage.Value, Scale = 10, Count = voteCount };
+            ratings[TmdbRatingSource] = new ReferenceRatingModel { Value = voteAverage.Value, Scale = 10, Count = voteCount };
         }
         return ratings;
+    }
+
+    /// <summary>
+    /// Adds an <c>imdb</c> entry (IMDb's 0-10 aggregate, via OMDb keyed by the IMDb id TMDB exposes) to a
+    /// <paramref name="ratings"/> map, returning whether one was added. A no-op (returns false) when there's
+    /// no IMDb id, no OMDb key is configured, or OMDb has no rating for the title - IMDb is best-effort, its
+    /// absence is never an error. The IMDb id itself is stored in the reference's <c>ExternalIds["imdb"]</c>
+    /// so the periodic sync can backfill a missing rating cheaply (one OMDb call, no TMDB re-fetch) - see
+    /// <see cref="RefreshMovieReferenceAsync"/>.
+    /// </summary>
+    private async Task<bool> AddImdbRatingAsync(Dictionary<string, ReferenceRatingModel> ratings, string? imdbId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrEmpty(imdbId)) return false;
+
+        var imdb = await omdbClient.GetRatingAsync(imdbId, cancellationToken);
+        if (imdb is null) return false;
+
+        ratings[ImdbRatingSource] = new ReferenceRatingModel { Value = imdb.Value, Scale = 10, Count = imdb.Count };
+        return true;
+    }
+
+    /// <summary>
+    /// Cheap imdb-only backfill for the no-change sync short-circuit (see <see cref="RefreshMovieReferenceAsync"/>):
+    /// adds an imdb rating only when the reference has none yet, so an already-imdb-rated reference makes no
+    /// OMDb call at all. When the reference has no stored imdb id (enriched before IMDb ratings existed), it's
+    /// fetched via a cheap TMDB external-ids lookup (<paramref name="fetchImdbId"/>) - not the full details
+    /// re-fetch the short-circuit avoids - and stored on <paramref name="externalIds"/> so later syncs skip
+    /// that lookup. Returns whether a rating was added. Re-attempting a title OMDb genuinely has no rating for
+    /// on each full sync is one cheap OMDb call, deliberately accepted rather than persisting an "attempted"
+    /// marker - it self-corrects the moment OMDb does have a rating.
+    /// </summary>
+    private async Task<bool> BackfillImdbRatingAsync(
+        Dictionary<string, ReferenceRatingModel> ratings,
+        Dictionary<string, string> externalIds,
+        Func<CancellationToken, Task<string?>> fetchImdbId,
+        CancellationToken cancellationToken)
+    {
+        if (ratings.ContainsKey(ImdbRatingSource)) return false;
+
+        var imdbId = externalIds.GetValueOrDefault("imdb");
+        if (string.IsNullOrEmpty(imdbId))
+        {
+            imdbId = await fetchImdbId(cancellationToken);
+            if (!string.IsNullOrEmpty(imdbId)) externalIds["imdb"] = imdbId;
+        }
+
+        return await AddImdbRatingAsync(ratings, imdbId, cancellationToken);
     }
 
     /// <summary>
@@ -92,7 +142,7 @@ public partial class ReferenceEnrichmentService
 
         var originalTitle = model.Title;
         var originalYear = model.Year;
-        var (ratingValue, ratingScale) = PrimaryRating(reference.Ratings, PrimaryRatingSource);
+        var (ratingValue, ratingScale) = PrimaryRating(reference.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.TvShow));
 
         model.ReferenceId = reference.Id;
         model.Title = reference.Title;
@@ -136,7 +186,7 @@ public partial class ReferenceEnrichmentService
 
         var originalTitle = model.Title;
         var originalYear = model.Year;
-        var (ratingValue, ratingScale) = PrimaryRating(reference.Ratings, PrimaryRatingSource);
+        var (ratingValue, ratingScale) = PrimaryRating(reference.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.Movie));
 
         model.ReferenceId = reference.Id;
         model.Title = reference.Title;
@@ -243,6 +293,11 @@ public partial class ReferenceEnrichmentService
         }
         var externalIds = existing?.ExternalIds ?? new Dictionary<string, string>();
         externalIds["tmdb"] = tmdbId;
+        // store the imdb id even when OMDb has no rating yet, so a later sync can backfill it cheaply
+        if (!string.IsNullOrEmpty(details.ImdbId)) externalIds["imdb"] = details.ImdbId;
+
+        var ratings = BuildTmdbRatings(details.VoteAverage, details.VoteCount);
+        await AddImdbRatingAsync(ratings, details.ImdbId);
 
         var model = new TvShowReferenceModel
         {
@@ -261,13 +316,13 @@ public partial class ReferenceEnrichmentService
                 .ToList(),
             Genres = details.Genres,
             Cast = await ResolveCastAsync(cast),
-            Ratings = BuildTmdbRatings(details.VoteAverage, details.VoteCount),
+            Ratings = ratings,
             ImageUrl = details.PosterUrl,
             LastEnrichedAt = DateTime.UtcNow
         };
 
         var saved = await tvShowReferenceRepository.UpsertAsync(model);
-        var (ratingValue, ratingScale) = PrimaryRating(saved.Ratings, PrimaryRatingSource);
+        var (ratingValue, ratingScale) = PrimaryRating(saved.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.TvShow));
         await tvShowRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, ratingValue, ratingScale);
         return saved;
     }
@@ -296,6 +351,11 @@ public partial class ReferenceEnrichmentService
         }
         var externalIds = existing?.ExternalIds ?? new Dictionary<string, string>();
         externalIds["tmdb"] = tmdbId;
+        // store the imdb id even when OMDb has no rating yet, so a later sync can backfill it cheaply
+        if (!string.IsNullOrEmpty(details.ImdbId)) externalIds["imdb"] = details.ImdbId;
+
+        var ratings = BuildTmdbRatings(details.VoteAverage, details.VoteCount);
+        await AddImdbRatingAsync(ratings, details.ImdbId);
 
         var model = new MovieReferenceModel
         {
@@ -311,13 +371,13 @@ public partial class ReferenceEnrichmentService
             MatchedAliases = MergeMatchedAliases(existing?.MatchedAliases, (details.Title, details.Year ?? year, null, null), (title, year, null, null)),
             Genres = details.Genres,
             Cast = await ResolveCastAsync(cast),
-            Ratings = BuildTmdbRatings(details.VoteAverage, details.VoteCount),
+            Ratings = ratings,
             ImageUrl = details.PosterUrl,
             LastEnrichedAt = DateTime.UtcNow
         };
 
         var saved = await movieReferenceRepository.UpsertAsync(model);
-        var (ratingValue, ratingScale) = PrimaryRating(saved.Ratings, PrimaryRatingSource);
+        var (ratingValue, ratingScale) = PrimaryRating(saved.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.Movie));
         await movieRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, ratingValue, ratingScale);
         return saved;
     }
@@ -340,8 +400,16 @@ public partial class ReferenceEnrichmentService
             var changed = await tmdbClient.HasTvShowChangedSinceAsync(tmdbId, reference.LastEnrichedAt.Value, cancellationToken);
             if (!changed)
             {
+                var backfilled = await BackfillImdbRatingAsync(reference.Ratings, reference.ExternalIds,
+                    ct => tmdbClient.GetTvShowImdbIdAsync(tmdbId, ct), cancellationToken);
                 reference.LastEnrichedAt = DateTime.UtcNow;
-                return (await tvShowReferenceRepository.UpsertAsync(reference), false);
+                var refreshed = await tvShowReferenceRepository.UpsertAsync(reference);
+                if (backfilled)
+                {
+                    var (v, s) = PrimaryRating(refreshed.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.TvShow));
+                    await tvShowRepository.SetReferenceRatingAsync(refreshed.Id!, v, s);
+                }
+                return (refreshed, backfilled);
             }
         }
 
@@ -357,13 +425,16 @@ public partial class ReferenceEnrichmentService
             .ToList();
         reference.Genres = details.Genres;
         reference.Cast = await ResolveCastAsync(cast);
+        // store the imdb id even when OMDb has no rating yet, so a later sync can backfill it cheaply
+        if (!string.IsNullOrEmpty(details.ImdbId)) reference.ExternalIds["imdb"] = details.ImdbId;
         reference.Ratings = BuildTmdbRatings(details.VoteAverage, details.VoteCount);
+        await AddImdbRatingAsync(reference.Ratings, details.ImdbId, cancellationToken);
         reference.ImageUrl = details.PosterUrl ?? reference.ImageUrl;
         reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, null, null));
         reference.LastEnrichedAt = DateTime.UtcNow;
 
         var saved = await tvShowReferenceRepository.UpsertAsync(reference);
-        var (ratingValue, ratingScale) = PrimaryRating(saved.Ratings, PrimaryRatingSource);
+        var (ratingValue, ratingScale) = PrimaryRating(saved.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.TvShow));
         await tvShowRepository.SetReferenceRatingAsync(saved.Id!, ratingValue, ratingScale);
         return (saved, true);
     }
@@ -385,8 +456,18 @@ public partial class ReferenceEnrichmentService
             var changed = await tmdbClient.HasMovieChangedSinceAsync(tmdbId, reference.LastEnrichedAt.Value, cancellationToken);
             if (!changed)
             {
+                // nothing changed on TMDB, but backfill a missing imdb rating cheaply (one OMDb call, no
+                // TMDB details re-fetch) from the imdb id already stored on the reference
+                var backfilled = await BackfillImdbRatingAsync(reference.Ratings, reference.ExternalIds,
+                    ct => tmdbClient.GetMovieImdbIdAsync(tmdbId, ct), cancellationToken);
                 reference.LastEnrichedAt = DateTime.UtcNow;
-                return (await movieReferenceRepository.UpsertAsync(reference), false);
+                var refreshed = await movieReferenceRepository.UpsertAsync(reference);
+                if (backfilled)
+                {
+                    var (v, s) = PrimaryRating(refreshed.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.Movie));
+                    await movieRepository.SetReferenceRatingAsync(refreshed.Id!, v, s);
+                }
+                return (refreshed, backfilled);
             }
         }
 
@@ -399,14 +480,17 @@ public partial class ReferenceEnrichmentService
         reference.Synopsis = details.Synopsis;
         reference.Genres = details.Genres;
         reference.Cast = await ResolveCastAsync(cast);
+        // store the imdb id even when OMDb has no rating yet, so a later sync can backfill it cheaply
+        if (!string.IsNullOrEmpty(details.ImdbId)) reference.ExternalIds["imdb"] = details.ImdbId;
         reference.Ratings = BuildTmdbRatings(details.VoteAverage, details.VoteCount);
+        await AddImdbRatingAsync(reference.Ratings, details.ImdbId, cancellationToken);
         reference.ImageUrl = details.PosterUrl ?? reference.ImageUrl;
         reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, null, null));
         reference.LastEnrichedAt = DateTime.UtcNow;
 
         var saved = await movieReferenceRepository.UpsertAsync(reference);
         // keep every already-linked tenant movie's denormalized copy current with the refreshed rating
-        var (ratingValue, ratingScale) = PrimaryRating(saved.Ratings, PrimaryRatingSource);
+        var (ratingValue, ratingScale) = PrimaryRating(saved.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.Movie));
         await movieRepository.SetReferenceRatingAsync(saved.Id!, ratingValue, ratingScale);
         return (saved, true);
     }

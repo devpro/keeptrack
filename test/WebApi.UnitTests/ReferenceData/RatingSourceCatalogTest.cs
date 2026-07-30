@@ -21,12 +21,21 @@ public class RatingSourceCatalogTest
     [Theory]
     [InlineData(ReferenceItemType.Movie)]
     [InlineData(ReferenceItemType.TvShow)]
+    public void MoviesAndTvShows_OfferTmdbAndImdb_WithTmdbAsTheDefault(ReferenceItemType domain)
+    {
+        RatingSourceCatalog.AvailableSources(domain).Should().Equal(RatingSourceCatalog.Tmdb, RatingSourceCatalog.Imdb);
+        RatingSourceCatalog.DefaultSource(domain).Should().Be(RatingSourceCatalog.Tmdb);
+        RatingSourceCatalog.IsSelectable(domain).Should().BeTrue();
+        RatingSourceCatalog.SelectableDomains.Should().Contain(domain);
+    }
+
+    [Theory]
     [InlineData(ReferenceItemType.Book)]
     [InlineData(ReferenceItemType.Album)]
     public void SingleSourceDomains_AreNotYetAdminSelectable(ReferenceItemType domain)
     {
         // these have only one source today, so there's nothing to choose - they join the catalog when they
-        // gain a second source (e.g. IMDb for movies/TV, phase 2).
+        // gain a second source, the same way movies/TV did once IMDb landed.
         RatingSourceCatalog.IsSelectable(domain).Should().BeFalse();
         RatingSourceCatalog.AvailableSources(domain).Should().BeEmpty();
     }

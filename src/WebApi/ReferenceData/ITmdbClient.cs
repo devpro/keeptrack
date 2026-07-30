@@ -8,9 +8,9 @@ public record TmdbSearchResult(string TmdbId, string Title, int? Year, string? S
 
 public record TmdbEpisode(int SeasonNumber, int EpisodeNumber, string Title, DateOnly? AirDate);
 
-public record TmdbTvShowDetails(string TmdbId, string Title, int? Year, string? Synopsis, List<TmdbEpisode> Episodes, List<string> Genres, string? PosterUrl, double? VoteAverage = null, int? VoteCount = null);
+public record TmdbTvShowDetails(string TmdbId, string Title, int? Year, string? Synopsis, List<TmdbEpisode> Episodes, List<string> Genres, string? PosterUrl, double? VoteAverage = null, int? VoteCount = null, string? ImdbId = null);
 
-public record TmdbMovieDetails(string TmdbId, string Title, int? Year, string? Synopsis, List<string> Genres, string? PosterUrl, double? VoteAverage, int? VoteCount);
+public record TmdbMovieDetails(string TmdbId, string Title, int? Year, string? Synopsis, List<string> Genres, string? PosterUrl, double? VoteAverage, int? VoteCount, string? ImdbId = null);
 
 /// <summary>
 /// One credited cast member - <see cref="PersonTmdbId"/> is TMDB's person id, used to deduplicate
@@ -47,4 +47,16 @@ public interface ITmdbClient
     /// Movie equivalent of <see cref="HasTvShowChangedSinceAsync"/>.
     /// </summary>
     Task<bool> HasMovieChangedSinceAsync(string tmdbId, DateTime since, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// A show's IMDb id via TMDB's dedicated <c>/tv/{id}/external_ids</c> endpoint - one cheap call, no season
+    /// fan-out, so a reference enriched before IMDb ratings existed can backfill its imdb id (and then its
+    /// rating) without the full details re-fetch the no-change sync short-circuit is meant to avoid.
+    /// </summary>
+    Task<string?> GetTvShowImdbIdAsync(string tmdbId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Movie equivalent of <see cref="GetTvShowImdbIdAsync"/> (<c>/movie/{id}/external_ids</c>).
+    /// </summary>
+    Task<string?> GetMovieImdbIdAsync(string tmdbId, CancellationToken cancellationToken = default);
 }

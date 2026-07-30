@@ -15,6 +15,7 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// </summary>
 public partial class ReferenceEnrichmentService(
     ITmdbClient tmdbClient,
+    IOmdbClient omdbClient,
     BookReferenceClientRegistry bookReferenceClientRegistry,
     IBookRatingByIsbnLookup bookRatingByIsbnLookup,
     IRawgClient rawgClient,
@@ -60,6 +61,16 @@ public partial class ReferenceEnrichmentService(
         var source = await GetPrimaryRatingSourceAsync(domain);
         return domain switch
         {
+            ReferenceItemType.Movie => await RecomputeReferenceRatingsAsync(
+                movieReferenceRepository.FindAllAsync,
+                r => (r.Id!, r.Ratings),
+                movieRepository.SetReferenceRatingAsync,
+                source),
+            ReferenceItemType.TvShow => await RecomputeReferenceRatingsAsync(
+                tvShowReferenceRepository.FindAllAsync,
+                r => (r.Id!, r.Ratings),
+                tvShowRepository.SetReferenceRatingAsync,
+                source),
             ReferenceItemType.VideoGame => await RecomputeReferenceRatingsAsync(
                 videoGameReferenceRepository.FindAllAsync,
                 r => (r.Id!, r.Ratings),

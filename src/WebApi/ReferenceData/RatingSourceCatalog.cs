@@ -16,10 +16,18 @@ public static class RatingSourceCatalog
     /// <summary>Metacritic's 0-100 critic score - frequently absent on RAWG for smaller/older games.</summary>
     public const string Metacritic = "metacritic";
 
+    /// <summary>TMDB's own 0-10 vote average - the movie/TV default (always present once resolved).</summary>
+    public const string Tmdb = "tmdb";
+
+    /// <summary>IMDb's 0-10 aggregate (via OMDb) - same scale as TMDB, occasionally absent for obscure titles.</summary>
+    public const string Imdb = "imdb";
+
     // per domain, the selectable source keys; the first is the code default.
     private static readonly IReadOnlyDictionary<ReferenceItemType, IReadOnlyList<string>> s_sources =
         new Dictionary<ReferenceItemType, IReadOnlyList<string>>
         {
+            [ReferenceItemType.Movie] = [Tmdb, Imdb],
+            [ReferenceItemType.TvShow] = [Tmdb, Imdb],
             [ReferenceItemType.VideoGame] = [Rawg, Metacritic]
         };
 

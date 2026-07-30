@@ -6,8 +6,9 @@ Provider ("reference") ratings for tracked items - the linked reference's own ag
 
 Phase 1 is implemented across all five reference-bearing media types (Movie, TV show, Video game, Album, Book).
 Next-step 1 (admin-selectable primary rating source) is also implemented, wired for video games as its first case - see "Admin-selectable primary source" below.
-Build is green; the WebApi unit suite passes (315 tests, including the new rating and rating-source tests); the Movies slice also has real-MongoDB integration coverage.
-The user has confirmed both the Phase 1 display/mechanics and the admin-selectable source switch (RAWG↔Metacritic + recompute) work in the running app.
+Phase 2 (IMDb ratings for movies/TV, via OMDb) is also implemented - movies/TV are now the second multi-source domain and reuse the step-1 admin-selection mechanism unchanged (TMDB vs IMDb) - see "Phase 2 - IMDb ratings" below.
+Build is green; the WebApi unit suite passes (326 tests, including the new IMDb/OMDb, rating, and rating-source tests); the Movies slice also has real-MongoDB integration coverage.
+The user has confirmed the Phase 1 display/mechanics, the admin-selectable source switch (RAWG↔Metacritic + recompute), and Phase 2 (IMDb ratings populating across movies/TV after a "Sync now") all work in the running app.
 
 ## End goal / solution design
 
@@ -30,8 +31,8 @@ The tenant item already being per-user is what makes a future per-user "which so
 
 | Domain | Provider(s) → dict keys | Primary (pill + sort) | Scale |
 |--------|-------------------------|-----------------------|-------|
-| Movie / TV show | TMDB `vote_average` → `tmdb` | `tmdb` | 10 |
-| Video game | RAWG `rating` → `rawg`, RAWG `metacritic` → `metacritic` | `rawg` | 5 |
+| Movie / TV show | TMDB `vote_average` → `tmdb`, OMDb `imdbRating` → `imdb` | admin-selectable, default `tmdb` | 10 |
+| Video game | RAWG `rating` → `rawg`, RAWG `metacritic` → `metacritic` | admin-selectable, default `rawg` | 5 |
 | Album | Discogs community rating → `discogs` | `discogs` | 5 |
 | Book | linking provider → its key (`googlebooks`/`openlibrary`), plus OL fallback → `openlibrary` | the single stored entry | 5 |
 
@@ -65,6 +66,20 @@ It is an admin-selectable, global (not per-user) setting, wired for video games 
 - **UI:** a "Primary rating source" card on the reference-data admin page - per selectable domain, a source button-group plus a **separate** Recompute button (two deliberate actions, not one) showing the checked/updated counts.
   It spells out the Metacritic caveat: `/100` and often absent on RAWG, so switching to it blanks the pill for many games and sorts them last.
 
+### Phase 2 - IMDb ratings (movies/TV, via OMDb) - implemented
+
+Movies/TV are now the second multi-source domain: alongside `tmdb` they carry an `imdb` entry on the same 0-10 scale, and their primary is admin-selectable through the exact step-1 mechanism (no new mechanism, no migration).
+
+- **Source: OMDb, keyed by the IMDb id TMDB exposes.** IMDb has no public ratings API, so OMDb (`IOmdbClient`/`OmdbClient`) is the sanctioned path - the same shape as the book ISBN→Open Library fallback (primary provider hands off a cross-provider identifier, a secondary provider turns it into a rating stored under its own key).
+  The IMDb id is native on `/movie/{id}` (`imdb_id`, zero extra calls); for TV the details call appends it via `?append_to_response=external_ids` (still one call, no season fan-out). Stored in `ExternalIds["imdb"]`.
+- **OMDb is optional/best-effort.** `OmdbSettings.ApiKey` is nullable (not `required` like every other provider), and `AppConfiguration.OmdbSettings` coalesces a missing `Omdb` section to an empty instance; with no `Omdb__ApiKey` movies/TV just stay on their TMDB rating alone. `OmdbClient` no-ops with no key and treats OMDb's `"N/A"`/`Response:"False"` as "no rating" (never a stored 0). Config wiring adds `.AddProviderResilienceHandler()` like every other outbound client. The e2e/integration hosts need no OMDb key.
+- **Catalog/resolver:** `RatingSourceCatalog` gains `[Movie] = [tmdb, imdb]` and `[TvShow] = [tmdb, imdb]` (default `tmdb`); the `"tmdb"`/`"imdb"` literals live there, and `.TvShowsAndMovies.cs`'s dict-key consts point at them. The movie/TV `PrimaryRating` call sites (resolve/refresh/link) now read `GetPrimaryRatingSourceAsync(Movie/TvShow)` instead of the old hardcoded `"tmdb"` const. `RecomputeReferenceRatingsAsync` gained one-line Movie/TvShow switch arms over the existing generic loop. Because the admin card/endpoints iterate `SelectableDomains`, movies/TV appeared in the "Primary rating source" UI with no controller/UI change.
+
+**IMDb backfill bootstrap gotcha (found against the real dev database):** the `/changes` short-circuit (`LastEnrichedAt is not null && Ratings.Count > 0`) skips the full re-fetch once a `tmdb` rating exists, so a reference enriched before Phase 2 has a tmdb rating (⇒ short-circuits) but no stored imdb id (only a full fetch writes that) - chicken-and-egg, so it never backfilled `imdb` (only the handful of references that happened to full-fetch got a rating - the first symptom the user reported: "only 1 TV show and 1 movie have an IMDb rating").
+Fixed by `BackfillImdbRatingAsync` on the no-change path: when the imdb rating is missing it resolves the imdb id cheaply via TMDB's dedicated `/{tv,movie}/{id}/external_ids` endpoint (`ITmdbClient.GetTvShowImdbIdAsync`/`GetMovieImdbIdAsync` - one call, **no** season fan-out, deliberately not the full details re-fetch the short-circuit avoids), stores it, then does the one OMDb call.
+Self-correcting: once the id is stored, later syncs skip the external-ids lookup; a title OMDb genuinely has no rating for just retries one cheap OMDb call per full sync, no persisted "attempted" marker.
+Backfilling onto existing data is just a "Sync now" (or waiting for the periodic pass), never a `scripts/*.js`.
+
 ### Book cross-provider rating fallback
 
 Google Books (the default book provider) **no longer serves ratings at all** (confirmed against the live API - `averageRating` is absent even for The Hobbit / Harry Potter).
@@ -82,7 +97,7 @@ It lives behind a dedicated one-method `IBookRatingByIsbnLookup` interface (impl
 
 - **Display:** bare number with a star (`★ 7.8`) in list/grid, no scale; fuller `value / scale source (count)` on the detail page.
 - **Sort label:** `Ref ★` (short, mobile).
-- **Primary-source selection:** shipped in Phase 1 as a **code default per media type**; now **admin-selectable and global** (not per-user), wired for video games (RAWG vs Metacritic) - see "Admin-selectable primary source" above.
+- **Primary-source selection:** shipped in Phase 1 as a **code default per media type**; now **admin-selectable and global** (not per-user), wired for video games (RAWG vs Metacritic) and movies/TV (TMDB vs IMDb) - see "Admin-selectable primary source" above.
   The code default is still the fallback when an admin hasn't chosen; per-user was ruled out because a switch must be a single bulk `SetReferenceRatingAsync` recompute per reference, which per-user couldn't be.
 - **Video games:** RAWG's 0-5 user score is the primary (usually present); Metacritic is stored as a second source and shown on the detail page but does not drive the pill/sort (frequently absent).
 
@@ -99,7 +114,9 @@ It lives behind a dedicated one-method `IBookRatingByIsbnLookup` interface (impl
 - `ReferenceEnrichmentServiceTest` (unit, mocked): rating populate + primary-scalar propagation; no-rating-when-no-votes; TMDB backfill-forces-a-fetch; no-change short-circuit stays for an already-rated reference; TryLink sets the denormalized rating; the Open Library ISBN fallback fires for a non-OL provider and is skipped when the provider is OL.
 - `MovieReferenceRatingRepositoryTest` (integration, real MongoDB): the `ReferenceRating` sort ordering (unrated last), `SetReferenceLinkAsync` stamps only unlinked matches, `SetReferenceRatingAsync` re-propagates to every already-linked item, and the `Ratings` dict round-trips through BSON.
 - The other four types reuse the identical shared sort/propagation code the Movie tests cover; per-type integration tests were deliberately deferred (see next steps).
-- `RatingSourceCatalogTest` (unit): video games offer RAWG+Metacritic with RAWG default; single-source domains are not yet selectable.
+- `RatingSourceCatalogTest` (unit): video games offer RAWG+Metacritic (RAWG default), movies/TV offer TMDB+IMDb (TMDB default); the remaining single-source domains (Book/Album) are not yet selectable.
+- `OmdbClientTest` (unit, stubbed handler): parses the rating + comma-separated vote count, returns null on `"N/A"`/unknown-id (`Response:"False"`), and makes no HTTP call when no key is configured.
+- `ReferenceEnrichmentServiceTest` (unit, mocked) gained the IMDb slice: resolve adds the `imdb` rating and stores the imdb id in `ExternalIds` (even when OMDb has no rating yet, so the backfill has a key); imdb-as-selected-primary denormalizes imdb's value; the cheap no-change backfill adds imdb without a details re-fetch; the **bootstrap** case resolves a missing imdb id via the external-ids lookup then OMDb; no OMDb call when imdb is already present; movies recompute re-stamps with the selected source.
 - `ReferenceEnrichmentServiceTest` (unit, mocked) gained: the source resolver (default / valid override / invalid-override-falls-back-to-default); `ResolveVideoGameAsync` denormalizes Metacritic's `/100` when it's the selected source; `RecomputeReferenceRatingsAsync` re-stamps every linked item with the selected source's value+scale, uses the default when unset, and throws for a non-selectable domain.
 
 ## What to do next
@@ -107,9 +124,8 @@ It lives behind a dedicated one-method `IBookRatingByIsbnLookup` interface (impl
 1. **~~Admin-selectable primary source (video games: RAWG vs Metacritic).~~ Done** - implemented as a general per-domain, admin/global setting in the shared `app_setting` collection plus a recompute action, wired for video games.
   See "Admin-selectable primary source (per-domain, admin/global) - implemented" above for the full shape.
   The same mechanism covers IMDb-vs-TMDB for movies/TV in Phase 2 for free (just add a `RatingSourceCatalog` entry and route those `PrimaryRating` call sites through `GetPrimaryRatingSourceAsync`).
-2. **Phase 2 - IMDb ratings for movies/TV.** Add an `imdb` source to the movie/TV `Ratings` dict.
-  IMDb has no public ratings API; options are OMDb (needs an API key, returns `imdbRating`/`imdbVotes`) or TMDB `external_ids` → IMDb id → a data source.
-  Once movies/TV have two sources, the primary is chosen via the admin-selectable mechanism from step 1 (the storage already supports it with no migration).
+2. **~~Phase 2 - IMDb ratings for movies/TV.~~ Done** - `imdb` source added via OMDb (keyed by the IMDb id TMDB exposes), optional/graceful when no OMDb key, primary admin-selectable through the step-1 mechanism, with a cheap external-ids backfill for the `/changes` short-circuit.
+  See "Phase 2 - IMDb ratings (movies/TV, via OMDb) - implemented" above for the full shape and the backfill bootstrap gotcha.
 3. **Phase 3 - "suggest N top-rated not-yet-added" feature.** Read a source, order the reference collection by `ratings.<source>.value` desc, skip titles the user already tracks, return the top N.
   This needs a supporting index on the chosen `ratings.<source>.value` path in `scripts/mongodb-create-index.js` (not added yet - phase 1 added no indexes because the per-owner tenant-side sort is small).
 4. **Per-type integration + Playwright coverage.** Movies has real-Mongo integration coverage; add the equivalent for TV/game/album/book if desired (the logic is shared, so this is defense-in-depth, not filling a logic gap). The existing Book Playwright smoke test uses a synthetic seeded reference, so it does not exercise a real provider rating.

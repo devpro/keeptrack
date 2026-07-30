@@ -59,6 +59,14 @@ builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.ITmdbClient, Keept
     // see https://github.com/dotnet/extensions/issues/4770 (confirmed against this exact symptom on Discogs).
     client.Timeout = Timeout.InfiniteTimeSpan;
 }).AddProviderResilienceHandler();
+// OMDb supplies IMDb ratings for movies/TV (keyed by the imdb id TMDB already exposes). Optional: with no
+// Omdb__ApiKey the client no-ops (see OmdbClient), so movies/TV stay on their TMDB rating alone.
+builder.Services.AddSingleton(configuration.OmdbSettings);
+builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.IOmdbClient, Keeptrack.WebApi.ReferenceData.OmdbClient>(client =>
+{
+    client.BaseAddress = new Uri("https://www.omdbapi.com/");
+    client.Timeout = Timeout.InfiniteTimeSpan;
+}).AddProviderResilienceHandler();
 // every book provider is registered unconditionally (unlike the single-provider TMDB/RAWG/Discogs clients
 // below) - an admin picks which one to search with at request time (see BookReferenceClientRegistry),
 // ReferenceData:BookProvider only selects the *default* used for automatic/background resolution.

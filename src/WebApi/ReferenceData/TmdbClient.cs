@@ -29,7 +29,10 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
 
     public async Task<TmdbTvShowDetails?> GetTvShowDetailsAsync(string tmdbId, CancellationToken cancellationToken = default)
     {
-        var details = await http.GetFromJsonAsync<TmdbTvShowDetailsResponse>($"tv/{tmdbId}?api_key={ApiKey}", cancellationToken);
+        // append_to_response=external_ids folds the imdb id into this same details call - no extra request,
+        // no season fan-out change (a show's imdb id isn't on /tv/{id} itself, unlike a movie's).
+        var details = await http.GetFromJsonAsync<TmdbTvShowDetailsResponse>(
+            $"tv/{tmdbId}?api_key={ApiKey}&append_to_response=external_ids", cancellationToken);
         if (details is null) return null;
 
         var episodes = new List<TmdbEpisode>();
@@ -46,7 +49,7 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
         return new TmdbTvShowDetails(
             tmdbId, details.Name ?? string.Empty, ParseYear(details.FirstAirDate), details.Overview, episodes,
             details.Genres.Select(g => g.Name).ToList(), BuildImageUrl(details.PosterPath, PosterImageSize),
-            details.VoteAverage, details.VoteCount);
+            details.VoteAverage, details.VoteCount, details.ExternalIds?.ImdbId);
     }
 
     public async Task<TmdbMovieDetails?> GetMovieDetailsAsync(string tmdbId, CancellationToken cancellationToken = default)
@@ -57,7 +60,7 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
             : new TmdbMovieDetails(
                 tmdbId, details.Title ?? string.Empty, ParseYear(details.ReleaseDate), details.Overview,
                 details.Genres.Select(g => g.Name).ToList(), BuildImageUrl(details.PosterPath, PosterImageSize),
-                details.VoteAverage, details.VoteCount);
+                details.VoteAverage, details.VoteCount, details.ImdbId);
     }
 
     public async Task<IReadOnlyList<TmdbCastMember>> GetTvShowCastAsync(string tmdbId, CancellationToken cancellationToken = default) =>
@@ -79,6 +82,18 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
 
     public Task<bool> HasMovieChangedSinceAsync(string tmdbId, DateTime since, CancellationToken cancellationToken = default) =>
         HasChangedSinceAsync("movie", tmdbId, since, cancellationToken);
+
+    public Task<string?> GetTvShowImdbIdAsync(string tmdbId, CancellationToken cancellationToken = default) =>
+        GetImdbIdAsync($"tv/{tmdbId}/external_ids", cancellationToken);
+
+    public Task<string?> GetMovieImdbIdAsync(string tmdbId, CancellationToken cancellationToken = default) =>
+        GetImdbIdAsync($"movie/{tmdbId}/external_ids", cancellationToken);
+
+    private async Task<string?> GetImdbIdAsync(string path, CancellationToken cancellationToken)
+    {
+        var response = await http.GetFromJsonAsync<TmdbExternalIds>($"{path}?api_key={ApiKey}", cancellationToken);
+        return response?.ImdbId;
+    }
 
     /// <summary>
     /// TMDB's per-id "changes" endpoint (as opposed to the bulk <c>/tv/changes</c>, <c>/movie/changes</c>
@@ -168,6 +183,15 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
 
         [JsonPropertyName("seasons")]
         public List<TmdbSeasonSummary> Seasons { get; set; } = [];
+
+        [JsonPropertyName("external_ids")]
+        public TmdbExternalIds? ExternalIds { get; set; }
+    }
+
+    private sealed class TmdbExternalIds
+    {
+        [JsonPropertyName("imdb_id")]
+        public string? ImdbId { get; set; }
     }
 
     private sealed class TmdbGenre
@@ -222,6 +246,9 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
 
         [JsonPropertyName("vote_count")]
         public int? VoteCount { get; set; }
+
+        [JsonPropertyName("imdb_id")]
+        public string? ImdbId { get; set; }
     }
 
     private sealed class TmdbCreditsResponse

@@ -45,6 +45,8 @@ public class ReferenceEnrichmentServiceTest
     /// </summary>
     private const string DefaultBookProvider = "openlibrary";
 
+    private readonly FakeOmdbClient _omdbClient = FakeOmdbClient.Empty();
+
     private ReferenceEnrichmentService CreateService(
         FakeTmdbClient tmdbClient,
         FakeBookReferenceClient? bookReferenceClient = null,
@@ -52,6 +54,7 @@ public class ReferenceEnrichmentServiceTest
         FakeDiscogsClient? discogsClient = null,
         FakeBnfClient? bnfClient = null) => new(
         tmdbClient,
+        _omdbClient,
         new BookReferenceClientRegistry([bookReferenceClient ?? FakeBookReferenceClient.Empty(), bnfClient ?? FakeBnfClient.Empty()], DefaultBookProvider),
         _bookRatingByIsbnLookup,
         rawgClient ?? FakeRawgClient.Empty(), discogsClient ?? FakeDiscogsClient.Empty(),
@@ -534,6 +537,173 @@ public class ReferenceEnrichmentServiceTest
         result.ReferenceRatingScale.Should().Be(10);
         _movieRepository.Verify(r => r.UpdateAsync("movie-1", It.Is<MovieModel>(m => m.ReferenceRating == 8.1 && m.ReferenceRatingScale == 10), "owner-1"), Times.Once);
         _movieRepository.Verify(r => r.SetReferenceLinkAsync("Some Movie", 2020, "reference-1", "Some Movie", It.IsAny<int?>(), 8.1, 10), Times.Once);
+    }
+
+    [Fact]
+    public async Task ResolveMovieAsync_AddsTheImdbRating_AndStoresTheImdbIdInExternalIds()
+    {
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.MovieDetails["42"] = new TmdbMovieDetails("42", "Some Movie", 2020, "Synopsis", [], null, 7.8, 1234, "tt0042");
+        _omdbClient.Ratings["tt0042"] = new OmdbRating(8.9, 500_000);
+        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => { m.Id = "reference-1"; return m; });
+        var service = CreateService(tmdbClient);
+
+        var result = await service.ResolveMovieAsync("Some Movie", 2020, "42");
+
+        // both sources land in the reference dict, each on its own scale
+        result.Ratings["tmdb"].Value.Should().Be(7.8);
+        result.Ratings["imdb"].Value.Should().Be(8.9);
+        result.Ratings["imdb"].Scale.Should().Be(10);
+        result.Ratings["imdb"].Count.Should().Be(500_000);
+        // the imdb id is stored so a later sync can backfill/refresh it cheaply
+        result.ExternalIds["imdb"].Should().Be("tt0042");
+        // tmdb is the default primary, so the denormalized scalar is still tmdb's
+        _movieRepository.Verify(r => r.SetReferenceLinkAsync("Some Movie", 2020, "reference-1", "Some Movie", It.IsAny<int?>(), 7.8, 10), Times.Once);
+    }
+
+    [Fact]
+    public async Task ResolveMovieAsync_StoresTheImdbId_EvenWhenOmdbHasNoRatingYet()
+    {
+        // no OMDb rating (unknown title, or no OMDb key) must still record the imdb id, so the periodic
+        // sync's cheap backfill has a key to retry with instead of the id being lost forever
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.MovieDetails["42"] = new TmdbMovieDetails("42", "Some Movie", 2020, "Synopsis", [], null, 7.8, 1234, "tt0042");
+        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => { m.Id = "reference-1"; return m; });
+        var service = CreateService(tmdbClient);
+
+        var result = await service.ResolveMovieAsync("Some Movie", 2020, "42");
+
+        result.Ratings.Should().NotContainKey("imdb");
+        result.ExternalIds["imdb"].Should().Be("tt0042");
+    }
+
+    [Fact]
+    public async Task ResolveMovieAsync_DenormalizesTheImdbScore_WhenImdbIsTheAdminSelectedPrimarySource()
+    {
+        // the admin-selectable primary source (same mechanism as video games' RAWG/Metacritic) drives the
+        // list pill / Ref-sort scalar: with imdb selected for movies, imdb's value/scale is denormalized
+        _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync())
+            .ReturnsAsync(new Dictionary<string, string> { ["Movie"] = "imdb" });
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.MovieDetails["42"] = new TmdbMovieDetails("42", "Some Movie", 2020, "Synopsis", [], null, 7.8, 1234, "tt0042");
+        _omdbClient.Ratings["tt0042"] = new OmdbRating(8.9, 500_000);
+        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => { m.Id = "reference-1"; return m; });
+        var service = CreateService(tmdbClient);
+
+        await service.ResolveMovieAsync("Some Movie", 2020, "42");
+
+        _movieRepository.Verify(r => r.SetReferenceLinkAsync("Some Movie", 2020, "reference-1", "Some Movie", It.IsAny<int?>(), 8.9, 10), Times.Once);
+    }
+
+    [Fact]
+    public async Task RefreshMovieReferenceAsync_BackfillsImdbCheaply_OnTheNoChangeShortCircuit_WithoutRefetchingDetails()
+    {
+        // an already-tmdb-rated reference takes the no-change short-circuit, but a missing imdb rating is
+        // still backfilled with one cheap OMDb call - never the expensive TMDB details re-fetch
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.ChangedSince["42"] = false;
+        _omdbClient.Ratings["tt0042"] = new OmdbRating(8.9, 500_000);
+        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => m);
+        var reference = new MovieReferenceModel
+        {
+            Id = "reference-1", Title = "Some Movie", TitleNormalized = "some movie", Year = 2020,
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42", ["imdb"] = "tt0042" },
+            LastEnrichedAt = DateTime.UtcNow.AddDays(-5),
+            Ratings = new Dictionary<string, ReferenceRatingModel> { ["tmdb"] = new() { Value = 7.8, Scale = 10, Count = 1234 } }
+        };
+        var service = CreateService(tmdbClient);
+
+        var (result, changed) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        changed.Should().BeTrue();
+        result.Ratings["imdb"].Value.Should().Be(8.9);
+        tmdbClient.MovieDetailsRequested.Should().NotContain("42");
+        // backfill re-propagates the denormalized scalar to already-linked items
+        _movieRepository.Verify(r => r.SetReferenceRatingAsync("reference-1", It.IsAny<double?>(), It.IsAny<double?>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RefreshMovieReferenceAsync_ResolvesTheImdbIdCheaply_WhenBackfillingAReferenceThatPredatesImdb()
+    {
+        // the bootstrap case: a reference enriched before IMDb existed has a tmdb rating (so it takes the
+        // no-change short-circuit) but NO stored imdb id - the id must be fetched via the cheap external-ids
+        // lookup (not a full details re-fetch), stored, and then used to pull the OMDb rating
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.ChangedSince["42"] = false;
+        tmdbClient.ImdbIds["42"] = "tt0042";
+        _omdbClient.Ratings["tt0042"] = new OmdbRating(8.9, 500_000);
+        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => m);
+        var reference = new MovieReferenceModel
+        {
+            Id = "reference-1", Title = "Some Movie", TitleNormalized = "some movie", Year = 2020,
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" }, // no imdb id yet
+            LastEnrichedAt = DateTime.UtcNow.AddDays(-5),
+            Ratings = new Dictionary<string, ReferenceRatingModel> { ["tmdb"] = new() { Value = 7.8, Scale = 10, Count = 1234 } }
+        };
+        var service = CreateService(tmdbClient);
+
+        var (result, changed) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        changed.Should().BeTrue();
+        result.Ratings["imdb"].Value.Should().Be(8.9);
+        // the resolved id is now stored so later syncs skip the external-ids lookup...
+        result.ExternalIds["imdb"].Should().Be("tt0042");
+        tmdbClient.ImdbIdsRequested.Should().ContainSingle();
+        // ...and the expensive full details re-fetch was still avoided
+        tmdbClient.MovieDetailsRequested.Should().NotContain("42");
+    }
+
+    [Fact]
+    public async Task RefreshMovieReferenceAsync_DoesNotCallOmdb_OnTheShortCircuit_WhenImdbIsAlreadyPresent()
+    {
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.ChangedSince["42"] = false;
+        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => m);
+        var reference = new MovieReferenceModel
+        {
+            Id = "reference-1", Title = "Some Movie", TitleNormalized = "some movie", Year = 2020,
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42", ["imdb"] = "tt0042" },
+            LastEnrichedAt = DateTime.UtcNow.AddDays(-5),
+            Ratings = new Dictionary<string, ReferenceRatingModel>
+            {
+                ["tmdb"] = new() { Value = 7.8, Scale = 10, Count = 1234 },
+                ["imdb"] = new() { Value = 8.9, Scale = 10, Count = 500_000 }
+            }
+        };
+        var service = CreateService(tmdbClient);
+
+        var (_, changed) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        changed.Should().BeFalse();
+        _omdbClient.Requested.Should().BeEmpty();
+        _movieRepository.Verify(r => r.SetReferenceRatingAsync(It.IsAny<string>(), It.IsAny<double?>(), It.IsAny<double?>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RecomputeReferenceRatingsAsync_ReStampsMovies_WithTheSelectedImdbSource()
+    {
+        _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync())
+            .ReturnsAsync(new Dictionary<string, string> { ["Movie"] = "imdb" });
+        _movieReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync(
+        [
+            new MovieReferenceModel
+            {
+                Id = "r1", Title = "Some Movie", TitleNormalized = "some movie", ExternalIds = [],
+                Ratings = new Dictionary<string, ReferenceRatingModel>
+                {
+                    ["tmdb"] = new() { Value = 7.8, Scale = 10, Count = 1 },
+                    ["imdb"] = new() { Value = 8.9, Scale = 10, Count = 2 }
+                }
+            }
+        ]);
+        _movieRepository.Setup(r => r.SetReferenceRatingAsync("r1", 8.9, 10)).ReturnsAsync(1);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+
+        var (checkedCount, updated) = await service.RecomputeReferenceRatingsAsync(ReferenceItemType.Movie);
+
+        checkedCount.Should().Be(1);
+        updated.Should().Be(1);
+        _movieRepository.Verify(r => r.SetReferenceRatingAsync("r1", 8.9, 10), Times.Once);
     }
 
     [Fact]
@@ -1041,7 +1211,8 @@ public class ReferenceEnrichmentServiceTest
     {
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
 
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.RecomputeReferenceRatingsAsync(ReferenceItemType.Movie));
+        // Album is still single-source (Book/Album haven't gained a second source), so it's not recomputable
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.RecomputeReferenceRatingsAsync(ReferenceItemType.Album));
     }
 
     private static VideoGameReferenceModel VideoGameReferenceWithRatings(string id, double rawg, double metacritic) => new()
@@ -1368,6 +1539,7 @@ public class ReferenceEnrichmentServiceTest
     /// </summary>
     private ReferenceEnrichmentService CreateServiceWithStrictClients() => new(
         new Mock<ITmdbClient>(MockBehavior.Strict).Object,
+        new Mock<IOmdbClient>(MockBehavior.Strict).Object,
         new BookReferenceClientRegistry([new Mock<IBookReferenceClient>(MockBehavior.Strict).Object], DefaultBookProvider),
         new Mock<IBookRatingByIsbnLookup>(MockBehavior.Strict).Object,
         new Mock<IRawgClient>(MockBehavior.Strict).Object,
@@ -1508,6 +1680,23 @@ public class ReferenceEnrichmentServiceTest
         {
             ChangesRequested.Add(tmdbId);
             return Task.FromResult(ChangedSince.GetValueOrDefault(tmdbId, true));
+        }
+
+        /// <summary>imdb id served by the cheap external-ids lookup - keyed by tmdb id, defaults to null (unknown).</summary>
+        public Dictionary<string, string?> ImdbIds { get; } = new();
+
+        public List<string> ImdbIdsRequested { get; } = [];
+
+        public Task<string?> GetTvShowImdbIdAsync(string tmdbId, CancellationToken cancellationToken = default)
+        {
+            ImdbIdsRequested.Add(tmdbId);
+            return Task.FromResult(ImdbIds.GetValueOrDefault(tmdbId));
+        }
+
+        public Task<string?> GetMovieImdbIdAsync(string tmdbId, CancellationToken cancellationToken = default)
+        {
+            ImdbIdsRequested.Add(tmdbId);
+            return Task.FromResult(ImdbIds.GetValueOrDefault(tmdbId));
         }
     }
 }
