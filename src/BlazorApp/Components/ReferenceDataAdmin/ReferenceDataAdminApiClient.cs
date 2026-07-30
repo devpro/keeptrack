@@ -33,6 +33,36 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
         return results ?? [];
     }
 
+    /// <summary>
+    /// Every domain whose primary rating source is admin-selectable, with available/selected sources (see
+    /// <c>ReferenceDataAdminController.GetRatingSources</c>).
+    /// </summary>
+    public async Task<List<RatingSourceOptionDto>> GetRatingSourcesAsync()
+    {
+        var results = await http.GetFromJsonAsync<List<RatingSourceOptionDto>>("/api/reference-data/rating-sources");
+        return results ?? [];
+    }
+
+    /// <summary>
+    /// Stores a domain's primary rating source (does not re-propagate - call <see cref="RecomputeRatingsAsync"/> for that).
+    /// </summary>
+    public async Task SetRatingSourceAsync(ReferenceItemType domain, string source)
+    {
+        var response = await http.PutAsJsonAsync($"/api/reference-data/rating-sources/{domain}", new SetRatingSourceRequestDto { Source = source });
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>
+    /// Re-applies a domain's current primary rating source to every linked tenant item (see
+    /// <c>ReferenceDataAdminController.RecomputeRatingSource</c>).
+    /// </summary>
+    public async Task<RecomputeRatingsResultDto> RecomputeRatingsAsync(ReferenceItemType domain)
+    {
+        var response = await http.PostAsync($"/api/reference-data/rating-sources/{domain}/recompute", null);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<RecomputeRatingsResultDto>() ?? new RecomputeRatingsResultDto();
+    }
+
     public async Task LinkAsync(LinkReferenceRequestDto request)
     {
         var response = await http.PostAsJsonAsync("/api/reference-data/link", request);

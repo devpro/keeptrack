@@ -427,6 +427,13 @@ Firebase's claim arrives as a plain `"role"` claim rather than the `ClaimTypes.R
 WebApi validates the bearer token's claims directly and needs no equivalent step.
 There's no in-app way to grant the first admin; it's a one-off `setCustomUserClaims` call via the Firebase Admin SDK (see `CONTRIBUTING.md`).
 
+Global admin settings an admin changes at runtime (as opposed to deploy-time config in `appsettings`/env vars) live in one shared `app_setting` collection - a single document (`_id: "global"`), one field per setting.
+`IAppSettingRepository`/`AppSettingRepository` is the purpose-built accessor (like `LeaseRepository`, it doesn't extend the owner-scoped `IDataRepository<TModel>`), writing with a targeted `$set` on just the one field so unrelated settings on the same document are never clobbered.
+Reach for this - a new field/accessor here, not a new collection - for any future runtime-changeable global setting; use `AppConfiguration`/env vars only for values that are fine to change at deploy time.
+Its first use is the admin-selectable **primary rating source** (which provider score is denormalized onto a tenant item as the list/sort rating): `RatingSourceCatalog` declares each domain's selectable sources + code default (only video games have more than one today - RAWG vs Metacritic),
+`ReferenceEnrichmentService.GetPrimaryRatingSourceAsync` reads the stored override-or-default, and `ReferenceDataAdminController`'s `rating-sources` GET/PUT plus a `.../recompute` POST (a synchronous bulk `SetReferenceRatingAsync` pass, no provider calls) let an admin switch it and re-propagate to every already-linked item.
+The full design (two homes for a rating, propagation, this admin mechanism, and the pending IMDb/top-rated phases) is tracked in `docs/reference-ratings-plan.md` until the feature settles.
+
 The app is meant to be publicly shareable: anyone can sign in (Google/GitHub via Firebase Auth), but a plain account with **no** `role` claim is a *free preview* tier.
 Free tier = movies and TV shows only, capped at `Features:FreeTierItemLimit` creations per collection (default 20, guarded in `AppConfiguration.GetFreeTierItemLimit` so a missing setting can never lock the tier out entirely);
 episodes are capped at 100x that limit (`EpisodeController.FreeTierLimitFactor`) - generous on purpose, the cap only exists so a raw-API caller can't flood the database, never to ration a real watch-through.

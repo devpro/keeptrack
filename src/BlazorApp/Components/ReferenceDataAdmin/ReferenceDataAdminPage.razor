@@ -163,6 +163,40 @@
     }
 </div>
 
+@if (_ratingSources.Count > 0)
+{
+    <div class="kt-form-card">
+        <p style="color:var(--kt-text-muted)">
+            Which provider score is shown as the rating pill and drives the "Ref ★" sort. Changing the source
+            only affects new links and syncs until you recompute - use Recompute to re-apply the selected
+            source to every already-linked item at once. Note: Metacritic is out of 100 and often absent on
+            RAWG, so switching video games to it blanks the pill for many games and sorts them last.
+        </p>
+        @foreach (var option in _ratingSources)
+        {
+            <div class="d-flex align-items-center gap-3 flex-wrap mb-2">
+                <strong style="min-width:110px">@DomainLabel(option.Domain)</strong>
+                <div class="btn-group btn-group-sm" role="group">
+                    @foreach (var source in option.AvailableSources)
+                    {
+                        <button type="button" class="btn @(source == option.SelectedSource ? "btn-primary" : "btn-secondary")"
+                                @onclick="() => SelectRatingSourceAsync(option, source)">@source</button>
+                    }
+                </div>
+                <button class="btn btn-sm btn-secondary" @onclick="() => RecomputeRatingsAsync(option.Domain)" disabled="@_recomputing">Recompute</button>
+                @if (_recomputedDomain == option.Domain && _recomputeResult is not null)
+                {
+                    <span class="kt-card-meta">@_recomputeResult.ReferencesChecked references checked, @_recomputeResult.ItemsUpdated items updated.</span>
+                }
+            </div>
+        }
+        @if (_ratingSourceError is not null)
+        {
+            <div class="alert alert-danger mt-2 mb-0">@_ratingSourceError</div>
+        }
+    </div>
+}
+
 <div class="kt-form-card">
     <p style="color:var(--kt-text-muted)">
         Export the whole reference dataset (TV shows, movies, cast) as a zip, or re-import a previously
@@ -439,12 +473,66 @@
     private SystemStatusDto? _systemStatus;
     private string? _systemStatusError;
 
+    private List<RatingSourceOptionDto> _ratingSources = [];
+    private bool _recomputing;
+    private RecomputeRatingsResultDto? _recomputeResult;
+    private ReferenceItemType? _recomputedDomain;
+    private string? _ratingSourceError;
+
     protected override async Task OnInitializedAsync()
     {
         _bookProviders = await Api.GetBookProvidersAsync();
         _selectedProvider = _bookProviders.FirstOrDefault()?.Key;
+        _ratingSources = await Api.GetRatingSourcesAsync();
         await LoadUnresolvedAsync();
         await LoadSystemStatusAsync();
+    }
+
+    private static string DomainLabel(ReferenceItemType domain) => domain switch
+    {
+        ReferenceItemType.TvShow => "TV shows",
+        ReferenceItemType.Movie => "Movies",
+        ReferenceItemType.Book => "Books",
+        ReferenceItemType.VideoGame => "Video games",
+        ReferenceItemType.Album => "Albums",
+        _ => domain.ToString()
+    };
+
+    private async Task SelectRatingSourceAsync(RatingSourceOptionDto option, string source)
+    {
+        if (option.SelectedSource == source) return;
+
+        _ratingSourceError = null;
+        _recomputeResult = null;
+        try
+        {
+            await Api.SetRatingSourceAsync(option.Domain, source);
+            option.SelectedSource = source;
+        }
+        catch (Exception ex)
+        {
+            _ratingSourceError = ex.Message;
+        }
+    }
+
+    private async Task RecomputeRatingsAsync(ReferenceItemType domain)
+    {
+        _recomputing = true;
+        _ratingSourceError = null;
+        _recomputeResult = null;
+        _recomputedDomain = domain;
+        try
+        {
+            _recomputeResult = await Api.RecomputeRatingsAsync(domain);
+        }
+        catch (Exception ex)
+        {
+            _ratingSourceError = ex.Message;
+        }
+        finally
+        {
+            _recomputing = false;
+        }
     }
 
     private async Task LoadSystemStatusAsync()

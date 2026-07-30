@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using AwesomeAssertions;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
+using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.ReferenceData;
 using Moq;
 using Xunit;
@@ -26,7 +27,16 @@ public class ReferenceEnrichmentServiceTest
     private readonly Mock<IBookRepository> _bookRepository = new();
     private readonly Mock<IVideoGameRepository> _videoGameRepository = new();
     private readonly Mock<IAlbumRepository> _albumRepository = new();
+    private readonly Mock<IAppSettingRepository> _appSettingRepository = new();
     private readonly FakeBookRatingByIsbnLookup _bookRatingByIsbnLookup = new();
+
+    public ReferenceEnrichmentServiceTest()
+    {
+        // default: no admin override, so every domain resolves to its code default (see RatingSourceCatalog).
+        // individual tests override this to exercise a stored primary-source choice.
+        _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync())
+            .ReturnsAsync(new Dictionary<string, string>());
+    }
 
     /// <summary>
     /// The registry always has "openlibrary" as the deployment default - matches FakeBookReferenceClient's
@@ -47,7 +57,8 @@ public class ReferenceEnrichmentServiceTest
         rawgClient ?? FakeRawgClient.Empty(), discogsClient ?? FakeDiscogsClient.Empty(),
         _tvShowReferenceRepository.Object, _movieReferenceRepository.Object, _personReferenceRepository.Object,
         _bookReferenceRepository.Object, _videoGameReferenceRepository.Object, _albumReferenceRepository.Object,
-        _tvShowRepository.Object, _movieRepository.Object, _bookRepository.Object, _videoGameRepository.Object, _albumRepository.Object);
+        _tvShowRepository.Object, _movieRepository.Object, _bookRepository.Object, _videoGameRepository.Object, _albumRepository.Object,
+        _appSettingRepository.Object);
 
     [Fact]
     public async Task TryAutoResolveTvShowAsync_DoesNothing_WhenSearchReturnsNoResults()
@@ -936,6 +947,116 @@ public class ReferenceEnrichmentServiceTest
         _videoGameRepository.Verify(r => r.SetReferenceLinkAsync("Some Game", 2020, "reference-1", "Some Game", It.IsAny<int?>()), Times.Once);
     }
 
+    // --- Admin-selectable primary rating source (RatingSourceCatalog + IAppSettingRepository) ---
+
+    [Fact]
+    public async Task GetPrimaryRatingSourceAsync_ReturnsCodeDefault_WhenNoOverrideIsStored()
+    {
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+
+        var source = await service.GetPrimaryRatingSourceAsync(ReferenceItemType.VideoGame);
+
+        source.Should().Be(RatingSourceCatalog.Rawg);
+    }
+
+    [Fact]
+    public async Task GetPrimaryRatingSourceAsync_ReturnsTheOverride_WhenAnAdminHasSetAValidSource()
+    {
+        _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync())
+            .ReturnsAsync(new Dictionary<string, string> { ["VideoGame"] = RatingSourceCatalog.Metacritic });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+
+        var source = await service.GetPrimaryRatingSourceAsync(ReferenceItemType.VideoGame);
+
+        source.Should().Be(RatingSourceCatalog.Metacritic);
+    }
+
+    [Fact]
+    public async Task GetPrimaryRatingSourceAsync_FallsBackToTheDefault_WhenTheStoredOverrideIsNoLongerAvailable()
+    {
+        _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync())
+            .ReturnsAsync(new Dictionary<string, string> { ["VideoGame"] = "some-removed-source" });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+
+        var source = await service.GetPrimaryRatingSourceAsync(ReferenceItemType.VideoGame);
+
+        source.Should().Be(RatingSourceCatalog.Rawg);
+    }
+
+    [Fact]
+    public async Task ResolveVideoGameAsync_DenormalizesMetacritic_WhenItIsTheSelectedPrimarySource()
+    {
+        _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync())
+            .ReturnsAsync(new Dictionary<string, string> { ["VideoGame"] = RatingSourceCatalog.Metacritic });
+        var rawgClient = FakeRawgClient.Empty();
+        rawgClient.Details["1"] = new RawgGameDetails("1", "Some Game", 2020, "Synopsis", [], [], null, 4.0, 100, 90);
+        _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) => { m.Id = "reference-1"; return m; });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), rawgClient: rawgClient);
+
+        await service.ResolveVideoGameAsync("Some Game", 2020, "1");
+
+        // Metacritic is /100, RAWG's own score is /5 - the selected source drives which pair is denormalized.
+        _videoGameRepository.Verify(r => r.SetReferenceLinkAsync("Some Game", 2020, "reference-1", "Some Game", It.IsAny<int?>(), 90, 100), Times.Once);
+    }
+
+    [Fact]
+    public async Task RecomputeReferenceRatingsAsync_ReStampsEveryLinkedItem_WithTheSelectedSourcesRating()
+    {
+        _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync())
+            .ReturnsAsync(new Dictionary<string, string> { ["VideoGame"] = RatingSourceCatalog.Metacritic });
+        _videoGameReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync(
+        [
+            VideoGameReferenceWithRatings("r1", rawg: 4.5, metacritic: 90),
+            VideoGameReferenceWithRatings("r2", rawg: 3.0, metacritic: 60)
+        ]);
+        _videoGameRepository.Setup(r => r.SetReferenceRatingAsync(It.IsAny<string>(), It.IsAny<double?>(), It.IsAny<double?>())).ReturnsAsync(1);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+
+        var (referencesChecked, itemsUpdated) = await service.RecomputeReferenceRatingsAsync(ReferenceItemType.VideoGame);
+
+        referencesChecked.Should().Be(2);
+        itemsUpdated.Should().Be(2);
+        _videoGameRepository.Verify(r => r.SetReferenceRatingAsync("r1", 90, 100), Times.Once);
+        _videoGameRepository.Verify(r => r.SetReferenceRatingAsync("r2", 60, 100), Times.Once);
+    }
+
+    [Fact]
+    public async Task RecomputeReferenceRatingsAsync_UsesTheCodeDefaultSource_WhenNoOverrideIsStored()
+    {
+        _videoGameReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync(
+        [
+            VideoGameReferenceWithRatings("r1", rawg: 4.5, metacritic: 90)
+        ]);
+        _videoGameRepository.Setup(r => r.SetReferenceRatingAsync(It.IsAny<string>(), It.IsAny<double?>(), It.IsAny<double?>())).ReturnsAsync(1);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+
+        await service.RecomputeReferenceRatingsAsync(ReferenceItemType.VideoGame);
+
+        // RAWG is the default: its /5 score, not Metacritic's /100.
+        _videoGameRepository.Verify(r => r.SetReferenceRatingAsync("r1", 4.5, 5), Times.Once);
+    }
+
+    [Fact]
+    public async Task RecomputeReferenceRatingsAsync_Throws_ForADomainWhoseSourceIsNotAdminSelectable()
+    {
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.RecomputeReferenceRatingsAsync(ReferenceItemType.Movie));
+    }
+
+    private static VideoGameReferenceModel VideoGameReferenceWithRatings(string id, double rawg, double metacritic) => new()
+    {
+        Id = id,
+        Title = "Some Game",
+        TitleNormalized = "some game",
+        ExternalIds = [],
+        Ratings = new Dictionary<string, ReferenceRatingModel>
+        {
+            [RatingSourceCatalog.Rawg] = new() { Value = rawg, Scale = 5, Count = 100 },
+            [RatingSourceCatalog.Metacritic] = new() { Value = metacritic, Scale = 100 }
+        }
+    };
+
     [Fact]
     public async Task TryLinkExistingVideoGameReferenceAsync_LinksAndUpdatesTitle_OnTitleYearMatch()
     {
@@ -1253,7 +1374,8 @@ public class ReferenceEnrichmentServiceTest
         new Mock<IDiscogsClient>(MockBehavior.Strict).Object,
         _tvShowReferenceRepository.Object, _movieReferenceRepository.Object, _personReferenceRepository.Object,
         _bookReferenceRepository.Object, _videoGameReferenceRepository.Object, _albumReferenceRepository.Object,
-        _tvShowRepository.Object, _movieRepository.Object, _bookRepository.Object, _videoGameRepository.Object, _albumRepository.Object);
+        _tvShowRepository.Object, _movieRepository.Object, _bookRepository.Object, _videoGameRepository.Object, _albumRepository.Object,
+        _appSettingRepository.Object);
 
     [Theory]
     [InlineData("")]

@@ -5,10 +5,13 @@ namespace Keeptrack.WebApi.ReferenceData;
 
 public partial class ReferenceEnrichmentService
 {
-    /// <summary>The source denormalized onto the tenant game as the primary (list/sort) value - RAWG's own 0-5 user score.</summary>
-    private const string RawgRatingSource = "rawg";
+    // the two RAWG-provided rating source keys (see RatingSourceCatalog, the single home for these literals);
+    // used here purely as the Ratings-dict keys when building the map. Which of the two is the *primary*
+    // (denormalized onto the tenant game) is now resolved per-domain via GetPrimaryRatingSourceAsync, not
+    // hardcoded here.
+    private const string RawgRatingSource = RatingSourceCatalog.Rawg;
 
-    private const string MetacriticRatingSource = "metacritic";
+    private const string MetacriticRatingSource = RatingSourceCatalog.Metacritic;
 
     /// <summary>
     /// Builds the reference <c>Ratings</c> map from RAWG's aggregates: RAWG's own 0-5 user score (the
@@ -66,7 +69,7 @@ public partial class ReferenceEnrichmentService
 
         var originalTitle = model.Title;
         var originalYear = model.Year;
-        var (ratingValue, ratingScale) = PrimaryRating(reference.Ratings, RawgRatingSource);
+        var (ratingValue, ratingScale) = PrimaryRating(reference.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.VideoGame));
 
         model.ReferenceId = reference.Id;
         model.Title = reference.Title;
@@ -151,7 +154,7 @@ public partial class ReferenceEnrichmentService
         };
 
         var saved = await videoGameReferenceRepository.UpsertAsync(model);
-        var (ratingValue, ratingScale) = PrimaryRating(saved.Ratings, RawgRatingSource);
+        var (ratingValue, ratingScale) = PrimaryRating(saved.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.VideoGame));
         await videoGameRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, ratingValue, ratingScale);
         return saved;
     }
@@ -181,7 +184,7 @@ public partial class ReferenceEnrichmentService
         reference.LastEnrichedAt = DateTime.UtcNow;
 
         var saved = await videoGameReferenceRepository.UpsertAsync(reference);
-        var (ratingValue, ratingScale) = PrimaryRating(saved.Ratings, RawgRatingSource);
+        var (ratingValue, ratingScale) = PrimaryRating(saved.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.VideoGame));
         await videoGameRepository.SetReferenceRatingAsync(saved.Id!, ratingValue, ratingScale);
         return (saved, true);
     }

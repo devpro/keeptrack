@@ -29,8 +29,69 @@ public partial class ReferenceEnrichmentService(
     IMovieRepository movieRepository,
     IBookRepository bookRepository,
     IVideoGameRepository videoGameRepository,
-    IAlbumRepository albumRepository)
+    IAlbumRepository albumRepository,
+    IAppSettingRepository appSettingRepository)
 {
+    /// <summary>
+    /// The primary rating source for <paramref name="domain"/> - the source whose value/scale is denormalized
+    /// onto tenant items as the list pill / sort value. The admin's stored override (see
+    /// <see cref="IAppSettingRepository"/>) when it names a source the catalog still offers, otherwise the
+    /// code default (<see cref="RatingSourceCatalog.DefaultSource"/>). An override naming a source no longer
+    /// available is ignored rather than trusted, so removing a source from the catalog can't strand an item.
+    /// </summary>
+    public async Task<string> GetPrimaryRatingSourceAsync(ReferenceItemType domain)
+    {
+        var overrides = await appSettingRepository.GetReferenceRatingSourcesAsync();
+        return overrides.TryGetValue(domain.ToString(), out var stored) && RatingSourceCatalog.AvailableSources(domain).Contains(stored)
+            ? stored
+            : RatingSourceCatalog.DefaultSource(domain);
+    }
+
+    /// <summary>
+    /// Re-applies the current primary rating source (see <see cref="GetPrimaryRatingSourceAsync"/>) to every
+    /// already-linked tenant item across a domain, re-stamping the denormalized
+    /// <c>ReferenceRating</c>/<c>ReferenceRatingScale</c> scalar from each reference document's <c>Ratings</c>
+    /// dict. Backs the admin "recompute" action after switching a domain's source - one bulk
+    /// <c>SetReferenceRatingAsync</c> pass per reference, no provider calls (unlike the full sync). Small,
+    /// shared reference collection, so this runs synchronously rather than as a background job.
+    /// </summary>
+    public async Task<(int ReferencesChecked, long ItemsUpdated)> RecomputeReferenceRatingsAsync(ReferenceItemType domain)
+    {
+        var source = await GetPrimaryRatingSourceAsync(domain);
+        return domain switch
+        {
+            ReferenceItemType.VideoGame => await RecomputeReferenceRatingsAsync(
+                videoGameReferenceRepository.FindAllAsync,
+                r => (r.Id!, r.Ratings),
+                videoGameRepository.SetReferenceRatingAsync,
+                source),
+            _ => throw new ArgumentOutOfRangeException(nameof(domain), $"Rating source is not admin-selectable for {domain}.")
+        };
+    }
+
+    /// <summary>
+    /// Domain-agnostic recompute loop - each domain only differs in which reference repository it reads and
+    /// which tenant repository it re-propagates through, so the iteration itself lives once here (adding
+    /// movies/TV/albums later is a one-line switch arm above, never a copy of this loop).
+    /// </summary>
+    private static async Task<(int ReferencesChecked, long ItemsUpdated)> RecomputeReferenceRatingsAsync<TReference>(
+        Func<Task<List<TReference>>> findAll,
+        Func<TReference, (string Id, IReadOnlyDictionary<string, ReferenceRatingModel> Ratings)> project,
+        Func<string, double?, double?, Task<long>> setRating,
+        string source)
+    {
+        var references = await findAll();
+        long updated = 0;
+        foreach (var reference in references)
+        {
+            var (id, ratings) = project(reference);
+            var (value, scale) = PrimaryRating(ratings, source);
+            updated += await setRating(id, value, scale);
+        }
+
+        return (references.Count, updated);
+    }
+
     /// <summary>
     /// Combines whatever (title, year, creator, isbn) combinations a reference document already remembered
     /// with the new ones just confirmed (e.g. the provider's canonical (title, year) and the (title, year)

@@ -36,7 +36,8 @@ public class ReferenceDataAdminController(
     IPersonReferenceRepository personReferenceRepository,
     IBookReferenceRepository bookReferenceRepository,
     IVideoGameReferenceRepository videoGameReferenceRepository,
-    IAlbumReferenceRepository albumReferenceRepository) : ControllerBase
+    IAlbumReferenceRepository albumReferenceRepository,
+    IAppSettingRepository appSettingRepository) : ControllerBase
 {
     private const string TvShowEntryName = "tvshow_reference.json";
     private const string MovieEntryName = "movie_reference.json";
@@ -228,6 +229,63 @@ public class ReferenceDataAdminController(
     [ProducesResponseType(200)]
     public ActionResult<List<BookProviderDto>> GetBookProviders() =>
         Ok(bookReferenceClientRegistry.All.Select(c => new BookProviderDto { Key = c.ProviderKey, DisplayName = c.DisplayName }).ToList());
+
+    /// <summary>
+    /// Every domain whose primary rating source (the score shown as the pill / used for the "Ref ★" sort) is
+    /// admin-selectable, with its available sources and the one currently selected. Only domains with more
+    /// than one source appear - today just video games (RAWG vs Metacritic).
+    /// </summary>
+    [HttpGet("rating-sources")]
+    [ProducesResponseType(200)]
+    public async Task<ActionResult<List<RatingSourceOptionDto>>> GetRatingSources()
+    {
+        var options = new List<RatingSourceOptionDto>();
+        foreach (var domain in RatingSourceCatalog.SelectableDomains)
+        {
+            options.Add(new RatingSourceOptionDto
+            {
+                Domain = domain,
+                AvailableSources = RatingSourceCatalog.AvailableSources(domain).ToList(),
+                SelectedSource = await enrichmentService.GetPrimaryRatingSourceAsync(domain)
+            });
+        }
+
+        return Ok(options);
+    }
+
+    /// <summary>
+    /// Sets a domain's primary rating source. Only stores the choice - existing linked items keep their old
+    /// denormalized rating until <see cref="RecomputeRatingSource"/> re-applies it, so a switch is visible
+    /// and deliberate rather than silently reshuffling every list.
+    /// </summary>
+    [HttpPut("rating-sources/{domain}")]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(400)]
+    public async Task<IActionResult> SetRatingSource(ReferenceItemType domain, [FromBody] SetRatingSourceRequestDto request)
+    {
+        // ArgumentException maps to a 400 via ApiExceptionFilterAttribute
+        if (!RatingSourceCatalog.AvailableSources(domain).Contains(request.Source))
+        {
+            throw new ArgumentException($"'{request.Source}' is not a selectable rating source for {domain}.", nameof(request));
+        }
+
+        await appSettingRepository.SetReferenceRatingSourceAsync(domain.ToString(), request.Source);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Re-applies a domain's current primary rating source to every already-linked tenant item - a single
+    /// bulk pass over the (small, shared) reference collection, no provider calls. Run after switching the
+    /// source via <see cref="SetRatingSource"/> so the list pills and sort reflect the new choice.
+    /// </summary>
+    [HttpPost("rating-sources/{domain}/recompute")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    public async Task<ActionResult<RecomputeRatingsResultDto>> RecomputeRatingSource(ReferenceItemType domain)
+    {
+        var (referencesChecked, itemsUpdated) = await enrichmentService.RecomputeReferenceRatingsAsync(domain);
+        return Ok(new RecomputeRatingsResultDto { ReferencesChecked = referencesChecked, ItemsUpdated = itemsUpdated });
+    }
 
     /// <summary>
     /// Distinct (title, year) pairs, across every tenant, still missing a reference-data link. Book is

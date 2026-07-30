@@ -5,8 +5,9 @@ Provider ("reference") ratings for tracked items - the linked reference's own ag
 ## Status
 
 Phase 1 is implemented across all five reference-bearing media types (Movie, TV show, Video game, Album, Book).
-Build is green; the WebApi unit suite passes (303 tests, including the new rating tests); the Movies slice also has real-MongoDB integration coverage.
-The user has confirmed the feature displays well and the mechanics are right.
+Next-step 1 (admin-selectable primary rating source) is also implemented, wired for video games as its first case - see "Admin-selectable primary source" below.
+Build is green; the WebApi unit suite passes (315 tests, including the new rating and rating-source tests); the Movies slice also has real-MongoDB integration coverage.
+The user has confirmed both the Phase 1 display/mechanics and the admin-selectable source switch (RAWG↔Metacritic + recompute) work in the running app.
 
 ## End goal / solution design
 
@@ -44,6 +45,26 @@ A new `SetReferenceRatingAsync(referenceId, rating, ratingScale)` on each reposi
 That guard is now `LastEnrichedAt is not null && reference.Ratings.Count > 0`, so a reference linked before ratings existed is force-fetched once to backfill its rating instead of being skipped forever.
 RAWG/Discogs/book providers have no `/changes` endpoint and always full-fetch past the staleness cutoff, so they backfill for free.
 
+### Admin-selectable primary source (per-domain, admin/global) - implemented
+
+Which source is "primary" (the value denormalized onto the tenant item) is no longer a hardcoded per-domain constant.
+It is an admin-selectable, global (not per-user) setting, wired for video games (RAWG vs Metacritic) as the first and only multi-source domain today.
+
+- **Catalog:** `WebApi/ReferenceData/RatingSourceCatalog.cs` is the single declaration of, per `ReferenceItemType`, the selectable source keys plus the code default (`VideoGame → [rawg, metacritic]`, default `rawg`).
+  Only domains with more than one source appear; movies/TV join it when they gain IMDb (phase 2) and reuse everything below unchanged.
+  The `"rawg"`/`"metacritic"` string literals live here now; `ReferenceEnrichmentService.VideoGames.cs`'s build-key consts point at them so the two never drift.
+- **Storage:** the choice lives in a shared `app_setting` collection - a single document (`_id: "global"`) whose `reference_rating_source` field is a domain→source map.
+  This is one shared collection for every future global admin setting, deliberately not a collection per setting (`IAppSettingRepository`/`AppSettingRepository`, purpose-built like `LeaseRepository`, `$set` on just the one map entry with upsert).
+  Config/env-var was rejected: it can't be changed from the admin UI without a redeploy, which defeats "admin-selectable".
+- **Resolver:** `ReferenceEnrichmentService.GetPrimaryRatingSourceAsync(domain)` returns the stored override when it still names an available source, else the catalog default (an override for a source since removed from the catalog is ignored, never trusted).
+  The three video-game `PrimaryRating` call sites (resolve/refresh/link) read this instead of the old `"rawg"` const; the other four domains still pass their single source directly (they migrate when they become multi-source).
+- **Recompute:** changing the source only affects new links/syncs until the admin runs `RecomputeReferenceRatingsAsync(domain)` - one bulk `SetReferenceRatingAsync` pass over the (small, shared) reference collection re-stamping the denormalized scalar from each doc's `Ratings` dict, no provider calls.
+  It runs synchronously (unlike "Sync now", which is a background job only because it hits providers) and returns `(ReferencesChecked, ItemsUpdated)`.
+  The loop is a domain-agnostic generic helper, so adding movies/TV/albums later is a one-line switch arm, never a copied loop.
+- **Endpoints (admin-only, on `ReferenceDataAdminController`):** `GET /api/reference-data/rating-sources`, `PUT /api/reference-data/rating-sources/{domain}` (validates source ∈ available, 400 otherwise), `POST /api/reference-data/rating-sources/{domain}/recompute`.
+- **UI:** a "Primary rating source" card on the reference-data admin page - per selectable domain, a source button-group plus a **separate** Recompute button (two deliberate actions, not one) showing the checked/updated counts.
+  It spells out the Metacritic caveat: `/100` and often absent on RAWG, so switching to it blanks the pill for many games and sorts them last.
+
 ### Book cross-provider rating fallback
 
 Google Books (the default book provider) **no longer serves ratings at all** (confirmed against the live API - `averageRating` is absent even for The Hobbit / Harry Potter).
@@ -61,9 +82,8 @@ It lives behind a dedicated one-method `IBookRatingByIsbnLookup` interface (impl
 
 - **Display:** bare number with a star (`★ 7.8`) in list/grid, no scale; fuller `value / scale source (count)` on the detail page.
 - **Sort label:** `Ref ★` (short, mobile).
-- **Primary-source selection:** a **code default per media type** *as shipped in Phase 1* - not admin-configurable and not per-user yet.
-  Reason it was fine to ship this way: only video games have more than one source so far, and the storage already supports upgrading later with no migration.
-  Agreed follow-up: make the primary source admin-selectable, starting with video games (RAWG vs Metacritic) since it's the one multi-source type today, built as a general per-domain setting so IMDb (phase 2) reuses it - see next-steps step 1.
+- **Primary-source selection:** shipped in Phase 1 as a **code default per media type**; now **admin-selectable and global** (not per-user), wired for video games (RAWG vs Metacritic) - see "Admin-selectable primary source" above.
+  The code default is still the fallback when an admin hasn't chosen; per-user was ruled out because a switch must be a single bulk `SetReferenceRatingAsync` recompute per reference, which per-user couldn't be.
 - **Video games:** RAWG's 0-5 user score is the primary (usually present); Metacritic is stored as a second source and shown on the detail page but does not drive the pill/sort (frequently absent).
 
 ## Known limitations
@@ -79,15 +99,14 @@ It lives behind a dedicated one-method `IBookRatingByIsbnLookup` interface (impl
 - `ReferenceEnrichmentServiceTest` (unit, mocked): rating populate + primary-scalar propagation; no-rating-when-no-votes; TMDB backfill-forces-a-fetch; no-change short-circuit stays for an already-rated reference; TryLink sets the denormalized rating; the Open Library ISBN fallback fires for a non-OL provider and is skipped when the provider is OL.
 - `MovieReferenceRatingRepositoryTest` (integration, real MongoDB): the `ReferenceRating` sort ordering (unrated last), `SetReferenceLinkAsync` stamps only unlinked matches, `SetReferenceRatingAsync` re-propagates to every already-linked item, and the `Ratings` dict round-trips through BSON.
 - The other four types reuse the identical shared sort/propagation code the Movie tests cover; per-type integration tests were deliberately deferred (see next steps).
+- `RatingSourceCatalogTest` (unit): video games offer RAWG+Metacritic with RAWG default; single-source domains are not yet selectable.
+- `ReferenceEnrichmentServiceTest` (unit, mocked) gained: the source resolver (default / valid override / invalid-override-falls-back-to-default); `ResolveVideoGameAsync` denormalizes Metacritic's `/100` when it's the selected source; `RecomputeReferenceRatingsAsync` re-stamps every linked item with the selected source's value+scale, uses the default when unset, and throws for a non-selectable domain.
 
 ## What to do next
 
-1. **Admin-selectable primary source (starting with video games: RAWG vs Metacritic).** Video games are the one type that already has two sources today, so this is the first place the code-default decision is worth revisiting - ahead of, and independent of, IMDb.
-  Build it **general, not games-only**: a per-domain "primary rating source" setting (config or a stored admin setting) that the enrichment's `PrimaryRating` call reads instead of the current hardcoded key.
-  Keep it **admin/global, not per-user** - changing it must recompute the denormalized `ReferenceRating` scalar on every linked tenant item from the reference dict, which is one bulk `SetReferenceRatingAsync` pass per affected reference; per-user couldn't be a single bulk update.
-  So it's a setting **plus** an admin "recompute reference ratings" action (on the reference-data admin page) that re-propagates when the source changes.
-  Note the switch's effect: Metacritic is `/100` and often absent on RAWG, so flipping games to Metacritic-primary blanks the pill for many games and sorts them last - RAWG stays the safer default.
-  This same mechanism then covers IMDb-vs-TMDB for movies/TV in Phase 2 for free.
+1. **~~Admin-selectable primary source (video games: RAWG vs Metacritic).~~ Done** - implemented as a general per-domain, admin/global setting in the shared `app_setting` collection plus a recompute action, wired for video games.
+  See "Admin-selectable primary source (per-domain, admin/global) - implemented" above for the full shape.
+  The same mechanism covers IMDb-vs-TMDB for movies/TV in Phase 2 for free (just add a `RatingSourceCatalog` entry and route those `PrimaryRating` call sites through `GetPrimaryRatingSourceAsync`).
 2. **Phase 2 - IMDb ratings for movies/TV.** Add an `imdb` source to the movie/TV `Ratings` dict.
   IMDb has no public ratings API; options are OMDb (needs an API key, returns `imdbRating`/`imdbVotes`) or TMDB `external_ids` → IMDb id → a data source.
   Once movies/TV have two sources, the primary is chosen via the admin-selectable mechanism from step 1 (the storage already supports it with no migration).
