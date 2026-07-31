@@ -8,7 +8,7 @@ public class AppConfiguration(IConfiguration configuration)
 {
     public static string CorsPolicyName => "CorsPolicyName";
 
-    public static string HealthCheckEndpoint => "/health";
+    public static string HealthCheckEndpoint => "/healthz";
 
     public bool IsHttpsRedirectionEnabled => configuration.TryGetSection<bool>("Features:IsHttpsRedirectionEnabled");
 

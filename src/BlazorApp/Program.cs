@@ -68,7 +68,7 @@ app.MapRazorComponents<App>()
 app.MapGet("/shared/wishlist/{token}", (string token) =>
     new RazorComponentResult<Keeptrack.BlazorApp.Components.Wishlist.SharedWishlistApp>(new { Token = token }));
 app.MapControllers();
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/healthz");
 
 await app.RunAsync();
 
