@@ -12,6 +12,7 @@ using FirebaseAdmin.Auth;
 using Keeptrack.BlazorApp.Components.Account;
 using Keeptrack.BlazorApp.PlaywrightTests.Hosting;
 using Keeptrack.BlazorApp.PlaywrightTests.Support;
+using Keeptrack.Domain.Repositories;
 using Keeptrack.Testing.Shared.Firebase;
 using Keeptrack.Testing.Shared.Hosting;
 using Microsoft.AspNetCore.Authentication;
@@ -20,6 +21,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Playwright;
+using MongoDB.Bson;
+using MongoDB.Driver;
 using Xunit;
 
 [assembly: AssemblyFixture(typeof(End2EndFixture))]
@@ -77,6 +80,12 @@ public sealed class End2EndFixture : IAsyncLifetime
         }
         else
         {
+            // Self-hosted mode runs the real WebApi against a real MongoDB, so the same guard the integration
+            // suite applies belongs here too - without it an unset Infrastructure__MongoDB__DatabaseName silently
+            // points the whole e2e run at the developer's own keeptrack_dev database. Live mode is exempt: the
+            // deployment owns its own configuration and there's no local database to mis-target.
+            TestDatabaseGuard.EnsureExplicitTestDatabase();
+
             _webApiFactory = new KestrelWebAppFactory<Keeptrack.WebApi.Program>(
                 WebApiKestrelUrlOverride,
                 new KeyValuePair<string, string?>("Features:IsReferenceSyncEnabled", "false"));
@@ -187,21 +196,76 @@ public sealed class End2EndFixture : IAsyncLifetime
     /// <summary>
     /// The deterministic "look for a ref" path: import a synthetic reference document via the same admin endpoint a real export/import round-trip uses,
     /// so <c>ReferenceSmokeTest</c>'s "check for reference match" click only ever queries MongoDB, never a real provider.
+    /// <para>
+    /// The seed carries a fixed <see cref="ReferenceFixtureZipBuilder.ReferenceId"/> rather than letting the import mint a new one.
+    /// Without it every run inserted another copy of the same synthetic book - 22 identical "The Playwright Chronicles" documents had piled up in a real test database -
+    /// because the import is only idempotent for a document that already carries an id (it replaces by id, see each reference repository's <c>UpsertAsync</c>).
+    /// A fixed id makes re-seeding a true no-op, and gives <see cref="RemoveSeededReferenceDataAsync"/> something to delete afterwards.
+    /// </para>
     /// </summary>
     private async Task SeedReferenceDataAsync()
     {
         var zip = ReferenceFixtureZipBuilder.Build();
 
-        using var httpClient = new HttpClient();
-        httpClient.BaseAddress = new Uri(_webApiBaseUrl);
-        httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _idToken);
-
         using var content = new MultipartFormDataContent();
         using var fileContent = new ByteArrayContent(zip);
         content.Add(fileContent, "file", "keeptrack-e2e-reference-data.zip");
 
-        var response = await httpClient.PostAsync("/api/reference-data/import", content);
+        var response = await ApiHttpClient.PostAsync("/api/reference-data/import", content);
         response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>
+    /// Removes the synthetic reference seeded above, so a run leaves the shared reference collections exactly as it found them.
+    /// <para>
+    /// Goes through the hosted <see cref="IBookReferenceRepository"/> rather than an HTTP call, because there is no admin endpoint that deletes a single reference document
+    /// (the only such path is a tenant item's own <c>unlink-reference</c>, which needs a linked item to unlink) - and inventing a delete endpoint just to let tests tidy up would be the wrong trade.
+    /// This is only possible in self-hosted mode; in live mode the fixed seed id already makes re-seeding a replace rather than an insert, so nothing accumulates there either.
+    /// </para>
+    /// Best-effort and never fatal: the run's results are already in, and a teardown error shouldn't turn a green run red.
+    /// </summary>
+    private async Task RemoveSeededReferenceDataAsync()
+    {
+        if (_webApiFactory is null) return;
+
+        try
+        {
+            using var scope = _webApiFactory.Services.CreateScope();
+            var repository = scope.ServiceProvider.GetRequiredService<IBookReferenceRepository>();
+            await repository.DeleteAsync(ReferenceFixtureZipBuilder.ReferenceId);
+        }
+        catch (Exception exception)
+        {
+            await Console.Error.WriteLineAsync($"Failed to remove the seeded e2e reference data: {exception.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Removes the documents the run's throwaway identity owns that no test can reach: its preferences (written the first time a page reads them)
+    /// and its background-job rows (an import smoke test starts a job through the UI and never learns its id).
+    /// Neither collection has a delete endpoint, and both are owner-scoped, so they're removed straight from MongoDB.
+    /// <para>
+    /// Deliberately guarded on <see cref="_ephemeralUserUid"/>: only an ephemeral user's documents are ever deleted here.
+    /// When the run is pointed at a real account through <c>E2E_USERNAME</c>, this would otherwise wipe that person's own saved preferences.
+    /// </para>
+    /// </summary>
+    private async Task RemoveEphemeralUserDocumentsAsync()
+    {
+        if (_ephemeralUserUid is null || _webApiFactory is null) return;
+
+        try
+        {
+            var database = _webApiFactory.Services.GetRequiredService<IMongoDatabase>();
+            foreach (var collectionName in new[] { "user_preference", "background_job" })
+            {
+                await database.GetCollection<BsonDocument>(collectionName)
+                    .DeleteManyAsync(Builders<BsonDocument>.Filter.Eq("owner_id", _ephemeralUserUid));
+            }
+        }
+        catch (Exception exception)
+        {
+            await Console.Error.WriteLineAsync($"Failed to remove the ephemeral e2e user's documents: {exception.Message}");
+        }
     }
 
     private HttpClient? _apiHttpClient;
@@ -309,6 +373,12 @@ public sealed class End2EndFixture : IAsyncLifetime
 
     public async ValueTask DisposeAsync()
     {
+        if (End2EndConfiguration.Enabled && !End2EndConfiguration.ReadOnly)
+        {
+            await RemoveSeededReferenceDataAsync();
+            await RemoveEphemeralUserDocumentsAsync();
+        }
+
         _apiHttpClient?.Dispose();
 
         if (_ephemeralUserUid is not null)

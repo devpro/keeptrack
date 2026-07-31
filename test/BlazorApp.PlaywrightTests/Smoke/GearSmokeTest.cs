@@ -31,6 +31,8 @@ public class GearSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 
         var detail = new GearDetailPage(Page);
         await detail.WaitForReadyAsync();
+        // registered as soon as the item exists, so an assertion failure below still removes it
+        TrackOpenItem("/api/gear");
         await Assertions.Expect(detail.TitleInput).ToHaveValueAsync(title);
 
         await DetailPageBase.SetFieldAsync(detail.ImageUrlInput, imageUrl);

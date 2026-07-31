@@ -33,6 +33,8 @@ public class OwnershipSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 
         var detail = new BookDetailPage(Page);
         await detail.WaitForReadyAsync();
+        // registered as soon as the item exists, so an assertion failure below still removes it
+        TrackOpenItem("/api/books");
 
         // a new version is a draft until its Save button - cancelling discards it without owning the item
         await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "+ Add version" }).ClickAsync();

@@ -36,6 +36,8 @@ public class CollectibleSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixtur
 
         var detail = new CollectibleDetailPage(Page);
         await detail.WaitForReadyAsync();
+        // registered as soon as the item exists, so an assertion failure below still removes it
+        TrackOpenItem("/api/collectibles");
         await Assertions.Expect(detail.TitleInput).ToHaveValueAsync(title);
 
         await DetailPageBase.SetFieldAsync(detail.ImageUrlInput, imageUrl);

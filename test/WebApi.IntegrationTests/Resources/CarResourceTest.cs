@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
@@ -39,26 +40,19 @@ public class CarResourceTest(KestrelWebAppFactory<Program> factory)
                 o.ImageUrl = f.Internet.Url();
             })
             .Generate();
-        var created = await PostAsync($"/{ResourceEndpoint}", input);
+        var created = await CreateAsync($"/{ResourceEndpoint}", input);
         created.Id.Should().NotBeNullOrEmpty();
 
-        try
-        {
-            created.Name = "New shiny name";
-            await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
+        created.Name = "New shiny name";
+        await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
 
-            var updated = await GetAsync<CarDto>($"/{ResourceEndpoint}/{created.Id}");
-            updated.Should().BeEquivalentTo(created);
+        var updated = await GetAsync<CarDto>($"/{ResourceEndpoint}/{created.Id}");
+        updated.Should().BeEquivalentTo(created);
 
-            var finalItems = await GetAsync<PagedResult<CarDto>>($"/{ResourceEndpoint}");
-            var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
-            firstItem.Should().NotBeNull();
-            firstItem.Name.Should().Be(updated.Name);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        var finalItems = await GetAsync<PagedResult<CarDto>>($"/{ResourceEndpoint}");
+        var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
+        firstItem.Should().NotBeNull();
+        firstItem.Name.Should().Be(updated.Name);
     }
 
     /// <summary>
@@ -71,18 +65,11 @@ public class CarResourceTest(KestrelWebAppFactory<Program> factory)
     {
         await Authenticate();
 
-        var name = System.Guid.NewGuid().ToString();
-        var created = await PostAsync($"/{ResourceEndpoint}", new CarDto { Name = name });
+        var name = Guid.NewGuid().ToString();
+        var created = await CreateAsync($"/{ResourceEndpoint}", new CarDto { Name = name });
 
-        try
-        {
-            var results = await GetAsync<PagedResult<CarDto>>($"/{ResourceEndpoint}?search={name}");
-            results.Items.Should().ContainSingle(x => x.Id == created.Id);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        var results = await GetAsync<PagedResult<CarDto>>($"/{ResourceEndpoint}?search={name}");
+        results.Items.Should().ContainSingle(x => x.Id == created.Id);
     }
 
     [Fact]
@@ -103,20 +90,13 @@ public class CarResourceTest(KestrelWebAppFactory<Program> factory)
     {
         await Authenticate();
 
-        var created = await PostAsync($"/{ResourceEndpoint}", new CarDto { Name = System.Guid.NewGuid().ToString() });
+        var created = await CreateAsync($"/{ResourceEndpoint}", new CarDto { Name = Guid.NewGuid().ToString() });
 
-        try
-        {
-            var metrics = await GetAsync<CarMetricsDto>($"/{ResourceEndpoint}/{created.Id}/metrics");
-            metrics.FuelConsumption.Should().BeEmpty();
-            metrics.ElectricConsumption.Should().BeEmpty();
-            metrics.CostHistory.Should().BeEmpty();
-            metrics.MileageWarnings.Should().BeEmpty();
-            metrics.LastRecords.Should().BeEmpty();
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        var metrics = await GetAsync<CarMetricsDto>($"/{ResourceEndpoint}/{created.Id}/metrics");
+        metrics.FuelConsumption.Should().BeEmpty();
+        metrics.ElectricConsumption.Should().BeEmpty();
+        metrics.CostHistory.Should().BeEmpty();
+        metrics.MileageWarnings.Should().BeEmpty();
+        metrics.LastRecords.Should().BeEmpty();
     }
 }

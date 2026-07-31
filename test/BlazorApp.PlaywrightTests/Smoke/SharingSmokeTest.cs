@@ -33,9 +33,9 @@ public class SharingSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
         var label = $"E2e {tag}";
         var api = Fixture.ApiHttpClient;
 
-        var movie = await CreateAsync<MovieDto>(api, "api/movies", new MovieDto { Title = movieTitle, Year = 1999 });
-        var car = await CreateAsync<CarDto>(api, "api/cars", new CarDto { Name = carName, EnergyType = CarEnergyType.Combustion });
-        await CreateAsync<CarHistoryDto>(api, "api/car-history", new CarHistoryDto
+        var movie = await CreateItemAsync("api/movies", new MovieDto { Title = movieTitle, Year = 1999 });
+        var car = await CreateItemAsync("api/cars", new CarDto { Name = carName, EnergyType = CarEnergyType.Combustion });
+        await CreateItemAsync("api/car-history", new CarHistoryDto
         {
             CarId = car.Id!,
             HistoryDate = new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc),
@@ -43,46 +43,34 @@ public class SharingSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
             Cost = 120.50
         });
 
-        string? shareId = null;
-        try
-        {
-            // Owner creates the grant (Movies + Cars) through the profile UI.
-            var sharing = await new SharingOwnerPage(Page).OpenAsync();
-            await sharing.FillRecipientEmailAsync(Fixture.SignedInEmail);
-            await sharing.FillLabelAsync(label);
-            await sharing.ToggleCategoryAsync("Movies");
-            await sharing.ToggleCategoryAsync("Cars");
-            await sharing.CreateShareAsync();
-            await Assertions.Expect(sharing.ActiveShareRow(label)).ToBeVisibleAsync();
+        // Owner creates the grant (Movies + Cars) through the profile UI.
+        var sharing = await new SharingOwnerPage(Page).OpenAsync();
+        await sharing.FillRecipientEmailAsync(Fixture.SignedInEmail);
+        await sharing.FillLabelAsync(label);
+        await sharing.ToggleCategoryAsync("Movies");
+        await sharing.ToggleCategoryAsync("Cars");
+        await sharing.CreateShareAsync();
+        await Assertions.Expect(sharing.ActiveShareRow(label)).ToBeVisibleAsync();
 
-            shareId = await FindShareIdByLabelAsync(api, label);
+        var shareId = await FindShareIdByLabelAsync(api, label);
+        TrackCleanup(() => Fixture.DeleteItemAsync($"api/shares/{shareId}"));
 
-            // Recipient: the sharer shows up in "Shared with me", then their collection opens with tabs.
-            var sharedWithMe = await new SharedWithMePage(Page).OpenAsync();
-            await Assertions.Expect(sharedWithMe.PersonRow.First).ToBeVisibleAsync();
-            var collection = await sharedWithMe.OpenCollectionByIdAsync(shareId);
+        // Recipient: the sharer shows up in "Shared with me", then their collection opens with tabs.
+        var sharedWithMe = await new SharedWithMePage(Page).OpenAsync();
+        await Assertions.Expect(sharedWithMe.PersonRow.First).ToBeVisibleAsync();
+        var collection = await sharedWithMe.OpenCollectionByIdAsync(shareId);
 
-            // Media (Movies): listed, read-only, already-in-collection (self-share) so it carries the badge.
-            await collection.SelectTabAsync("Movies");
-            await Assertions.Expect(collection.Row(movieTitle)).ToBeVisibleAsync();
-            await Assertions.Expect(collection.InCollectionBadge(movieTitle)).ToBeVisibleAsync();
+        // Media (Movies): listed, read-only, already-in-collection (self-share) so it carries the badge.
+        await collection.SelectTabAsync("Movies");
+        await Assertions.Expect(collection.Row(movieTitle)).ToBeVisibleAsync();
+        await Assertions.Expect(collection.InCollectionBadge(movieTitle)).ToBeVisibleAsync();
 
-            // Personal (Cars): listed, and opens a full read-only detail page (title not editable, no add).
-            await collection.SelectTabAsync("Cars");
-            await Assertions.Expect(collection.Row(carName)).ToBeVisibleAsync();
-            var carDetail = await collection.OpenCarAsync(carName);
-            await Assertions.Expect(carDetail.TitleInput).ToBeDisabledAsync();
-            await Assertions.Expect(Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "+ Add entry" })).ToHaveCountAsync(0);
-        }
-        finally
-        {
-            if (shareId is not null)
-            {
-                await Fixture.DeleteItemAsync($"api/shares/{shareId}");
-            }
-            await Fixture.DeleteItemAsync($"api/movies/{movie.Id}");
-            await Fixture.DeleteItemAsync($"api/cars/{car.Id}");
-        }
+        // Personal (Cars): listed, and opens a full read-only detail page (title not editable, no add).
+        await collection.SelectTabAsync("Cars");
+        await Assertions.Expect(collection.Row(carName)).ToBeVisibleAsync();
+        var carDetail = await collection.OpenCarAsync(carName);
+        await Assertions.Expect(carDetail.TitleInput).ToBeDisabledAsync();
+        await Assertions.Expect(Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "+ Add entry" })).ToHaveCountAsync(0);
     }
 
     /// <summary>
@@ -102,54 +90,36 @@ public class SharingSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
         var label = $"E2e Coll {tag}";
         var api = Fixture.ApiHttpClient;
 
-        var collectible = await CreateAsync<CollectibleDto>(api, "api/collectibles", new CollectibleDto { Title = collectibleTitle, Brand = "Lego", Year = 2020 });
-        var gear = await CreateAsync<GearDto>(api, "api/gear", new GearDto { Title = gearTitle, Brand = "Sony", Year = 2021 });
+        var collectible = await CreateItemAsync("api/collectibles", new CollectibleDto { Title = collectibleTitle, Brand = "Lego", Year = 2020 });
+        var gear = await CreateItemAsync("api/gear", new GearDto { Title = gearTitle, Brand = "Sony", Year = 2021 });
 
-        string? shareId = null;
-        try
-        {
-            // Owner creates the grant (Collectibles + Gear) through the profile UI's "Collections" group.
-            var sharing = await new SharingOwnerPage(Page).OpenAsync();
-            await sharing.FillRecipientEmailAsync(Fixture.SignedInEmail);
-            await sharing.FillLabelAsync(label);
-            await sharing.ToggleCategoryAsync("Collectibles");
-            await sharing.ToggleCategoryAsync("Gear");
-            await sharing.CreateShareAsync();
-            await Assertions.Expect(sharing.ActiveShareRow(label)).ToBeVisibleAsync();
+        // Owner creates the grant (Collectibles + Gear) through the profile UI's "Collections" group.
+        var sharing = await new SharingOwnerPage(Page).OpenAsync();
+        await sharing.FillRecipientEmailAsync(Fixture.SignedInEmail);
+        await sharing.FillLabelAsync(label);
+        await sharing.ToggleCategoryAsync("Collectibles");
+        await sharing.ToggleCategoryAsync("Gear");
+        await sharing.CreateShareAsync();
+        await Assertions.Expect(sharing.ActiveShareRow(label)).ToBeVisibleAsync();
 
-            shareId = await FindShareIdByLabelAsync(api, label);
+        var shareId = await FindShareIdByLabelAsync(api, label);
+        TrackCleanup(() => Fixture.DeleteItemAsync($"api/shares/{shareId}"));
 
-            var sharedWithMe = await new SharedWithMePage(Page).OpenAsync();
-            var collection = await sharedWithMe.OpenCollectionByIdAsync(shareId);
+        var sharedWithMe = await new SharedWithMePage(Page).OpenAsync();
+        var collection = await sharedWithMe.OpenCollectionByIdAsync(shareId);
 
-            // Collectibles: listed read-only, with no "add to my collection" action and no "In collection" badge.
-            await collection.SelectTabAsync("Collectibles");
-            await Assertions.Expect(collection.Row(collectibleTitle)).ToBeVisibleAsync();
-            await Assertions.Expect(collection.AddButton(collectibleTitle)).ToHaveCountAsync(0);
-            await Assertions.Expect(collection.InCollectionBadge(collectibleTitle)).ToHaveCountAsync(0);
+        // Collectibles: listed read-only, with no "add to my collection" action and no "In collection" badge.
+        await collection.SelectTabAsync("Collectibles");
+        await Assertions.Expect(collection.Row(collectibleTitle)).ToBeVisibleAsync();
+        await Assertions.Expect(collection.AddButton(collectibleTitle)).ToHaveCountAsync(0);
+        await Assertions.Expect(collection.InCollectionBadge(collectibleTitle)).ToHaveCountAsync(0);
 
-            // Gear: the same view-only-list shape.
-            await collection.SelectTabAsync("Gear");
-            await Assertions.Expect(collection.Row(gearTitle)).ToBeVisibleAsync();
-            await Assertions.Expect(collection.AddButton(gearTitle)).ToHaveCountAsync(0);
-        }
-        finally
-        {
-            if (shareId is not null)
-            {
-                await Fixture.DeleteItemAsync($"api/shares/{shareId}");
-            }
-            await Fixture.DeleteItemAsync($"api/collectibles/{collectible.Id}");
-            await Fixture.DeleteItemAsync($"api/gear/{gear.Id}");
-        }
+        // Gear: the same view-only-list shape.
+        await collection.SelectTabAsync("Gear");
+        await Assertions.Expect(collection.Row(gearTitle)).ToBeVisibleAsync();
+        await Assertions.Expect(collection.AddButton(gearTitle)).ToHaveCountAsync(0);
     }
 
-    private static async Task<T> CreateAsync<T>(HttpClient api, string path, T body)
-    {
-        var response = await api.PostAsJsonAsync(path, body, TestContext.Current.CancellationToken);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<T>(TestContext.Current.CancellationToken))!;
-    }
 
     private static async Task<string> FindShareIdByLabelAsync(HttpClient api, string label)
     {

@@ -231,6 +231,25 @@ This is intentional: each entity type exposes the search behavior that fits its 
 
 These are acknowledged as incomplete rather than deliberately permanent. Track and prioritize separately.
 
+### Playwright: an inventory list row intermittently isn't visible under a full parallel run (triaged 2026-07-31 - do not re-investigate from scratch)
+
+**Symptom:** in a full `dotnet test` of `BlazorApp.PlaywrightTests`, exactly one test usually fails with
+`Locator expected to be visible / element(s) not found` waiting for `.kt-item-row` filtered to the title it just created.
+It is not always the same test - `ListStateSmokeTest.Search_PersistsInUrl_AndSurvivesBackNavigationFromDetail` and
+`BookSmokeTest.AddEditAndDelete_BookThroughTheList` have both been observed - which is the signature of a flake rather than a defect in any one test.
+
+**Already established, so nobody spends time re-deriving it:**
+
+- Each affected test passes reliably when run in isolation (its own class, repeated runs).
+- It is **not** caused by the test-cleanup rework of 2026-07-31: a full run on the pre-change code fails the same way, one test, same assertion.
+- Every affected assertion is a books-list row lookup, and books are the busiest collection in a parallel run
+  (Book/ListState/Ownership/Reference/GoogleBooks and both import smoke tests all create books against the same tenant).
+- The Playwright expect timeout for these assertions is the 5s default.
+
+**Not yet done:** finding the actual cause. The plausible candidates are list-read latency under concurrent load against the shared tenant
+(in which case the fix is a longer timeout on these specific assertions, not a global one) or a genuine enhanced-navigation render race.
+Decide between them before changing anything - raising timeouts blindly would hide the second case.
+
 ### No `CancellationToken` propagation
 
 Controllers, `MongoDbRepositoryBase`, and `InventoryApiClientBase` (Blazor) do not accept or forward a `CancellationToken`.

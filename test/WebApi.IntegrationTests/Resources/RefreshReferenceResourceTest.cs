@@ -10,7 +10,6 @@ using Keeptrack.Infrastructure.MongoDb.Entities;
 using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.IntegrationTests.Hosting;
 using Microsoft.Extensions.DependencyInjection;
-using MongoDB.Driver;
 using Xunit;
 
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
@@ -36,27 +35,20 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
             Title = "Canonical Title",
             TitleNormalized = "canonical title",
             Year = year,
-            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "1" },
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = TestExternalId.New() },
             // the reference is only found by the show's own (title, year) via its aliases - a real reference
             // resolved from this show would carry exactly this alias (see MatchedAliases / TryLinkExisting...)
             MatchedAliases = [new ReferenceMatchModel { Title = TitleNormalizer.Normalize(title), Year = year }]
         });
+        TrackDocument("tvshow_reference", reference.Id);
 
         await Authenticate();
-        var created = await PostAsync("/api/tv-shows", new TvShowDto { Title = title, Year = year });
+        var created = await CreateAsync("/api/tv-shows", new TvShowDto { Title = title, Year = year });
 
-        try
-        {
-            var refreshed = await PostAsync<TvShowDto?>($"/api/tv-shows/{created.Id}/refresh-reference", null, HttpStatusCode.OK);
+        var refreshed = await PostAsync<TvShowDto?>($"/api/tv-shows/{created.Id}/refresh-reference", null, HttpStatusCode.OK);
 
-            refreshed!.ReferenceId.Should().Be(reference.Id);
-            refreshed.Title.Should().Be("Canonical Title");
-        }
-        finally
-        {
-            await DeleteAsync($"/api/tv-shows/{created.Id}");
-            await DeleteReferenceAsync<TvShowReference>(scope, "tvshow_reference", reference.Id!);
-        }
+        refreshed!.ReferenceId.Should().Be(reference.Id);
+        refreshed.Title.Should().Be("Canonical Title");
     }
 
     [Fact]
@@ -64,18 +56,11 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
     {
         await Authenticate();
         var title = $"Refresh Reference No Match {Guid.NewGuid()}";
-        var created = await PostAsync("/api/tv-shows", new TvShowDto { Title = title, Year = 2019 });
+        var created = await CreateAsync("/api/tv-shows", new TvShowDto { Title = title, Year = 2019 });
 
-        try
-        {
-            var refreshed = await PostAsync<TvShowDto?>($"/api/tv-shows/{created.Id}/refresh-reference", null, HttpStatusCode.OK);
+        var refreshed = await PostAsync<TvShowDto?>($"/api/tv-shows/{created.Id}/refresh-reference", null, HttpStatusCode.OK);
 
-            refreshed!.ReferenceId.Should().BeNullOrEmpty();
-        }
-        finally
-        {
-            await DeleteAsync($"/api/tv-shows/{created.Id}");
-        }
+        refreshed!.ReferenceId.Should().BeNullOrEmpty();
     }
 
     [Fact]
@@ -91,25 +76,18 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
             Title = "Canonical Movie Title",
             TitleNormalized = "canonical movie title",
             Year = year,
-            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "1" },
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = TestExternalId.New() },
             MatchedAliases = [new ReferenceMatchModel { Title = TitleNormalizer.Normalize(title), Year = year }]
         });
+        TrackDocument("movie_reference", reference.Id);
 
         await Authenticate();
-        var created = await PostAsync("/api/movies", new MovieDto { Title = title, Year = year });
+        var created = await CreateAsync("/api/movies", new MovieDto { Title = title, Year = year });
 
-        try
-        {
-            var refreshed = await PostAsync<MovieDto?>($"/api/movies/{created.Id}/refresh-reference", null, HttpStatusCode.OK);
+        var refreshed = await PostAsync<MovieDto?>($"/api/movies/{created.Id}/refresh-reference", null, HttpStatusCode.OK);
 
-            refreshed!.ReferenceId.Should().Be(reference.Id);
-            refreshed.Title.Should().Be("Canonical Movie Title");
-        }
-        finally
-        {
-            await DeleteAsync($"/api/movies/{created.Id}");
-            await DeleteReferenceAsync<MovieReference>(scope, "movie_reference", reference.Id!);
-        }
+        refreshed!.ReferenceId.Should().Be(reference.Id);
+        refreshed.Title.Should().Be("Canonical Movie Title");
     }
 
     [Fact]
@@ -125,26 +103,19 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
             Title = "Canonical Book Title",
             TitleNormalized = "canonical book title",
             Year = year,
-            ExternalIds = new Dictionary<string, string> { ["openlibrary"] = "OL1W" },
+            ExternalIds = new Dictionary<string, string> { ["openlibrary"] = TestExternalId.New() },
             // book/album aliases also carry the normalized creator - the lookup matches title+year+creator
             MatchedAliases = [new ReferenceMatchModel { Title = TitleNormalizer.Normalize(title), Year = year, Creator = TitleNormalizer.Normalize("Some Author") }]
         });
+        TrackDocument("book_reference", reference.Id);
 
         await Authenticate();
-        var created = await PostAsync("/api/books", new BookDto { Title = title, Author = "Some Author", Year = year });
+        var created = await CreateAsync("/api/books", new BookDto { Title = title, Author = "Some Author", Year = year });
 
-        try
-        {
-            var refreshed = await PostAsync<BookDto?>($"/api/books/{created.Id}/refresh-reference", null, HttpStatusCode.OK);
+        var refreshed = await PostAsync<BookDto?>($"/api/books/{created.Id}/refresh-reference", null, HttpStatusCode.OK);
 
-            refreshed!.ReferenceId.Should().Be(reference.Id);
-            refreshed.Title.Should().Be("Canonical Book Title");
-        }
-        finally
-        {
-            await DeleteAsync($"/api/books/{created.Id}");
-            await DeleteReferenceAsync<BookReference>(scope, "book_reference", reference.Id!);
-        }
+        refreshed!.ReferenceId.Should().Be(reference.Id);
+        refreshed.Title.Should().Be("Canonical Book Title");
     }
 
     [Fact]
@@ -160,25 +131,18 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
             Title = "Canonical Game Title",
             TitleNormalized = "canonical game title",
             Year = year,
-            ExternalIds = new Dictionary<string, string> { ["rawg"] = "1" },
+            ExternalIds = new Dictionary<string, string> { ["rawg"] = TestExternalId.New() },
             MatchedAliases = [new ReferenceMatchModel { Title = TitleNormalizer.Normalize(title), Year = year }]
         });
+        TrackDocument("videogame_reference", reference.Id);
 
         await Authenticate();
-        var created = await PostAsync("/api/video-games", new VideoGameDto { Title = title, Year = year });
+        var created = await CreateAsync("/api/video-games", new VideoGameDto { Title = title, Year = year });
 
-        try
-        {
-            var refreshed = await PostAsync<VideoGameDto?>($"/api/video-games/{created.Id}/refresh-reference", null, HttpStatusCode.OK);
+        var refreshed = await PostAsync<VideoGameDto?>($"/api/video-games/{created.Id}/refresh-reference", null, HttpStatusCode.OK);
 
-            refreshed!.ReferenceId.Should().Be(reference.Id);
-            refreshed.Title.Should().Be("Canonical Game Title");
-        }
-        finally
-        {
-            await DeleteAsync($"/api/video-games/{created.Id}");
-            await DeleteReferenceAsync<VideoGameReference>(scope, "videogame_reference", reference.Id!);
-        }
+        refreshed!.ReferenceId.Should().Be(reference.Id);
+        refreshed.Title.Should().Be("Canonical Game Title");
     }
 
     [Fact]
@@ -194,30 +158,17 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
             Title = "Canonical Album Title",
             TitleNormalized = "canonical album title",
             Year = year,
-            ExternalIds = new Dictionary<string, string> { ["discogs"] = "1" },
+            ExternalIds = new Dictionary<string, string> { ["discogs"] = TestExternalId.New() },
             MatchedAliases = [new ReferenceMatchModel { Title = TitleNormalizer.Normalize(title), Year = year, Creator = TitleNormalizer.Normalize("Some Artist") }]
         });
+        TrackDocument("album_reference", reference.Id);
 
         await Authenticate();
-        var created = await PostAsync("/api/albums", new AlbumDto { Title = title, Artist = "Some Artist", Year = year });
+        var created = await CreateAsync("/api/albums", new AlbumDto { Title = title, Artist = "Some Artist", Year = year });
 
-        try
-        {
-            var refreshed = await PostAsync<AlbumDto?>($"/api/albums/{created.Id}/refresh-reference", null, HttpStatusCode.OK);
+        var refreshed = await PostAsync<AlbumDto?>($"/api/albums/{created.Id}/refresh-reference", null, HttpStatusCode.OK);
 
-            refreshed!.ReferenceId.Should().Be(reference.Id);
-            refreshed.Title.Should().Be("Canonical Album Title");
-        }
-        finally
-        {
-            await DeleteAsync($"/api/albums/{created.Id}");
-            await DeleteReferenceAsync<AlbumReference>(scope, "album_reference", reference.Id!);
-        }
-    }
-
-    private static async Task DeleteReferenceAsync<TEntity>(IServiceScope scope, string collectionName, string id) where TEntity : class
-    {
-        var collection = scope.ServiceProvider.GetRequiredService<IMongoDatabase>().GetCollection<TEntity>(collectionName);
-        await collection.DeleteOneAsync(Builders<TEntity>.Filter.Eq("_id", id), TestContext.Current.CancellationToken);
+        refreshed!.ReferenceId.Should().Be(reference.Id);
+        refreshed.Title.Should().Be("Canonical Album Title");
     }
 }

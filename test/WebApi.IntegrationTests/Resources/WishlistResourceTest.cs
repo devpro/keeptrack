@@ -8,7 +8,6 @@ using Keeptrack.Infrastructure.MongoDb.Entities;
 using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.IntegrationTests.Hosting;
 using Microsoft.Extensions.DependencyInjection;
-using MongoDB.Driver;
 using Xunit;
 
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
@@ -32,13 +31,14 @@ public class WishlistResourceTest(KestrelWebAppFactory<Program> factory)
         {
             Title = "Some Reference Title",
             TitleNormalized = "some reference title",
-            ExternalIds = new Dictionary<string, string> { ["googlebooks"] = $"gb-{Guid.NewGuid():N}" },
+            ExternalIds = new Dictionary<string, string> { ["googlebooks"] = TestExternalId.New() },
             ImageUrl = "https://example.com/reference-cover.jpg"
         });
+        TrackDocument("book_reference", reference.Id);
 
         await Authenticate();
         const string customImageUrl = "https://example.com/custom-book-cover.jpg";
-        var created = await PostAsync<BookDto>("/api/books", new BookDto
+        var created = await CreateAsync("/api/books", new BookDto
         {
             Title = $"WishlistCustomCoverBook-{Guid.NewGuid():N}",
             Author = "Some Author",
@@ -47,18 +47,9 @@ public class WishlistResourceTest(KestrelWebAppFactory<Program> factory)
             IsWishlisted = true
         });
 
-        try
-        {
-            var wishlist = await GetAsync<WishlistDto>("/api/wishlist");
-            var item = wishlist.Books.Should().ContainSingle(b => b.Id == created.Id).Subject;
-            item.ImageUrl.Should().Be(customImageUrl);
-        }
-        finally
-        {
-            await DeleteAsync($"/api/books/{created.Id}");
-            var referenceCollection = scope.ServiceProvider.GetRequiredService<IMongoDatabase>().GetCollection<BookReference>("book_reference");
-            await referenceCollection.DeleteOneAsync(Builders<BookReference>.Filter.Eq(x => x.Id, reference.Id), TestContext.Current.CancellationToken);
-        }
+        var wishlist = await GetAsync<WishlistDto>("/api/wishlist");
+        var item = wishlist.Books.Should().ContainSingle(b => b.Id == created.Id).Subject;
+        item.ImageUrl.Should().Be(customImageUrl);
     }
 
     [Fact]
@@ -71,13 +62,14 @@ public class WishlistResourceTest(KestrelWebAppFactory<Program> factory)
         {
             Title = "Some Reference Title",
             TitleNormalized = "some reference title",
-            ExternalIds = new Dictionary<string, string> { ["rawg"] = $"rawg-{Guid.NewGuid():N}" },
+            ExternalIds = new Dictionary<string, string> { ["rawg"] = TestExternalId.New() },
             ImageUrl = "https://example.com/reference-cover.jpg"
         });
+        TrackDocument("videogame_reference", reference.Id);
 
         await Authenticate();
         const string customImageUrl = "https://example.com/custom-game-cover.jpg";
-        var created = await PostAsync<VideoGameDto>("/api/video-games", new VideoGameDto
+        var created = await CreateAsync("/api/video-games", new VideoGameDto
         {
             Title = $"WishlistCustomCoverGame-{Guid.NewGuid():N}",
             ReferenceId = reference.Id,
@@ -85,17 +77,8 @@ public class WishlistResourceTest(KestrelWebAppFactory<Program> factory)
             IsWishlisted = true
         });
 
-        try
-        {
-            var wishlist = await GetAsync<WishlistDto>("/api/wishlist");
-            var item = wishlist.VideoGames.Should().ContainSingle(g => g.Id == created.Id).Subject;
-            item.ImageUrl.Should().Be(customImageUrl);
-        }
-        finally
-        {
-            await DeleteAsync($"/api/video-games/{created.Id}");
-            var referenceCollection = scope.ServiceProvider.GetRequiredService<IMongoDatabase>().GetCollection<VideoGameReference>("videogame_reference");
-            await referenceCollection.DeleteOneAsync(Builders<VideoGameReference>.Filter.Eq(x => x.Id, reference.Id), TestContext.Current.CancellationToken);
-        }
+        var wishlist = await GetAsync<WishlistDto>("/api/wishlist");
+        var item = wishlist.VideoGames.Should().ContainSingle(g => g.Id == created.Id).Subject;
+        item.ImageUrl.Should().Be(customImageUrl);
     }
 }

@@ -25,27 +25,21 @@ public class GenericVideoGameImportSmokeTest(End2EndFixture fixture) : SmokeTest
         var title = $"E2e VideoGame Import {Guid.NewGuid():N}";
         var csv = GenericVideoGameImportFixtureCsvBuilder.Build(title);
 
-        try
-        {
-            var home = await new HomePage(Page).OpenAsync();
-            var import = await home.OpenImportAsync();
-            var videoGames = await import.GoToVideoGameImportAsync();
+        // the commit creates an item whose id this test never sees, so cleanup is keyed on the
+        // fixture's own unique title - and registered before the upload, so a partial import is cleaned up too
+        TrackItemsMatching("/api/video-games", $"/api/video-games?search={Uri.EscapeDataString(title)}");
 
-            await videoGames.UploadAsync(csv, "video-game-transactions.csv");
+        var home = await new HomePage(Page).OpenAsync();
+        var import = await home.OpenImportAsync();
+        var videoGames = await import.GoToVideoGameImportAsync();
 
-            // The single row is auto-selected with its platform pre-filled from the CSV, so exactly one row is ready to commit.
-            await Assertions.Expect(videoGames.CommitButton).ToContainTextAsync("(1)");
-            await videoGames.CommitSelectedAsync();
+        await videoGames.UploadAsync(csv, "video-game-transactions.csv");
 
-            await Assertions.Expect(videoGames.ResultAlert).ToContainTextAsync("Video games:");
-            await Assertions.Expect(videoGames.ResultAlert).ToContainTextAsync("1 created");
-        }
-        finally
-        {
-            foreach (var id in await Fixture.GetItemIdsAsync($"/api/video-games?search={Uri.EscapeDataString(title)}"))
-            {
-                await Fixture.DeleteItemAsync($"/api/video-games/{id}");
-            }
-        }
+        // The single row is auto-selected with its platform pre-filled from the CSV, so exactly one row is ready to commit.
+        await Assertions.Expect(videoGames.CommitButton).ToContainTextAsync("(1)");
+        await videoGames.CommitSelectedAsync();
+
+        await Assertions.Expect(videoGames.ResultAlert).ToContainTextAsync("Video games:");
+        await Assertions.Expect(videoGames.ResultAlert).ToContainTextAsync("1 created");
     }
 }

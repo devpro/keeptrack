@@ -31,6 +31,8 @@ public class PlaylistSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 
         var detail = new PlaylistDetailPage(Page);
         await detail.WaitForReadyAsync();
+        // registered as soon as the item exists, so an assertion failure below still removes it
+        TrackOpenItem("/api/playlists");
         await Assertions.Expect(detail.TitleInput).ToHaveValueAsync(title);
 
         list = await detail.OpenPlaylistsAsync();

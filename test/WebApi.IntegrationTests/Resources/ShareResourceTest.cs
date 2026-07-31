@@ -33,8 +33,8 @@ public class ShareResourceTest(KestrelWebAppFactory<Program> factory)
         var ownEmail = FirebaseConfiguration.Username;
         var tag = Guid.NewGuid().ToString("N");
 
-        var favourite = await PostAsync<MovieDto>("/api/movies", new MovieDto { Title = $"ShareFav-{tag}", Year = 1999, Rating = 5, IsFavorite = true });
-        var plain = await PostAsync<MovieDto>("/api/movies", new MovieDto { Title = $"SharePlain-{tag}", Year = 2001, Rating = 2 });
+        var favourite = await CreateAsync("/api/movies", new MovieDto { Title = $"ShareFav-{tag}", Year = 1999, Rating = 5, IsFavorite = true });
+        var plain = await CreateAsync("/api/movies", new MovieDto { Title = $"SharePlain-{tag}", Year = 2001, Rating = 2 });
 
         var share = await PostAsync<CreateShareRequestDto, ShareDto>("/api/shares", new CreateShareRequestDto
         {
@@ -42,42 +42,34 @@ public class ShareResourceTest(KestrelWebAppFactory<Program> factory)
             IncludedCategories = [ShareCategory.Movies],
             Label = "Myself"
         });
+        TrackResource("/api/shares", share.Id);
 
-        try
-        {
-            // owner sees their own grant; recipient (self) sees the shared collection
-            (await GetAsync<List<ShareDto>>("/api/shares")).Should().Contain(s => s.Id == share.Id && s.Label == "Myself");
-            (await GetAsync<List<SharedCollectionSummaryDto>>("/api/shared-with-me"))
-                .Should().Contain(s => s.ShareId == share.Id && s.IncludedCategories.Contains(ShareCategory.Movies));
+        // owner sees their own grant; recipient (self) sees the shared collection
+        (await GetAsync<List<ShareDto>>("/api/shares")).Should().Contain(s => s.Id == share.Id && s.Label == "Myself");
+        (await GetAsync<List<SharedCollectionSummaryDto>>("/api/shared-with-me"))
+            .Should().Contain(s => s.ShareId == share.Id && s.IncludedCategories.Contains(ShareCategory.Movies));
 
-            // read the shared movies, searching to isolate this test's items; both are already-in-collection (self-share)
-            var page = await GetAsync<SharedCategoryPageDto<MovieDto>>($"/api/shared-with-me/{share.Id}/movies?search={tag}&sort=rating");
-            page.Items.Should().Contain(m => m.Id == favourite.Id).And.Contain(m => m.Id == plain.Id);
-            page.AlreadyInCollectionIds.Should().Contain(favourite.Id!).And.Contain(plain.Id!);
+        // read the shared movies, searching to isolate this test's items; both are already-in-collection (self-share)
+        var page = await GetAsync<SharedCategoryPageDto<MovieDto>>($"/api/shared-with-me/{share.Id}/movies?search={tag}&sort=rating");
+        page.Items.Should().Contain(m => m.Id == favourite.Id).And.Contain(m => m.Id == plain.Id);
+        page.AlreadyInCollectionIds.Should().Contain(favourite.Id!).And.Contain(plain.Id!);
 
-            // the favourites filter narrows to the sharer's favourite only
-            var favPage = await GetAsync<SharedCategoryPageDto<MovieDto>>($"/api/shared-with-me/{share.Id}/movies?search={tag}&IsFavorite=true");
-            favPage.Items.Should().Contain(m => m.Id == favourite.Id).And.NotContain(m => m.Id == plain.Id);
+        // the favourites filter narrows to the sharer's favourite only
+        var favPage = await GetAsync<SharedCategoryPageDto<MovieDto>>($"/api/shared-with-me/{share.Id}/movies?search={tag}&IsFavorite=true");
+        favPage.Items.Should().Contain(m => m.Id == favourite.Id).And.NotContain(m => m.Id == plain.Id);
 
-            // adding an item the recipient already owns is dedup-safe: no duplicate, returns the existing item
-            var copy = await PostAsync<object, CopyResultDto<MovieDto>>($"/api/shared-with-me/{share.Id}/movies/{favourite.Id}/copy", new { }, HttpStatusCode.OK);
-            copy.AlreadyInCollection.Should().BeTrue();
-            copy.Item.Id.Should().Be(favourite.Id);
+        // adding an item the recipient already owns is dedup-safe: no duplicate, returns the existing item
+        var copy = await PostAsync<object, CopyResultDto<MovieDto>>($"/api/shared-with-me/{share.Id}/movies/{favourite.Id}/copy", new { }, HttpStatusCode.OK);
+        copy.AlreadyInCollection.Should().BeTrue();
+        copy.Item.Id.Should().Be(favourite.Id);
 
-            // a category not in scope is an indistinguishable 404
-            await GetAsync($"/api/shared-with-me/{share.Id}/tv-shows", HttpStatusCode.NotFound);
+        // a category not in scope is an indistinguishable 404
+        await GetAsync($"/api/shared-with-me/{share.Id}/tv-shows", HttpStatusCode.NotFound);
 
-            // revoking removes access
-            await DeleteAsync($"/api/shares/{share.Id}");
-            await GetAsync($"/api/shared-with-me/{share.Id}/movies", HttpStatusCode.NotFound);
-            (await GetAsync<List<SharedCollectionSummaryDto>>("/api/shared-with-me")).Should().NotContain(s => s.ShareId == share.Id);
-        }
-        finally
-        {
-            await DeleteAsync($"/api/movies/{favourite.Id}");
-            await DeleteAsync($"/api/movies/{plain.Id}");
-            await DeleteAsync($"/api/shares/{share.Id}");
-        }
+        // revoking removes access
+        await DeleteAsync($"/api/shares/{share.Id}");
+        await GetAsync($"/api/shared-with-me/{share.Id}/movies", HttpStatusCode.NotFound);
+        (await GetAsync<List<SharedCollectionSummaryDto>>("/api/shared-with-me")).Should().NotContain(s => s.ShareId == share.Id);
     }
 
     [Fact]
@@ -87,8 +79,8 @@ public class ShareResourceTest(KestrelWebAppFactory<Program> factory)
         var ownEmail = FirebaseConfiguration.Username;
         var tag = Guid.NewGuid().ToString("N");
 
-        var car = await PostAsync<CarDto>("/api/cars", new CarDto { Name = $"ShareCar-{tag}", EnergyType = CarEnergyType.Combustion });
-        var entry = await PostAsync<CarHistoryDto>("/api/car-history", new CarHistoryDto
+        var car = await CreateAsync("/api/cars", new CarDto { Name = $"ShareCar-{tag}", EnergyType = CarEnergyType.Combustion });
+        var entry = await CreateAsync("/api/car-history", new CarHistoryDto
         {
             CarId = car.Id!,
             HistoryDate = new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc),
@@ -102,30 +94,23 @@ public class ShareResourceTest(KestrelWebAppFactory<Program> factory)
             RecipientEmail = ownEmail,
             IncludedCategories = [ShareCategory.Cars]
         });
+        TrackResource("/api/shares", share.Id);
 
-        try
-        {
-            // the shared car appears in the recipient's read-only list
-            (await GetAsync<List<CarDto>>($"/api/shared-with-me/{share.Id}/cars"))
-                .Should().Contain(c => c.Id == car.Id && c.Name == $"ShareCar-{tag}");
+        // the shared car appears in the recipient's read-only list
+        (await GetAsync<List<CarDto>>($"/api/shared-with-me/{share.Id}/cars"))
+            .Should().Contain(c => c.Id == car.Id && c.Name == $"ShareCar-{tag}");
 
-            // the read-only detail returns the parent, its full history and computed metrics
-            var detail = await GetAsync<SharedDetailDto<CarDto, CarHistoryDto, CarMetricsDto>>($"/api/shared-with-me/{share.Id}/cars/{car.Id}");
-            detail.Parent.Id.Should().Be(car.Id);
-            detail.Children.Should().Contain(h => h.Id == entry.Id);
-            detail.Metrics.Should().NotBeNull();
+        // the read-only detail returns the parent, its full history and computed metrics
+        var detail = await GetAsync<SharedDetailDto<CarDto, CarHistoryDto, CarMetricsDto>>($"/api/shared-with-me/{share.Id}/cars/{car.Id}");
+        detail.Parent.Id.Should().Be(car.Id);
+        detail.Children.Should().Contain(h => h.Id == entry.Id);
+        detail.Metrics.Should().NotBeNull();
 
-            // a personal category not in this grant is an indistinguishable 404
-            await GetAsync($"/api/shared-with-me/{share.Id}/houses", HttpStatusCode.NotFound);
+        // a personal category not in this grant is an indistinguishable 404
+        await GetAsync($"/api/shared-with-me/{share.Id}/houses", HttpStatusCode.NotFound);
 
-            // personal data is never copyable - there is deliberately no copy route for it
-            await PostNoContentAsync($"/api/shared-with-me/{share.Id}/cars/{car.Id}/copy", new { }, HttpStatusCode.NotFound);
-        }
-        finally
-        {
-            await DeleteAsync($"/api/shares/{share.Id}");
-            await DeleteAsync($"/api/cars/{car.Id}");
-        }
+        // personal data is never copyable - there is deliberately no copy route for it
+        await PostNoContentAsync($"/api/shared-with-me/{share.Id}/cars/{car.Id}/copy", new { }, HttpStatusCode.NotFound);
     }
 
     [Fact]
@@ -135,42 +120,34 @@ public class ShareResourceTest(KestrelWebAppFactory<Program> factory)
         var ownEmail = FirebaseConfiguration.Username;
         var tag = Guid.NewGuid().ToString("N");
 
-        var favourite = await PostAsync<CollectibleDto>("/api/collectibles", new CollectibleDto { Title = $"ShareColFav-{tag}", Brand = "Lego", Year = 2015, IsFavorite = true });
-        var plain = await PostAsync<CollectibleDto>("/api/collectibles", new CollectibleDto { Title = $"ShareColPlain-{tag}", Year = 2018 });
+        var favourite = await CreateAsync("/api/collectibles", new CollectibleDto { Title = $"ShareColFav-{tag}", Brand = "Lego", Year = 2015, IsFavorite = true });
+        var plain = await CreateAsync("/api/collectibles", new CollectibleDto { Title = $"ShareColPlain-{tag}", Year = 2018 });
 
         var share = await PostAsync<CreateShareRequestDto, ShareDto>("/api/shares", new CreateShareRequestDto
         {
             RecipientEmail = ownEmail,
             IncludedCategories = [ShareCategory.Collectibles]
         });
+        TrackResource("/api/shares", share.Id);
 
-        try
-        {
-            (await GetAsync<List<SharedCollectionSummaryDto>>("/api/shared-with-me"))
-                .Should().Contain(s => s.ShareId == share.Id && s.IncludedCategories.Contains(ShareCategory.Collectibles));
+        (await GetAsync<List<SharedCollectionSummaryDto>>("/api/shared-with-me"))
+            .Should().Contain(s => s.ShareId == share.Id && s.IncludedCategories.Contains(ShareCategory.Collectibles));
 
-            // the shared collectibles read as a normal paged list, searchable like the owner's own list
-            var page = await GetAsync<SharedCategoryPageDto<CollectibleDto>>($"/api/shared-with-me/{share.Id}/collectibles?search={tag}");
-            page.Items.Should().Contain(c => c.Id == favourite.Id).And.Contain(c => c.Id == plain.Id);
-            // a view-only category never advertises copy-ability
-            page.AlreadyInCollectionIds.Should().BeEmpty();
+        // the shared collectibles read as a normal paged list, searchable like the owner's own list
+        var page = await GetAsync<SharedCategoryPageDto<CollectibleDto>>($"/api/shared-with-me/{share.Id}/collectibles?search={tag}");
+        page.Items.Should().Contain(c => c.Id == favourite.Id).And.Contain(c => c.Id == plain.Id);
+        // a view-only category never advertises copy-ability
+        page.AlreadyInCollectionIds.Should().BeEmpty();
 
-            // the favourites filter narrows to the favourite only
-            var favPage = await GetAsync<SharedCategoryPageDto<CollectibleDto>>($"/api/shared-with-me/{share.Id}/collectibles?search={tag}&IsFavorite=true");
-            favPage.Items.Should().Contain(c => c.Id == favourite.Id).And.NotContain(c => c.Id == plain.Id);
+        // the favourites filter narrows to the favourite only
+        var favPage = await GetAsync<SharedCategoryPageDto<CollectibleDto>>($"/api/shared-with-me/{share.Id}/collectibles?search={tag}&IsFavorite=true");
+        favPage.Items.Should().Contain(c => c.Id == favourite.Id).And.NotContain(c => c.Id == plain.Id);
 
-            // a category not in scope is an indistinguishable 404
-            await GetAsync($"/api/shared-with-me/{share.Id}/gear", HttpStatusCode.NotFound);
+        // a category not in scope is an indistinguishable 404
+        await GetAsync($"/api/shared-with-me/{share.Id}/gear", HttpStatusCode.NotFound);
 
-            // collections are never copyable - there is deliberately no copy route for them
-            await PostNoContentAsync($"/api/shared-with-me/{share.Id}/collectibles/{favourite.Id}/copy", new { }, HttpStatusCode.NotFound);
-        }
-        finally
-        {
-            await DeleteAsync($"/api/collectibles/{favourite.Id}");
-            await DeleteAsync($"/api/collectibles/{plain.Id}");
-            await DeleteAsync($"/api/shares/{share.Id}");
-        }
+        // collections are never copyable - there is deliberately no copy route for them
+        await PostNoContentAsync($"/api/shared-with-me/{share.Id}/collectibles/{favourite.Id}/copy", new { }, HttpStatusCode.NotFound);
     }
 
     [Fact]
@@ -183,15 +160,9 @@ public class ShareResourceTest(KestrelWebAppFactory<Program> factory)
             RecipientEmail = $"not-me-{Guid.NewGuid():N}@example.com",
             IncludedCategories = [ShareCategory.Movies]
         });
+        TrackResource("/api/shares", share.Id);
 
-        try
-        {
-            (await GetAsync<List<SharedCollectionSummaryDto>>("/api/shared-with-me")).Should().NotContain(s => s.ShareId == share.Id);
-            await GetAsync($"/api/shared-with-me/{share.Id}/movies", HttpStatusCode.NotFound);
-        }
-        finally
-        {
-            await DeleteAsync($"/api/shares/{share.Id}");
-        }
+        (await GetAsync<List<SharedCollectionSummaryDto>>("/api/shared-with-me")).Should().NotContain(s => s.ShareId == share.Id);
+        await GetAsync($"/api/shared-with-me/{share.Id}/movies", HttpStatusCode.NotFound);
     }
 }

@@ -285,8 +285,20 @@ These need two things configured before they'll pass:
 
 1. **A MongoDB instance** (see [Requirements](#requirements) above), pointed at by `Infrastructure__MongoDB__ConnectionString`/`Infrastructure__MongoDB__DatabaseName`.
    Use a dedicated database (e.g. `keeptrack_integrationtests`), not your dev database - tests create and delete real documents.
+   The suite refuses to start if `Infrastructure__MongoDB__DatabaseName` is unset or looks like a real database (`dev`/`prod`/`staging`/`preprod`), because the failure it prevents is silent:
+   the in-process host runs as `Development`, so an unset value falls back to `src/WebApi/appsettings.Development.json` - your own `keeptrack_dev` - and the whole suite happily creates and deletes documents in it.
    Running `scripts/mongodb-create-index.js` against it first is recommended (keeps behavior closest to production) but not required for the tests themselves to pass.
    See [Requirements](#requirements) above for the exact `mongosh` command (swap in `keeptrack_integrationtests` for the database name).
+
+   Tests leave the database exactly as they found it - every test registers its cleanup as it creates data, so a mid-test failure still cleans up.
+   If you're adding a test, use the registration helpers (`CreateAsync`, `TrackResource`, `TrackDocument`, `TrackResourcesMatching`, `TrackCleanup`) rather than a `try`/`finally`; see CLAUDE.md's "Tests" section for which to reach for.
+   The property is worth re-checking after a change, and a document-count diff across a run is the way to do it (test results alone won't tell you - a delete filter that matches nothing reports success):
+
+   ```bash
+   mongosh --quiet mongodb://localhost:27017/keeptrack_integrationtests --eval \
+     'const o={};db.getCollectionNames().sort().forEach(c=>o[c]=db.getCollection(c).countDocuments({}));print(JSON.stringify(o));'
+   ```
+
 2. **A Firebase test user**, since `ResourceTestBase.Authenticate()` performs a real Firebase sign-in to obtain a bearer token:
    - `FIREBASE_APIKEY`: the Firebase project's Web API key (Firebase Console → Project settings → General → Web API Key).
    - `FIREBASE_USERNAME` / `FIREBASE_PASSWORD`: the email/password of a real user created in that project (Firebase Console → Authentication → Users → Add user).
@@ -405,6 +417,13 @@ dotnet test test/BlazorApp.PlaywrightTests/BlazorApp.PlaywrightTests.csproj
 No `FIREBASE_USERNAME`/`FIREBASE_PASSWORD` is needed for this mode.
 An ephemeral admin user is created via the Firebase Admin SDK (reusing the Blazor host's own `Firebase:ServiceAccount`) and deleted again at teardown.
 Set `E2E_USERNAME`/`E2E_PASSWORD` instead to reuse an existing account.
+
+Self-hosted mode applies the same "never the dev database" guard as the integration suite, for the same reason.
+Live mode (`E2E_TARGET_URL`) is exempt, since the deployment owns its own configuration.
+Like the integration suite, an e2e run leaves the database as it found it: each smoke test registers its cleanup as it creates data.
+The fixture removes its seeded reference document plus the ephemeral user's own preference/background-job rows at teardown.
+The one thing deliberately left behind is reference data resolved from a *real* provider title (TMDB's "The Terminator" and its cast, say).
+That's shared canonical data deduplicated by provider id, so it's reused on the next run rather than duplicated.
 
 `Tmdb__ApiKey`/`Rawg__ApiKey`/`Discogs__Token` are required (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) above for where to get each one), not optional.
 The Movie/TvShow/VideoGame/Album smoke tests link a real, well-known title (e.g. "The Terminator", "Breaking Bad") against the real provider.

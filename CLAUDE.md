@@ -1011,11 +1011,50 @@ the scoped file itself has to be edited.
 
 ## Tests
 
+### Which database a suite writes to, and leaving it as it was found
+
+The integration and Playwright suites host the real `WebApi` in-process against a **real, long-lived MongoDB** - there is no per-test throwaway database.
+Two rules follow from that, and both have already been broken in ways that cost real debugging time.
+
+**Every suite must be pointed at a dedicated database, never `keeptrack_dev`.**
+`Infrastructure__MongoDB__DatabaseName` selects it (`keeptrack_integrationtests` and `keeptrack_e2e` by convention; see CONTRIBUTING.md).
+The trap is that this is *silent* when unset: the in-process host runs as `Development`, so it falls straight back to `src/WebApi/appsettings.Development.json` - i.e. `keeptrack_dev`, the database the developer actually browses in the app.
+Nothing errors; the suite just creates, mutates and deletes documents in real data.
+It's easy to hit by accident rather than carelessness, because the documented way to run a *filtered* subset (see the `--settings`/`--filter-method` gotcha above) is to export the runsettings' variables into the shell yourself - forget that step and the run lands on `keeptrack_dev`.
+That is exactly how the dev database ended up holding 180 `test-lease-*` documents, 65 `Export Test Actor` person references and stray `E2e Smoke *` items.
+`Testing.Shared/Hosting/TestDatabaseGuard.EnsureExplicitTestDatabase` now fails the run fast instead, called from `WebApi.IntegrationTests`' `KestrelWebAppFactory` constructor (so every fixture inherits it) and from `End2EndFixture` in self-hosted mode.
+
+**Every test removes what it created, on success and on failure.**
+This isn't tidiness: `scripts/mongodb-create-index.js` enforces natural-key and `external_ids` uniqueness, so yesterday's leftover makes today's run fail with a duplicate-key error.
+Cleanup is registered at the moment of creation rather than written as a per-test `try`/`finally` - a `finally` only covers what was created before the `try` opened, and the common "create two fixtures, then open the try" shape leaked whenever the second create failed.
+
+- `DatabaseTestBase` (`test/WebApi.IntegrationTests/Resources/`) holds the registry every integration test inherits: `TrackCleanup(Func<Task>)` for anything (a repository `DeleteAsync`), `TrackDocument(collection, id)` for a raw document, and `TrackDocumentsWhere(collection, filter)` for an owner-scoped singleton with no id the test ever sees (`user_preference`).
+  `ResourceTestBase` extends it with the HTTP-level ones: `CreateAsync` (POST + register, the shape almost every test wants), `TrackResource(endpoint, id)`, and `TrackResourcesMatching<TDto>(endpoint, searchTerm)` for the import endpoints, whose commit creates items the test never learns the ids of.
+- `SmokeTestBase` mirrors it for Playwright: `TrackOpenItem(apiRoute)` reads the id out of the detail page's URL (the only place a UI-driven test can learn it), `CreateItemAsync` seeds through the API, `TrackItemsMatching` covers the import commits, and `TrackCleanup` handles the rest.
+- `DisposeAsync` **drains** the registry rather than iterating a cached count, because `TrackResourcesMatching` can only discover what an import created at cleanup time and then registers each id it found.
+- Cleanups run under `CancellationToken.None`, never `TestContext.Current.CancellationToken` - that token is cancelled exactly when a test times out or the run is interrupted, which is precisely when leftovers are most likely.
+
+**Gotcha, and the reason this class of bug is so persistent: a delete filter that matches nothing looks exactly like a delete that worked.**
+`Builders<TEntity>.Filter.Eq("_id", id)` with a `string` id against a document whose `_id` is an `ObjectId` matches nothing, deletes nothing, and reports success - the tests using it kept passing for months while 65 `Export Test Actor` documents piled up.
+The typed `Eq(x => x.Id, id)` form works; the string-field-name form does not.
+`TrackDocument` sidesteps it entirely by filtering over `BsonDocument` and converting the id to an `ObjectId` when it parses (`lease`/`background_job` ids are genuine strings and simply don't, so one helper covers both).
+Never assert cleanup worked by reading the test's exit status - **verify with a document-count diff across the run**, which is what proved the current state: the integration suite returns `keeptrack_integrationtests` to its exact baseline, run after run.
+
+**Reference documents created by linking a *real* provider title are deliberately left in place** (TMDB's "The Terminator", the cast rows behind it, a Google Books volume).
+They're shared canonical facts, deduplicated by provider id, so a re-run reuses the same document instead of adding another - they don't accumulate, and deleting them only forces the next run to re-fetch.
+Synthetic fixtures are the opposite and must always be removed: they use made-up ids, so they *do* accumulate, and a stale one collides with the unique partial index.
+For that reason reference fixtures generate their external id per test (`TestExternalId.New()`) instead of the shared literal `"1"`/`"OL1W"` they used to hardcode.
+Two test classes running in parallel both inserting `tmdb: "1"` is a duplicate-key failure, not a theoretical one.
+
+**Gotcha:** deleting a TV show does **not** cascade to its episodes (unlike `House`/`HealthProfile`, which have an `OnDeletedAsync` hook), so any test that marks an episode watched has to delete the episodes itself or it orphans them.
+
 - `test/WebApi.UnitTests`: xunit v3 unit tests, e.g. the TV Time import parsers (`Import/Parsers/`, pure stream-in/records-out, no I/O beyond an in-memory stream), and `WatchNextService` (pure next-episode computation).
   Mapper configuration validation is a compile-time concern now (Mapperly's `RMG012`/`RMG020` diagnostics, escalated to build errors in `.editorconfig`), not a unit test -
   there's no equivalent of the old `AutoMapperConfigurationTest` to run here anymore.
 - `test/WebApi.IntegrationTests`: xunit v3 tests booted against a real Kestrel host (`KestrelWebAppFactory<Program>`) and a real MongoDB instance.
-  `ResourceTestBase` provides typed `GetAsync`/`PostAsync`/`PutAsync`/`DeleteAsync`/`PostFileAsync` helpers and an `Authenticate()` helper that logs in against Firebase to obtain a bearer token.
+  `ResourceTestBase` provides typed `GetAsync`/`PostAsync`/`PutAsync`/`DeleteAsync`/`PostFileAsync` helpers, an `Authenticate()` helper that logs in against Firebase to obtain a bearer token, and the cleanup-registration helpers described above.
+  `Authenticate()` also exposes `AuthenticatedUserId`, the same value the API stamps as `OwnerId`, for the cleanups that can only identify a document by its owner.
+  It's the `user_id` claim read straight out of the token payload - no signature check, since the API validates the token on every call.
   Resource tests (`BookResourceTest`, `MovieResourceTest`, `TvTimeImportResourceTest`) exercise a full create/read/update/delete (or upsert) cycle against the live API and clean up what they create.
   `SyncNow_PollingReachesACompletedResult` self-skips unless `REFERENCE_SYNC_POLL_ENABLED=true` - polling a full live-provider sync to completion grows with the shared database and flakes on provider latency,
   so only the job-start half runs by default (see CONTRIBUTING.md).
@@ -1028,6 +1067,11 @@ the scoped file itself has to be edited.
   `E2eFixture` (an xunit v3 `[AssemblyFixture]`) hosts both `WebApi` and `BlazorApp` in-process via the shared `KestrelWebAppFactory` (extern-alias wiring for their two generated `Program` classes).
   It signs in exactly once for the whole run (`POST /auth/callback` + saved Playwright storage state, reusing `Testing.Shared`'s `AccountRepository` sign-in cache).
   It also seeds a synthetic book reference via `POST /api/reference-data/import` so "check for reference match" never calls a real provider.
+  That seed carries a **fixed** `ReferenceFixtureZipBuilder.ReferenceId` rather than letting the import mint a new one.
+  The import is only idempotent for a document that already has an id (each reference repository's `UpsertAsync` replaces by id), so without it every run inserted another copy - 22 identical "The Playwright Chronicles" documents had accumulated.
+  The fixture removes it again on dispose, through the hosted `IBookReferenceRepository` rather than HTTP, since no admin endpoint deletes a single reference document and inventing one just to let tests tidy up would be the wrong trade.
+  It also deletes the run's ephemeral user's own `user_preference`/`background_job` rows (owner-scoped, no delete endpoint, and nothing else can reach them).
+  That's guarded on the user actually being ephemeral, so a run pointed at a real account via `E2E_USERNAME` never wipes that person's saved preferences.
   `Pages/PageBase` holds the sidebar nav locators and typed `Open<X>Async()` helpers that return the next page object.
   `ListPage` is one class parameterized by route/title covering all ten inventory list pages, since `InventoryList` renders them all identically.
   A handful of fields across every inventory type's Add-form and detail page got a minimal `data-testid` added because their `<label>`/`<input>` pairs have no `for`/`id` association.

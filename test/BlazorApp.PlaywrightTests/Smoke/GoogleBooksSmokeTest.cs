@@ -38,20 +38,14 @@ public class GoogleBooksSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixtur
 
         var detail = new BookDetailPage(Page);
         await detail.WaitForReadyAsync();
-        var id = ExtractIdFromUrl(Page.Url);
+        // registered as soon as the item exists, so an assertion failure below still removes it
+        TrackOpenItem("/api/books");
 
-        try
-        {
-            // Google Books is already the registered default (first in Program.cs), but select it
-            // explicitly so this test still proves the right thing if that ever changes.
-            await detail.SelectProviderAsync("Google Books");
-            await detail.SearchAndLinkFirstResultAsync();
+        // Google Books is already the registered default (first in Program.cs), but select it
+        // explicitly so this test still proves the right thing if that ever changes.
+        await detail.SelectProviderAsync("Google Books");
+        await detail.SearchAndLinkFirstResultAsync();
 
-            await Assertions.Expect(detail.CoverImage.First).ToBeVisibleAsync();
-        }
-        finally
-        {
-            await Fixture.DeleteItemAsync($"/api/books/{id}");
-        }
+        await Assertions.Expect(detail.CoverImage.First).ToBeVisibleAsync();
     }
 }

@@ -1,6 +1,7 @@
 using System.Net;
 using System.Threading.Tasks;
 using AwesomeAssertions;
+using Keeptrack.Infrastructure.MongoDb.Entities;
 using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.IntegrationTests.Hosting;
 using Xunit;
@@ -46,6 +47,8 @@ public class SystemStatusResourceTest(KestrelWebAppFactory<Program> factory)
         // starting a sync job (its store is shared with imports) must surface in the recent-jobs list
         var job = await PostAsync<ReferenceSyncJobDto?>("/api/reference-data/sync-now", null, HttpStatusCode.Accepted);
         job.Should().NotBeNull();
+        // the job row would otherwise sit in the admin panel's recent-jobs list until the TTL index expires it
+        TrackDocument("background_job", job!.JobId.ToString());
 
         var status = await GetAsync<SystemStatusDto>($"/{ResourceEndpoint}");
 

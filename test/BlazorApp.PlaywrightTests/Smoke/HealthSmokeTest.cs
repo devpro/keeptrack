@@ -31,6 +31,8 @@ public class HealthSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 
         var detail = new HealthProfileDetailPage(Page);
         await detail.WaitForReadyAsync();
+        // registered as soon as the item exists, so an assertion failure below still removes it
+        TrackOpenItem("/api/health-profiles");
         await Assertions.Expect(detail.TitleInput).ToHaveValueAsync(name);
 
         // cover image: HealthProfile keeps the default portrait list shape (a person's photo, unlike

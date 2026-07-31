@@ -11,7 +11,6 @@ using Keeptrack.Infrastructure.MongoDb.Entities;
 using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.IntegrationTests.Hosting;
 using Microsoft.Extensions.DependencyInjection;
-using MongoDB.Driver;
 using Xunit;
 
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
@@ -43,26 +42,19 @@ public class VideoGameResourceTest(KestrelWebAppFactory<Program> factory)
                 o.CustomImageUrl = f.Internet.Url();
             })
             .Generate();
-        var created = await PostAsync($"/{ResourceEndpoint}", input);
+        var created = await CreateAsync($"/{ResourceEndpoint}", input);
         created.Id.Should().NotBeNullOrEmpty();
 
-        try
-        {
-            created.Title = "New shiny title";
-            await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
+        created.Title = "New shiny title";
+        await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
 
-            var updated = await GetAsync<VideoGameDto>($"/{ResourceEndpoint}/{created.Id}");
-            updated.Should().BeEquivalentTo(created);
+        var updated = await GetAsync<VideoGameDto>($"/{ResourceEndpoint}/{created.Id}");
+        updated.Should().BeEquivalentTo(created);
 
-            var finalItems = await GetAsync<PagedResult<VideoGameDto>>($"/{ResourceEndpoint}");
-            var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
-            firstItem.Should().NotBeNull();
-            firstItem.Title.Should().Be(updated.Title);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        var finalItems = await GetAsync<PagedResult<VideoGameDto>>($"/{ResourceEndpoint}");
+        var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
+        firstItem.Should().NotBeNull();
+        firstItem.Title.Should().Be(updated.Title);
     }
 
     [Fact]
@@ -70,23 +62,16 @@ public class VideoGameResourceTest(KestrelWebAppFactory<Program> factory)
     {
         await Authenticate();
 
-        var title = System.Guid.NewGuid().ToString();
-        var created = await PostAsync($"/{ResourceEndpoint}", new VideoGameDto
+        var title = Guid.NewGuid().ToString();
+        var created = await CreateAsync($"/{ResourceEndpoint}", new VideoGameDto
         {
             Title = title,
             Platforms = [new VideoGamePlatformDto { Platform = "PS5", CopyType = CopyType.Physical, State = "Available" }]
         });
 
-        try
-        {
-            var results = await GetAsync<PagedResult<VideoGameDto>>($"/{ResourceEndpoint}?platform=PS5&search={title}");
+        var results = await GetAsync<PagedResult<VideoGameDto>>($"/{ResourceEndpoint}?platform=PS5&search={title}");
 
-            results.Items.Should().ContainSingle(x => x.Id == created.Id);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        results.Items.Should().ContainSingle(x => x.Id == created.Id);
     }
 
     [Fact]
@@ -106,30 +91,23 @@ public class VideoGameResourceTest(KestrelWebAppFactory<Program> factory)
                 Price = 59.99m, Vendor = "Some store", Reference = "Collector's edition", AcquiredAt = new DateOnly(2024, 5, 17)
             }
         };
-        var created = await PostAsync($"/{ResourceEndpoint}", new VideoGameDto
+        var created = await CreateAsync($"/{ResourceEndpoint}", new VideoGameDto
         {
             Title = title,
             Platforms = [.. platforms],
             IsWishlisted = true
         });
 
-        try
-        {
-            var owned = await GetAsync<PagedResult<VideoGameDto>>($"/{ResourceEndpoint}?IsOwned=true&search={title}");
-            owned.Items.Should().ContainSingle(x => x.Id == created.Id);
+        var owned = await GetAsync<PagedResult<VideoGameDto>>($"/{ResourceEndpoint}?IsOwned=true&search={title}");
+        owned.Items.Should().ContainSingle(x => x.Id == created.Id);
 
-            // the platform entry's ownership fields must survive the full DTO -> model -> BSON round trip (incl. the decimal price)
-            var fetchedPlatforms = owned.Items.Single(x => x.Id == created.Id).Platforms;
-            fetchedPlatforms.Should().BeEquivalentTo(platforms);
+        // the platform entry's ownership fields must survive the full DTO -> model -> BSON round trip (incl. the decimal price)
+        var fetchedPlatforms = owned.Items.Single(x => x.Id == created.Id).Platforms;
+        fetchedPlatforms.Should().BeEquivalentTo(platforms);
 
-            // this is the WishlistController filter-probe, not a list-page UI filter (removed) - still real API behavior
-            var wishlisted = await GetAsync<PagedResult<VideoGameDto>>($"/{ResourceEndpoint}?IsWishlisted=true&search={title}");
-            wishlisted.Items.Should().ContainSingle(x => x.Id == created.Id);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        // this is the WishlistController filter-probe, not a list-page UI filter (removed) - still real API behavior
+        var wishlisted = await GetAsync<PagedResult<VideoGameDto>>($"/{ResourceEndpoint}?IsWishlisted=true&search={title}");
+        wishlisted.Items.Should().ContainSingle(x => x.Id == created.Id);
     }
 
     /// <summary>
@@ -148,30 +126,22 @@ public class VideoGameResourceTest(KestrelWebAppFactory<Program> factory)
         {
             Title = "Some Reference Title",
             TitleNormalized = "some reference title",
-            ExternalIds = new Dictionary<string, string> { ["rawg"] = $"rawg-{Guid.NewGuid():N}" },
+            ExternalIds = new Dictionary<string, string> { ["rawg"] = TestExternalId.New() },
             ImageUrl = "https://example.com/reference-cover.jpg"
         });
+        TrackDocument("videogame_reference", reference.Id);
 
         await Authenticate();
         const string customImageUrl = "https://example.com/custom-cover.jpg";
-        var created = await PostAsync($"/{ResourceEndpoint}", new VideoGameDto
+        var created = await CreateAsync($"/{ResourceEndpoint}", new VideoGameDto
         {
             Title = uniqueTitle,
             ReferenceId = reference.Id,
             CustomImageUrl = customImageUrl
         });
 
-        try
-        {
-            var list = await GetAsync<PagedResult<VideoGameDto>>($"/{ResourceEndpoint}?search={uniqueTitle}");
-            var item = list.Items.Should().ContainSingle(x => x.Id == created.Id).Subject;
-            item.ImageUrl.Should().Be(customImageUrl);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-            var referenceCollection = scope.ServiceProvider.GetRequiredService<IMongoDatabase>().GetCollection<VideoGameReference>("videogame_reference");
-            await referenceCollection.DeleteOneAsync(Builders<VideoGameReference>.Filter.Eq(x => x.Id, reference.Id), TestContext.Current.CancellationToken);
-        }
+        var list = await GetAsync<PagedResult<VideoGameDto>>($"/{ResourceEndpoint}?search={uniqueTitle}");
+        var item = list.Items.Should().ContainSingle(x => x.Id == created.Id).Subject;
+        item.ImageUrl.Should().Be(customImageUrl);
     }
 }

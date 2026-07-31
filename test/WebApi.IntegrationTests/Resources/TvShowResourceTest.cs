@@ -18,7 +18,7 @@ public class TvShowResourceTest(KestrelWebAppFactory<Program> factory)
         await Authenticate();
 
         var title = System.Guid.NewGuid().ToString();
-        var created = await PostAsync($"/{ResourceEndpoint}", new TvShowDto
+        var created = await CreateAsync($"/{ResourceEndpoint}", new TvShowDto
         {
             Title = title,
             // "owned" is derived from having at least one owned version, not a stored flag
@@ -26,18 +26,11 @@ public class TvShowResourceTest(KestrelWebAppFactory<Program> factory)
             IsWishlisted = true
         });
 
-        try
-        {
-            var owned = await GetAsync<PagedResult<TvShowDto>>($"/{ResourceEndpoint}?IsOwned=true&search={title}");
-            owned.Items.Should().ContainSingle(s => s.Id == created.Id);
+        var owned = await GetAsync<PagedResult<TvShowDto>>($"/{ResourceEndpoint}?IsOwned=true&search={title}");
+        owned.Items.Should().ContainSingle(s => s.Id == created.Id);
 
-            // this is the WishlistController filter-probe, not a list-page UI filter (removed) - still real API behavior
-            var wishlisted = await GetAsync<PagedResult<TvShowDto>>($"/{ResourceEndpoint}?IsWishlisted=true&search={title}");
-            wishlisted.Items.Should().ContainSingle(s => s.Id == created.Id);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        // this is the WishlistController filter-probe, not a list-page UI filter (removed) - still real API behavior
+        var wishlisted = await GetAsync<PagedResult<TvShowDto>>($"/{ResourceEndpoint}?IsWishlisted=true&search={title}");
+        wishlisted.Items.Should().ContainSingle(s => s.Id == created.Id);
     }
 }

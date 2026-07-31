@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using AwesomeAssertions;
+using Keeptrack.Infrastructure.MongoDb.Entities;
 using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.IntegrationTests.Hosting;
 using Xunit;
@@ -30,29 +31,28 @@ public class BookProviderSearchAndLinkResourceTest(KestrelWebAppFactory<Program>
     {
         await Authenticate();
 
-        var created = await PostAsync("/api/books", new BookDto { Title = Title, Author = Author });
+        var created = await CreateAsync("/api/books", new BookDto { Title = Title, Author = Author });
 
-        try
+        var results = await GetAsync<List<ReferenceSearchResultDto>>(
+            $"/api/reference-data/search?type=Book&title={Uri.EscapeDataString(Title)}&creator={Uri.EscapeDataString(Author)}&provider=openlibrary");
+
+        results.Should().NotBeEmpty();
+
+        await PostNoContentAsync("/api/reference-data/link", new LinkReferenceRequestDto
         {
-            var results = await GetAsync<List<ReferenceSearchResultDto>>(
-                $"/api/reference-data/search?type=Book&title={Uri.EscapeDataString(Title)}&creator={Uri.EscapeDataString(Author)}&provider=openlibrary");
+            Type = ReferenceItemType.Book,
+            Title = Title,
+            ExternalId = results[0].ExternalId,
+            Provider = "openlibrary"
+        });
 
-            results.Should().NotBeEmpty();
+        var linked = await GetAsync<BookDto>($"/api/books/{created.Id}");
+        linked.ReferenceId.Should().NotBeNullOrEmpty();
 
-            await PostNoContentAsync("/api/reference-data/link", new LinkReferenceRequestDto
-            {
-                Type = ReferenceItemType.Book,
-                Title = Title,
-                ExternalId = results[0].ExternalId,
-                Provider = "openlibrary"
-            });
-
-            var linked = await GetAsync<BookDto>($"/api/books/{created.Id}");
-            linked.ReferenceId.Should().NotBeNullOrEmpty();
-        }
-        finally
-        {
-            await DeleteAsync($"/api/books/{created.Id}");
-        }
+        // linking is what creates the shared reference document, so its id only becomes knowable here -
+        // registered rather than left behind, since this test is the reason it exists in the test database.
+        // The author's person_reference is deliberately left alone: it's deduplicated by provider id, so it
+        // is reused rather than re-created, and it has no back-reference identifying it as ours to remove.
+        TrackDocument("book_reference", linked.ReferenceId);
     }
 }

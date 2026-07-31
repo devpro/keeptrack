@@ -25,27 +25,21 @@ public class AmazonImportSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixtu
         var title = $"E2e Amazon Book {Guid.NewGuid():N}";
         var csv = AmazonImportFixtureCsvBuilder.Build(title);
 
-        try
-        {
-            var home = await new HomePage(Page).OpenAsync();
-            var import = await home.OpenImportAsync();
-            var amazon = await import.GoToAmazonImportAsync();
+        // the commit creates an item whose id this test never sees, so cleanup is keyed on the
+        // fixture's own unique title - and registered before the upload, so a partial import is cleaned up too
+        TrackItemsMatching("/api/books", $"/api/books?search={Uri.EscapeDataString(title)}");
 
-            await amazon.UploadAsync(csv, "amazon-orders.csv");
+        var home = await new HomePage(Page).OpenAsync();
+        var import = await home.OpenImportAsync();
+        var amazon = await import.GoToAmazonImportAsync();
 
-            // The single ISBN-bearing row is auto-selected as a Book, so the commit button reports exactly one selected row.
-            await Assertions.Expect(amazon.CommitButton).ToContainTextAsync("(1)");
-            await amazon.CommitSelectedAsync();
+        await amazon.UploadAsync(csv, "amazon-orders.csv");
 
-            await Assertions.Expect(amazon.ResultAlert).ToContainTextAsync("Books:");
-            await Assertions.Expect(amazon.ResultAlert).ToContainTextAsync("1 created");
-        }
-        finally
-        {
-            foreach (var id in await Fixture.GetItemIdsAsync($"/api/books?search={Uri.EscapeDataString(title)}"))
-            {
-                await Fixture.DeleteItemAsync($"/api/books/{id}");
-            }
-        }
+        // The single ISBN-bearing row is auto-selected as a Book, so the commit button reports exactly one selected row.
+        await Assertions.Expect(amazon.CommitButton).ToContainTextAsync("(1)");
+        await amazon.CommitSelectedAsync();
+
+        await Assertions.Expect(amazon.ResultAlert).ToContainTextAsync("Books:");
+        await Assertions.Expect(amazon.ResultAlert).ToContainTextAsync("1 created");
     }
 }

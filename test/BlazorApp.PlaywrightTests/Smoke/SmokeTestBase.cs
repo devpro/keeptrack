@@ -1,9 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http.Json;
 using System.Threading.Tasks;
 using Keeptrack.BlazorApp.PlaywrightTests.Hosting;
 using Keeptrack.BlazorApp.PlaywrightTests.Support;
+using Keeptrack.Common.System;
 using Microsoft.Playwright;
 using Microsoft.Playwright.Xunit.v3;
 using Xunit;
@@ -18,6 +21,8 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 public abstract partial class SmokeTestBase : PageTest
 {
     private bool _tracingStarted;
+
+    private readonly List<Func<Task>> _cleanups = [];
 
     protected End2EndFixture Fixture { get; }
 
@@ -46,6 +51,16 @@ public abstract partial class SmokeTestBase : PageTest
     public override async ValueTask DisposeAsync()
     {
         var failed = TestContext.Current.TestState?.Result == TestResult.Failed;
+
+        // Cleanup runs before the diagnostics below so a failure to remove data can't be skipped by an
+        // error while capturing a screenshot or trace. Failures are reported rather than swallowed
+        // (Fixture.DeleteItemAsync already logs and absorbs per-item HTTP errors).
+        for (var i = _cleanups.Count - 1; i >= 0; i--)
+        {
+            await _cleanups[i]();
+        }
+
+        _cleanups.Clear();
 
         if (failed)
         {
@@ -90,6 +105,64 @@ public abstract partial class SmokeTestBase : PageTest
     /// </summary>
     protected static void SkipIfReadOnly()
         => Assert.SkipWhen(End2EndConfiguration.ReadOnly, "E2E_READONLY is set; mutating test skipped.");
+
+    /// <summary>
+    /// Registers an undo action to run when the test ends, whether it passed or failed.
+    /// <para>
+    /// A smoke test drives the real UI, so its data is created several assertions before the test's own
+    /// delete step at the end - and every assertion in between is a place the test can stop early, leaving
+    /// the item behind. That isn't hypothetical: <c>E2e Smoke Collectible</c> and <c>E2e Smoke Gear</c>
+    /// documents from abandoned runs were found in a real database. Registering at creation time closes the
+    /// window; a test that also deletes through the UI is unaffected, since deleting twice is a no-op.
+    /// </para>
+    /// </summary>
+    protected void TrackCleanup(Func<Task> cleanup) => _cleanups.Add(cleanup);
+
+    /// <summary>
+    /// Registers the item whose detail page is currently open, by reading its id out of the page URL - the
+    /// only place a UI-driven test can learn it (see <see cref="ExtractIdFromUrl"/>). Call it as soon as
+    /// the detail page is ready, not at the end of the test.
+    /// </summary>
+    protected void TrackOpenItem(string apiRoute)
+    {
+        var resourcePathAndId = $"{apiRoute.TrimEnd('/')}/{ExtractIdFromUrl(Page.Url)}";
+        TrackCleanup(() => Fixture.DeleteItemAsync(resourcePathAndId));
+    }
+
+    /// <summary>
+    /// Creates an item straight through the API - for the setup a test needs but isn't itself testing (a
+    /// movie to share, a show for Watch Next to pick up) - and registers it for deletion in one step.
+    /// <para>
+    /// Several smoke tests had grown their own copy of this POST-and-deserialize helper; it lives here once
+    /// so seeding through the API always tracks what it created, rather than depending on each test
+    /// remembering to.
+    /// </para>
+    /// </summary>
+    protected async Task<T> CreateItemAsync<T>(string apiRoute, T body)
+        where T : IHasId
+    {
+        var response = await Fixture.ApiHttpClient.PostAsJsonAsync(apiRoute, body, TestContext.Current.CancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        var created = (await response.Content.ReadFromJsonAsync<T>(TestContext.Current.CancellationToken))!;
+        TrackCleanup(() => Fixture.DeleteItemAsync($"{apiRoute.TrimEnd('/')}/{created.Id}"));
+        return created;
+    }
+
+    /// <summary>
+    /// Registers everything a list query returns at cleanup time - for the import smoke tests, whose commit
+    /// creates items the test never sees the ids of.
+    /// </summary>
+    protected void TrackItemsMatching(string apiRoute, string listQueryUrl)
+    {
+        TrackCleanup(async () =>
+        {
+            foreach (var id in await Fixture.GetItemIdsAsync(listQueryUrl))
+            {
+                await Fixture.DeleteItemAsync($"{apiRoute.TrimEnd('/')}/{id}");
+            }
+        });
+    }
 
     /// <summary>
     /// A detail page's own URL (e.g. "/movies/{id}") is the only place a smoke test can read the id it needs

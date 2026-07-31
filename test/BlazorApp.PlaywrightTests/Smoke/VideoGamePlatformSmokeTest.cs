@@ -32,6 +32,8 @@ public class VideoGamePlatformSmokeTest(End2EndFixture fixture) : SmokeTestBase(
 
         var detail = new VideoGameDetailPage(Page);
         await detail.WaitForReadyAsync();
+        // registered as soon as the item exists, so an assertion failure below still removes it
+        TrackOpenItem("/api/video-games");
 
         // a new platform is a draft until its Save button - cancelling discards it
         await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "+ Add platform" }).ClickAsync();

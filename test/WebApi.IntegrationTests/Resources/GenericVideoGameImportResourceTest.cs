@@ -27,52 +27,45 @@ public class GenericVideoGameImportResourceTest(KestrelWebAppFactory<Program> fa
         gameRow.ProductName.Should().Be(GenericVideoGameImportFixtureCsvBuilder.GameProductName);
         gameRow.AlreadyImported.Should().BeFalse();
 
-        try
-        {
-            // a row with no platform must be rejected before anything is persisted
-            var invalidItem = ToCommitItem(gameRow);
-            invalidItem.Platform = null;
-            var invalidRequest = new GenericVideoGameImportCommitRequestDto { Items = [invalidItem] };
-            await PostAsync<GenericVideoGameImportCommitRequestDto, GenericVideoGameImportCommitResultDto>("/api/import/video-games/commit", invalidRequest, HttpStatusCode.BadRequest);
+        // the commit creates an item whose id this test never sees, so cleanup is keyed on the fixture's own
+        // synthetic title - and registered before the commit, so a partial commit is cleaned up too
+        TrackResourcesMatching<VideoGameDto>("/api/video-games", GenericVideoGameImportFixtureCsvBuilder.GameTitle);
 
-            var commitRequest = new GenericVideoGameImportCommitRequestDto { Items = [ToCommitItem(gameRow)] };
-            var commitResult = await PostAsync<GenericVideoGameImportCommitRequestDto, GenericVideoGameImportCommitResultDto>("/api/import/video-games/commit", commitRequest);
-            commitResult.VideoGamesCreated.Should().Be(1);
+        // a row with no platform must be rejected before anything is persisted
+        var invalidItem = ToCommitItem(gameRow);
+        invalidItem.Platform = null;
+        var invalidRequest = new GenericVideoGameImportCommitRequestDto { Items = [invalidItem] };
+        await PostAsync<GenericVideoGameImportCommitRequestDto, GenericVideoGameImportCommitResultDto>("/api/import/video-games/commit", invalidRequest, HttpStatusCode.BadRequest);
 
-            var videoGames = await GetAsync<PagedResult<VideoGameDto>>($"/api/video-games?search={Uri.EscapeDataString(GenericVideoGameImportFixtureCsvBuilder.GameTitle)}");
-            var videoGame = videoGames.Items.Should().ContainSingle().Subject;
-            videoGame.Platforms.Should().ContainSingle();
-            videoGame.Platforms[0].Platform.Should().Be(GenericVideoGameImportFixtureCsvBuilder.GamePlatform);
-            videoGame.Platforms[0].ProductName.Should().Be(GenericVideoGameImportFixtureCsvBuilder.GameProductName);
-            videoGame.Platforms[0].CopyType.Should().Be(CopyType.Digital);
-            videoGame.Platforms[0].Price.Should().Be(14.99m);
-            videoGame.Platforms[0].Reference.Should().Contain(GenericVideoGameImportFixtureCsvBuilder.GameTransactionId);
-            // SourceTitle is echoed from the preview row's already-cleaned Title (platform suffix already
-            // stripped by CleanTitle during parsing), not the raw "Game Name (PS4)" CSV cell.
-            videoGame.Notes.Should().Be($"Title from {GenericVideoGameImportFixtureCsvBuilder.GameVendor}: {GenericVideoGameImportFixtureCsvBuilder.GameTitle}");
+        var commitRequest = new GenericVideoGameImportCommitRequestDto { Items = [ToCommitItem(gameRow)] };
+        var commitResult = await PostAsync<GenericVideoGameImportCommitRequestDto, GenericVideoGameImportCommitResultDto>("/api/import/video-games/commit", commitRequest);
+        commitResult.VideoGamesCreated.Should().Be(1);
 
-            // re-preview after commit: the just-imported transaction must now be flagged, so re-uploading a
-            // newer export later doesn't silently duplicate it
-            var secondPreview = await PostFileAsync<List<GenericVideoGameImportPreviewRowDto>>("/api/import/video-games/preview", "file", csv, "transactions.csv");
-            secondPreview.Should().Contain(r => r.Title == GenericVideoGameImportFixtureCsvBuilder.GameTitle && r.AlreadyImported);
+        var videoGames = await GetAsync<PagedResult<VideoGameDto>>($"/api/video-games?search={Uri.EscapeDataString(GenericVideoGameImportFixtureCsvBuilder.GameTitle)}");
+        var videoGame = videoGames.Items.Should().ContainSingle().Subject;
+        videoGame.Platforms.Should().ContainSingle();
+        videoGame.Platforms[0].Platform.Should().Be(GenericVideoGameImportFixtureCsvBuilder.GamePlatform);
+        videoGame.Platforms[0].ProductName.Should().Be(GenericVideoGameImportFixtureCsvBuilder.GameProductName);
+        videoGame.Platforms[0].CopyType.Should().Be(CopyType.Digital);
+        videoGame.Platforms[0].Price.Should().Be(14.99m);
+        videoGame.Platforms[0].Reference.Should().Contain(GenericVideoGameImportFixtureCsvBuilder.GameTransactionId);
+        // SourceTitle is echoed from the preview row's already-cleaned Title (platform suffix already
+        // stripped by CleanTitle during parsing), not the raw "Game Name (PS4)" CSV cell.
+        videoGame.Notes.Should().Be($"Title from {GenericVideoGameImportFixtureCsvBuilder.GameVendor}: {GenericVideoGameImportFixtureCsvBuilder.GameTitle}");
 
-            // committing the exact same row again must not duplicate anything
-            var secondCommitResult = await PostAsync<GenericVideoGameImportCommitRequestDto, GenericVideoGameImportCommitResultDto>("/api/import/video-games/commit", commitRequest);
-            secondCommitResult.VideoGamesCreated.Should().Be(0);
-            secondCommitResult.VideoGamesMergedInto.Should().Be(0);
-            secondCommitResult.VideoGamesSkipped.Should().Be(1);
+        // re-preview after commit: the just-imported transaction must now be flagged, so re-uploading a
+        // newer export later doesn't silently duplicate it
+        var secondPreview = await PostFileAsync<List<GenericVideoGameImportPreviewRowDto>>("/api/import/video-games/preview", "file", csv, "transactions.csv");
+        secondPreview.Should().Contain(r => r.Title == GenericVideoGameImportFixtureCsvBuilder.GameTitle && r.AlreadyImported);
 
-            var videoGamesAfterReimport = await GetAsync<PagedResult<VideoGameDto>>($"/api/video-games?search={Uri.EscapeDataString(GenericVideoGameImportFixtureCsvBuilder.GameTitle)}");
-            videoGamesAfterReimport.Items.Should().ContainSingle().Which.Platforms.Should().ContainSingle();
-        }
-        finally
-        {
-            var videoGames = await GetAsync<PagedResult<VideoGameDto>>($"/api/video-games?search={Uri.EscapeDataString(GenericVideoGameImportFixtureCsvBuilder.GameTitle)}");
-            foreach (var videoGame in videoGames.Items.Where(g => g.Id is not null))
-            {
-                await DeleteAsync($"/api/video-games/{videoGame.Id}");
-            }
-        }
+        // committing the exact same row again must not duplicate anything
+        var secondCommitResult = await PostAsync<GenericVideoGameImportCommitRequestDto, GenericVideoGameImportCommitResultDto>("/api/import/video-games/commit", commitRequest);
+        secondCommitResult.VideoGamesCreated.Should().Be(0);
+        secondCommitResult.VideoGamesMergedInto.Should().Be(0);
+        secondCommitResult.VideoGamesSkipped.Should().Be(1);
+
+        var videoGamesAfterReimport = await GetAsync<PagedResult<VideoGameDto>>($"/api/video-games?search={Uri.EscapeDataString(GenericVideoGameImportFixtureCsvBuilder.GameTitle)}");
+        videoGamesAfterReimport.Items.Should().ContainSingle().Which.Platforms.Should().ContainSingle();
     }
 
     [Fact]
@@ -99,24 +92,15 @@ public class GenericVideoGameImportResourceTest(KestrelWebAppFactory<Program> fa
             ]
         };
 
-        try
-        {
-            var commitResult = await PostAsync<GenericVideoGameImportCommitRequestDto, GenericVideoGameImportCommitResultDto>("/api/import/video-games/commit", request);
-            commitResult.VideoGamesCreated.Should().Be(1);
+        TrackResourcesMatching<VideoGameDto>("/api/video-games", sharedTitle);
 
-            var videoGames = await GetAsync<PagedResult<VideoGameDto>>($"/api/video-games?search={Uri.EscapeDataString(sharedTitle)}");
-            var videoGame = videoGames.Items.Should().ContainSingle().Subject;
-            videoGame.Platforms.Should().HaveCount(2);
-            videoGame.Platforms.Select(p => p.Platform).Should().BeEquivalentTo(["PS4", "PS5"]);
-        }
-        finally
-        {
-            var videoGames = await GetAsync<PagedResult<VideoGameDto>>($"/api/video-games?search={Uri.EscapeDataString(sharedTitle)}");
-            foreach (var videoGame in videoGames.Items.Where(g => g.Id is not null))
-            {
-                await DeleteAsync($"/api/video-games/{videoGame.Id}");
-            }
-        }
+        var commitResult = await PostAsync<GenericVideoGameImportCommitRequestDto, GenericVideoGameImportCommitResultDto>("/api/import/video-games/commit", request);
+        commitResult.VideoGamesCreated.Should().Be(1);
+
+        var videoGames = await GetAsync<PagedResult<VideoGameDto>>($"/api/video-games?search={Uri.EscapeDataString(sharedTitle)}");
+        var videoGame = videoGames.Items.Should().ContainSingle().Subject;
+        videoGame.Platforms.Should().HaveCount(2);
+        videoGame.Platforms.Select(p => p.Platform).Should().BeEquivalentTo(["PS4", "PS5"]);
     }
 
     [Fact]
@@ -130,37 +114,28 @@ public class GenericVideoGameImportResourceTest(KestrelWebAppFactory<Program> fa
 
         var csv = GenericVideoGameImportFixtureCsvBuilder.Build();
 
-        try
-        {
-            var preview = await PostFileAsync<List<GenericVideoGameImportPreviewRowDto>>("/api/import/video-games/preview", "file", csv, "transactions.csv");
-            var bundleRows = preview.Where(r => r.Title == GenericVideoGameImportFixtureCsvBuilder.BundleTitle).ToList();
-            bundleRows.Should().HaveCount(3);
-            bundleRows.Should().OnlyContain(r => !r.AlreadyImported);
+        TrackResourcesMatching<VideoGameDto>("/api/video-games", GenericVideoGameImportFixtureCsvBuilder.BundleTitle);
 
-            var commitRequest = new GenericVideoGameImportCommitRequestDto { Items = bundleRows.Select(ToCommitItem).ToList() };
-            var commitResult = await PostAsync<GenericVideoGameImportCommitRequestDto, GenericVideoGameImportCommitResultDto>("/api/import/video-games/commit", commitRequest);
-            commitResult.VideoGamesCreated.Should().Be(1);
-            commitResult.VideoGamesSkipped.Should().Be(0);
+        var preview = await PostFileAsync<List<GenericVideoGameImportPreviewRowDto>>("/api/import/video-games/preview", "file", csv, "transactions.csv");
+        var bundleRows = preview.Where(r => r.Title == GenericVideoGameImportFixtureCsvBuilder.BundleTitle).ToList();
+        bundleRows.Should().HaveCount(3);
+        bundleRows.Should().OnlyContain(r => !r.AlreadyImported);
 
-            var videoGames = await GetAsync<PagedResult<VideoGameDto>>($"/api/video-games?search={Uri.EscapeDataString(GenericVideoGameImportFixtureCsvBuilder.BundleTitle)}");
-            var videoGame = videoGames.Items.Should().ContainSingle().Subject;
-            videoGame.Platforms.Should().HaveCount(3);
-            videoGame.Platforms.Select(p => p.ProductName).Should().BeEquivalentTo(
-            [
-                GenericVideoGameImportFixtureCsvBuilder.BundleProductA,
-                GenericVideoGameImportFixtureCsvBuilder.BundleProductB,
-                GenericVideoGameImportFixtureCsvBuilder.BundleProductC
-            ]);
-            videoGame.Platforms.Select(p => p.Reference).Distinct().Should().HaveCount(3);
-        }
-        finally
-        {
-            var videoGames = await GetAsync<PagedResult<VideoGameDto>>($"/api/video-games?search={Uri.EscapeDataString(GenericVideoGameImportFixtureCsvBuilder.BundleTitle)}");
-            foreach (var videoGame in videoGames.Items.Where(g => g.Id is not null))
-            {
-                await DeleteAsync($"/api/video-games/{videoGame.Id}");
-            }
-        }
+        var commitRequest = new GenericVideoGameImportCommitRequestDto { Items = bundleRows.Select(ToCommitItem).ToList() };
+        var commitResult = await PostAsync<GenericVideoGameImportCommitRequestDto, GenericVideoGameImportCommitResultDto>("/api/import/video-games/commit", commitRequest);
+        commitResult.VideoGamesCreated.Should().Be(1);
+        commitResult.VideoGamesSkipped.Should().Be(0);
+
+        var videoGames = await GetAsync<PagedResult<VideoGameDto>>($"/api/video-games?search={Uri.EscapeDataString(GenericVideoGameImportFixtureCsvBuilder.BundleTitle)}");
+        var videoGame = videoGames.Items.Should().ContainSingle().Subject;
+        videoGame.Platforms.Should().HaveCount(3);
+        videoGame.Platforms.Select(p => p.ProductName).Should().BeEquivalentTo(
+        [
+            GenericVideoGameImportFixtureCsvBuilder.BundleProductA,
+            GenericVideoGameImportFixtureCsvBuilder.BundleProductB,
+            GenericVideoGameImportFixtureCsvBuilder.BundleProductC
+        ]);
+        videoGame.Platforms.Select(p => p.Reference).Distinct().Should().HaveCount(3);
     }
 
     private static GenericVideoGameImportCommitItemDto ToCommitItem(GenericVideoGameImportPreviewRowDto row) => new()

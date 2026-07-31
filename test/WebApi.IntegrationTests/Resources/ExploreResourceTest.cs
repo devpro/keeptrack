@@ -33,8 +33,8 @@ public class ExploreResourceTest(KestrelWebAppFactory<Program> factory) : Resour
         await Authenticate();
 
         // dismissing twice is idempotent (both 204); undo also 204 - none of this touches a provider
-        await PostNoContentAsync("/api/explore/Movie/dismiss/999999", new { });
-        await PostNoContentAsync("/api/explore/Movie/dismiss/999999", new { });
+        await DismissAsync("Movie", "999999");
+        await DismissAsync("Movie", "999999");
         await DeleteAsync("/api/explore/Movie/dismiss/999999");
     }
 
@@ -45,9 +45,20 @@ public class ExploreResourceTest(KestrelWebAppFactory<Program> factory) : Resour
 
         // the same bare number means a TMDB movie and a RAWG game - two different titles. The unique key
         // carries the provider, so both inserts succeed and undoing one leaves the other in place.
-        await PostNoContentAsync("/api/explore/Movie/dismiss/424242", new { });
-        await PostNoContentAsync("/api/explore/VideoGame/dismiss/424242", new { });
+        await DismissAsync("Movie", "424242");
+        await DismissAsync("VideoGame", "424242");
         await DeleteAsync("/api/explore/Movie/dismiss/424242");
         await DeleteAsync("/api/explore/VideoGame/dismiss/424242");
+    }
+
+    /// <summary>
+    /// Dismissing and registering the undo together. The undo is also what each test asserts on, but a
+    /// dismissal recorded before an assertion fails would otherwise stay in <c>explore_dismissal</c> and
+    /// silently hide that title from the owner's real Explore feed.
+    /// </summary>
+    private async Task DismissAsync(string itemType, string externalId)
+    {
+        await PostNoContentAsync($"/api/explore/{itemType}/dismiss/{externalId}", new { });
+        TrackResource($"/api/explore/{itemType}/dismiss", externalId);
     }
 }

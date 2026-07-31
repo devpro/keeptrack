@@ -37,6 +37,8 @@ public partial class ListStateSmokeTest(End2EndFixture fixture) : SmokeTestBase(
 
         var detail = new BookDetailPage(Page);
         await detail.WaitForReadyAsync();
+        // registered as soon as the item exists, so an assertion failure below still removes it
+        TrackOpenItem("/api/books");
 
         list = await detail.OpenBooksAsync();
         await list.SearchAsync(title);

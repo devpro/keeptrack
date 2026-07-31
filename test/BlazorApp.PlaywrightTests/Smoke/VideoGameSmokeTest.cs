@@ -30,17 +30,11 @@ public class VideoGameSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 
         var detail = new VideoGameDetailPage(Page);
         await detail.WaitForReadyAsync();
-        var id = ExtractIdFromUrl(Page.Url);
+        // registered as soon as the item exists, so an assertion failure below still removes it
+        TrackOpenItem("/api/video-games");
 
-        try
-        {
-            await detail.SearchAndLinkFirstResultAsync();
+        await detail.SearchAndLinkFirstResultAsync();
 
-            await Assertions.Expect(detail.CoverImage.First).ToBeVisibleAsync();
-        }
-        finally
-        {
-            await Fixture.DeleteItemAsync($"/api/video-games/{id}");
-        }
+        await Assertions.Expect(detail.CoverImage.First).ToBeVisibleAsync();
     }
 }

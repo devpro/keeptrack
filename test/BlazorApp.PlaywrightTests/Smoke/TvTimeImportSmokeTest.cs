@@ -25,19 +25,10 @@ public class TvTimeImportSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixtu
         var showTitle = $"E2e TvTime Show {Guid.NewGuid():N}";
         var zip = TvTimeImportFixtureZipBuilder.Build(showTitle);
 
-        try
-        {
-            var home = await new HomePage(Page).OpenAsync();
-            var import = await home.OpenImportAsync();
-
-            await import.UploadTvTimeExportAsync(zip, "tv-time-export.zip");
-
-            // The import runs as a polled background job, so the result banner can take a few seconds to appear.
-            await Assertions.Expect(import.ResultAlert).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 30000 });
-            await Assertions.Expect(import.ResultAlert).ToContainTextAsync("Shows:");
-            await Assertions.Expect(import.ResultAlert).ToContainTextAsync("1 created");
-        }
-        finally
+        // registered before the upload, so a partial import is cleaned up too. The show needs the extra hop
+        // through its episodes: an episode is a separate top-level document keyed by show id, not something
+        // a title search can reach.
+        TrackCleanup(async () =>
         {
             foreach (var showId in await Fixture.GetItemIdsAsync($"/api/tv-shows?search={Uri.EscapeDataString(showTitle)}"))
             {
@@ -48,6 +39,16 @@ public class TvTimeImportSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixtu
 
                 await Fixture.DeleteItemAsync($"/api/tv-shows/{showId}");
             }
-        }
+        });
+
+        var home = await new HomePage(Page).OpenAsync();
+        var import = await home.OpenImportAsync();
+
+        await import.UploadTvTimeExportAsync(zip, "tv-time-export.zip");
+
+        // The import runs as a polled background job, so the result banner can take a few seconds to appear.
+        await Assertions.Expect(import.ResultAlert).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 30000 });
+        await Assertions.Expect(import.ResultAlert).ToContainTextAsync("Shows:");
+        await Assertions.Expect(import.ResultAlert).ToContainTextAsync("1 created");
     }
 }

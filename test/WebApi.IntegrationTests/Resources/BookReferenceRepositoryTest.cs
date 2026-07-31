@@ -7,7 +7,6 @@ using Keeptrack.Domain.Repositories;
 using Keeptrack.Infrastructure.MongoDb.Entities;
 using Keeptrack.WebApi.IntegrationTests.Hosting;
 using Microsoft.Extensions.DependencyInjection;
-using MongoDB.Driver;
 using Xunit;
 
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
@@ -17,64 +16,50 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 /// against real MongoDB - same <c>ElemMatch</c>/<c>MatchedAliases</c> shape already verified for
 /// <see cref="ITvShowReferenceRepository"/> (see <c>TvShowReferenceRepositoryTest</c>), applied to books.
 /// </summary>
-public class BookReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) : IClassFixture<KestrelWebAppFactory<Program>>
+public class BookReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)
 {
     [Fact]
     public async Task FindByTitleYearAsync_MatchesAnAliasWhoseConfirmedYearDiffersFromTheDocumentsOwnCanonicalYear()
     {
-        using var scope = factory.Services.CreateScope();
+        using var scope = Factory.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IBookReferenceRepository>();
         var alternateTitle = $"Alternate Book Title {Guid.NewGuid()}";
 
-        var created = await repository.UpsertAsync(new BookReferenceModel
+        var created = await CreateReferenceAsync(repository, new BookReferenceModel
         {
             Title = "Canonical Book Title",
             TitleNormalized = "canonical book title",
             Year = 2005,
-            ExternalIds = new Dictionary<string, string> { ["openlibrary"] = "OL1W" },
+            ExternalIds = new Dictionary<string, string> { ["openlibrary"] = TestExternalId.New() },
             MatchedAliases = [new ReferenceMatchModel { Title = alternateTitle.ToLowerInvariant(), Year = 2004, Creator = "some author" }]
         });
 
-        try
-        {
-            var found = await repository.FindByTitleYearAsync(alternateTitle, 2004, "Some Author");
+        var found = await repository.FindByTitleYearAsync(alternateTitle, 2004, "Some Author");
 
-            found.Should().NotBeNull();
-            found!.Id.Should().Be(created.Id);
-        }
-        finally
-        {
-            await DeleteAsync(scope, created.Id!);
-        }
+        found.Should().NotBeNull();
+        found!.Id.Should().Be(created.Id);
     }
 
     [Fact]
     public async Task FindByTitleAsync_MatchesAnAlternateTitle_IgnoringYear()
     {
-        using var scope = factory.Services.CreateScope();
+        using var scope = Factory.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IBookReferenceRepository>();
         var alternateTitle = $"Alternate Book Title {Guid.NewGuid()}";
 
-        var created = await repository.UpsertAsync(new BookReferenceModel
+        var created = await CreateReferenceAsync(repository, new BookReferenceModel
         {
             Title = "Canonical Book Title",
             TitleNormalized = "canonical book title",
             Year = 2005,
-            ExternalIds = new Dictionary<string, string> { ["openlibrary"] = "OL1W" },
+            ExternalIds = new Dictionary<string, string> { ["openlibrary"] = TestExternalId.New() },
             MatchedAliases = [new ReferenceMatchModel { Title = alternateTitle.ToLowerInvariant(), Year = 2005, Creator = "some author" }]
         });
 
-        try
-        {
-            var found = await repository.FindByTitleAsync(alternateTitle, "Some Author");
+        var found = await repository.FindByTitleAsync(alternateTitle, "Some Author");
 
-            found.Should().NotBeNull();
-            found!.Id.Should().Be(created.Id);
-        }
-        finally
-        {
-            await DeleteAsync(scope, created.Id!);
-        }
+        found.Should().NotBeNull();
+        found!.Id.Should().Be(created.Id);
     }
 
     /// <summary>
@@ -86,72 +71,56 @@ public class BookReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) 
     [Fact]
     public async Task FindByExternalIdAsync_FindsTheSameDocument_ByEitherOfTwoCoexistingProviderKeys()
     {
-        using var scope = factory.Services.CreateScope();
+        using var scope = Factory.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IBookReferenceRepository>();
         var title = $"Multi Provider Book Title {Guid.NewGuid()}";
-        // unique per run - other tests in this file already reuse the literal "OL1W" placeholder across
-        // several documents, so FindByExternalIdAsync could otherwise resolve to one of theirs instead of
-        // this test's own document (confirmed: this is exactly what happened before this fix).
-        var openLibraryId = $"OL-{Guid.NewGuid():N}";
+        var openLibraryId = TestExternalId.New();
         var bnfId = $"ark:/12148/{Guid.NewGuid():N}";
 
-        var created = await repository.UpsertAsync(new BookReferenceModel
+        var created = await CreateReferenceAsync(repository, new BookReferenceModel
         {
             Title = title,
             TitleNormalized = title.ToLowerInvariant(),
             ExternalIds = new Dictionary<string, string> { ["openlibrary"] = openLibraryId, ["bnf"] = bnfId }
         });
 
-        try
-        {
-            var foundByOpenLibrary = await repository.FindByExternalIdAsync("openlibrary", openLibraryId);
-            var foundByBnf = await repository.FindByExternalIdAsync("bnf", bnfId);
+        var foundByOpenLibrary = await repository.FindByExternalIdAsync("openlibrary", openLibraryId);
+        var foundByBnf = await repository.FindByExternalIdAsync("bnf", bnfId);
 
-            foundByOpenLibrary.Should().NotBeNull();
-            foundByBnf.Should().NotBeNull();
-            foundByOpenLibrary!.Id.Should().Be(created.Id);
-            foundByBnf!.Id.Should().Be(created.Id);
-        }
-        finally
-        {
-            await DeleteAsync(scope, created.Id!);
-        }
+        foundByOpenLibrary.Should().NotBeNull();
+        foundByBnf.Should().NotBeNull();
+        foundByOpenLibrary!.Id.Should().Be(created.Id);
+        foundByBnf!.Id.Should().Be(created.Id);
     }
 
     [Fact]
     public async Task UpsertAsync_AlwaysIncludesTheCanonicalTitleAndYearInMatchedAliases_EvenIfTheCallerForgot()
     {
-        using var scope = factory.Services.CreateScope();
+        using var scope = Factory.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IBookReferenceRepository>();
         var title = $"Canonical Only Book Title {Guid.NewGuid()}";
 
-        var created = await repository.UpsertAsync(new BookReferenceModel
+        var created = await CreateReferenceAsync(repository, new BookReferenceModel
         {
             Title = title,
             TitleNormalized = title.ToLowerInvariant(),
             Year = 2010,
-            ExternalIds = new Dictionary<string, string> { ["openlibrary"] = "OL1W" }
+            ExternalIds = new Dictionary<string, string> { ["openlibrary"] = TestExternalId.New() }
         });
 
-        try
-        {
-            // this safety-net alias has no Creator (the model only carries AuthorReferenceId, not
-            // denormalized text - see BookReferenceRepository.UpsertAsync), so it's unreachable via the
-            // creator-required FindByTitleAsync/FindByTitleYearAsync; assert on the stored alias directly.
-            var found = await repository.FindByIdAsync(created.Id!);
+        // this safety-net alias has no Creator (the model only carries AuthorReferenceId, not
+        // denormalized text - see BookReferenceRepository.UpsertAsync), so it's unreachable via the
+        // creator-required FindByTitleAsync/FindByTitleYearAsync; assert on the stored alias directly.
+        var found = await repository.FindByIdAsync(created.Id!);
 
-            found.Should().NotBeNull();
-            found!.MatchedAliases.Should().ContainSingle(m => string.Equals(m.Title, title, StringComparison.OrdinalIgnoreCase) && m.Year == 2010);
-        }
-        finally
-        {
-            await DeleteAsync(scope, created.Id!);
-        }
+        found.Should().NotBeNull();
+        found!.MatchedAliases.Should().ContainSingle(m => string.Equals(m.Title, title, StringComparison.OrdinalIgnoreCase) && m.Year == 2010);
     }
 
-    private static async Task DeleteAsync(IServiceScope scope, string id)
+    private async Task<BookReferenceModel> CreateReferenceAsync(IBookReferenceRepository repository, BookReferenceModel model)
     {
-        var collection = scope.ServiceProvider.GetRequiredService<IMongoDatabase>().GetCollection<BookReference>("book_reference");
-        await collection.DeleteOneAsync(Builders<BookReference>.Filter.Eq(x => x.Id, id), TestContext.Current.CancellationToken);
+        var created = await repository.UpsertAsync(model);
+        TrackDocument("book_reference", created.Id);
+        return created;
     }
 }
