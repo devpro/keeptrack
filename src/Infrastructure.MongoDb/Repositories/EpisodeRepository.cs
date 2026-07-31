@@ -29,6 +29,6 @@ public class EpisodeRepository(IMongoDatabase mongoDatabase, ILogger<EpisodeRepo
         // owner_id + tv_show_id In(...) matches the leading fields of the episode_last_watched index (owner_id, tv_show_id, watched_at).
         var filter = builder.Eq(f => f.OwnerId, ownerId) & builder.In(f => f.TvShowId, tvShowIds);
         var entities = await GetCollection().Find(filter).ToListAsync();
-        return mapper.ToModels(entities);
+        return Mapper.ToModels(entities);
     }
 }

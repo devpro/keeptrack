@@ -70,7 +70,7 @@ public class TvShowRepository(IMongoDatabase mongoDatabase, ILogger<TvShowReposi
                      & builder.Ne(f => f.ReferenceId, null)
                      & builder.Ne(f => f.ReferenceId, string.Empty);
         var entities = await GetCollection().Find(filter).ToListAsync();
-        return mapper.ToModels(entities);
+        return Mapper.ToModels(entities);
     }
 
     public async Task<IReadOnlyList<(string Title, int? Year, string? Creator)>> FindDistinctUnresolvedTitleYearsAsync()
@@ -83,16 +83,11 @@ public class TvShowRepository(IMongoDatabase mongoDatabase, ILogger<TvShowReposi
         return groups.Select(g => (g.Title, g.Year, (string?)null)).ToList();
     }
 
-    public async Task<IReadOnlyList<string>> FindLinkedReferenceIdsAsync(string ownerId)
-    {
-        var builder = Builders<TvShow>.Filter;
-        // "linked" is the inverse of UnresolvedFilter - see FindFinishedLinkedShowsAsync for the same clause.
-        var filter = builder.Eq(f => f.OwnerId, ownerId)
-                     & builder.Ne(f => f.ReferenceId, null)
-                     & builder.Ne(f => f.ReferenceId, string.Empty);
-        var ids = await GetCollection().Distinct(f => f.ReferenceId, filter).ToListAsync();
-        return ids.Where(id => !string.IsNullOrEmpty(id)).Select(id => id!).ToList();
-    }
+    public Task<IReadOnlyList<string>> FindLinkedReferenceIdsAsync(string ownerId) =>
+        ExploreExclusionQueries.FindLinkedReferenceIdsAsync(GetCollection(), ownerId, f => f.ReferenceId);
+
+    public Task<IReadOnlyList<string>> FindDistinctTitlesAsync(string ownerId) =>
+        ExploreExclusionQueries.FindDistinctTitlesAsync(GetCollection(), ownerId, f => f.Title);
 
     /// <summary>
     /// "Has no reference link yet" means <see cref="TvShow.ReferenceId"/> is null OR empty string, not

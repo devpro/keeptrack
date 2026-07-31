@@ -14,13 +14,18 @@
 </div>
 
 <p class="mb-3" style="color:var(--kt-text-muted)">
-    Top-rated @(_tab == Tab.Movies ? "movies" : "TV shows") from TMDB you don't track yet. Add one to your
+    Top-rated @TabLabel.ToLowerInvariant() from @ProviderName you don't track yet. Add one to your
     collection in a tap, or dismiss it to stop it coming back.
 </p>
 
 <div class="kt-tabs">
     <button class="kt-tab @(_tab == Tab.Movies ? "active" : "")" @onclick="() => SelectTab(Tab.Movies)">Movies</button>
     <button class="kt-tab @(_tab == Tab.TvShows ? "active" : "")" @onclick="() => SelectTab(Tab.TvShows)">TV shows</button>
+    @* Video games are a member-only collection - a free preview account can't add one, so it isn't offered
+       one either. Hiding is UX, not security: the API applies the same gate to every Explore request. *@
+    <AuthorizeView Policy="MemberOnly">
+        <button class="kt-tab @(_tab == Tab.VideoGames ? "active" : "")" @onclick="() => SelectTab(Tab.VideoGames)">Video games</button>
+    </AuthorizeView>
 </div>
 
 @if (_error is not null)
@@ -125,13 +130,17 @@ else if (Current is { } items)
 }
 
 @code {
-    private enum Tab { Movies, TvShows }
+    private enum Tab { Movies, TvShows, VideoGames }
 
     [Inject] private ExploreApiClient Api { get; set; } = null!;
 
     [Inject] private NavigationManager Navigation { get; set; } = null!;
 
     [Inject] private ListViewPreference ViewPreference { get; set; } = null!;
+
+    [Inject] private IAuthorizationService Authorization { get; set; } = null!;
+
+    [CascadingParameter] private Task<AuthenticationState>? AuthenticationState { get; set; }
 
     // Persisted in the URL (?tab=) like the Wishlist page, so back/forward and a refresh keep the active tab.
     [SupplyParameterFromQuery(Name = "tab")]
@@ -143,6 +152,7 @@ else if (Current is { } items)
     private Tab _tab;
     private string _view = "";
     private bool _loading;
+    private bool _isMember;
     private string? _error;
 
     // one loaded list per tab, so switching back and forth doesn't refetch; the external ids currently being
@@ -152,13 +162,39 @@ else if (Current is { } items)
 
     private List<ExploreSuggestionDto>? Current => _cache.TryGetValue(_tab, out var list) ? list : null;
 
-    private string TypeName => _tab == Tab.Movies ? nameof(ReferenceItemType.Movie) : nameof(ReferenceItemType.TvShow);
+    private string TypeName => _tab switch
+    {
+        Tab.TvShows => nameof(ReferenceItemType.TvShow),
+        Tab.VideoGames => nameof(ReferenceItemType.VideoGame),
+        _ => nameof(ReferenceItemType.Movie)
+    };
 
-    protected override void OnInitialized() => _view = ViewPreference.View;
+    private string TabLabel => _tab switch
+    {
+        Tab.TvShows => "TV shows",
+        Tab.VideoGames => "video games",
+        _ => "movies"
+    };
+
+    // Each domain discovers through its own reference provider, so the blurb names the one actually queried.
+    private string ProviderName => _tab == Tab.VideoGames ? "RAWG" : "TMDB";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _view = ViewPreference.View;
+        if (AuthenticationState is not null)
+        {
+            var authState = await AuthenticationState;
+            _isMember = (await Authorization.AuthorizeAsync(authState.User, "MemberOnly")).Succeeded;
+        }
+    }
 
     protected override async Task OnParametersSetAsync()
     {
         _tab = Enum.TryParse<Tab>(TabQuery, out var tab) ? tab : Tab.Movies;
+        // a free preview account can reach ?tab=VideoGames by hand or from a stale link; land it on the
+        // default tab rather than letting the API's own 403 surface as an error banner.
+        if (_tab == Tab.VideoGames && !_isMember) _tab = Tab.Movies;
         if (!_cache.ContainsKey(_tab)) await LoadAsync();
     }
 

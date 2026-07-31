@@ -11,6 +11,12 @@ internal sealed class FakeRawgClient : IRawgClient
 
     public Dictionary<string, RawgGameDetails> Details { get; } = new();
 
+    /// <summary>One page of Explore discovery results, keyed by page number - empty pages end the paging loop.</summary>
+    public Dictionary<int, IReadOnlyList<RawgTopRatedItem>> TopRatedPages { get; } = new();
+
+    /// <summary>The rating source the last <see cref="GetTopRatedGamesAsync"/> call asked RAWG to order by.</summary>
+    public string? LastTopRatedOrdering { get; private set; }
+
     private FakeRawgClient(List<RawgSearchResult> searchResults) => _searchResults = searchResults;
 
     public static FakeRawgClient Empty() => new([]);
@@ -22,4 +28,10 @@ internal sealed class FakeRawgClient : IRawgClient
 
     public Task<RawgGameDetails?> GetGameDetailsAsync(string externalId, CancellationToken cancellationToken = default) =>
         Task.FromResult(Details.GetValueOrDefault(externalId));
+
+    public Task<IReadOnlyList<RawgTopRatedItem>> GetTopRatedGamesAsync(int page, string ratingSource, CancellationToken cancellationToken = default)
+    {
+        LastTopRatedOrdering = ratingSource;
+        return Task.FromResult(TopRatedPages.GetValueOrDefault(page, []));
+    }
 }

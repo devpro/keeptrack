@@ -4,7 +4,7 @@ using Keeptrack.Domain.Models;
 
 namespace Keeptrack.Domain.Repositories;
 
-public interface IVideoGameRepository : IDataRepository<VideoGameModel>
+public interface IVideoGameRepository : IDataRepository<VideoGameModel>, IExploreSourceRepository
 {
     /// <summary>
     /// Sets <see cref="VideoGameModel.ReferenceId"/>, <see cref="VideoGameModel.Title"/> and

@@ -4,10 +4,8 @@ using Keeptrack.WebApi.Contracts.Dto;
 namespace Keeptrack.BlazorApp.Components.Explore;
 
 /// <summary>
-/// Talks to the Explore endpoints (<c>api/explore/{type}</c>) for listing and dismissing suggestions.
-/// <paramref name="type"/> is a <see cref="ReferenceItemType"/> member name ("Movie"/"TvShow"). Adding a
-/// suggestion goes through the ordinary collection create endpoints, reusing their create + auto-resolve +
-/// quota rather than a bespoke Explore add path.
+/// Talks to the Explore endpoints (<c>api/explore/{type}</c>) for listing, adding and dismissing
+/// suggestions. <c>type</c> is a <see cref="ReferenceItemType"/> member name ("Movie"/"TvShow"/"VideoGame").
 /// </summary>
 public sealed class ExploreApiClient(HttpClient http)
 {
@@ -19,7 +17,8 @@ public sealed class ExploreApiClient(HttpClient http)
 
     /// <summary>
     /// Adds a suggestion to the caller's collection: the server creates the item and links it to the reference
-    /// resolved from the exact TMDB id. Throws on a non-success status (e.g. 403 over the free-preview quota).
+    /// resolved from the exact provider id. Throws on a non-success status (e.g. 403 over the free-preview
+    /// quota, or on a member-only domain).
     /// </summary>
     public async Task AddAsync(string type, string externalId, string? title, int? year)
     {

@@ -4,7 +4,7 @@ using Keeptrack.Domain.Models;
 
 namespace Keeptrack.Domain.Repositories;
 
-public interface ITvShowRepository : IDataRepository<TvShowModel>
+public interface ITvShowRepository : IDataRepository<TvShowModel>, IExploreSourceRepository
 {
     /// <summary>
     /// Sets <see cref="TvShowModel.ReferenceId"/> and <see cref="TvShowModel.Title"/> (to the reference's
@@ -27,12 +27,6 @@ public interface ITvShowRepository : IDataRepository<TvShowModel>
     /// yet - feeds the admin curation queue.
     /// </summary>
     Task<IReadOnlyList<(string Title, int? Year, string? Creator)>> FindDistinctUnresolvedTitleYearsAsync();
-
-    /// <summary>
-    /// Distinct non-empty <see cref="TvShowModel.ReferenceId"/>s this owner already tracks - the "already added"
-    /// exclusion set for Explore suggestions (a reference the owner already has a show linked to is never suggested).
-    /// </summary>
-    Task<IReadOnlyList<string>> FindLinkedReferenceIdsAsync(string ownerId);
 
     /// <summary>
     /// Every tenant's shows marked <see cref="TvShowStatus.Finished"/> that carry a reference link - the

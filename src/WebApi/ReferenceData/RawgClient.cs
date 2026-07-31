@@ -30,7 +30,31 @@ public class RawgClient(HttpClient http, RawgSettings settings) : IRawgClient
                 details.BackgroundImage, details.Rating, details.RatingsCount, details.Metacritic);
     }
 
+    public async Task<IReadOnlyList<RawgTopRatedItem>> GetTopRatedGamesAsync(int page, string ratingSource, CancellationToken cancellationToken = default)
+    {
+        var ordering = ratingSource == RatingSourceCatalog.Metacritic ? "metacritic" : "rating";
+        var query = $"games?key={ApiKey}&ordering=-{ordering}&metacritic={MinMetacritic},100&page={page}&page_size={TopRatedPageSize}";
+        var response = await http.GetFromJsonAsync<RawgSearchResponse>(query, cancellationToken);
+        return response?.Results.Select(r => new RawgTopRatedItem(
+            r.Id.ToString(CultureInfo.InvariantCulture), r.Name ?? string.Empty, ParseYear(r.Released), r.BackgroundImage,
+            r.Rating, r.Metacritic)).ToList() ?? [];
+    }
+
     private const int MaxResults = 5;
+
+    /// <summary>RAWG's per-page maximum, so a discovery request needs as few round-trips as possible.</summary>
+    private const int TopRatedPageSize = 40;
+
+    /// <summary>
+    /// Notability floor on the discovery pool: only games Metacritic rates "generally favorable" or better are
+    /// candidates, whichever score the list is then *ordered* by. RAWG has no curated top-rated endpoint like
+    /// TMDB's (whose own list already applies a minimum vote count), and its <c>rating</c> is a plain average
+    /// with no vote-count filter or sort option - so ordering the whole ~900k-game catalogue by <c>-rating</c>
+    /// would rank an unknown game carrying a single 5-star vote above every classic. Requiring a Metacritic
+    /// score (i.e. the game was reviewed by the professional press at all) is the closest server-side
+    /// equivalent of TMDB's vote threshold, and it costs no extra call. Raise it for a stricter list.
+    /// </summary>
+    private const int MinMetacritic = 70;
 
     private string ApiKey => settings.ApiKey;
 
@@ -58,6 +82,14 @@ public class RawgClient(HttpClient http, RawgSettings settings) : IRawgClient
 
         [JsonPropertyName("background_image")]
         public string? BackgroundImage { get; set; }
+
+        // only populated on the top-rated listing (the search path ignores both) - RAWG's list serializer
+        // returns the same shape for every /games query.
+        [JsonPropertyName("rating")]
+        public double? Rating { get; set; }
+
+        [JsonPropertyName("metacritic")]
+        public int? Metacritic { get; set; }
     }
 
     private sealed class RawgGameDetailsResponse

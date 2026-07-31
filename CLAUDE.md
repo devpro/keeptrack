@@ -597,6 +597,49 @@ This is the same air-date filter `WatchNextService` already applies for its "nex
 An episode TMDB lists with a future air date (a confirmed-but-unaired next season, e.g. a renewal announced months ahead) hasn't happened yet from the viewer's perspective - it shouldn't appear as a checkbox to mark watched.
 An entirely future season simply doesn't appear in the season picker at all once every one of its episodes is filtered out.
 
+### Explore (discovery): suggest acclaimed titles the user doesn't have
+
+`ExploreController`/`ExploreService` (`WebApi/ReferenceData/`, `/explore` in the Blazor app) suggests top-rated titles the caller doesn't already track, with a one-click add and a dismiss/undo.
+Covered domains are Movie, TvShow and VideoGame; Book/Album are rejected with a 400 (an aggregate rank doesn't drive discovery there, and neither provider offers a best-of listing to read).
+
+**The discovery list comes from the provider, never from the local `*_reference` collections.**
+This was the original implementation's core mistake, since fixed: a reference document only exists because *someone already tracks* that title, so querying locally can only ever re-suggest things the user (or another tenant) has - the opposite of discovery.
+Each domain reads its own reference provider's best-of listing: TMDB `/{movie,tv}/top_rated` for movies/TV, RAWG `/games?ordering=-{rating|metacritic}` for video games.
+
+**Ordering follows the admin-selected primary rating source** (`RatingSourceCatalog.Resolve`, the same setting and the same resolver the rest of the app ranks by - no Explore-specific setting).
+Video games need no exception: RAWG sorts natively on both of its own sources (`rawg`'s 0-5 score and `metacritic`'s 0-100), and both values are already on every listing entry, so the selected one is picked with zero extra calls.
+Movies/TV under **IMDb** are the one awkward case, and only because IMDb has no catalogue/top-rated API at all (OMDb only turns a known id into a rating): the *list* still comes from TMDB's ranking and OMDb only fills in the displayed number per title.
+That page is deliberately **not** re-sorted by the IMDb value - partial OMDb data (rate-limited, or no key configured) would float low/unrated titles to the top.
+The admin toggle `app_setting.explore_use_tmdb` (`IAppSettingRepository.Get/SetExploreUseTmdbAsync`) forces movies/TV back onto TMDB's own vote so discovery skips those per-title lookups entirely; it's read *only* when IMDb actually won the resolve, so it can never leak into the video game domain (whose sources don't include IMDb) - `GetSuggestionsAsync_ForVideoGames_IsUnaffectedByTheForceTmdbExploreFlag` pins that.
+
+**Gotcha: RAWG has no curated top-rated endpoint the way TMDB does, and its `rating` is a plain average with no vote-count filter or sort option.**
+Ordering the whole ~900k-game catalogue by `-rating` would therefore rank an unknown game carrying a single 5-star vote above every classic.
+`RawgClient.GetTopRatedGamesAsync` constrains the pool server-side with `metacritic={MinMetacritic},100` - requiring that the game was reviewed by the professional press at all is the closest available equivalent of the minimum vote count TMDB's own top-rated list already applies, and it costs no extra call.
+`MinMetacritic` is the knob to raise if the list still reads as obscure.
+Don't "fix" this by filtering low-vote entries client-side instead: the paging loop stops on an empty provider page, so a filter that can empty a whole page would silently truncate the results.
+
+**The "already have it" exclusion has two halves, and both are needed.**
+The primary one is by provider id: the owner's linked reference ids (`IExploreSourceRepository.FindLinkedReferenceIdsAsync`) resolved to those reference documents' own `ExternalIds[provider]`.
+The fallback is by normalized title (`FindDistinctTitlesAsync` + `TitleNormalizer`), because automatic resolution deliberately gives up when a title search returns several candidates - so a manually-added or imported item can easily have *no* reference link at all and would otherwise be suggested back forever.
+Two genuinely different works sharing one title collapse under the fallback, which is an accepted trade (hiding one discovery card beats re-suggesting something the owner owns).
+`IExploreSourceRepository` (`Domain/Repositories/`) declares both projections once; `ExploreExclusionQueries` (`Infrastructure.MongoDb/Repositories/`) implements them once for every domain - each repository contributes only the field expression, the same shape as the `SortTitleField` hook.
+
+**`explore_dismissal` is keyed on the *provider's* title, not on a reference document.**
+A suggestion is by definition something nobody tracks yet, so there is usually no `reference_id` to point at until it's actually added - `{owner_id, item_type, external_source, external_id}` (unique) is the natural key.
+`external_source` is the **discovery** provider (`tmdb` / `rawg`), deliberately not the rating source: an IMDb-ranked movie suggestion is still identified by a TMDB id.
+It's stored rather than inferred from `item_type` because a RAWG id and a TMDB id are both plain integers, so nothing but an explicit provider keeps them from being read in the wrong number space if a domain's provider ever changes.
+`ExploreService.DiscoverySource` is the single place a domain's provider is named.
+
+**Adding goes through Explore's own endpoint, not the ordinary `POST /api/{collection}` create.**
+`POST /api/explore/{type}/add/{externalId}` creates the item and then calls `Resolve{Movie,TvShow,VideoGame}Async` with the *exact* provider id the suggestion came from.
+The ordinary create's background auto-resolve is a title *search* that only links when there's exactly one candidate, so acclaimed titles with several candidates (common for movies) would be created unlinked - reliably linking is the whole reason this path exists.
+It's awaited, so the card only disappears once the item is genuinely linked.
+The free-tier quota is enforced here exactly as `DataCrudControllerBase.Post` does it (`FreeTierQuota.CheckAsync`).
+The controller carries plain `[Authorize]`, not `MemberOnly`, because movies/TV are the free preview tier; video games are member-gated per request instead (`RequireAccessTo`, a 403), and the Blazor page hides the tab behind `<AuthorizeView Policy="MemberOnly">` and falls back to the Movies tab if a free account lands on `?tab=VideoGames` - hiding is UX, the API is the enforcement.
+
+`ExplorePage.razor` keeps the active tab in `?tab=` (back/forward and refresh preserve it), caches one loaded list per tab, and tops a tab back up whenever it drops below the page size after an add/dismiss - appending below the current cards, never reshuffling what's on screen.
+Add and dismiss share one `ActAsync` (busy-guard, remove, top-up) so the two handlers never duplicate that logic.
+
 ### Keeping reference data fresh: periodic + on-demand TMDB sync
 
 TMDB's own data (episode air dates as seasons progress, genres, posters, cast) drifts out of date after the initial resolution - a show resolved months ago needs re-checking, not just a one-time fetch.

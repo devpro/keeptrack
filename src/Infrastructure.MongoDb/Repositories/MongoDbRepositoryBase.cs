@@ -23,7 +23,12 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
 
     protected ILogger<MongoDbRepositoryBase<TModel, TEntity>> Logger { get; } = logger;
 
-    private IStorageMapper<TModel, TEntity> Mapper { get; } = mapper;
+    /// <summary>
+    /// The entity &lt;-&gt; model mapper. Protected rather than private so a subclass with its own hand-written
+    /// query maps through this single stored instance: capturing the primary-constructor parameter as well
+    /// would store the same mapper twice on the type (CS9107).
+    /// </summary>
+    protected IStorageMapper<TModel, TEntity> Mapper { get; } = mapper;
 
     public async Task<TModel?> FindOneAsync(string id, string ownerId)
     {

@@ -4,7 +4,7 @@ using Keeptrack.Domain.Models;
 
 namespace Keeptrack.Domain.Repositories;
 
-public interface IMovieRepository : IDataRepository<MovieModel>
+public interface IMovieRepository : IDataRepository<MovieModel>, IExploreSourceRepository
 {
     /// <summary>
     /// Sets <see cref="MovieModel.ReferenceId"/>, <see cref="MovieModel.Title"/>, <see cref="MovieModel.Year"/>
@@ -27,10 +27,4 @@ public interface IMovieRepository : IDataRepository<MovieModel>
     /// yet - feeds the admin curation queue.
     /// </summary>
     Task<IReadOnlyList<(string Title, int? Year, string? Creator)>> FindDistinctUnresolvedTitleYearsAsync();
-
-    /// <summary>
-    /// Distinct non-empty <see cref="MovieModel.ReferenceId"/>s this owner already tracks - the "already added"
-    /// exclusion set for Explore suggestions (a reference the owner already has a movie linked to is never suggested).
-    /// </summary>
-    Task<IReadOnlyList<string>> FindLinkedReferenceIdsAsync(string ownerId);
 }

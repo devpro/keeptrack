@@ -76,6 +76,12 @@ public class VideoGameRepository(IMongoDatabase mongoDatabase, ILogger<VideoGame
         return result.ModifiedCount;
     }
 
+    public Task<IReadOnlyList<string>> FindLinkedReferenceIdsAsync(string ownerId) =>
+        ExploreExclusionQueries.FindLinkedReferenceIdsAsync(GetCollection(), ownerId, f => f.ReferenceId);
+
+    public Task<IReadOnlyList<string>> FindDistinctTitlesAsync(string ownerId) =>
+        ExploreExclusionQueries.FindDistinctTitlesAsync(GetCollection(), ownerId, f => f.Title);
+
     public async Task<IReadOnlyList<(string Title, int? Year, string? Creator)>> FindDistinctUnresolvedTitleYearsAsync()
     {
         var groups = await GetCollection().Aggregate()
