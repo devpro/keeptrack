@@ -5,15 +5,13 @@ using Keeptrack.Domain.Repositories;
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// The Explore feature: reads a provider's own best-of listing and suggests acclaimed titles the caller
-/// doesn't already track and hasn't dismissed. Querying the provider - not the local reference collections,
-/// which only hold titles someone already tracks - is what surfaces genuinely new things. Each domain reads
-/// its own reference provider (TMDB for movies/TV, RAWG for video games) and ranks by the admin-selected
-/// primary rating source for that domain, exactly like the rest of the app. The one wrinkle is movies/TV
-/// under IMDb: IMDb has no catalogue/top-rated API at all, so the *list* still comes from TMDB and only the
-/// displayed number is enriched per title. Video games need no such exception - RAWG sorts natively on both
-/// of its own sources. Lives in WebApi/ReferenceData (not Domain) as it depends on the provider clients;
-/// per-domain branching is confined to the small fetcher/lookup helpers.
+/// The Explore feature: reads a provider's own best-of listing and suggests acclaimed titles the caller doesn't already track and hasn't dismissed.
+/// Querying the provider - not the local reference collections, which only hold titles someone already tracks - is what surfaces genuinely new things.
+/// Each domain reads its own reference provider (TMDB for movies/TV, RAWG for video games) and ranks by the admin-selected primary rating source for that domain,
+/// exactly like the rest of the app.
+/// The one wrinkle is movies/TV under IMDb: IMDb has no catalogue/top-rated API at all, so the *list* still comes from TMDB and only the displayed number is enriched per title.
+/// Video games need no such exception - RAWG sorts natively on both of its own sources.
+/// Lives in WebApi/ReferenceData (not Domain) as it depends on the provider clients; per-domain branching is confined to the small fetcher/lookup helpers.
 /// </summary>
 public class ExploreService(
     ITmdbClient tmdbClient,
@@ -29,28 +27,27 @@ public class ExploreService(
     IExploreDismissalRepository dismissalRepository)
 {
     /// <summary>
-    /// The provider each domain discovers through, and therefore the <c>ExternalIds</c> key its suggestion
-    /// ids live in. Deliberately distinct from the *rating* source: an IMDb-ranked movie suggestion is still
-    /// identified by a TMDB id.
+    /// The provider each domain discovers through, and therefore the <c>ExternalIds</c> key its suggestion ids live in.
+    /// Deliberately distinct from the *rating* source: an IMDb-ranked movie suggestion is still identified by a TMDB id.
     /// </summary>
     private const string TmdbProviderKey = "tmdb";
 
     private const string RawgProviderKey = "rawg";
 
-    /// <summary>TMDB and IMDb ratings are both on a 0-10 scale; RAWG's own score is 0-5 and Metacritic's 0-100.</summary>
     private const double TmdbRatingScale = 10;
 
     private const double RawgRatingScale = 5;
 
     private const double MetacriticRatingScale = 100;
 
-    /// <summary>How many provider pages to pull through at most while filling a request.</summary>
+    /// <summary>
+    /// How many provider pages to pull through at most while filling a request.
+    /// </summary>
     private const int MaxProviderPages = 5;
 
     /// <summary>
-    /// The top-<paramref name="limit"/> provider suggestions for <paramref name="type"/>, excluding titles the
-    /// owner already tracks or has dismissed. The rating shown and the ordering follow the admin's primary
-    /// source for the domain.
+    /// The top-<paramref name="limit"/> provider suggestions for <paramref name="type"/>, excluding titles the owner already tracks or has dismissed.
+    /// The rating shown and the ordering follow the admin's primary source for the domain.
     /// </summary>
     public async Task<List<ExploreSuggestionDto>> GetSuggestionsAsync(ExploreItemType type, string ownerId, int limit, CancellationToken cancellationToken = default)
     {
@@ -76,10 +73,13 @@ public class ExploreService(
 
         return source == RatingSourceCatalog.Imdb
             ? await MapWithImdbRatingsAsync(type, chosen, cancellationToken)
-            : chosen.Select(ToDto).ToList();
+            : [.. chosen.Select(ToDto)];
     }
 
-    /// <summary>Hides a provider title from the owner's Explore list permanently (until undone). Idempotent.</summary>
+    /// <summary>
+    /// Hides a provider title from the owner's Explore list permanently (until undone).
+    /// Idempotent.
+    /// </summary>
     public Task DismissAsync(ExploreItemType type, string ownerId, string externalId) =>
         dismissalRepository.AddAsync(new ExploreDismissalModel
         {
@@ -89,9 +89,13 @@ public class ExploreService(
             ExternalId = externalId
         });
 
-    /// <summary>Undoes a dismissal so the title can be suggested again.</summary>
-    public Task UndismissAsync(ExploreItemType type, string ownerId, string externalId) =>
-        dismissalRepository.RemoveAsync(ownerId, type, DiscoverySource(type), externalId);
+    /// <summary>
+    /// Undoes a dismissal so the title can be suggested again.
+    /// </summary>
+    public Task UndismissAsync(ExploreItemType type, string ownerId, string externalId)
+    {
+        return dismissalRepository.RemoveAsync(ownerId, type, DiscoverySource(type), externalId);
+    }
 
     /// <summary>
     /// The admin-selected primary rating source for the domain - the same setting (and the same resolver) the
@@ -202,9 +206,14 @@ public class ExploreService(
         _ => throw new ArgumentOutOfRangeException(nameof(type), $"Explore is not available for {type}.")
     };
 
-    private static IReadOnlyList<ExploreCandidate> ToCandidates(IReadOnlyList<TmdbTopRatedItem> items) =>
-        [.. items.Select(i => new ExploreCandidate(
-            i.TmdbId, i.Title, i.Year, i.Synopsis, i.PosterUrl, i.VoteAverage, i.VoteAverage is null ? null : TmdbRatingScale))];
+    private static IReadOnlyList<ExploreCandidate> ToCandidates(IReadOnlyList<TmdbTopRatedItem> items)
+    {
+        return
+        [
+            .. items.Select(i => new ExploreCandidate(
+                i.TmdbId, i.Title, i.Year, i.Synopsis, i.PosterUrl, i.VoteAverage, i.VoteAverage is null ? null : TmdbRatingScale))
+        ];
+    }
 
     // RAWG reports both of its scores on every listing entry, so the one the admin selected is picked here
     // with no second request - and its scale travels with it (0-5 for RAWG's own, 0-100 for Metacritic's).
@@ -235,9 +244,8 @@ public class ExploreService(
     };
 
     /// <summary>
-    /// One provider suggestion, normalized across providers so the paging/exclusion loop above is written
-    /// once instead of per domain. The rating carries its own scale because the domains don't share one.
+    /// One provider suggestion, normalized across providers so the paging/exclusion loop above is written once instead of per domain.
+    /// The rating carries its own scale because the domains don't share one.
     /// </summary>
-    private sealed record ExploreCandidate(
-        string ExternalId, string Title, int? Year, string? Synopsis, string? ImageUrl, double? Rating, double? RatingScale);
+    private sealed record ExploreCandidate(string ExternalId, string Title, int? Year, string? Synopsis, string? ImageUrl, double? Rating, double? RatingScale);
 }
