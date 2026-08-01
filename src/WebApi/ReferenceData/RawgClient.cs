@@ -54,7 +54,7 @@ public class RawgClient(HttpClient http, RawgSettings settings) : IRawgClient
     /// score (i.e. the game was reviewed by the professional press at all) is the closest server-side
     /// equivalent of TMDB's vote threshold, and it costs no extra call. Raise it for a stricter list.
     /// </summary>
-    private const int MinMetacritic = 70;
+    private const int MinMetacritic = 60;
 
     private string ApiKey => settings.ApiKey;
 
