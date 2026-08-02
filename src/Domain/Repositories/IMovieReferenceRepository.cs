@@ -17,6 +17,13 @@ public interface IMovieReferenceRepository
     /// </summary>
     Task<List<MovieReferenceModel>> FindByIdsAsync(IReadOnlyCollection<string> ids);
 
+    /// <summary>
+    /// The <paramref name="provider"/> id of each of the given references, read with a server-side projection
+    /// over <c>external_ids</c> alone - the Explore exclusion set wants one string per reference, and
+    /// <see cref="FindByIdsAsync"/> would fetch whole documents to supply it.
+    /// </summary>
+    Task<IReadOnlyList<string>> FindExternalIdsAsync(IReadOnlyCollection<string> ids, string provider);
+
     Task<MovieReferenceModel?> FindByTitleYearAsync(string title, int? year);
 
     /// <summary>

@@ -210,6 +210,45 @@ public class ExploreCatalogueRepositoryTest(KestrelWebAppFactory<Program> factor
     }
 
     [Fact]
+    public async Task FindExternalIdsAsync_ProjectsOnlyTheRequestedProvidersIds()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<ITvShowReferenceRepository>();
+
+        // a TV reference is the worst case for the unprojected read this replaced: it embeds the whole
+        // episode guide, so fetching the document to extract one id drags every episode along with it.
+        var tmdbId = TestExternalId.New();
+        var reference = await repository.UpsertAsync(new TvShowReferenceModel
+        {
+            Title = "Explore Projection Test",
+            TitleNormalized = "explore projection test",
+            Year = 2001,
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = tmdbId },
+            Episodes = [.. Enumerable.Range(1, 20).Select(n => new ReferenceEpisodeModel { SeasonNumber = 1, EpisodeNumber = n, Title = $"Episode {n}" })]
+        });
+        TrackDocument("tvshow_reference", reference.Id);
+
+        var externalIds = await repository.FindExternalIdsAsync([reference.Id!], "tmdb");
+        var unknownProvider = await repository.FindExternalIdsAsync([reference.Id!], "rawg");
+
+        externalIds.Should().Equal([tmdbId]);
+        // a reference resolved through another provider has no id in this number space and must contribute
+        // nothing - never an empty string, which would match an entry whose own id failed to parse.
+        unknownProvider.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task FindExternalIdsAsync_ForNoIds_MakesNoQuery()
+    {
+        using var scope = Factory.Services.CreateScope();
+
+        var externalIds = await scope.ServiceProvider.GetRequiredService<ITvShowReferenceRepository>().FindExternalIdsAsync([], "tmdb");
+
+        // an owner who tracks nothing linked must not turn into an unfiltered $in over the whole collection
+        externalIds.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task Rankings_AreIsolatedFromEachOther()
     {
         using var scope = Factory.Services.CreateScope();

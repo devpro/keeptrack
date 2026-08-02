@@ -31,6 +31,9 @@ public class MovieReferenceRepository(IMongoDatabase mongoDatabase, MovieReferen
         return entities.Select(mapper.ToModel).ToList();
     }
 
+    public Task<IReadOnlyList<string>> FindExternalIdsAsync(IReadOnlyCollection<string> ids, string provider) =>
+        ExploreExclusionQueries.FindExternalIdsAsync(Collection, ids, provider, x => x.Id, x => x.ExternalIds);
+
     public async Task<MovieReferenceModel?> FindByTitleYearAsync(string title, int? year)
     {
         // matches against every known-good (title, year) combination for this reference (see

@@ -428,6 +428,10 @@ Movie, TvShow, VideoGame only; Book/Album 400 (no best-of listing to read).
   automatic resolution gives up on multiple candidates, so a manually-added item may have no link at all and would be re-suggested forever.
   Two different works sharing a title collapse under the fallback - an accepted trade.
   `IExploreSourceRepository` declares both projections once; `ExploreExclusionQueries` implements them for every domain, each repository contributing only a field expression.
+  Resolving those reference ids to provider ids goes through `I<X>ReferenceRepository.FindExternalIdsAsync`, a **projected** read over `external_ids` alone - **not** `FindByIdsAsync`, which fetches whole documents (synopsis, cast, matched
+  aliases, and for TV the entire embedded episode guide) to yield one string each.
+  An owner tracking a few hundred linked shows would otherwise drag every episode of every season across on every Explore request.
+  `FindByIdsAsync` stays for `ReferenceImageHydrator`, which genuinely needs more of the document.
 - `explore_dismissal` is keyed `{owner_id, item_type, external_source, external_id}` (unique) on the *provider's* id, since a suggestion usually has no reference document yet.
   `external_source` is the **discovery** provider (`tmdb`/`rawg`), not the rating source - an IMDb-ranked movie is still identified by a TMDB id, and RAWG/TMDB ids are both plain integers with nothing but an explicit provider to keep them
   apart.

@@ -9,9 +9,11 @@ using MongoDB.Driver;
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
 /// <summary>
-/// The two owner-scoped projections that build the Explore feature's "the caller already has this" exclusion
-/// set. Both are the same query for every domain and differ only by which field they read, so they live here
-/// once rather than being copy-pasted into <c>MovieRepository</c>/<c>TvShowRepository</c>/<c>VideoGameRepository</c>
+/// The projections that build the Explore feature's "the caller already has this" exclusion set: two
+/// owner-scoped reads over the caller's own collection, plus the id lookup over the shared reference
+/// documents those link to. Each is the same query for every domain and differs only by which field it reads,
+/// so they live here once rather than being copy-pasted into
+/// <c>MovieRepository</c>/<c>TvShowRepository</c>/<c>VideoGameRepository</c> and their reference counterparts
 /// (the first two already carried an identical hand-written copy of the reference-id one).
 /// They aren't hooks on <c>MongoDbRepositoryBase</c> because that base is generic over entities with no
 /// reference id and no title at all - passing the field in keeps the field declaration next to the entity it
@@ -34,6 +36,39 @@ internal static class ExploreExclusionQueries
                      & builder.Ne(referenceIdField, string.Empty);
         var ids = await collection.Distinct(referenceIdField, filter).ToListAsync();
         return ids.Where(id => !string.IsNullOrEmpty(id)).Select(id => id!).ToList();
+    }
+
+    /// <summary>
+    /// The <paramref name="provider"/> id of each of the given reference documents, read with a server-side
+    /// projection so only <c>external_ids</c> crosses the wire.
+    /// <para>
+    /// The projection is the whole point. The caller wants exactly one string per reference, and the obvious
+    /// <c>FindByIdsAsync</c> would fetch entire documents to get it - synopsis, cast, matched aliases, ratings,
+    /// and for TV shows the complete embedded episode guide. An owner tracking a few hundred linked shows
+    /// would drag every episode of every season across on each Explore request, to extract a few hundred ids.
+    /// </para>
+    /// </summary>
+    internal static async Task<IReadOnlyList<string>> FindExternalIdsAsync<TEntity>(
+        IMongoCollection<TEntity> collection,
+        IReadOnlyCollection<string> ids,
+        string provider,
+        Expression<Func<TEntity, string?>> idField,
+        Expression<Func<TEntity, Dictionary<string, string>>> externalIdsField)
+    {
+        if (ids.Count == 0) return [];
+
+        var externalIds = await collection
+            .Find(Builders<TEntity>.Filter.In(idField, ids))
+            .Project(externalIdsField)
+            .ToListAsync();
+
+        // a reference resolved through a different provider simply has no id in this one's number space -
+        // it contributes nothing to the exclusion set rather than an empty string that could match anything.
+        return externalIds
+            .Select(map => map.GetValueOrDefault(provider))
+            .Where(externalId => !string.IsNullOrEmpty(externalId))
+            .Select(externalId => externalId!)
+            .ToList();
     }
 
     /// <summary>

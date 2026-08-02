@@ -29,6 +29,9 @@ public class VideoGameReferenceRepository(IMongoDatabase mongoDatabase, VideoGam
         return entities.Select(mapper.ToModel).ToList();
     }
 
+    public Task<IReadOnlyList<string>> FindExternalIdsAsync(IReadOnlyCollection<string> ids, string provider) =>
+        ExploreExclusionQueries.FindExternalIdsAsync(Collection, ids, provider, x => x.Id, x => x.ExternalIds);
+
     public async Task<VideoGameReferenceModel?> FindByTitleYearAsync(string title, int? year)
     {
         var normalized = TitleNormalizer.Normalize(title);

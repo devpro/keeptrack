@@ -164,21 +164,21 @@ public class ExploreService(
     private async Task<HashSet<string>> BuildExcludedTitlesAsync(ExploreItemType type, string ownerId) =>
         [.. (await SourceRepository(type).FindDistinctTitlesAsync(ownerId)).Select(TitleNormalizer.Normalize)];
 
-    private async Task<IEnumerable<string>> TrackedExternalIdsAsync(ExploreItemType type, IReadOnlyList<string> referenceIds)
+    // Projected deliberately: only each reference's external_ids is read, never the whole document. The
+    // exclusion set needs one string per reference, and a TV show reference carries its entire embedded
+    // episode guide - fetching those to extract an id would make this the most expensive part of a request
+    // that otherwise costs a couple of indexed reads.
+    private async Task<IReadOnlyList<string>> TrackedExternalIdsAsync(ExploreItemType type, IReadOnlyList<string> referenceIds)
     {
         var provider = ExploreRankings.DiscoverySource(type);
         return type switch
         {
-            ExploreItemType.Movie => ExternalIdsOf(await movieReferenceRepository.FindByIdsAsync(referenceIds), r => r.ExternalIds, provider),
-            ExploreItemType.TvShow => ExternalIdsOf(await tvShowReferenceRepository.FindByIdsAsync(referenceIds), r => r.ExternalIds, provider),
-            ExploreItemType.VideoGame => ExternalIdsOf(await videoGameReferenceRepository.FindByIdsAsync(referenceIds), r => r.ExternalIds, provider),
+            ExploreItemType.Movie => await movieReferenceRepository.FindExternalIdsAsync(referenceIds, provider),
+            ExploreItemType.TvShow => await tvShowReferenceRepository.FindExternalIdsAsync(referenceIds, provider),
+            ExploreItemType.VideoGame => await videoGameReferenceRepository.FindExternalIdsAsync(referenceIds, provider),
             _ => throw new ArgumentOutOfRangeException(nameof(type), $"Explore is not available for {type}.")
         };
     }
-
-    private static IEnumerable<string> ExternalIdsOf<TReference>(
-        IEnumerable<TReference> references, Func<TReference, IReadOnlyDictionary<string, string>> externalIds, string provider) =>
-        references.Select(r => externalIds(r).GetValueOrDefault(provider)).Where(id => !string.IsNullOrEmpty(id)).Select(id => id!);
 
     // the shown rating is the selected source's own stored value, and null when there isn't one - the same
     // semantics as before (a title OMDb had no rating for showed no rating), just without the per-request call.

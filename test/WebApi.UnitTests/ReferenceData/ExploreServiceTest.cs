@@ -79,9 +79,9 @@ public class ExploreServiceTest
         _movieRepository.Setup(r => r.FindDistinctTitlesAsync("owner")).ReturnsAsync([]);
         _tvShowRepository.Setup(r => r.FindDistinctTitlesAsync("owner")).ReturnsAsync([]);
         _videoGameRepository.Setup(r => r.FindDistinctTitlesAsync("owner")).ReturnsAsync([]);
-        _movieReferenceRepository.Setup(r => r.FindByIdsAsync(It.IsAny<IReadOnlyCollection<string>>())).ReturnsAsync([]);
-        _tvShowReferenceRepository.Setup(r => r.FindByIdsAsync(It.IsAny<IReadOnlyCollection<string>>())).ReturnsAsync([]);
-        _videoGameReferenceRepository.Setup(r => r.FindByIdsAsync(It.IsAny<IReadOnlyCollection<string>>())).ReturnsAsync([]);
+        _movieReferenceRepository.Setup(r => r.FindExternalIdsAsync(It.IsAny<IReadOnlyCollection<string>>(), It.IsAny<string>())).ReturnsAsync([]);
+        _tvShowReferenceRepository.Setup(r => r.FindExternalIdsAsync(It.IsAny<IReadOnlyCollection<string>>(), It.IsAny<string>())).ReturnsAsync([]);
+        _videoGameReferenceRepository.Setup(r => r.FindExternalIdsAsync(It.IsAny<IReadOnlyCollection<string>>(), It.IsAny<string>())).ReturnsAsync([]);
     }
 
     [Fact]
@@ -90,8 +90,8 @@ public class ExploreServiceTest
         NoExclusions(ExploreItemType.Movie);
         // owner tracks reference "ref-a", whose TMDB id is "100"
         _movieRepository.Setup(r => r.FindLinkedReferenceIdsAsync("owner")).ReturnsAsync(["ref-a"]);
-        _movieReferenceRepository.Setup(r => r.FindByIdsAsync(It.Is<IReadOnlyCollection<string>>(c => c.Contains("ref-a"))))
-            .ReturnsAsync([new MovieReferenceModel { Id = "ref-a", Title = "Tracked", TitleNormalized = "tracked", ExternalIds = new Dictionary<string, string> { ["tmdb"] = "100" } }]);
+        _movieReferenceRepository.Setup(r => r.FindExternalIdsAsync(It.Is<IReadOnlyCollection<string>>(c => c.Contains("ref-a")), "tmdb"))
+            .ReturnsAsync(["100"]);
         _dismissalRepository.Setup(r => r.FindDismissedExternalIdsAsync("owner", ExploreItemType.Movie, "tmdb")).ReturnsAsync(["200"]);
         Catalogue(ExploreItemType.Movie, "tmdb",
             Entry(ExploreItemType.Movie, "tmdb", "100", 1, ("tmdb", 9.0)),
@@ -332,9 +332,9 @@ public class ExploreServiceTest
     {
         NoExclusions(ExploreItemType.VideoGame);
         _videoGameRepository.Setup(r => r.FindLinkedReferenceIdsAsync("owner")).ReturnsAsync(["ref-g"]);
-        // the tracked game's reference carries the RAWG id - matched against the RAWG suggestion ids, never a TMDB one
-        _videoGameReferenceRepository.Setup(r => r.FindByIdsAsync(It.Is<IReadOnlyCollection<string>>(c => c.Contains("ref-g"))))
-            .ReturnsAsync([new VideoGameReferenceModel { Id = "ref-g", Title = "Owned", TitleNormalized = "owned", ExternalIds = new Dictionary<string, string> { ["rawg"] = "g1" } }]);
+        // the tracked game's reference is read in the RAWG number space - never a TMDB one
+        _videoGameReferenceRepository.Setup(r => r.FindExternalIdsAsync(It.Is<IReadOnlyCollection<string>>(c => c.Contains("ref-g")), "rawg"))
+            .ReturnsAsync(["g1"]);
         Catalogue(ExploreItemType.VideoGame, "rawg",
             Entry(ExploreItemType.VideoGame, "rawg", "g1", 1, ("rawg", 4.7)),
             Entry(ExploreItemType.VideoGame, "rawg", "g2", 2, ("rawg", 4.5)));
