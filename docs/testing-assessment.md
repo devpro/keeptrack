@@ -16,13 +16,13 @@ The **Blazor unit layer is thin** (9 tests) — most component logic is only exe
 
 ## Test topology
 
-| Project                          | Kind                                                      | Runner                                | Count | Needs                                       |
-|----------------------------------|-----------------------------------------------------------|---------------------------------------|-------|---------------------------------------------|
-| `test/WebApi.UnitTests`          | Unit (pure logic, mocked repos, stub HTTP handlers)       | xunit v3 / Microsoft.Testing.Platform | ~211  | nothing external                            |
-| `test/WebApi.IntegrationTests`   | Integration (real Kestrel + real MongoDB + Firebase auth) | xunit v3                              | ~121  | MongoDB, Firebase test user                 |
-| `test/BlazorApp.UnitTests`       | Unit (component/helper logic)                             | xunit v3                              | ~9    | nothing external                            |
-| `test/BlazorApp.PlaywrightTests` | End-to-end (real browser, both hosts in-process)          | Playwright + xunit v3                 | ~35   | `E2E_ENABLED=true`, browsers, provider keys |
-| `test/Testing.Shared`            | Shared hosting/auth infrastructure (not a test project)   | —                                     | —     | —                                           |
+Project                          | Kind                                                      | Runner                                | Count | Needs
+---------------------------------|-----------------------------------------------------------|---------------------------------------|-------|------
+`test/WebApi.UnitTests`          | Unit (pure logic, mocked repos, stub HTTP handlers)       | xunit v3 / Microsoft.Testing.Platform | ~211  | nothing external
+`test/WebApi.IntegrationTests`   | Integration (real Kestrel + real MongoDB + Firebase auth) | xunit v3                              | ~121  | MongoDB, Firebase test user
+`test/BlazorApp.UnitTests`       | Unit (component/helper logic)                             | xunit v3                              | ~9    | nothing external
+`test/BlazorApp.PlaywrightTests` | End-to-end (real browser, both hosts in-process)          | Playwright + xunit v3                 | ~35   | `E2E_ENABLED=true`, browsers, provider keys
+`test/Testing.Shared`            | Shared hosting/auth infrastructure (not a test project)   | —                                     | —     | —
 
 Coverage is collected in CI via `dotnet test --coverage --coverage-output-format cobertura` and reported to SonarCloud (`.github/workflows/ci.yaml`).
 There is no enforced per-project coverage threshold gate in the pipeline; SonarCloud tracks the trend but a drop does not by itself fail the build.
@@ -57,21 +57,65 @@ then logout), and per-type add/link/delete flows all exist.
 
 ## Coverage gaps: walkthroughs with no end-to-end (browser) test
 
-All of these have API/integration or unit coverage but are **never driven through the actual UI**, so a broken form binding, missing DI registration, or Blazor render bug would not be caught by the automated suite (exactly the class of bug
-the memory note "build/tests don't catch DI/UI bugs here" warns about).
+All of these have API/integration or unit coverage; the table tracks whether each is also **driven through the actual UI**, since a broken form binding, missing DI registration, or Blazor render bug would not otherwise be caught by the
+automated suite (exactly the class of bug the memory note "build/tests don't catch DI/UI bugs here" warns about).
+Details, including which resource tests already cover the API side and exactly what's left unproven in the browser, follow the table.
 
-| #  | Walkthrough                                                                                              | UI page                                           | API/unit coverage today                                                                      | E2E gap                                                                                                                                                                                                                                                                                                                                                       |
-|----|----------------------------------------------------------------------------------------------------------|---------------------------------------------------|----------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 1  | ~~**TV Time import**~~ (upload zip → poll job → see results)                                             | `Import/ImportPage.razor`                         | `TvTimeImportResourceTest` + all parsers                                                     | **Closed** — `TvTimeImportSmokeTest` drives the upload/progress/result UI                                                                                                                                                                                                                                                                                     |
-| 2  | ~~**Amazon order import**~~ (upload CSV → preview → commit)                                              | `Import/AmazonImportPage.razor`                   | `AmazonImportResourceTest`, service tests                                                    | **Closed** — `AmazonImportSmokeTest` drives upload/preview/commit/result                                                                                                                                                                                                                                                                                      |
-| 3  | ~~**Generic video-game import**~~ (PSN-style CSV → preview → commit)                                     | `Import/GenericVideoGameImportPage.razor`         | `GenericVideoGameImportResourceTest`, service test                                           | **Closed** — `GenericVideoGameImportSmokeTest` drives upload/preview/commit/result                                                                                                                                                                                                                                                                            |
-| 4  | ~~**Account management**~~ (view identity)                                                               | `Account/Pages/Manage.razor`                      | none                                                                                         | **Closed** — `ManageAccountSmokeTest` asserts the signed-in identity renders                                                                                                                                                                                                                                                                                  |
-| 5  | ~~**User preferences**~~ (edit and persist settings)                                                     | `Account/Pages/Manage.razor`                      | `UserPreferencesResourceTest`                                                                | **Closed** — `ManageAccountSmokeTest` round-trips a preference toggle through the UI (toggle → persisted → reload reflects it)                                                                                                                                                                                                                                |
-| 6  | **Reference-data admin page** (search, unresolved queue, provider picker, link, sync-now, export/import) | `ReferenceDataAdmin/ReferenceDataAdminPage.razor` | `ReferenceDataAdminResourceTest`, `BookUnresolvedQueueTest`, `ReferenceDataExportImportTest` | **Partially closed** — `ReferenceDataAdminSmokeTest` drives page load, the System panel, unresolved type-switching, and the export→import round-trip. The provider search/link flow is left to the per-type detail-page smoke tests (same endpoints, real providers), and a full sync-now poll is deliberately not driven (flakes on provider latency).       |
-| 7  | ~~**Quick Add — most types**~~                                                                           | `QuickAdd/QuickAddPage.razor`                     | per-type resource tests                                                                      | **Not a real gap** — `QuickAddSmokeTest` deliberately covers one media type (movie) and one record type (car), which exercise Quick Add's whole plumbing; the per-type form fields are already covered by each type's own detail-page smoke test, so per-type Quick Add scenarios would be duplication the quality bar rejects. Left intentionally uncovered. |
-| 8  | **Playlist song editing** (add/edit/remove songs within a playlist)                                      | `Inventory/Pages/PlaylistDetail.razor`            | `SongResourceTest`, `PlaylistResourceTest`                                                   | `PlaylistSmokeTest` covers add/delete of the playlist itself, not the embedded song-editing UI                                                                                                                                                                                                                                                                |
-| 9  | **Car/House/Health history rows** (add/edit history entries and see computed metrics/charts)             | `CarDetail`, `HouseDetail`, `HealthProfileDetail` | metrics service unit tests + history resource tests                                          | Smoke tests create the parent and (for Health) one record; the metrics charts and multi-row history editing are not asserted in the browser                                                                                                                                                                                                                   |
-| 10 | **Error / NotFound pages**                                                                               | `Pages/Error.razor`, `Pages/NotFound.razor`       | none                                                                                         | No test asserts the error or 404 experience                                                                                                                                                                                                                                                                                                                   |
+Nb | Walkthrough                   | UI page                                           | Status
+---|-------------------------------|---------------------------------------------------|-------
+1  | TV Time import                | `Import/ImportPage.razor`                         | Closed
+2  | Amazon order import           | `Import/AmazonImportPage.razor`                   | Closed
+3  | Generic video-game import     | `Import/GenericVideoGameImportPage.razor`         | Closed
+4  | Account management            | `Account/Pages/Manage.razor`                      | Closed
+5  | User preferences              | `Account/Pages/Manage.razor`                      | Closed
+6  | Reference-data admin page     | `ReferenceDataAdmin/ReferenceDataAdminPage.razor` | Partially closed
+7  | Quick Add — most types        | `QuickAdd/QuickAddPage.razor`                     | Not a real gap
+8  | Playlist song editing         | `Inventory/Pages/PlaylistDetail.razor`            | Open
+9  | Car/House/Health history rows | `CarDetail`, `HouseDetail`, `HealthProfileDetail` | Open
+10 | Error / NotFound pages        | `Pages/Error.razor`, `Pages/NotFound.razor`       | Open
+
+### Closed (1–5)
+
+- **TV Time import** (upload zip → poll job → see results).
+  API/unit coverage: `TvTimeImportResourceTest` + all parsers.
+  `TvTimeImportSmokeTest` drives the upload/progress/result UI.
+- **Amazon order import** (upload CSV → preview → commit).
+  API/unit coverage: `AmazonImportResourceTest`, service tests.
+  `AmazonImportSmokeTest` drives upload/preview/commit/result.
+- **Generic video-game import** (PSN-style CSV → preview → commit).
+  API/unit coverage: `GenericVideoGameImportResourceTest`, service test.
+  `GenericVideoGameImportSmokeTest` drives upload/preview/commit/result.
+- **Account management** (view identity).
+  No prior API/unit coverage.
+  `ManageAccountSmokeTest` asserts the signed-in identity renders.
+- **User preferences** (edit and persist settings).
+  API/unit coverage: `UserPreferencesResourceTest`.
+  `ManageAccountSmokeTest` round-trips a preference toggle through the UI (toggle → persisted → reload reflects it).
+
+### Partially closed (6)
+
+**Reference-data admin page** (search, unresolved queue, provider picker, link, sync-now, export/import).
+API/unit coverage: `ReferenceDataAdminResourceTest`, `BookUnresolvedQueueTest`, `ReferenceDataExportImportTest`.
+`ReferenceDataAdminSmokeTest` drives page load, the System panel, unresolved type-switching, and the export→import round-trip.
+The provider search/link flow is left to the per-type detail-page smoke tests (same endpoints, real providers), and a full sync-now poll is deliberately not driven (flakes on provider latency).
+
+### Not a real gap (7)
+
+**Quick Add — most types.** API/unit coverage: per-type resource tests.
+`QuickAddSmokeTest` deliberately covers one media type (movie) and one record type (car), which exercise Quick Add's whole plumbing; the per-type form fields are already covered by each type's own detail-page smoke test, so per-type Quick
+Add scenarios would be duplication the quality bar rejects.
+Left intentionally uncovered.
+
+### Open (8–10)
+
+- **Playlist song editing** (add/edit/remove songs within a playlist).
+  API/unit coverage: `SongResourceTest`, `PlaylistResourceTest`.
+  `PlaylistSmokeTest` covers add/delete of the playlist itself, not the embedded song-editing UI.
+- **Car/House/Health history rows** (add/edit history entries and see computed metrics/charts).
+  API/unit coverage: metrics service unit tests + history resource tests.
+  Smoke tests create the parent and (for Health) one record; the metrics charts and multi-row history editing are not asserted in the browser.
+- **Error / NotFound pages.** No API/unit coverage (not applicable).
+  No test asserts the error or 404 experience.
 
 ## Secondary observations
 
