@@ -22,14 +22,14 @@ If you do not agree with these terms, do not submit a contribution.
 
 The application source code is in the following .NET projects:
 
-Project name               | Technology | Project type
----------------------------|------------|-------------
-`BlazorApp`                | ASP.NET 10 | Blazor Server web application
-`Common.System`            | .NET 10    | Library
-`Domain`                   | .NET 10    | Library
-`Infrastructure.MongoDb`   | .NET 10    | Library
-`WebApi`                   | ASP.NET 10 | Web application (REST API)
-`WebApi.Contracts`         | .NET 10    | Library
+Project name             | Technology | Project type
+-------------------------|------------|-------------
+`BlazorApp`              | ASP.NET 10 | Blazor Server web application
+`Common.System`          | .NET 10    | Library
+`Domain`                 | .NET 10    | Library
+`Infrastructure.MongoDb` | .NET 10    | Library
+`WebApi`                 | ASP.NET 10 | Web application (REST API)
+`WebApi.Contracts`       | .NET 10    | Library
 
 The application is using the following .NET packages (via NuGet):
 

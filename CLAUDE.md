@@ -208,19 +208,27 @@ and `SkippedRowTitles` lists exactly which selected rows were skipped as already
 together they let `GenericVideoGameImportPage.razor` show a reconciling "X of Y selected rows imported" line plus a named list of anything actually skipped,
 so the user can trust nothing was silently dropped instead of having to guess from the per-item counts alone.
 
-`GenericImportController`/`GenericImportService` (`POST /api/import/generic`, `MemberOnly`) is the fully store-agnostic, column-driven third importer of this shape - the one to reach for by default now, and the one to extend rather than adding another store-specific importer.
+`GenericImportController`/`GenericImportService` (`POST /api/import/generic`, `MemberOnly`) is the fully store-agnostic, column-driven third importer of this shape -
+the one to reach for by default now, and the one to extend rather than adding another store-specific importer.
 It removes every Amazon specificity by reading each field from a canonical, case-insensitive column set (all optional except `Title`) the user reshapes any retailer export into within a spreadsheet - confirmed against a real Rakuten export.
-`Vendor` is a per-row column (like the video game importer), and crucially a `Type` column, when present, sets each row's `ImportMediaType` directly (`GenericImportService.ParseMediaType` tolerates the natural spellings a user types: "TV Show", "Video Game", "Film", "Jeu"...), so a well-prepared sheet pre-selects every row's type instead of forcing the per-row picker the Amazon page needs (Amazon's export has no category column).
+`Vendor` is a per-row column (like the video game importer), and crucially a `Type` column, when present, sets each row's `ImportMediaType` directly (`GenericImportService.ParseMediaType` tolerates the natural spellings a user types:
+"TV Show", "Video Game", "Film", "Jeu"...), so a well-prepared sheet pre-selects every row's type instead of forcing the per-row picker the Amazon page needs (Amazon's export has no category column).
 A blank/unrecognized `Type` falls back to that picker rather than guessing - the same "don't guess when you don't have the info" rule as everywhere else.
 Column aliases cover the common real headers (`Product Name`→Title, `ASIN`/`SKU`→`ProductId`, `Total Amount`→Price, `Product Condition`→Condition).
-`Vendor` (the store name) and `Website` are two **separate** columns feeding two different owned-copy fields: `Vendor`→the copy's `Vendor` field, `Website`→the copy's `Reference` (a free-text per-item label - product/order URL, seller). They are deliberately not the same input: `Vendor` is NOT aliased to `Website` (unlike Amazon's own parser, whose export calls the storefront "Website" and maps it to vendor).
-`GenericImportService.FormatReference` (`"{website} order {orderId} ({productId})"`, falling back to the title when `ProductId` is blank) is the store-agnostic counterpart to Amazon's ASIN reference and the video game importer's product-name one; its per-line-item dedup precision comes from the order id + product id, so the `Website` label being non-unique is harmless.
+`Vendor` (the store name) and `Website` are two **separate** columns feeding two different owned-copy fields: `Vendor`→the copy's `Vendor` field, `Website`→the copy's `Reference` (a free-text per-item label - product/order URL, seller).
+They are deliberately not the same input: `Vendor` is NOT aliased to `Website` (unlike Amazon's own parser, whose export calls the storefront "Website" and maps it to vendor).
+`GenericImportService.FormatReference` (`"{website} order {orderId} ({productId})"`, falling back to the title when `ProductId` is blank) is the store-agnostic counterpart to Amazon's ASIN reference and the video game importer's
+product-name one; its per-line-item dedup precision comes from the order id + product id, so the `Website` label being non-unique is harmless.
 One deliberate behavioral difference from Amazon: the `Condition` column value is preserved on the created owned copy's `ProductName` ("Product") field rather than dropped as display-only, at the owner's request.
 
-The per-type create/merge orchestration is **not** duplicated between the two multi-type importers: it lives once in `Domain/Services/OwnedItemImportCommitCoordinator.cs`, which both `AmazonImportController.Commit` and `GenericImportController.Commit` call with a flat `List<OwnedItemImportInput>` (a pure-Domain shape carrying the already-computed reference/provenance text) and read back per-type `OwnedItemImportCommitCounts`.
-The coordinator fans the inputs out by `ImportMediaType`, supplies each of the six types' model-construction delegates, and persists the resulting `ComputeCommitPlan` - the six near-identical `if (xItems.Count > 0)` blocks that were inline in the Amazon controller moved here wholesale when the generic importer would otherwise have copied them.
-`ImportMediaType` exists as **two** identically-named enums (`Domain.Models` and `WebApi.Contracts.Dto`, mapped by name, same split as every other DTO/Domain enum pair) - a controller that imports both namespaces (Amazon/Generic do, via the `Contracts.Dto` global using) must alias one to disambiguate, same as `CopyType` already needed.
-Covered by `GenericImportServiceTest` (unit - the real Rakuten header proves every column alias resolves), `GenericImportResourceTest` (integration - mixed-type preview→commit, `Condition`→Product-field, and re-import dedup), and `GenericImportSmokeTest` (Playwright).
+The per-type create/merge orchestration is **not** duplicated between the two multi-type importers: it lives once in `Domain/Services/OwnedItemImportCommitCoordinator.cs`, which both `AmazonImportController.Commit` and
+`GenericImportController.Commit` call with a flat `List<OwnedItemImportInput>` (a pure-Domain shape carrying the already-computed reference/provenance text) and read back per-type `OwnedItemImportCommitCounts`.
+The coordinator fans the inputs out by `ImportMediaType`, supplies each of the six types' model-construction delegates, and persists the resulting `ComputeCommitPlan` - the six near-identical `if (xItems.Count > 0)` blocks that were inline
+in the Amazon controller moved here wholesale when the generic importer would otherwise have copied them.
+`ImportMediaType` exists as **two** identically-named enums (`Domain.Models` and `WebApi.Contracts.Dto`, mapped by name, same split as every other DTO/Domain enum pair) -
+a controller that imports both namespaces (Amazon/Generic do, via the `Contracts.Dto` global using) must alias one to disambiguate, same as `CopyType` already needed.
+Covered by `GenericImportServiceTest` (unit - the real Rakuten header proves every column alias resolves), `GenericImportResourceTest` (integration -
+mixed-type preview→commit, `Condition`→Product-field, and re-import dedup), and `GenericImportSmokeTest` (Playwright).
 
 ### Child entities (1-to-many owned by another entity)
 
@@ -275,7 +283,8 @@ Both controllers are `MemberOnly` (health data is never part of the free preview
 `HealthImportService` (`POST /api/import/health`, `MemberOnly` like all imports - CarHistoryImportController was fixed to match, since imports create data through repositories and would otherwise bypass controller policies)
 is the CarHistoryImportService-style one-off Excel import of the personal "Journal_sante.xlsx": one sheet, every family member mixed in one "Personne" column (profiles created/matched by name, case-insensitive),
 a SECOND "Personne" column meaning the practitioner (so header lookup is position-aware, not a plain name dictionary), and the derived "Reste à charge" formula column deliberately NOT imported - the app recomputes the balance,
-so unsettled historical rows surface with the ⚠ badge for the owner's own review. Shared cell parsing lives in `ExcelCellParser` (extracted from the car importer rather than duplicated).
+so unsettled historical rows surface with the ⚠ badge for the owner's own review.
+Shared cell parsing lives in `ExcelCellParser` (extracted from the car importer rather than duplicated).
 Verified against the real sample file end-to-end (3 profiles, 13 rows, zero warnings), and `HealthImportServiceTest` pins the file's quirks with an in-memory ClosedXML workbook.
 
 `HouseDetail.razor`'s yearly cost chart is a single-series bar chart (total cost per year) plus a plain HTML breakdown table underneath (rows = years, columns = the 6 categories + total), not a 6-color stacked bar chart.
@@ -428,23 +437,35 @@ WebApi validates the bearer token's claims directly and needs no equivalent step
 There's no in-app way to grant the first admin; it's a one-off `setCustomUserClaims` call via the Firebase Admin SDK (see `CONTRIBUTING.md`).
 
 Global admin settings an admin changes at runtime (as opposed to deploy-time config in `appsettings`/env vars) live in one shared `app_setting` collection - a single document (`_id: "global"`), one field per setting.
-`IAppSettingRepository`/`AppSettingRepository` is the purpose-built accessor (like `LeaseRepository`, it doesn't extend the owner-scoped `IDataRepository<TModel>`), writing with a targeted `$set` on just the one field so unrelated settings on the same document are never clobbered.
+`IAppSettingRepository`/`AppSettingRepository` is the purpose-built accessor (like `LeaseRepository`, it doesn't extend the owner-scoped `IDataRepository<TModel>`), writing with a targeted `$set` on just the one field so unrelated settings
+on the same document are never clobbered.
 Reach for this - a new field/accessor here, not a new collection - for any future runtime-changeable global setting; use `AppConfiguration`/env vars only for values that are fine to change at deploy time.
-Its first use is the admin-selectable **primary rating source** (which provider score is denormalized onto a tenant item as the list/sort rating): `RatingSourceCatalog` declares each domain's selectable sources + code default (video games RAWG vs Metacritic, movies/TV TMDB vs IMDb - the two multi-source domains today, default `rawg`/`tmdb`),
-`ReferenceEnrichmentService.GetPrimaryRatingSourceAsync` reads the stored override-or-default, and `ReferenceDataAdminController`'s `rating-sources` GET/PUT plus a `.../recompute` POST (a synchronous bulk `SetReferenceRatingAsync` pass, no provider calls) let an admin switch it and re-propagate to every already-linked item.
-The admin card, endpoints, and recompute loop are all domain-generic (they iterate `RatingSourceCatalog.SelectableDomains`), so a domain gaining a second source only needs a catalog entry plus routing its `PrimaryRating` call sites through `GetPrimaryRatingSourceAsync` - no controller/UI change (this is exactly how movies/TV joined when IMDb landed).
+Its first use is the admin-selectable **primary rating source** (which provider score is denormalized onto a tenant item as the list/sort rating):
+`RatingSourceCatalog` declares each domain's selectable sources + code default (video games RAWG vs Metacritic, movies/TV TMDB vs IMDb - the two multi-source domains today, default `rawg`/`tmdb`),
+`ReferenceEnrichmentService.GetPrimaryRatingSourceAsync` reads the stored override-or-default, and `ReferenceDataAdminController`'s `rating-sources` GET/PUT plus a `.../recompute` POST (a synchronous bulk `SetReferenceRatingAsync` pass, no
+provider calls) let an admin switch it and re-propagate to every already-linked item.
+The admin card, endpoints, and recompute loop are all domain-generic (they iterate `RatingSourceCatalog.SelectableDomains`), so a domain gaining a second source only needs a catalog entry plus routing its `PrimaryRating` call sites through
+`GetPrimaryRatingSourceAsync` - no controller/UI change (this is exactly how movies/TV joined when IMDb landed).
 
-**Movies/TV get their IMDb rating from OMDb** (`IOmdbClient`/`OmdbClient`, `WebApi/ReferenceData/`), keyed by the IMDb id TMDB already exposes - IMDb itself has no public ratings API, so this is the sanctioned path (directly analogous to the book ISBN→Open Library rating fallback: TMDB plays Google Books' role of handing off the cross-provider identifier, OMDb plays Open Library's role of turning it into a rating, stored under its own `imdb` source key on the same 0-10 scale as `tmdb`).
-The IMDb id is native on `/movie/{id}` (`imdb_id`, zero extra calls) but not on `/tv/{id}` - the TV details call appends it via `?append_to_response=external_ids` (still one call, no season fan-out), and it's stored in the reference's `ExternalIds["imdb"]`.
-**OMDb is optional/best-effort**: unlike every other provider's settings, `OmdbSettings.ApiKey` is nullable (not `required`), and `AppConfiguration.OmdbSettings` coalesces a missing `Omdb` section to an empty instance - a deployment with no `Omdb__ApiKey` simply keeps movies/TV on their TMDB rating alone rather than failing resolution/refresh, and the integration/e2e hosts need no OMDb key.
+**Movies/TV get their IMDb rating from OMDb** (`IOmdbClient`/`OmdbClient`, `WebApi/ReferenceData/`), keyed by the IMDb id TMDB already exposes -
+IMDb itself has no public ratings API, so this is the sanctioned path (directly analogous to the book ISBN→Open Library rating fallback:
+TMDB plays Google Books' role of handing off the cross-provider identifier, OMDb plays Open Library's role of turning it into a rating, stored under its own `imdb` source key on the same 0-10 scale as `tmdb`).
+The IMDb id is native on `/movie/{id}` (`imdb_id`, zero extra calls) but not on `/tv/{id}` - the TV details call appends it via `?append_to_response=external_ids` (still one call, no season fan-out), and it's stored in the reference's
+`ExternalIds["imdb"]`.
+**OMDb is optional/best-effort**: unlike every other provider's settings, `OmdbSettings.ApiKey` is nullable (not `required`), and `AppConfiguration.OmdbSettings` coalesces a missing `Omdb` section to an empty instance -
+a deployment with no `Omdb__ApiKey` simply keeps movies/TV on their TMDB rating alone rather than failing resolution/refresh, and the integration/e2e hosts need no OMDb key.
 
-**Gotcha (IMDb backfill bootstrap):** the TMDB `/changes` short-circuit (`LastEnrichedAt is not null && Ratings.Count > 0`) skips the full re-fetch once a `tmdb` rating exists, so a reference enriched before IMDb existed would never backfill an `imdb` one - it has a tmdb rating (so it short-circuits) but no stored imdb id (only a full fetch writes that), a chicken-and-egg the first version hit against a real dev database (only the handful of references that happened to full-fetch got IMDb).
-Fixed by `BackfillImdbRatingAsync` on the no-change path: when the imdb rating is missing it resolves the imdb id cheaply via TMDB's dedicated `/{tv,movie}/{id}/external_ids` endpoint (`ITmdbClient.GetTvShowImdbIdAsync`/`GetMovieImdbIdAsync` - one call, **no** season fan-out, deliberately not the full details re-fetch the short-circuit avoids), stores it, then does the one OMDb call.
+**Gotcha (IMDb backfill bootstrap):** the TMDB `/changes` short-circuit (`LastEnrichedAt is not null && Ratings.Count > 0`) skips the full re-fetch once a `tmdb` rating exists, so a reference enriched before IMDb existed would never
+backfill an `imdb` one - it has a tmdb rating (so it short-circuits) but no stored imdb id (only a full fetch writes that), a chicken-and-egg the first version hit against a real dev database (only the handful of references that happened to
+full-fetch got IMDb).
+Fixed by `BackfillImdbRatingAsync` on the no-change path: when the imdb rating is missing it resolves the imdb id cheaply via TMDB's dedicated `/{tv,movie}/{id}/external_ids` endpoint
+(`ITmdbClient.GetTvShowImdbIdAsync`/`GetMovieImdbIdAsync` - one call, **no** season fan-out, deliberately not the full details re-fetch the short-circuit avoids), stores it, then does the one OMDb call.
 Self-correcting: once the id is stored, later syncs skip the external-ids lookup; a title OMDb genuinely has no rating for just retries one cheap OMDb call per full sync rather than needing a persisted "attempted" marker.
 `VideoGameModel.Platform`/`State`-style "this tenant's own copy" fields are never touched by any of this - only the shared reference document and the denormalized scalar.
 The full design (two homes for a rating, propagation, this admin mechanism, the IMDb phase above, and the pending top-rated phase) is tracked in `docs/reference-ratings-plan.md` until the feature settles.
 
-`ReferenceDataAdminPage.razor`'s per-domain primary-rating-source picker is a `form-select` dropdown (`SourceLabel` maps the lowercase source key to a display name - `rawg`→"RAWG", `imdb`→"IMDb", ...), not a button row - a dropdown is one uniform-width control, whereas per-source buttons render at different widths by text length ("RAWG" vs "Metacritic").
+`ReferenceDataAdminPage.razor`'s per-domain primary-rating-source picker is a `form-select` dropdown (`SourceLabel` maps the lowercase source key to a display name - `rawg`→"RAWG", `imdb`→"IMDb", ...), not a button row - a dropdown is one
+uniform-width control, whereas per-source buttons render at different widths by text length ("RAWG" vs "Metacritic").
 
 The app is meant to be publicly shareable: anyone can sign in (Google/GitHub via Firebase Auth), but a plain account with **no** `role` claim is a *free preview* tier.
 Free tier = movies and TV shows only, capped at `Features:FreeTierItemLimit` creations per collection (default 20, guarded in `AppConfiguration.GetFreeTierItemLimit` so a missing setting can never lock the tier out entirely);
@@ -588,7 +609,8 @@ So the exclusion has to happen at read time here instead of relying on the flag 
 
 **`WantToWatch` is a movie-only concept - TV shows deliberately don't have it.** A TV show reaches Watch Next through `ComputeInProgressShows` (`State == Current` plus a confirmed unseen episode), which never consulted a want-to-watch flag,
 and there is no "shows to watch" section for a not-yet-started show to surface in either.
-The flag briefly existed on `TvShowModel`/entity/DTO (populated by the TV Time import's "for_later" status and a detail-page "Watchlist" toggle) but had no consuming feature, so it was removed across every layer along with the `tvshow_want_to_watch` index -
+The flag briefly existed on `TvShowModel`/entity/DTO (populated by the TV Time import's "for_later" status and a detail-page "Watchlist" toggle) but had no consuming feature, so it was removed across every layer along with the
+`tvshow_want_to_watch` index -
 existing documents are cleaned up by the one-off `scripts/unset-tvshow-want-to-watch.js`.
 Don't reintroduce it as a plain flag; if a "shows I want to start" surface is ever wanted, build it as a real Watch Next section, not a dead flag.
 
@@ -603,26 +625,32 @@ An entirely future season simply doesn't appear in the season picker at all once
 Covered domains are Movie, TvShow and VideoGame; Book/Album are rejected with a 400 (an aggregate rank doesn't drive discovery there, and neither provider offers a best-of listing to read).
 
 **The discovery list comes from the provider, never from the local `*_reference` collections.**
-This was the original implementation's core mistake, since fixed: a reference document only exists because *someone already tracks* that title, so querying locally can only ever re-suggest things the user (or another tenant) has - the opposite of discovery.
+This was the original implementation's core mistake, since fixed: a reference document only exists because *someone already tracks* that title, so querying locally can only ever re-suggest things the user (or another tenant) has -
+the opposite of discovery.
 Each domain reads its own reference provider's best-of listing: TMDB `/{movie,tv}/top_rated` for movies/TV, RAWG `/games?ordering=-{rating|metacritic}` for video games.
 
 **Ordering follows the admin-selected primary rating source** (`RatingSourceCatalog.Resolve`, the same setting and the same resolver the rest of the app ranks by - no Explore-specific setting).
 Video games need no exception: RAWG sorts natively on both of its own sources (`rawg`'s 0-5 score and `metacritic`'s 0-100), and both values are already on every listing entry, so the selected one is picked with zero extra calls.
-Movies/TV under **IMDb** are the one awkward case, and only because IMDb has no catalogue/top-rated API at all (OMDb only turns a known id into a rating): the *list* still comes from TMDB's ranking and OMDb only fills in the displayed number per title.
+Movies/TV under **IMDb** are the one awkward case, and only because IMDb has no catalogue/top-rated API at all (OMDb only turns a known id into a rating):
+the *list* still comes from TMDB's ranking and OMDb only fills in the displayed number per title.
 That page is deliberately **not** re-sorted by the IMDb value - partial OMDb data (rate-limited, or no key configured) would float low/unrated titles to the top.
-The admin toggle `app_setting.explore_use_tmdb` (`IAppSettingRepository.Get/SetExploreUseTmdbAsync`) forces movies/TV back onto TMDB's own vote so discovery skips those per-title lookups entirely; it's read *only* when IMDb actually won the resolve, so it can never leak into the video game domain (whose sources don't include IMDb) - `GetSuggestionsAsync_ForVideoGames_IsUnaffectedByTheForceTmdbExploreFlag` pins that.
+The admin toggle `app_setting.explore_use_tmdb` (`IAppSettingRepository.Get/SetExploreUseTmdbAsync`) forces movies/TV back onto TMDB's own vote so discovery skips those per-title lookups entirely;
+it's read *only* when IMDb actually won the resolve, so it can never leak into the video game domain (whose sources don't include IMDb) - `GetSuggestionsAsync_ForVideoGames_IsUnaffectedByTheForceTmdbExploreFlag` pins that.
 
 **Gotcha: RAWG has no curated top-rated endpoint the way TMDB does, and its `rating` is a plain average with no vote-count filter or sort option.**
 Ordering the whole ~900k-game catalogue by `-rating` would therefore rank an unknown game carrying a single 5-star vote above every classic.
-`RawgClient.GetTopRatedGamesAsync` constrains the pool server-side with `metacritic={MinMetacritic},100` - requiring that the game was reviewed by the professional press at all is the closest available equivalent of the minimum vote count TMDB's own top-rated list already applies, and it costs no extra call.
+`RawgClient.GetTopRatedGamesAsync` constrains the pool server-side with `metacritic={MinMetacritic},100` - requiring that the game was reviewed by the professional press at all is the closest available equivalent of the minimum vote count
+TMDB's own top-rated list already applies, and it costs no extra call.
 `MinMetacritic` is the knob to raise if the list still reads as obscure.
 Don't "fix" this by filtering low-vote entries client-side instead: the paging loop stops on an empty provider page, so a filter that can empty a whole page would silently truncate the results.
 
 **The "already have it" exclusion has two halves, and both are needed.**
 The primary one is by provider id: the owner's linked reference ids (`IExploreSourceRepository.FindLinkedReferenceIdsAsync`) resolved to those reference documents' own `ExternalIds[provider]`.
-The fallback is by normalized title (`FindDistinctTitlesAsync` + `TitleNormalizer`), because automatic resolution deliberately gives up when a title search returns several candidates - so a manually-added or imported item can easily have *no* reference link at all and would otherwise be suggested back forever.
+The fallback is by normalized title (`FindDistinctTitlesAsync` + `TitleNormalizer`), because automatic resolution deliberately gives up when a title search returns several candidates -
+so a manually-added or imported item can easily have *no* reference link at all and would otherwise be suggested back forever.
 Two genuinely different works sharing one title collapse under the fallback, which is an accepted trade (hiding one discovery card beats re-suggesting something the owner owns).
-`IExploreSourceRepository` (`Domain/Repositories/`) declares both projections once; `ExploreExclusionQueries` (`Infrastructure.MongoDb/Repositories/`) implements them once for every domain - each repository contributes only the field expression, the same shape as the `SortTitleField` hook.
+`IExploreSourceRepository` (`Domain/Repositories/`) declares both projections once; `ExploreExclusionQueries` (`Infrastructure.MongoDb/Repositories/`) implements them once for every domain -
+each repository contributes only the field expression, the same shape as the `SortTitleField` hook.
 
 **`explore_dismissal` is keyed on the *provider's* title, not on a reference document.**
 A suggestion is by definition something nobody tracks yet, so there is usually no `reference_id` to point at until it's actually added - `{owner_id, item_type, external_source, external_id}` (unique) is the natural key.
@@ -632,12 +660,15 @@ It's stored rather than inferred from `item_type` because a RAWG id and a TMDB i
 
 **Adding goes through Explore's own endpoint, not the ordinary `POST /api/{collection}` create.**
 `POST /api/explore/{type}/add/{externalId}` creates the item and then calls `Resolve{Movie,TvShow,VideoGame}Async` with the *exact* provider id the suggestion came from.
-The ordinary create's background auto-resolve is a title *search* that only links when there's exactly one candidate, so acclaimed titles with several candidates (common for movies) would be created unlinked - reliably linking is the whole reason this path exists.
+The ordinary create's background auto-resolve is a title *search* that only links when there's exactly one candidate, so acclaimed titles with several candidates (common for movies) would be created unlinked -
+reliably linking is the whole reason this path exists.
 It's awaited, so the card only disappears once the item is genuinely linked.
 The free-tier quota is enforced here exactly as `DataCrudControllerBase.Post` does it (`FreeTierQuota.CheckAsync`).
-The controller carries plain `[Authorize]`, not `MemberOnly`, because movies/TV are the free preview tier; video games are member-gated per request instead (`RequireAccessTo`, a 403), and the Blazor page hides the tab behind `<AuthorizeView Policy="MemberOnly">` and falls back to the Movies tab if a free account lands on `?tab=VideoGames` - hiding is UX, the API is the enforcement.
+The controller carries plain `[Authorize]`, not `MemberOnly`, because movies/TV are the free preview tier; video games are member-gated per request instead (`RequireAccessTo`, a 403), and the Blazor page hides the tab behind `<AuthorizeView
+Policy="MemberOnly">` and falls back to the Movies tab if a free account lands on `?tab=VideoGames` - hiding is UX, the API is the enforcement.
 
-`ExplorePage.razor` keeps the active tab in `?tab=` (back/forward and refresh preserve it), caches one loaded list per tab, and tops a tab back up whenever it drops below the page size after an add/dismiss - appending below the current cards, never reshuffling what's on screen.
+`ExplorePage.razor` keeps the active tab in `?tab=` (back/forward and refresh preserve it), caches one loaded list per tab, and tops a tab back up whenever it drops below the page size after an add/dismiss -
+appending below the current cards, never reshuffling what's on screen.
 Add and dismiss share one `ActAsync` (busy-guard, remove, top-up) so the two handlers never duplicate that logic.
 
 ### Keeping reference data fresh: periodic + on-demand TMDB sync
@@ -770,7 +801,8 @@ The list page's filter buttons are a different control with different semantics 
 The enum type itself keeps its `TvShowStatus` name - only the property that holds it moved to `State`, since `VideoGameModel.State` has no equivalent enum to rename against.
 Unlike the `PosterUrl`→`ImageUrl` rename below, this one needed **no** data migration: `TvShow`'s entity property kept an explicit `[BsonElement("status")]` pointing at the unchanged storage name,
 so existing documents (confirmed directly against the real dev database - `status: 'Finished'` reads back correctly through the renamed `State` property) deserialize with no script required.
-`TvTimeImportService`/`ShowStatusCsvParser`'s `ShowStatusRecord.Status` is a same-named but *entirely unrelated* field - TV Time's own CSV column for favorite/for_later, mapped to `IsFavorite` (the "for_later" value has no counterpart for shows and is not imported), never to this enum -
+`TvTimeImportService`/`ShowStatusCsvParser`'s `ShowStatusRecord.Status` is a same-named but *entirely unrelated* field - TV Time's own CSV column for favorite/for_later, mapped to `IsFavorite` (the "for_later" value has no counterpart for
+shows and is not imported), never to this enum -
 so the import pipeline needed no changes at all for this rename; verified by tracing every consumer before renaming, not just running the test suite.
 `WatchNextService`/`WatchNextController`'s `Status == TvShowStatus.Current` checks were updated to `State == TvShowStatus.Current` and covered by `WatchNextServiceTest`, which still passes.
 
@@ -897,7 +929,8 @@ Open Library's client doesn't populate it (the value lives at the edition level,
 The reference-level `BookReferenceModel.Language`/`BookReferenceDto.Language` and `IBookRepository.SetReferenceLinkAsync`'s `canonicalLanguage` parameter follow the exact same propagation shape `Genre`/`canonicalGenre` already established:
 null (not overwritten) when the provider has none.
 
-`BookModel.Isbn` follows the same shape again, with two differences from Genre/Language. First, it's edited on `BookDetail.razor` only, never the Add form
+`BookModel.Isbn` follows the same shape again, with two differences from Genre/Language.
+First, it's edited on `BookDetail.razor` only, never the Add form
 (`Books.razor`'s add card only carries title/author/year, per this document's own "Adding a new trackable item" convention). Second, it doubles as an optional *search input*:
 `IBookReferenceClient.SearchBooksAsync` takes an `isbn` parameter, but only `GoogleBooksClient` actually uses it (as the sole query, `isbn:{isbn}`, superseding title/author entirely -
 an ISBN is an exact identifier, so combining it with a fuzzy title/author match would only reintroduce the kind of "and" narrowing risk `BnfClient`'s own author fix (above) had to work around).
@@ -908,7 +941,8 @@ there was no push to generalize the parameter name here the way `creator` was, s
 
 **`ReferenceMatchModel`/`ReferenceMatch` gained an `Isbn` field (null for every domain but Book) specifically so a matched alias only ever records the identifier that actually drove that particular match** -
 the canonical alias (the provider's own reported ISBN, from `BookDetails.Isbn`) and the tenant-search alias (whatever ISBN, if any, was actually supplied as search input) are two separate entries, never merged,
-and the search alias's `Isbn` is never backfilled from the provider's own value when no ISBN was actually used to find the match. `MergeMatchedAliases`' shared tuple shape grew a 4th element for this (`(Title, Year, Creator, Isbn)`);
+and the search alias's `Isbn` is never backfilled from the provider's own value when no ISBN was actually used to find the match.
+`MergeMatchedAliases`' shared tuple shape grew a 4th element for this (`(Title, Year, Creator, Isbn)`);
 every non-Book call site across `.TvShowsAndMovies.cs`/`.VideoGames.cs`/`.Albums.cs` passes a literal `null` for it, same as `Creator` already does for the domains with no creator dimension.
 
 ### Blazor app
@@ -1020,25 +1054,33 @@ Two rules follow from that, and both have already been broken in ways that cost 
 `Infrastructure__MongoDB__DatabaseName` selects it (`keeptrack_integrationtests` and `keeptrack_e2e` by convention; see CONTRIBUTING.md).
 The trap is that this is *silent* when unset: the in-process host runs as `Development`, so it falls straight back to `src/WebApi/appsettings.Development.json` - i.e. `keeptrack_dev`, the database the developer actually browses in the app.
 Nothing errors; the suite just creates, mutates and deletes documents in real data.
-It's easy to hit by accident rather than carelessness, because the documented way to run a *filtered* subset (see the `--settings`/`--filter-method` gotcha above) is to export the runsettings' variables into the shell yourself - forget that step and the run lands on `keeptrack_dev`.
+It's easy to hit by accident rather than carelessness, because the documented way to run a *filtered* subset (see the `--settings`/`--filter-method` gotcha above) is to export the runsettings' variables into the shell yourself - forget that
+step and the run lands on `keeptrack_dev`.
 That is exactly how the dev database ended up holding 180 `test-lease-*` documents, 65 `Export Test Actor` person references and stray `E2e Smoke *` items.
-`Testing.Shared/Hosting/TestDatabaseGuard.EnsureExplicitTestDatabase` now fails the run fast instead, called from `WebApi.IntegrationTests`' `KestrelWebAppFactory` constructor (so every fixture inherits it) and from `End2EndFixture` in self-hosted mode.
+`Testing.Shared/Hosting/TestDatabaseGuard.EnsureExplicitTestDatabase` now fails the run fast instead, called from `WebApi.IntegrationTests`' `KestrelWebAppFactory` constructor (so every fixture inherits it) and from `End2EndFixture` in
+self-hosted mode.
 
 **Every test removes what it created, on success and on failure.**
 This isn't tidiness: `scripts/mongodb-create-index.js` enforces natural-key and `external_ids` uniqueness, so yesterday's leftover makes today's run fail with a duplicate-key error.
-Cleanup is registered at the moment of creation rather than written as a per-test `try`/`finally` - a `finally` only covers what was created before the `try` opened, and the common "create two fixtures, then open the try" shape leaked whenever the second create failed.
+Cleanup is registered at the moment of creation rather than written as a per-test `try`/`finally` - a `finally` only covers what was created before the `try` opened, and the common "create two fixtures, then open the try" shape leaked
+whenever the second create failed.
 
-- `DatabaseTestBase` (`test/WebApi.IntegrationTests/Resources/`) holds the registry every integration test inherits: `TrackCleanup(Func<Task>)` for anything (a repository `DeleteAsync`), `TrackDocument(collection, id)` for a raw document, and `TrackDocumentsWhere(collection, filter)` for an owner-scoped singleton with no id the test ever sees (`user_preference`).
-  `ResourceTestBase` extends it with the HTTP-level ones: `CreateAsync` (POST + register, the shape almost every test wants), `TrackResource(endpoint, id)`, and `TrackResourcesMatching<TDto>(endpoint, searchTerm)` for the import endpoints, whose commit creates items the test never learns the ids of.
-- `SmokeTestBase` mirrors it for Playwright: `TrackOpenItem(apiRoute)` reads the id out of the detail page's URL (the only place a UI-driven test can learn it), `CreateItemAsync` seeds through the API, `TrackItemsMatching` covers the import commits, and `TrackCleanup` handles the rest.
+- `DatabaseTestBase` (`test/WebApi.IntegrationTests/Resources/`) holds the registry every integration test inherits: `TrackCleanup(Func<Task>)` for anything (a repository `DeleteAsync`), `TrackDocument(collection, id)` for a raw document,
+  and `TrackDocumentsWhere(collection, filter)` for an owner-scoped singleton with no id the test ever sees (`user_preference`).
+  `ResourceTestBase` extends it with the HTTP-level ones: `CreateAsync` (POST + register, the shape almost every test wants), `TrackResource(endpoint, id)`, and `TrackResourcesMatching<TDto>(endpoint, searchTerm)` for the import endpoints,
+  whose commit creates items the test never learns the ids of.
+- `SmokeTestBase` mirrors it for Playwright: `TrackOpenItem(apiRoute)` reads the id out of the detail page's URL (the only place a UI-driven test can learn it), `CreateItemAsync` seeds through the API, `TrackItemsMatching` covers the import
+  commits, and `TrackCleanup` handles the rest.
 - `DisposeAsync` **drains** the registry rather than iterating a cached count, because `TrackResourcesMatching` can only discover what an import created at cleanup time and then registers each id it found.
 - Cleanups run under `CancellationToken.None`, never `TestContext.Current.CancellationToken` - that token is cancelled exactly when a test times out or the run is interrupted, which is precisely when leftovers are most likely.
 
 **Gotcha, and the reason this class of bug is so persistent: a delete filter that matches nothing looks exactly like a delete that worked.**
-`Builders<TEntity>.Filter.Eq("_id", id)` with a `string` id against a document whose `_id` is an `ObjectId` matches nothing, deletes nothing, and reports success - the tests using it kept passing for months while 65 `Export Test Actor` documents piled up.
+`Builders<TEntity>.Filter.Eq("_id", id)` with a `string` id against a document whose `_id` is an `ObjectId` matches nothing, deletes nothing, and reports success -
+the tests using it kept passing for months while 65 `Export Test Actor` documents piled up.
 The typed `Eq(x => x.Id, id)` form works; the string-field-name form does not.
 `TrackDocument` sidesteps it entirely by filtering over `BsonDocument` and converting the id to an `ObjectId` when it parses (`lease`/`background_job` ids are genuine strings and simply don't, so one helper covers both).
-Never assert cleanup worked by reading the test's exit status - **verify with a document-count diff across the run**, which is what proved the current state: the integration suite returns `keeptrack_integrationtests` to its exact baseline, run after run.
+Never assert cleanup worked by reading the test's exit status - **verify with a document-count diff across the run**, which is what proved the current state:
+the integration suite returns `keeptrack_integrationtests` to its exact baseline, run after run.
 
 **Reference documents created by linking a *real* provider title are deliberately left in place** (TMDB's "The Terminator", the cast rows behind it, a Google Books volume).
 They're shared canonical facts, deduplicated by provider id, so a re-run reuses the same document instead of adding another - they don't accumulate, and deleting them only forces the next run to re-fetch.
@@ -1052,7 +1094,8 @@ Two test classes running in parallel both inserting `tmdb: "1"` is a duplicate-k
   Mapper configuration validation is a compile-time concern now (Mapperly's `RMG012`/`RMG020` diagnostics, escalated to build errors in `.editorconfig`), not a unit test -
   there's no equivalent of the old `AutoMapperConfigurationTest` to run here anymore.
 - `test/WebApi.IntegrationTests`: xunit v3 tests booted against a real Kestrel host (`KestrelWebAppFactory<Program>`) and a real MongoDB instance.
-  `ResourceTestBase` provides typed `GetAsync`/`PostAsync`/`PutAsync`/`DeleteAsync`/`PostFileAsync` helpers, an `Authenticate()` helper that logs in against Firebase to obtain a bearer token, and the cleanup-registration helpers described above.
+  `ResourceTestBase` provides typed `GetAsync`/`PostAsync`/`PutAsync`/`DeleteAsync`/`PostFileAsync` helpers, an `Authenticate()` helper that logs in against Firebase to obtain a bearer token, and the cleanup-registration helpers described
+  above.
   `Authenticate()` also exposes `AuthenticatedUserId`, the same value the API stamps as `OwnerId`, for the cleanups that can only identify a document by its owner.
   It's the `user_id` claim read straight out of the token payload - no signature check, since the API validates the token on every call.
   Resource tests (`BookResourceTest`, `MovieResourceTest`, `TvTimeImportResourceTest`) exercise a full create/read/update/delete (or upsert) cycle against the live API and clean up what they create.
@@ -1068,7 +1111,8 @@ Two test classes running in parallel both inserting `tmdb: "1"` is a duplicate-k
   It signs in exactly once for the whole run (`POST /auth/callback` + saved Playwright storage state, reusing `Testing.Shared`'s `AccountRepository` sign-in cache).
   It also seeds a synthetic book reference via `POST /api/reference-data/import` so "check for reference match" never calls a real provider.
   That seed carries a **fixed** `ReferenceFixtureZipBuilder.ReferenceId` rather than letting the import mint a new one.
-  The import is only idempotent for a document that already has an id (each reference repository's `UpsertAsync` replaces by id), so without it every run inserted another copy - 22 identical "The Playwright Chronicles" documents had accumulated.
+  The import is only idempotent for a document that already has an id (each reference repository's `UpsertAsync` replaces by id), so without it every run inserted another copy -
+  22 identical "The Playwright Chronicles" documents had accumulated.
   The fixture removes it again on dispose, through the hosted `IBookReferenceRepository` rather than HTTP, since no admin endpoint deletes a single reference document and inventing one just to let tests tidy up would be the wrong trade.
   It also deletes the run's ephemeral user's own `user_preference`/`background_job` rows (owner-scoped, no delete endpoint, and nothing else can reach them).
   That's guarded on the user actually being ephemeral, so a run pointed at a real account via `E2E_USERNAME` never wipes that person's saved preferences.

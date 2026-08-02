@@ -62,7 +62,8 @@ Three extraction refactors come first — they remove exactly the duplication **
 4. `IOwnedCopyDto` + `OwnedVersionFields`
 
     - New `src/WebApi.Contracts/Dto/IOwnedCopyDto.cs`:
-      CopyType, Price, AcquiredAt, Vendor, Reference. Implemented by OwnedVersionDto and VideoGamePlatformDto (identical existing members; precedent: IReferenceLinkedDto; no Mapperly impact — mappers map members, not interfaces).
+      CopyType, Price, AcquiredAt, Vendor, Reference.
+      Implemented by OwnedVersionDto and VideoGamePlatformDto (identical existing members; precedent: IReferenceLinkedDto; no Mapperly impact — mappers map members, not interfaces).
     - New `src/BlazorApp/Components/Inventory/Shared/OwnedVersionFields.razor`:
       params required IOwnedCopyDto Copy, optional EventCallback OnChanged (default no-op for Quick Add's nothing-persists-until-Save flow).
       Body = Physical/Digital button pair + the four fields (invariant-culture decimal parsing included), keeping data-testid="version-*-input".
@@ -79,7 +80,9 @@ Three extraction refactors come first — they remove exactly the duplication **
       Movie + TV show always visible; the other six tiles AND their forms inside `<AuthorizeView Policy="MemberOnly" Context="memberContext">` with the preview-account note in `<NotAuthorized>` (hiding is UX; the API enforces).
     - Media forms (per-type markup local to the page, same convention as the list FormTemplates):
       - Movie: Title, Year, "Watched on" (FirstSeenAt, default today for the "just saw it" scenario — visible and clearable, since prefilling marks it Seen), Rating.
-      - TV show: Title, Year. Book: Title, Author, Year, FirstReadAt default today. Album: Title, Artist, Year (Author/Artist feed Open Library/Discogs auto-resolution).
+      - TV show: Title, Year.
+        Book: Title, Author, Year, FirstReadAt default today.
+        Album: Title, Artist, Year (Author/Artist feed Open Library/Discogs auto-resolution).
       - Video game: Title, Year, Platform `<select>` over VideoGames.VideoGamePlatforms; choosing a platform adds a VideoGamePlatformDto draft rendered via `<OwnedVersionFields Copy="...">` — no platform = unowned game.
       - Movie/TvShow/Book/Album: "I own a copy" toggle revealing `<OwnedVersionFields>`; on save if toggled, `dto.OwnedVersions = [_ownedDraft]` (a bare Physical copy is legitimate).
         Single POST carries the copy — no follow-up PUT.
@@ -90,19 +93,21 @@ Three extraction refactors come first — they remove exactly the duplication **
 
 - Parent fetch on type selection via `CarApiClient/HouseApiClient/HealthProfileApiClient.GetAsync("", 1, 100)`, guarded by a per-type loaded flag.
 - 0 parents → empty-state note linking to /cars / /houses / /health to create one; 1 → preselected silently (the common "my car" case);N → segmented button row.
-- Below it: `<CarHistoryForm Entry=... ShowFuel/ShowElectric from the selected car's EnergyType/>`, `<HouseHistoryForm/>`, `<HealthRecordForm/>`. Selecting a parent stamps the Entry's parent id; Save disabled until a parent is selected.
+- Below it: `<CarHistoryForm Entry=... ShowFuel/ShowElectric from the selected car's EnergyType/>`, `<HouseHistoryForm/>`, `<HealthRecordForm/>`.
+  Selecting a parent stamps the Entry's parent id; Save disabled until a parent is selected.
 - SaveRecordAsync → child client AddAsync → navigate /cars/{carId} / /houses/{houseId} / /health/{profileId}.
 
-1. Entry points + CSS
+7. Entry points + CSS
 
 - NavMenu.razor: first item inside `<AuthorizeView><Authorized>` (directly below Home): `<NavLink class="nav-link" href="add"><span class="nav-icon">＋</span> Quick add</NavLink>`.
   Verify ＋ (U+FF0B) has default text presentation per the emoji gotcha; plain ASCII + is the safe fallback.
 - Home.razor: stats variant gets a kt-home-cta "＋ Quick add" primary button above the stat grid; the empty-state variant makes Quick Add the primary CTA, "Go to my movies" secondary.
 - CSS: mostly reuse (.kt-stat-grid/.kt-stat-tile, .kt-form-card, row g-3 with col-6/col-12 mobile splits, segmented buttons).
-  New app.css is minimal: a .kt-quickadd block forcing the picker to 2 columns under 767px and a full-width Save button on mobile. Forms live in .kt-form-card on a page, not a modal.
+  New app.css is minimal: a .kt-quickadd block forcing the picker to 2 columns under 767px and a full-width Save button on mobile.
+  Forms live in .kt-form-card on a page, not a modal.
   No sticky save bar in v1 (forms are short) — note as follow-up.
 
-1. Playwright coverage
+8. Playwright coverage
 
 - Pages/QuickAddPage.cs page object + OpenQuickAddAsync() on Pages/PageBase.cs.
 - QuickAddSmokeTest (E2E gate, cleanup via E2eFixture.ApiHttpClient):

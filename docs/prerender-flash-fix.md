@@ -33,8 +33,10 @@ How it can be fixed
 .NET 10 added exactly the tool for this: the declarative [PersistentState] attribute.
 Mark the loaded state on a detail page with it:
 
+```csharp
 [PersistentState]
 public MovieDto? Movie { get; set; }
+```
 
 Blazor then serializes the prerendered data into the page and restores it when the interactive instance attaches —
 LoadAsync can skip the refetch when the state is already there.
@@ -87,13 +89,15 @@ The mechanics:
 1. `[PersistentState]` serializes the whole WatchNextDto into the prerendered HTML, and the client must send that payload back to the server over SignalR when the interactive circuit takes over the page.
 2. The Blazor hub's default MaximumReceiveMessageSize is 32 KB.
    When the persisted state exceeds it, the server rejects the message and closes the connection — producing exactly your console error (Server returned an error on close:
-   Connection closed with an error), with no auto-reconnect and nothing at Information level in the logs. The real error (InvalidDataException: The maximum message size of 32768B was exceeded) only surfaces with detailed errors enabled.
+   Connection closed with an error), with no auto-reconnect and nothing at Information level in the logs.
+   The real error (InvalidDataException: The maximum message size of 32768B was exceeded) only surfaces with detailed errors enabled.
    In the reported issue, ~100 small objects were enough.
 
 This explains every observation that had me going in circles:
 
 - Why only Watch Next: MoviesToWatch embeds full MovieDtos for every want-to-watch movie —
-  TV Time "towatch" imports land there, so it's likely your largest payload. Your wishlist (ownership) is a smaller curated list that stays under 32 KB.
+  TV Time "towatch" imports land there, so it's likely your largest payload.
+  Your wishlist (ownership) is a smaller curated list that stays under 32 KB.
 - Why the smoke test passes: it seeds 1 show + 1 movie — a few hundred bytes.
 - Why clicking "does nothing" then errors: the circuit dies during the state handoff right after navigation; the tabs you see are dead prerendered HTML, and the click goes nowhere.
 - Why other pages break until reload: the circuit is shared across in-app navigations — once it's dead, everything is dead until a full reload builds a fresh one.

@@ -37,19 +37,19 @@ Metalama `ScreenshotOnFailure` aspect                               | Drop    | 
 
 New projects, following the existing naming and conventions (xunit v3, `Microsoft.Testing.Platform` runner, central package versions):
 
-Path                        | Content
-----------------------------|--------
-`test/Testing.Shared`       | `KestrelWebAppFactory<T>` (moved from `WebApi.IntegrationTests`), `AccountRepository`, `FirebaseConfiguration`; referenced by both integration and e2e projects so no logic is duplicated
-`test/BlazorApp.E2eTests`   | The Playwright suite itself
+Path                      | Content
+--------------------------|--------
+`test/Testing.Shared`     | `KestrelWebAppFactory<T>` (moved from `WebApi.IntegrationTests`), `AccountRepository`, `FirebaseConfiguration`; referenced by both integration and e2e projects so no logic is duplicated
+`test/BlazorApp.E2eTests` | The Playwright suite itself
 
 Inside `test/BlazorApp.E2eTests`:
 
-Folder      | Content
-------------|--------
-`Hosting/`  | `E2eFixture` (xunit v3 `[AssemblyFixture]`): boots both hosts (or targets live URLs), provisions the user, seeds data, exposes `BaseUrl` and an authenticated `ApiClient`
-`Support/`  | `E2eConfiguration` (every env var in one static class), `ReferenceFixtureZipBuilder` (synthetic in-memory reference export, same spirit as `TvTimeFixtureZipBuilder`)
-`Pages/`    | `PageBase`, `ListPage` (one class for all ten list pages), `BookDetailPage`, `LoginPage`, `HomePage`
-`Smoke/`    | `SmokeTestBase` and the test classes
+Folder     | Content
+-----------|--------
+`Hosting/` | `E2eFixture` (xunit v3 `[AssemblyFixture]`): boots both hosts (or targets live URLs), provisions the user, seeds data, exposes `BaseUrl` and an authenticated `ApiClient`
+`Support/` | `E2eConfiguration` (every env var in one static class), `ReferenceFixtureZipBuilder` (synthetic in-memory reference export, same spirit as `TvTimeFixtureZipBuilder`)
+`Pages/`   | `PageBase`, `ListPage` (one class for all ten list pages), `BookDetailPage`, `LoginPage`, `HomePage`
+`Smoke/`   | `SmokeTestBase` and the test classes
 
 `KestrelWebAppFactory<T>` is generalized during extraction: the env-var override name (`KESTREL_WEBAPP_URL` today) and the in-memory config overrides (the `Features:IsReferenceSyncEnabled=false` pair) become constructor parameters.
 `WebApi.IntegrationTests` keeps its current behavior through a thin subclass; the e2e project composes two instances (API, then Blazor with `WebApi:BaseUrl` injected).
@@ -72,18 +72,18 @@ Read-only   | `E2E_READONLY=true` (implies live use) | Nothing hosted           
 
 Harness settings, all read by `E2eConfiguration` with the defaults below:
 
-Variable                    | Default      | Purpose
-----------------------------|--------------|--------
-`E2E_ENABLED`               | `false`      | Master switch; when unset every e2e test self-skips so a plain solution-wide `dotnet test` stays green
-`E2E_TARGET_URL`            | *(empty)*    | Live mode: base URL of an existing BlazorApp; empty means self-host both apps in-process
-`E2E_WEBAPI_URL`            | *(empty)*    | Live mode: base URL of the matching WebApi, required for seeding/cleanup when not read-only
-`E2E_READONLY`              | `false`      | Skips every mutating test, user creation, and seeding
-`E2E_USERNAME`              | *(empty)*    | Existing account email; empty triggers ephemeral admin user creation (integration mode only)
-`E2E_PASSWORD`              | *(empty)*    | Password for `E2E_USERNAME`
-`E2E_HEADLESS`              | `true`       | `false` shows the browser window
-`E2E_SLOWMO_MS`             | `0`          | Milliseconds of delay injected before each Playwright action
-`E2E_BROWSER`               | `chromium`   | `chromium`, `firefox` or `webkit`
-`E2E_TRACE`                 | `on-failure` | `off`, `on` or `on-failure`; traces and failure screenshots land in the test output directory
+Variable         | Default      | Purpose
+-----------------|--------------|--------
+`E2E_ENABLED`    | `false`      | Master switch; when unset every e2e test self-skips so a plain solution-wide `dotnet test` stays green
+`E2E_TARGET_URL` | *(empty)*    | Live mode: base URL of an existing BlazorApp; empty means self-host both apps in-process
+`E2E_WEBAPI_URL` | *(empty)*    | Live mode: base URL of the matching WebApi, required for seeding/cleanup when not read-only
+`E2E_READONLY`   | `false`      | Skips every mutating test, user creation, and seeding
+`E2E_USERNAME`   | *(empty)*    | Existing account email; empty triggers ephemeral admin user creation (integration mode only)
+`E2E_PASSWORD`   | *(empty)*    | Password for `E2E_USERNAME`
+`E2E_HEADLESS`   | `true`       | `false` shows the browser window
+`E2E_SLOWMO_MS`  | `0`          | Milliseconds of delay injected before each Playwright action
+`E2E_BROWSER`    | `chromium`   | `chromium`, `firefox` or `webkit`
+`E2E_TRACE`      | `on-failure` | `off`, `on` or `on-failure`; traces and failure screenshots land in the test output directory
 
 Pass-through application settings (hosted mode reuses exactly the variables the integration tests already document in `CONTRIBUTING.md`):
 
