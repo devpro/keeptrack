@@ -798,7 +798,8 @@ public class ReferenceEnrichmentServiceTest
             LastEnrichedAt = DateTime.UtcNow.AddDays(-5),
             Ratings = new Dictionary<string, ReferenceRatingModel>
             {
-                ["tmdb"] = new() { Value = 7.8, Scale = 10, Count = 1234 }, ["imdb"] = new() { Value = 8.9, Scale = 10, Count = 500_000 }
+                ["tmdb"] = new() { Value = 7.8, Scale = 10, Count = 1234 },
+                ["imdb"] = new() { Value = 8.9, Scale = 10, Count = 500_000 }
             }
         };
         var service = CreateService(tmdbClient);
@@ -1479,7 +1480,8 @@ public class ReferenceEnrichmentServiceTest
         ExternalIds = [],
         Ratings = new Dictionary<string, ReferenceRatingModel>
         {
-            [RatingSourceCatalog.Rawg] = new() { Value = rawg, Scale = 5, Count = 100 }, [RatingSourceCatalog.Metacritic] = new() { Value = metacritic, Scale = 100 }
+            [RatingSourceCatalog.Rawg] = new() { Value = rawg, Scale = 5, Count = 100 },
+            [RatingSourceCatalog.Metacritic] = new() { Value = metacritic, Scale = 100 }
         }
     };
 
