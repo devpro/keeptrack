@@ -84,6 +84,25 @@ Movies/TV are now the second multi-source domain: alongside `tmdb` they carry an
   `OmdbClient` no-ops with no key and treats OMDb's `"N/A"`/`Response:"False"` as "no rating" (never a stored 0).
   Config wiring adds `.AddProviderResilienceHandler()` like every other outbound client.
   The e2e/integration hosts need no OMDb key.
+- **The daily quota is enforced, shared, and fail-safe** - OMDb's free tier is a hard 1000 calls/day, the only provider here with a limit low enough to hit in normal operation.
+  - `OmdbCallBudget` is the single gate: no call site can bypass it, because the reservation lives inside `OmdbClient` rather than in each consumer.
+    The count is a MongoDB document per (provider, UTC day) - `provider_quota`, `_id` = `"omdb:<yyyy-MM-dd>"`, TTL 7 days - reserved via the same atomic filtered upsert (`used < ceiling`, `$inc`, duplicate-key ⇒ refused) that
+    `LeaseRepository` uses for mutual exclusion.
+    A per-process counter would be wrong: the bulk consumers run under the reference-sync lease (one replica), but interactive resolves land on whichever replica served the request, so n replicas would each spend the full allowance.
+    The day is part of the key, so the allowance renews with no reset job and no clock coordination beyond "everyone agrees what UTC day it is".
+  - **Priority, not per-consumer caps.** `Omdb:DailyCallBudget` (1000) with `Omdb:InteractiveReserve` (50): `Interactive` (admin manual linking, Explore "add") may reach the whole allowance;
+    `Background` stops short of the reserve, so a day of heavy backfilling can never make a user-facing action come back unrated.
+    The reference sync and the Explore catalogue backfill run in that order on the same tick and draw from the same counter, which is what replaced Explore's hardcoded `ImdbBackfillBudget = 250` per domain (500/day whatever else was
+    happening) with "spend whatever the sync left".
+  - **Nothing throws.** `OmdbClient` returns `OmdbLookupResult` for every outcome including failure: it reads the body before the status (both of OMDb's 401s carry their explanation in JSON), and catches `HttpRequestException`,
+    `TimeoutRejectedException`, `BrokenCircuitException`, `JsonException`/`NotSupportedException` and a pipeline timeout - enumerated, not a blanket catch, so a genuine bug still surfaces.
+    The caller's own cancellation still propagates.
+    This was a real bug: `GetFromJsonAsync` throws on the 401 an exhausted key answers with, and `AddImdbRatingAsync` is awaited unguarded inside `ResolveTvShowAsync`/`ResolveMovieAsync`, so an over-quota day turned admin linking and
+    Explore "add" into 500s.
+  - **Both 401s stop the day** via `MarkLimitReachedAsync` (shared write, so every replica sees it): `"Request limit reached!"` is the quota, and a rejected key can't be retried into working either.
+    A local per-priority "exhausted on day N" flag then skips the database round trip per skipped call; keying it by day is what makes a stale value harmless.
+  - **`OmdbLookupResult.Attempted` decides what may be recorded.** "OMDb answered and has nothing" is a fact (it's what lets the Explore backfill stop re-asking for 90 days); "we never got to ask" must leave no stamp at all.
+    Conflating the two would write titles off over a limit that had nothing to do with them.
 - **Catalog/resolver:** `RatingSourceCatalog` gains `[Movie] = [tmdb, imdb]` and `[TvShow] = [tmdb, imdb]` (default `tmdb`);
   the `"tmdb"`/`"imdb"` literals live there, and `.TvShowsAndMovies.cs`'s dict-key consts point at them. The movie/TV `PrimaryRating` call sites (resolve/refresh/link) now read `GetPrimaryRatingSourceAsync(Movie/TvShow)` instead of the old
   hardcoded `"tmdb"` const.
@@ -95,7 +114,8 @@ Phase 2 has a tmdb rating (⇒ short-circuits) but no stored imdb id (only a ful
 the first symptom the user reported: "only 1 TV show and 1 movie have an IMDb rating").
 Fixed by `BackfillImdbRatingAsync` on the no-change path: when the imdb rating is missing it resolves the imdb id cheaply via TMDB's dedicated `/{tv,movie}/{id}/external_ids` endpoint
 (`ITmdbClient.GetTvShowImdbIdAsync`/`GetMovieImdbIdAsync` - one call, **no** season fan-out, deliberately not the full details re-fetch the short-circuit avoids), stores it, then does the one OMDb call.
-Self-correcting: once the id is stored, later syncs skip the external-ids lookup; a title OMDb genuinely has no rating for just retries one cheap OMDb call per full sync, no persisted "attempted" marker.
+Self-correcting: once the id is stored, later syncs skip the external-ids lookup; a title OMDb genuinely has no rating for just retries one cheap OMDb call per full sync, no persisted "attempted" marker - bounded now by the shared daily
+budget, and skipped entirely (including the TMDB external-ids lookup, whose answer would be unusable) once that budget is spent.
 Backfilling onto existing data is just a "Sync now" (or waiting for the periodic pass), never a `scripts/*.js`.
 
 ### Book cross-provider rating fallback

@@ -62,6 +62,10 @@ builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.ITmdbClient, Keept
 // OMDb supplies IMDb ratings for movies/TV (keyed by the imdb id TMDB already exposes). Optional: with no
 // Omdb__ApiKey the client no-ops (see OmdbClient), so movies/TV stay on their TMDB rating alone.
 builder.Services.AddSingleton(configuration.OmdbSettings);
+// singleton, and the one gate every OMDb call goes through: the daily count itself lives in MongoDB so all
+// replicas share it, but the "today's allowance is gone" shortcut is per-process state that must outlive a
+// request scope (see OmdbCallBudget). It resolves its own scoped repository per operation.
+builder.Services.AddSingleton<Keeptrack.WebApi.ReferenceData.IOmdbCallBudget, Keeptrack.WebApi.ReferenceData.OmdbCallBudget>();
 builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.IOmdbClient, Keeptrack.WebApi.ReferenceData.OmdbClient>(client =>
 {
     client.BaseAddress = new Uri("https://www.omdbapi.com/");

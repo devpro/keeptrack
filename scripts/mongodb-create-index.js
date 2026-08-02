@@ -178,6 +178,16 @@ ensureIndex(
   { name: "background_job_ttl", expireAfterSeconds: 604800 }
 );
 
+// provider_quota: one tiny document per (rate-limited provider, UTC day), holding the shared daily call
+// count every replica reserves against (OMDb's 1000/day free tier - see OmdbCallBudget). Reads and writes
+// are by _id, so no query index is needed; the TTL only sweeps counters up once their day is well past,
+// keeping a few days of history readable for diagnosing a run that ran out of budget.
+ensureIndex(
+  db.provider_quota,
+  { created_at: 1 },
+  { name: "provider_quota_ttl", expireAfterSeconds: 604800 }
+);
+
 // wishlist_share: one document per issued share link - an owner can hold several at once (one per
 // recipient, individually revocable), so owner_id is deliberately NOT unique. The token lookup is the
 // anonymous shared-view read path and stays unique (a collision is astronomically unlikely with 128

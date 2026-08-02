@@ -39,19 +39,20 @@ public partial class ReferenceEnrichmentService
     /// <summary>
     /// Adds an <c>imdb</c> entry (IMDb's 0-10 aggregate, via OMDb keyed by the IMDb id TMDB exposes) to a
     /// <paramref name="ratings"/> map, returning whether one was added. A no-op (returns false) when there's
-    /// no IMDb id, no OMDb key is configured, or OMDb has no rating for the title - IMDb is best-effort, its
-    /// absence is never an error. The IMDb id itself is stored in the reference's <c>ExternalIds["imdb"]</c>
-    /// so the periodic sync can backfill a missing rating cheaply (one OMDb call, no TMDB re-fetch) - see
-    /// <see cref="RefreshMovieReferenceAsync"/>.
+    /// no IMDb id, no OMDb key is configured, the daily OMDb budget for <paramref name="priority"/> is spent,
+    /// or OMDb has no rating for the title - IMDb is best-effort, its absence is never an error. The IMDb id
+    /// itself is stored in the reference's <c>ExternalIds["imdb"]</c> so the periodic sync can backfill a
+    /// missing rating cheaply (one OMDb call, no TMDB re-fetch) - see <see cref="RefreshMovieReferenceAsync"/>.
     /// </summary>
-    private async Task<bool> AddImdbRatingAsync(Dictionary<string, ReferenceRatingModel> ratings, string? imdbId, CancellationToken cancellationToken = default)
+    private async Task<bool> AddImdbRatingAsync(
+        Dictionary<string, ReferenceRatingModel> ratings, string? imdbId, OmdbCallPriority priority, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(imdbId)) return false;
 
-        var imdb = await omdbClient.GetRatingAsync(imdbId, cancellationToken);
-        if (imdb is null) return false;
+        var lookup = await omdbClient.GetRatingAsync(imdbId, priority, cancellationToken);
+        if (lookup.Rating is null) return false;
 
-        ratings[ImdbRatingSource] = new ReferenceRatingModel { Value = imdb.Value, Scale = 10, Count = imdb.Count };
+        ratings[ImdbRatingSource] = new ReferenceRatingModel { Value = lookup.Rating.Value, Scale = 10, Count = lookup.Rating.Count };
         return true;
     }
 
@@ -63,7 +64,13 @@ public partial class ReferenceEnrichmentService
     /// re-fetch the short-circuit avoids - and stored on <paramref name="externalIds"/> so later syncs skip
     /// that lookup. Returns whether a rating was added. Re-attempting a title OMDb genuinely has no rating for
     /// on each full sync is one cheap OMDb call, deliberately accepted rather than persisting an "attempted"
-    /// marker - it self-corrects the moment OMDb does have a rating.
+    /// marker - it self-corrects the moment OMDb does have a rating, and it can no longer run away with the
+    /// key's daily allowance now that it spends from <see cref="OmdbCallBudget"/> like every other consumer.
+    /// <para>
+    /// The budget check comes first, before the TMDB external-ids lookup: with no OMDb call available, that
+    /// lookup would be a provider call made purely to throw its answer away. It is skipped rather than
+    /// wasted, and the whole backfill retries on the next pass.
+    /// </para>
     /// </summary>
     private async Task<bool> BackfillImdbRatingAsync(
         Dictionary<string, ReferenceRatingModel> ratings,
@@ -72,6 +79,7 @@ public partial class ReferenceEnrichmentService
         CancellationToken cancellationToken)
     {
         if (ratings.ContainsKey(ImdbRatingSource)) return false;
+        if (omdbCallBudget.IsExhausted(OmdbCallPriority.Background)) return false;
 
         var imdbId = externalIds.GetValueOrDefault("imdb");
         if (string.IsNullOrEmpty(imdbId))
@@ -80,7 +88,7 @@ public partial class ReferenceEnrichmentService
             if (!string.IsNullOrEmpty(imdbId)) externalIds["imdb"] = imdbId;
         }
 
-        return await AddImdbRatingAsync(ratings, imdbId, cancellationToken);
+        return await AddImdbRatingAsync(ratings, imdbId, OmdbCallPriority.Background, cancellationToken);
     }
 
     /// <summary>
@@ -297,7 +305,9 @@ public partial class ReferenceEnrichmentService
         if (!string.IsNullOrEmpty(details.ImdbId)) externalIds["imdb"] = details.ImdbId;
 
         var ratings = BuildTmdbRatings(details.VoteAverage, details.VoteCount);
-        await AddImdbRatingAsync(ratings, details.ImdbId);
+        // Interactive: an admin is waiting on this link, or a user just tapped "add" in Explore - these come
+        // out of the slice of the daily budget the scheduled passes are not allowed to touch.
+        await AddImdbRatingAsync(ratings, details.ImdbId, OmdbCallPriority.Interactive);
 
         var model = new TvShowReferenceModel
         {
@@ -355,7 +365,9 @@ public partial class ReferenceEnrichmentService
         if (!string.IsNullOrEmpty(details.ImdbId)) externalIds["imdb"] = details.ImdbId;
 
         var ratings = BuildTmdbRatings(details.VoteAverage, details.VoteCount);
-        await AddImdbRatingAsync(ratings, details.ImdbId);
+        // Interactive: an admin is waiting on this link, or a user just tapped "add" in Explore - these come
+        // out of the slice of the daily budget the scheduled passes are not allowed to touch.
+        await AddImdbRatingAsync(ratings, details.ImdbId, OmdbCallPriority.Interactive);
 
         var model = new MovieReferenceModel
         {
@@ -428,7 +440,7 @@ public partial class ReferenceEnrichmentService
         // store the imdb id even when OMDb has no rating yet, so a later sync can backfill it cheaply
         if (!string.IsNullOrEmpty(details.ImdbId)) reference.ExternalIds["imdb"] = details.ImdbId;
         reference.Ratings = BuildTmdbRatings(details.VoteAverage, details.VoteCount);
-        await AddImdbRatingAsync(reference.Ratings, details.ImdbId, cancellationToken);
+        await AddImdbRatingAsync(reference.Ratings, details.ImdbId, OmdbCallPriority.Background, cancellationToken);
         reference.ImageUrl = details.PosterUrl ?? reference.ImageUrl;
         reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, null, null));
         reference.LastEnrichedAt = DateTime.UtcNow;
@@ -483,7 +495,7 @@ public partial class ReferenceEnrichmentService
         // store the imdb id even when OMDb has no rating yet, so a later sync can backfill it cheaply
         if (!string.IsNullOrEmpty(details.ImdbId)) reference.ExternalIds["imdb"] = details.ImdbId;
         reference.Ratings = BuildTmdbRatings(details.VoteAverage, details.VoteCount);
-        await AddImdbRatingAsync(reference.Ratings, details.ImdbId, cancellationToken);
+        await AddImdbRatingAsync(reference.Ratings, details.ImdbId, OmdbCallPriority.Background, cancellationToken);
         reference.ImageUrl = details.PosterUrl ?? reference.ImageUrl;
         reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, null, null));
         reference.LastEnrichedAt = DateTime.UtcNow;

@@ -25,6 +25,7 @@ public class ExploreCatalogueRefreshService(
     ITmdbClient tmdbClient,
     IRawgClient rawgClient,
     IOmdbClient omdbClient,
+    IOmdbCallBudget omdbCallBudget,
     IAppSettingRepository appSettingRepository,
     IExploreCatalogueRepository catalogueRepository,
     ILogger<ExploreCatalogueRefreshService> logger)
@@ -38,14 +39,18 @@ public class ExploreCatalogueRefreshService(
     public const int CatalogueDepth = 1000;
 
     /// <summary>
-    /// How many entries one pass may attempt an IMDb rating for, per domain. IMDb ratings are the one thing
-    /// the listings don't carry: each costs two calls (TMDB for the imdb id, then OMDb), and OMDb's free tier
-    /// is 1000 a day, so enriching a full <see cref="CatalogueDepth"/> in a single pass is not affordable.
-    /// Values already stored are never re-fetched and attempts are stamped either way, so successive passes
-    /// walk down the ranking instead of re-attempting the top - coverage converges over a few weeks and
-    /// self-corrects when new titles enter the list.
+    /// The most entries one pass will pull into memory to attempt an IMDb rating for, per domain - a query
+    /// bound, not the budget. What a pass may actually spend is whatever the shared daily OMDb allowance has
+    /// left after the reference sync (which runs first on the same tick) has taken its share: see
+    /// <see cref="OmdbCallBudget"/>. This used to be a hardcoded 250 per domain, which had to assume the worst
+    /// about the other consumer and so under-spent a quiet day and over-spent a busy one.
+    /// <para>
+    /// Values already stored are never re-fetched and attempts are stamped whenever OMDb actually answered, so
+    /// successive passes walk down the ranking instead of re-attempting the top - coverage converges over a
+    /// few days and self-corrects when new titles enter the list.
+    /// </para>
     /// </summary>
-    private const int ImdbBackfillBudget = 250;
+    private const int MaxBackfillPerPass = 1000;
 
     /// <summary>
     /// How long before a fruitless rating attempt is worth retrying. Without it, the handful of titles OMDb
@@ -128,13 +133,18 @@ public class ExploreCatalogueRefreshService(
     }
 
     /// <summary>
-    /// Fills in IMDb ratings for the movie/TV entries still missing one, top of the ranking first and bounded
-    /// by <see cref="ImdbBackfillBudget"/>.
+    /// Fills in IMDb ratings for the movie/TV entries still missing one, top of the ranking first, spending
+    /// whatever is left of the day's shared OMDb allowance (see <see cref="OmdbCallBudget"/>).
     /// <para>
     /// Only runs for a domain IMDb actually won: the value is display-only (the ordering stays TMDB's, since
     /// re-ranking by partial OMDb data would float unrated titles to the top), so fetching it for a domain
     /// showing TMDB numbers would buy nothing. The admin's "force TMDB" flag skips it entirely, which is what
     /// that flag has always been for - it just no longer has to be honoured on a per-request basis.
+    /// </para>
+    /// <para>
+    /// The remaining allowance is read once per domain and used to size the query, then each entry's call is
+    /// reserved individually inside the client - the read only decides how much work to pull, it never
+    /// authorizes a call, so another replica spending concurrently can't push this pass over the limit.
     /// </para>
     /// </summary>
     private async Task<int> BackfillImdbRatingsAsync(CancellationToken cancellationToken)
@@ -148,9 +158,16 @@ public class ExploreCatalogueRefreshService(
         {
             if (RatingSourceCatalog.Resolve(overrides, ExploreRankings.ToReferenceItemType(type)) != RatingSourceCatalog.Imdb) continue;
 
+            var affordable = await omdbCallBudget.GetRemainingAsync(OmdbCallPriority.Background, cancellationToken);
+            if (affordable <= 0)
+            {
+                logger.LogInformation("IMDb rating backfill skipped for {ItemType}: no OMDb calls left in today's budget.", type);
+                continue;
+            }
+
             var ranking = ExploreRankings.For(type, RatingSourceCatalog.Imdb);
             var pending = await catalogueRepository.FindMissingRatingAsync(
-                type, ranking, RatingSourceCatalog.Imdb, DateTime.UtcNow - s_ratingReattemptAfter, ImdbBackfillBudget);
+                type, ranking, RatingSourceCatalog.Imdb, DateTime.UtcNow - s_ratingReattemptAfter, Math.Min(MaxBackfillPerPass, affordable));
             var imdbIdFetcher = ImdbIdFetcher(type);
 
             foreach (var entry in pending)
@@ -158,11 +175,25 @@ public class ExploreCatalogueRefreshService(
                 try
                 {
                     var imdbId = await imdbIdFetcher(entry.ExternalId, cancellationToken);
-                    var rating = string.IsNullOrEmpty(imdbId) ? null : await omdbClient.GetRatingAsync(imdbId, cancellationToken);
-                    // the attempt is recorded either way - a title OMDb has nothing for must not be retried
-                    // next pass, or it would hold the budget and coverage would never move down the list.
-                    await catalogueRepository.RecordRatingAttemptAsync(type, ranking, entry.ExternalId, RatingSourceCatalog.Imdb, rating?.Value);
-                    if (rating is not null) backfilled++;
+                    var lookup = string.IsNullOrEmpty(imdbId)
+                        ? OmdbLookupResult.NoRating // TMDB has no imdb id for it at all: a real answer, worth stamping
+                        : await omdbClient.GetRatingAsync(imdbId, OmdbCallPriority.Background, cancellationToken);
+
+                    // only a real answer is stamped. A title OMDb has nothing for must not be retried next
+                    // pass, or it would hold the budget and coverage would never move down the list - but a
+                    // call that never happened (budget spent, request failed) must leave no stamp, or an
+                    // exhausted afternoon would write those titles off for the whole re-attempt window.
+                    if (lookup.Attempted)
+                    {
+                        await catalogueRepository.RecordRatingAttemptAsync(type, ranking, entry.ExternalId, RatingSourceCatalog.Imdb, lookup.Rating?.Value);
+                        if (lookup.Rating is not null) backfilled++;
+                    }
+                    else if (omdbCallBudget.IsExhausted(OmdbCallPriority.Background))
+                    {
+                        // nothing left to spend, so every remaining entry would be a wasted TMDB call
+                        logger.LogInformation("IMDb rating backfill stopped for {ItemType}: today's OMDb budget is spent.", type);
+                        break;
+                    }
                 }
                 catch (Exception exception)
                 {

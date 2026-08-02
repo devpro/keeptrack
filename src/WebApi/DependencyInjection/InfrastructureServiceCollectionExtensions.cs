@@ -62,6 +62,7 @@ internal static class InfrastructureServiceCollectionExtensions
         services.TryAddScoped<Domain.Repositories.IExploreCatalogueRepository, ExploreCatalogueRepository>();
         services.TryAddScoped<Domain.Repositories.IShareRepository, ShareRepository>();
         services.TryAddScoped<Domain.Repositories.ILeaseRepository, LeaseRepository>();
+        services.TryAddScoped<Domain.Repositories.IProviderQuotaRepository, ProviderQuotaRepository>();
         services.TryAddScoped<Domain.Repositories.IAppSettingRepository, AppSettingRepository>();
         services.TryAddScoped<Domain.Repositories.IUserPreferencesRepository, UserPreferencesRepository>();
         services.TryAddScoped<Domain.Repositories.IAlbumRepository, AlbumRepository>();

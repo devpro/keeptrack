@@ -47,6 +47,8 @@ public class ReferenceEnrichmentServiceTest
 
     private readonly FakeOmdbClient _omdbClient = FakeOmdbClient.Empty();
 
+    private readonly FakeOmdbCallBudget _omdbCallBudget = new();
+
     private ReferenceEnrichmentService CreateService(
         FakeTmdbClient tmdbClient,
         FakeBookReferenceClient? bookReferenceClient = null,
@@ -55,6 +57,7 @@ public class ReferenceEnrichmentServiceTest
         FakeBnfClient? bnfClient = null) => new(
         tmdbClient,
         _omdbClient,
+        _omdbCallBudget,
         new BookReferenceClientRegistry([bookReferenceClient ?? FakeBookReferenceClient.Empty(), bnfClient ?? FakeBnfClient.Empty()], DefaultBookProvider),
         _bookRatingByIsbnLookup,
         rawgClient ?? FakeRawgClient.Empty(), discogsClient ?? FakeDiscogsClient.Empty(),
@@ -1893,6 +1896,7 @@ public class ReferenceEnrichmentServiceTest
     private ReferenceEnrichmentService CreateServiceWithStrictClients() => new(
         new Mock<ITmdbClient>(MockBehavior.Strict).Object,
         new Mock<IOmdbClient>(MockBehavior.Strict).Object,
+        _omdbCallBudget,
         new BookReferenceClientRegistry([new Mock<IBookReferenceClient>(MockBehavior.Strict).Object], DefaultBookProvider),
         new Mock<IBookRatingByIsbnLookup>(MockBehavior.Strict).Object,
         new Mock<IRawgClient>(MockBehavior.Strict).Object,

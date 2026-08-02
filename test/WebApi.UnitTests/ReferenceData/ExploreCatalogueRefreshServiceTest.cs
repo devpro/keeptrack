@@ -27,6 +27,7 @@ public class ExploreCatalogueRefreshServiceTest
     private readonly Mock<IOmdbClient> _omdbClient = new();
     private readonly Mock<IAppSettingRepository> _appSettingRepository = new();
     private readonly Mock<IExploreCatalogueRepository> _catalogueRepository = new();
+    private readonly FakeOmdbCallBudget _omdbCallBudget = new();
 
     private readonly List<ExploreCatalogueEntryModel> _upserted = [];
 
@@ -42,7 +43,7 @@ public class ExploreCatalogueRefreshServiceTest
                 It.IsAny<ExploreItemType>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<int>()))
             .ReturnsAsync([]);
         return new(
-            _tmdbClient.Object, _rawgClient.Object, _omdbClient.Object, _appSettingRepository.Object,
+            _tmdbClient.Object, _rawgClient.Object, _omdbClient.Object, _omdbCallBudget, _appSettingRepository.Object,
             _catalogueRepository.Object, NullLogger<ExploreCatalogueRefreshService>.Instance);
     }
 
@@ -216,7 +217,8 @@ public class ExploreCatalogueRefreshServiceTest
             .Setup(r => r.FindMissingRatingAsync(ExploreItemType.Movie, "tmdb", "imdb", It.IsAny<DateTime>(), It.IsAny<int>()))
             .ReturnsAsync([new ExploreCatalogueEntryModel { ItemType = ExploreItemType.Movie, Ranking = "tmdb", ExternalId = "42", Rank = 1, Title = "Movie 42" }]);
         _tmdbClient.Setup(c => c.GetMovieImdbIdAsync("42", It.IsAny<CancellationToken>())).ReturnsAsync("tt42");
-        _omdbClient.Setup(c => c.GetRatingAsync("tt42", It.IsAny<CancellationToken>())).ReturnsAsync(new OmdbRating(8.4, 100));
+        _omdbClient.Setup(c => c.GetRatingAsync("tt42", OmdbCallPriority.Background, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(OmdbLookupResult.Rated(new OmdbRating(8.4, 100)));
 
         var result = await service.RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
 
@@ -257,8 +259,75 @@ public class ExploreCatalogueRefreshServiceTest
         var result = await service.RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
 
         result.ImdbRatingsBackfilled.Should().Be(0);
-        _omdbClient.Verify(c => c.GetRatingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _omdbClient.Verify(c => c.GetRatingAsync(It.IsAny<string>(), It.IsAny<OmdbCallPriority>(), It.IsAny<CancellationToken>()), Times.Never);
         _catalogueRepository.Verify(
             r => r.FindMissingRatingAsync(It.IsAny<ExploreItemType>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<int>()), Times.Never);
     }
+
+    [Fact]
+    public async Task RefreshAsync_SizesTheImdbBackfill_ToWhatIsLeftOfTheDailyOmdbBudget()
+    {
+        var service = CreateService();
+        AllRankingsFresh();
+        SelectImdbFor("Movie");
+        // the reference sync runs first on the same tick and has already taken most of the day's allowance
+        _omdbCallBudget.Remaining = 7;
+
+        await service.RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
+
+        // the pass asks for exactly what it can afford, instead of a hardcoded per-domain guess that had to
+        // assume the worst about the other consumer
+        _catalogueRepository.Verify(
+            r => r.FindMissingRatingAsync(ExploreItemType.Movie, "tmdb", "imdb", It.IsAny<DateTime>(), 7), Times.Once);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_SkipsTheImdbBackfillEntirely_WhenTheDailyOmdbBudgetIsAlreadySpent()
+    {
+        var service = CreateService();
+        AllRankingsFresh();
+        SelectImdbFor("Movie");
+        _omdbCallBudget.Exhausted = true;
+
+        var result = await service.RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
+
+        result.ImdbRatingsBackfilled.Should().Be(0);
+        // not even the query runs: every entry it returned would cost a TMDB call whose answer is unusable
+        _catalogueRepository.Verify(
+            r => r.FindMissingRatingAsync(It.IsAny<ExploreItemType>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<int>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_DoesNotStampAnAttempt_WhenTheBudgetRanOutMidPass()
+    {
+        var service = CreateService();
+        AllRankingsFresh();
+        SelectImdbFor("Movie");
+        _catalogueRepository
+            .Setup(r => r.FindMissingRatingAsync(ExploreItemType.Movie, "tmdb", "imdb", It.IsAny<DateTime>(), It.IsAny<int>()))
+            .ReturnsAsync([
+                new ExploreCatalogueEntryModel { ItemType = ExploreItemType.Movie, Ranking = "tmdb", ExternalId = "42", Rank = 1, Title = "Movie 42" },
+                new ExploreCatalogueEntryModel { ItemType = ExploreItemType.Movie, Ranking = "tmdb", ExternalId = "43", Rank = 2, Title = "Movie 43" }
+            ]);
+        _tmdbClient.Setup(c => c.GetMovieImdbIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync("tt42");
+        // the last call of the day was spent by another replica between sizing the pass and running it
+        _omdbClient
+            .Setup(c => c.GetRatingAsync(It.IsAny<string>(), OmdbCallPriority.Background, It.IsAny<CancellationToken>()))
+            .Callback(() => _omdbCallBudget.Exhausted = true)
+            .ReturnsAsync(OmdbLookupResult.NotAttempted);
+
+        var result = await service.RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
+
+        result.ImdbRatingsBackfilled.Should().Be(0);
+        // stamping here would suppress these titles for the whole 90-day re-attempt window over a limit that
+        // had nothing to do with them - they must simply be picked up again next pass
+        _catalogueRepository.Verify(
+            r => r.RecordRatingAttemptAsync(
+                It.IsAny<ExploreItemType>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<double?>()), Times.Never);
+        // and the pass stops rather than paying a TMDB call for every remaining entry
+        _tmdbClient.Verify(c => c.GetMovieImdbIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    private void SelectImdbFor(string domain) =>
+        _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync()).ReturnsAsync(new Dictionary<string, string> { [domain] = "imdb" });
 }

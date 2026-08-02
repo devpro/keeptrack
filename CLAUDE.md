@@ -319,6 +319,17 @@ Run-once scripts follow that same idempotent style: `dedupe-matched-aliases.js`,
   IMDb ratings come from **OMDb** keyed by the IMDb id TMDB exposes (IMDb has no public ratings API); it's native on `/movie/{id}`, appended via `?append_to_response=external_ids` for TV.
   OMDb is optional/best-effort: `OmdbSettings.ApiKey` is nullable and a missing section coalesces to empty, so a deployment without a key just keeps TMDB ratings.
   Full design in `docs/reference-ratings-plan.md`.
+  - **OMDb's free tier is a hard 1000 calls/day, so every OMDb call goes through `OmdbCallBudget`** - not through a per-consumer constant.
+    The count is one shared MongoDB document per (provider, UTC day) (`provider_quota`, `_id` = `"omdb:2026-08-03"`, TTL 7 days) reserved with the same atomic filtered upsert `LeaseRepository` uses, because an in-process counter would let
+    every replica spend the whole allowance and the interactive path runs on whichever replica served the request.
+    Reservation happens **before** the HTTP call, so an over-count is possible and an under-count is not - the safe direction against a hard limit.
+    `Omdb:DailyCallBudget` (1000) and `Omdb:InteractiveReserve` (50) are the only knobs: `OmdbCallPriority.Interactive` (admin linking, Explore "add") may reach the whole allowance, `Background` (the sync backfill, then the Explore
+    backfill, in that order on the same tick) stops short of the reserve, so a heavy batch day can never make a user's action come back unrated.
+  - **`OmdbClient` never throws for anything OMDb or the network can do** - an unknown id, an unrated title, a spent quota, a timeout, a 5xx and an open circuit all come back as an `OmdbLookupResult`.
+    It used to call `GetFromJsonAsync`, which throws on the **401** an exhausted key answers with, and that surfaced as a 500 from admin manual linking and from Explore "add" - both of which are supposed to treat IMDb as optional.
+    Both of OMDb's 401s (`"Request limit reached!"` and a rejected key) write the day off via `OmdbCallBudget.MarkLimitReachedAsync`, which is what turns a blown quota from hundreds of doomed calls into one, and tells the other replicas.
+  - **`OmdbLookupResult.Attempted` is the load-bearing half of that result.** "OMDb answered and has nothing for this title" may be recorded (it's what stops a backfill re-asking about the same titles);
+    "we never got to ask" - no key, no budget, a failed request - must leave **no** stamp, or one exhausted afternoon writes those titles off for the whole re-attempt window.
   - **Gotcha:** the `/changes` short-circuit (`LastEnrichedAt is not null && Ratings.Count > 0`) means a reference enriched before IMDb existed would never backfill one -
     it has a tmdb rating so it short-circuits, but no stored imdb id because only a full fetch writes that.
     `BackfillImdbRatingAsync` resolves the id cheaply on the no-change path via `/{tv,movie}/{id}/external_ids` (one call, no season fan-out), stores it, then does one OMDb call.
@@ -410,9 +421,11 @@ Movie, TvShow, VideoGame only; Book/Album 400 (no best-of listing to read).
   Movies/TV under **IMDb** are the awkward case (IMDb has no catalogue API): the entries stay in TMDB's order and IMDb only fills in the displayed number, deliberately **not** re-sorted by it -
   partial IMDb coverage would float unrated titles
   to the top.
-  That number is backfilled by the refresh pass (bounded per pass: each costs a TMDB + an OMDb call, against OMDb's 1000/day free tier), so an entry deep in the ranking can legitimately have no IMDb rating yet and shows none - the same
+  That number is backfilled by the refresh pass (each entry costs a TMDB + an OMDb call, spent from the shared `OmdbCallBudget` - the pass sizes its query to whatever the reference sync left of the day's allowance rather than a hardcoded
+  per-domain cap, which had to assume the worst about the other consumer), so an entry deep in the ranking can legitimately have no IMDb rating yet and shows none - the same
   semantics as the old per-request lookup coming back empty.
-  Attempts are stamped whether or not they produce a value; without that, the handful of titles OMDb has nothing for would consume the whole budget every pass and coverage would never advance.
+  Attempts are stamped whenever OMDb actually answered, whether or not it produced a value; without that, the handful of titles OMDb has nothing for would consume the whole budget every pass and coverage would never advance.
+  A call the budget refused is **not** stamped and simply retries next pass.
   `app_setting.explore_use_tmdb` forces movies/TV back onto TMDB's vote and skips the backfill entirely; it's read only when IMDb won the resolve, so it can't leak into the game domain.
 - **Refresh safety, all deliberate:** the pass upserts one `$set` per rating key (never replacing the `ratings` map, or an ordinary refresh would discard the expensively-obtained IMDb value);
   it prunes what it didn't rewrite **only after completing**, so a failed or empty pass leaves last week's ranking serving rather than emptying Explore;
