@@ -30,12 +30,12 @@ see "Decisions locked" below for why it's a code default for now.
 
 ### Primary source per domain (the value denormalized onto the tenant item)
 
-| Domain          | Provider(s) → dict keys                                                                    | Primary (pill + sort)            | Scale |
-|-----------------|--------------------------------------------------------------------------------------------|----------------------------------|-------|
-| Movie / TV show | TMDB `vote_average` → `tmdb`, OMDb `imdbRating` → `imdb`                                   | admin-selectable, default `tmdb` | 10    |
-| Video game      | RAWG `rating` → `rawg`, RAWG `metacritic` → `metacritic`                                   | admin-selectable, default `rawg` | 5     |
-| Album           | Discogs community rating → `discogs`                                                       | `discogs`                        | 5     |
-| Book            | linking provider → its key (`googlebooks`/`openlibrary`), plus OL fallback → `openlibrary` | the single stored entry          | 5     |
+Domain          | Provider(s) → dict keys                                                                    | Primary (pill + sort)            | Scale
+----------------|--------------------------------------------------------------------------------------------|----------------------------------|------
+Movie / TV show | TMDB `vote_average` → `tmdb`, OMDb `imdbRating` → `imdb`                                   | admin-selectable, default `tmdb` | 10
+Video game      | RAWG `rating` → `rawg`, RAWG `metacritic` → `metacritic`                                   | admin-selectable, default `rawg` | 5
+Album           | Discogs community rating → `discogs`                                                       | `discogs`                        | 5
+Book            | linking provider → its key (`googlebooks`/`openlibrary`), plus OL fallback → `openlibrary` | the single stored entry          | 5
 
 ### Propagation and freshness
 

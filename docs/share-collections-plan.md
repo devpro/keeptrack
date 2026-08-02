@@ -10,6 +10,7 @@ The owner wants to share **whole categories** of their data with **specific fami
 - **Personal / sensitive** (cars, houses, health): read-only view, **no copy**, and health is the strictest case.
 
 Two decisions already confirmed with the owner:
+
 1. **Granularity = by whole category** (no per-item picker).
 2. **Recipient = by account email** (a directed grant, not a capability link — nothing sensitive rides in a URL).
 
@@ -21,7 +22,7 @@ The enabling fact: the repository layer already takes `ownerId` as a **plain par
 
 **The grant** — a new `share` collection, one document per (owner → recipient) grant:
 
-```
+```txt
 ShareModel : IHasId
   Id
   OwnerId               // sharer (the creating user's user_id)
@@ -42,6 +43,7 @@ The established precedent is `SharedWishlistPage.razor`: a *separate*, lean, rea
 We follow that precedent. (Unlike SharedWishlist, these pages are **authenticated**, so their API client uses the normal `AuthenticationTokenHandler` registration.)
 
 **Read path (server).** A `SharedWithMeController` (`[Authorize]`, any authenticated user — recipients may be free-tier) that, for every read:
+
 1. loads the grant by id, **verifies `RecipientEmail == caller email`** (server-side, never trust the id alone),
 2. verifies the requested category is in `IncludedCategories`,
 3. reads via the existing repository with `share.OwnerId` as the scope, maps with the existing DTO mapper, and hydrates cover images exactly like `WishlistController.BuildWishlistAsync` does (`ReferenceImageHydrator.HydrateAsync`).
@@ -72,6 +74,7 @@ The per-type "strip to identity" factory lives in a Domain service (`SharedItemC
 ## Detailed changes
 
 ### Domain (`src/Domain`)
+
 - `Models/ShareModel.cs`, `Models/ShareCategory.cs` (enum), `Repositories/IShareRepository.cs`
   (`FindAllByOwnerIdAsync(ownerId)`, `FindAllByRecipientEmailAsync(email)`, `FindByIdAsync(id)`,
   `CreateAsync`, `DeleteAsync(id, ownerId)` — model on `WishlistShareRepository`).
@@ -81,6 +84,7 @@ The per-type "strip to identity" factory lives in a Domain service (`SharedItemC
   unit-tested — same shape as `WatchNextService`.
 
 ### Infrastructure (`src/Infrastructure.MongoDb`)
+
 - `Entities/Share.cs` (`[BsonElement]` snake_case, model on `WishlistShare.cs`),
   `Repositories/ShareRepository.cs`, `Mappers/ShareStorageMapper.cs`
   (`IStorageMapper<ShareModel, Share>`).
@@ -88,6 +92,7 @@ The per-type "strip to identity" factory lives in a Domain service (`SharedItemC
   Domain), with `EnumRepresentationConvention` already registered.
 
 ### WebApi (`src/WebApi`)
+
 - Register repo + mapper in `DependencyInjection/InfrastructureServiceCollectionExtensions.cs`
   (`AddSingleton<ShareStorageMapper>()`, `TryAddScoped<IShareRepository, ShareRepository>()`).
 - `Controllers/ControllerBaseExtensions.cs`: add `GetEmail()` (reads the `"email"` claim; throws
@@ -105,12 +110,14 @@ The per-type "strip to identity" factory lives in a Domain service (`SharedItemC
   summary (model on the `WatchNext`/`Wishlist` one-directional mappers).
 
 ### Contracts (`src/WebApi.Contracts`)
+
 - `Dto/ShareDto.cs`, `CreateShareRequestDto` (RecipientEmail + IncludedCategories + optional Label),
   `SharedCollectionSummaryDto` (owner display name, label, categories, share id), and a **duplicate**
   `ShareCategory` enum here (Contracts can't reference Domain — same split as every other DTO/Domain enum,
   member names identical, mapped `ByName`).
 
 ### Blazor (`src/BlazorApp`)
+
 - Clients in a new `Components/Sharing/` folder: `ShareApiClient` (owner grants) and `SharedWithMeApiClient`
   (recipient reads + copy), both registered in `DependencyInjection/InfrastructureServiceCollectionExtensions.cs`
   **with** auth (default `AddHttpClient<>` there already attaches the token handler — unlike `SharedWishlist`).
@@ -127,9 +134,11 @@ The per-type "strip to identity" factory lives in a Domain service (`SharedItemC
   read-only sub-components (history rows, records table, `SvgChartHelpers` charts).
 
 ### Scripts
+
 - `scripts/mongodb-create-index.js`: add the two `share` indexes next to the `wishlist_share` block.
 
 ### Tests (per the quality bar — a test at each layer)
+
 - Unit: `ShareCategoryClassifierTest`, `SharedItemCopyServiceTest` (identity-only copy drops owned/rating/notes,
   keeps ReferenceId).
 - Integration (`KestrelWebAppFactory`, model on `WishlistShareResourceTest`): `ShareResourceTest` — owner
@@ -143,6 +152,7 @@ The per-type "strip to identity" factory lives in a Domain service (`SharedItemC
   `GetByLabel` can't resolve, per the existing convention.
 
 ## Security & edge cases
+
 - Recipient match is **server-side by email on every read/copy** — the share id alone never grants access.
 - Emails normalized lowercase on both store and match.
   A recipient whose provider yields **no `email` claim**
@@ -153,6 +163,7 @@ The per-type "strip to identity" factory lives in a Domain service (`SharedItemC
 - Revoking = delete one owner-scoped document; the recipient's next read returns nothing.
 
 ## Verification
+
 - `dotnet build` then `dotnet test` (unit + integration; integration needs local MongoDB + Firebase test creds
   per CONTRIBUTING.md).
 - Manual: run WebApi + BlazorApp, sign in, create a grant to a second account's email, sign in as that account,
@@ -165,6 +176,7 @@ The per-type "strip to identity" factory lives in a Domain service (`SharedItemC
 The owner reviewed the first cut and it was reworked (see `.claude/plans/vectorized-bubbling-shore.md` for the
 detailed revision plan).
 Done and building clean:
+
 - **Members-only**: both `ShareController` + `SharedWithMeController` are `[Authorize(Policy="MemberOnly")]`
   (free tier can't share or view shared content); `FreeTierTest` guards this.
 - **Under the profile, not the nav**: sharing lives at `/account/manage/sharing`,
@@ -254,5 +266,6 @@ That is a genuinely third shape: media is a copyable list, personal is a view-on
   The `ShareCategory` enum + classifier already include `Cars`/`Houses`/`Health`; the owner UI currently offers media categories only.
 
 ### Note for the runner
+
 `dotnet test` reported "zero tests ran" in this environment; run the built MTP exe directly instead, e.g. `test/WebApi.UnitTests/bin/Debug/net10.0/Keeptrack.WebApi.UnitTests.exe --filter-query "/*/*/ShareResourceTest/*"`.
 Integration tests need `FIREBASE_APIKEY`/`FIREBASE_USERNAME`/`FIREBASE_PASSWORD` env vars (from `Local.runsettings`) and a local MongoDB.

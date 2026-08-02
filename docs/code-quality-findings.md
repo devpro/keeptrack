@@ -9,16 +9,16 @@ Update this file as items are fixed or as new reviews are performed.
 1. S8970 — null-forgiving operator (60 of 67 issues, MINOR)
 
     Verdict: false positive, don't touch the code.
-    
+
     This rule fires when Sonar's engine believes nullable warnings are disabled at that point, making ! a no-op.
-    But BlazorApp.csproj has <Nullable>enable</Nullable> project-wide, and every flagged ! (e.g. `context.User.Identity!.Name!` in Manage.razor:8, `(bool)e.Value!` in several @onchange handlers) is a genuine, meaningful suppression against
-    a real nullable-annotated API (ClaimsPrincipal.Identity, ChangeEventArgs.Value).
-    
+    But BlazorApp.csproj has `<Nullable>enable</Nullable>` project-wide, and every flagged ! (e.g. `context.User.Identity!.Name!` in Manage.razor:8, `(bool)e.Value!` in several @onchange handlers) is a genuine, meaningful suppression
+    against a real nullable-annotated API (ClaimsPrincipal.Identity, ChangeEventArgs.Value).
+
     This is a known SonarC# limitation with Razor-generated code: the source generator's nullable-context pragmas don't map cleanly back onto markup-embedded lambdas/expressions,
     so Sonar loses track of the enclosing #nullable enable region.
-    
+
     Removing these ! would just reintroduce real CS8600/CS8602 build warnings.
-    
+
     Recommendation: bulk-resolve rule S8970 as "False Positive" in the SonarCloud UI rather than editing 60 call sites.
 
 ## Fixed

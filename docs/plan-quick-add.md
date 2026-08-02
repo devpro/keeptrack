@@ -91,30 +91,30 @@ Three extraction refactors come first — they remove exactly the duplication **
 
 6. Quick Add page — record types
 
-- Parent fetch on type selection via `CarApiClient/HouseApiClient/HealthProfileApiClient.GetAsync("", 1, 100)`, guarded by a per-type loaded flag.
-- 0 parents → empty-state note linking to /cars / /houses / /health to create one; 1 → preselected silently (the common "my car" case);N → segmented button row.
-- Below it: `<CarHistoryForm Entry=... ShowFuel/ShowElectric from the selected car's EnergyType/>`, `<HouseHistoryForm/>`, `<HealthRecordForm/>`.
-  Selecting a parent stamps the Entry's parent id; Save disabled until a parent is selected.
-- SaveRecordAsync → child client AddAsync → navigate /cars/{carId} / /houses/{houseId} / /health/{profileId}.
+    - Parent fetch on type selection via `CarApiClient/HouseApiClient/HealthProfileApiClient.GetAsync("", 1, 100)`, guarded by a per-type loaded flag.
+    - 0 parents → empty-state note linking to /cars / /houses / /health to create one; 1 → preselected silently (the common "my car" case);N → segmented button row.
+    - Below it: `<CarHistoryForm Entry=... ShowFuel/ShowElectric from the selected car's EnergyType/>`, `<HouseHistoryForm/>`, `<HealthRecordForm/>`.
+      Selecting a parent stamps the Entry's parent id; Save disabled until a parent is selected.
+    - SaveRecordAsync → child client AddAsync → navigate /cars/{carId} / /houses/{houseId} / /health/{profileId}.
 
 7. Entry points + CSS
 
-- NavMenu.razor: first item inside `<AuthorizeView><Authorized>` (directly below Home): `<NavLink class="nav-link" href="add"><span class="nav-icon">＋</span> Quick add</NavLink>`.
-  Verify ＋ (U+FF0B) has default text presentation per the emoji gotcha; plain ASCII + is the safe fallback.
-- Home.razor: stats variant gets a kt-home-cta "＋ Quick add" primary button above the stat grid; the empty-state variant makes Quick Add the primary CTA, "Go to my movies" secondary.
-- CSS: mostly reuse (.kt-stat-grid/.kt-stat-tile, .kt-form-card, row g-3 with col-6/col-12 mobile splits, segmented buttons).
-  New app.css is minimal: a .kt-quickadd block forcing the picker to 2 columns under 767px and a full-width Save button on mobile.
-  Forms live in .kt-form-card on a page, not a modal.
-  No sticky save bar in v1 (forms are short) — note as follow-up.
+    - NavMenu.razor: first item inside `<AuthorizeView><Authorized>` (directly below Home): `<NavLink class="nav-link" href="add"><span class="nav-icon">＋</span> Quick add</NavLink>`.
+      Verify ＋ (U+FF0B) has default text presentation per the emoji gotcha; plain ASCII + is the safe fallback.
+    - Home.razor: stats variant gets a kt-home-cta "＋ Quick add" primary button above the stat grid; the empty-state variant makes Quick Add the primary CTA, "Go to my movies" secondary.
+    - CSS: mostly reuse (.kt-stat-grid/.kt-stat-tile, .kt-form-card, row g-3 with col-6/col-12 mobile splits, segmented buttons).
+      New app.css is minimal: a .kt-quickadd block forcing the picker to 2 columns under 767px and a full-width Save button on mobile.
+      Forms live in .kt-form-card on a page, not a modal.
+      No sticky save bar in v1 (forms are short) — note as follow-up.
 
 8. Playwright coverage
 
-- Pages/QuickAddPage.cs page object + OpenQuickAddAsync() on Pages/PageBase.cs.
-- QuickAddSmokeTest (E2E gate, cleanup via E2eFixture.ApiHttpClient):
-  a. Movie with owned copy — GUID-suffixed title, toggle copy + price, Save, assert landing on /movies/{id} with the copy in the Ownership section.
-  b. Car refuel — seed a car via API, single car auto-preselected, mileage/fuel/cost, Save, assert landing on /cars/{id} with the refuel row.
-- MobileScreenshotTest: add /add (picker) and /add?type=movie (form) to the 390×844 capture list — the mobile-first acceptance check.
-- Regression safety for the extractions: the existing Car/House/Health/Ownership/VideoGamePlatform smoke tests already cover the refactored surfaces — run them after each extraction step.
+    - Pages/QuickAddPage.cs page object + OpenQuickAddAsync() on Pages/PageBase.cs.
+    - QuickAddSmokeTest (E2E gate, cleanup via E2eFixture.ApiHttpClient):
+      a. Movie with owned copy — GUID-suffixed title, toggle copy + price, Save, assert landing on /movies/{id} with the copy in the Ownership section.
+      b. Car refuel — seed a car via API, single car auto-preselected, mileage/fuel/cost, Save, assert landing on /cars/{id} with the refuel row.
+    - MobileScreenshotTest: add /add (picker) and /add?type=movie (form) to the 390×844 capture list — the mobile-first acceptance check.
+    - Regression safety for the extractions: the existing Car/House/Health/Ownership/VideoGamePlatform smoke tests already cover the refactored surfaces — run them after each extraction step.
 
 ## Gotchas to respect
 
