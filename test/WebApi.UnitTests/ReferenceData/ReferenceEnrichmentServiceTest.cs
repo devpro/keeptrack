@@ -92,7 +92,11 @@ public class ReferenceEnrichmentServiceTest
         tmdbClient.TvShowDetails["42"] = new TmdbTvShowDetails("42", "Some Show", 2020, "Synopsis", [], [], null);
         _tvShowReferenceRepository
             .Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>()))
-            .ReturnsAsync((TvShowReferenceModel m) => { m.Id ??= "generated-id"; return m; });
+            .ReturnsAsync((TvShowReferenceModel m) =>
+            {
+                m.Id ??= "generated-id";
+                return m;
+            });
         var service = CreateService(tmdbClient);
 
         await service.TryAutoResolveTvShowAsync("Some Show", 2020);
@@ -108,7 +112,11 @@ public class ReferenceEnrichmentServiceTest
         tmdbClient.TvShowDetails["42"] = new TmdbTvShowDetails("42", "Some Show", 2020, "Synopsis", [], [], null);
         _tvShowReferenceRepository
             .Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>()))
-            .ReturnsAsync((TvShowReferenceModel m) => { m.Id = "reference-1"; return m; });
+            .ReturnsAsync((TvShowReferenceModel m) =>
+            {
+                m.Id = "reference-1";
+                return m;
+            });
         var service = CreateService(tmdbClient);
 
         var result = await service.ResolveTvShowAsync("Some Show", 2020, "42");
@@ -152,15 +160,18 @@ public class ReferenceEnrichmentServiceTest
         tmdbClient.TvShowDetails["42"] = new TmdbTvShowDetails("42", "The Wire", 2002, "Synopsis", [], [], null);
         _tvShowReferenceRepository
             .Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>()))
-            .ReturnsAsync((TvShowReferenceModel m) => { m.Id ??= "reference-1"; return m; });
+            .ReturnsAsync((TvShowReferenceModel m) =>
+            {
+                m.Id ??= "reference-1";
+                return m;
+            });
         var service = CreateService(tmdbClient);
 
         // the tenant searched with a different-language title than TMDB's canonical English one
         await service.ResolveTvShowAsync("Le Fil", 2002, "42");
 
-        _tvShowReferenceRepository.Verify(r => r.UpsertAsync(It.Is<TvShowReferenceModel>(
-            m => m.MatchedAliases.Any(a => a.Title == "the wire" && a.Year == 2002)
-                 && m.MatchedAliases.Any(a => a.Title == "le fil" && a.Year == 2002))), Times.Once);
+        _tvShowReferenceRepository.Verify(r => r.UpsertAsync(It.Is<TvShowReferenceModel>(m => m.MatchedAliases.Any(a => a.Title == "the wire" && a.Year == 2002)
+                                                                                              && m.MatchedAliases.Any(a => a.Title == "le fil" && a.Year == 2002))), Times.Once);
     }
 
     [Fact]
@@ -184,10 +195,9 @@ public class ReferenceEnrichmentServiceTest
         await service.ResolveTvShowAsync("Le Fil", 2002, "42");
 
         // an alias contributed by a third tenant earlier (il filo) must survive a later re-resolution
-        _tvShowReferenceRepository.Verify(r => r.UpsertAsync(It.Is<TvShowReferenceModel>(
-            m => m.MatchedAliases.Any(a => a.Title == "the wire" && a.Year == 2002)
-                 && m.MatchedAliases.Any(a => a.Title == "il filo" && a.Year == 2001)
-                 && m.MatchedAliases.Any(a => a.Title == "le fil" && a.Year == 2002))), Times.Once);
+        _tvShowReferenceRepository.Verify(r => r.UpsertAsync(It.Is<TvShowReferenceModel>(m => m.MatchedAliases.Any(a => a.Title == "the wire" && a.Year == 2002)
+                                                                                              && m.MatchedAliases.Any(a => a.Title == "il filo" && a.Year == 2001)
+                                                                                              && m.MatchedAliases.Any(a => a.Title == "le fil" && a.Year == 2002))), Times.Once);
     }
 
     [Fact]
@@ -199,7 +209,11 @@ public class ReferenceEnrichmentServiceTest
 
         _tvShowReferenceRepository
             .Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>()))
-            .ReturnsAsync((TvShowReferenceModel m) => { m.Id ??= "reference-1"; return m; });
+            .ReturnsAsync((TvShowReferenceModel m) =>
+            {
+                m.Id ??= "reference-1";
+                return m;
+            });
         _personReferenceRepository
             .Setup(r => r.FindByExternalIdAsync("tmdb", "99"))
             .ReturnsAsync(new PersonReferenceModel { Id = "person-1", Name = "Actor Name", ExternalIds = new Dictionary<string, string> { ["tmdb"] = "99" } });
@@ -220,7 +234,14 @@ public class ReferenceEnrichmentServiceTest
     public async Task TryLinkExistingTvShowReferenceAsync_RelinksToTheNewMatch_WhenTitleWasEditedAwayFromTheCurrentLink()
     {
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
-        var model = new TvShowModel { Id = "show-1", OwnerId = "owner", Title = "A Different Show", Year = 2021, ReferenceId = "old-reference" };
+        var model = new TvShowModel
+        {
+            Id = "show-1",
+            OwnerId = "owner",
+            Title = "A Different Show",
+            Year = 2021,
+            ReferenceId = "old-reference"
+        };
         _tvShowReferenceRepository
             .Setup(r => r.FindByTitleYearAsync("A Different Show", 2021))
             .ReturnsAsync(new TvShowReferenceModel { Id = "new-reference", Title = "A Different Show", TitleNormalized = "a different show", ExternalIds = [] });
@@ -235,7 +256,14 @@ public class ReferenceEnrichmentServiceTest
     public async Task TryLinkExistingTvShowReferenceAsync_Unlinks_WhenAlreadyLinkedButNoMatchFoundForTheCurrentTitle()
     {
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
-        var model = new TvShowModel { Id = "show-1", OwnerId = "owner", Title = "Some Show", Year = 2020, ReferenceId = "old-reference" };
+        var model = new TvShowModel
+        {
+            Id = "show-1",
+            OwnerId = "owner",
+            Title = "Some Show",
+            Year = 2020,
+            ReferenceId = "old-reference"
+        };
         _tvShowReferenceRepository.Setup(r => r.FindByTitleYearAsync("Some Show", 2020)).ReturnsAsync((TvShowReferenceModel?)null);
         _tvShowReferenceRepository.Setup(r => r.FindByTitleAsync("Some Show")).ReturnsAsync((TvShowReferenceModel?)null);
 
@@ -254,11 +282,25 @@ public class ReferenceEnrichmentServiceTest
         // any linked show with no recorded year would unlink itself on every refresh, since the title+year
         // query can never succeed with a null year against a reference that has a real one.
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
-        var model = new TvShowModel { Id = "show-1", OwnerId = "owner", Title = "Some Show", Year = null, ReferenceId = "reference-1" };
+        var model = new TvShowModel
+        {
+            Id = "show-1",
+            OwnerId = "owner",
+            Title = "Some Show",
+            Year = null,
+            ReferenceId = "reference-1"
+        };
         _tvShowReferenceRepository.Setup(r => r.FindByTitleYearAsync("Some Show", null)).ReturnsAsync((TvShowReferenceModel?)null);
         _tvShowReferenceRepository
             .Setup(r => r.FindByTitleAsync("Some Show"))
-            .ReturnsAsync(new TvShowReferenceModel { Id = "reference-1", Title = "Some Show", TitleNormalized = "some show", Year = 2020, ExternalIds = [] });
+            .ReturnsAsync(new TvShowReferenceModel
+            {
+                Id = "reference-1",
+                Title = "Some Show",
+                TitleNormalized = "some show",
+                Year = 2020,
+                ExternalIds = []
+            });
 
         var result = await service.TryLinkExistingTvShowReferenceAsync(model);
 
@@ -291,7 +333,14 @@ public class ReferenceEnrichmentServiceTest
         var model = new TvShowModel { Id = "show-1", OwnerId = "owner", Title = "Some Show", Year = 2019 };
         _tvShowReferenceRepository
             .Setup(r => r.FindByTitleYearAsync("Some Show", 2019))
-            .ReturnsAsync(new TvShowReferenceModel { Id = "reference-1", Title = "Some Show", TitleNormalized = "some show", Year = 2020, ExternalIds = [] });
+            .ReturnsAsync(new TvShowReferenceModel
+            {
+                Id = "reference-1",
+                Title = "Some Show",
+                TitleNormalized = "some show",
+                Year = 2020,
+                ExternalIds = []
+            });
 
         var result = await service.TryLinkExistingTvShowReferenceAsync(model);
 
@@ -312,7 +361,14 @@ public class ReferenceEnrichmentServiceTest
         _tvShowReferenceRepository.Setup(r => r.FindByTitleYearAsync("Road House", 1990)).ReturnsAsync((TvShowReferenceModel?)null);
         _tvShowReferenceRepository
             .Setup(r => r.FindByTitleAsync("Road House"))
-            .ReturnsAsync(new TvShowReferenceModel { Id = "reference-2024", Title = "Road House", TitleNormalized = "road house", Year = 2024, ExternalIds = [] });
+            .ReturnsAsync(new TvShowReferenceModel
+            {
+                Id = "reference-2024",
+                Title = "Road House",
+                TitleNormalized = "road house",
+                Year = 2024,
+                ExternalIds = []
+            });
 
         var result = await service.TryLinkExistingTvShowReferenceAsync(model);
 
@@ -360,7 +416,14 @@ public class ReferenceEnrichmentServiceTest
         var model = new MovieModel { Id = "movie-1", OwnerId = "owner", Title = "Some Movie", Year = 2019 };
         _movieReferenceRepository
             .Setup(r => r.FindByTitleYearAsync("Some Movie", 2019))
-            .ReturnsAsync(new MovieReferenceModel { Id = "reference-1", Title = "Some Movie", TitleNormalized = "some movie", Year = 2020, ExternalIds = [] });
+            .ReturnsAsync(new MovieReferenceModel
+            {
+                Id = "reference-1",
+                Title = "Some Movie",
+                TitleNormalized = "some movie",
+                Year = 2020,
+                ExternalIds = []
+            });
 
         var result = await service.TryLinkExistingMovieReferenceAsync(model);
 
@@ -373,7 +436,14 @@ public class ReferenceEnrichmentServiceTest
     public async Task TryLinkExistingMovieReferenceAsync_Unlinks_WhenAlreadyLinkedButNoMatchFoundForTheCurrentTitle()
     {
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
-        var model = new MovieModel { Id = "movie-1", OwnerId = "owner", Title = "Some Movie", Year = 2020, ReferenceId = "old-reference" };
+        var model = new MovieModel
+        {
+            Id = "movie-1",
+            OwnerId = "owner",
+            Title = "Some Movie",
+            Year = 2020,
+            ReferenceId = "old-reference"
+        };
         _movieReferenceRepository.Setup(r => r.FindByTitleYearAsync("Some Movie", 2020)).ReturnsAsync((MovieReferenceModel?)null);
         _movieReferenceRepository.Setup(r => r.FindByTitleAsync("Some Movie")).ReturnsAsync((MovieReferenceModel?)null);
 
@@ -392,7 +462,14 @@ public class ReferenceEnrichmentServiceTest
         _movieReferenceRepository.Setup(r => r.FindByTitleYearAsync("Road House", 1990)).ReturnsAsync((MovieReferenceModel?)null);
         _movieReferenceRepository
             .Setup(r => r.FindByTitleAsync("Road House"))
-            .ReturnsAsync(new MovieReferenceModel { Id = "reference-2024", Title = "Road House", TitleNormalized = "road house", Year = 2024, ExternalIds = [] });
+            .ReturnsAsync(new MovieReferenceModel
+            {
+                Id = "reference-2024",
+                Title = "Road House",
+                TitleNormalized = "road house",
+                Year = 2024,
+                ExternalIds = []
+            });
 
         var result = await service.TryLinkExistingMovieReferenceAsync(model);
 
@@ -419,8 +496,19 @@ public class ReferenceEnrichmentServiceTest
         // the 2024 remake was already resolved and is the only thing a title-only lookup would find
         _movieReferenceRepository
             .Setup(r => r.FindByTitleAsync("Road House"))
-            .ReturnsAsync(new MovieReferenceModel { Id = "reference-2024", Title = "Road House", TitleNormalized = "road house", Year = 2024, ExternalIds = new Dictionary<string, string> { ["tmdb"] = "2024id" } });
-        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => { m.Id ??= "reference-1990"; return m; });
+            .ReturnsAsync(new MovieReferenceModel
+            {
+                Id = "reference-2024",
+                Title = "Road House",
+                TitleNormalized = "road house",
+                Year = 2024,
+                ExternalIds = new Dictionary<string, string> { ["tmdb"] = "2024id" }
+            });
+        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) =>
+        {
+            m.Id ??= "reference-1990";
+            return m;
+        });
         var service = CreateService(tmdbClient);
 
         var result = await service.ResolveMovieAsync("Road House", 1990, "1990id");
@@ -437,7 +525,11 @@ public class ReferenceEnrichmentServiceTest
         tmdbClient.MovieDetails["42"] = new TmdbMovieDetails("42", "Some Movie", 2020, "Synopsis", [], null, 7.8, 1234);
         _movieReferenceRepository
             .Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>()))
-            .ReturnsAsync((MovieReferenceModel m) => { m.Id = "reference-1"; return m; });
+            .ReturnsAsync((MovieReferenceModel m) =>
+            {
+                m.Id = "reference-1";
+                return m;
+            });
         var service = CreateService(tmdbClient);
 
         var result = await service.ResolveMovieAsync("Some Movie", 2020, "42");
@@ -458,7 +550,11 @@ public class ReferenceEnrichmentServiceTest
         tmdbClient.MovieDetails["42"] = new TmdbMovieDetails("42", "Some Movie", 2020, "Synopsis", [], null, 0, 0);
         _movieReferenceRepository
             .Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>()))
-            .ReturnsAsync((MovieReferenceModel m) => { m.Id = "reference-1"; return m; });
+            .ReturnsAsync((MovieReferenceModel m) =>
+            {
+                m.Id = "reference-1";
+                return m;
+            });
         var service = CreateService(tmdbClient);
 
         var result = await service.ResolveMovieAsync("Some Movie", 2020, "42");
@@ -477,11 +573,19 @@ public class ReferenceEnrichmentServiceTest
         tmdbClient.MovieDetails["42"] = new TmdbMovieDetails("42", "Some Movie", 2020, "Synopsis", [], null, 6.5, 500);
         _movieReferenceRepository
             .Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>()))
-            .ReturnsAsync((MovieReferenceModel m) => { m.Id = "reference-1"; return m; });
+            .ReturnsAsync((MovieReferenceModel m) =>
+            {
+                m.Id = "reference-1";
+                return m;
+            });
         var reference = new MovieReferenceModel
         {
-            Id = "reference-1", Title = "Some Movie", TitleNormalized = "some movie", Year = 2020,
-            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" }, LastEnrichedAt = DateTime.UtcNow.AddDays(-5)
+            Id = "reference-1",
+            Title = "Some Movie",
+            TitleNormalized = "some movie",
+            Year = 2020,
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" },
+            LastEnrichedAt = DateTime.UtcNow.AddDays(-5)
         };
         var service = CreateService(tmdbClient);
 
@@ -504,8 +608,12 @@ public class ReferenceEnrichmentServiceTest
             .ReturnsAsync((MovieReferenceModel m) => m);
         var reference = new MovieReferenceModel
         {
-            Id = "reference-1", Title = "Some Movie", TitleNormalized = "some movie", Year = 2020,
-            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" }, LastEnrichedAt = DateTime.UtcNow.AddDays(-5),
+            Id = "reference-1",
+            Title = "Some Movie",
+            TitleNormalized = "some movie",
+            Year = 2020,
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" },
+            LastEnrichedAt = DateTime.UtcNow.AddDays(-5),
             Ratings = new Dictionary<string, ReferenceRatingModel> { ["tmdb"] = new() { Value = 6.5, Scale = 10, Count = 500 } }
         };
         var service = CreateService(tmdbClient);
@@ -524,7 +632,10 @@ public class ReferenceEnrichmentServiceTest
             .Setup(r => r.FindByTitleYearAsync("Some Movie", 2020))
             .ReturnsAsync(new MovieReferenceModel
             {
-                Id = "reference-1", Title = "Some Movie", TitleNormalized = "some movie", Year = 2020,
+                Id = "reference-1",
+                Title = "Some Movie",
+                TitleNormalized = "some movie",
+                Year = 2020,
                 ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" },
                 Ratings = new Dictionary<string, ReferenceRatingModel> { ["tmdb"] = new() { Value = 8.1, Scale = 10, Count = 900 } }
             });
@@ -545,7 +656,11 @@ public class ReferenceEnrichmentServiceTest
         var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
         tmdbClient.MovieDetails["42"] = new TmdbMovieDetails("42", "Some Movie", 2020, "Synopsis", [], null, 7.8, 1234, "tt0042");
         _omdbClient.Ratings["tt0042"] = new OmdbRating(8.9, 500_000);
-        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => { m.Id = "reference-1"; return m; });
+        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) =>
+        {
+            m.Id = "reference-1";
+            return m;
+        });
         var service = CreateService(tmdbClient);
 
         var result = await service.ResolveMovieAsync("Some Movie", 2020, "42");
@@ -568,7 +683,11 @@ public class ReferenceEnrichmentServiceTest
         // sync's cheap backfill has a key to retry with instead of the id being lost forever
         var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
         tmdbClient.MovieDetails["42"] = new TmdbMovieDetails("42", "Some Movie", 2020, "Synopsis", [], null, 7.8, 1234, "tt0042");
-        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => { m.Id = "reference-1"; return m; });
+        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) =>
+        {
+            m.Id = "reference-1";
+            return m;
+        });
         var service = CreateService(tmdbClient);
 
         var result = await service.ResolveMovieAsync("Some Movie", 2020, "42");
@@ -587,7 +706,11 @@ public class ReferenceEnrichmentServiceTest
         var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
         tmdbClient.MovieDetails["42"] = new TmdbMovieDetails("42", "Some Movie", 2020, "Synopsis", [], null, 7.8, 1234, "tt0042");
         _omdbClient.Ratings["tt0042"] = new OmdbRating(8.9, 500_000);
-        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => { m.Id = "reference-1"; return m; });
+        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) =>
+        {
+            m.Id = "reference-1";
+            return m;
+        });
         var service = CreateService(tmdbClient);
 
         await service.ResolveMovieAsync("Some Movie", 2020, "42");
@@ -606,7 +729,10 @@ public class ReferenceEnrichmentServiceTest
         _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => m);
         var reference = new MovieReferenceModel
         {
-            Id = "reference-1", Title = "Some Movie", TitleNormalized = "some movie", Year = 2020,
+            Id = "reference-1",
+            Title = "Some Movie",
+            TitleNormalized = "some movie",
+            Year = 2020,
             ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42", ["imdb"] = "tt0042" },
             LastEnrichedAt = DateTime.UtcNow.AddDays(-5),
             Ratings = new Dictionary<string, ReferenceRatingModel> { ["tmdb"] = new() { Value = 7.8, Scale = 10, Count = 1234 } }
@@ -635,7 +761,10 @@ public class ReferenceEnrichmentServiceTest
         _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => m);
         var reference = new MovieReferenceModel
         {
-            Id = "reference-1", Title = "Some Movie", TitleNormalized = "some movie", Year = 2020,
+            Id = "reference-1",
+            Title = "Some Movie",
+            TitleNormalized = "some movie",
+            Year = 2020,
             ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" }, // no imdb id yet
             LastEnrichedAt = DateTime.UtcNow.AddDays(-5),
             Ratings = new Dictionary<string, ReferenceRatingModel> { ["tmdb"] = new() { Value = 7.8, Scale = 10, Count = 1234 } }
@@ -661,13 +790,15 @@ public class ReferenceEnrichmentServiceTest
         _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => m);
         var reference = new MovieReferenceModel
         {
-            Id = "reference-1", Title = "Some Movie", TitleNormalized = "some movie", Year = 2020,
+            Id = "reference-1",
+            Title = "Some Movie",
+            TitleNormalized = "some movie",
+            Year = 2020,
             ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42", ["imdb"] = "tt0042" },
             LastEnrichedAt = DateTime.UtcNow.AddDays(-5),
             Ratings = new Dictionary<string, ReferenceRatingModel>
             {
-                ["tmdb"] = new() { Value = 7.8, Scale = 10, Count = 1234 },
-                ["imdb"] = new() { Value = 8.9, Scale = 10, Count = 500_000 }
+                ["tmdb"] = new() { Value = 7.8, Scale = 10, Count = 1234 }, ["imdb"] = new() { Value = 8.9, Scale = 10, Count = 500_000 }
             }
         };
         var service = CreateService(tmdbClient);
@@ -688,11 +819,13 @@ public class ReferenceEnrichmentServiceTest
         [
             new MovieReferenceModel
             {
-                Id = "r1", Title = "Some Movie", TitleNormalized = "some movie", ExternalIds = [],
+                Id = "r1",
+                Title = "Some Movie",
+                TitleNormalized = "some movie",
+                ExternalIds = [],
                 Ratings = new Dictionary<string, ReferenceRatingModel>
                 {
-                    ["tmdb"] = new() { Value = 7.8, Scale = 10, Count = 1 },
-                    ["imdb"] = new() { Value = 8.9, Scale = 10, Count = 2 }
+                    ["tmdb"] = new() { Value = 7.8, Scale = 10, Count = 1 }, ["imdb"] = new() { Value = 8.9, Scale = 10, Count = 2 }
                 }
             }
         ]);
@@ -806,7 +939,8 @@ public class ReferenceEnrichmentServiceTest
 
         await service.TryAutoResolveBookAsync("Some Book", 2020);
 
-        _bookRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string?>()), Times.Never);
+        _bookRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string?>()),
+            Times.Never);
     }
 
     [Fact]
@@ -814,8 +948,16 @@ public class ReferenceEnrichmentServiceTest
     {
         var bookReferenceClient = FakeBookReferenceClient.WithSearchResults(new BookSearchResult("OL1W", "Some Book", 2020, "Some Author", null));
         bookReferenceClient.Details["OL1W"] = new BookDetails("OL1W", "Some Book", 2020, "Synopsis", "Some Author", "OL1A", [], null);
-        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => { m.Id ??= "generated-id"; return m; });
-        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
+        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) =>
+        {
+            m.Id ??= "generated-id";
+            return m;
+        });
+        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) =>
+        {
+            m.Id ??= "person-1";
+            return m;
+        });
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bookReferenceClient);
 
         await service.TryAutoResolveBookAsync("Some Book", 2020);
@@ -831,8 +973,16 @@ public class ReferenceEnrichmentServiceTest
         // author must reach IBookReferenceClient.SearchBooksAsync, not just get dropped along the way.
         var bookReferenceClient = FakeBookReferenceClient.WithSearchResults(new BookSearchResult("OL1W", "Some Book", 2020, "Lee Child", null));
         bookReferenceClient.Details["OL1W"] = new BookDetails("OL1W", "Some Book", 2020, "Synopsis", "Lee Child", "OL1A", [], null);
-        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => { m.Id ??= "generated-id"; return m; });
-        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
+        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) =>
+        {
+            m.Id ??= "generated-id";
+            return m;
+        });
+        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) =>
+        {
+            m.Id ??= "person-1";
+            return m;
+        });
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bookReferenceClient);
 
         await service.TryAutoResolveBookAsync("Killing Floor", 2016, "Lee Child");
@@ -845,8 +995,16 @@ public class ReferenceEnrichmentServiceTest
     {
         var bookReferenceClient = FakeBookReferenceClient.Empty();
         bookReferenceClient.Details["OL1W"] = new BookDetails("OL1W", "Some Book", 2020, "Synopsis", "Some Author", "OL1A", [], null);
-        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => { m.Id = "reference-1"; return m; });
-        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
+        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) =>
+        {
+            m.Id = "reference-1";
+            return m;
+        });
+        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) =>
+        {
+            m.Id ??= "person-1";
+            return m;
+        });
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bookReferenceClient);
 
         var result = await service.ResolveBookAsync("Some Book", 2020, "OL1W");
@@ -867,8 +1025,16 @@ public class ReferenceEnrichmentServiceTest
     {
         var bookReferenceClient = FakeBookReferenceClient.Empty();
         bookReferenceClient.Details["OL1W"] = new BookDetails("OL1W", "Some Book", 2020, "Synopsis", "Some Author", "OL1A", [], null, null, "9780000000002");
-        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => { m.Id = "reference-1"; return m; });
-        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
+        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) =>
+        {
+            m.Id = "reference-1";
+            return m;
+        });
+        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) =>
+        {
+            m.Id ??= "person-1";
+            return m;
+        });
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bookReferenceClient);
 
         var result = await service.ResolveBookAsync("Some Book", 2020, "OL1W", isbn: "9780000000001");
@@ -885,8 +1051,16 @@ public class ReferenceEnrichmentServiceTest
     {
         var bookReferenceClient = FakeBookReferenceClient.Empty();
         bookReferenceClient.Details["OL1W"] = new BookDetails("OL1W", "Some Book", 2020, "Synopsis", "Some Author", "OL1A", [], null);
-        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => { m.Id = "reference-1"; return m; });
-        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
+        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) =>
+        {
+            m.Id = "reference-1";
+            return m;
+        });
+        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) =>
+        {
+            m.Id ??= "person-1";
+            return m;
+        });
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bookReferenceClient);
 
         var result = await service.ResolveBookAsync("Some Book", 2020, "OL1W");
@@ -903,7 +1077,11 @@ public class ReferenceEnrichmentServiceTest
         var bnfClient = FakeBnfClient.Empty();
         bnfClient.Details["ark:/12148/cb1"] = new BookDetails("ark:/12148/cb1", "Some Book", 2020, "Synopsis", "Some Author", null, [], null, "fre", "9780000000001");
         _bookRatingByIsbnLookup.Result = (4.2, 100);
-        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => { m.Id = "reference-1"; return m; });
+        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) =>
+        {
+            m.Id = "reference-1";
+            return m;
+        });
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bnfClient: bnfClient);
 
         var result = await service.ResolveBookAsync("Some Book", 2020, "ark:/12148/cb1", "bnf");
@@ -922,8 +1100,16 @@ public class ReferenceEnrichmentServiceTest
         // the default provider IS Open Library here - a rating (or its absence) already comes from the link itself
         var bookReferenceClient = FakeBookReferenceClient.Empty();
         bookReferenceClient.Details["OL1W"] = new BookDetails("OL1W", "Some Book", 2020, "Synopsis", "Some Author", "OL1A", [], null, null, "9780000000001");
-        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => { m.Id = "reference-1"; return m; });
-        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
+        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) =>
+        {
+            m.Id = "reference-1";
+            return m;
+        });
+        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) =>
+        {
+            m.Id ??= "person-1";
+            return m;
+        });
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bookReferenceClient);
 
         await service.ResolveBookAsync("Some Book", 2020, "OL1W");
@@ -935,10 +1121,24 @@ public class ReferenceEnrichmentServiceTest
     public async Task TryLinkExistingBookReferenceAsync_LinksAndUpdatesTitleAndAuthor_OnTitleYearMatch()
     {
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
-        var model = new BookModel { Id = "book-1", OwnerId = "owner", Title = "Some Typo'd Book", Author = "Wrong Author", Year = 2020 };
+        var model = new BookModel
+        {
+            Id = "book-1",
+            OwnerId = "owner",
+            Title = "Some Typo'd Book",
+            Author = "Wrong Author",
+            Year = 2020
+        };
         _bookReferenceRepository
             .Setup(r => r.FindByTitleYearAsync("Some Typo'd Book", 2020, "Wrong Author"))
-            .ReturnsAsync(new BookReferenceModel { Id = "reference-1", Title = "Some Book", TitleNormalized = "some book", AuthorReferenceId = "person-1", ExternalIds = [] });
+            .ReturnsAsync(new BookReferenceModel
+            {
+                Id = "reference-1",
+                Title = "Some Book",
+                TitleNormalized = "some book",
+                AuthorReferenceId = "person-1",
+                ExternalIds = []
+            });
         _personReferenceRepository
             .Setup(r => r.FindByIdAsync("person-1"))
             .ReturnsAsync(new PersonReferenceModel { Id = "person-1", Name = "Correct Author", ExternalIds = new Dictionary<string, string> { ["openlibrary"] = "OL1A" } });
@@ -955,10 +1155,24 @@ public class ReferenceEnrichmentServiceTest
     public async Task TryLinkExistingBookReferenceAsync_UpdatesYearToTheReferencesCanonicalYear_OnLink()
     {
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
-        var model = new BookModel { Id = "book-1", OwnerId = "owner", Title = "Some Book", Author = "Some Author", Year = 2019 };
+        var model = new BookModel
+        {
+            Id = "book-1",
+            OwnerId = "owner",
+            Title = "Some Book",
+            Author = "Some Author",
+            Year = 2019
+        };
         _bookReferenceRepository
             .Setup(r => r.FindByTitleYearAsync("Some Book", 2019, "Some Author"))
-            .ReturnsAsync(new BookReferenceModel { Id = "reference-1", Title = "Some Book", TitleNormalized = "some book", Year = 2020, ExternalIds = [] });
+            .ReturnsAsync(new BookReferenceModel
+            {
+                Id = "reference-1",
+                Title = "Some Book",
+                TitleNormalized = "some book",
+                Year = 2020,
+                ExternalIds = []
+            });
 
         var result = await service.TryLinkExistingBookReferenceAsync(model);
 
@@ -970,10 +1184,24 @@ public class ReferenceEnrichmentServiceTest
     public async Task TryLinkExistingBookReferenceAsync_SetsGenreFromTheReferencesGenres_OnLink()
     {
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
-        var model = new BookModel { Id = "book-1", OwnerId = "owner", Title = "Some Book", Author = "Some Author", Year = 2020 };
+        var model = new BookModel
+        {
+            Id = "book-1",
+            OwnerId = "owner",
+            Title = "Some Book",
+            Author = "Some Author",
+            Year = 2020
+        };
         _bookReferenceRepository
             .Setup(r => r.FindByTitleYearAsync("Some Book", 2020, "Some Author"))
-            .ReturnsAsync(new BookReferenceModel { Id = "reference-1", Title = "Some Book", TitleNormalized = "some book", ExternalIds = [], Genres = ["Thriller", "Mystery"] });
+            .ReturnsAsync(new BookReferenceModel
+            {
+                Id = "reference-1",
+                Title = "Some Book",
+                TitleNormalized = "some book",
+                ExternalIds = [],
+                Genres = ["Thriller", "Mystery"]
+            });
 
         var result = await service.TryLinkExistingBookReferenceAsync(model);
 
@@ -986,7 +1214,15 @@ public class ReferenceEnrichmentServiceTest
     public async Task TryLinkExistingBookReferenceAsync_Unlinks_WhenAlreadyLinkedButNoMatchFoundForTheCurrentTitle()
     {
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
-        var model = new BookModel { Id = "book-1", OwnerId = "owner", Title = "Some Book", Author = "Some Author", Year = 2020, ReferenceId = "old-reference" };
+        var model = new BookModel
+        {
+            Id = "book-1",
+            OwnerId = "owner",
+            Title = "Some Book",
+            Author = "Some Author",
+            Year = 2020,
+            ReferenceId = "old-reference"
+        };
         _bookReferenceRepository.Setup(r => r.FindByTitleYearAsync("Some Book", 2020, "Some Author")).ReturnsAsync((BookReferenceModel?)null);
         _bookReferenceRepository.Setup(r => r.FindByTitleAsync("Some Book", "Some Author")).ReturnsAsync((BookReferenceModel?)null);
 
@@ -1025,7 +1261,11 @@ public class ReferenceEnrichmentServiceTest
             LastEnrichedAt = DateTime.UtcNow
         };
         _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => m);
-        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
+        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) =>
+        {
+            m.Id ??= "person-1";
+            return m;
+        });
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bookReferenceClient);
 
         var (result, changed) = await service.RefreshBookReferenceAsync(reference, TestContext.Current.CancellationToken);
@@ -1066,7 +1306,11 @@ public class ReferenceEnrichmentServiceTest
     {
         var bnfClient = FakeBnfClient.Empty();
         bnfClient.Details["ark:/12148/cb1"] = new BookDetails("ark:/12148/cb1", "Some Book", 2020, "Synopsis", "Some Author", null, [], null, "fre");
-        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => { m.Id = "reference-1"; return m; });
+        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) =>
+        {
+            m.Id = "reference-1";
+            return m;
+        });
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bnfClient: bnfClient);
 
         var result = await service.ResolveBookAsync("Some Book", 2020, "ark:/12148/cb1", "bnf");
@@ -1094,7 +1338,11 @@ public class ReferenceEnrichmentServiceTest
     {
         var rawgClient = FakeRawgClient.WithSearchResults(new RawgSearchResult("1", "Some Game", 2020, null));
         rawgClient.Details["1"] = new RawgGameDetails("1", "Some Game", 2020, "Synopsis", [], [], null);
-        _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) => { m.Id ??= "generated-id"; return m; });
+        _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) =>
+        {
+            m.Id ??= "generated-id";
+            return m;
+        });
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), rawgClient: rawgClient);
 
         await service.TryAutoResolveVideoGameAsync("Some Game", 2020);
@@ -1108,7 +1356,11 @@ public class ReferenceEnrichmentServiceTest
     {
         var rawgClient = FakeRawgClient.Empty();
         rawgClient.Details["1"] = new RawgGameDetails("1", "Some Game", 2020, "Synopsis", [], [], null);
-        _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) => { m.Id = "reference-1"; return m; });
+        _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) =>
+        {
+            m.Id = "reference-1";
+            return m;
+        });
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), rawgClient: rawgClient);
 
         var result = await service.ResolveVideoGameAsync("Some Game", 2020, "1");
@@ -1160,7 +1412,11 @@ public class ReferenceEnrichmentServiceTest
             .ReturnsAsync(new Dictionary<string, string> { ["VideoGame"] = RatingSourceCatalog.Metacritic });
         var rawgClient = FakeRawgClient.Empty();
         rawgClient.Details["1"] = new RawgGameDetails("1", "Some Game", 2020, "Synopsis", [], [], null, 4.0, 100, 90);
-        _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) => { m.Id = "reference-1"; return m; });
+        _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) =>
+        {
+            m.Id = "reference-1";
+            return m;
+        });
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), rawgClient: rawgClient);
 
         await service.ResolveVideoGameAsync("Some Game", 2020, "1");
@@ -1223,8 +1479,7 @@ public class ReferenceEnrichmentServiceTest
         ExternalIds = [],
         Ratings = new Dictionary<string, ReferenceRatingModel>
         {
-            [RatingSourceCatalog.Rawg] = new() { Value = rawg, Scale = 5, Count = 100 },
-            [RatingSourceCatalog.Metacritic] = new() { Value = metacritic, Scale = 100 }
+            [RatingSourceCatalog.Rawg] = new() { Value = rawg, Scale = 5, Count = 100 }, [RatingSourceCatalog.Metacritic] = new() { Value = metacritic, Scale = 100 }
         }
     };
 
@@ -1266,7 +1521,14 @@ public class ReferenceEnrichmentServiceTest
         };
         _videoGameReferenceRepository
             .Setup(r => r.FindByTitleYearAsync("Some Game", 2019))
-            .ReturnsAsync(new VideoGameReferenceModel { Id = "reference-1", Title = "Some Game", TitleNormalized = "some game", Year = 2020, ExternalIds = [] });
+            .ReturnsAsync(new VideoGameReferenceModel
+            {
+                Id = "reference-1",
+                Title = "Some Game",
+                TitleNormalized = "some game",
+                Year = 2020,
+                ExternalIds = []
+            });
 
         var result = await service.TryLinkExistingVideoGameReferenceAsync(model);
 
@@ -1374,7 +1636,8 @@ public class ReferenceEnrichmentServiceTest
 
         await service.TryAutoResolveAlbumAsync("Some Album", 2020);
 
-        _albumRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string?>()), Times.Never);
+        _albumRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string?>()),
+            Times.Never);
     }
 
     [Fact]
@@ -1382,8 +1645,16 @@ public class ReferenceEnrichmentServiceTest
     {
         var discogsClient = FakeDiscogsClient.WithSearchResults(new DiscogsSearchResult("1", "Some Album", 2020, "Some Artist", null));
         discogsClient.Details["1"] = new DiscogsAlbumDetails("1", "Some Album", 2020, "Synopsis", "Some Artist", "100", [], null, []);
-        _albumReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<AlbumReferenceModel>())).ReturnsAsync((AlbumReferenceModel m) => { m.Id ??= "generated-id"; return m; });
-        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
+        _albumReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<AlbumReferenceModel>())).ReturnsAsync((AlbumReferenceModel m) =>
+        {
+            m.Id ??= "generated-id";
+            return m;
+        });
+        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) =>
+        {
+            m.Id ??= "person-1";
+            return m;
+        });
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), discogsClient: discogsClient);
 
         await service.TryAutoResolveAlbumAsync("Some Album", 2020);
@@ -1399,8 +1670,16 @@ public class ReferenceEnrichmentServiceTest
         // artist must reach IDiscogsClient.SearchAlbumsAsync, not just get dropped along the way.
         var discogsClient = FakeDiscogsClient.WithSearchResults(new DiscogsSearchResult("1", "Some Album", 2020, "Pink Floyd", null));
         discogsClient.Details["1"] = new DiscogsAlbumDetails("1", "Some Album", 2020, "Synopsis", "Pink Floyd", "100", [], null, []);
-        _albumReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<AlbumReferenceModel>())).ReturnsAsync((AlbumReferenceModel m) => { m.Id ??= "generated-id"; return m; });
-        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
+        _albumReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<AlbumReferenceModel>())).ReturnsAsync((AlbumReferenceModel m) =>
+        {
+            m.Id ??= "generated-id";
+            return m;
+        });
+        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) =>
+        {
+            m.Id ??= "person-1";
+            return m;
+        });
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), discogsClient: discogsClient);
 
         await service.TryAutoResolveAlbumAsync("The Dark Side of the Moon", 1973, "Pink Floyd");
@@ -1413,8 +1692,16 @@ public class ReferenceEnrichmentServiceTest
     {
         var discogsClient = FakeDiscogsClient.Empty();
         discogsClient.Details["1"] = new DiscogsAlbumDetails("1", "Some Album", 2020, "Synopsis", "Some Artist", "100", [], null, []);
-        _albumReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<AlbumReferenceModel>())).ReturnsAsync((AlbumReferenceModel m) => { m.Id = "reference-1"; return m; });
-        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
+        _albumReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<AlbumReferenceModel>())).ReturnsAsync((AlbumReferenceModel m) =>
+        {
+            m.Id = "reference-1";
+            return m;
+        });
+        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) =>
+        {
+            m.Id ??= "person-1";
+            return m;
+        });
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), discogsClient: discogsClient);
 
         var result = await service.ResolveAlbumAsync("Some Album", 2020, "1");
@@ -1428,10 +1715,24 @@ public class ReferenceEnrichmentServiceTest
     public async Task TryLinkExistingAlbumReferenceAsync_LinksAndUpdatesTitleAndArtist_OnTitleYearMatch()
     {
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
-        var model = new AlbumModel { Id = "album-1", OwnerId = "owner", Title = "Some Typo'd Album", Artist = "Wrong Artist", Year = 2020 };
+        var model = new AlbumModel
+        {
+            Id = "album-1",
+            OwnerId = "owner",
+            Title = "Some Typo'd Album",
+            Artist = "Wrong Artist",
+            Year = 2020
+        };
         _albumReferenceRepository
             .Setup(r => r.FindByTitleYearAsync("Some Typo'd Album", 2020, "Wrong Artist"))
-            .ReturnsAsync(new AlbumReferenceModel { Id = "reference-1", Title = "Some Album", TitleNormalized = "some album", ArtistReferenceId = "person-1", ExternalIds = [] });
+            .ReturnsAsync(new AlbumReferenceModel
+            {
+                Id = "reference-1",
+                Title = "Some Album",
+                TitleNormalized = "some album",
+                ArtistReferenceId = "person-1",
+                ExternalIds = []
+            });
         _personReferenceRepository
             .Setup(r => r.FindByIdAsync("person-1"))
             .ReturnsAsync(new PersonReferenceModel { Id = "person-1", Name = "Correct Artist", ExternalIds = new Dictionary<string, string> { ["discogs"] = "100" } });
@@ -1448,10 +1749,24 @@ public class ReferenceEnrichmentServiceTest
     public async Task TryLinkExistingAlbumReferenceAsync_UpdatesYearToTheReferencesCanonicalYear_OnLink()
     {
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
-        var model = new AlbumModel { Id = "album-1", OwnerId = "owner", Title = "Some Album", Artist = "Some Artist", Year = 2019 };
+        var model = new AlbumModel
+        {
+            Id = "album-1",
+            OwnerId = "owner",
+            Title = "Some Album",
+            Artist = "Some Artist",
+            Year = 2019
+        };
         _albumReferenceRepository
             .Setup(r => r.FindByTitleYearAsync("Some Album", 2019, "Some Artist"))
-            .ReturnsAsync(new AlbumReferenceModel { Id = "reference-1", Title = "Some Album", TitleNormalized = "some album", Year = 2020, ExternalIds = [] });
+            .ReturnsAsync(new AlbumReferenceModel
+            {
+                Id = "reference-1",
+                Title = "Some Album",
+                TitleNormalized = "some album",
+                Year = 2020,
+                ExternalIds = []
+            });
 
         var result = await service.TryLinkExistingAlbumReferenceAsync(model);
 
@@ -1463,10 +1778,24 @@ public class ReferenceEnrichmentServiceTest
     public async Task TryLinkExistingAlbumReferenceAsync_SetsGenreFromTheReferencesGenres_OnLink()
     {
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
-        var model = new AlbumModel { Id = "album-1", OwnerId = "owner", Title = "Some Album", Artist = "Some Artist", Year = 2020 };
+        var model = new AlbumModel
+        {
+            Id = "album-1",
+            OwnerId = "owner",
+            Title = "Some Album",
+            Artist = "Some Artist",
+            Year = 2020
+        };
         _albumReferenceRepository
             .Setup(r => r.FindByTitleYearAsync("Some Album", 2020, "Some Artist"))
-            .ReturnsAsync(new AlbumReferenceModel { Id = "reference-1", Title = "Some Album", TitleNormalized = "some album", ExternalIds = [], Genres = ["Pop", "K-pop"] });
+            .ReturnsAsync(new AlbumReferenceModel
+            {
+                Id = "reference-1",
+                Title = "Some Album",
+                TitleNormalized = "some album",
+                ExternalIds = [],
+                Genres = ["Pop", "K-pop"]
+            });
 
         var result = await service.TryLinkExistingAlbumReferenceAsync(model);
 
@@ -1479,7 +1808,15 @@ public class ReferenceEnrichmentServiceTest
     public async Task TryLinkExistingAlbumReferenceAsync_Unlinks_WhenAlreadyLinkedButNoMatchFoundForTheCurrentTitle()
     {
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
-        var model = new AlbumModel { Id = "album-1", OwnerId = "owner", Title = "Some Album", Artist = "Some Artist", Year = 2020, ReferenceId = "old-reference" };
+        var model = new AlbumModel
+        {
+            Id = "album-1",
+            OwnerId = "owner",
+            Title = "Some Album",
+            Artist = "Some Artist",
+            Year = 2020,
+            ReferenceId = "old-reference"
+        };
         _albumReferenceRepository.Setup(r => r.FindByTitleYearAsync("Some Album", 2020, "Some Artist")).ReturnsAsync((AlbumReferenceModel?)null);
         _albumReferenceRepository.Setup(r => r.FindByTitleAsync("Some Album", "Some Artist")).ReturnsAsync((AlbumReferenceModel?)null);
 
@@ -1519,7 +1856,11 @@ public class ReferenceEnrichmentServiceTest
             LastEnrichedAt = DateTime.UtcNow
         };
         _albumReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<AlbumReferenceModel>())).ReturnsAsync((AlbumReferenceModel m) => m);
-        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) => { m.Id ??= "person-1"; return m; });
+        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) =>
+        {
+            m.Id ??= "person-1";
+            return m;
+        });
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), discogsClient: discogsClient);
 
         var (result, changed) = await service.RefreshAlbumReferenceAsync(reference, TestContext.Current.CancellationToken);
@@ -1528,8 +1869,18 @@ public class ReferenceEnrichmentServiceTest
         result.Title.Should().Be("Some Album - Updated");
         result.Genres.Should().Contain("Rock");
         result.Tracks.Should().SatisfyRespectively(
-            t => { t.Position.Should().Be("1"); t.Title.Should().Be("Intro"); t.Duration.Should().Be("0:22"); },
-            t => { t.Position.Should().Be("2"); t.Title.Should().Be("Apocalypse Please"); t.Duration.Should().Be("4:12"); });
+            t =>
+            {
+                t.Position.Should().Be("1");
+                t.Title.Should().Be("Intro");
+                t.Duration.Should().Be("0:22");
+            },
+            t =>
+            {
+                t.Position.Should().Be("2");
+                t.Title.Should().Be("Apocalypse Please");
+                t.Duration.Should().Be("4:12");
+            });
     }
 
     /// <summary>

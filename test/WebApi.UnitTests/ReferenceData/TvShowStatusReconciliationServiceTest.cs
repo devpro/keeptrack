@@ -24,7 +24,14 @@ public class TvShowStatusReconciliationServiceTest
         NullLogger<TvShowStatusReconciliationService>.Instance);
 
     private static TvShowModel FinishedShow(string id, string ownerId = "owner", string referenceId = "ref-1") =>
-        new() { Id = id, OwnerId = ownerId, Title = "Dark", State = TvShowStatus.Finished, ReferenceId = referenceId };
+        new()
+        {
+            Id = id,
+            OwnerId = ownerId,
+            Title = "Dark",
+            State = TvShowStatus.Finished,
+            ReferenceId = referenceId
+        };
 
     private static EpisodeModel Episode(string showId, int season, int episode, string ownerId = "owner") =>
         new() { OwnerId = ownerId, TvShowId = showId, SeasonNumber = season, EpisodeNumber = episode };
@@ -34,8 +41,11 @@ public class TvShowStatusReconciliationServiceTest
 
     private static TvShowReferenceModel Reference(string id, params ReferenceEpisodeModel[] episodes) => new()
     {
-        Id = id, Title = "Dark", TitleNormalized = "dark",
-        ExternalIds = new Dictionary<string, string>(), Episodes = [.. episodes]
+        Id = id,
+        Title = "Dark",
+        TitleNormalized = "dark",
+        ExternalIds = new Dictionary<string, string>(),
+        Episodes = [.. episodes]
     };
 
     private void Setup(IReadOnlyList<TvShowModel> shows, IReadOnlyList<EpisodeModel> episodes, params TvShowReferenceModel[] references)
