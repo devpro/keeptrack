@@ -395,14 +395,31 @@ a deliberate scope boundary, since episode counts are unknowable without referen
 `ExploreController`/`ExploreService` (`/explore`) suggests top-rated titles the caller doesn't track, with one-click add and dismiss/undo.
 Movie, TvShow, VideoGame only; Book/Album 400 (no best-of listing to read).
 
-- **The discovery list always comes from the provider, never from local `*_reference` collections.** That was the original implementation's core mistake:
+- **The discovery list originates from the provider, never from local `*_reference` collections.** That was the original implementation's core mistake:
   a reference document only exists because someone already tracks that title, so a local query can only re-suggest what's already owned.
   Sources: TMDB `/{movie,tv}/top_rated`, RAWG `/games?ordering=-{rating|metacritic}`.
-- Ordering follows the admin-selected primary rating source (`RatingSourceCatalog.Resolve`, no Explore-specific setting).
-  RAWG sorts natively on both its sources with zero extra calls.
-  Movies/TV under **IMDb** are the awkward case (IMDb has no catalogue API): the list still comes from TMDB's ranking and OMDb only fills in the displayed number, and the page is deliberately **not** re-sorted by it -
-  partial OMDb data would float unrated titles to the top.
-  `app_setting.explore_use_tmdb` forces movies/TV back onto TMDB's vote and skips the per-title lookups; it's read only when IMDb won the resolve, so it can't leak into the game domain.
+- **The read path doesn't call the provider, though: it pages `explore_catalogue`, a materialized copy of each ranking** written weekly by `ExploreCatalogueRefreshService`.
+  The ranking is a *global* fact - every user's page is the same list, only the exclusions below differ - so fetching it per request was duplicated work (a page load, and then *every* add and dismiss topping the list back up, re-pulled the
+  same
+  provider pages), and the few pages a request could afford is what once capped Explore at roughly the top 100 titles.
+  Owner-less like the `*_reference` collections, and the same exception to "every collection has `owner_id`" for the same reason.
+  `CatalogueDepth` (1000/ranking) is the "how far can you scroll" knob and costs one provider call per page of depth *per week*, nothing per request.
+- A **ranking** is a domain plus an *ordering*, not a domain plus a displayed rating - `ExploreRankings` is the single declaration, derived from `RatingSourceCatalog` so a new source needs no second list.
+  TMDB publishes one top-rated list whatever the rating source is, so movies/TV have one ranking each; RAWG genuinely sorts differently per source, so video games have two.
+  Ordering still follows the admin-selected primary rating source (`RatingSourceCatalog.Resolve`, no Explore-specific setting) - it now selects which stored ordering to read.
+  Movies/TV under **IMDb** are the awkward case (IMDb has no catalogue API): the entries stay in TMDB's order and IMDb only fills in the displayed number, deliberately **not** re-sorted by it -
+  partial IMDb coverage would float unrated titles
+  to the top.
+  That number is backfilled by the refresh pass (bounded per pass: each costs a TMDB + an OMDb call, against OMDb's 1000/day free tier), so an entry deep in the ranking can legitimately have no IMDb rating yet and shows none - the same
+  semantics as the old per-request lookup coming back empty.
+  Attempts are stamped whether or not they produce a value; without that, the handful of titles OMDb has nothing for would consume the whole budget every pass and coverage would never advance.
+  `app_setting.explore_use_tmdb` forces movies/TV back onto TMDB's vote and skips the backfill entirely; it's read only when IMDb won the resolve, so it can't leak into the game domain.
+- **Refresh safety, all deliberate:** the pass upserts one `$set` per rating key (never replacing the `ratings` map, or an ordinary refresh would discard the expensively-obtained IMDb value);
+  it prunes what it didn't rewrite **only after completing**, so a failed or empty pass leaves last week's ranking serving rather than emptying Explore;
+  and staleness is read from the ***oldest*** `refreshed_at` in a ranking, not the newest - a pass that died halfway leaves its written entries freshly stamped, and taking the newest would read that as "just refreshed" and skip the retry.
+- The refresh rides `ReferenceSyncBackgroundService`'s existing 24h tick and lease on its own 7-day staleness window, rather than adding a second scheduled workload;
+  the admin's `POST /api/reference-data/sync-now` forces it with `TimeSpan.Zero`, so there's no separate Explore admin endpoint.
+  Counts land in `ReferenceSyncResultDto`.
 - **Gotcha:** RAWG has no curated top-rated endpoint and its `rating` is a plain average with no vote-count filter, so ordering the ~900k catalogue by `-rating` ranks a single-vote unknown above every classic.
   `GetTopRatedGamesAsync` constrains the pool server-side with `metacritic={MinMetacritic},100` - "reviewed by the professional press at all" is the closest equivalent of a minimum vote count and costs no extra call.
   `MinMetacritic` is the knob to raise.
@@ -414,13 +431,20 @@ Movie, TvShow, VideoGame only; Book/Album 400 (no best-of listing to read).
 - `explore_dismissal` is keyed `{owner_id, item_type, external_source, external_id}` (unique) on the *provider's* id, since a suggestion usually has no reference document yet.
   `external_source` is the **discovery** provider (`tmdb`/`rawg`), not the rating source - an IMDb-ranked movie is still identified by a TMDB id, and RAWG/TMDB ids are both plain integers with nothing but an explicit provider to keep them
   apart.
-  `ExploreService.DiscoverySource` is the one place a domain's provider is named.
+  `ExploreRankings.DiscoverySource` is the one place a domain's provider is named.
 - **Adding goes through `POST /api/explore/{type}/add/{externalId}`, not the ordinary create**: it creates the item then calls `Resolve*Async` with the *exact* provider id, awaited, so the card only disappears once genuinely linked.
   The ordinary create's auto-resolve is a title search that only links on a single candidate, which acclaimed titles routinely fail.
   Free-tier quota is enforced here via `FreeTierQuota.CheckAsync`.
   The controller is plain `[Authorize]` (movies/TV are free tier) with video games member-gated per request (`RequireAccessTo`, 403); the page hides the tab behind `<AuthorizeView Policy="MemberOnly">` and falls back to Movies -
   hiding is UX, the API is enforcement.
-- `ExplorePage.razor` keeps the active tab in `?tab=`, caches one list per tab, and tops a tab up when it drops below the page size, appending below the current cards rather than reshuffling.
+- **Paging is a rank cursor (`?after=`), never skip/limit**, because the per-caller exclusions are applied *after* the ranked read: with a skip, every title filtered out of one page shifts the next page up and silently drops suggestions.
+  `ExploreSuggestionPageDto` carries `NextCursor` (null = ranking exhausted) and `CataloguePending` - "not built yet", right after a fresh deployment, is an empty list too but means the opposite of "you've seen everything" to a user.
+  The service advances the cursor over *every entry examined*, not just those kept, so a run of already-owned titles is never re-read.
+  A page may come back shorter than requested and still have more behind it.
+- `ExplorePage.razor` keeps the active tab in `?tab=`, holds one `TabState` (items + cursor) per tab, and appends below the current cards rather than reshuffling - both for the explicit "Load more" and for the automatic top-up after an
+  add/dismiss, which share `AppendNextPageAsync`.
+  That top-up used to re-request page 1 and diff it, so it re-paid for the same suggestions on every single action and could only backfill from titles already shown; continuing from the cursor asks for what actually comes next and costs one
+  indexed read.
   Add and dismiss share one `ActAsync`.
 
 ## Blazor app

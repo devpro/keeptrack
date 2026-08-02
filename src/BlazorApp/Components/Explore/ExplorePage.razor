@@ -40,15 +40,25 @@
         Loading…
     </div>
 }
-else if (Current is { Count: 0 })
+else if (Current is { Items.Count: 0 } empty)
 {
     <div class="kt-empty">
         <div class="kt-empty-icon">◈</div>
-        <p>No new suggestions right now - you already track the top-rated titles. Try Refresh, or dismiss fewer.</p>
+        @* "not built yet" and "you've seen it all" are the same empty list but opposite messages - the server
+           distinguishes them so this page doesn't have to tell a fresh deployment it has run out. *@
+        @if (empty.CataloguePending)
+        {
+            <p>@TabLabel.ToUpperInvariant()[..1]@TabLabel[1..] suggestions are still being prepared - check back in a little while.</p>
+        }
+        else
+        {
+            <p>No new suggestions right now - you already track the top-rated titles. Try Refresh, or dismiss fewer.</p>
+        }
     </div>
 }
-else if (Current is { } items)
+else if (Current is { } state)
 {
+    var items = state.Items;
     <div class="kt-table-wrap">
         @if (_view == "grid")
         {
@@ -127,6 +137,23 @@ else if (Current is { } items)
             </div>
         }
     </div>
+
+    @if (state.HasMore)
+    {
+        <div class="d-flex justify-content-center my-3">
+            <button type="button" class="btn kt-toggle-btn" disabled="@_loadingMore" @onclick="LoadMoreAsync">
+                @if (_loadingMore)
+                {
+                    <span class="kt-icon-spin">↻</span>
+                    <span>Loading…</span>
+                }
+                else
+                {
+                    <span>Load more</span>
+                }
+            </button>
+        </div>
+    }
 }
 
 @code {
@@ -146,21 +173,48 @@ else if (Current is { } items)
     [SupplyParameterFromQuery(Name = "tab")]
     public string? TabQuery { get; set; }
 
-    /// <summary>How many suggestions to keep on screen; also the number requested per fetch.</summary>
+    /// <summary>How many suggestions to request per fetch, and the low-water mark a list is topped up at.</summary>
     private const int PageCount = 24;
 
     private Tab _tab;
     private string _view = "";
     private bool _loading;
+    private bool _loadingMore;
     private bool _isMember;
     private string? _error;
 
     // one loaded list per tab, so switching back and forth doesn't refetch; the external ids currently being
     // added/dismissed, to swap their button for a spinner and guard against a double click.
-    private readonly Dictionary<Tab, List<ExploreSuggestionDto>> _cache = [];
+    private readonly Dictionary<Tab, TabState> _cache = [];
     private readonly HashSet<string> _busy = [];
 
-    private List<ExploreSuggestionDto>? Current => _cache.TryGetValue(_tab, out var list) ? list : null;
+    private TabState? Current => _cache.TryGetValue(_tab, out var state) ? state : null;
+
+    /// <summary>
+    /// What one tab has loaded so far and where to carry on from. The cursor is the server's, not a page
+    /// number: suggestions the caller already tracks are filtered out after the ranking is read, so positions
+    /// shift and only the server can say where the next page starts.
+    /// </summary>
+    private sealed class TabState
+    {
+        public List<ExploreSuggestionDto> Items { get; } = [];
+
+        public int? NextCursor { get; set; }
+
+        public bool CataloguePending { get; set; }
+
+        public bool HasMore => NextCursor is not null;
+
+        public void Append(ExploreSuggestionPageDto page)
+        {
+            // the server excludes what's already tracked or dismissed, but a card removed from this list
+            // locally (added/dismissed a moment ago) can still be in flight, so dedupe on the client too.
+            var have = Items.Select(i => i.ExternalId).ToHashSet();
+            Items.AddRange(page.Items.Where(i => have.Add(i.ExternalId)));
+            NextCursor = page.NextCursor;
+            CataloguePending = page.CataloguePending;
+        }
+    }
 
     private string TypeName => _tab switch
     {
@@ -210,12 +264,51 @@ else if (Current is { } items)
         _loading = false;
     }
 
-    private async Task FetchAsync() => _cache[_tab] = await Api.GetAsync(TypeName, PageCount);
+    private async Task FetchAsync()
+    {
+        var state = new TabState();
+        state.Append(await Api.GetAsync(TypeName, PageCount));
+        _cache[_tab] = state;
+    }
 
     private async Task RefreshAsync()
     {
         _cache.Remove(_tab);
         await LoadAsync();
+    }
+
+    /// <summary>
+    /// Appends the next page below what's already on screen, never reshuffling it. Explicit rather than
+    /// infinite-scrolled: a Blazor Server circuit shouldn't re-render the whole grid on every scroll event.
+    /// </summary>
+    private async Task LoadMoreAsync()
+    {
+        if (_loadingMore) return;
+
+        _loadingMore = true;
+        try
+        {
+            await AppendNextPageAsync();
+            _error = null;
+        }
+        catch (Exception)
+        {
+            _error = "Something went wrong - please try again.";
+        }
+        finally
+        {
+            _loadingMore = false;
+        }
+    }
+
+    // the one place a further page is requested and merged, shared by the explicit "Load more" and the
+    // automatic top-up after an add/dismiss.
+    private async Task AppendNextPageAsync()
+    {
+        var state = Current;
+        if (state is null || !state.HasMore) return;
+
+        state.Append(await Api.GetAsync(TypeName, PageCount, state.NextCursor));
     }
 
     private async Task AddAsync(ExploreSuggestionDto item) => await ActAsync(item, () => Api.AddAsync(TypeName, item.ExternalId, item.Title, item.Year));
@@ -230,7 +323,7 @@ else if (Current is { } items)
         try
         {
             await action();
-            Current?.Remove(item);
+            Current?.Items.Remove(item);
             await TopUpAsync();
             _error = null;
         }
@@ -244,16 +337,15 @@ else if (Current is { } items)
         }
     }
 
-    // Keep the list topped up after an add/dismiss: append any newly-available suggestions below the current
-    // ones (never reshuffling what's on screen), so removing a card is promptly backfilled. A no-op once the
-    // server has nothing new left to add.
+    // Keep the list topped up after an add/dismiss: pull the *next* page and append it below the current
+    // cards, so removing one is promptly backfilled without reshuffling what's on screen. A no-op once the
+    // ranking is exhausted.
+    //
+    // This used to re-request the first page and diff it, which meant every single add and dismiss re-paid
+    // for the same top-of-the-list suggestions and could only ever backfill from titles the user had already
+    // been shown. Continuing from the cursor asks for what actually comes next, and costs one indexed read.
     private async Task TopUpAsync()
     {
-        var list = Current;
-        if (list is null || list.Count >= PageCount) return;
-
-        var fresh = await Api.GetAsync(TypeName, PageCount);
-        var have = list.Select(x => x.ExternalId).ToHashSet();
-        list.AddRange(fresh.Where(x => !have.Contains(x.ExternalId)));
+        if (Current is { Items.Count: < PageCount }) await AppendNextPageAsync();
     }
 }

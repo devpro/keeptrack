@@ -206,6 +206,7 @@ public class ReferenceDataAdminController(
         using var scope = scopeFactory.CreateScope();
         var scopedSyncService = scope.ServiceProvider.GetRequiredService<ReferenceSyncService>();
         var scopedReconciliationService = scope.ServiceProvider.GetRequiredService<TvShowStatusReconciliationService>();
+        var scopedExploreRefreshService = scope.ServiceProvider.GetRequiredService<ExploreCatalogueRefreshService>();
         var scopedJobStore = scope.ServiceProvider.GetRequiredService<JobStore<ReferenceSyncStage, ReferenceSyncResultDto>>();
 
         try
@@ -213,6 +214,9 @@ public class ReferenceDataAdminController(
             var result = await scopedSyncService.SyncStaleReferencesAsync(TimeSpan.Zero, stage => scopedJobStore.UpdateStageAsync(jobId, stage));
             // an on-demand "sync now" reconciles finished-show status too, so its result matches the periodic pass's.
             result.FinishedShowsReopened = await scopedReconciliationService.ReconcileFinishedShowsAsync();
+            // ...and rebuilds the Explore discovery rankings regardless of how recently they were built, which
+            // is what makes this the "force it now" control for those too - no separate admin endpoint needed.
+            result.ApplyExploreRefresh(await scopedExploreRefreshService.RefreshAsync(TimeSpan.Zero));
             await scopedJobStore.CompleteAsync(jobId, ReferenceSyncStage.Completed, result);
         }
         catch (Exception ex)

@@ -31,8 +31,25 @@ public static class RatingSourceCatalog
             [ReferenceItemType.VideoGame] = [Rawg, Metacritic]
         };
 
+    // the scale each source's values are expressed on - the domains don't share one, so any rating that
+    // travels to a client has to carry its own. Declared here beside the source keys themselves rather than
+    // as constants in whichever feature happens to display a rating.
+    private static readonly IReadOnlyDictionary<string, double> s_scales = new Dictionary<string, double>
+    {
+        [Tmdb] = 10,
+        [Imdb] = 10,
+        [Rawg] = 5,
+        [Metacritic] = 100
+    };
+
     /// <summary>Domains whose primary rating source an admin can choose (those with more than one source).</summary>
     public static IReadOnlyList<ReferenceItemType> SelectableDomains => s_sources.Keys.ToList();
+
+    /// <summary>The scale <paramref name="source"/>'s values are expressed on (10 for TMDB/IMDb, 5 for RAWG, 100 for Metacritic).</summary>
+    public static double ScaleOf(string source) =>
+        s_scales.TryGetValue(source, out var scale)
+            ? scale
+            : throw new ArgumentOutOfRangeException(nameof(source), $"No scale is declared for the rating source '{source}'.");
 
     /// <summary>Whether <paramref name="domain"/>'s primary rating source is admin-selectable.</summary>
     public static bool IsSelectable(ReferenceItemType domain) => s_sources.ContainsKey(domain);

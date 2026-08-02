@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -11,13 +12,17 @@ using Xunit;
 
 namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
+/// <summary>
+/// The Explore read path, which pages a stored provider ranking rather than calling a provider: exclusions,
+/// the rank cursor, and which stored ordering/rating a domain's admin setting selects. The catalogue mock
+/// honours the cursor exactly as the repository does, so the paging assertions here are about real behaviour
+/// and not about a stub returning a fixed list.
+/// </summary>
 [Trait("Category", "UnitTests")]
 public class ExploreServiceTest
 {
-    private readonly Mock<ITmdbClient> _tmdbClient = new();
-    private readonly Mock<IOmdbClient> _omdbClient = new();
-    private readonly Mock<IRawgClient> _rawgClient = new();
     private readonly Mock<IAppSettingRepository> _appSettingRepository = new();
+    private readonly Mock<IExploreCatalogueRepository> _catalogueRepository = new();
     private readonly Mock<IMovieRepository> _movieRepository = new();
     private readonly Mock<ITvShowRepository> _tvShowRepository = new();
     private readonly Mock<IVideoGameRepository> _videoGameRepository = new();
@@ -31,15 +36,37 @@ public class ExploreServiceTest
         // no admin override by default => the code default source per domain (tmdb / rawg) is used
         _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync()).ReturnsAsync(new Dictionary<string, string>());
         return new(
-            _tmdbClient.Object, _omdbClient.Object, _rawgClient.Object, _appSettingRepository.Object,
+            _appSettingRepository.Object, _catalogueRepository.Object,
             _movieRepository.Object, _tvShowRepository.Object, _videoGameRepository.Object,
             _movieReferenceRepository.Object, _tvShowReferenceRepository.Object, _videoGameReferenceRepository.Object,
             _dismissalRepository.Object);
     }
 
-    private static TmdbTopRatedItem Item(string id, double rating) => new(id, $"Title {id}", 2000, "synopsis", "http://img", rating);
+    private static ExploreCatalogueEntryModel Entry(ExploreItemType type, string ranking, string externalId, int rank, params (string Source, double Value)[] ratings) =>
+        new()
+        {
+            ItemType = type,
+            Ranking = ranking,
+            ExternalId = externalId,
+            Rank = rank,
+            Title = $"Title {externalId}",
+            Year = 2000,
+            Ratings = ratings.ToDictionary(r => r.Source, r => r.Value)
+        };
 
-    private static RawgTopRatedItem Game(string id, double? rating, int? metacritic) => new(id, $"Game {id}", 2010, "http://img", rating, metacritic);
+    /// <summary>
+    /// Stands the stored ranking up behind the repository mock, honouring the rank cursor and page size the
+    /// service asks with - so a test can assert that paging continues from the right place rather than merely
+    /// that a call was made.
+    /// </summary>
+    private void Catalogue(ExploreItemType type, string ranking, params ExploreCatalogueEntryModel[] entries)
+    {
+        _catalogueRepository
+            .Setup(r => r.FindRankedAsync(type, ranking, It.IsAny<int>(), It.IsAny<int>()))
+            .ReturnsAsync((ExploreItemType _, string _, int afterRank, int take) =>
+                entries.Where(e => e.Rank > afterRank).OrderBy(e => e.Rank).Take(take).ToList());
+        _catalogueRepository.Setup(r => r.CountAsync(type, ranking)).ReturnsAsync(entries.Length);
+    }
 
     // "this owner tracks nothing and has dismissed nothing" - the starting point of every test that isn't
     // specifically about the exclusion set.
@@ -66,18 +93,18 @@ public class ExploreServiceTest
         _movieReferenceRepository.Setup(r => r.FindByIdsAsync(It.Is<IReadOnlyCollection<string>>(c => c.Contains("ref-a"))))
             .ReturnsAsync([new MovieReferenceModel { Id = "ref-a", Title = "Tracked", TitleNormalized = "tracked", ExternalIds = new Dictionary<string, string> { ["tmdb"] = "100" } }]);
         _dismissalRepository.Setup(r => r.FindDismissedExternalIdsAsync("owner", ExploreItemType.Movie, "tmdb")).ReturnsAsync(["200"]);
-        // later pages are empty (the real client returns [] past the last page); only page 1 has results here
-        _tmdbClient.Setup(c => c.GetTopRatedMoviesAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
-        _tmdbClient.Setup(c => c.GetTopRatedMoviesAsync(1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync([Item("100", 9.0), Item("200", 8.8), Item("300", 8.6)]);
+        Catalogue(ExploreItemType.Movie, "tmdb",
+            Entry(ExploreItemType.Movie, "tmdb", "100", 1, ("tmdb", 9.0)),
+            Entry(ExploreItemType.Movie, "tmdb", "200", 2, ("tmdb", 8.8)),
+            Entry(ExploreItemType.Movie, "tmdb", "300", 3, ("tmdb", 8.6)));
 
-        var suggestions = await CreateService().GetSuggestionsAsync(ExploreItemType.Movie, "owner", 24, TestContext.Current.CancellationToken);
+        var page = await CreateService().GetSuggestionsAsync(ExploreItemType.Movie, "owner", 24, null, TestContext.Current.CancellationToken);
 
         // 100 is tracked, 200 is dismissed - only 300 survives
-        suggestions.Should().ContainSingle();
-        suggestions[0].ExternalId.Should().Be("300");
-        suggestions[0].Rating.Should().Be(8.6);
-        suggestions[0].RatingScale.Should().Be(10);
+        page.Items.Should().ContainSingle();
+        page.Items[0].ExternalId.Should().Be("300");
+        page.Items[0].Rating.Should().Be(8.6);
+        page.Items[0].RatingScale.Should().Be(10);
     }
 
     [Fact]
@@ -87,135 +114,217 @@ public class ExploreServiceTest
         // an item the owner typed in or imported that never got linked has no provider id to exclude by -
         // only its title. Matching goes through the app-wide TitleNormalizer, so it is exactly as forgiving
         // as every other title match in the codebase (case and surrounding whitespace), no more.
-        _movieRepository.Setup(r => r.FindDistinctTitlesAsync("owner")).ReturnsAsync([" the GODFATHER "]);
-        _tmdbClient.Setup(c => c.GetTopRatedMoviesAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
-        _tmdbClient.Setup(c => c.GetTopRatedMoviesAsync(1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync([new TmdbTopRatedItem("1", "The Godfather", 1972, null, null, 8.7), Item("2", 8.6)]);
+        _movieRepository.Setup(r => r.FindDistinctTitlesAsync("owner")).ReturnsAsync([" tITLE 1 "]);
+        Catalogue(ExploreItemType.Movie, "tmdb",
+            Entry(ExploreItemType.Movie, "tmdb", "1", 1, ("tmdb", 8.7)),
+            Entry(ExploreItemType.Movie, "tmdb", "2", 2, ("tmdb", 8.6)));
 
-        var suggestions = await CreateService().GetSuggestionsAsync(ExploreItemType.Movie, "owner", 24, TestContext.Current.CancellationToken);
+        var page = await CreateService().GetSuggestionsAsync(ExploreItemType.Movie, "owner", 24, null, TestContext.Current.CancellationToken);
 
-        suggestions.Should().ContainSingle().Which.ExternalId.Should().Be("2");
+        page.Items.Should().ContainSingle().Which.ExternalId.Should().Be("2");
     }
 
     [Fact]
-    public async Task GetSuggestionsAsync_PagesThroughTheProviderUntilTheLimitIsFilled()
+    public async Task GetSuggestionsAsync_StopsAtTheRequestedCount_AndReportsACursorToContinueFrom()
     {
         NoExclusions(ExploreItemType.Movie);
-        _tmdbClient.Setup(c => c.GetTopRatedMoviesAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync([Item("1", 9.0), Item("2", 8.9)]);
-        _tmdbClient.Setup(c => c.GetTopRatedMoviesAsync(2, It.IsAny<CancellationToken>())).ReturnsAsync([Item("3", 8.8), Item("4", 8.7)]);
+        Catalogue(ExploreItemType.Movie, "tmdb",
+            [.. Enumerable.Range(1, 10).Select(i => Entry(ExploreItemType.Movie, "tmdb", $"m{i}", i, ("tmdb", 9.0)))]);
 
-        var suggestions = await CreateService().GetSuggestionsAsync(ExploreItemType.Movie, "owner", 3, TestContext.Current.CancellationToken);
+        var page = await CreateService().GetSuggestionsAsync(ExploreItemType.Movie, "owner", 3, null, TestContext.Current.CancellationToken);
 
-        suggestions.Select(s => s.ExternalId).Should().Equal(["1", "2", "3"], "it stops once the limit is filled, having pulled a second page");
-        _tmdbClient.Verify(c => c.GetTopRatedMoviesAsync(3, It.IsAny<CancellationToken>()), Times.Never);
+        page.Items.Select(s => s.ExternalId).Should().Equal(["m1", "m2", "m3"]);
+        page.NextCursor.Should().Be(3, "the cursor is the rank of the last entry examined");
     }
 
     [Fact]
-    public async Task GetSuggestionsAsync_UsesTheTvShowProviderAndRepositories_ForTheTvShowDomain()
+    public async Task GetSuggestionsAsync_ContinuesFromTheCursor_WithoutRepeatingOrSkipping()
+    {
+        NoExclusions(ExploreItemType.Movie);
+        Catalogue(ExploreItemType.Movie, "tmdb",
+            [.. Enumerable.Range(1, 10).Select(i => Entry(ExploreItemType.Movie, "tmdb", $"m{i}", i, ("tmdb", 9.0)))]);
+        var service = CreateService();
+
+        var first = await service.GetSuggestionsAsync(ExploreItemType.Movie, "owner", 4, null, TestContext.Current.CancellationToken);
+        var second = await service.GetSuggestionsAsync(ExploreItemType.Movie, "owner", 4, first.NextCursor, TestContext.Current.CancellationToken);
+
+        first.Items.Select(s => s.ExternalId).Should().Equal(["m1", "m2", "m3", "m4"]);
+        second.Items.Select(s => s.ExternalId).Should().Equal(["m5", "m6", "m7", "m8"]);
+    }
+
+    [Fact]
+    public async Task GetSuggestionsAsync_AdvancesTheCursorPastExcludedEntries_SoTheyAreNeverReExamined()
+    {
+        NoExclusions(ExploreItemType.Movie);
+        // the whole tail after the single survivor is dismissed: the cursor must still reach the end of it,
+        // or the next page would re-read and re-filter the same run of titles forever.
+        _dismissalRepository.Setup(r => r.FindDismissedExternalIdsAsync("owner", ExploreItemType.Movie, "tmdb"))
+            .ReturnsAsync(["m2", "m3", "m4"]);
+        Catalogue(ExploreItemType.Movie, "tmdb",
+            [.. Enumerable.Range(1, 4).Select(i => Entry(ExploreItemType.Movie, "tmdb", $"m{i}", i, ("tmdb", 9.0)))]);
+
+        var page = await CreateService().GetSuggestionsAsync(ExploreItemType.Movie, "owner", 24, null, TestContext.Current.CancellationToken);
+
+        page.Items.Should().ContainSingle().Which.ExternalId.Should().Be("m1");
+        page.NextCursor.Should().BeNull("the ranking ran out, so there is nothing to continue from");
+    }
+
+    [Fact]
+    public async Task GetSuggestionsAsync_WhenTheRankingIsExhausted_ReportsNoCursor()
+    {
+        NoExclusions(ExploreItemType.Movie);
+        Catalogue(ExploreItemType.Movie, "tmdb", Entry(ExploreItemType.Movie, "tmdb", "m1", 1, ("tmdb", 9.0)));
+
+        var page = await CreateService().GetSuggestionsAsync(ExploreItemType.Movie, "owner", 24, null, TestContext.Current.CancellationToken);
+
+        page.Items.Should().ContainSingle();
+        page.NextCursor.Should().BeNull();
+        page.CataloguePending.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetSuggestionsAsync_WhenTheRankingHasNotBeenBuiltYet_SaysSo()
+    {
+        NoExclusions(ExploreItemType.Movie);
+        Catalogue(ExploreItemType.Movie, "tmdb");
+
+        var page = await CreateService().GetSuggestionsAsync(ExploreItemType.Movie, "owner", 24, null, TestContext.Current.CancellationToken);
+
+        // "not built yet" (a fresh deployment before the first refresh pass) is an empty list too, but it
+        // means the opposite of "you've seen everything" to a user.
+        page.Items.Should().BeEmpty();
+        page.CataloguePending.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetSuggestionsAsync_WhenTheOwnerTracksEverythingInTheRanking_IsNotReportedAsPending()
+    {
+        NoExclusions(ExploreItemType.Movie);
+        _dismissalRepository.Setup(r => r.FindDismissedExternalIdsAsync("owner", ExploreItemType.Movie, "tmdb")).ReturnsAsync(["m1"]);
+        Catalogue(ExploreItemType.Movie, "tmdb", Entry(ExploreItemType.Movie, "tmdb", "m1", 1, ("tmdb", 9.0)));
+
+        var page = await CreateService().GetSuggestionsAsync(ExploreItemType.Movie, "owner", 24, null, TestContext.Current.CancellationToken);
+
+        page.Items.Should().BeEmpty();
+        page.CataloguePending.Should().BeFalse("the catalogue is built - this owner has simply run out of new titles");
+    }
+
+    [Fact]
+    public async Task GetSuggestionsAsync_UsesTheTvShowRankingAndRepositories_ForTheTvShowDomain()
     {
         NoExclusions(ExploreItemType.TvShow);
-        _tmdbClient.Setup(c => c.GetTopRatedTvShowsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
-        _tmdbClient.Setup(c => c.GetTopRatedTvShowsAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync([Item("tv1", 9.4)]);
+        Catalogue(ExploreItemType.TvShow, "tmdb", Entry(ExploreItemType.TvShow, "tmdb", "tv1", 1, ("tmdb", 9.4)));
 
-        var suggestions = await CreateService().GetSuggestionsAsync(ExploreItemType.TvShow, "owner", 24, TestContext.Current.CancellationToken);
+        var page = await CreateService().GetSuggestionsAsync(ExploreItemType.TvShow, "owner", 24, null, TestContext.Current.CancellationToken);
 
-        suggestions.Should().ContainSingle().Which.ExternalId.Should().Be("tv1");
-        _tmdbClient.Verify(c => c.GetTopRatedMoviesAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        page.Items.Should().ContainSingle().Which.ExternalId.Should().Be("tv1");
+        _catalogueRepository.Verify(
+            r => r.FindRankedAsync(ExploreItemType.Movie, It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()), Times.Never);
     }
 
     [Fact]
-    public async Task GetSuggestionsAsync_WhenImdbIsThePrimarySource_ShowsImdbRatingsButKeepsTmdbOrder()
+    public async Task GetSuggestionsAsync_WhenImdbIsThePrimarySource_ShowsTheStoredImdbRating_KeepingTheTmdbOrdering()
     {
         var service = CreateService();
         // admin picked IMDb as the movie primary source
         _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync()).ReturnsAsync(new Dictionary<string, string> { ["Movie"] = "imdb" });
         NoExclusions(ExploreItemType.Movie);
-        _tmdbClient.Setup(c => c.GetTopRatedMoviesAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
-        // TMDB top-rated order: "20" before "10"
-        _tmdbClient.Setup(c => c.GetTopRatedMoviesAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync([Item("20", 9.0), Item("10", 5.0)]);
-        _tmdbClient.Setup(c => c.GetMovieImdbIdAsync("20", It.IsAny<CancellationToken>())).ReturnsAsync("tt20");
-        _tmdbClient.Setup(c => c.GetMovieImdbIdAsync("10", It.IsAny<CancellationToken>())).ReturnsAsync("tt10");
-        _omdbClient.Setup(c => c.GetRatingAsync("tt20", It.IsAny<CancellationToken>())).ReturnsAsync(new OmdbRating(7.0, 50));
-        _omdbClient.Setup(c => c.GetRatingAsync("tt10", It.IsAny<CancellationToken>())).ReturnsAsync(new OmdbRating(8.5, 100));
+        // IMDb has no catalogue API, so there is no "imdb" ordering at all - the entries are ranked by TMDB
+        // and simply carry both numbers.
+        Catalogue(ExploreItemType.Movie, "tmdb",
+            Entry(ExploreItemType.Movie, "tmdb", "20", 1, ("tmdb", 9.0), ("imdb", 7.0)),
+            Entry(ExploreItemType.Movie, "tmdb", "10", 2, ("tmdb", 5.0), ("imdb", 8.5)));
 
-        var suggestions = await service.GetSuggestionsAsync(ExploreItemType.Movie, "owner", 24, TestContext.Current.CancellationToken);
+        var page = await service.GetSuggestionsAsync(ExploreItemType.Movie, "owner", 24, null, TestContext.Current.CancellationToken);
 
-        // the shown value is IMDb's, but the ORDER stays TMDB's (no re-rank from partial OMDb data)
-        suggestions.Select(s => s.ExternalId).Should().Equal(["20", "10"]);
-        suggestions[0].Rating.Should().Be(7.0);
-        suggestions[1].Rating.Should().Be(8.5);
+        // the shown value is IMDb's, but the ORDER stays TMDB's (no re-rank from partial IMDb coverage)
+        page.Items.Select(s => s.ExternalId).Should().Equal(["20", "10"]);
+        page.Items[0].Rating.Should().Be(7.0);
+        page.Items[1].Rating.Should().Be(8.5);
     }
 
     [Fact]
-    public async Task GetSuggestionsAsync_WhenExploreIsForcedToTmdb_IgnoresTheImdbPrimarySource_AndMakesNoOmdbCalls()
+    public async Task GetSuggestionsAsync_WhenImdbIsSelectedButAnEntryHasNoImdbRatingYet_ShowsNoRating()
+    {
+        var service = CreateService();
+        _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync()).ReturnsAsync(new Dictionary<string, string> { ["Movie"] = "imdb" });
+        NoExclusions(ExploreItemType.Movie);
+        // the IMDb backfill is bounded per pass, so an entry deep in the ranking can legitimately not have one
+        // yet. Showing its TMDB number under an IMDb selection would be a quietly wrong number; showing none
+        // is the same thing the per-request OMDb lookup used to do when it came back empty.
+        Catalogue(ExploreItemType.Movie, "tmdb", Entry(ExploreItemType.Movie, "tmdb", "20", 1, ("tmdb", 9.0)));
+
+        var page = await service.GetSuggestionsAsync(ExploreItemType.Movie, "owner", 24, null, TestContext.Current.CancellationToken);
+
+        page.Items.Should().ContainSingle();
+        page.Items[0].Rating.Should().BeNull();
+        page.Items[0].RatingScale.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetSuggestionsAsync_WhenExploreIsForcedToTmdb_ShowsTheTmdbRatingDespiteTheImdbPrimarySource()
     {
         var service = CreateService();
         _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync()).ReturnsAsync(new Dictionary<string, string> { ["Movie"] = "imdb" });
         _appSettingRepository.Setup(r => r.GetExploreUseTmdbAsync()).ReturnsAsync(true);
         NoExclusions(ExploreItemType.Movie);
-        _tmdbClient.Setup(c => c.GetTopRatedMoviesAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
-        _tmdbClient.Setup(c => c.GetTopRatedMoviesAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync([Item("20", 9.0), Item("10", 5.0)]);
+        Catalogue(ExploreItemType.Movie, "tmdb",
+            Entry(ExploreItemType.Movie, "tmdb", "20", 1, ("tmdb", 9.0), ("imdb", 7.0)));
 
-        var suggestions = await service.GetSuggestionsAsync(ExploreItemType.Movie, "owner", 24, TestContext.Current.CancellationToken);
+        var page = await service.GetSuggestionsAsync(ExploreItemType.Movie, "owner", 24, null, TestContext.Current.CancellationToken);
 
-        // TMDB order and TMDB ratings, despite IMDb being the primary source
-        suggestions.Select(s => s.ExternalId).Should().Equal(["20", "10"]);
-        suggestions[0].Rating.Should().Be(9.0);
-        _tmdbClient.Verify(c => c.GetMovieImdbIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-        _omdbClient.Verify(c => c.GetRatingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        page.Items.Should().ContainSingle().Which.Rating.Should().Be(9.0);
     }
 
     [Fact]
-    public async Task GetSuggestionsAsync_ForVideoGames_ReadsRawgOrderedByItsOwnScore_ByDefault()
+    public async Task GetSuggestionsAsync_ForVideoGames_ReadsTheRawgOrderedRanking_ByDefault()
     {
         NoExclusions(ExploreItemType.VideoGame);
-        _rawgClient.Setup(c => c.GetTopRatedGamesAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
-        _rawgClient.Setup(c => c.GetTopRatedGamesAsync(1, "rawg", It.IsAny<CancellationToken>()))
-            .ReturnsAsync([Game("g1", 4.7, 96), Game("g2", 4.5, 92)]);
+        Catalogue(ExploreItemType.VideoGame, "rawg",
+            Entry(ExploreItemType.VideoGame, "rawg", "g1", 1, ("rawg", 4.7), ("metacritic", 96)),
+            Entry(ExploreItemType.VideoGame, "rawg", "g2", 2, ("rawg", 4.5), ("metacritic", 92)));
 
-        var suggestions = await CreateService().GetSuggestionsAsync(ExploreItemType.VideoGame, "owner", 24, TestContext.Current.CancellationToken);
+        var page = await CreateService().GetSuggestionsAsync(ExploreItemType.VideoGame, "owner", 24, null, TestContext.Current.CancellationToken);
 
-        suggestions.Select(s => s.ExternalId).Should().Equal(["g1", "g2"]);
-        // RAWG's own score on its own 0-5 scale, taken straight off the listing - no per-title call
-        suggestions[0].Rating.Should().Be(4.7);
-        suggestions[0].RatingScale.Should().Be(5);
-        _rawgClient.Verify(c => c.GetGameDetailsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        page.Items.Select(s => s.ExternalId).Should().Equal(["g1", "g2"]);
+        // RAWG's own score on its own 0-5 scale
+        page.Items[0].Rating.Should().Be(4.7);
+        page.Items[0].RatingScale.Should().Be(5);
     }
 
     [Fact]
-    public async Task GetSuggestionsAsync_ForVideoGames_WhenMetacriticIsThePrimarySource_OrdersAndShowsMetacriticScores()
+    public async Task GetSuggestionsAsync_ForVideoGames_WhenMetacriticIsThePrimarySource_ReadsTheMetacriticOrderedRanking()
     {
         var service = CreateService();
         _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync()).ReturnsAsync(new Dictionary<string, string> { ["VideoGame"] = "metacritic" });
         NoExclusions(ExploreItemType.VideoGame);
-        _rawgClient.Setup(c => c.GetTopRatedGamesAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
-        _rawgClient.Setup(c => c.GetTopRatedGamesAsync(1, "metacritic", It.IsAny<CancellationToken>()))
-            .ReturnsAsync([Game("g9", 4.1, 98)]);
+        // unlike TMDB, RAWG genuinely sorts differently per source, so each source is a separately stored
+        // ordering - reading the wrong one would show the right numbers in the wrong order.
+        Catalogue(ExploreItemType.VideoGame, "metacritic",
+            Entry(ExploreItemType.VideoGame, "metacritic", "g9", 1, ("rawg", 4.1), ("metacritic", 98)));
 
-        var suggestions = await service.GetSuggestionsAsync(ExploreItemType.VideoGame, "owner", 24, TestContext.Current.CancellationToken);
+        var page = await service.GetSuggestionsAsync(ExploreItemType.VideoGame, "owner", 24, null, TestContext.Current.CancellationToken);
 
-        // RAWG orders by the selected source itself, so unlike IMDb there is nothing to enrich or re-rank
-        suggestions.Should().ContainSingle().Which.ExternalId.Should().Be("g9");
-        suggestions[0].Rating.Should().Be(98);
-        suggestions[0].RatingScale.Should().Be(100);
-        _rawgClient.Verify(c => c.GetTopRatedGamesAsync(It.IsAny<int>(), "rawg", It.IsAny<CancellationToken>()), Times.Never);
+        page.Items.Should().ContainSingle().Which.ExternalId.Should().Be("g9");
+        page.Items[0].Rating.Should().Be(98);
+        page.Items[0].RatingScale.Should().Be(100);
+        _catalogueRepository.Verify(
+            r => r.FindRankedAsync(ExploreItemType.VideoGame, "rawg", It.IsAny<int>(), It.IsAny<int>()), Times.Never);
     }
 
     [Fact]
     public async Task GetSuggestionsAsync_ForVideoGames_IsUnaffectedByTheForceTmdbExploreFlag()
     {
         var service = CreateService();
-        // the flag exists only to keep movie/TV discovery off the per-title OMDb lookups - "tmdb" is not a
-        // video game rating source at all, so it must never leak into this domain's ranking.
+        // the flag exists only to keep movie/TV discovery off the IMDb backfill - "tmdb" is not a video game
+        // rating source at all, so it must never leak into this domain's ranking.
         _appSettingRepository.Setup(r => r.GetExploreUseTmdbAsync()).ReturnsAsync(true);
         NoExclusions(ExploreItemType.VideoGame);
-        _rawgClient.Setup(c => c.GetTopRatedGamesAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
-        _rawgClient.Setup(c => c.GetTopRatedGamesAsync(1, "rawg", It.IsAny<CancellationToken>())).ReturnsAsync([Game("g1", 4.7, 96)]);
+        Catalogue(ExploreItemType.VideoGame, "rawg", Entry(ExploreItemType.VideoGame, "rawg", "g1", 1, ("rawg", 4.7)));
 
-        var suggestions = await service.GetSuggestionsAsync(ExploreItemType.VideoGame, "owner", 24, TestContext.Current.CancellationToken);
+        var page = await service.GetSuggestionsAsync(ExploreItemType.VideoGame, "owner", 24, null, TestContext.Current.CancellationToken);
 
-        suggestions.Should().ContainSingle().Which.RatingScale.Should().Be(5);
-        _tmdbClient.VerifyNoOtherCalls();
+        page.Items.Should().ContainSingle().Which.RatingScale.Should().Be(5);
     }
 
     [Fact]
@@ -226,13 +335,13 @@ public class ExploreServiceTest
         // the tracked game's reference carries the RAWG id - matched against the RAWG suggestion ids, never a TMDB one
         _videoGameReferenceRepository.Setup(r => r.FindByIdsAsync(It.Is<IReadOnlyCollection<string>>(c => c.Contains("ref-g"))))
             .ReturnsAsync([new VideoGameReferenceModel { Id = "ref-g", Title = "Owned", TitleNormalized = "owned", ExternalIds = new Dictionary<string, string> { ["rawg"] = "g1" } }]);
-        _rawgClient.Setup(c => c.GetTopRatedGamesAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
-        _rawgClient.Setup(c => c.GetTopRatedGamesAsync(1, "rawg", It.IsAny<CancellationToken>()))
-            .ReturnsAsync([Game("g1", 4.7, 96), Game("g2", 4.5, 92)]);
+        Catalogue(ExploreItemType.VideoGame, "rawg",
+            Entry(ExploreItemType.VideoGame, "rawg", "g1", 1, ("rawg", 4.7)),
+            Entry(ExploreItemType.VideoGame, "rawg", "g2", 2, ("rawg", 4.5)));
 
-        var suggestions = await CreateService().GetSuggestionsAsync(ExploreItemType.VideoGame, "owner", 24, TestContext.Current.CancellationToken);
+        var page = await CreateService().GetSuggestionsAsync(ExploreItemType.VideoGame, "owner", 24, null, TestContext.Current.CancellationToken);
 
-        suggestions.Should().ContainSingle().Which.ExternalId.Should().Be("g2");
+        page.Items.Should().ContainSingle().Which.ExternalId.Should().Be("g2");
     }
 
     [Fact]

@@ -30,6 +30,16 @@ public class ReferenceSyncBackgroundService(
     private static readonly TimeSpan s_interval = TimeSpan.FromHours(24);
     private static readonly TimeSpan s_staleAfter = TimeSpan.FromDays(3);
 
+    /// <summary>
+    /// How long an Explore discovery ranking may go without a rebuild. Much longer than the reference
+    /// staleness above, because it is a different kind of data: "which titles are the best rated" barely moves
+    /// week to week, and a rebuild walks a provider's list from the top rather than re-checking documents that
+    /// individually changed. Riding the same 24h tick (and the same lease) rather than adding a second
+    /// scheduled workload keeps the no-external-scheduler rationale intact - the tick just usually finds this
+    /// one still fresh and skips it.
+    /// </summary>
+    private static readonly TimeSpan s_exploreStaleAfter = TimeSpan.FromDays(7);
+
     // comfortably longer than any sync run, much shorter than the 24h tick:
     // a replica that dies holding the lease only delays the next successful pass by this long,
     // and a rolling deploy's brand-new pod (whose startup pass finds the previous pod's lease still live) just yields until its next tick.
@@ -72,10 +82,16 @@ public class ReferenceSyncBackgroundService(
                 var reconciliationService = scope.ServiceProvider.GetRequiredService<TvShowStatusReconciliationService>();
                 result.FinishedShowsReopened = await reconciliationService.ReconcileFinishedShowsAsync(stoppingToken);
 
+                // the Explore discovery rankings ride the same lease-held tick on their own, longer staleness
+                // window - see s_exploreStaleAfter.
+                var exploreRefreshService = scope.ServiceProvider.GetRequiredService<ExploreCatalogueRefreshService>();
+                result.ApplyExploreRefresh(await exploreRefreshService.RefreshAsync(s_exploreStaleAfter, stoppingToken));
+
                 await jobStore.CompleteAsync(jobId.Value, ReferenceSyncStage.Completed, result);
                 logger.LogInformation(
-                    "Reference sync: {TvShowsChecked} TV show(s) checked ({TvShowsUpdated} updated), {MoviesChecked} movie(s) checked ({MoviesUpdated} updated), {FinishedShowsReopened} finished show(s) reopened.",
-                    result.TvShowsChecked, result.TvShowsUpdated, result.MoviesChecked, result.MoviesUpdated, result.FinishedShowsReopened);
+                    "Reference sync: {TvShowsChecked} TV show(s) checked ({TvShowsUpdated} updated), {MoviesChecked} movie(s) checked ({MoviesUpdated} updated), {FinishedShowsReopened} finished show(s) reopened, {ExploreRankingsRefreshed} Explore ranking(s) refreshed.",
+                    result.TvShowsChecked, result.TvShowsUpdated, result.MoviesChecked, result.MoviesUpdated, result.FinishedShowsReopened,
+                    result.ExploreRankingsRefreshed);
             }
             catch (Exception ex)
             {

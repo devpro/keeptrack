@@ -54,10 +54,12 @@ internal static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<BookReferenceStorageMapper>();
         services.AddSingleton<VideoGameReferenceStorageMapper>();
         services.AddSingleton<AlbumReferenceStorageMapper>();
+        services.AddSingleton<ExploreCatalogueEntryStorageMapper>();
 
         services.TryAddScoped<Domain.Repositories.IBackgroundJobRepository, BackgroundJobRepository>();
         services.TryAddScoped<Domain.Repositories.IWishlistShareRepository, WishlistShareRepository>();
         services.TryAddScoped<Domain.Repositories.IExploreDismissalRepository, ExploreDismissalRepository>();
+        services.TryAddScoped<Domain.Repositories.IExploreCatalogueRepository, ExploreCatalogueRepository>();
         services.TryAddScoped<Domain.Repositories.IShareRepository, ShareRepository>();
         services.TryAddScoped<Domain.Repositories.ILeaseRepository, LeaseRepository>();
         services.TryAddScoped<Domain.Repositories.IAppSettingRepository, AppSettingRepository>();

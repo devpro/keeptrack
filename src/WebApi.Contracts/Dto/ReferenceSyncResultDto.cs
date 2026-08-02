@@ -55,4 +55,21 @@ public class ReferenceSyncResultDto
     /// reconciliation that runs right after the reference refresh.
     /// </summary>
     public int FinishedShowsReopened { get; set; }
+
+    /// <summary>
+    /// How many Explore discovery rankings (a domain plus an ordering, e.g. video games by Metacritic) were
+    /// rebuilt this pass. Zero when every stored ranking was still within its own, much longer, staleness
+    /// window - the reference documents above are re-checked far more often than the discovery lists.
+    /// </summary>
+    public int ExploreRankingsRefreshed { get; set; }
+
+    /// <summary>How many ranked Explore catalogue entries were written across those rankings.</summary>
+    public int ExploreEntriesRefreshed { get; set; }
+
+    /// <summary>
+    /// How many Explore catalogue entries gained an IMDb rating this pass. Bounded per pass (each costs a TMDB
+    /// plus an OMDb call), so this is expected to be well under the number of entries until coverage catches
+    /// up; it is zero unless IMDb is actually a domain's selected rating source.
+    /// </summary>
+    public int ExploreImdbRatingsBackfilled { get; set; }
 }

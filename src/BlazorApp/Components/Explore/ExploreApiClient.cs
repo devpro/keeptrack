@@ -9,10 +9,17 @@ namespace Keeptrack.BlazorApp.Components.Explore;
 /// </summary>
 public sealed class ExploreApiClient(HttpClient http)
 {
-    public async Task<List<ExploreSuggestionDto>> GetAsync(string type, int count)
+    /// <summary>
+    /// One page of suggestions. <paramref name="after"/> is the previous page's <c>NextCursor</c> (null for
+    /// the first page); a response whose own cursor is null means the ranking is exhausted. A page can come
+    /// back shorter than <paramref name="count"/> and still have more behind it - the server filters out what
+    /// the caller already tracks after reading the ranking.
+    /// </summary>
+    public async Task<ExploreSuggestionPageDto> GetAsync(string type, int count, int? after = null)
     {
-        var result = await http.GetFromJsonAsync<List<ExploreSuggestionDto>>($"/api/explore/{type}?count={count}");
-        return result ?? [];
+        var cursor = after is null ? string.Empty : $"&after={after}";
+        var result = await http.GetFromJsonAsync<ExploreSuggestionPageDto>($"/api/explore/{type}?count={count}{cursor}");
+        return result ?? new ExploreSuggestionPageDto();
     }
 
     /// <summary>

@@ -27,7 +27,10 @@ public class ExploreController(
     /// <summary>Default number of suggestions returned when the caller doesn't ask for a specific count.</summary>
     private const int DefaultCount = 24;
 
-    /// <summary>Upper bound on the count, so one request can't pull an unbounded number of provider pages.</summary>
+    /// <summary>
+    /// Upper bound on one page's size. Not a cap on how far a caller can explore - the cursor pages through
+    /// the whole stored ranking - just on how much a single request returns.
+    /// </summary>
     private const int MaxCount = 60;
 
     /// <summary>Movies and TV shows are part of the free preview tier, so adds count against the quota.</summary>
@@ -36,18 +39,23 @@ public class ExploreController(
     /// <summary>Video games are a member-only collection, where the free-tier creation quota never applies.</summary>
     private const int MemberOnlyLimitFactor = 0;
 
-    /// <summary>The top provider suggestions for a domain (movies, TV shows or video games).</summary>
+    /// <summary>
+    /// A page of provider suggestions for a domain (movies, TV shows or video games), ordered by the domain's
+    /// primary rating source. Omit <paramref name="after"/> for the first page, then pass back the previous
+    /// response's <c>nextCursor</c> to keep going; a null cursor means the ranking is exhausted.
+    /// </summary>
     [HttpGet("{type}")]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     [ProducesResponseType(403)]
-    public async Task<ActionResult<List<ExploreSuggestionDto>>> Get(ReferenceItemType type, [FromQuery] int? count, CancellationToken cancellationToken)
+    public async Task<ActionResult<ExploreSuggestionPageDto>> Get(
+        ReferenceItemType type, [FromQuery] int? count, [FromQuery] int? after, CancellationToken cancellationToken)
     {
         if (RequireAccessTo(type) is { } denied) return denied;
 
         var limit = Math.Clamp(count ?? DefaultCount, 1, MaxCount);
-        var suggestions = await exploreService.GetSuggestionsAsync(ToDomainType(type), this.GetUserId(), limit, cancellationToken);
-        return Ok(suggestions);
+        var page = await exploreService.GetSuggestionsAsync(ToDomainType(type), this.GetUserId(), limit, after, cancellationToken);
+        return Ok(page);
     }
 
     /// <summary>

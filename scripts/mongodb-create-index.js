@@ -286,3 +286,22 @@ ensureIndex(db.user_preference, { owner_id: 1 }, { name: "user_preference_owner"
 // (owner_id, item_type, external_source) to build the exclusion set; unique on the full natural key so a
 // double-dismiss (the application also upserts idempotently) can never create a duplicate.
 ensureIndex(db.explore_dismissal, { owner_id: 1, item_type: 1, external_source: 1, external_id: 1 }, { name: "explore_dismissal_key", unique: true });
+
+// explore_catalogue: the locally materialized copy of each provider's "best of" ranking, rebuilt weekly by
+// ExploreCatalogueRefreshService and read (never written) by the Explore page. Shared and owner-less like the
+// *_reference collections - the ranking is a public fact identical for every tenant; only the "do I already
+// track this?" exclusions are per-user, and those are applied at read time over this list. Storing it is what
+// lets Explore page deep into the ranking at all: the old per-request provider calls could only ever afford
+// the first few pages.
+//
+// A "ranking" is a domain plus an ordering, not a domain plus a displayed rating: TMDB publishes one
+// top-rated list whether movies are shown with TMDB or IMDb numbers (IMDb has no catalogue API), while RAWG
+// genuinely sorts differently by each of its own sources - so movies/TV have one ranking each and video games
+// have two. The unique natural key is what stops a refresh pass from inserting a second copy of a title it
+// re-reads across pages.
+ensureIndex(db.explore_catalogue, { item_type: 1, ranking: 1, external_id: 1 }, { name: "explore_catalogue_key", unique: true });
+// the read path: entries of one ranking after a given rank, in rank order (the paging cursor).
+ensureIndex(db.explore_catalogue, { item_type: 1, ranking: 1, rank: 1 }, { name: "explore_catalogue_rank" });
+// the refresh pass: the oldest stamp in a ranking (its staleness signal) and the "delete what this pass
+// didn't rewrite" prune, both filtering item_type + ranking and ordering/comparing on refreshed_at.
+ensureIndex(db.explore_catalogue, { item_type: 1, ranking: 1, refreshed_at: 1 }, { name: "explore_catalogue_refreshed" });

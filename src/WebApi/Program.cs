@@ -119,6 +119,7 @@ builder.Services.AddScoped<Keeptrack.WebApi.ReferenceData.ReferenceEnrichmentSer
 builder.Services.AddScoped<Keeptrack.WebApi.ReferenceData.ReferenceSyncService>();
 builder.Services.AddScoped<Keeptrack.WebApi.ReferenceData.TvShowStatusReconciliationService>();
 builder.Services.AddScoped<Keeptrack.WebApi.ReferenceData.ExploreService>();
+builder.Services.AddScoped<Keeptrack.WebApi.ReferenceData.ExploreCatalogueRefreshService>();
 builder.Services.AddHostedService<Keeptrack.WebApi.ReferenceData.ReferenceSyncBackgroundService>();
 builder.Services.AddMongoDbInfrastructure(configuration);
 builder.Services.AddOpenApiWithBearerAuth(configuration);
