@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Keeptrack.Domain.Models;
@@ -45,6 +46,14 @@ public interface IVideoGameReferenceRepository
     /// full unpaged read is fine.
     /// </summary>
     Task<List<VideoGameReferenceModel>> FindAllAsync();
+
+    /// <summary>
+    /// The stalest <paramref name="limit"/> documents the periodic sync should refresh next: never enriched
+    /// first, then least-recently enriched, and only those untouched since <paramref name="cutoff"/>.
+    /// The ordering is what makes the cap safe - a pass takes the oldest, so what it doesn't reach is first
+    /// in line next time, instead of the head of the collection being re-walked forever.
+    /// </summary>
+    Task<List<VideoGameReferenceModel>> FindStaleAsync(DateTime cutoff, int limit);
 
     /// <summary>
     /// Permanently removes a reference document - backs the admin "unlink" action, which deletes the

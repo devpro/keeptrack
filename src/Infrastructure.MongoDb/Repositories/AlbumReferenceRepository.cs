@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -57,6 +58,12 @@ public class AlbumReferenceRepository(IMongoDatabase mongoDatabase, AlbumReferen
         var filter = Builders<AlbumReference>.Filter.Eq($"external_ids.{provider}", externalId);
         var entity = await Collection.Find(filter).FirstOrDefaultAsync();
         return entity is null ? null : mapper.ToModel(entity);
+    }
+
+    public async Task<List<AlbumReferenceModel>> FindStaleAsync(DateTime cutoff, int limit)
+    {
+        var entities = await ReferenceStalenessQueries.FindStaleAsync(Collection, x => x.LastEnrichedAt, cutoff, limit);
+        return entities.Select(mapper.ToModel).ToList();
     }
 
     public async Task<List<AlbumReferenceModel>> FindAllAsync()

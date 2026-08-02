@@ -346,6 +346,17 @@ A replica dying while holding the lease delays the next pass by at most 1h again
 
 `ReferenceSyncService.SyncStaleReferencesAsync(staleAfter, ...)` is the single sync algorithm, shared by the loop and the admin's `POST /api/reference-data/sync-now` (3 days for the periodic pass, `TimeSpan.Zero` for the forced one).
 One failing document never aborts the run - each is caught and logged individually.
+It is **one** generic loop over five one-line domain arms (`SyncDomainAsync`), the same shape as `RecomputeReferenceRatingsAsync`; it used to be the identical loop copy-pasted per domain.
+
+**Which documents a pass takes, and in what order, is `I<X>ReferenceRepository.FindStaleAsync(cutoff, limit)`** - a server-side filter and sort (shared once in `Infrastructure.MongoDb/Repositories/ReferenceStalenessQueries.cs`), replacing a
+`FindAllAsync()` that read every reference document into memory each tick - for TV, including every show's whole embedded episode guide - to then discard most of them.
+Never-enriched first, then least-recently-enriched, capped at `MaxDocumentsPerDomainPerPass` (500).
+The order is what makes the cap safe: a pass always takes the stalest end, so whatever it doesn't reach leads the next one. Unordered, a capped pass would re-walk the same head forever and the tail would be refreshed never.
+- **Gotcha:** "never enriched" cannot come from the date comparison. MongoDB compares within a type, so `Lte(LastEnrichedAt, cutoff)` matches neither a null nor a missing field, and the documents most in need of a pass would be exactly the
+  ones the query could never return.
+  `Eq(field, null)` matches both null and missing (also covering documents written before the field existed), and ascending order then puts them first for free - BSON sorts null ahead of every date.
+  Same silent-empty-match family as the `ReferenceId` null/empty gotcha below; only the real-Mongo `ReferenceStalenessRepositoryTest` catches it.
+  `last_enriched_at` is indexed on all five reference collections for this query.
 
 `RefreshTvShowReferenceAsync`/`RefreshMovieReferenceAsync` lead with a cheap pre-check: TMDB's per-id `/changes?start_date=...` (one call, no season fan-out).
 If nothing changed, only `LastEnrichedAt` is bumped and the full details + per-season cast calls are skipped.

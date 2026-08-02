@@ -17,7 +17,17 @@ public class ReferenceSyncService(
     ILogger<ReferenceSyncService> logger)
 {
     /// <summary>
-    /// Refreshes every reference document whose <c>LastEnrichedAt</c> is older than <paramref name="staleAfter"/> (or unset).
+    /// The most documents one pass refreshes per domain. A cap is only safe because the query returns the
+    /// stalest documents first (see <c>FindStaleAsync</c>): whatever a pass doesn't reach is at the front of
+    /// the next one, so nothing starves - it just means a collection larger than this rotates over several
+    /// passes rather than all in one. What it buys is a bounded, predictable amount of provider traffic per
+    /// pass instead of "however many happened to be stale", which matters most on the very first pass after a
+    /// bulk import, when every document is unenriched at once.
+    /// </summary>
+    private const int MaxDocumentsPerDomainPerPass = 500;
+
+    /// <summary>
+    /// Refreshes the stalest reference documents whose <c>LastEnrichedAt</c> is older than <paramref name="staleAfter"/> (or unset), oldest first, up to <see cref="MaxDocumentsPerDomainPerPass"/> per domain.
     /// A failure on one document is logged and skipped rather than aborting the whole run - one bad TMDB response shouldn't block every other show/movie from being checked.
     /// </summary>
     public async Task<ReferenceSyncResultDto> SyncStaleReferencesAsync(TimeSpan staleAfter, Func<ReferenceSyncStage, Task>? onStageChanged = null,
@@ -26,116 +36,63 @@ public class ReferenceSyncService(
         var cutoff = DateTime.UtcNow - staleAfter;
         var result = new ReferenceSyncResultDto();
 
-        await SyncTvShowAsync(onStageChanged, cutoff, result, cancellationToken);
+        // one loop, five domains: each arm supplies only the two things that genuinely differ - which
+        // collection to read and which refresh to run - so a sixth domain is a call, never another copy.
+        await SyncDomainAsync(onStageChanged, ReferenceSyncStage.SyncingTvShows, cutoff,
+            tvShowReferenceRepository.FindStaleAsync, enrichmentService.RefreshTvShowReferenceAsync, r => r.Id,
+            (checkedCount, updated) => (result.TvShowsChecked, result.TvShowsUpdated) = (checkedCount, updated), cancellationToken);
 
-        await SyncMovieAsync(onStageChanged, cutoff, result, cancellationToken);
+        await SyncDomainAsync(onStageChanged, ReferenceSyncStage.SyncingMovies, cutoff,
+            movieReferenceRepository.FindStaleAsync, enrichmentService.RefreshMovieReferenceAsync, r => r.Id,
+            (checkedCount, updated) => (result.MoviesChecked, result.MoviesUpdated) = (checkedCount, updated), cancellationToken);
 
-        await SyncBookAsync(onStageChanged, cutoff, result, cancellationToken);
+        await SyncDomainAsync(onStageChanged, ReferenceSyncStage.SyncingBooks, cutoff,
+            bookReferenceRepository.FindStaleAsync, enrichmentService.RefreshBookReferenceAsync, r => r.Id,
+            (checkedCount, updated) => (result.BooksChecked, result.BooksUpdated) = (checkedCount, updated), cancellationToken);
 
-        await SyncVideoGameAsync(onStageChanged, cutoff, result, cancellationToken);
+        await SyncDomainAsync(onStageChanged, ReferenceSyncStage.SyncingVideoGames, cutoff,
+            videoGameReferenceRepository.FindStaleAsync, enrichmentService.RefreshVideoGameReferenceAsync, r => r.Id,
+            (checkedCount, updated) => (result.VideoGamesChecked, result.VideoGamesUpdated) = (checkedCount, updated), cancellationToken);
 
-        await SyncAlbumAsync(onStageChanged, cutoff, result, cancellationToken);
+        await SyncDomainAsync(onStageChanged, ReferenceSyncStage.SyncingAlbums, cutoff,
+            albumReferenceRepository.FindStaleAsync, enrichmentService.RefreshAlbumReferenceAsync, r => r.Id,
+            (checkedCount, updated) => (result.AlbumsChecked, result.AlbumsUpdated) = (checkedCount, updated), cancellationToken);
 
         return result;
     }
 
-    private async Task SyncTvShowAsync(Func<ReferenceSyncStage, Task>? onStageChanged, DateTime cutoff, ReferenceSyncResultDto result, CancellationToken cancellationToken)
+    /// <summary>
+    /// The whole per-domain sync: announce the stage, read the stalest page, refresh each document, and report
+    /// the two counts. Every domain ran a byte-for-byte copy of this before, five times over.
+    /// </summary>
+    private async Task SyncDomainAsync<TReference>(
+        Func<ReferenceSyncStage, Task>? onStageChanged,
+        ReferenceSyncStage stage,
+        DateTime cutoff,
+        Func<DateTime, int, Task<List<TReference>>> findStale,
+        Func<TReference, CancellationToken, Task<(TReference Model, bool DataChanged)>> refresh,
+        Func<TReference, string?> id,
+        Action<int, int> report,
+        CancellationToken cancellationToken)
     {
-        if (onStageChanged is not null) await onStageChanged(ReferenceSyncStage.SyncingTvShows);
-        foreach (var reference in await tvShowReferenceRepository.FindAllAsync())
-        {
-            if (reference.LastEnrichedAt is not null && reference.LastEnrichedAt > cutoff) continue;
+        if (onStageChanged is not null) await onStageChanged(stage);
 
-            result.TvShowsChecked++;
+        var references = await findStale(cutoff, MaxDocumentsPerDomainPerPass);
+        var updated = 0;
+
+        foreach (var reference in references)
+        {
             try
             {
-                var (_, changed) = await enrichmentService.RefreshTvShowReferenceAsync(reference, cancellationToken);
-                if (changed) result.TvShowsUpdated++;
+                var (_, changed) = await refresh(reference, cancellationToken);
+                if (changed) updated++;
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to refresh TV show reference {ReferenceId}", reference.Id);
+                logger.LogWarning(ex, "Failed to refresh reference {ReferenceId} during {Stage}", id(reference), stage);
             }
         }
-    }
 
-    private async Task SyncMovieAsync(Func<ReferenceSyncStage, Task>? onStageChanged, DateTime cutoff, ReferenceSyncResultDto result, CancellationToken cancellationToken)
-    {
-        if (onStageChanged is not null) await onStageChanged(ReferenceSyncStage.SyncingMovies);
-        foreach (var reference in await movieReferenceRepository.FindAllAsync())
-        {
-            if (reference.LastEnrichedAt is not null && reference.LastEnrichedAt > cutoff) continue;
-
-            result.MoviesChecked++;
-            try
-            {
-                var (_, changed) = await enrichmentService.RefreshMovieReferenceAsync(reference, cancellationToken);
-                if (changed) result.MoviesUpdated++;
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Failed to refresh movie reference {ReferenceId}", reference.Id);
-            }
-        }
-    }
-
-    private async Task SyncBookAsync(Func<ReferenceSyncStage, Task>? onStageChanged, DateTime cutoff, ReferenceSyncResultDto result, CancellationToken cancellationToken)
-    {
-        if (onStageChanged is not null) await onStageChanged(ReferenceSyncStage.SyncingBooks);
-        foreach (var reference in await bookReferenceRepository.FindAllAsync())
-        {
-            if (reference.LastEnrichedAt is not null && reference.LastEnrichedAt > cutoff) continue;
-
-            result.BooksChecked++;
-            try
-            {
-                var (_, changed) = await enrichmentService.RefreshBookReferenceAsync(reference, cancellationToken);
-                if (changed) result.BooksUpdated++;
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Failed to refresh book reference {ReferenceId}", reference.Id);
-            }
-        }
-    }
-
-    private async Task SyncVideoGameAsync(Func<ReferenceSyncStage, Task>? onStageChanged, DateTime cutoff, ReferenceSyncResultDto result, CancellationToken cancellationToken)
-    {
-        if (onStageChanged is not null) await onStageChanged(ReferenceSyncStage.SyncingVideoGames);
-        foreach (var reference in await videoGameReferenceRepository.FindAllAsync())
-        {
-            if (reference.LastEnrichedAt is not null && reference.LastEnrichedAt > cutoff) continue;
-
-            result.VideoGamesChecked++;
-            try
-            {
-                var (_, changed) = await enrichmentService.RefreshVideoGameReferenceAsync(reference, cancellationToken);
-                if (changed) result.VideoGamesUpdated++;
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Failed to refresh video game reference {ReferenceId}", reference.Id);
-            }
-        }
-    }
-
-    private async Task SyncAlbumAsync(Func<ReferenceSyncStage, Task>? onStageChanged, DateTime cutoff, ReferenceSyncResultDto result, CancellationToken cancellationToken)
-    {
-        if (onStageChanged is not null) await onStageChanged(ReferenceSyncStage.SyncingAlbums);
-        foreach (var reference in await albumReferenceRepository.FindAllAsync())
-        {
-            if (reference.LastEnrichedAt is not null && reference.LastEnrichedAt > cutoff) continue;
-
-            result.AlbumsChecked++;
-            try
-            {
-                var (_, changed) = await enrichmentService.RefreshAlbumReferenceAsync(reference, cancellationToken);
-                if (changed) result.AlbumsUpdated++;
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Failed to refresh album reference {ReferenceId}", reference.Id);
-            }
-        }
+        report(references.Count, updated);
     }
 }

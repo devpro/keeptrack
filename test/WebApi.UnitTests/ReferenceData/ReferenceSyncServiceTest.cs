@@ -30,9 +30,9 @@ public class ReferenceSyncServiceTest
 
     private ReferenceSyncService CreateService(FakeTmdbClient tmdbClient)
     {
-        _bookReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync([]);
-        _videoGameReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync([]);
-        _albumReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync([]);
+        _bookReferenceRepository.Setup(r => r.FindStaleAsync(It.IsAny<DateTime>(), It.IsAny<int>())).ReturnsAsync([]);
+        _videoGameReferenceRepository.Setup(r => r.FindStaleAsync(It.IsAny<DateTime>(), It.IsAny<int>())).ReturnsAsync([]);
+        _albumReferenceRepository.Setup(r => r.FindStaleAsync(It.IsAny<DateTime>(), It.IsAny<int>())).ReturnsAsync([]);
 
         var bookRatingLookup = new Mock<IBookRatingByIsbnLookup>();
         bookRatingLookup.Setup(x => x.GetRatingByIsbnAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(((double?)null, (int?)null));
@@ -50,23 +50,33 @@ public class ReferenceSyncServiceTest
             enrichmentService, NullLogger<ReferenceSyncService>.Instance);
     }
 
+    /// <summary>
+    /// The staleness cutoff is a query now, not an in-memory check over every document in the collection, so
+    /// what this asserts is that each domain is asked for the right window and a bounded page of it. Which
+    /// documents that window actually returns - and in what order - is MongoDB semantics, pinned by
+    /// <c>ReferenceStalenessRepositoryTest</c> against a real database.
+    /// </summary>
     [Fact]
-    public async Task SyncStaleReferencesAsync_Skips_ReferenceEnrichedMoreRecentlyThanStaleAfter()
+    public async Task SyncStaleReferencesAsync_AsksEachDomainForItsStalestDocuments_BoundedPerPass()
     {
-        _tvShowReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync([
-            new TvShowReferenceModel
-            {
-                Id = "reference-1", Title = "Some Show", TitleNormalized = "some show",
-                ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" }, LastEnrichedAt = DateTime.UtcNow
-            }
-        ]);
-        _movieReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync([]);
+        var startedAt = DateTime.UtcNow;
+        _tvShowReferenceRepository.Setup(r => r.FindStaleAsync(It.IsAny<DateTime>(), It.IsAny<int>())).ReturnsAsync([]);
+        _movieReferenceRepository.Setup(r => r.FindStaleAsync(It.IsAny<DateTime>(), It.IsAny<int>())).ReturnsAsync([]);
         var service = CreateService(FakeTmdbClient.Empty());
 
-        var result = await service.SyncStaleReferencesAsync(TimeSpan.FromDays(3), cancellationToken: TestContext.Current.CancellationToken);
+        await service.SyncStaleReferencesAsync(TimeSpan.FromDays(3), cancellationToken: TestContext.Current.CancellationToken);
 
-        result.TvShowsChecked.Should().Be(0);
-        _tvShowReferenceRepository.Verify(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>()), Times.Never);
+        _tvShowReferenceRepository.Verify(
+            r => r.FindStaleAsync(It.Is<DateTime>(cutoff => cutoff >= startedAt.AddDays(-3) && cutoff <= startedAt.AddDays(-3).AddMinutes(1)),
+                It.Is<int>(limit => limit > 0)), Times.Once);
+        _movieReferenceRepository.Verify(
+            r => r.FindStaleAsync(It.IsAny<DateTime>(), It.Is<int>(limit => limit > 0)), Times.Once);
+        _bookReferenceRepository.Verify(
+            r => r.FindStaleAsync(It.IsAny<DateTime>(), It.Is<int>(limit => limit > 0)), Times.Once);
+        _videoGameReferenceRepository.Verify(
+            r => r.FindStaleAsync(It.IsAny<DateTime>(), It.Is<int>(limit => limit > 0)), Times.Once);
+        _albumReferenceRepository.Verify(
+            r => r.FindStaleAsync(It.IsAny<DateTime>(), It.Is<int>(limit => limit > 0)), Times.Once);
     }
 
     [Fact]
@@ -74,14 +84,14 @@ public class ReferenceSyncServiceTest
     {
         var tmdbClient = FakeTmdbClient.Empty();
         tmdbClient.TvShowDetails["42"] = new TmdbTvShowDetails("42", "Some Show", 2020, "Synopsis", [], [], null);
-        _tvShowReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync([
+        _tvShowReferenceRepository.Setup(r => r.FindStaleAsync(It.IsAny<DateTime>(), It.IsAny<int>())).ReturnsAsync([
             new TvShowReferenceModel
             {
                 Id = "reference-1", Title = "Some Show", TitleNormalized = "some show",
                 ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" }, LastEnrichedAt = DateTime.UtcNow.AddDays(-10)
             }
         ]);
-        _movieReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync([]);
+        _movieReferenceRepository.Setup(r => r.FindStaleAsync(It.IsAny<DateTime>(), It.IsAny<int>())).ReturnsAsync([]);
         _tvShowReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>())).ReturnsAsync((TvShowReferenceModel m) => m);
         var service = CreateService(tmdbClient);
 
@@ -97,7 +107,7 @@ public class ReferenceSyncServiceTest
         var tmdbClient = FakeTmdbClient.Empty();
         tmdbClient.TvShowDetails["good"] = new TmdbTvShowDetails("good", "Good Show", 2020, null, [], [], null);
         tmdbClient.ThrowForTmdbId = "bad";
-        _tvShowReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync([
+        _tvShowReferenceRepository.Setup(r => r.FindStaleAsync(It.IsAny<DateTime>(), It.IsAny<int>())).ReturnsAsync([
             new TvShowReferenceModel
             {
                 Id = "reference-bad", Title = "Bad Show", TitleNormalized = "bad show",
@@ -109,7 +119,7 @@ public class ReferenceSyncServiceTest
                 ExternalIds = new Dictionary<string, string> { ["tmdb"] = "good" }, LastEnrichedAt = null
             }
         ]);
-        _movieReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync([]);
+        _movieReferenceRepository.Setup(r => r.FindStaleAsync(It.IsAny<DateTime>(), It.IsAny<int>())).ReturnsAsync([]);
         _tvShowReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>())).ReturnsAsync((TvShowReferenceModel m) => m);
         var service = CreateService(tmdbClient);
 
@@ -127,8 +137,8 @@ public class ReferenceSyncServiceTest
     [Fact]
     public async Task SyncStaleReferencesAsync_InvokesOnStageChanged_OncePerDomainInOrder()
     {
-        _tvShowReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync([]);
-        _movieReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync([]);
+        _tvShowReferenceRepository.Setup(r => r.FindStaleAsync(It.IsAny<DateTime>(), It.IsAny<int>())).ReturnsAsync([]);
+        _movieReferenceRepository.Setup(r => r.FindStaleAsync(It.IsAny<DateTime>(), It.IsAny<int>())).ReturnsAsync([]);
         var service = CreateService(FakeTmdbClient.Empty());
         var stages = new List<ReferenceSyncStage>();
 

@@ -284,6 +284,15 @@ ensureIndex(
   { name: "album_reference_discogs_id", unique: true, partialFilterExpression: { "external_ids.discogs": { $exists: true } } }
 );
 
+// every *_reference collection: the periodic sync's own query shape. It asks for the stalest documents
+// first (never enriched, then least recently enriched) so a capped pass rotates through the collection
+// instead of re-walking its head, and that ordering is a sort the server has to do on every tick - which is
+// exactly what an index is for. Not partial and not sparse: "has no last_enriched_at at all" is the most
+// important half of the query, since a never-enriched document is the one most in need of a pass.
+[db.tvshow_reference, db.movie_reference, db.book_reference, db.videogame_reference, db.album_reference].forEach(
+  (collection) => ensureIndex(collection, { last_enriched_at: 1 }, { name: `${collection.getName()}_last_enriched` })
+);
+
 // user_preference: exactly one document per owner (upserted by owner_id, never listed) - the unique
 // index is what actually guarantees that, the same way the application-level upsert-by-owner-id logic in
 // UserPreferencesRepository is only "supposed to" prevent a second document.
