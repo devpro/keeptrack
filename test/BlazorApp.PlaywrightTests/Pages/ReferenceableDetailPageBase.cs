@@ -30,7 +30,15 @@ public abstract class ReferenceableDetailPageBase(IPage page) : DetailPageBase(p
     /// Only rendered while the item has no <c>ReferenceId</c> yet.
     /// The button is re-labeled rather than swapped out after the first search ("Search" -> "↻ Search again"),
     /// so this only ever needs to find the pre-search "Search" label - see <c>InlineReferenceLinker.razor</c>.
-    /// A generous timeout is used for the search results since this is a genuine outbound network call, not a local lookup.
+    /// <para>
+    /// The wait for search results must exceed the server's own worst case, not just be "generous": every
+    /// provider client chains <c>AddStandardResilienceHandler</c> with a total-request-timeout ceiling of its
+    /// own (30s default for TMDB/RAWG/Discogs, 40s for the book providers - see
+    /// <c>ProviderResilienceExtensions</c>), and a transient failure genuinely spends retries up to that
+    /// ceiling before the call gives up and returns. A client-side wait shorter than the longest of those
+    /// ceilings can time out on a real, in-progress search rather than a stuck one - confirmed against a real
+    /// run where the search was still visibly in progress when this assertion gave up at 20s.
+    /// </para>
     /// </summary>
     public async Task SearchAndLinkFirstResultAsync()
     {
@@ -38,7 +46,7 @@ public abstract class ReferenceableDetailPageBase(IPage page) : DetailPageBase(p
         var firstLinkButton = Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Link" }).First;
 
         await searchButton.ClickAsync();
-        await Assertions.Expect(firstLinkButton).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 20_000 });
+        await Assertions.Expect(firstLinkButton).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 45_000 });
         await firstLinkButton.ClickAsync();
     }
 }

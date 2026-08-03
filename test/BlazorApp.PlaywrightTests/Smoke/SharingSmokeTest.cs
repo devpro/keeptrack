@@ -43,12 +43,14 @@ public class SharingSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
             Cost = 120.50
         });
 
-        // Owner creates the grant (Movies + Cars) through the profile UI.
+        // Owner creates the grant (Movies + Cars) through the profile UI. Categories are toggled before the
+        // text fields are filled - the first toggle doubles as the page's circuit-warmup click, see
+        // SharingOwnerPage.ToggleCategoryAsync.
         var sharing = await new SharingOwnerPage(Page).OpenAsync();
-        await sharing.FillRecipientEmailAsync(Fixture.SignedInEmail);
-        await sharing.FillLabelAsync(label);
         await sharing.ToggleCategoryAsync("Movies");
         await sharing.ToggleCategoryAsync("Cars");
+        await sharing.FillRecipientEmailAsync(Fixture.SignedInEmail);
+        await sharing.FillLabelAsync(label);
         await sharing.CreateShareAsync();
         await Assertions.Expect(sharing.ActiveShareRow(label)).ToBeVisibleAsync();
 
@@ -94,11 +96,12 @@ public class SharingSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
         var gear = await CreateItemAsync("api/gear", new GearDto { Title = gearTitle, Brand = "Sony", Year = 2021 });
 
         // Owner creates the grant (Collectibles + Gear) through the profile UI's "Collections" group.
+        // Categories are toggled before the text fields are filled - see SharingOwnerPage.ToggleCategoryAsync.
         var sharing = await new SharingOwnerPage(Page).OpenAsync();
-        await sharing.FillRecipientEmailAsync(Fixture.SignedInEmail);
-        await sharing.FillLabelAsync(label);
         await sharing.ToggleCategoryAsync("Collectibles");
         await sharing.ToggleCategoryAsync("Gear");
+        await sharing.FillRecipientEmailAsync(Fixture.SignedInEmail);
+        await sharing.FillLabelAsync(label);
         await sharing.CreateShareAsync();
         await Assertions.Expect(sharing.ActiveShareRow(label)).ToBeVisibleAsync();
 
