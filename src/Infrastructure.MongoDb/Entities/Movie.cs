@@ -6,7 +6,7 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace Keeptrack.Infrastructure.MongoDb.Entities;
 
-public class Movie : IHasIdAndOwnerId
+public class Movie : IHasIdAndOwnerId, IHasReferenceRating
 {
     [BsonId]
     [BsonRepresentation(BsonType.ObjectId)]
@@ -34,6 +34,9 @@ public class Movie : IHasIdAndOwnerId
 
     [BsonElement("reference_rating_scale")]
     public double? ReferenceRatingScale { get; set; }
+
+    [BsonElement("reference_rating_source")]
+    public string? ReferenceRatingSource { get; set; }
 
     [BsonElement("first_seen_at")]
     public DateTime? FirstSeenAt { get; set; }

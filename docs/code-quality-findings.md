@@ -23,6 +23,32 @@ Update this file as items are fixed or as new reviews are performed.
 
 ## Fixed
 
+### An over-quota OMDb key turned admin manual linking and Explore "add" into 500s, and nothing bounded the calls that got it there
+
+OMDb's free tier is 1000 calls/day and it answers an exhausted key with an HTTP **401**, which `GetFromJsonAsync` throws for.
+`AddImdbRatingAsync` is awaited unguarded inside `ResolveTvShowAsync`/`ResolveMovieAsync`, so once the day's allowance was gone every manual link and every Explore "add" failed - despite `IOmdbClient` documenting that a missing IMDb rating
+is never an error.
+Any OMDb outage or timeout did the same thing.
+
+Two consumers spent the key on the same 24h tick and neither could see the other: the Explore catalogue backfill was capped by a hardcoded 250 per domain (500/day whatever else was happening), while the reference sync's IMDb backfill had no
+cap at all.
+Nothing counted calls, and once the limit was hit a pass kept firing hundreds more doomed requests, each logged individually.
+
+Fixed by `OmdbCallBudget` (a shared daily counter in `provider_quota`, reserved atomically so several replicas can't collectively overspend), a priority split that keeps a reserve for user-facing calls, and an `OmdbClient` that returns
+`OmdbLookupResult` for every outcome instead of throwing - with both of OMDb's 401s writing the day off through the shared counter.
+`OmdbLookupResult.Attempted` separates "OMDb has nothing for this title" from "we never asked", so a spent budget can no longer stamp a rating attempt and suppress a title for the whole re-attempt window.
+
+### The periodic sync read every reference document each tick, and the admin's rating recompute rewrote values that were already correct
+
+`ReferenceSyncService` called `FindAllAsync()` and filtered `LastEnrichedAt` in memory, materializing whole collections - including every TV show's embedded episode guide - to then discard most of them, in MongoDB's natural order.
+Replaced by `FindStaleAsync(cutoff, limit)`: a server-side filter and sort, stalest first, capped per pass.
+The null half of that filter can't be folded into the date comparison (MongoDB compares within a type, so `$lte` against a date matches neither null nor missing), which would have made a never-enriched reference the one document the query
+could never return - the same silent-empty-match family as the `Eq(x => x.ReferenceId, null)` finding below.
+
+`RecomputeReferenceRatingsAsync` had no way to know whether an item's denormalized rating was already on the selected source, so it read the whole reference collection and fired one `UpdateMany` per document on every click.
+Tenant items now carry `ReferenceRatingSource` alongside the value, and the pass opens with a counted query that returns `(0, 0)` when nothing is mismatched.
+The five copy-pasted per-domain sync loops and the five copy-pasted rating-propagation bodies were collapsed into one each while the code was open.
+
 ### Project-wide Sonar review (main branch, not PR-scoped): S2365, ASP0025 ×2, CA1862 ×2, CA1859 ×3, JS S2486
 
 Fixed on 2026-07-27, reviewed against `https://sonarcloud.io/project/issues?issueStatuses=OPEN&id=devpro_keeptrack` (28 open issues at the time, excluding 3 `S1135` "TODO" issues out of scope for this pass).

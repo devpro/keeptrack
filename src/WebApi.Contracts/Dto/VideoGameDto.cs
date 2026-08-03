@@ -52,6 +52,12 @@ public class VideoGameDto : IHasId, IReferenceLinkedDto
     public double? ReferenceRatingScale { get; set; }
 
     /// <summary>
+    /// Which rating source <see cref="ReferenceRating"/> came from ("tmdb", "imdb", ...), so the value can be
+    /// labelled rather than shown as a bare number. Server-managed on link/refresh, round-tripped on edits.
+    /// </summary>
+    public string? ReferenceRatingSource { get; set; }
+
+    /// <summary>
     /// Tenant-owned cover image override, freely editable - takes priority over the linked reference's
     /// cover wherever one is shown. Null means "use the reference's cover, if any".
     /// </summary>

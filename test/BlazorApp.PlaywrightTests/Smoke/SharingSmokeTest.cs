@@ -120,7 +120,6 @@ public class SharingSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
         await Assertions.Expect(collection.AddButton(gearTitle)).ToHaveCountAsync(0);
     }
 
-
     private static async Task<string> FindShareIdByLabelAsync(HttpClient api, string label)
     {
         var shares = await api.GetFromJsonAsync<List<ShareDto>>("api/shares", TestContext.Current.CancellationToken);

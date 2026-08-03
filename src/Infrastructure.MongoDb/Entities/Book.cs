@@ -6,7 +6,7 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace Keeptrack.Infrastructure.MongoDb.Entities;
 
-public class Book : IHasIdAndOwnerId
+public class Book : IHasIdAndOwnerId, IHasReferenceRating
 {
     [BsonId]
     [BsonRepresentation(BsonType.ObjectId)]
@@ -44,6 +44,9 @@ public class Book : IHasIdAndOwnerId
 
     [BsonElement("reference_rating_scale")]
     public double? ReferenceRatingScale { get; set; }
+
+    [BsonElement("reference_rating_source")]
+    public string? ReferenceRatingSource { get; set; }
 
     [BsonElement("custom_image_url")]
     public string? CustomImageUrl { get; set; }

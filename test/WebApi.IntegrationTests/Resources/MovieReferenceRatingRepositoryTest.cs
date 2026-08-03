@@ -78,7 +78,7 @@ public class MovieReferenceRatingRepositoryTest(KestrelWebAppFactory<Program> fa
         var linkedB = await CreateMovieAsync(repository, NewMovie(ownerId, "Alien", referenceId: referenceId, referenceRating: 7.0));
         var other = await CreateMovieAsync(repository, NewMovie(ownerId, "Other", referenceId: $"reference-other-{Guid.NewGuid():N}", referenceRating: 5.0));
 
-        var modified = await repository.SetReferenceRatingAsync(referenceId, 8.4, 10);
+        var modified = await repository.SetReferenceRatingAsync(referenceId, 8.4, 10, "tmdb");
         modified.Should().Be(2);
 
         (await repository.FindOneAsync(linkedA.Id!, ownerId))!.ReferenceRating.Should().Be(8.4);
@@ -108,6 +108,50 @@ public class MovieReferenceRatingRepositoryTest(KestrelWebAppFactory<Program> fa
         reloaded.Ratings["tmdb"].Value.Should().Be(7.8);
         reloaded.Ratings["tmdb"].Scale.Should().Be(10);
         reloaded.Ratings["tmdb"].Count.Should().Be(4321);
+    }
+
+    [Fact]
+    public async Task SetReferenceRatingAsync_StampsTheSourceAlongsideTheValue()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IMovieRepository>();
+        var ownerId = $"refsource-stamp-{Guid.NewGuid():N}";
+        var referenceId = $"reference-{Guid.NewGuid():N}";
+        var movie = await CreateMovieAsync(repository, NewMovie(ownerId, "Heat", referenceId: referenceId, referenceRating: 7.0));
+
+        await repository.SetReferenceRatingAsync(referenceId, 8.4, 10, "imdb");
+
+        var reloaded = await repository.FindOneAsync(movie.Id!, ownerId);
+        reloaded!.ReferenceRatingSource.Should().Be("imdb", "the source travels with the value it was computed from");
+    }
+
+    [Fact]
+    public async Task CountLinkedOnOtherRatingSourceAsync_CountsItemsOnAnotherSource_AndItemsNeverStampedAtAll()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IMovieRepository>();
+        var ownerId = $"refsource-count-{Guid.NewGuid():N}";
+        var referenceId = $"reference-{Guid.NewGuid():N}";
+
+        // three shapes that must all be distinguished: on the selected source, on another one, and one that
+        // predates the stamp entirely - the last is the one a $ne filter can silently miss, since a missing
+        // field is not "not equal" in every query language
+        var onTmdb = await CreateMovieAsync(repository, NewMovie(ownerId, "A", referenceId: referenceId, referenceRating: 7.0));
+        await repository.SetReferenceRatingAsync(referenceId, 7.0, 10, "tmdb");
+        var onImdb = await CreateMovieAsync(repository, NewMovie(ownerId, "B", referenceId: $"other-{Guid.NewGuid():N}", referenceRating: 8.0));
+        await repository.SetReferenceRatingAsync(onImdb.ReferenceId!, 8.0, 10, "imdb");
+        var neverStamped = await CreateMovieAsync(repository, NewMovie(ownerId, "C", referenceId: $"unstamped-{Guid.NewGuid():N}", referenceRating: 6.0));
+
+        var before = await repository.CountLinkedOnOtherRatingSourceAsync("tmdb");
+        before.Should().BeGreaterThanOrEqualTo(2, "the imdb-stamped item and the never-stamped one both need re-stamping");
+
+        await repository.SetReferenceRatingAsync(onImdb.ReferenceId!, 8.0, 10, "tmdb");
+        await repository.SetReferenceRatingAsync(neverStamped.ReferenceId!, 6.0, 10, "tmdb");
+
+        // once everything this test created is on the selected source, none of it is counted any more - which
+        // is what lets the admin recompute report "nothing to do" and skip its whole pass
+        (await repository.CountLinkedOnOtherRatingSourceAsync("tmdb")).Should().Be(before - 2);
+        (await repository.FindOneAsync(onTmdb.Id!, ownerId))!.ReferenceRatingSource.Should().Be("tmdb");
     }
 
     private async Task<MovieModel> CreateMovieAsync(IMovieRepository repository, MovieModel movie)

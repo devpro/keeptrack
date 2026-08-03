@@ -50,27 +50,43 @@ public partial class ReferenceEnrichmentService(
     /// <summary>
     /// Re-applies the current primary rating source (see <see cref="GetPrimaryRatingSourceAsync"/>) to every
     /// already-linked tenant item across a domain, re-stamping the denormalized
-    /// <c>ReferenceRating</c>/<c>ReferenceRatingScale</c> scalar from each reference document's <c>Ratings</c>
-    /// dict. Backs the admin "recompute" action after switching a domain's source - one bulk
-    /// <c>SetReferenceRatingAsync</c> pass per reference, no provider calls (unlike the full sync). Small,
-    /// shared reference collection, so this runs synchronously rather than as a background job.
+    /// <c>ReferenceRating</c>/<c>ReferenceRatingScale</c>/<c>ReferenceRatingSource</c> from each reference
+    /// document's <c>Ratings</c> dict. Backs the admin "recompute" action after switching a domain's source -
+    /// one bulk <c>SetReferenceRatingAsync</c> pass per reference, no provider calls (unlike the full sync).
+    /// Small, shared reference collection, so this runs synchronously rather than as a background job.
+    /// <para>
+    /// It starts by asking whether any linked item is still on a different source, and does nothing at all
+    /// when none is - the common case, since the action is right next to the source picker and gets clicked
+    /// again "just in case". Without the stamp there was nothing to ask: the pass had to read the whole
+    /// reference collection and fire an <c>UpdateMany</c> per document, every one of them setting values that
+    /// were already correct. Items linked before the stamp existed count as mismatched, so the first
+    /// recompute backfills them and no migration script is needed.
+    /// </para>
     /// </summary>
+    /// <remarks>
+    /// A value that drifted while the source stayed the same is deliberately not what this repairs - that's
+    /// the periodic sync's job, which re-propagates through the same <c>SetReferenceRatingAsync</c> whenever
+    /// it refreshes a reference.
+    /// </remarks>
     public async Task<(int ReferencesChecked, long ItemsUpdated)> RecomputeReferenceRatingsAsync(ReferenceItemType domain)
     {
         var source = await GetPrimaryRatingSourceAsync(domain);
         return domain switch
         {
             ReferenceItemType.Movie => await RecomputeReferenceRatingsAsync(
+                movieRepository.CountLinkedOnOtherRatingSourceAsync,
                 movieReferenceRepository.FindAllAsync,
                 r => (r.Id!, r.Ratings),
                 movieRepository.SetReferenceRatingAsync,
                 source),
             ReferenceItemType.TvShow => await RecomputeReferenceRatingsAsync(
+                tvShowRepository.CountLinkedOnOtherRatingSourceAsync,
                 tvShowReferenceRepository.FindAllAsync,
                 r => (r.Id!, r.Ratings),
                 tvShowRepository.SetReferenceRatingAsync,
                 source),
             ReferenceItemType.VideoGame => await RecomputeReferenceRatingsAsync(
+                videoGameRepository.CountLinkedOnOtherRatingSourceAsync,
                 videoGameReferenceRepository.FindAllAsync,
                 r => (r.Id!, r.Ratings),
                 videoGameRepository.SetReferenceRatingAsync,
@@ -82,21 +98,25 @@ public partial class ReferenceEnrichmentService(
     /// <summary>
     /// Domain-agnostic recompute loop - each domain only differs in which reference repository it reads and
     /// which tenant repository it re-propagates through, so the iteration itself lives once here (adding
-    /// movies/TV/albums later is a one-line switch arm above, never a copy of this loop).
+    /// books/albums later is a one-line switch arm above, never a copy of this loop).
     /// </summary>
     private static async Task<(int ReferencesChecked, long ItemsUpdated)> RecomputeReferenceRatingsAsync<TReference>(
+        Func<string, Task<long>> countOnOtherSource,
         Func<Task<List<TReference>>> findAll,
         Func<TReference, (string Id, IReadOnlyDictionary<string, ReferenceRatingModel> Ratings)> project,
-        Func<string, double?, double?, Task<long>> setRating,
+        Func<string, double?, double?, string?, Task<long>> setRating,
         string source)
     {
+        // one counted query decides whether there is any work; nothing is read or written when there isn't
+        if (await countOnOtherSource(source) == 0) return (0, 0);
+
         var references = await findAll();
         long updated = 0;
         foreach (var reference in references)
         {
             var (id, ratings) = project(reference);
-            var (value, scale) = PrimaryRating(ratings, source);
-            updated += await setRating(id, value, scale);
+            var (value, scale, stampedSource) = PrimaryRating(ratings, source);
+            updated += await setRating(id, value, scale, stampedSource);
         }
 
         return (references.Count, updated);

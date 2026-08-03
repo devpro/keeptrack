@@ -21,9 +21,12 @@ A rating for a tracked item can come from more than one source, so the shape is 
   `Value` is on the source's own `Scale` (TMDB 10, RAWG/Discogs/books 5, Metacritic 100) and is never normalized - a single list only mixes one source, so raw values still sort apples-to-apples.
   This is the source of truth the periodic sync refreshes, and it is what a future "suggest top-rated" feature will query and sort by (`ratings.<source>.value` is a fixed, indexable path).
 
-2. **Denormalized scalar, on the tenant's own item** (`*Model.ReferenceRating` + `ReferenceRatingScale`, both `double?`): a copy of the *primary* source's value/scale, written on link and refresh.
+2. **Denormalized scalar, on the tenant's own item** (`*Model.ReferenceRating` + `ReferenceRatingScale`, both `double?`, plus `ReferenceRatingSource`, `string?`): a copy of the *primary* source's value/scale and the name of the source it
+  came from, written on link and refresh.
   This exists purely so the list page can display and sort by the rating with no per-page join and no extra query - the whole point was that list load time must not regress.
   The list pill and the `Ref ★` sort key both read this scalar; the detail page shows the full per-source breakdown from the reference dict it already loads.
+  The source is what makes a stored copy self-describing: without it, an item's number claimed to be "the current primary source's" whether or not it actually was, and nothing could tell an item that had been re-stamped from one that hadn't
+  (see "Recompute" below).
 
 The tenant item already being per-user is what makes a future per-user "which source is primary" choice a clean change later (only the propagation would change, no migration) -
 see "Decisions locked" below for why it's a code default for now.
@@ -65,7 +68,15 @@ It is an admin-selectable, global (not per-user) setting, wired for video games 
 - **Recompute:** changing the source only affects new links/syncs until the admin runs `RecomputeReferenceRatingsAsync(domain)` -
   one bulk `SetReferenceRatingAsync` pass over the (small, shared) reference collection re-stamping the denormalized scalar from each doc's `Ratings` dict, no provider calls.
   It runs synchronously (unlike "Sync now", which is a background job only because it hits providers) and returns `(ReferencesChecked, ItemsUpdated)`.
-  The loop is a domain-agnostic generic helper, so adding movies/TV/albums later is a one-line switch arm, never a copied loop.
+  The loop is a domain-agnostic generic helper, so adding books/albums later is a one-line switch arm, never a copied loop.
+  - **It opens with a counted query and does nothing when there is nothing to do.** `CountLinkedOnOtherRatingSourceAsync(source)` asks whether any linked item is still stamped with a different source; zero means the pass returns `(0, 0)`
+    without reading the reference collection at all.
+    That is the ordinary case - the button sits next to the source picker and gets pressed again "just in case" - and it previously cost one `UpdateMany` per reference document, every one of them writing values that were already correct.
+    (`ModifiedCount` kept the reported counts honest, so the waste was in round trips, not in the numbers.)
+  - An item stamped with **no** source (linked before the field existed) counts as mismatched, so the first recompute backfills the whole domain and every later one costs a single count. No migration script.
+  - Deliberately **not** a value-drift repair: a value that changed while the source stayed the same is the periodic sync's job, which re-propagates through the same `SetReferenceRatingAsync`.
+  - The source is stamped even when the selected source has no value for that reference (`(null, null, source)`), or an unrated item would look mismatched forever and the no-op above could never trigger.
+  - The five identical propagation bodies moved into `ReferenceRatingQueries` over the `IHasReferenceRating` entity interface - the fields are named identically on all five entities, so no per-domain field expressions are needed.
 - **Endpoints (admin-only, on `ReferenceDataAdminController`):** `GET /api/reference-data/rating-sources`, `PUT /api/reference-data/rating-sources/{domain}` (validates source ∈ available, 400 otherwise), `POST
   /api/reference-data/rating-sources/{domain}/recompute`.
 - **UI:** a "Primary rating source" card on the reference-data admin page - per selectable domain, a source button-group plus a **separate** Recompute button (two deliberate actions, not one) showing the checked/updated counts.

@@ -92,12 +92,19 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// The (value, scale) to denormalize onto tenant items - the given primary source's, or (null, null)
-    /// when it has none. Shared across every domain (video games/albums/books pass their own primary key);
-    /// which source is primary is a per-domain code default for now (see CLAUDE.md).
+    /// The (value, scale, source) to denormalize onto tenant items - the given primary source's value, or no
+    /// value when it has none. Shared across every domain (video games/albums/books pass their own primary
+    /// key); which source is primary is admin-selectable per domain (see <see cref="GetPrimaryRatingSourceAsync"/>).
+    /// <para>
+    /// The source travels with the value, and is returned even when that source has no value for this
+    /// reference: it records which source the denormalized copy was computed from, which is what lets the
+    /// admin "recompute" action tell an item that is already on the selected source from one that still needs
+    /// re-stamping. Returning it only alongside a value would leave every unrated item looking permanently
+    /// stale and make the recompute's cheap no-op impossible.
+    /// </para>
     /// </summary>
-    private static (double? Value, double? Scale) PrimaryRating(IReadOnlyDictionary<string, ReferenceRatingModel> ratings, string source) =>
-        ratings.TryGetValue(source, out var r) ? (r.Value, r.Scale) : (null, null);
+    private static (double? Value, double? Scale, string Source) PrimaryRating(IReadOnlyDictionary<string, ReferenceRatingModel> ratings, string source) =>
+        ratings.TryGetValue(source, out var r) ? (r.Value, r.Scale, source) : (null, null, source);
 
     /// <summary>
     /// User-triggered "check for reference match" - looks only at the local reference collection (title+year,
@@ -142,6 +149,7 @@ public partial class ReferenceEnrichmentService
                 model.ReferenceId = string.Empty;
                 model.ReferenceRating = null;
                 model.ReferenceRatingScale = null;
+                model.ReferenceRatingSource = null;
                 await tvShowRepository.UpdateAsync(model.Id!, model, model.OwnerId);
             }
 
@@ -150,15 +158,16 @@ public partial class ReferenceEnrichmentService
 
         var originalTitle = model.Title;
         var originalYear = model.Year;
-        var (ratingValue, ratingScale) = PrimaryRating(reference.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.TvShow));
+        var (ratingValue, ratingScale, ratingSource) = PrimaryRating(reference.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.TvShow));
 
         model.ReferenceId = reference.Id;
         model.Title = reference.Title;
         if (reference.Year is not null) model.Year = reference.Year;
         model.ReferenceRating = ratingValue;
         model.ReferenceRatingScale = ratingScale;
+        model.ReferenceRatingSource = ratingSource;
         await tvShowRepository.UpdateAsync(model.Id!, model, model.OwnerId);
-        await tvShowRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year, ratingValue, ratingScale);
+        await tvShowRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year, ratingValue, ratingScale, ratingSource);
 
         return model;
     }
@@ -186,6 +195,7 @@ public partial class ReferenceEnrichmentService
                 model.ReferenceId = string.Empty;
                 model.ReferenceRating = null;
                 model.ReferenceRatingScale = null;
+                model.ReferenceRatingSource = null;
                 await movieRepository.UpdateAsync(model.Id!, model, model.OwnerId);
             }
 
@@ -194,15 +204,16 @@ public partial class ReferenceEnrichmentService
 
         var originalTitle = model.Title;
         var originalYear = model.Year;
-        var (ratingValue, ratingScale) = PrimaryRating(reference.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.Movie));
+        var (ratingValue, ratingScale, ratingSource) = PrimaryRating(reference.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.Movie));
 
         model.ReferenceId = reference.Id;
         model.Title = reference.Title;
         if (reference.Year is not null) model.Year = reference.Year;
         model.ReferenceRating = ratingValue;
         model.ReferenceRatingScale = ratingScale;
+        model.ReferenceRatingSource = ratingSource;
         await movieRepository.UpdateAsync(model.Id!, model, model.OwnerId);
-        await movieRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year, ratingValue, ratingScale);
+        await movieRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year, ratingValue, ratingScale, ratingSource);
 
         return model;
     }
@@ -221,6 +232,7 @@ public partial class ReferenceEnrichmentService
         model.ReferenceId = string.Empty;
         model.ReferenceRating = null;
         model.ReferenceRatingScale = null;
+        model.ReferenceRatingSource = null;
         await tvShowRepository.UpdateAsync(model.Id!, model, model.OwnerId);
         if (!string.IsNullOrEmpty(referenceId))
         {
@@ -239,6 +251,7 @@ public partial class ReferenceEnrichmentService
         model.ReferenceId = string.Empty;
         model.ReferenceRating = null;
         model.ReferenceRatingScale = null;
+        model.ReferenceRatingSource = null;
         await movieRepository.UpdateAsync(model.Id!, model, model.OwnerId);
         if (!string.IsNullOrEmpty(referenceId))
         {
@@ -332,8 +345,8 @@ public partial class ReferenceEnrichmentService
         };
 
         var saved = await tvShowReferenceRepository.UpsertAsync(model);
-        var (ratingValue, ratingScale) = PrimaryRating(saved.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.TvShow));
-        await tvShowRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, ratingValue, ratingScale);
+        var (ratingValue, ratingScale, ratingSource) = PrimaryRating(saved.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.TvShow));
+        await tvShowRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, ratingValue, ratingScale, ratingSource);
         return saved;
     }
 
@@ -389,8 +402,8 @@ public partial class ReferenceEnrichmentService
         };
 
         var saved = await movieReferenceRepository.UpsertAsync(model);
-        var (ratingValue, ratingScale) = PrimaryRating(saved.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.Movie));
-        await movieRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, ratingValue, ratingScale);
+        var (ratingValue, ratingScale, ratingSource) = PrimaryRating(saved.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.Movie));
+        await movieRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, ratingValue, ratingScale, ratingSource);
         return saved;
     }
 
@@ -418,8 +431,8 @@ public partial class ReferenceEnrichmentService
                 var refreshed = await tvShowReferenceRepository.UpsertAsync(reference);
                 if (backfilled)
                 {
-                    var (v, s) = PrimaryRating(refreshed.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.TvShow));
-                    await tvShowRepository.SetReferenceRatingAsync(refreshed.Id!, v, s);
+                    var (v, s, backfilledSource) = PrimaryRating(refreshed.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.TvShow));
+                    await tvShowRepository.SetReferenceRatingAsync(refreshed.Id!, v, s, backfilledSource);
                 }
                 return (refreshed, backfilled);
             }
@@ -446,8 +459,8 @@ public partial class ReferenceEnrichmentService
         reference.LastEnrichedAt = DateTime.UtcNow;
 
         var saved = await tvShowReferenceRepository.UpsertAsync(reference);
-        var (ratingValue, ratingScale) = PrimaryRating(saved.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.TvShow));
-        await tvShowRepository.SetReferenceRatingAsync(saved.Id!, ratingValue, ratingScale);
+        var (ratingValue, ratingScale, ratingSource) = PrimaryRating(saved.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.TvShow));
+        await tvShowRepository.SetReferenceRatingAsync(saved.Id!, ratingValue, ratingScale, ratingSource);
         return (saved, true);
     }
 
@@ -476,8 +489,8 @@ public partial class ReferenceEnrichmentService
                 var refreshed = await movieReferenceRepository.UpsertAsync(reference);
                 if (backfilled)
                 {
-                    var (v, s) = PrimaryRating(refreshed.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.Movie));
-                    await movieRepository.SetReferenceRatingAsync(refreshed.Id!, v, s);
+                    var (v, s, backfilledSource) = PrimaryRating(refreshed.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.Movie));
+                    await movieRepository.SetReferenceRatingAsync(refreshed.Id!, v, s, backfilledSource);
                 }
                 return (refreshed, backfilled);
             }
@@ -502,8 +515,8 @@ public partial class ReferenceEnrichmentService
 
         var saved = await movieReferenceRepository.UpsertAsync(reference);
         // keep every already-linked tenant movie's denormalized copy current with the refreshed rating
-        var (ratingValue, ratingScale) = PrimaryRating(saved.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.Movie));
-        await movieRepository.SetReferenceRatingAsync(saved.Id!, ratingValue, ratingScale);
+        var (ratingValue, ratingScale, ratingSource) = PrimaryRating(saved.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.Movie));
+        await movieRepository.SetReferenceRatingAsync(saved.Id!, ratingValue, ratingScale, ratingSource);
         return (saved, true);
     }
 

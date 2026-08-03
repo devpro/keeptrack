@@ -316,6 +316,19 @@ Run-once scripts follow that same idempotent style: `dedupe-matched-aliases.js`,
   `ReferenceEnrichmentService.GetPrimaryRatingSourceAsync` reads the stored override.
   The admin card, `rating-sources` GET/PUT and `.../recompute` (bulk `SetReferenceRatingAsync`, no provider calls) are all domain-generic over `RatingSourceCatalog.SelectableDomains`, so a domain gaining a second source needs only a catalog
   entry.
+  - **A tenant item's denormalized rating carries the source it came from** (`ReferenceRatingSource`, on all five models/entities/DTOs), alongside `ReferenceRating`/`ReferenceRatingScale`.
+    Everything that writes the value writes the source: `SetReferenceLinkAsync`, `SetReferenceRatingAsync`, the `TryLinkExisting*` direct updates, and the clear-on-unlink/no-match branches (which clear all three).
+    The source is stamped **even when that source has no value for the reference** - it records which source the copy was computed from, not where a number came from.
+    Stamping it only alongside a value would leave every unrated item looking permanently stale and make the no-op below impossible.
+  - **`recompute` does nothing when there is nothing to do:** it opens with `CountLinkedOnOtherRatingSourceAsync`, and returns `(0, 0)` without reading the reference collection at all when no linked item is on another source - the common
+    case, since the button sits next to the source picker and gets clicked again "just in case".
+    It used to read every reference document and fire one `UpdateMany` per document, all of them setting values that were already correct.
+    An item stamped with nothing (linked before the field existed) counts as mismatched, so the first recompute backfills it and no migration script is needed.
+    Deliberately **not** a value-drift repair - a value that moved while the source stayed put is the periodic sync's job, through the same `SetReferenceRatingAsync`.
+  - The five identical propagation bodies now live once in `Infrastructure.MongoDb/Repositories/ReferenceRatingQueries.cs`, over the `IHasReferenceRating` entity interface (the four fields are named identically everywhere, so unlike
+    `ExploreExclusionQueries` this needs no per-domain field expressions).
+  - Books are the one domain with no selectable source: `BookPrimaryRating` reads whichever provider key the reference happens to store, and a reference with no rating at all genuinely has no source to name - which is why the source is
+    nullable end-to-end.
   IMDb ratings come from **OMDb** keyed by the IMDb id TMDB exposes (IMDb has no public ratings API); it's native on `/movie/{id}`, appended via `?append_to_response=external_ids` for TV.
   OMDb is optional/best-effort: `OmdbSettings.ApiKey` is nullable and a missing section coalesces to empty, so a deployment without a key just keeps TMDB ratings.
   Full design in `docs/reference-ratings-plan.md`.

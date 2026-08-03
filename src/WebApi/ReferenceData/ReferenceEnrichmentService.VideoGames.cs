@@ -61,6 +61,7 @@ public partial class ReferenceEnrichmentService
                 model.ReferenceId = string.Empty;
                 model.ReferenceRating = null;
                 model.ReferenceRatingScale = null;
+                model.ReferenceRatingSource = null;
                 await videoGameRepository.UpdateAsync(model.Id!, model, model.OwnerId);
             }
 
@@ -69,15 +70,16 @@ public partial class ReferenceEnrichmentService
 
         var originalTitle = model.Title;
         var originalYear = model.Year;
-        var (ratingValue, ratingScale) = PrimaryRating(reference.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.VideoGame));
+        var (ratingValue, ratingScale, ratingSource) = PrimaryRating(reference.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.VideoGame));
 
         model.ReferenceId = reference.Id;
         model.Title = reference.Title;
         if (reference.Year is not null) model.Year = reference.Year;
         model.ReferenceRating = ratingValue;
         model.ReferenceRatingScale = ratingScale;
+        model.ReferenceRatingSource = ratingSource;
         await videoGameRepository.UpdateAsync(model.Id!, model, model.OwnerId);
-        await videoGameRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year, ratingValue, ratingScale);
+        await videoGameRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year, ratingValue, ratingScale, ratingSource);
 
         return model;
     }
@@ -93,6 +95,7 @@ public partial class ReferenceEnrichmentService
         model.ReferenceId = string.Empty;
         model.ReferenceRating = null;
         model.ReferenceRatingScale = null;
+        model.ReferenceRatingSource = null;
         await videoGameRepository.UpdateAsync(model.Id!, model, model.OwnerId);
         if (!string.IsNullOrEmpty(referenceId))
         {
@@ -154,8 +157,8 @@ public partial class ReferenceEnrichmentService
         };
 
         var saved = await videoGameReferenceRepository.UpsertAsync(model);
-        var (ratingValue, ratingScale) = PrimaryRating(saved.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.VideoGame));
-        await videoGameRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, ratingValue, ratingScale);
+        var (ratingValue, ratingScale, ratingSource) = PrimaryRating(saved.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.VideoGame));
+        await videoGameRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, ratingValue, ratingScale, ratingSource);
         return saved;
     }
 
@@ -184,8 +187,8 @@ public partial class ReferenceEnrichmentService
         reference.LastEnrichedAt = DateTime.UtcNow;
 
         var saved = await videoGameReferenceRepository.UpsertAsync(reference);
-        var (ratingValue, ratingScale) = PrimaryRating(saved.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.VideoGame));
-        await videoGameRepository.SetReferenceRatingAsync(saved.Id!, ratingValue, ratingScale);
+        var (ratingValue, ratingScale, ratingSource) = PrimaryRating(saved.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.VideoGame));
+        await videoGameRepository.SetReferenceRatingAsync(saved.Id!, ratingValue, ratingScale, ratingSource);
         return (saved, true);
     }
 }

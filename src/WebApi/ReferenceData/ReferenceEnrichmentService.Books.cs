@@ -21,9 +21,13 @@ public partial class ReferenceEnrichmentService
         return ratings;
     }
 
-    /// <summary>The book's single stored rating (from whichever provider linked it, or the OL fallback), or (null, null) when it has none.</summary>
-    private static (double? Value, double? Scale) BookPrimaryRating(BookReferenceModel reference) =>
-        reference.Ratings.Count == 0 ? (null, null) : PrimaryRating(reference.Ratings, reference.Ratings.Keys.First());
+    /// <summary>
+    /// The book's single stored rating (from whichever provider linked it, or the OL fallback) and that
+    /// provider's key as its source, or no value and no source when it has none. Books are the one domain
+    /// with no admin-selectable source, so the key is read off the reference rather than resolved.
+    /// </summary>
+    private static (double? Value, double? Scale, string? Source) BookPrimaryRating(BookReferenceModel reference) =>
+        reference.Ratings.Count == 0 ? (null, null, null) : PrimaryRating(reference.Ratings, reference.Ratings.Keys.First());
 
     private const string OpenLibraryProviderKey = "openlibrary";
 
@@ -75,6 +79,7 @@ public partial class ReferenceEnrichmentService
                 model.ReferenceId = string.Empty;
                 model.ReferenceRating = null;
                 model.ReferenceRatingScale = null;
+                model.ReferenceRatingSource = null;
                 await bookRepository.UpdateAsync(model.Id!, model, model.OwnerId);
             }
 
@@ -85,7 +90,7 @@ public partial class ReferenceEnrichmentService
         var originalYear = model.Year;
         var authorName = await ResolvePersonNameAsync(reference.AuthorReferenceId);
         var genre = JoinGenres(reference.Genres);
-        var (ratingValue, ratingScale) = BookPrimaryRating(reference);
+        var (ratingValue, ratingScale, ratingSource) = BookPrimaryRating(reference);
 
         model.ReferenceId = reference.Id;
         model.Title = reference.Title;
@@ -96,8 +101,9 @@ public partial class ReferenceEnrichmentService
         if (reference.Isbn is not null) model.Isbn = reference.Isbn;
         model.ReferenceRating = ratingValue;
         model.ReferenceRatingScale = ratingScale;
+        model.ReferenceRatingSource = ratingSource;
         await bookRepository.UpdateAsync(model.Id!, model, model.OwnerId);
-        await bookRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year, authorName, genre, reference.Language, reference.Isbn, ratingValue, ratingScale);
+        await bookRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year, authorName, genre, reference.Language, reference.Isbn, ratingValue, ratingScale, ratingSource);
 
         return model;
     }
@@ -113,6 +119,7 @@ public partial class ReferenceEnrichmentService
         model.ReferenceId = string.Empty;
         model.ReferenceRating = null;
         model.ReferenceRatingScale = null;
+        model.ReferenceRatingSource = null;
         await bookRepository.UpdateAsync(model.Id!, model, model.OwnerId);
         if (!string.IsNullOrEmpty(referenceId))
         {
@@ -201,8 +208,8 @@ public partial class ReferenceEnrichmentService
         };
 
         var saved = await bookReferenceRepository.UpsertAsync(model);
-        var (ratingValue, ratingScale) = BookPrimaryRating(saved);
-        await bookRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, details.Author, JoinGenres(details.Genres), details.Language, details.Isbn, ratingValue, ratingScale);
+        var (ratingValue, ratingScale, ratingSource) = BookPrimaryRating(saved);
+        await bookRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, details.Author, JoinGenres(details.Genres), details.Language, details.Isbn, ratingValue, ratingScale, ratingSource);
         return saved;
     }
 
@@ -244,8 +251,8 @@ public partial class ReferenceEnrichmentService
         reference.LastEnrichedAt = DateTime.UtcNow;
 
         var saved = await bookReferenceRepository.UpsertAsync(reference);
-        var (ratingValue, ratingScale) = BookPrimaryRating(saved);
-        await bookRepository.SetReferenceRatingAsync(saved.Id!, ratingValue, ratingScale);
+        var (ratingValue, ratingScale, ratingSource) = BookPrimaryRating(saved);
+        await bookRepository.SetReferenceRatingAsync(saved.Id!, ratingValue, ratingScale, ratingSource);
         return (saved, true);
     }
 }

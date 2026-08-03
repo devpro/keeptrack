@@ -40,7 +40,7 @@ public class TvShowRepository(IMongoDatabase mongoDatabase, ILogger<TvShowReposi
         return filter;
     }
 
-    public async Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null, double? canonicalRating = null, double? canonicalRatingScale = null)
+    public async Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null, double? canonicalRating = null, double? canonicalRatingScale = null, string? canonicalRatingSource = null)
     {
         var builder = Builders<TvShow>.Filter;
         var filter = builder.Regex(f => f.Title, new BsonRegularExpression($"^{Regex.Escape(title)}$", "i"))
@@ -48,19 +48,18 @@ public class TvShowRepository(IMongoDatabase mongoDatabase, ILogger<TvShowReposi
                      & UnresolvedFilter();
 
         var update = Builders<TvShow>.Update.Set(f => f.ReferenceId, referenceId).Set(f => f.Title, canonicalTitle)
-            .Set(f => f.ReferenceRating, canonicalRating).Set(f => f.ReferenceRatingScale, canonicalRatingScale);
+            .Set(f => f.ReferenceRating, canonicalRating).Set(f => f.ReferenceRatingScale, canonicalRatingScale)
+            .Set(f => f.ReferenceRatingSource, canonicalRatingSource);
         if (canonicalYear is not null) update = update.Set(f => f.Year, canonicalYear);
         var result = await GetCollection().UpdateManyAsync(filter, update);
         return result.ModifiedCount;
     }
 
-    public async Task<long> SetReferenceRatingAsync(string referenceId, double? rating, double? ratingScale)
-    {
-        var filter = Builders<TvShow>.Filter.Eq(f => f.ReferenceId, referenceId);
-        var update = Builders<TvShow>.Update.Set(f => f.ReferenceRating, rating).Set(f => f.ReferenceRatingScale, ratingScale);
-        var result = await GetCollection().UpdateManyAsync(filter, update);
-        return result.ModifiedCount;
-    }
+    public Task<long> SetReferenceRatingAsync(string referenceId, double? rating, double? ratingScale, string? source) =>
+        ReferenceRatingQueries.SetRatingAsync(GetCollection(), referenceId, rating, ratingScale, source);
+
+    public Task<long> CountLinkedOnOtherRatingSourceAsync(string source) =>
+        ReferenceRatingQueries.CountLinkedOnOtherSourceAsync(GetCollection(), source);
 
     public async Task<IReadOnlyList<TvShowModel>> FindFinishedLinkedShowsAsync()
     {

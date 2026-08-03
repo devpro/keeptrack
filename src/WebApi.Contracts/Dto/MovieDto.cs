@@ -43,6 +43,12 @@ public class MovieDto : IHasId, IReferenceLinkedDto
     /// <summary>Scale of <see cref="ReferenceRating"/> (10 for TMDB); null when there is no reference rating.</summary>
     public double? ReferenceRatingScale { get; set; }
 
+    /// <summary>
+    /// Which rating source <see cref="ReferenceRating"/> came from ("tmdb", "imdb", ...), so the value can be
+    /// labelled rather than shown as a bare number. Server-managed on link/refresh, round-tripped on edits.
+    /// </summary>
+    public string? ReferenceRatingSource { get; set; }
+
     public DateOnly? FirstSeenAt { get; set; }
 
     public bool IsFavorite { get; set; }

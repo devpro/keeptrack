@@ -6,7 +6,7 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace Keeptrack.Infrastructure.MongoDb.Entities;
 
-public class TvShow : IHasIdAndOwnerId
+public class TvShow : IHasIdAndOwnerId, IHasReferenceRating
 {
     [BsonId]
     [BsonRepresentation(BsonType.ObjectId)]
@@ -37,6 +37,9 @@ public class TvShow : IHasIdAndOwnerId
 
     [BsonElement("reference_rating_scale")]
     public double? ReferenceRatingScale { get; set; }
+
+    [BsonElement("reference_rating_source")]
+    public string? ReferenceRatingSource { get; set; }
 
     // storage name kept as "status" deliberately - only the C# property was renamed to State (for parity
     // with VideoGame.State), so existing documents need no migration.

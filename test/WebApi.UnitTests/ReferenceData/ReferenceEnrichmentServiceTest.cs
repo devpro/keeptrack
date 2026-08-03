@@ -36,6 +36,13 @@ public class ReferenceEnrichmentServiceTest
         // individual tests override this to exercise a stored primary-source choice.
         _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync())
             .ReturnsAsync(new Dictionary<string, string>());
+
+        // default: recompute has something to do. The action early-outs when every linked item is already on
+        // the selected source, so a test about what recompute *writes* has to say that isn't the case here;
+        // RecomputeReferenceRatingsAsync_DoesNothing_WhenEveryItemIsAlreadyOnTheSelectedSource covers the other side.
+        _movieRepository.Setup(r => r.CountLinkedOnOtherRatingSourceAsync(It.IsAny<string>())).ReturnsAsync(1);
+        _tvShowRepository.Setup(r => r.CountLinkedOnOtherRatingSourceAsync(It.IsAny<string>())).ReturnsAsync(1);
+        _videoGameRepository.Setup(r => r.CountLinkedOnOtherRatingSourceAsync(It.IsAny<string>())).ReturnsAsync(1);
     }
 
     /// <summary>
@@ -73,7 +80,7 @@ public class ReferenceEnrichmentServiceTest
 
         await service.TryAutoResolveTvShowAsync("Some Show", 2020);
 
-        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()), Times.Never);
+        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Never);
     }
 
     [Fact]
@@ -85,7 +92,7 @@ public class ReferenceEnrichmentServiceTest
 
         await service.TryAutoResolveTvShowAsync("Some Show", 2020);
 
-        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()), Times.Never);
+        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Never);
     }
 
     [Fact]
@@ -105,7 +112,7 @@ public class ReferenceEnrichmentServiceTest
         await service.TryAutoResolveTvShowAsync("Some Show", 2020);
 
         _tvShowReferenceRepository.Verify(r => r.UpsertAsync(It.Is<TvShowReferenceModel>(m => m.ExternalIds["tmdb"] == "42")), Times.Once);
-        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync("Some Show", 2020, It.IsAny<string>(), "Some Show", It.IsAny<int?>()), Times.Once);
+        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync("Some Show", 2020, It.IsAny<string>(), "Some Show", It.IsAny<int?>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
@@ -125,7 +132,7 @@ public class ReferenceEnrichmentServiceTest
         var result = await service.ResolveTvShowAsync("Some Show", 2020, "42");
 
         result.Id.Should().Be("reference-1");
-        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync("Some Show", 2020, "reference-1", "Some Show", It.IsAny<int?>()), Times.Once);
+        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync("Some Show", 2020, "reference-1", "Some Show", It.IsAny<int?>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
@@ -324,7 +331,7 @@ public class ReferenceEnrichmentServiceTest
         result.ReferenceId.Should().Be("reference-1");
         result.Title.Should().Be("Some Show");
         _tvShowRepository.Verify(r => r.UpdateAsync("show-1", It.Is<TvShowModel>(m => m.ReferenceId == "reference-1"), "owner"), Times.Once);
-        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync("Some Typo'd Show", 2020, "reference-1", "Some Show", It.IsAny<int?>()), Times.Once);
+        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync("Some Typo'd Show", 2020, "reference-1", "Some Show", It.IsAny<int?>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
@@ -349,7 +356,7 @@ public class ReferenceEnrichmentServiceTest
 
         result.Year.Should().Be(2020);
         _tvShowRepository.Verify(r => r.UpdateAsync("show-1", It.Is<TvShowModel>(m => m.Year == 2020), "owner"), Times.Once);
-        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync("Some Show", 2019, "reference-1", "Some Show", 2020), Times.Once);
+        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync("Some Show", 2019, "reference-1", "Some Show", 2020, It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
@@ -391,7 +398,7 @@ public class ReferenceEnrichmentServiceTest
 
         // was never linked and still isn't - nothing to clear, so no write should happen at all
         result.ReferenceId.Should().BeNullOrEmpty();
-        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()), Times.Never);
+        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Never);
         _tvShowRepository.Verify(r => r.UpdateAsync(It.IsAny<string>(), It.IsAny<TvShowModel>(), It.IsAny<string>()), Times.Never);
     }
 
@@ -409,7 +416,7 @@ public class ReferenceEnrichmentServiceTest
         result.ReferenceId.Should().Be("reference-1");
         result.Title.Should().Be("Some Movie");
         _movieRepository.Verify(r => r.UpdateAsync("movie-1", It.Is<MovieModel>(m => m.ReferenceId == "reference-1"), "owner"), Times.Once);
-        _movieRepository.Verify(r => r.SetReferenceLinkAsync("Some Typo'd Movie", 2020, "reference-1", "Some Movie", It.IsAny<int?>()), Times.Once);
+        _movieRepository.Verify(r => r.SetReferenceLinkAsync("Some Typo'd Movie", 2020, "reference-1", "Some Movie", It.IsAny<int?>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
@@ -432,7 +439,7 @@ public class ReferenceEnrichmentServiceTest
 
         result.Year.Should().Be(2020);
         _movieRepository.Verify(r => r.UpdateAsync("movie-1", It.Is<MovieModel>(m => m.Year == 2020), "owner"), Times.Once);
-        _movieRepository.Verify(r => r.SetReferenceLinkAsync("Some Movie", 2019, "reference-1", "Some Movie", 2020), Times.Once);
+        _movieRepository.Verify(r => r.SetReferenceLinkAsync("Some Movie", 2019, "reference-1", "Some Movie", 2020, It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
@@ -542,7 +549,7 @@ public class ReferenceEnrichmentServiceTest
         result.Ratings["tmdb"].Scale.Should().Be(10);
         result.Ratings["tmdb"].Count.Should().Be(1234);
         // the primary source's value/scale is denormalized onto every matching tenant movie
-        _movieRepository.Verify(r => r.SetReferenceLinkAsync("Some Movie", 2020, "reference-1", "Some Movie", It.IsAny<int?>(), 7.8, 10), Times.Once);
+        _movieRepository.Verify(r => r.SetReferenceLinkAsync("Some Movie", 2020, "reference-1", "Some Movie", It.IsAny<int?>(), 7.8, 10, It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
@@ -563,7 +570,7 @@ public class ReferenceEnrichmentServiceTest
         var result = await service.ResolveMovieAsync("Some Movie", 2020, "42");
 
         result.Ratings.Should().BeEmpty();
-        _movieRepository.Verify(r => r.SetReferenceLinkAsync("Some Movie", 2020, "reference-1", "Some Movie", It.IsAny<int?>(), null, null), Times.Once);
+        _movieRepository.Verify(r => r.SetReferenceLinkAsync("Some Movie", 2020, "reference-1", "Some Movie", It.IsAny<int?>(), null, null, It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
@@ -598,7 +605,7 @@ public class ReferenceEnrichmentServiceTest
         tmdbClient.MovieDetailsRequested.Should().Contain("42");
         result.Ratings["tmdb"].Value.Should().Be(6.5);
         // and the refreshed rating is re-propagated to every already-linked tenant movie
-        _movieRepository.Verify(r => r.SetReferenceRatingAsync("reference-1", 6.5, 10), Times.Once);
+        _movieRepository.Verify(r => r.SetReferenceRatingAsync("reference-1", 6.5, 10, It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
@@ -625,7 +632,7 @@ public class ReferenceEnrichmentServiceTest
 
         changed.Should().BeFalse();
         tmdbClient.MovieDetailsRequested.Should().NotContain("42");
-        _movieRepository.Verify(r => r.SetReferenceRatingAsync(It.IsAny<string>(), It.IsAny<double?>(), It.IsAny<double?>()), Times.Never);
+        _movieRepository.Verify(r => r.SetReferenceRatingAsync(It.IsAny<string>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Never);
     }
 
     [Fact]
@@ -650,7 +657,7 @@ public class ReferenceEnrichmentServiceTest
         result.ReferenceRating.Should().Be(8.1);
         result.ReferenceRatingScale.Should().Be(10);
         _movieRepository.Verify(r => r.UpdateAsync("movie-1", It.Is<MovieModel>(m => m.ReferenceRating == 8.1 && m.ReferenceRatingScale == 10), "owner-1"), Times.Once);
-        _movieRepository.Verify(r => r.SetReferenceLinkAsync("Some Movie", 2020, "reference-1", "Some Movie", It.IsAny<int?>(), 8.1, 10), Times.Once);
+        _movieRepository.Verify(r => r.SetReferenceLinkAsync("Some Movie", 2020, "reference-1", "Some Movie", It.IsAny<int?>(), 8.1, 10, It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
@@ -676,7 +683,7 @@ public class ReferenceEnrichmentServiceTest
         // the imdb id is stored so a later sync can backfill/refresh it cheaply
         result.ExternalIds["imdb"].Should().Be("tt0042");
         // tmdb is the default primary, so the denormalized scalar is still tmdb's
-        _movieRepository.Verify(r => r.SetReferenceLinkAsync("Some Movie", 2020, "reference-1", "Some Movie", It.IsAny<int?>(), 7.8, 10), Times.Once);
+        _movieRepository.Verify(r => r.SetReferenceLinkAsync("Some Movie", 2020, "reference-1", "Some Movie", It.IsAny<int?>(), 7.8, 10, It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
@@ -718,7 +725,7 @@ public class ReferenceEnrichmentServiceTest
 
         await service.ResolveMovieAsync("Some Movie", 2020, "42");
 
-        _movieRepository.Verify(r => r.SetReferenceLinkAsync("Some Movie", 2020, "reference-1", "Some Movie", It.IsAny<int?>(), 8.9, 10), Times.Once);
+        _movieRepository.Verify(r => r.SetReferenceLinkAsync("Some Movie", 2020, "reference-1", "Some Movie", It.IsAny<int?>(), 8.9, 10, It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
@@ -748,7 +755,7 @@ public class ReferenceEnrichmentServiceTest
         result.Ratings["imdb"].Value.Should().Be(8.9);
         tmdbClient.MovieDetailsRequested.Should().NotContain("42");
         // backfill re-propagates the denormalized scalar to already-linked items
-        _movieRepository.Verify(r => r.SetReferenceRatingAsync("reference-1", It.IsAny<double?>(), It.IsAny<double?>()), Times.Once);
+        _movieRepository.Verify(r => r.SetReferenceRatingAsync("reference-1", It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
@@ -811,7 +818,7 @@ public class ReferenceEnrichmentServiceTest
 
         changed.Should().BeFalse();
         _omdbClient.Requested.Should().BeEmpty();
-        _movieRepository.Verify(r => r.SetReferenceRatingAsync(It.IsAny<string>(), It.IsAny<double?>(), It.IsAny<double?>()), Times.Never);
+        _movieRepository.Verify(r => r.SetReferenceRatingAsync(It.IsAny<string>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Never);
     }
 
     [Fact]
@@ -833,14 +840,14 @@ public class ReferenceEnrichmentServiceTest
                 }
             }
         ]);
-        _movieRepository.Setup(r => r.SetReferenceRatingAsync("r1", 8.9, 10)).ReturnsAsync(1);
+        _movieRepository.Setup(r => r.SetReferenceRatingAsync("r1", 8.9, 10, It.IsAny<string?>())).ReturnsAsync(1);
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
 
         var (checkedCount, updated) = await service.RecomputeReferenceRatingsAsync(ReferenceItemType.Movie);
 
         checkedCount.Should().Be(1);
         updated.Should().Be(1);
-        _movieRepository.Verify(r => r.SetReferenceRatingAsync("r1", 8.9, 10), Times.Once);
+        _movieRepository.Verify(r => r.SetReferenceRatingAsync("r1", 8.9, 10, It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
@@ -943,7 +950,7 @@ public class ReferenceEnrichmentServiceTest
 
         await service.TryAutoResolveBookAsync("Some Book", 2020);
 
-        _bookRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string?>()),
+        _bookRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()),
             Times.Never);
     }
 
@@ -967,7 +974,7 @@ public class ReferenceEnrichmentServiceTest
         await service.TryAutoResolveBookAsync("Some Book", 2020);
 
         _bookReferenceRepository.Verify(r => r.UpsertAsync(It.Is<BookReferenceModel>(m => m.ExternalIds["openlibrary"] == "OL1W")), Times.Once);
-        _bookRepository.Verify(r => r.SetReferenceLinkAsync("Some Book", 2020, It.IsAny<string>(), "Some Book", It.IsAny<int?>(), "Some Author"), Times.Once);
+        _bookRepository.Verify(r => r.SetReferenceLinkAsync("Some Book", 2020, It.IsAny<string>(), "Some Book", It.IsAny<int?>(), "Some Author", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
@@ -1015,7 +1022,7 @@ public class ReferenceEnrichmentServiceTest
 
         result.Id.Should().Be("reference-1");
         result.AuthorReferenceId.Should().Be("person-1");
-        _bookRepository.Verify(r => r.SetReferenceLinkAsync("Some Book", 2020, "reference-1", "Some Book", It.IsAny<int?>(), "Some Author"), Times.Once);
+        _bookRepository.Verify(r => r.SetReferenceLinkAsync("Some Book", 2020, "reference-1", "Some Book", It.IsAny<int?>(), "Some Author", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Once);
     }
 
     /// <summary>
@@ -1095,7 +1102,7 @@ public class ReferenceEnrichmentServiceTest
         result.Ratings["openlibrary"].Value.Should().Be(4.2);
         result.Ratings["openlibrary"].Scale.Should().Be(5);
         _bookRepository.Verify(r => r.SetReferenceLinkAsync("Some Book", 2020, "reference-1", "Some Book", It.IsAny<int?>(),
-            "Some Author", It.IsAny<string?>(), "fre", "9780000000001", 4.2, 5), Times.Once);
+            "Some Author", It.IsAny<string?>(), "fre", "9780000000001", 4.2, 5, It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
@@ -1211,7 +1218,7 @@ public class ReferenceEnrichmentServiceTest
 
         result.Genre.Should().Be("Thriller, Mystery");
         _bookRepository.Verify(r => r.UpdateAsync("book-1", It.Is<BookModel>(m => m.Genre == "Thriller, Mystery"), "owner"), Times.Once);
-        _bookRepository.Verify(r => r.SetReferenceLinkAsync("Some Book", 2020, "reference-1", "Some Book", It.IsAny<int?>(), It.IsAny<string?>(), "Thriller, Mystery"), Times.Once);
+        _bookRepository.Verify(r => r.SetReferenceLinkAsync("Some Book", 2020, "reference-1", "Some Book", It.IsAny<int?>(), It.IsAny<string?>(), "Thriller, Mystery", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
@@ -1334,7 +1341,7 @@ public class ReferenceEnrichmentServiceTest
 
         await service.TryAutoResolveVideoGameAsync("Some Game", 2020);
 
-        _videoGameRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()), Times.Never);
+        _videoGameRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Never);
     }
 
     [Fact]
@@ -1352,7 +1359,7 @@ public class ReferenceEnrichmentServiceTest
         await service.TryAutoResolveVideoGameAsync("Some Game", 2020);
 
         _videoGameReferenceRepository.Verify(r => r.UpsertAsync(It.Is<VideoGameReferenceModel>(m => m.ExternalIds["rawg"] == "1")), Times.Once);
-        _videoGameRepository.Verify(r => r.SetReferenceLinkAsync("Some Game", 2020, It.IsAny<string>(), "Some Game", It.IsAny<int?>()), Times.Once);
+        _videoGameRepository.Verify(r => r.SetReferenceLinkAsync("Some Game", 2020, It.IsAny<string>(), "Some Game", It.IsAny<int?>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
@@ -1370,7 +1377,7 @@ public class ReferenceEnrichmentServiceTest
         var result = await service.ResolveVideoGameAsync("Some Game", 2020, "1");
 
         result.Id.Should().Be("reference-1");
-        _videoGameRepository.Verify(r => r.SetReferenceLinkAsync("Some Game", 2020, "reference-1", "Some Game", It.IsAny<int?>()), Times.Once);
+        _videoGameRepository.Verify(r => r.SetReferenceLinkAsync("Some Game", 2020, "reference-1", "Some Game", It.IsAny<int?>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Once);
     }
 
     // --- Admin-selectable primary rating source (RatingSourceCatalog + IAppSettingRepository) ---
@@ -1426,7 +1433,7 @@ public class ReferenceEnrichmentServiceTest
         await service.ResolveVideoGameAsync("Some Game", 2020, "1");
 
         // Metacritic is /100, RAWG's own score is /5 - the selected source drives which pair is denormalized.
-        _videoGameRepository.Verify(r => r.SetReferenceLinkAsync("Some Game", 2020, "reference-1", "Some Game", It.IsAny<int?>(), 90, 100), Times.Once);
+        _videoGameRepository.Verify(r => r.SetReferenceLinkAsync("Some Game", 2020, "reference-1", "Some Game", It.IsAny<int?>(), 90, 100, It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
@@ -1439,15 +1446,15 @@ public class ReferenceEnrichmentServiceTest
             VideoGameReferenceWithRatings("r1", rawg: 4.5, metacritic: 90),
             VideoGameReferenceWithRatings("r2", rawg: 3.0, metacritic: 60)
         ]);
-        _videoGameRepository.Setup(r => r.SetReferenceRatingAsync(It.IsAny<string>(), It.IsAny<double?>(), It.IsAny<double?>())).ReturnsAsync(1);
+        _videoGameRepository.Setup(r => r.SetReferenceRatingAsync(It.IsAny<string>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>())).ReturnsAsync(1);
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
 
         var (referencesChecked, itemsUpdated) = await service.RecomputeReferenceRatingsAsync(ReferenceItemType.VideoGame);
 
         referencesChecked.Should().Be(2);
         itemsUpdated.Should().Be(2);
-        _videoGameRepository.Verify(r => r.SetReferenceRatingAsync("r1", 90, 100), Times.Once);
-        _videoGameRepository.Verify(r => r.SetReferenceRatingAsync("r2", 60, 100), Times.Once);
+        _videoGameRepository.Verify(r => r.SetReferenceRatingAsync("r1", 90, 100, It.IsAny<string?>()), Times.Once);
+        _videoGameRepository.Verify(r => r.SetReferenceRatingAsync("r2", 60, 100, It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
@@ -1457,13 +1464,13 @@ public class ReferenceEnrichmentServiceTest
         [
             VideoGameReferenceWithRatings("r1", rawg: 4.5, metacritic: 90)
         ]);
-        _videoGameRepository.Setup(r => r.SetReferenceRatingAsync(It.IsAny<string>(), It.IsAny<double?>(), It.IsAny<double?>())).ReturnsAsync(1);
+        _videoGameRepository.Setup(r => r.SetReferenceRatingAsync(It.IsAny<string>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>())).ReturnsAsync(1);
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
 
         await service.RecomputeReferenceRatingsAsync(ReferenceItemType.VideoGame);
 
         // RAWG is the default: its /5 score, not Metacritic's /100.
-        _videoGameRepository.Verify(r => r.SetReferenceRatingAsync("r1", 4.5, 5), Times.Once);
+        _videoGameRepository.Verify(r => r.SetReferenceRatingAsync("r1", 4.5, 5, It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
@@ -1475,17 +1482,60 @@ public class ReferenceEnrichmentServiceTest
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.RecomputeReferenceRatingsAsync(ReferenceItemType.Album));
     }
 
-    private static VideoGameReferenceModel VideoGameReferenceWithRatings(string id, double rawg, double metacritic) => new()
+    [Fact]
+    public async Task RecomputeReferenceRatingsAsync_DoesNothing_WhenEveryItemIsAlreadyOnTheSelectedSource()
+    {
+        // nothing is stamped with anything other than the selected source - the ordinary case, since the
+        // action sits next to the source picker and gets clicked again "just in case"
+        _videoGameRepository.Setup(r => r.CountLinkedOnOtherRatingSourceAsync(It.IsAny<string>())).ReturnsAsync(0);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+
+        var (referencesChecked, itemsUpdated) = await service.RecomputeReferenceRatingsAsync(ReferenceItemType.VideoGame);
+
+        referencesChecked.Should().Be(0);
+        itemsUpdated.Should().Be(0);
+        // the whole point: the reference collection isn't even read, let alone one UpdateMany fired per
+        // document to write values that are already correct
+        _videoGameReferenceRepository.Verify(r => r.FindAllAsync(), Times.Never);
+        _videoGameRepository.Verify(
+            r => r.SetReferenceRatingAsync(It.IsAny<string>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RecomputeReferenceRatingsAsync_StampsTheSelectedSource_EvenWhenItHasNoValueForThatReference()
+    {
+        _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync())
+            .ReturnsAsync(new Dictionary<string, string> { ["VideoGame"] = RatingSourceCatalog.Metacritic });
+        _videoGameReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync(
+        [
+            VideoGameReferenceWithRatings("r1", rawg: 4.5, metacritic: null)
+        ]);
+        _videoGameRepository
+            .Setup(r => r.SetReferenceRatingAsync(It.IsAny<string>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>())).ReturnsAsync(1);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+
+        await service.RecomputeReferenceRatingsAsync(ReferenceItemType.VideoGame);
+
+        // the stamp records which source was applied, not where a number came from. Leaving it null here
+        // would leave this item looking mismatched forever, so recompute could never report "nothing to do".
+        _videoGameRepository.Verify(
+            r => r.SetReferenceRatingAsync("r1", null, null, RatingSourceCatalog.Metacritic), Times.Once);
+    }
+
+    /// <summary>A game reference carrying both sources - pass a null <paramref name="metacritic"/> for the common case of a game the press never scored.</summary>
+    private static VideoGameReferenceModel VideoGameReferenceWithRatings(string id, double rawg, double? metacritic) => new()
     {
         Id = id,
         Title = "Some Game",
         TitleNormalized = "some game",
         ExternalIds = [],
-        Ratings = new Dictionary<string, ReferenceRatingModel>
-        {
-            [RatingSourceCatalog.Rawg] = new() { Value = rawg, Scale = 5, Count = 100 },
-            [RatingSourceCatalog.Metacritic] = new() { Value = metacritic, Scale = 100 }
-        }
+        Ratings = metacritic is null
+            ? new Dictionary<string, ReferenceRatingModel> { [RatingSourceCatalog.Rawg] = new() { Value = rawg, Scale = 5, Count = 100 } }
+            : new Dictionary<string, ReferenceRatingModel>
+            {
+                [RatingSourceCatalog.Rawg] = new() { Value = rawg, Scale = 5, Count = 100 },
+                [RatingSourceCatalog.Metacritic] = new() { Value = metacritic.Value, Scale = 100 }
+            }
     };
 
     [Fact]
@@ -1641,7 +1691,7 @@ public class ReferenceEnrichmentServiceTest
 
         await service.TryAutoResolveAlbumAsync("Some Album", 2020);
 
-        _albumRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string?>()),
+        _albumRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()),
             Times.Never);
     }
 
@@ -1665,7 +1715,7 @@ public class ReferenceEnrichmentServiceTest
         await service.TryAutoResolveAlbumAsync("Some Album", 2020);
 
         _albumReferenceRepository.Verify(r => r.UpsertAsync(It.Is<AlbumReferenceModel>(m => m.ExternalIds["discogs"] == "1")), Times.Once);
-        _albumRepository.Verify(r => r.SetReferenceLinkAsync("Some Album", 2020, It.IsAny<string>(), "Some Album", It.IsAny<int?>(), "Some Artist"), Times.Once);
+        _albumRepository.Verify(r => r.SetReferenceLinkAsync("Some Album", 2020, It.IsAny<string>(), "Some Album", It.IsAny<int?>(), "Some Artist", It.IsAny<string?>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
@@ -1713,7 +1763,7 @@ public class ReferenceEnrichmentServiceTest
 
         result.Id.Should().Be("reference-1");
         result.ArtistReferenceId.Should().Be("person-1");
-        _albumRepository.Verify(r => r.SetReferenceLinkAsync("Some Album", 2020, "reference-1", "Some Album", It.IsAny<int?>(), "Some Artist"), Times.Once);
+        _albumRepository.Verify(r => r.SetReferenceLinkAsync("Some Album", 2020, "reference-1", "Some Album", It.IsAny<int?>(), "Some Artist", It.IsAny<string?>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
@@ -1806,7 +1856,7 @@ public class ReferenceEnrichmentServiceTest
 
         result.Genre.Should().Be("Pop, K-pop");
         _albumRepository.Verify(r => r.UpdateAsync("album-1", It.Is<AlbumModel>(m => m.Genre == "Pop, K-pop"), "owner"), Times.Once);
-        _albumRepository.Verify(r => r.SetReferenceLinkAsync("Some Album", 2020, "reference-1", "Some Album", It.IsAny<int?>(), It.IsAny<string?>(), "Pop, K-pop"), Times.Once);
+        _albumRepository.Verify(r => r.SetReferenceLinkAsync("Some Album", 2020, "reference-1", "Some Album", It.IsAny<int?>(), It.IsAny<string?>(), "Pop, K-pop", It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]

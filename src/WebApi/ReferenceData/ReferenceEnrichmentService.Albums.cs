@@ -47,6 +47,7 @@ public partial class ReferenceEnrichmentService
                 model.ReferenceId = string.Empty;
                 model.ReferenceRating = null;
                 model.ReferenceRatingScale = null;
+                model.ReferenceRatingSource = null;
                 await albumRepository.UpdateAsync(model.Id!, model, model.OwnerId);
             }
 
@@ -57,7 +58,7 @@ public partial class ReferenceEnrichmentService
         var originalYear = model.Year;
         var artistName = await ResolvePersonNameAsync(reference.ArtistReferenceId);
         var genre = JoinGenres(reference.Genres);
-        var (ratingValue, ratingScale) = PrimaryRating(reference.Ratings, DiscogsProviderKey);
+        var (ratingValue, ratingScale, ratingSource) = PrimaryRating(reference.Ratings, DiscogsProviderKey);
 
         model.ReferenceId = reference.Id;
         model.Title = reference.Title;
@@ -66,8 +67,9 @@ public partial class ReferenceEnrichmentService
         if (genre is not null) model.Genre = genre;
         model.ReferenceRating = ratingValue;
         model.ReferenceRatingScale = ratingScale;
+        model.ReferenceRatingSource = ratingSource;
         await albumRepository.UpdateAsync(model.Id!, model, model.OwnerId);
-        await albumRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year, artistName, genre, ratingValue, ratingScale);
+        await albumRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year, artistName, genre, ratingValue, ratingScale, ratingSource);
 
         return model;
     }
@@ -83,6 +85,7 @@ public partial class ReferenceEnrichmentService
         model.ReferenceId = string.Empty;
         model.ReferenceRating = null;
         model.ReferenceRatingScale = null;
+        model.ReferenceRatingSource = null;
         await albumRepository.UpdateAsync(model.Id!, model, model.OwnerId);
         if (!string.IsNullOrEmpty(referenceId))
         {
@@ -151,8 +154,8 @@ public partial class ReferenceEnrichmentService
         };
 
         var saved = await albumReferenceRepository.UpsertAsync(model);
-        var (ratingValue, ratingScale) = PrimaryRating(saved.Ratings, DiscogsProviderKey);
-        await albumRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, details.Artist, JoinGenres(details.Genres), ratingValue, ratingScale);
+        var (ratingValue, ratingScale, ratingSource) = PrimaryRating(saved.Ratings, DiscogsProviderKey);
+        await albumRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, details.Artist, JoinGenres(details.Genres), ratingValue, ratingScale, ratingSource);
         return saved;
     }
 
@@ -185,8 +188,8 @@ public partial class ReferenceEnrichmentService
         reference.LastEnrichedAt = DateTime.UtcNow;
 
         var saved = await albumReferenceRepository.UpsertAsync(reference);
-        var (ratingValue, ratingScale) = PrimaryRating(saved.Ratings, DiscogsProviderKey);
-        await albumRepository.SetReferenceRatingAsync(saved.Id!, ratingValue, ratingScale);
+        var (ratingValue, ratingScale, ratingSource) = PrimaryRating(saved.Ratings, DiscogsProviderKey);
+        await albumRepository.SetReferenceRatingAsync(saved.Id!, ratingValue, ratingScale, ratingSource);
         return (saved, true);
     }
 
