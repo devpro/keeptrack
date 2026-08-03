@@ -1,43 +1,77 @@
 using System.Globalization;
 using System.Text.Json.Serialization;
 using System.Web;
+using Keeptrack.Domain.Models;
 
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
 /// RAWG Video Games Database REST client. Configured as a typed <see cref="HttpClient"/> (see Program.cs),
 /// with the api key appended as a query parameter on every request, same convention as <see cref="TmdbClient"/>.
+/// <para>
+/// No longer the default video game provider (see <see cref="IgdbClient"/>) but deliberately still registered,
+/// for two reasons: an admin can still search and link with it, and the <c>rawg</c>/<c>metacritic</c> ratings it
+/// already produced stay on those reference documents and keep rendering.
+/// It is *not* called by the background refresh - see
+/// <c>ReferenceEnrichmentService.RefreshVideoGameReferenceAsync</c> for why only the default provider is.
+/// </para>
 /// </summary>
-public class RawgClient(HttpClient http, RawgSettings settings) : IRawgClient
+public class RawgClient(HttpClient http, RawgSettings settings) : IVideoGameReferenceClient
 {
-    public async Task<IReadOnlyList<RawgSearchResult>> SearchGamesAsync(string title, int? year, CancellationToken cancellationToken = default)
+    public string ProviderKey => RatingSourceCatalog.Rawg;
+
+    public string DisplayName => "RAWG";
+
+    /// <summary>RAWG's own 0-5 user score (its default ordering) and the Metacritic score it republishes.</summary>
+    public IReadOnlyList<string> SupportedRatingSources { get; } = [RatingSourceCatalog.Rawg, RatingSourceCatalog.Metacritic];
+
+    public async Task<IReadOnlyList<VideoGameSearchResult>> SearchGamesAsync(string title, int? year, CancellationToken cancellationToken = default)
     {
         var query = $"games?key={ApiKey}&search={Encode(title)}&page_size={MaxResults}" + (year is null ? "" : $"&dates={year}-01-01,{year}-12-31");
         var response = await http.GetFromJsonAsync<RawgSearchResponse>(query, cancellationToken);
-        return response?.Results.Select(r => new RawgSearchResult(
+        return response?.Results.Select(r => new VideoGameSearchResult(
             r.Id.ToString(CultureInfo.InvariantCulture), r.Name ?? title, ParseYear(r.Released), r.BackgroundImage)).ToList() ?? [];
     }
 
-    public async Task<RawgGameDetails?> GetGameDetailsAsync(string externalId, CancellationToken cancellationToken = default)
+    public async Task<VideoGameDetails?> GetGameDetailsAsync(string externalId, CancellationToken cancellationToken = default)
     {
         var details = await http.GetFromJsonAsync<RawgGameDetailsResponse>($"games/{externalId}?key={ApiKey}", cancellationToken);
         return details is null
             ? null
-            : new RawgGameDetails(
+            : new VideoGameDetails(
                 externalId, details.Name ?? string.Empty, ParseYear(details.Released), details.DescriptionRaw,
                 details.Genres.Select(g => g.Name).ToList(),
                 details.Platforms.Select(p => p.Platform?.Name).OfType<string>().ToList(),
-                details.BackgroundImage, details.Rating, details.RatingsCount, details.Metacritic);
+                details.BackgroundImage, BuildRatings(details.Rating, details.RatingsCount, details.Metacritic));
     }
 
-    public async Task<IReadOnlyList<RawgTopRatedItem>> GetTopRatedGamesAsync(int page, string ratingSource, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<VideoGameTopRatedItem>> GetTopRatedGamesAsync(int page, string ratingSource, CancellationToken cancellationToken = default)
     {
         var ordering = ratingSource == RatingSourceCatalog.Metacritic ? "metacritic" : "rating";
         var query = $"games?key={ApiKey}&ordering=-{ordering}&metacritic={MinMetacritic},100&page={page}&page_size={TopRatedPageSize}";
         var response = await http.GetFromJsonAsync<RawgSearchResponse>(query, cancellationToken);
-        return response?.Results.Select(r => new RawgTopRatedItem(
+        return response?.Results.Select(r => new VideoGameTopRatedItem(
             r.Id.ToString(CultureInfo.InvariantCulture), r.Name ?? string.Empty, ParseYear(r.Released), r.BackgroundImage,
-            r.Rating, r.Metacritic)).ToList() ?? [];
+            BuildRatings(r.Rating, null, r.Metacritic).ToDictionary(x => x.Key, x => x.Value.Value))).ToList() ?? [];
+    }
+
+    /// <summary>
+    /// RAWG's two aggregates as a <c>Ratings</c> map: its own 0-5 user score plus Metacritic's 0-100 critic
+    /// score when it reports one (frequently absent for smaller/older games). A 0/absent value is treated as
+    /// "no rating" and omitted, never stored as a genuine zero.
+    /// </summary>
+    private static Dictionary<string, ReferenceRatingModel> BuildRatings(double? rating, int? ratingsCount, int? metacritic)
+    {
+        var ratings = new Dictionary<string, ReferenceRatingModel>();
+        if (rating is > 0)
+        {
+            ratings[RatingSourceCatalog.Rawg] = new ReferenceRatingModel { Value = rating.Value, Scale = 5, Count = ratingsCount };
+        }
+        if (metacritic is > 0)
+        {
+            ratings[RatingSourceCatalog.Metacritic] = new ReferenceRatingModel { Value = metacritic.Value, Scale = 100 };
+        }
+        return ratings;
     }
 
     private const int MaxResults = 5;

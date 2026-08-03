@@ -87,7 +87,10 @@ public class ReferenceSyncService(
                 var (_, changed) = await refresh(reference, cancellationToken);
                 if (changed) updated++;
             }
-            catch (Exception ex)
+            // cancellation is deliberately not caught here: one failing document must never abort the run, but
+            // a shutdown is not one failing document - swallowing it would walk the rest of the page calling a
+            // container that is already being disposed.
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 logger.LogWarning(ex, "Failed to refresh reference {ReferenceId} during {Stage}", id(reference), stage);
             }

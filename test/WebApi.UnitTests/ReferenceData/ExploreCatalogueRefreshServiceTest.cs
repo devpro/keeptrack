@@ -23,7 +23,7 @@ namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 public class ExploreCatalogueRefreshServiceTest
 {
     private readonly Mock<ITmdbClient> _tmdbClient = new();
-    private readonly Mock<IRawgClient> _rawgClient = new();
+    private readonly FakeVideoGameReferenceClient _videoGameClient = FakeVideoGameReferenceClient.Empty();
     private readonly Mock<IOmdbClient> _omdbClient = new();
     private readonly Mock<IAppSettingRepository> _appSettingRepository = new();
     private readonly Mock<IExploreCatalogueRepository> _catalogueRepository = new();
@@ -42,9 +42,10 @@ public class ExploreCatalogueRefreshServiceTest
             .Setup(r => r.FindMissingRatingAsync(
                 It.IsAny<ExploreItemType>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<int>()))
             .ReturnsAsync([]);
+        var videoGameClients = new ReferenceClientRegistry<IVideoGameReferenceClient>([_videoGameClient], _videoGameClient.ProviderKey);
         return new(
-            _tmdbClient.Object, _rawgClient.Object, _omdbClient.Object, _omdbCallBudget, _appSettingRepository.Object,
-            _catalogueRepository.Object, NullLogger<ExploreCatalogueRefreshService>.Instance);
+            _tmdbClient.Object, videoGameClients, new ExploreRankings(videoGameClients), _omdbClient.Object, _omdbCallBudget,
+            _appSettingRepository.Object, _catalogueRepository.Object, NullLogger<ExploreCatalogueRefreshService>.Instance);
     }
 
     /// <summary>
@@ -63,7 +64,13 @@ public class ExploreCatalogueRefreshServiceTest
 
     private static TmdbTopRatedItem Movie(string id, double rating) => new(id, $"Movie {id}", 1999, "synopsis", "http://img", rating);
 
-    private static RawgTopRatedItem Game(string id, double? rating, int? metacritic) => new(id, $"Game {id}", 2010, "http://img", rating, metacritic);
+    private static VideoGameTopRatedItem Game(string id, double? userRating, double? criticRating)
+    {
+        var ratings = new Dictionary<string, double>();
+        if (userRating is not null) ratings[RatingSourceCatalog.Igdb] = userRating.Value;
+        if (criticRating is not null) ratings[RatingSourceCatalog.IgdbCritic] = criticRating.Value;
+        return new VideoGameTopRatedItem(id, $"Game {id}", 2010, "http://img", ratings);
+    }
 
     private void TmdbPages(params IReadOnlyList<TmdbTopRatedItem>[] pages)
     {
@@ -131,7 +138,7 @@ public class ExploreCatalogueRefreshServiceTest
 
         result.RankingsRefreshed.Should().Be(0);
         _tmdbClient.Verify(c => c.GetTopRatedMoviesAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
-        _rawgClient.Verify(c => c.GetTopRatedGamesAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _videoGameClient.LastTopRatedOrdering.Should().BeNull();
     }
 
     [Fact]
@@ -151,43 +158,40 @@ public class ExploreCatalogueRefreshServiceTest
     {
         AllRankingsFresh();
         TmdbPages([Movie("a", 9.0)]);
-        _rawgClient.Setup(c => c.GetTopRatedGamesAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
         _tmdbClient.Setup(c => c.GetTopRatedTvShowsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
 
         // what the admin's "sync now" passes - the force-it-now path
         var result = await CreateService().RefreshAsync(TimeSpan.Zero, TestContext.Current.CancellationToken);
 
-        result.RankingsRefreshed.Should().Be(4, "movies, TV shows, and video games by each of RAWG's two sources");
+        result.RankingsRefreshed.Should().Be(4, "movies, TV shows, and video games by each of the provider's two sources");
     }
 
     [Fact]
-    public async Task RefreshAsync_StoresBothOfRawgsScores_WhicheverOrderingTheListWasPulledIn()
+    public async Task RefreshAsync_StoresEveryScoreTheProviderReports_WhicheverOrderingTheListWasPulledIn()
     {
         AllRankingsFresh();
-        RankingIsStale(ExploreItemType.VideoGame, "metacritic");
-        _rawgClient.Setup(c => c.GetTopRatedGamesAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
-        _rawgClient.Setup(c => c.GetTopRatedGamesAsync(1, "metacritic", It.IsAny<CancellationToken>())).ReturnsAsync([Game("g1", 4.7, 96)]);
+        RankingIsStale(ExploreItemType.VideoGame, RatingSourceCatalog.IgdbCritic);
+        _videoGameClient.TopRatedPages[1] = [Game("g1", 92, 96)];
 
         await CreateService().RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
 
-        // RAWG puts both numbers on every listing entry, so storing both costs nothing and means switching the
-        // admin's selected source never needs a provider call
+        // a game provider puts every number it has on each listing entry, so storing all of them costs nothing
+        // and means switching the admin's selected source never needs a provider call
         _upserted.Should().ContainSingle();
-        _upserted[0].Ratings.Should().BeEquivalentTo(new Dictionary<string, double> { ["rawg"] = 4.7, ["metacritic"] = 96 });
+        _upserted[0].Ratings.Should().BeEquivalentTo(new Dictionary<string, double> { ["igdb"] = 92, ["igdbcritic"] = 96 });
     }
 
     [Fact]
     public async Task RefreshAsync_OmitsARatingTheListingDidNotCarry()
     {
         AllRankingsFresh();
-        RankingIsStale(ExploreItemType.VideoGame, "rawg");
-        _rawgClient.Setup(c => c.GetTopRatedGamesAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
-        _rawgClient.Setup(c => c.GetTopRatedGamesAsync(1, "rawg", It.IsAny<CancellationToken>())).ReturnsAsync([Game("g1", 4.7, null)]);
+        RankingIsStale(ExploreItemType.VideoGame, RatingSourceCatalog.Igdb);
+        _videoGameClient.TopRatedPages[1] = [Game("g1", 92, null)];
 
         await CreateService().RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
 
         // absent, not stored as zero - a missing score must read as "no rating", never as the worst one
-        _upserted[0].Ratings.Should().NotContainKey("metacritic");
+        _upserted[0].Ratings.Should().NotContainKey(RatingSourceCatalog.IgdbCritic);
     }
 
     [Fact]
@@ -195,10 +199,9 @@ public class ExploreCatalogueRefreshServiceTest
     {
         AllRankingsFresh();
         RankingIsStale(ExploreItemType.Movie, "tmdb");
-        RankingIsStale(ExploreItemType.VideoGame, "rawg");
+        RankingIsStale(ExploreItemType.VideoGame, RatingSourceCatalog.Igdb);
         _tmdbClient.Setup(c => c.GetTopRatedMoviesAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ThrowsAsync(new HttpRequestException("TMDB is down"));
-        _rawgClient.Setup(c => c.GetTopRatedGamesAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
-        _rawgClient.Setup(c => c.GetTopRatedGamesAsync(1, "rawg", It.IsAny<CancellationToken>())).ReturnsAsync([Game("g1", 4.7, 96)]);
+        _videoGameClient.TopRatedPages[1] = [Game("g1", 92, 96)];
 
         var result = await CreateService().RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
 

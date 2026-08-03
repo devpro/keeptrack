@@ -57,4 +57,14 @@ public interface IExploreCatalogueRepository
 
     /// <summary>How many entries a ranking holds - used only to tell "nothing new for you" apart from "not built yet".</summary>
     Task<long> CountAsync(ExploreItemType type, string ranking);
+
+    /// <summary>
+    /// Removes every entry belonging to a ranking that is no longer maintained - i.e. whose key isn't in
+    /// <paramref name="rankings"/>. <see cref="DeleteStaleAsync"/> can't do this: it prunes *within* a ranking
+    /// a pass just rewrote, so a ranking that stopped being written at all (because the domain's discovery
+    /// provider changed, and its orderings changed with it) would sit in the collection forever, stale and
+    /// unreadable. Safe to run on every pass because the argument is what the current configuration declares,
+    /// not what one pass happened to fetch.
+    /// </summary>
+    Task<long> DeleteRankingsExceptAsync(IReadOnlyCollection<string> rankings);
 }

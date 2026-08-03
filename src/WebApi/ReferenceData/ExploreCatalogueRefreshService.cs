@@ -23,7 +23,8 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// </summary>
 public class ExploreCatalogueRefreshService(
     ITmdbClient tmdbClient,
-    IRawgClient rawgClient,
+    ReferenceClientRegistry<IVideoGameReferenceClient> videoGameClients,
+    ExploreRankings exploreRankings,
     IOmdbClient omdbClient,
     IOmdbCallBudget omdbCallBudget,
     IAppSettingRepository appSettingRepository,
@@ -63,7 +64,7 @@ public class ExploreCatalogueRefreshService(
         var rankingsRefreshed = 0;
         var entriesRefreshed = 0;
 
-        foreach (var (type, ranking) in ExploreRankings.All)
+        foreach (var (type, ranking) in exploreRankings.All)
         {
             try
             {
@@ -72,11 +73,18 @@ public class ExploreCatalogueRefreshService(
                 entriesRefreshed += await RefreshRankingAsync(type, ranking, cancellationToken);
                 rankingsRefreshed++;
             }
-            catch (Exception exception)
+            // see ReferenceSyncService's own per-item catch: one failing ranking must not abort the pass, but a
+            // shutdown must, or every remaining ranking logs its own disposed-container failure in turn.
+            catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 logger.LogError(exception, "Explore catalogue refresh failed for {ItemType}/{Ranking}.", type, ranking);
             }
         }
+
+        // rankings the current configuration no longer maintains (a domain's discovery provider changed, so
+        // its orderings changed with it) are dropped here rather than left to sit unreadable forever. Keyed on
+        // what is declared, not on what this pass fetched, so a skipped or failed ranking is never affected.
+        await catalogueRepository.DeleteRankingsExceptAsync(exploreRankings.All.Select(r => r.Ranking).Distinct().ToList());
 
         return new ExploreCatalogueRefreshResult(rankingsRefreshed, entriesRefreshed, await BackfillImdbRatingsAsync(cancellationToken));
     }
@@ -159,7 +167,7 @@ public class ExploreCatalogueRefreshService(
                 continue;
             }
 
-            var ranking = ExploreRankings.For(type, RatingSourceCatalog.Imdb);
+            var ranking = exploreRankings.For(type, RatingSourceCatalog.Imdb);
             var pending = await catalogueRepository.FindMissingRatingAsync(
                 type, ranking, RatingSourceCatalog.Imdb, DateTime.UtcNow - RatingSourceCatalog.RatingReattemptAfter, Math.Min(MaxBackfillPerPass, affordable));
             var imdbIdFetcher = ImdbIdFetcher(type);
@@ -189,7 +197,8 @@ public class ExploreCatalogueRefreshService(
                         break;
                     }
                 }
-                catch (Exception exception)
+                // same rule as the per-ranking catch above: one entry may fail, a shutdown may not be ignored
+                catch (Exception exception) when (exception is not OperationCanceledException)
                 {
                     logger.LogError(exception, "IMDb rating backfill failed for {ItemType} {ExternalId}.", type, entry.ExternalId);
                 }
@@ -199,13 +208,13 @@ public class ExploreCatalogueRefreshService(
         return backfilled;
     }
 
-    // which client answers for a (domain, ordering). TMDB has one top-rated list per domain; RAWG orders
-    // natively by whichever of its own sources the ordering names.
+    // which client answers for a (domain, ordering). TMDB has one top-rated list per domain; the video game
+    // provider orders natively by whichever of its own sources the ordering names.
     private Func<int, CancellationToken, Task<IReadOnlyList<CatalogueItem>>> TopRatedFetcher(ExploreItemType type, string ranking) => type switch
     {
         ExploreItemType.Movie => async (page, token) => ToItems(await tmdbClient.GetTopRatedMoviesAsync(page, token)),
         ExploreItemType.TvShow => async (page, token) => ToItems(await tmdbClient.GetTopRatedTvShowsAsync(page, token)),
-        ExploreItemType.VideoGame => async (page, token) => ToItems(await rawgClient.GetTopRatedGamesAsync(page, ranking, token)),
+        ExploreItemType.VideoGame => async (page, token) => ToItems(await videoGameClients.Resolve(null).GetTopRatedGamesAsync(page, ranking, token)),
         _ => throw new ArgumentOutOfRangeException(nameof(type), $"Explore is not available for {type}.")
     };
 
@@ -222,13 +231,12 @@ public class ExploreCatalogueRefreshService(
             i.TmdbId, i.Title, i.Year, i.Synopsis, i.PosterUrl, Ratings((RatingSourceCatalog.Tmdb, i.VoteAverage))))
     ];
 
-    // RAWG reports both of its scores on every listing entry, so both are stored whichever one the list was
-    // ordered by - switching the admin's selection then costs no provider call at all.
-    private static List<CatalogueItem> ToItems(IReadOnlyList<RawgTopRatedItem> items) =>
+    // a video game provider reports every score it has on each listing entry, so all of them are stored
+    // whichever one the list was ordered by - switching the admin's selection then costs no provider call at
+    // all. The client has already keyed them by its own sources, so there is nothing to map per provider here.
+    private static List<CatalogueItem> ToItems(IReadOnlyList<VideoGameTopRatedItem> items) =>
     [
-        .. items.Select(i => new CatalogueItem(
-            i.ExternalId, i.Title, i.Year, null, i.ImageUrl,
-            Ratings((RatingSourceCatalog.Rawg, i.Rating), (RatingSourceCatalog.Metacritic, i.Metacritic))))
+        .. items.Select(i => new CatalogueItem(i.ExternalId, i.Title, i.Year, null, i.ImageUrl, i.Ratings))
     ];
 
     private static Dictionary<string, double> Ratings(params (string Source, double? Value)[] ratings) =>

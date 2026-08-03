@@ -267,7 +267,9 @@ ensureIndex(
 );
 
 // book_reference / videogame_reference / album_reference: same external-provider-id dedup rationale as
-// tvshow_reference/movie_reference above, one provider each (Open Library, RAWG, Discogs).
+// tvshow_reference/movie_reference above. Video games carry one index per provider rather than one overall:
+// IGDB replaced RAWG as the default, but a reference can legitimately hold both ids (RAWG linked it, IGDB was
+// adopted onto it later), and each id space needs its own uniqueness guarantee.
 ensureIndex(
   db.book_reference,
   { "external_ids.openlibrary": 1 },
@@ -277,6 +279,11 @@ ensureIndex(
   db.videogame_reference,
   { "external_ids.rawg": 1 },
   { name: "videogame_reference_rawg_id", unique: true, partialFilterExpression: { "external_ids.rawg": { $exists: true } } }
+);
+ensureIndex(
+  db.videogame_reference,
+  { "external_ids.igdb": 1 },
+  { name: "videogame_reference_igdb_id", unique: true, partialFilterExpression: { "external_ids.igdb": { $exists: true } } }
 );
 ensureIndex(
   db.album_reference,

@@ -25,8 +25,8 @@ public class ReferenceDataAdminController(
     IVideoGameRepository videoGameRepository,
     IAlbumRepository albumRepository,
     ITmdbClient tmdbClient,
-    BookReferenceClientRegistry bookReferenceClientRegistry,
-    IRawgClient rawgClient,
+    ReferenceClientRegistry<IBookReferenceClient> bookReferenceClientRegistry,
+    ReferenceClientRegistry<IVideoGameReferenceClient> videoGameReferenceClientRegistry,
     IDiscogsClient discogsClient,
     ReferenceEnrichmentService enrichmentService,
     JobStore<ReferenceSyncStage, ReferenceSyncResultDto> syncJobStore,
@@ -37,7 +37,9 @@ public class ReferenceDataAdminController(
     IBookReferenceRepository bookReferenceRepository,
     IVideoGameReferenceRepository videoGameReferenceRepository,
     IAlbumReferenceRepository albumReferenceRepository,
-    IAppSettingRepository appSettingRepository) : ControllerBase
+    IAppSettingRepository appSettingRepository,
+    IHostApplicationLifetime lifetime,
+    ILogger<ReferenceDataAdminController> logger) : ControllerBase
 {
     private const string TvShowEntryName = "tvshow_reference.json";
     private const string MovieEntryName = "movie_reference.json";
@@ -200,9 +202,18 @@ public class ReferenceDataAdminController(
     /// Runs the sync on a background task using its own DI scope - the request that started it has
     /// already completed by the time this runs, so it can't reuse the request's scoped services
     /// (neither <see cref="ReferenceSyncService"/> nor the request's own JobStore instance).
+    /// <para>
+    /// It runs on <see cref="IHostApplicationLifetime.ApplicationStopping"/>, not an unbounded token. A pass
+    /// takes minutes, so without that a shutdown leaves it working against a container being torn down: the
+    /// singletons it depends on (the Mongo client, the HTTP clients, IGDB's rate limiter) are disposed out from
+    /// under it, and every remaining step fails with <see cref="ObjectDisposedException"/> - including the
+    /// final job-store write, which would leave the job reading "Running" forever. Confirmed in the running
+    /// app: a shutdown mid-pass surfaced as a disposed <c>TokenBucketRateLimiter</c> deep inside an IGDB call.
+    /// </para>
     /// </summary>
     private async Task RunSyncJobAsync(Guid jobId)
     {
+        var cancellationToken = lifetime.ApplicationStopping;
         using var scope = scopeFactory.CreateScope();
         var scopedSyncService = scope.ServiceProvider.GetRequiredService<ReferenceSyncService>();
         var scopedReconciliationService = scope.ServiceProvider.GetRequiredService<TvShowStatusReconciliationService>();
@@ -211,13 +222,27 @@ public class ReferenceDataAdminController(
 
         try
         {
-            var result = await scopedSyncService.SyncStaleReferencesAsync(TimeSpan.Zero, stage => scopedJobStore.UpdateStageAsync(jobId, stage));
+            var result = await scopedSyncService.SyncStaleReferencesAsync(
+                TimeSpan.Zero, stage => scopedJobStore.UpdateStageAsync(jobId, stage), cancellationToken);
             // an on-demand "sync now" reconciles finished-show status too, so its result matches the periodic pass's.
             result.FinishedShowsReopened = await scopedReconciliationService.ReconcileFinishedShowsAsync();
             // ...and rebuilds the Explore discovery rankings regardless of how recently they were built, which
             // is what makes this the "force it now" control for those too - no separate admin endpoint needed.
-            result.ApplyExploreRefresh(await scopedExploreRefreshService.RefreshAsync(TimeSpan.Zero));
+            result.ApplyExploreRefresh(await scopedExploreRefreshService.RefreshAsync(TimeSpan.Zero, cancellationToken));
             await scopedJobStore.CompleteAsync(jobId, ReferenceSyncStage.Completed, result);
+        }
+        catch (OperationCanceledException)
+        {
+            // the API is going down, so this is neither a success nor a fault to investigate - just say so
+            // plainly and stop. Best-effort: the job store may already be unusable at this point.
+            try
+            {
+                await scopedJobStore.FailAsync(jobId, ReferenceSyncStage.Failed, "The API shut down before the sync finished. Start it again once the API is back up.");
+            }
+            catch (Exception writeFailure)
+            {
+                logger.LogWarning(writeFailure, "Could not record that sync job {JobId} was interrupted by shutdown.", jobId);
+            }
         }
         catch (Exception ex)
         {
@@ -226,18 +251,29 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// Every registered book provider an admin can search/link with - Book is the one reference domain with
-    /// more than one (TMDB/RAWG/Discogs each have exactly one, so no equivalent listing endpoint exists for them).
+    /// Every registered provider an admin can search/link <paramref name="type"/> with, in priority order.
+    /// Books and video games are the domains with more than one; TMDB/Discogs have exactly one each, so those
+    /// types return an empty list and the caller shows no picker.
     /// </summary>
-    [HttpGet("book-providers")]
+    [HttpGet("providers")]
     [ProducesResponseType(200)]
-    public ActionResult<List<BookProviderDto>> GetBookProviders() =>
-        Ok(bookReferenceClientRegistry.All.Select(c => new BookProviderDto { Key = c.ProviderKey, DisplayName = c.DisplayName }).ToList());
+    public ActionResult<List<ReferenceProviderDto>> GetProviders([FromQuery] ReferenceItemType type)
+    {
+        IEnumerable<IReferenceProviderClient> clients = type switch
+        {
+            ReferenceItemType.Book => bookReferenceClientRegistry.All,
+            ReferenceItemType.VideoGame => videoGameReferenceClientRegistry.All,
+            _ => []
+        };
+
+        return Ok(clients.Select(c => new ReferenceProviderDto { Key = c.ProviderKey, DisplayName = c.DisplayName }).ToList());
+    }
 
     /// <summary>
     /// Every domain whose primary rating source (the score shown as the pill / used for the "Ref ★" sort) is
     /// admin-selectable, with its available sources and the one currently selected. Only domains with more
-    /// than one source appear - today just video games (RAWG vs Metacritic).
+    /// than one source appear - today video games (IGDB, IGDB's critic aggregate, Metacritic) and movies/TV
+    /// (TMDB vs IMDb).
     /// </summary>
     [HttpGet("rating-sources")]
     [ProducesResponseType(200)]
@@ -354,8 +390,9 @@ public class ReferenceDataAdminController(
     /// (see <see cref="IBookReferenceClient.SearchBooksAsync"/>/<see cref="IDiscogsClient.SearchAlbumsAsync"/>),
     /// since a common title alone often returns many unrelated candidates.
     /// Ignored for TV shows/movies/video games, which have no equivalent single-name creator field on this endpoint.
-    /// <paramref name="provider"/> selects which registered book provider to search with (see
-    /// <see cref="GetBookProviders"/>); ignored for every other type. Null falls back to the deployment default.
+    /// <paramref name="provider"/> selects which registered provider to search with, for the domains that have
+    /// more than one (see <see cref="GetProviders"/>); ignored for the rest. Null falls back to the
+    /// deployment default.
     /// <paramref name="isbn"/> is Book-only - an exact identifier, only actually used by
     /// <see cref="GoogleBooksClient"/> (see its own doc comment on <see cref="IBookReferenceClient.SearchBooksAsync"/>).
     /// </summary>
@@ -386,7 +423,7 @@ public class ReferenceDataAdminController(
                     })
                     .ToList());
             case ReferenceItemType.VideoGame:
-                var games = await rawgClient.SearchGamesAsync(title, year);
+                var games = await videoGameReferenceClientRegistry.Resolve(provider).SearchGamesAsync(title, year);
                 return Ok(games.Take(MaxEnrichedCandidates)
                     .Select(r => new ReferenceSearchResultDto { ExternalId = r.ExternalId, Title = r.Title, Year = r.Year, ImageUrl = r.ImageUrl })
                     .ToList());
@@ -453,7 +490,7 @@ public class ReferenceDataAdminController(
                 await enrichmentService.ResolveBookAsync(request.Title, request.Year, request.ExternalId, request.Provider, request.Isbn);
                 break;
             case ReferenceItemType.VideoGame:
-                await enrichmentService.ResolveVideoGameAsync(request.Title, request.Year, request.ExternalId);
+                await enrichmentService.ResolveVideoGameAsync(request.Title, request.Year, request.ExternalId, request.Provider);
                 break;
             case ReferenceItemType.Album:
                 await enrichmentService.ResolveAlbumAsync(request.Title, request.Year, request.ExternalId);

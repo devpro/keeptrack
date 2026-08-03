@@ -84,10 +84,13 @@ Key                                       | Description
 `Infrastructure:MongoDB:ConnectionString` | MongoDB connection string
 `Infrastructure:MongoDB:DatabaseName`     | MongoDB database name
 `Tmdb:ApiKey`                             | TMDB v3 API key, used to auto-match shows/movies to episode titles and synopses (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
-`Rawg:ApiKey`                             | RAWG API key, used to auto-match video games to synopses/cover art/platforms (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
+`Rawg:ApiKey`                             | RAWG API key, the secondary video game provider (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
+`Igdb:ClientId`                           | Twitch application client id, used by the default video game provider IGDB to auto-match games to synopses/cover art/platforms (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
+`Igdb:ClientSecret`                       | Twitch application client secret, exchanged with the client id for the app access token every IGDB request carries
 `Discogs:Token`                           | Discogs personal access token, used to auto-match albums to synopses/cover art/genres (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
 `GoogleBooks:ApiKey`                      | Google Books API key, used to auto-match books to synopses/cover art/language/genres (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
 `ReferenceData:BookProvider`              | Default `IBookReferenceClient` provider key used for automatic/background book matching (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below). Default: `googlebooks`
+`ReferenceData:VideoGameProvider`         | Default `IVideoGameReferenceClient` provider key used for automatic/background video game matching, for adopting an id onto references linked before it, and as Explore's discovery provider. Default: `igdb`
 
 This values can be easily provided as environment variables (replace ":" by "__") or by configuration (json).
 
@@ -121,6 +124,10 @@ Template for `src/WebApi/appsettings.Development.json`:
   "Tmdb": {
     "ApiKey": "<your-tmdb-api-key>"
   },
+  "Igdb": {
+    "ClientId": "<your-twitch-client-id>",
+    "ClientSecret": "<your-twitch-client-secret>"
+  },
   "Rawg": {
     "ApiKey": "<your-rawg-api-key>"
   },
@@ -140,36 +147,45 @@ Template for `src/WebApi/appsettings.Development.json`:
 
 Episode titles, synopses, cover art, and the "what should I watch next" experience are backed by shared reference collections, one per trackable type, each populated from a different external provider rather than typed in by hand:
 
-Type              | Provider                                      | Setting         | API key required?
-------------------|-----------------------------------------------|-----------------|------------------
-TV shows / Movies | [TMDB](https://www.themoviedb.org/)           | `Tmdb:ApiKey`   | Yes
-Books             | [Open Library](https://openlibrary.org/)      | *(none)*        | No
-Video Games       | [RAWG](https://rawg.io/apidocs)               | `Rawg:ApiKey`   | Yes
-Albums            | [Discogs](https://www.discogs.com/developers) | `Discogs:Token` | Yes (personal access token)
+Type              | Provider                                      | Setting                               | API key required?
+------------------|-----------------------------------------------|---------------------------------------|------------------
+TV shows / Movies | [TMDB](https://www.themoviedb.org/)           | `Tmdb:ApiKey`                         | Yes
+Books             | [Open Library](https://openlibrary.org/)      | *(none)*                              | No
+Video Games       | [IGDB](https://api-docs.igdb.com/)            | `Igdb:ClientId` + `Igdb:ClientSecret` | Yes (Twitch application)
+Video Games (alt) | [RAWG](https://rawg.io/apidocs)               | `Rawg:ApiKey`                         | Yes
+Albums            | [Discogs](https://www.discogs.com/developers) | `Discogs:Token`                       | Yes (personal access token)
 
 1. **TMDB**: create a free account, then generate a v3 API key at [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api).
    Set `Tmdb:ApiKey` (or the `Tmdb__ApiKey` environment variable) to that key.
 2. **Open Library**: nothing to configure - its search/cover-image API is free and keyless.
-3. **RAWG**: create a free account, then generate an API key at [rawg.io/apidocs](https://rawg.io/apidocs).
+3. **IGDB**: IGDB is part of Twitch and has no key of its own - register an application at [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps), then set `Igdb:ClientId` and `Igdb:ClientSecret` (or
+   `Igdb__ClientId`/`Igdb__ClientSecret`) to that application's pair.
+   The app exchanges them for an access token itself and refreshes it as needed; there is nothing to renew by hand.
+4. **RAWG**: create a free account, then generate an API key at [rawg.io/apidocs](https://rawg.io/apidocs).
    Set `Rawg:ApiKey` (or `Rawg__ApiKey`) to that key.
-4. **Discogs**: create a free account, then generate a personal access token at [discogs.com/settings/developers](https://www.discogs.com/settings/developers).
+   Only needed for admin search/linking against RAWG; background refresh never calls it once IGDB is the default.
+5. **Discogs**: create a free account, then generate a personal access token at [discogs.com/settings/developers](https://www.discogs.com/settings/developers).
    Set `Discogs:Token` (or `Discogs__Token`) to that token.
-5. **Google Books**: create a project in [Google Cloud Console](https://console.cloud.google.com/), enable the Books API, then generate an API key.
+6. **Google Books**: create a project in [Google Cloud Console](https://console.cloud.google.com/), enable the Books API, then generate an API key.
    Set `GoogleBooks:ApiKey` (or `GoogleBooks__ApiKey`) to that key.
 
 Without a key/token for a given provider, new items of that type simply stay unresolved (no synopsis, no cover art) instead of erroring.
 The app degrades gracefully per type - it just won't auto-match that type until the corresponding setting is provided.
 
-Unlike the other three, books are resolved through a provider-agnostic `IBookReferenceClient` interface (`src/WebApi/ReferenceData/`), and it's the one reference domain with more than one provider registered at once:
+Books and video games are each resolved through a provider-agnostic interface (`IBookReferenceClient`/`IVideoGameReferenceClient`, `src/WebApi/ReferenceData/`) - the two domains with more than one provider registered at once.
+Video games have `IgdbClient` (key `igdb`, the default) and `RawgClient` (key `rawg`), the latter kept registered so an admin can still search/link with it and so references linked through it keep their stored `rawg`/`metacritic` ratings.
+Background refresh only ever calls the *default* provider, unlike books - a reference that hasn't adopted an IGDB id keeps the data it has rather than being re-fetched from a provider the operator didn't select;
+a reference linked before IGDB became the default adopts an IGDB id automatically during a periodic sync pass, provided the match is unambiguous.
+For books:
 `GoogleBooksClient` (key `googlebooks`, the default - real synopses, cover art, language and the widest catalogue coverage of the three, including manga/comics),
 `OpenLibraryClient` (key `openlibrary`, no API key needed, kept as a fallback), and `BnfClient` (key `bnf`, BnF's free/keyless SRU Catalogue général, also kept as a fallback -
 in practice its records tend to have long library-catalogue-style titles, no cover art, and little to no synopsis, so it's rarely the best choice, but it can still surface a French title neither of the other two has).
-`src/WebApi/Program.cs` registers every implemented provider unconditionally; `BookReferenceClientRegistry` resolves a provider by key,
-falling back to `ReferenceData:BookProvider` (or the `ReferenceData__BookProvider` environment variable, default `googlebooks`) when none is specified.
-An admin can pick any registered provider per search/link action from the reference-data admin page or a book's own detail page, regardless of that default.
-To add a new book provider, implement `IBookReferenceClient` (a new client class alongside `GoogleBooksClient.cs`/`OpenLibraryClient.cs`/`BnfClient.cs`,
-plus its own settings class if it needs an API key, following `RawgSettings`/`DiscogsSettings`) and add one registration block to `Program.cs` - no changes needed to the registry, enrichment service, admin controller, or admin UI.
-Nothing else in the app needs to change, since `ReferenceEnrichmentService`/`ReferenceDataAdminController` only depend on the interface and read the active provider's key from `IBookReferenceClient.ProviderKey`.
+`src/WebApi/Program.cs` registers every implemented provider unconditionally; the shared `ReferenceClientRegistry<TClient>` resolves a provider by key,
+falling back to `ReferenceData:BookProvider`/`ReferenceData:VideoGameProvider` (or the `ReferenceData__*` environment variables) when none is specified.
+An admin can pick any registered provider per search/link action from the reference-data admin page or an item's own detail page, regardless of that default.
+To add a new provider, implement the domain's interface (a new client class alongside the existing ones, plus its own settings class if it needs credentials, following `RawgSettings`/`DiscogsSettings`)
+and add one registration block to `Program.cs` - no changes needed to the registry, enrichment service, admin controller, or admin UI.
+Nothing else in the app needs to change, since `ReferenceEnrichmentService`/`ReferenceDataAdminController` only depend on the interface and read the active provider's key from `IReferenceProviderClient.ProviderKey`.
 
 ### Admin role
 
@@ -408,7 +424,8 @@ export Authentication__JwtBearer__TokenValidation__Issuer=https://securetoken.go
 export Authentication__JwtBearer__TokenValidation__Audience=<firebase-project-id>
 export FIREBASE_APIKEY=<web-api-key>
 export Tmdb__ApiKey=<tmdb-api-key>
-export Rawg__ApiKey=<rawg-api-key>
+export Igdb__ClientId=<twitch-client-id>
+export Igdb__ClientSecret=<twitch-client-secret>
 export Discogs__Token=<discogs-personal-access-token>
 
 dotnet test test/BlazorApp.PlaywrightTests/BlazorApp.PlaywrightTests.csproj
@@ -425,7 +442,8 @@ The fixture removes its seeded reference document plus the ephemeral user's own 
 The one thing deliberately left behind is reference data resolved from a *real* provider title (TMDB's "The Terminator" and its cast, say).
 That's shared canonical data deduplicated by provider id, so it's reused on the next run rather than duplicated.
 
-`Tmdb__ApiKey`/`Rawg__ApiKey`/`Discogs__Token` are required (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) above for where to get each one), not optional.
+`Tmdb__ApiKey`/`Igdb__ClientId`/`Igdb__ClientSecret`/`Discogs__Token` are required (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) above for where to get each one), not optional.
+`Rawg__ApiKey` is deliberately *not* required: what a smoke test links through is whichever provider is the domain's default, and RAWG stopped being it - no e2e path reaches RAWG unless a test picks it explicitly.
 The Movie/TvShow/VideoGame/Album smoke tests link a real, well-known title (e.g. "The Terminator", "Breaking Bad") against the real provider.
 So a missing key fails the whole run fast with a clear error, rather than letting those tests fail downstream with a confusing "no results found".
 Book needs no key (Open Library), so it's unaffected.
@@ -436,7 +454,8 @@ For an IDE-driven workflow, add the same variables to the `Local.runsettings` fi
 <E2E_ENABLED>true</E2E_ENABLED>
 <Infrastructure__MongoDB__DatabaseName>keeptrack_e2e</Infrastructure__MongoDB__DatabaseName>
 <Tmdb__ApiKey>xxxx</Tmdb__ApiKey>
-<Rawg__ApiKey>xxxx</Rawg__ApiKey>
+<Igdb__ClientId>xxxx</Igdb__ClientId>
+<Igdb__ClientSecret>xxxx</Igdb__ClientSecret>
 <Discogs__Token>xxxx</Discogs__Token>
 <!-- <E2E_HEADLESS>false</E2E_HEADLESS> -->
 <!-- <E2E_SLOWMO_MS>250</E2E_SLOWMO_MS> -->

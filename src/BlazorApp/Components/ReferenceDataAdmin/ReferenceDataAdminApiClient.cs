@@ -24,12 +24,13 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
     }
 
     /// <summary>
-    /// Every registered book provider (see <c>ReferenceDataAdminController.GetBookProviders</c>) - Book is
-    /// the one reference domain with more than one, so this is the only per-type provider list needed.
+    /// Every registered provider for <paramref name="type"/> (see
+    /// <c>ReferenceDataAdminController.GetProviders</c>). Empty for the domains with a single provider, which
+    /// is what tells the caller not to render a picker at all.
     /// </summary>
-    public async Task<List<BookProviderDto>> GetBookProvidersAsync()
+    public async Task<List<ReferenceProviderDto>> GetProvidersAsync(ReferenceItemType type)
     {
-        var results = await http.GetFromJsonAsync<List<BookProviderDto>>("/api/reference-data/book-providers");
+        var results = await http.GetFromJsonAsync<List<ReferenceProviderDto>>($"/api/reference-data/providers?type={type}");
         return results ?? [];
     }
 

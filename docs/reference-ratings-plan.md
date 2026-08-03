@@ -2,6 +2,12 @@
 
 Provider ("reference") ratings for tracked items - the linked reference's own aggregate score (TMDB, RAWG, Metacritic, Discogs, Google Books, Open Library), shown alongside the user's personal star rating.
 
+> **Superseded in part (2026-08-03):** this document records the design as built, when RAWG was the only video game provider.
+> IGDB has since replaced it as that domain's default, so the video-game arm below is historical: the selectable sources are now `igdb`/`igdbcritic`/`metacritic` with `igdb` as the default, and `rawg` stays declared only so values stored
+> under it keep their scale and keep rendering.
+> Everything else here - the mechanism, the recompute, the movie/TV IMDb arm - is unchanged.
+> See `CLAUDE.md` for the current state.
+
 ## Status
 
 Phase 1 is implemented across all five reference-bearing media types (Movie, TV show, Video game, Album, Book).

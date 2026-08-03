@@ -63,11 +63,13 @@
                                 @if (_type == ReferenceItemType.Book)
                                 {
                                     <input class="form-control form-control-sm" style="max-width:160px" placeholder="ISBN" @bind="_isbn"/>
-                                    @foreach (var bookProvider in _bookProviders)
-                                    {
-                                        <button type="button" class="btn btn-sm @(bookProvider.Key == _selectedProvider ? "btn-primary" : "btn-secondary")"
-                                                @onclick="() => _selectedProvider = bookProvider.Key">@bookProvider.DisplayName</button>
-                                    }
+                                }
+                                @* selection only, never a search trigger - one control starts a search. Rendered
+                                   for any domain with more than one registered provider (books, video games). *@
+                                @foreach (var provider in _providers)
+                                {
+                                    <button type="button" class="btn btn-sm @(provider.Key == _selectedProvider ? "btn-primary" : "btn-secondary")"
+                                            @onclick="() => _selectedProvider = provider.Key">@provider.DisplayName</button>
                                 }
                                 <button class="btn btn-sm btn-secondary" @onclick="SearchAsync" disabled="@(_searching || string.IsNullOrWhiteSpace(_queryTitle))">Search</button>
                             </div>
@@ -275,6 +277,10 @@
                 <td>@_systemStatus.BookProvider</td>
             </tr>
             <tr>
+                <td>Video game provider</td>
+                <td>@_systemStatus.VideoGameProvider</td>
+            </tr>
+            <tr>
                 <td>Sync lease</td>
                 <td>
                     @if (_systemStatus.ReferenceSyncLease is null)
@@ -349,14 +355,14 @@
     private int? _queryYear;
     private string? _creator;
     private string? _isbn;
-    private List<BookProviderDto> _bookProviders = [];
+    @* the registered providers for the selected domain, reloaded on every domain switch: empty for the
+       single-provider ones, which is what hides the picker without a per-type condition in the markup. *@
+    private List<ReferenceProviderDto> _providers = [];
     private string? _selectedProvider;
 
-    private string ProviderName => _type switch
+    private string ProviderName => _providers.FirstOrDefault(p => p.Key == _selectedProvider)?.DisplayName ?? _type switch
     {
         ReferenceItemType.TvShow or ReferenceItemType.Movie => "TMDB",
-        ReferenceItemType.Book => _bookProviders.FirstOrDefault(p => p.Key == _selectedProvider)?.DisplayName ?? "Google Books",
-        ReferenceItemType.VideoGame => "RAWG",
         ReferenceItemType.Album => "Discogs",
         _ => "reference"
     };
@@ -492,8 +498,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _bookProviders = await Api.GetBookProvidersAsync();
-        _selectedProvider = _bookProviders.FirstOrDefault()?.Key;
+        await LoadProvidersAsync();
         _ratingSources = await Api.GetRatingSourcesAsync();
         _exploreUseTmdb = (await Api.GetExploreSettingsAsync()).UseTmdbRanking;
         await LoadUnresolvedAsync();
@@ -520,6 +525,8 @@
         "imdb" => "IMDb",
         "rawg" => "RAWG",
         "metacritic" => "Metacritic",
+        "igdb" => "IGDB",
+        "igdbcritic" => "IGDB Critics",
         _ => source
     };
 
@@ -602,7 +609,18 @@
     private async Task SelectTypeAsync(ReferenceItemType type)
     {
         _type = type;
+        await LoadProvidersAsync();
         await LoadUnresolvedAsync();
+    }
+
+    /// <summary>
+    /// Reloads the provider list for the selected domain, defaulting the selection to the first (registration
+    /// order is priority order, so that is the deployment default).
+    /// </summary>
+    private async Task LoadProvidersAsync()
+    {
+        _providers = await Api.GetProvidersAsync(_type);
+        _selectedProvider = _providers.FirstOrDefault()?.Key;
     }
 
     private async Task SelectItemAsync(UnresolvedReferenceDto item)
@@ -635,7 +653,7 @@
         _error = null;
         try
         {
-            _searchResults = await Api.SearchAsync(_type, _queryTitle ?? _selected.Title, _queryYear, _creator, _type == ReferenceItemType.Book ? _selectedProvider : null,
+            _searchResults = await Api.SearchAsync(_type, _queryTitle ?? _selected.Title, _queryYear, _creator, _selectedProvider,
                 _type == ReferenceItemType.Book ? _isbn : null);
         }
         catch (Exception ex)
@@ -670,7 +688,7 @@
                 Title = _selected.Title,
                 Year = _selected.Year,
                 ExternalId = candidate.ExternalId,
-                Provider = _type == ReferenceItemType.Book ? _selectedProvider : null,
+                Provider = _selectedProvider,
                 Isbn = _type == ReferenceItemType.Book ? _isbn : null
             });
             await LoadUnresolvedAsync();

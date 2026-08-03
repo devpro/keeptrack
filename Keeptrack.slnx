@@ -15,6 +15,7 @@
     <File Path="docs/automapper-removal-plan.md" />
     <File Path="docs/backlog.md" />
     <File Path="docs/code-quality-findings.md" />
+    <File Path="docs/igdb-api-notes.md" />
     <File Path="docs/operations.md" />
     <File Path="docs/plan-quick-add.md" />
     <File Path="docs/playwright-e2e-tests-plan.md" />

@@ -33,13 +33,15 @@ public class ExploreServiceTest
 
     private ExploreService CreateService()
     {
-        // no admin override by default => the code default source per domain (tmdb / rawg) is used
+        // no admin override by default => the code default source per domain (tmdb / igdb) is used
         _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync()).ReturnsAsync(new Dictionary<string, string>());
+        var videoGameClient = FakeVideoGameReferenceClient.Empty();
+        var videoGameClients = new ReferenceClientRegistry<IVideoGameReferenceClient>([videoGameClient], videoGameClient.ProviderKey);
         return new(
             _appSettingRepository.Object, _catalogueRepository.Object,
             _movieRepository.Object, _tvShowRepository.Object, _videoGameRepository.Object,
             _movieReferenceRepository.Object, _tvShowReferenceRepository.Object, _videoGameReferenceRepository.Object,
-            _dismissalRepository.Object);
+            _dismissalRepository.Object, new ExploreRankings(videoGameClients));
     }
 
     private static ExploreCatalogueEntryModel Entry(ExploreItemType type, string ranking, string externalId, int rank, params (string Source, double Value)[] ratings) =>
@@ -277,31 +279,30 @@ public class ExploreServiceTest
     }
 
     [Fact]
-    public async Task GetSuggestionsAsync_ForVideoGames_ReadsTheRawgOrderedRanking_ByDefault()
+    public async Task GetSuggestionsAsync_ForVideoGames_ReadsTheProvidersUserScoreRanking_ByDefault()
     {
         NoExclusions(ExploreItemType.VideoGame);
-        Catalogue(ExploreItemType.VideoGame, "rawg",
-            Entry(ExploreItemType.VideoGame, "rawg", "g1", 1, ("rawg", 4.7), ("metacritic", 96)),
-            Entry(ExploreItemType.VideoGame, "rawg", "g2", 2, ("rawg", 4.5), ("metacritic", 92)));
+        Catalogue(ExploreItemType.VideoGame, "igdb",
+            Entry(ExploreItemType.VideoGame, "igdb", "g1", 1, ("igdb", 92), ("igdbcritic", 96)),
+            Entry(ExploreItemType.VideoGame, "igdb", "g2", 2, ("igdb", 88), ("igdbcritic", 92)));
 
         var page = await CreateService().GetSuggestionsAsync(ExploreItemType.VideoGame, "owner", 24, null, TestContext.Current.CancellationToken);
 
         page.Items.Select(s => s.ExternalId).Should().Equal(["g1", "g2"]);
-        // RAWG's own score on its own 0-5 scale
-        page.Items[0].Rating.Should().Be(4.7);
-        page.Items[0].RatingScale.Should().Be(5);
+        page.Items[0].Rating.Should().Be(92);
+        page.Items[0].RatingScale.Should().Be(100);
     }
 
     [Fact]
-    public async Task GetSuggestionsAsync_ForVideoGames_WhenMetacriticIsThePrimarySource_ReadsTheMetacriticOrderedRanking()
+    public async Task GetSuggestionsAsync_ForVideoGames_WhenTheCriticScoreIsThePrimarySource_ReadsTheCriticOrderedRanking()
     {
         var service = CreateService();
-        _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync()).ReturnsAsync(new Dictionary<string, string> { ["VideoGame"] = "metacritic" });
+        _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync()).ReturnsAsync(new Dictionary<string, string> { ["VideoGame"] = "igdbcritic" });
         NoExclusions(ExploreItemType.VideoGame);
-        // unlike TMDB, RAWG genuinely sorts differently per source, so each source is a separately stored
-        // ordering - reading the wrong one would show the right numbers in the wrong order.
-        Catalogue(ExploreItemType.VideoGame, "metacritic",
-            Entry(ExploreItemType.VideoGame, "metacritic", "g9", 1, ("rawg", 4.1), ("metacritic", 98)));
+        // unlike TMDB, a game provider genuinely sorts differently per source, so each source is a separately
+        // stored ordering - reading the wrong one would show the right numbers in the wrong order.
+        Catalogue(ExploreItemType.VideoGame, "igdbcritic",
+            Entry(ExploreItemType.VideoGame, "igdbcritic", "g9", 1, ("igdb", 84), ("igdbcritic", 98)));
 
         var page = await service.GetSuggestionsAsync(ExploreItemType.VideoGame, "owner", 24, null, TestContext.Current.CancellationToken);
 
@@ -309,7 +310,24 @@ public class ExploreServiceTest
         page.Items[0].Rating.Should().Be(98);
         page.Items[0].RatingScale.Should().Be(100);
         _catalogueRepository.Verify(
-            r => r.FindRankedAsync(ExploreItemType.VideoGame, "rawg", It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+            r => r.FindRankedAsync(ExploreItemType.VideoGame, "igdb", It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetSuggestionsAsync_ForVideoGames_FallsBackToTheRankingsOwnScore_WhenTheSelectedSourceIsOneTheProviderCannotReport()
+    {
+        var service = CreateService();
+        // Metacritic stays selectable because references linked through RAWG still carry it, but the current
+        // discovery provider neither orders by it nor reports it. Honouring the selection literally would
+        // leave every single card with no number at all, permanently - so the ranking's own score is shown.
+        _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync()).ReturnsAsync(new Dictionary<string, string> { ["VideoGame"] = "metacritic" });
+        NoExclusions(ExploreItemType.VideoGame);
+        Catalogue(ExploreItemType.VideoGame, "igdb", Entry(ExploreItemType.VideoGame, "igdb", "g1", 1, ("igdb", 92)));
+
+        var page = await service.GetSuggestionsAsync(ExploreItemType.VideoGame, "owner", 24, null, TestContext.Current.CancellationToken);
+
+        page.Items.Should().ContainSingle().Which.Rating.Should().Be(92);
+        page.Items[0].RatingScale.Should().Be(100);
     }
 
     [Fact]
@@ -320,11 +338,11 @@ public class ExploreServiceTest
         // rating source at all, so it must never leak into this domain's ranking.
         _appSettingRepository.Setup(r => r.GetExploreUseTmdbAsync()).ReturnsAsync(true);
         NoExclusions(ExploreItemType.VideoGame);
-        Catalogue(ExploreItemType.VideoGame, "rawg", Entry(ExploreItemType.VideoGame, "rawg", "g1", 1, ("rawg", 4.7)));
+        Catalogue(ExploreItemType.VideoGame, "igdb", Entry(ExploreItemType.VideoGame, "igdb", "g1", 1, ("igdb", 92)));
 
         var page = await service.GetSuggestionsAsync(ExploreItemType.VideoGame, "owner", 24, null, TestContext.Current.CancellationToken);
 
-        page.Items.Should().ContainSingle().Which.RatingScale.Should().Be(5);
+        page.Items.Should().ContainSingle().Which.Rating.Should().Be(92);
     }
 
     [Fact]
@@ -332,12 +350,12 @@ public class ExploreServiceTest
     {
         NoExclusions(ExploreItemType.VideoGame);
         _videoGameRepository.Setup(r => r.FindLinkedReferenceIdsAsync("owner")).ReturnsAsync(["ref-g"]);
-        // the tracked game's reference is read in the RAWG number space - never a TMDB one
-        _videoGameReferenceRepository.Setup(r => r.FindExternalIdsAsync(It.Is<IReadOnlyCollection<string>>(c => c.Contains("ref-g")), "rawg"))
+        // the tracked game's reference is read in the discovery provider's number space - never a TMDB one
+        _videoGameReferenceRepository.Setup(r => r.FindExternalIdsAsync(It.Is<IReadOnlyCollection<string>>(c => c.Contains("ref-g")), "igdb"))
             .ReturnsAsync(["g1"]);
-        Catalogue(ExploreItemType.VideoGame, "rawg",
-            Entry(ExploreItemType.VideoGame, "rawg", "g1", 1, ("rawg", 4.7)),
-            Entry(ExploreItemType.VideoGame, "rawg", "g2", 2, ("rawg", 4.5)));
+        Catalogue(ExploreItemType.VideoGame, "igdb",
+            Entry(ExploreItemType.VideoGame, "igdb", "g1", 1, ("igdb", 92)),
+            Entry(ExploreItemType.VideoGame, "igdb", "g2", 2, ("igdb", 88)));
 
         var page = await CreateService().GetSuggestionsAsync(ExploreItemType.VideoGame, "owner", 24, null, TestContext.Current.CancellationToken);
 
@@ -354,9 +372,10 @@ public class ExploreServiceTest
 
         _dismissalRepository.Verify(r => r.AddAsync(It.Is<ExploreDismissalModel>(m =>
             m.OwnerId == "owner" && m.ItemType == ExploreItemType.TvShow && m.ExternalSource == "tmdb" && m.ExternalId == "tv9")), Times.Once);
-        // a RAWG id and a TMDB id are both plain integers, so the provider is stored, never inferred
+        // a game provider's id and a TMDB id are both plain integers, so the provider is stored, never
+        // inferred - which is also what keeps dismissals recorded under a previous provider unambiguous
         _dismissalRepository.Verify(r => r.AddAsync(It.Is<ExploreDismissalModel>(m =>
-            m.OwnerId == "owner" && m.ItemType == ExploreItemType.VideoGame && m.ExternalSource == "rawg" && m.ExternalId == "g9")), Times.Once);
+            m.OwnerId == "owner" && m.ItemType == ExploreItemType.VideoGame && m.ExternalSource == "igdb" && m.ExternalId == "g9")), Times.Once);
     }
 
     [Fact]

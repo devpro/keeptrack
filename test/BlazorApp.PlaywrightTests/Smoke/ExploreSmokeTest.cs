@@ -237,11 +237,11 @@ public partial class ExploreSmokeTest(End2EndFixture fixture) : SmokeTestBase(fi
         await Fixture.SeedExploreCatalogueAsync(entries);
     }
 
-    private static ExploreCatalogueEntryModel Entry(ExploreItemType type, int rank, string title, string? externalId = null, int? year = null) => new()
+    private ExploreCatalogueEntryModel Entry(ExploreItemType type, int rank, string title, string? externalId = null, int? year = null) => new()
     {
         ItemType = type,
         // the ordering the page reads, taken from the app's own declaration rather than the literal "tmdb"
-        Ranking = ExploreRankings.For(type, RatingSourceCatalog.Tmdb),
+        Ranking = Fixture.ExploreRankingFor(type, RatingSourceCatalog.Tmdb),
         ExternalId = externalId ?? $"e2e-{Guid.NewGuid():N}",
         Rank = rank,
         Title = title,

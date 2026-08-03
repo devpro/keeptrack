@@ -33,21 +33,44 @@ public class ReferenceDataAdminResourceTest(KestrelWebAppFactory<Program> factor
 
     /// <summary>
     /// Registration order in Program.cs doubles as the admin UI's provider-picker display/priority order
-    /// (<c>BookReferenceClientRegistry.All</c> preserves it) - Google Books is the default, Open Library and
+    /// (<c>ReferenceClientRegistry.All</c> preserves it) - Google Books is the default, Open Library and
     /// BnF are fallbacks in that order. This pins the contract so a future reordering in Program.cs fails a
     /// test instead of silently changing the picker's default.
     /// </summary>
     [Fact]
-    public async Task GetBookProviders_ReturnsRegisteredProvidersInPriorityOrder()
+    public async Task GetProviders_ReturnsRegisteredBookProvidersInPriorityOrder()
     {
         await Authenticate();
 
-        var providers = await GetAsync<List<BookProviderDto>>("/api/reference-data/book-providers");
+        var providers = await GetAsync<List<ReferenceProviderDto>>("/api/reference-data/providers?type=Book");
 
         providers.Select(p => p.Key).Should().Equal("googlebooks", "openlibrary", "bnf");
         providers.Should().Contain(p => p.Key == "googlebooks" && p.DisplayName == "Google Books");
         providers.Should().Contain(p => p.Key == "openlibrary" && p.DisplayName == "Open Library");
         providers.Should().Contain(p => p.Key == "bnf" && p.DisplayName == "BnF");
+    }
+
+    [Fact]
+    public async Task GetProviders_ReturnsRegisteredVideoGameProvidersInPriorityOrder()
+    {
+        // IGDB first because it is the deployment default; RAWG stays registered so references linked through
+        // it keep their stored ratings.
+        await Authenticate();
+
+        var providers = await GetAsync<List<ReferenceProviderDto>>("/api/reference-data/providers?type=VideoGame");
+
+        providers.Select(p => p.Key).Should().Equal("igdb", "rawg");
+    }
+
+    [Fact]
+    public async Task GetProviders_ReturnsNothing_ForASingleProviderDomain()
+    {
+        // an empty list is what tells the admin UI not to render a picker at all
+        await Authenticate();
+
+        var providers = await GetAsync<List<ReferenceProviderDto>>("/api/reference-data/providers?type=Movie");
+
+        providers.Should().BeEmpty();
     }
 
     /// <summary>

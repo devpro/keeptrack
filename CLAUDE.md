@@ -197,6 +197,13 @@ Revoking deletes one document, so per-recipient granularity holds; the delete is
 `SharedWishlistApiClient` is registered **without** `AuthenticationTokenHandler` - the authenticated handler would bounce an anonymous recipient to login.
 Both pages share one `WishlistRow` projection.
 
+**A detached background job must run on `IHostApplicationLifetime.ApplicationStopping`, not an unbounded token.**
+A pass takes minutes, so on shutdown it otherwise keeps working against a container being torn down: the singletons it depends on (the Mongo client, the HTTP clients, IGDB's rate limiter) are disposed out from under it and every
+remaining step throws `ObjectDisposedException` - including the final job-store write, which leaves the job reading "Running" forever.
+Confirmed in the running app, where a shutdown mid-pass surfaced as a disposed `TokenBucketRateLimiter` deep inside an IGDB call.
+For the same reason, the per-item catches that keep one failing document from aborting a run (`ReferenceSyncService`, `ExploreCatalogueRefreshService`) exclude `OperationCanceledException`: a shutdown is not one failing document, and
+swallowing it walks the rest of the page against a disposed container.
+
 **Long-running work** runs as a background job, never a blocking request: buffer the input, start the work on a fresh `IServiceScopeFactory.CreateScope()` (the request scope is gone by then), return a job id, poll status.
 `JobStore<TStage, TResult>` (`WebApi/Jobs/`) is backed by MongoDB (`background_job`, TTL 7 days), **not** memory - with several replicas, the replica answering a poll isn't the one running the job.
 Owner id is checked in the repository query on every read.
@@ -226,7 +233,7 @@ A background task must resolve its own `JobStore` from its own scope.
 They are the one deliberate exception to "every collection has `owner_id`": public facts about a real work, stored once, pointed at by every tenant's `ReferenceId`.
 Matching key is normalized title + year via `TitleNormalizer.Normalize` (shared with `TvTimeImportService` so the two never drift).
 
-Providers: TMDB (TV/movie), RAWG (video games), Discogs (albums), Google Books / Open Library / BnF (books), OMDb (IMDb ratings for TV/movie).
+Providers: TMDB (TV/movie), IGDB / RAWG (video games), Discogs (albums), Google Books / Open Library / BnF (books), OMDb (IMDb ratings for TV/movie).
 
 - These repositories do **not** extend `IDataRepository<TModel>`/`MongoDbRepositoryBase` (both are hard-constrained to `IHasIdAndOwnerId` + owner-scoped paged CRUD).
   Write a small purpose-built repository for any new owner-less collection.
@@ -286,9 +293,38 @@ Run-once scripts follow that same idempotent style: `dedupe-matched-aliases.js`,
 
 #### Per-provider findings (all confirmed against the real APIs)
 
+- **IGDB** is unlike every other client here in three ways, all handled outside the client so it stays an ordinary typed `HttpClient`.
+  It authenticates with a **Twitch app access token** rather than an api key (IGDB is part of Twitch and has no key of its own): `IgdbTokenProvider` caches one per process - not in MongoDB, deliberately unlike `OmdbCallBudget`,
+  because a token is not a shared *quota* and Twitch issues one per request with several valid at once - and `IgdbAuthenticationHandler` attaches `Client-ID` + bearer, dropping the cached token and retrying **once** on a 401.
+  It documents **4 requests/second**, paced by a `TokenBucketRateLimiter` held in a singleton (`IgdbRateLimiter`) rather than on the handler, which `IHttpClientFactory` rebuilds on every rotation.
+  And queries are **POST bodies in Apicalypse**, not query strings - so a tenant-typed title is escaped before being embedded in a string literal, or a bare `"` would end the literal and let the rest parse as query syntax.
+  - **Handler order is load-bearing: authentication, then resilience, then the rate limiter (outermost first).**
+    The limiter goes *innermost* so its queue wait is covered by the resilience handler's total-request timeout - outside it, the wait is unbounded, because these clients deliberately set `HttpClient.Timeout` to
+    `InfiniteTimeSpan` so the resilience pipeline owns the bound.
+    Its queue is bounded for the same reason, and overflowing is cheap rather than fatal precisely because it sits inside: the 429 it synthesizes is retried with backoff,
+    pacing a bulk pass instead of failing it.
+    A retry also re-acquires a token, which is correct - a retry is another request against the ceiling.
+  - **The renewal margin is capped at half the token's lifetime.** A fixed margin longer than the lifetime puts the renewal point in the past the instant the token arrives, so every call fetches a new one - caching nothing while doubling
+    the traffic.
+    Real Twitch app tokens last ~60 days, so this only bites on a short-lived or already-expired one; a unit test caught it.
+  - Missing credentials are a supported state (`IgdbSettings.IsConfigured`, same optional shape as `OmdbSettings`): every call short-circuits to an empty result.
+    It matters more here than for a secondary provider, since a hard
+    requirement on the *default* provider's settings would take the whole API down on one unset value.
+  - It reports **no Metacritic score**; `aggregated_rating` is IGDB's own aggregation of external critic scores, which is why it gets its own `igdbcritic` key.
+  - **Gotcha: a stale field name fails silently.** `category` is gone from the API - IGDB neither returns it nor complains about it, so `where category = 0` parses fine and matches **zero** documents.
+    A wrong field name in a `where` therefore empties an Explore ranking rather than erroring, and the refresh pass's "keep the previous catalogue when a pass returns nothing" rule would hide that for weeks.
+    Same silent-empty-match family as the `ReferenceId` null/empty and `Lte(LastEnrichedAt, cutoff)` gotchas below.
+    Its replacement is `game_type` (0 = main game).
+    Field-level notes that don't shape the current code - the confirmed query shapes, `game_type` for a future advanced search, and what's deliberately unexplored - are in `docs/igdb-api-notes.md` rather than here.
+  - **Explore deliberately does *not* restrict to main games**, though it could (`game_type = 0`, which a live probe confirmed removes "Elden Ring: Shadow of the Erdtree" and "The Last of Us Remastered" from the top five).
+    A DLC or a remaster is a first-class thing to track here - the owner wants those records - so a well-reviewed expansion is a legitimate suggestion, not noise beside its parent.
+    The vote-count floor is the ranking's only filter.
+  - **`search` is relevance-ordered and genuinely noisy**: "Half-Life 2" returns three MMod variants above the canonical game, which is why admin search shows several candidates and automatic resolution only ever acts on a single one.
+  - `first_release_date` is unix **seconds**, `cover.image_id` builds `https://images.igdb.com/igdb/image/upload/t_cover_big/{image_id}.jpg`, and critic counts run an order of magnitude below user counts
+    (8-27 against thousands for the same titles), which is why the two rankings have very different vote floors.
 - **Open Library** never sends `year` as a server-side filter: `first_publish_year` is the *work's* original year, not a tenant's edition, so filtering by it returns zero relevant results ("Killing Floor" + 2016 reprint).
   Year is still returned for display/tie-breaking.
-  RAWG/Discogs keep their year filters.
+  RAWG/Discogs keep their year filters; IGDB doesn't have one to keep (see its own entry above).
 - **Open Library** searches via `q=` (relevance across titles/alternates), not `title=` (field-scoped exact match), which misses regional variants entirely -
   the US "Harry Potter and the Sorcerer's Stone" only matched near-empty stubs while the canonical UK-titled work carries 398 editions.
   Its `first_publish_date` is routinely absent from the work JSON, so `GetBookDetailsAsync` falls back to a single-document `q=key:{workKey}` re-query.
@@ -316,8 +352,32 @@ Run-once scripts follow that same idempotent style: `dedupe-matched-aliases.js`,
   otherwise a reference linked through another provider silently stops refreshing forever.
   `ReferenceEnrichmentService.Books.cs` never hardcodes a provider name, so a new provider needs only its own class plus one registration block.
   Admin provider buttons are selection-only; search is triggered by exactly one control.
-- TV/movie/game/album stay hard-wired to TMDB/RAWG/Discogs (provider-named DTOs and `ExternalIds` keys on purpose - swapping one would be a redesign, not config).
-- **Ratings:** `RatingSourceCatalog` declares each domain's selectable sources and code default (games RAWG vs Metacritic, movies/TV TMDB vs IMDb; defaults `rawg`/`tmdb`);
+- **Video games are the second multi-provider domain** (`IVideoGameReferenceClient`, `ReferenceData:VideoGameProvider`), added when RAWG went down: `IgdbClient` (`igdb`, the default) and `RawgClient` (`rawg`).
+  The registry itself is shared - `ReferenceClientRegistry<TClient>` over `IReferenceProviderClient`, one class for both domains rather than one per domain.
+  **Only the default provider is ever called on refresh** - the one deliberate divergence from `RefreshBookReferenceAsync`'s "refresh through whichever provider linked it".
+  That rule is right for books, where every registered provider is reachable; this domain gained a second provider *because the first went down*, so falling back to it makes every not-yet-adopted reference pay a full
+  retry-and-timeout cycle against a dead host on every pass - confirmed in the running app, which logged `GET api.rawg.io/api/games/...` for reference after reference.
+  An operator who selects a provider must not see traffic to another one.
+  A reference that can't be adopted keeps the data and the provider ids it already has, and is stamped as checked so the staleness queue rotates past it (never bumping `LastEnrichedAt` would park it at the head of that queue forever
+  and starve everything behind it - the same re-walking-the-same-head failure the cap's ordering exists to prevent).
+  RAWG therefore stays registered for two reasons only: an admin can still search/link with it, and its stored `rawg`/`metacritic` values keep rendering.
+  - **A reference linked before the default changed adopts the new provider's id during the sync** (`TryAdoptDefaultVideoGameProviderAsync`), which is what carries a catalogue across a provider change with no migration script.
+    Costs one search per not-yet-adopted reference per pass and nothing once adopted.
+    The match rule is stricter than ordinary auto-resolution - exactly one candidate whose *normalized* title equals the reference's, with a compatible year -
+    because a reference's title/year is canonical provider data, not tenant-typed text.
+    Anything ambiguous is left for manual linking, same "don't guess" rule as everywhere else.
+  - **A provider may only overwrite its own sources' ratings** (`MergeProviderRatings`, keyed on `IVideoGameReferenceClient.SupportedRatingSources`).
+    An IGDB refresh must leave a reference's `rawg`/`metacritic` values alone: they are still rendered on the detail page and re-earning them would cost a call to a provider that may be down.
+    A source the provider *does* own but no longer reports is correctly dropped - that's an answer, not an absence.
+  - Unlike books, the details record carries the `Ratings` map *built by the client*: each game provider has two scores on scales that differ per provider, and that knowledge belongs to the provider rather than a switch in the enrichment
+    service.
+- TV/movie/album stay hard-wired to TMDB/Discogs (provider-named DTOs and `ExternalIds` keys on purpose - swapping one would be a redesign, not config).
+- **Ratings:** `RatingSourceCatalog` declares each domain's selectable sources and code default (games `igdb`/`igdbcritic`/`metacritic`, movies/TV TMDB vs IMDb; defaults `igdb`/`tmdb`);
+  **a source key is not a provider**: `rawg` stays declared with its scale-5 entry long after RAWG stopped being the default, because `ScaleOf` throws on an unknown source and references linked through RAWG still carry and display
+  rawg-keyed values.
+  Only its membership in the *selectable* list goes away, which makes `Resolve` ignore a stored RAWG-era override and fall back to the current default -
+  and the existing recompute then re-stamps every tenant item, so the switch needed no migration script.
+  IGDB reports no Metacritic score at all (its `aggregated_rating` is IGDB's own critic aggregation), so that number is never written under Metacritic's key;
   `ReferenceEnrichmentService.GetPrimaryRatingSourceAsync` reads the stored override.
   The admin card, `rating-sources` GET/PUT and `.../recompute` (bulk `SetReferenceRatingAsync`, no provider calls) are all domain-generic over `RatingSourceCatalog.SelectableDomains`, so a domain gaining a second source needs only a catalog
   entry.
@@ -399,7 +459,7 @@ Same silent-empty-match family as the `ReferenceId` null/empty gotcha below; onl
 `RefreshTvShowReferenceAsync`/`RefreshMovieReferenceAsync` lead with a cheap pre-check: TMDB's per-id `/changes?start_date=...` (one call, no season fan-out).
 If nothing changed, only `LastEnrichedAt` is bumped and the full details + per-season cast calls are skipped.
 A reference with no `LastEnrichedAt` always does the full fetch.
-**Divergence:** RAWG/Discogs/book providers expose no `/changes` equivalent, so those domains always full-fetch once past the staleness cutoff, and their `*Updated` counts always equal their `*Checked` counts.
+**Divergence:** IGDB/RAWG/Discogs/book providers expose no `/changes` equivalent, so those domains always full-fetch once past the staleness cutoff, and their `*Updated` counts always equal their `*Checked` counts.
 
 **Gotcha:** the service is registered unconditionally but only works when `Features:IsReferenceSyncEnabled` (default `true`), checked fresh every tick.
 `KestrelWebAppFactory` overrides it to `false` via `ConfigureAppConfiguration` (in-memory source added last, so it wins).
@@ -457,7 +517,7 @@ Movie, TvShow, VideoGame only; Book/Album 400 (no best-of listing to read).
 
 - **The discovery list originates from the provider, never from local `*_reference` collections.** That was the original implementation's core mistake:
   a reference document only exists because someone already tracks that title, so a local query can only re-suggest what's already owned.
-  Sources: TMDB `/{movie,tv}/top_rated`, RAWG `/games?ordering=-{rating|metacritic}`.
+  Sources: TMDB `/{movie,tv}/top_rated`, the video game provider's own ranked query (IGDB `sort {rating|aggregated_rating} desc`).
 - **The read path doesn't call the provider, though: it pages `explore_catalogue`, a materialized copy of each ranking** written weekly by `ExploreCatalogueRefreshService`.
   The ranking is a *global* fact - every user's page is the same list, only the exclusions below differ - so fetching it per request was duplicated work (a page load, and then *every* add and dismiss topping the list back up, re-pulled the
   same
@@ -465,7 +525,11 @@ Movie, TvShow, VideoGame only; Book/Album 400 (no best-of listing to read).
   Owner-less like the `*_reference` collections, and the same exception to "every collection has `owner_id`" for the same reason.
   `CatalogueDepth` (1000/ranking) is the "how far can you scroll" knob and costs one provider call per page of depth *per week*, nothing per request.
 - A **ranking** is a domain plus an *ordering*, not a domain plus a displayed rating - `ExploreRankings` is the single declaration, derived from `RatingSourceCatalog` so a new source needs no second list.
-  TMDB publishes one top-rated list whatever the rating source is, so movies/TV have one ranking each; RAWG genuinely sorts differently per source, so video games have two.
+  TMDB publishes one top-rated list whatever the rating source is, so movies/TV have one ranking each; a game provider genuinely sorts differently per source, so video games get one ranking per source *its active provider supports*.
+  **`ExploreRankings` is an injected service, not a static class**, precisely because the video game answers - discovery provider, rankings, displayable sources - come from whichever provider that deployment registered as the default.
+  `DisplaySource` is the other half: a source the catalogue cannot carry (Metacritic, once the discovery provider stopped reporting it) falls back to the ranking's own number rather than blanking every card, while IMDb for movies/TV stays
+  displayable because the refresh pass backfills it.
+  A pass also prunes entries whose `(type, ranking)` is no longer maintained at all - `DeleteStaleAsync` only prunes *within* a ranking it just rewrote, so a ranking abandoned by a provider change would otherwise sit stale forever.
   Ordering still follows the admin-selected primary rating source (`RatingSourceCatalog.Resolve`, no Explore-specific setting) - it now selects which stored ordering to read.
   Movies/TV under **IMDb** are the awkward case (IMDb has no catalogue API): the entries stay in TMDB's order and IMDb only fills in the displayed number, deliberately **not** re-sorted by it -
   partial IMDb coverage would float unrated titles
@@ -482,7 +546,9 @@ Movie, TvShow, VideoGame only; Book/Album 400 (no best-of listing to read).
 - The refresh rides `ReferenceSyncBackgroundService`'s existing 24h tick and lease on its own 7-day staleness window, rather than adding a second scheduled workload;
   the admin's `POST /api/reference-data/sync-now` forces it with `TimeSpan.Zero`, so there's no separate Explore admin endpoint.
   Counts land in `ReferenceSyncResultDto`.
-- **Gotcha:** RAWG has no curated top-rated endpoint and its `rating` is a plain average with no vote-count filter, so ordering the ~900k catalogue by `-rating` ranks a single-vote unknown above every classic.
+- **Gotcha:** neither provider has a curated top-rated endpoint, and ordering a whole catalogue by a plain average ranks a single-vote unknown above every classic.
+  IGDB reports a vote count per game, so its ranking uses a real floor (`MinUserRatingCount`/`MinCriticRatingCount`) - and that floor is deliberately its only filter, since DLC and remasters are things this app tracks in their own right.
+  RAWG exposed no vote count at all, which is the only reason its client had to approximate one:
   `GetTopRatedGamesAsync` constrains the pool server-side with `metacritic={MinMetacritic},100` - "reviewed by the professional press at all" is the closest equivalent of a minimum vote count and costs no extra call.
   `MinMetacritic` is the knob to raise.
   Don't filter client-side instead: the paging loop stops on an empty page, so a filter that can empty one would silently truncate results.
@@ -495,7 +561,7 @@ Movie, TvShow, VideoGame only; Book/Album 400 (no best-of listing to read).
   An owner tracking a few hundred linked shows would otherwise drag every episode of every season across on every Explore request.
   `FindByIdsAsync` stays for `ReferenceImageHydrator`, which genuinely needs more of the document.
 - `explore_dismissal` is keyed `{owner_id, item_type, external_source, external_id}` (unique) on the *provider's* id, since a suggestion usually has no reference document yet.
-  `external_source` is the **discovery** provider (`tmdb`/`rawg`), not the rating source - an IMDb-ranked movie is still identified by a TMDB id, and RAWG/TMDB ids are both plain integers with nothing but an explicit provider to keep them
+  `external_source` is the **discovery** provider (`tmdb`/`igdb`), not the rating source - an IMDb-ranked movie is still identified by a TMDB id, and RAWG/TMDB ids are both plain integers with nothing but an explicit provider to keep them
   apart.
   `ExploreRankings.DiscoverySource` is the one place a domain's provider is named.
 - **Adding goes through `POST /api/explore/{type}/add/{externalId}`, not the ordinary create**: it creates the item then calls `Resolve*Async` with the *exact* provider id, awaited, so the card only disappears once genuinely linked.
@@ -592,7 +658,7 @@ This is why `ReconnectModal` kept its scaffolded white/blue colors despite an `a
   `ExploreSmokeTest` seeds `explore_catalogue` directly through the hosted `IExploreCatalogueRepository` (`End2EndFixture.SeedExploreCatalogueAsync`, self-hosted mode only - it self-skips under `E2E_TARGET_URL`):
   the ranking is otherwise only ever written by the weekly refresh pass, which the e2e host never runs, so a seeded ranking *is* the whole ranking and low ranks land on the page's first fetch.
   Every seeded entry is removed by external id at the end of the test, as is every dismissal it records; only the `Add` case uses a real TMDB id (adding resolves the reference from the exact provider id, which a synthetic id can't).
-  Video games are deliberately not covered while RAWG is unavailable (2026-08-02).
+  Video games link through IGDB, the domain's default provider, so `Igdb__ClientId`/`Igdb__ClientSecret` are hard-required and `Rawg__ApiKey` deliberately is not - no e2e path reaches RAWG unless a test picks it explicitly.
   **Gotcha: a smoke test must stay in the default *list* view.** `ItemGridCard` covers its card with an empty Bootstrap `stretched-link` anchor (the clickable area is the `::after` pseudo-element), so the `<a>` itself has no size and
   Playwright refuses to click it - "element is not visible", on an element it just resolved by accessible name.
   `ListPage.OpenItemAsync` therefore only works in list view, which is what every list page renders by default; switching to thumbnails mid-test breaks it.

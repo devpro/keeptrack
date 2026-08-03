@@ -97,6 +97,18 @@ public class ExploreCatalogueRepository(IMongoDatabase mongoDatabase, ExploreCat
 
     public Task<long> CountAsync(ExploreItemType type, string ranking) => Collection.CountDocumentsAsync(RankingFilter(type, ranking));
 
+    public async Task<long> DeleteRankingsExceptAsync(IReadOnlyCollection<string> rankings)
+    {
+        // an empty keep-set would delete the whole catalogue; that can only mean a caller bug, and emptying
+        // Explore is far worse than leaving it as it is
+        if (rankings.Count == 0) return 0;
+
+        // filtered on the ranking key alone, not on (type, ranking): a ranking key names a provider's ordering
+        // and is unique across domains, so there is no pair to enumerate
+        var result = await Collection.DeleteManyAsync(Builders<ExploreCatalogueEntry>.Filter.Nin(e => e.Ranking, rankings));
+        return result.DeletedCount;
+    }
+
     // the (domain, ordering) prefix every query is scoped to, and the full natural key - shared so a read, a
     // write and a prune can never disagree on what identifies an entry.
     private static FilterDefinition<ExploreCatalogueEntry> RankingFilter(ExploreItemType type, string ranking) =>

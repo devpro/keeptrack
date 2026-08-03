@@ -5,34 +5,6 @@ namespace Keeptrack.WebApi.ReferenceData;
 
 public partial class ReferenceEnrichmentService
 {
-    // the two RAWG-provided rating source keys (see RatingSourceCatalog, the single home for these literals);
-    // used here purely as the Ratings-dict keys when building the map. Which of the two is the *primary*
-    // (denormalized onto the tenant game) is now resolved per-domain via GetPrimaryRatingSourceAsync, not
-    // hardcoded here.
-    private const string RawgRatingSource = RatingSourceCatalog.Rawg;
-
-    private const string MetacriticRatingSource = RatingSourceCatalog.Metacritic;
-
-    /// <summary>
-    /// Builds the reference <c>Ratings</c> map from RAWG's aggregates: RAWG's own 0-5 user score (the
-    /// primary, usually present) plus Metacritic's 0-100 critic score as a second source when RAWG reports
-    /// one (frequently absent). A 0/absent value is treated as "no rating" and omitted, never stored as a
-    /// genuine zero.
-    /// </summary>
-    private static Dictionary<string, ReferenceRatingModel> BuildRawgRatings(double? rating, int? ratingsCount, int? metacritic)
-    {
-        var ratings = new Dictionary<string, ReferenceRatingModel>();
-        if (rating is > 0)
-        {
-            ratings[RawgRatingSource] = new ReferenceRatingModel { Value = rating.Value, Scale = 5, Count = ratingsCount };
-        }
-        if (metacritic is > 0)
-        {
-            ratings[MetacriticRatingSource] = new ReferenceRatingModel { Value = metacritic.Value, Scale = 100 };
-        }
-        return ratings;
-    }
-
     /// <summary>
     /// User-triggered "check for reference match" for video games - see
     /// <see cref="TryLinkExistingTvShowReferenceAsync"/> for the full rationale (this is the same local-only,
@@ -106,39 +78,46 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// Best-effort automatic match for video games - see <see cref="TryAutoResolveTvShowAsync"/>.
+    /// Best-effort automatic match for video games - see <see cref="TryAutoResolveTvShowAsync"/>. Always
+    /// searches the deployment's *default* provider (<see cref="ReferenceClientRegistry{TClient}.Resolve"/>
+    /// with a null key) - this is the unattended background path, so there's no admin picking a provider here.
     /// </summary>
     public async Task TryAutoResolveVideoGameAsync(string title, int? year)
     {
         if (string.IsNullOrWhiteSpace(title)) return; // see TryAutoResolveTvShowAsync
 
-        var candidates = await rawgClient.SearchGamesAsync(title, year);
+        var client = videoGameReferenceClientRegistry.Resolve(null);
+        var candidates = await client.SearchGamesAsync(title, year);
         if (candidates.Count != 1) return;
-        await ResolveVideoGameAsync(title, year, candidates[0].ExternalId);
+        await ResolveVideoGameAsync(title, year, candidates[0].ExternalId, client.ProviderKey);
     }
 
     /// <summary>
-    /// Resolves a title+year to a specific RAWG game id, upserts the reference document, and propagates
-    /// the link - see <see cref="ResolveTvShowAsync"/>.
+    /// Resolves a title+year to a specific provider's game id, upserts the reference document, and propagates
+    /// the link - see <see cref="ResolveTvShowAsync"/>. <paramref name="providerKey"/> is which registered
+    /// <see cref="IVideoGameReferenceClient"/> <paramref name="externalId"/> came from - required from the
+    /// admin's manual link action (an id is meaningless without knowing which provider issued it once more
+    /// than one is registered), defaults to the deployment default for the automatic path above.
     /// </summary>
-    public async Task<VideoGameReferenceModel> ResolveVideoGameAsync(string title, int? year, string externalId)
+    public async Task<VideoGameReferenceModel> ResolveVideoGameAsync(string title, int? year, string externalId, string? providerKey = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
 
-        var details = await rawgClient.GetGameDetailsAsync(externalId)
-                      ?? throw new InvalidOperationException($"RAWG game {externalId} could not be fetched.");
+        var client = videoGameReferenceClientRegistry.Resolve(providerKey);
+        var details = await client.GetGameDetailsAsync(externalId)
+                      ?? throw new InvalidOperationException($"Video game {externalId} could not be fetched from {client.ProviderKey}.");
 
         // see ResolveTvShowAsync's own comment - the title-only fallback (which reuses existing.Id for the
         // upsert) must not run when year is known but simply unconfirmed yet, or it risks overwriting an
         // unrelated same-titled reference document instead of just linking wrong
-        var existing = await videoGameReferenceRepository.FindByExternalIdAsync("rawg", externalId)
+        var existing = await videoGameReferenceRepository.FindByExternalIdAsync(client.ProviderKey, externalId)
                        ?? await videoGameReferenceRepository.FindByTitleYearAsync(title, year);
         if (existing is null && year is null)
         {
             existing = await videoGameReferenceRepository.FindByTitleAsync(title);
         }
         var externalIds = existing?.ExternalIds ?? new Dictionary<string, string>();
-        externalIds["rawg"] = externalId;
+        externalIds[client.ProviderKey] = externalId;
 
         var model = new VideoGameReferenceModel
         {
@@ -151,8 +130,8 @@ public partial class ReferenceEnrichmentService
             ExternalIds = externalIds,
             MatchedAliases = MergeMatchedAliases(existing?.MatchedAliases, (details.Title, details.Year ?? year, null, null), (title, year, null, null)),
             Genres = details.Genres,
-            Ratings = BuildRawgRatings(details.Rating, details.RatingsCount, details.Metacritic),
-            ImageUrl = details.ImageUrl,
+            Ratings = MergeProviderRatings(existing?.Ratings, details.Ratings, client.SupportedRatingSources),
+            ImageUrl = PreferredImageUrl(externalIds, existing?.ImageUrl, details.ImageUrl),
             LastEnrichedAt = DateTime.UtcNow
         };
 
@@ -163,17 +142,41 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// Re-fetches a video game reference from RAWG, always doing a full re-fetch when called (unlike TMDB,
-    /// RAWG exposes no per-id "has this changed" endpoint) - see <see cref="RefreshTvShowReferenceAsync"/>
-    /// for the shared staleness-cutoff mechanism this is invoked from. A no-op (returns unchanged) for a
-    /// reference with no RAWG id or that RAWG no longer has details for.
+    /// Re-fetches a video game reference from the deployment's default provider, always doing a full re-fetch
+    /// when called (unlike TMDB, neither RAWG nor IGDB exposes a per-id "has this changed" endpoint) - see
+    /// <see cref="RefreshTvShowReferenceAsync"/> for the shared staleness-cutoff mechanism this is invoked from.
+    /// A reference that doesn't carry the default provider's id yet gets one adopted first
+    /// (<see cref="TryAdoptDefaultVideoGameProviderAsync"/>).
+    /// <para>
+    /// **Only the default provider is ever called**, which is the one place this deliberately diverges from
+    /// <see cref="RefreshBookReferenceAsync"/>'s "refresh through whichever provider linked it". That rule is
+    /// right for books, where every registered provider is reachable. Video games gained a second provider
+    /// *because the first one went down*, so falling back to it means every not-yet-adopted reference pays a
+    /// full retry-and-timeout cycle against a dead host on every pass - hundreds of doomed calls, for data
+    /// that cannot come back. An operator who selects a provider should not see traffic to another one.
+    /// </para>
+    /// <para>
+    /// A reference that can't be adopted is therefore left with the data it already has and simply stamped as
+    /// checked. Stamping matters: <c>FindStaleAsync</c> serves the least-recently-enriched first under a
+    /// per-pass cap, so a document that never has its <see cref="VideoGameReferenceModel.LastEnrichedAt"/>
+    /// bumped would sit at the head of that queue forever and starve everything behind it - the same
+    /// re-walking-the-same-head failure the cap's ordering exists to prevent.
+    /// </para>
     /// </summary>
     public async Task<(VideoGameReferenceModel Model, bool DataChanged)> RefreshVideoGameReferenceAsync(VideoGameReferenceModel reference, CancellationToken cancellationToken = default)
     {
-        var externalId = reference.ExternalIds.GetValueOrDefault("rawg");
-        if (string.IsNullOrEmpty(externalId)) return (reference, false);
+        var client = videoGameReferenceClientRegistry.Resolve(null);
+        await TryAdoptDefaultVideoGameProviderAsync(reference, client, cancellationToken);
 
-        var details = await rawgClient.GetGameDetailsAsync(externalId, cancellationToken);
+        if (!reference.ExternalIds.TryGetValue(client.ProviderKey, out var externalId))
+        {
+            logger.LogInformation(
+                "Video game reference {ReferenceId} ({Title}) carries no {Provider} id and could not adopt one; leaving its existing data and provider ids untouched.",
+                reference.Id, reference.Title, client.ProviderKey);
+            return (await StampCheckedAsync(reference), false);
+        }
+
+        var details = await client.GetGameDetailsAsync(externalId, cancellationToken);
         if (details is null) return (reference, false);
 
         reference.Title = details.Title;
@@ -181,8 +184,8 @@ public partial class ReferenceEnrichmentService
         reference.Synopsis = details.Synopsis;
         reference.Platforms = details.Platforms;
         reference.Genres = details.Genres;
-        reference.Ratings = BuildRawgRatings(details.Rating, details.RatingsCount, details.Metacritic);
-        reference.ImageUrl = details.ImageUrl ?? reference.ImageUrl;
+        reference.Ratings = MergeProviderRatings(reference.Ratings, details.Ratings, client.SupportedRatingSources);
+        reference.ImageUrl = PreferredImageUrl(reference.ExternalIds, reference.ImageUrl, details.ImageUrl);
         reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, null, null));
         reference.LastEnrichedAt = DateTime.UtcNow;
 
@@ -190,5 +193,83 @@ public partial class ReferenceEnrichmentService
         var (ratingValue, ratingScale, ratingSource) = PrimaryRating(saved.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.VideoGame));
         await videoGameRepository.SetReferenceRatingAsync(saved.Id!, ratingValue, ratingScale, ratingSource);
         return (saved, true);
+    }
+
+    /// <summary>
+    /// Gives a reference that predates the current default provider one of that provider's ids, so it can be
+    /// refreshed and rated through it like everything created since.
+    /// <para>
+    /// This is what carries a catalogue across a provider change without a migration script: references linked
+    /// through the old provider would otherwise keep only its ratings forever, and show nothing at all once an
+    /// admin selects a rating source only the new provider reports. It rides the sync's existing per-document
+    /// loop, costs one search per not-yet-adopted reference per pass, and stops costing anything once adopted.
+    /// </para>
+    /// <para>
+    /// The match rule is deliberately stricter than <see cref="TryAutoResolveVideoGameAsync"/>'s: exactly one
+    /// candidate whose normalized title equals the reference's, with a compatible year. A reference's title and
+    /// year are canonical provider data rather than tenant-typed text, so an exact match is a genuine
+    /// confirmation - but two different games sharing a title is ordinary in this domain, so anything ambiguous
+    /// is left for an admin to link by hand rather than guessed at.
+    /// </para>
+    /// </summary>
+    private async Task TryAdoptDefaultVideoGameProviderAsync(VideoGameReferenceModel reference, IVideoGameReferenceClient client, CancellationToken cancellationToken)
+    {
+        if (reference.ExternalIds.ContainsKey(client.ProviderKey) || string.IsNullOrWhiteSpace(reference.Title)) return;
+
+        var candidates = await client.SearchGamesAsync(reference.Title, reference.Year, cancellationToken);
+        var normalizedTitle = TitleNormalizer.Normalize(reference.Title);
+        var matches = candidates
+            .Where(c => TitleNormalizer.Normalize(c.Title) == normalizedTitle)
+            .Where(c => reference.Year is null || c.Year is null || c.Year == reference.Year)
+            .ToList();
+
+        if (matches.Count != 1)
+        {
+            // logged rather than silent: this is the whole reason a reference can stay on the old provider, and
+            // without it "why is nothing adopting?" is invisible. The candidate titles are what actually
+            // explains it - an ambiguous count usually means editions/DLC sharing a title, and zero usually
+            // means the two providers disagree about the year.
+            logger.LogInformation(
+                "No unambiguous {Provider} match for video game reference {ReferenceId} \"{Title}\" ({Year}): {CandidateCount} candidate(s) [{Candidates}], {MatchCount} matching title+year.",
+                client.ProviderKey, reference.Id, reference.Title, reference.Year, candidates.Count,
+                string.Join(" | ", candidates.Select(c => $"{c.Title} ({c.Year})")), matches.Count);
+            return;
+        }
+
+        logger.LogInformation(
+            "Adopted {Provider} id {ExternalId} for video game reference {ReferenceId} \"{Title}\".",
+            client.ProviderKey, matches[0].ExternalId, reference.Id, reference.Title);
+        reference.ExternalIds[client.ProviderKey] = matches[0].ExternalId;
+    }
+
+    /// <summary>
+    /// The image a video game reference keeps: the one it already has whenever it carries a RAWG id, otherwise
+    /// whatever the current provider just returned.
+    /// <para>
+    /// RAWG's <c>background_image</c> is curated landscape key art, and its image CDN is still serving those
+    /// URLs even though its API is not - so for a reference linked through RAWG the stored image is both good
+    /// and still working. IGDB has no equivalent: its cover is portrait box art, its artwork is contributed and
+    /// unreliable, and its screenshots are raw frames with HUD. Replacing a working RAWG image with any of
+    /// those is a downgrade, and a refresh that downgrades data is not a refresh.
+    /// </para>
+    /// <para>
+    /// It is also irreversible: the RAWG URL cannot be recomputed from the RAWG id without RAWG's API, so once
+    /// overwritten it is gone. That asymmetry - a small cosmetic gain against permanent data loss - is what
+    /// makes "keep what we have" the right default rather than a special case.
+    /// </para>
+    /// </summary>
+    private static string? PreferredImageUrl(Dictionary<string, string> externalIds, string? existingImageUrl, string? fetchedImageUrl) =>
+        externalIds.ContainsKey(RatingSourceCatalog.Rawg) && !string.IsNullOrEmpty(existingImageUrl)
+            ? existingImageUrl
+            : fetchedImageUrl ?? existingImageUrl;
+
+    /// <summary>
+    /// Records that a reference was looked at during a pass without anything being fetched for it, so the
+    /// staleness queue rotates past it - see <see cref="RefreshVideoGameReferenceAsync"/> for why that matters.
+    /// </summary>
+    private async Task<VideoGameReferenceModel> StampCheckedAsync(VideoGameReferenceModel reference)
+    {
+        reference.LastEnrichedAt = DateTime.UtcNow;
+        return await videoGameReferenceRepository.UpsertAsync(reference);
     }
 }

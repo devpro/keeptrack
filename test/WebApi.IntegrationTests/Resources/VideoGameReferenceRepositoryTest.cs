@@ -83,6 +83,40 @@ public class VideoGameReferenceRepositoryTest(KestrelWebAppFactory<Program> fact
         found!.Id.Should().Be(created.Id);
     }
 
+    [Fact]
+    public async Task FindByExternalIdAsync_FindsAReferenceByEitherProvidersId()
+    {
+        // video games are the one domain where a single reference legitimately carries two providers' ids: it
+        // was linked through RAWG and later adopted an IGDB one. Both must resolve to the same document, or a
+        // re-resolve through the other provider would create a duplicate instead of updating this one.
+        using var scope = Factory.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IVideoGameReferenceRepository>();
+        var rawgId = TestExternalId.New();
+        var igdbId = TestExternalId.New();
+        var title = $"Two Provider Game {Guid.NewGuid()}";
+
+        var created = await CreateReferenceAsync(repository, new VideoGameReferenceModel
+        {
+            Title = title,
+            TitleNormalized = title.ToLowerInvariant(),
+            Year = 2004,
+            ExternalIds = new Dictionary<string, string> { ["rawg"] = rawgId, ["igdb"] = igdbId }
+        });
+
+        (await repository.FindByExternalIdAsync("rawg", rawgId))!.Id.Should().Be(created.Id);
+        (await repository.FindByExternalIdAsync("igdb", igdbId))!.Id.Should().Be(created.Id);
+        // and an id belonging to the other provider's number space must not match: they are both plain
+        // integers, so nothing but the provider key tells them apart
+        (await repository.FindByExternalIdAsync("igdb", rawgId)).Should().BeNull();
+    }
+
+    // There is deliberately no "a duplicate external id is rejected" test here, for igdb or for rawg - and
+    // none on the other four reference collections either. The uniqueness guarantee is real (a unique partial
+    // index per provider key, declared in scripts/mongodb-create-index.js), but nothing in this suite creates
+    // indexes: they are applied by running that script against the database out of band. A test asserting the
+    // constraint therefore passes or fails on whether someone remembered to re-run the script, which tests the
+    // environment rather than the code and fails every fresh database for a reason unrelated to the change
+    // being made.
     private async Task<VideoGameReferenceModel> CreateReferenceAsync(IVideoGameReferenceRepository repository, VideoGameReferenceModel model)
     {
         var created = await repository.UpsertAsync(model);

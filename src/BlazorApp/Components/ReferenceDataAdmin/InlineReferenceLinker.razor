@@ -5,13 +5,15 @@
         <div class="kt-form-card">
             <p class="kt-card-meta mb-2">Not yet matched to a reference source (admin only).</p>
 
-            @if (Type == ReferenceItemType.Book && _bookProviders.Count > 0)
+            @* only the domains with more than one registered provider return anything, so this renders a
+               picker for books and video games and nothing at all for the rest. *@
+            @if (_providers.Count > 1)
             {
                 <div class="d-flex gap-2 flex-wrap mb-2">
-                    @foreach (var bookProvider in _bookProviders)
+                    @foreach (var provider in _providers)
                     {
-                        <button type="button" class="btn btn-sm @(bookProvider.Key == _selectedProvider ? "btn-primary" : "btn-secondary")"
-                                @onclick="() => _selectedProvider = bookProvider.Key">@bookProvider.DisplayName</button>
+                        <button type="button" class="btn btn-sm @(provider.Key == _selectedProvider ? "btn-primary" : "btn-secondary")"
+                                @onclick="() => _selectedProvider = provider.Key">@provider.DisplayName</button>
                     }
                 </div>
             }
@@ -94,23 +96,20 @@
     private bool _linking;
     private List<ReferenceSearchResultDto> _results = [];
     private string? _error;
-    private List<BookProviderDto> _bookProviders = [];
+    private List<ReferenceProviderDto> _providers = [];
     private string? _selectedProvider;
 
-    private string ProviderName => Type switch
+    private string ProviderName => _providers.FirstOrDefault(p => p.Key == _selectedProvider)?.DisplayName ?? Type switch
     {
         ReferenceItemType.TvShow or ReferenceItemType.Movie => "TMDB",
-        ReferenceItemType.Book => _bookProviders.FirstOrDefault(p => p.Key == _selectedProvider)?.DisplayName ?? "Google Books",
-        ReferenceItemType.VideoGame => "RAWG",
         ReferenceItemType.Album => "Discogs",
         _ => "reference"
     };
 
     protected override async Task OnInitializedAsync()
     {
-        if (Type != ReferenceItemType.Book) return;
-        _bookProviders = await Api.GetBookProvidersAsync();
-        _selectedProvider = _bookProviders.FirstOrDefault()?.Key;
+        _providers = await Api.GetProvidersAsync(Type);
+        _selectedProvider = _providers.FirstOrDefault()?.Key;
     }
 
     private async Task SearchAsync()
@@ -120,7 +119,7 @@
         _error = null;
         try
         {
-            _results = await Api.SearchAsync(Type, Title, Year, Creator, Type == ReferenceItemType.Book ? _selectedProvider : null, Type == ReferenceItemType.Book ? Isbn : null);
+            _results = await Api.SearchAsync(Type, Title, Year, Creator, _selectedProvider, Type == ReferenceItemType.Book ? Isbn : null);
         }
         catch (Exception ex)
         {
@@ -150,7 +149,7 @@
                 Title = Title,
                 Year = Year,
                 ExternalId = candidate.ExternalId,
-                Provider = Type == ReferenceItemType.Book ? _selectedProvider : null,
+                Provider = _selectedProvider,
                 Isbn = Type == ReferenceItemType.Book ? Isbn : null
             });
             await OnLinked.InvokeAsync();

@@ -17,9 +17,9 @@ public partial class ReferenceEnrichmentService(
     ITmdbClient tmdbClient,
     IOmdbClient omdbClient,
     IOmdbCallBudget omdbCallBudget,
-    BookReferenceClientRegistry bookReferenceClientRegistry,
+    ReferenceClientRegistry<IBookReferenceClient> bookReferenceClientRegistry,
     IBookRatingByIsbnLookup bookRatingByIsbnLookup,
-    IRawgClient rawgClient,
+    ReferenceClientRegistry<IVideoGameReferenceClient> videoGameReferenceClientRegistry,
     IDiscogsClient discogsClient,
     ITvShowReferenceRepository tvShowReferenceRepository,
     IMovieReferenceRepository movieReferenceRepository,
@@ -32,7 +32,8 @@ public partial class ReferenceEnrichmentService(
     IBookRepository bookRepository,
     IVideoGameRepository videoGameRepository,
     IAlbumRepository albumRepository,
-    IAppSettingRepository appSettingRepository)
+    IAppSettingRepository appSettingRepository,
+    ILogger<ReferenceEnrichmentService> logger)
 {
     /// <summary>
     /// The primary rating source for <paramref name="domain"/> - the source whose value/scale is denormalized
@@ -184,6 +185,41 @@ public partial class ReferenceEnrichmentService(
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Merges a fresh fetch's ratings into whatever a reference document already carries, replacing only the
+    /// sources <paramref name="providerSources"/> says this provider speaks for.
+    /// <para>
+    /// A domain with more than one provider needs this, and video games are the case: a reference linked
+    /// through RAWG and later refreshed through IGDB must keep its <c>rawg</c>/<c>metacritic</c> values, and
+    /// vice versa. Assigning the fetched map wholesale - which every domain used to do, back when each had
+    /// exactly one provider - would silently discard scores that are still perfectly good and still displayed
+    /// on the detail page. Same reasoning as <c>RebuildRatingsAsync</c> keeping a known IMDb value when OMDb
+    /// was never asked, just generalized from one source to a provider's whole set.
+    /// </para>
+    /// <para>
+    /// A source the provider *does* own but no longer reports is correctly dropped: that is this provider
+    /// saying it has no value, which is an answer, not an absence.
+    /// </para>
+    /// </summary>
+    private static Dictionary<string, ReferenceRatingModel> MergeProviderRatings(
+        Dictionary<string, ReferenceRatingModel>? existing,
+        Dictionary<string, ReferenceRatingModel>? fresh,
+        IReadOnlyList<string> providerSources)
+    {
+        var merged = new Dictionary<string, ReferenceRatingModel>();
+        foreach (var (source, rating) in existing ?? [])
+        {
+            if (!providerSources.Contains(source)) merged[source] = rating;
+        }
+
+        foreach (var (source, rating) in fresh ?? [])
+        {
+            merged[source] = rating;
+        }
+
+        return merged;
     }
 
     /// <summary>

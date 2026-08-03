@@ -7,7 +7,8 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Uses a real, well-known video game so linking exercises the actual RAWG provider.
+/// Uses a real, well-known video game so linking exercises the actual video game provider - IGDB, the
+/// deployment default, since that is what the detail page's linker searches.
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]

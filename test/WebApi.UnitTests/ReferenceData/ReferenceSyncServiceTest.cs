@@ -39,11 +39,11 @@ public class ReferenceSyncServiceTest
         var appSettingRepository = new Mock<IAppSettingRepository>();
         appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync()).ReturnsAsync(new Dictionary<string, string>());
         var enrichmentService = new ReferenceEnrichmentService(
-            tmdbClient, FakeOmdbClient.Empty(), new FakeOmdbCallBudget(), new BookReferenceClientRegistry([FakeBookReferenceClient.Empty()], "openlibrary"), bookRatingLookup.Object, FakeRawgClient.Empty(), FakeDiscogsClient.Empty(),
+            tmdbClient, FakeOmdbClient.Empty(), new FakeOmdbCallBudget(), new ReferenceClientRegistry<IBookReferenceClient>([FakeBookReferenceClient.Empty()], "openlibrary"), bookRatingLookup.Object, new ReferenceClientRegistry<IVideoGameReferenceClient>([FakeVideoGameReferenceClient.Empty()], RatingSourceCatalog.Igdb), FakeDiscogsClient.Empty(),
             _tvShowReferenceRepository.Object, _movieReferenceRepository.Object, _personReferenceRepository.Object,
             _bookReferenceRepository.Object, _videoGameReferenceRepository.Object, _albumReferenceRepository.Object,
             _tvShowRepository.Object, _movieRepository.Object, _bookRepository.Object, _videoGameRepository.Object, _albumRepository.Object,
-            appSettingRepository.Object);
+            appSettingRepository.Object, NullLogger<ReferenceEnrichmentService>.Instance);
         return new ReferenceSyncService(
             _tvShowReferenceRepository.Object, _movieReferenceRepository.Object,
             _bookReferenceRepository.Object, _videoGameReferenceRepository.Object, _albumReferenceRepository.Object,

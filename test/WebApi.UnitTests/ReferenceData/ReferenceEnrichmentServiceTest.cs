@@ -9,6 +9,7 @@ using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.ReferenceData;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Xunit;
 
@@ -64,19 +65,33 @@ public class ReferenceEnrichmentServiceTest
     private ReferenceEnrichmentService CreateService(
         FakeTmdbClient tmdbClient,
         FakeBookReferenceClient? bookReferenceClient = null,
-        FakeRawgClient? rawgClient = null,
+        FakeVideoGameReferenceClient? videoGameClient = null,
         FakeDiscogsClient? discogsClient = null,
-        FakeBnfClient? bnfClient = null) => new(
+        FakeBnfClient? bnfClient = null,
+        FakeVideoGameReferenceClient? secondaryVideoGameClient = null) => new(
         tmdbClient,
         _omdbClient,
         _omdbCallBudget,
-        new BookReferenceClientRegistry([bookReferenceClient ?? FakeBookReferenceClient.Empty(), bnfClient ?? FakeBnfClient.Empty()], DefaultBookProvider),
+        new ReferenceClientRegistry<IBookReferenceClient>([bookReferenceClient ?? FakeBookReferenceClient.Empty(), bnfClient ?? FakeBnfClient.Empty()], DefaultBookProvider),
         _bookRatingByIsbnLookup,
-        rawgClient ?? FakeRawgClient.Empty(), discogsClient ?? FakeDiscogsClient.Empty(),
+        VideoGameRegistry(videoGameClient, secondaryVideoGameClient), discogsClient ?? FakeDiscogsClient.Empty(),
         _tvShowReferenceRepository.Object, _movieReferenceRepository.Object, _personReferenceRepository.Object,
         _bookReferenceRepository.Object, _videoGameReferenceRepository.Object, _albumReferenceRepository.Object,
         _tvShowRepository.Object, _movieRepository.Object, _bookRepository.Object, _videoGameRepository.Object, _albumRepository.Object,
-        _appSettingRepository.Object);
+        _appSettingRepository.Object, NullLogger<ReferenceEnrichmentService>.Instance);
+
+    /// <summary>
+    /// The video game registry a test runs against. The first client is always the deployment default (the
+    /// registry resolves a null key to it), so a test that needs the secondary provider to be the default
+    /// simply passes it as the primary - which is what the RAWG-era cases below do.
+    /// </summary>
+    private static ReferenceClientRegistry<IVideoGameReferenceClient> VideoGameRegistry(
+        FakeVideoGameReferenceClient? primary, FakeVideoGameReferenceClient? secondary)
+    {
+        var main = primary ?? FakeVideoGameReferenceClient.Empty();
+        List<IVideoGameReferenceClient> clients = secondary is null ? [main] : [main, secondary];
+        return new ReferenceClientRegistry<IVideoGameReferenceClient>(clients, main.ProviderKey);
+    }
 
     [Fact]
     public async Task TryAutoResolveTvShowAsync_DoesNothing_WhenSearchReturnsNoResults()
@@ -1488,10 +1503,10 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task TryAutoResolveVideoGameAsync_DoesNothing_WhenSearchIsAmbiguous()
     {
-        var rawgClient = FakeRawgClient.WithSearchResults(
-            new RawgSearchResult("1", "Some Game", 2020, null),
-            new RawgSearchResult("2", "Some Game", 2020, null));
-        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), rawgClient: rawgClient);
+        var videoGameClient = FakeVideoGameReferenceClient.WithSearchResults(
+            new VideoGameSearchResult("1", "Some Game", 2020, null),
+            new VideoGameSearchResult("2", "Some Game", 2020, null));
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: videoGameClient);
 
         await service.TryAutoResolveVideoGameAsync("Some Game", 2020);
 
@@ -1501,32 +1516,32 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task TryAutoResolveVideoGameAsync_ResolvesAndPropagates_WhenExactlyOneCandidate()
     {
-        var rawgClient = FakeRawgClient.WithSearchResults(new RawgSearchResult("1", "Some Game", 2020, null));
-        rawgClient.Details["1"] = new RawgGameDetails("1", "Some Game", 2020, "Synopsis", [], [], null);
+        var videoGameClient = FakeVideoGameReferenceClient.WithSearchResults(new VideoGameSearchResult("1", "Some Game", 2020, null));
+        videoGameClient.Details["1"] = new VideoGameDetails("1", "Some Game", 2020, "Synopsis", [], [], null);
         _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) =>
         {
             m.Id ??= "generated-id";
             return m;
         });
-        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), rawgClient: rawgClient);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: videoGameClient);
 
         await service.TryAutoResolveVideoGameAsync("Some Game", 2020);
 
-        _videoGameReferenceRepository.Verify(r => r.UpsertAsync(It.Is<VideoGameReferenceModel>(m => m.ExternalIds["rawg"] == "1")), Times.Once);
+        _videoGameReferenceRepository.Verify(r => r.UpsertAsync(It.Is<VideoGameReferenceModel>(m => m.ExternalIds["igdb"] == "1")), Times.Once);
         _videoGameRepository.Verify(r => r.SetReferenceLinkAsync("Some Game", 2020, It.IsAny<string>(), "Some Game", It.IsAny<int?>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
     public async Task ResolveVideoGameAsync_PropagatesTheUpsertedReferenceId()
     {
-        var rawgClient = FakeRawgClient.Empty();
-        rawgClient.Details["1"] = new RawgGameDetails("1", "Some Game", 2020, "Synopsis", [], [], null);
+        var videoGameClient = FakeVideoGameReferenceClient.Empty();
+        videoGameClient.Details["1"] = new VideoGameDetails("1", "Some Game", 2020, "Synopsis", [], [], null);
         _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) =>
         {
             m.Id = "reference-1";
             return m;
         });
-        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), rawgClient: rawgClient);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: videoGameClient);
 
         var result = await service.ResolveVideoGameAsync("Some Game", 2020, "1");
 
@@ -1543,7 +1558,7 @@ public class ReferenceEnrichmentServiceTest
 
         var source = await service.GetPrimaryRatingSourceAsync(ReferenceItemType.VideoGame);
 
-        source.Should().Be(RatingSourceCatalog.Rawg);
+        source.Should().Be(RatingSourceCatalog.Igdb);
     }
 
     [Fact]
@@ -1567,7 +1582,7 @@ public class ReferenceEnrichmentServiceTest
 
         var source = await service.GetPrimaryRatingSourceAsync(ReferenceItemType.VideoGame);
 
-        source.Should().Be(RatingSourceCatalog.Rawg);
+        source.Should().Be(RatingSourceCatalog.Igdb);
     }
 
     [Fact]
@@ -1575,14 +1590,20 @@ public class ReferenceEnrichmentServiceTest
     {
         _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync())
             .ReturnsAsync(new Dictionary<string, string> { ["VideoGame"] = RatingSourceCatalog.Metacritic });
-        var rawgClient = FakeRawgClient.Empty();
-        rawgClient.Details["1"] = new RawgGameDetails("1", "Some Game", 2020, "Synopsis", [], [], null, 4.0, 100, 90);
+        // Metacritic is a RAWG-reported source - IGDB doesn't publish it at all - so this resolves through the
+        // still-registered RAWG client, exactly as an admin linking an older title would.
+        var videoGameClient = FakeVideoGameReferenceClient.Empty(RatingSourceCatalog.Rawg);
+        videoGameClient.Details["1"] = new VideoGameDetails("1", "Some Game", 2020, "Synopsis", [], [], null, new Dictionary<string, ReferenceRatingModel>
+        {
+            [RatingSourceCatalog.Rawg] = new() { Value = 4.0, Scale = 5, Count = 100 },
+            [RatingSourceCatalog.Metacritic] = new() { Value = 90, Scale = 100 }
+        });
         _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) =>
         {
             m.Id = "reference-1";
             return m;
         });
-        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), rawgClient: rawgClient);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: videoGameClient);
 
         await service.ResolveVideoGameAsync("Some Game", 2020, "1");
 
@@ -1597,8 +1618,8 @@ public class ReferenceEnrichmentServiceTest
             .ReturnsAsync(new Dictionary<string, string> { ["VideoGame"] = RatingSourceCatalog.Metacritic });
         _videoGameReferenceRepository.Setup(r => r.FindRatingsAsync(null, It.IsAny<int>())).ReturnsAsync(
         [
-            GameRatings("r1", rawg: 4.5, metacritic: 90),
-            GameRatings("r2", rawg: 3.0, metacritic: 60)
+            GameRatings("r1", igdb: 92, metacritic: 90),
+            GameRatings("r2", igdb: 71, metacritic: 60)
         ]);
         var written = CaptureRatingUpdates(_videoGameRepository, r => r.SetReferenceRatingsAsync(It.IsAny<RatingUpdateBatch>()), itemsUpdatedPerBatch: 2);
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
@@ -1618,10 +1639,10 @@ public class ReferenceEnrichmentServiceTest
     {
         // a full page means there may be more behind it, so the next read continues *after* the last id
         // rather than starting over; a short page is the end and costs no further query.
-        var firstPage = Enumerable.Range(0, 500).Select(i => GameRatings($"r{i}", rawg: 4.5, metacritic: 90)).ToList();
+        var firstPage = Enumerable.Range(0, 500).Select(i => GameRatings($"r{i}", igdb: 92, metacritic: 90)).ToList();
         _videoGameReferenceRepository.Setup(r => r.FindRatingsAsync(null, It.IsAny<int>())).ReturnsAsync(firstPage);
         _videoGameReferenceRepository.Setup(r => r.FindRatingsAsync("r499", It.IsAny<int>()))
-            .ReturnsAsync([GameRatings("r500", rawg: 4.5, metacritic: 90)]);
+            .ReturnsAsync([GameRatings("r500", igdb: 92, metacritic: 90)]);
         _videoGameRepository.Setup(r => r.SetReferenceRatingsAsync(It.IsAny<RatingUpdateBatch>())).ReturnsAsync(1);
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
 
@@ -1637,15 +1658,15 @@ public class ReferenceEnrichmentServiceTest
     {
         _videoGameReferenceRepository.Setup(r => r.FindRatingsAsync(null, It.IsAny<int>())).ReturnsAsync(
         [
-            GameRatings("r1", rawg: 4.5, metacritic: 90)
+            GameRatings("r1", igdb: 92, metacritic: 90)
         ]);
         var written = CaptureRatingUpdates(_videoGameRepository, r => r.SetReferenceRatingsAsync(It.IsAny<RatingUpdateBatch>()), itemsUpdatedPerBatch: 1);
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
 
         await service.RecomputeReferenceRatingsAsync(ReferenceItemType.VideoGame);
 
-        // RAWG is the default: its /5 score, not Metacritic's /100.
-        written.Should().ContainSingle().Which.Should().Equal(("r1", 4.5, 5, RatingSourceCatalog.Rawg));
+        // IGDB's own score is the default, not Metacritic's.
+        written.Should().ContainSingle().Which.Should().Equal(("r1", 92, 100, RatingSourceCatalog.Igdb));
     }
 
     [Fact]
@@ -1682,7 +1703,7 @@ public class ReferenceEnrichmentServiceTest
             .ReturnsAsync(new Dictionary<string, string> { ["VideoGame"] = RatingSourceCatalog.Metacritic });
         _videoGameReferenceRepository.Setup(r => r.FindRatingsAsync(null, It.IsAny<int>())).ReturnsAsync(
         [
-            GameRatings("r1", rawg: 4.5, metacritic: null)
+            GameRatings("r1", igdb: 92, metacritic: null)
         ]);
         var written = CaptureRatingUpdates(_videoGameRepository, r => r.SetReferenceRatingsAsync(It.IsAny<RatingUpdateBatch>()), itemsUpdatedPerBatch: 1);
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
@@ -1712,17 +1733,17 @@ public class ReferenceEnrichmentServiceTest
     }
 
     /// <summary>
-    /// One entry of what the recompute's projected read returns for a game reference carrying both sources -
+    /// One entry of what the recompute's projected read returns for a game reference carrying two sources -
     /// pass a null <paramref name="metacritic"/> for the common case of a game the press never scored.
     /// </summary>
-    private static (string Id, Dictionary<string, ReferenceRatingModel> Ratings) GameRatings(string id, double rawg, double? metacritic) =>
+    private static (string Id, Dictionary<string, ReferenceRatingModel> Ratings) GameRatings(string id, double igdb, double? metacritic) =>
     (
         id,
         metacritic is null
-            ? new Dictionary<string, ReferenceRatingModel> { [RatingSourceCatalog.Rawg] = new() { Value = rawg, Scale = 5, Count = 100 } }
+            ? new Dictionary<string, ReferenceRatingModel> { [RatingSourceCatalog.Igdb] = new() { Value = igdb, Scale = 100, Count = 100 } }
             : new Dictionary<string, ReferenceRatingModel>
             {
-                [RatingSourceCatalog.Rawg] = new() { Value = rawg, Scale = 5, Count = 100 },
+                [RatingSourceCatalog.Igdb] = new() { Value = igdb, Scale = 100, Count = 100 },
                 [RatingSourceCatalog.Metacritic] = new() { Value = metacritic.Value, Scale = 100 }
             }
     );
@@ -1803,41 +1824,210 @@ public class ReferenceEnrichmentServiceTest
     }
 
     [Fact]
-    public async Task RefreshVideoGameReferenceAsync_ReturnsUnchanged_WhenReferenceHasNoExternalId()
+    public async Task RefreshVideoGameReferenceAsync_StampsItAsChecked_WhenNoProviderIdCouldBeResolved()
     {
+        // nothing was fetched, but the pass still has to record that it looked: FindStaleAsync serves the
+        // least-recently-enriched first under a per-pass cap, so a document whose LastEnrichedAt never moves
+        // would sit at the head of that queue forever and starve everything behind it.
+        _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) => m);
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
         var reference = new VideoGameReferenceModel { Id = "reference-1", Title = "Some Game", TitleNormalized = "some game", ExternalIds = [] };
 
         var (result, changed) = await service.RefreshVideoGameReferenceAsync(reference, TestContext.Current.CancellationToken);
 
         changed.Should().BeFalse();
-        result.Should().BeSameAs(reference);
-        _videoGameReferenceRepository.Verify(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>()), Times.Never);
+        result.LastEnrichedAt.Should().NotBeNull();
+        result.ExternalIds.Should().BeEmpty();
     }
 
     [Fact]
     public async Task RefreshVideoGameReferenceAsync_AlwaysRefetches_RegardlessOfLastEnrichedAt()
     {
-        // RAWG exposes no "changed since" endpoint (unlike TMDB) - every refresh call does a full
-        // re-fetch, even when LastEnrichedAt is very recent.
-        var rawgClient = FakeRawgClient.Empty();
-        rawgClient.Details["1"] = new RawgGameDetails("1", "Some Game - Updated", 2020, "New synopsis", ["Action"], ["PC"], null);
+        // no video game provider exposes a "changed since" endpoint (unlike TMDB) - every refresh call does a
+        // full re-fetch, even when LastEnrichedAt is very recent.
+        var videoGameClient = FakeVideoGameReferenceClient.Empty();
+        videoGameClient.Details["1"] = new VideoGameDetails("1", "Some Game - Updated", 2020, "New synopsis", ["Action"], ["PC"], null);
         var reference = new VideoGameReferenceModel
         {
             Id = "reference-1",
             Title = "Some Game",
             TitleNormalized = "some game",
-            ExternalIds = new Dictionary<string, string> { ["rawg"] = "1" },
+            ExternalIds = new Dictionary<string, string> { ["igdb"] = "1" },
             LastEnrichedAt = DateTime.UtcNow
         };
         _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) => m);
-        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), rawgClient: rawgClient);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: videoGameClient);
 
         var (result, changed) = await service.RefreshVideoGameReferenceAsync(reference, TestContext.Current.CancellationToken);
 
         changed.Should().BeTrue();
         result.Title.Should().Be("Some Game - Updated");
         result.Platforms.Should().Contain("PC");
+    }
+
+    [Fact]
+    public async Task RefreshVideoGameReferenceAsync_NeverCallsAProviderOtherThanTheDefault()
+    {
+        // deliberately unlike RefreshBookReferenceAsync's "refresh through whichever provider linked it": this
+        // domain gained a second provider *because the first went down*, so falling back to it would make every
+        // not-yet-adopted reference pay a retry-and-timeout cycle against a dead host on every pass. The
+        // reference keeps the data (and the ids) it already has instead.
+        var igdbClient = FakeVideoGameReferenceClient.Empty();
+        var rawgClient = FakeVideoGameReferenceClient.Empty(RatingSourceCatalog.Rawg);
+        rawgClient.Details["7"] = new VideoGameDetails("7", "Some Game - Updated", 2020, "New synopsis", [], [], null);
+        var reference = new VideoGameReferenceModel
+        {
+            Id = "reference-1",
+            Title = "Some Game",
+            TitleNormalized = "some game",
+            ExternalIds = new Dictionary<string, string> { ["rawg"] = "7" }
+        };
+        _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) => m);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: igdbClient, secondaryVideoGameClient: rawgClient);
+
+        var (result, changed) = await service.RefreshVideoGameReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        changed.Should().BeFalse();
+        // RAWG's details would have renamed it; the title staying put is what proves RAWG was never called
+        result.Title.Should().Be("Some Game");
+        result.ExternalIds.Should().ContainKey("rawg").WhoseValue.Should().Be("7");
+        result.LastEnrichedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task RefreshVideoGameReferenceAsync_KeepsRatingsFromTheOtherProvider()
+    {
+        // the whole point of merging rather than assigning: a refresh through IGDB may only speak for IGDB's
+        // own sources, and must leave a still-perfectly-good RAWG/Metacritic score on the document (it is
+        // still shown on the detail page, and re-earning it would cost a call to a provider that may be down).
+        var igdbClient = FakeVideoGameReferenceClient.Empty();
+        igdbClient.Details["1"] = new VideoGameDetails("1", "Some Game", 2020, "Synopsis", [], [], null, new Dictionary<string, ReferenceRatingModel>
+        {
+            [RatingSourceCatalog.Igdb] = new() { Value = 92, Scale = 100, Count = 500 }
+        });
+        var reference = new VideoGameReferenceModel
+        {
+            Id = "reference-1",
+            Title = "Some Game",
+            TitleNormalized = "some game",
+            ExternalIds = new Dictionary<string, string> { ["igdb"] = "1" },
+            Ratings = new Dictionary<string, ReferenceRatingModel>
+            {
+                [RatingSourceCatalog.Rawg] = new() { Value = 4.5, Scale = 5, Count = 100 },
+                [RatingSourceCatalog.Metacritic] = new() { Value = 88, Scale = 100 }
+            }
+        };
+        _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) => m);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: igdbClient);
+
+        var (result, _) = await service.RefreshVideoGameReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        result.Ratings.Should().ContainKey(RatingSourceCatalog.Igdb).WhoseValue.Value.Should().Be(92);
+        result.Ratings.Should().ContainKey(RatingSourceCatalog.Rawg).WhoseValue.Value.Should().Be(4.5);
+        result.Ratings.Should().ContainKey(RatingSourceCatalog.Metacritic).WhoseValue.Value.Should().Be(88);
+    }
+
+    [Fact]
+    public async Task RefreshVideoGameReferenceAsync_DropsItsOwnSource_WhenTheProviderNoLongerReportsIt()
+    {
+        // the other half of the merge rule: a provider saying "I have no critic score for this" is an answer,
+        // so its own stale value goes - only *other* providers' values are untouchable.
+        var igdbClient = FakeVideoGameReferenceClient.Empty();
+        igdbClient.Details["1"] = new VideoGameDetails("1", "Some Game", 2020, "Synopsis", [], [], null, new Dictionary<string, ReferenceRatingModel>
+        {
+            [RatingSourceCatalog.Igdb] = new() { Value = 92, Scale = 100 }
+        });
+        var reference = new VideoGameReferenceModel
+        {
+            Id = "reference-1",
+            Title = "Some Game",
+            TitleNormalized = "some game",
+            ExternalIds = new Dictionary<string, string> { ["igdb"] = "1" },
+            Ratings = new Dictionary<string, ReferenceRatingModel>
+            {
+                [RatingSourceCatalog.IgdbCritic] = new() { Value = 80, Scale = 100 }
+            }
+        };
+        _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) => m);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: igdbClient);
+
+        var (result, _) = await service.RefreshVideoGameReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        result.Ratings.Should().NotContainKey(RatingSourceCatalog.IgdbCritic);
+    }
+
+    [Fact]
+    public async Task RefreshVideoGameReferenceAsync_AdoptsTheDefaultProvidersId_OnAnExactTitleMatch()
+    {
+        // how a catalogue crosses a provider change without a migration script: the reference was linked
+        // through RAWG, and one search per pass gives it an IGDB id it can be refreshed and rated through.
+        var igdbClient = FakeVideoGameReferenceClient.WithSearchResults(new VideoGameSearchResult("42", "Some Game", 2020, null));
+        igdbClient.Details["42"] = new VideoGameDetails("42", "Some Game", 2020, "Synopsis", [], [], null);
+        var rawgClient = FakeVideoGameReferenceClient.Empty(RatingSourceCatalog.Rawg);
+        var reference = new VideoGameReferenceModel
+        {
+            Id = "reference-1",
+            Title = "Some Game",
+            TitleNormalized = "some game",
+            Year = 2020,
+            ExternalIds = new Dictionary<string, string> { ["rawg"] = "7" }
+        };
+        _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) => m);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: igdbClient, secondaryVideoGameClient: rawgClient);
+
+        var (result, _) = await service.RefreshVideoGameReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        result.ExternalIds.Should().ContainKey("igdb").WhoseValue.Should().Be("42");
+        // and the RAWG id it was linked through is kept, not replaced
+        result.ExternalIds.Should().ContainKey("rawg").WhoseValue.Should().Be("7");
+    }
+
+    [Theory]
+    [InlineData("Some Other Game", 2020)] // the title doesn't actually match
+    [InlineData("Some Game", 1999)]       // right title, a different game's year
+    public async Task RefreshVideoGameReferenceAsync_DoesNotAdopt_WhenTheMatchIsNotExact(string candidateTitle, int candidateYear)
+    {
+        // "don't guess": two different games sharing a title is ordinary, so anything short of an exact match
+        // is left for an admin to link by hand rather than silently attached to the wrong game.
+        var igdbClient = FakeVideoGameReferenceClient.WithSearchResults(new VideoGameSearchResult("42", candidateTitle, candidateYear, null));
+        var rawgClient = FakeVideoGameReferenceClient.Empty(RatingSourceCatalog.Rawg);
+        rawgClient.Details["7"] = new VideoGameDetails("7", "Some Game", 2020, "Synopsis", [], [], null);
+        var reference = new VideoGameReferenceModel
+        {
+            Id = "reference-1",
+            Title = "Some Game",
+            TitleNormalized = "some game",
+            Year = 2020,
+            ExternalIds = new Dictionary<string, string> { ["rawg"] = "7" }
+        };
+        _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) => m);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: igdbClient, secondaryVideoGameClient: rawgClient);
+
+        var (result, _) = await service.RefreshVideoGameReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        result.ExternalIds.Should().NotContainKey("igdb");
+    }
+
+    [Fact]
+    public async Task RefreshVideoGameReferenceAsync_DoesNotSearchAtAll_OnceTheDefaultProvidersIdIsPresent()
+    {
+        // adoption must stop costing a call the moment it has succeeded, or every pass would re-pay for it
+        var igdbClient = FakeVideoGameReferenceClient.WithSearchResults(new VideoGameSearchResult("42", "Some Game", 2020, null));
+        igdbClient.Details["42"] = new VideoGameDetails("42", "Some Game", 2020, "Synopsis", [], [], null);
+        var reference = new VideoGameReferenceModel
+        {
+            Id = "reference-1",
+            Title = "Some Game",
+            TitleNormalized = "some game",
+            Year = 2020,
+            ExternalIds = new Dictionary<string, string> { ["igdb"] = "42" }
+        };
+        _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) => m);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: igdbClient);
+
+        await service.RefreshVideoGameReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        igdbClient.SearchCount.Should().Be(0);
     }
 
     [Fact]
@@ -1852,18 +2042,18 @@ public class ReferenceEnrichmentServiceTest
         // accumulated an exact duplicate {title, year, creator: ""} entry from being resolved/refreshed
         // more than once. Fixed at the mapping layer instead (DataStorageMappingProfile opts Creator out of
         // AllowNullDestinationValues, so it stays a real null in Mongo) rather than papering over it here.
-        var rawgClient = FakeRawgClient.Empty();
-        rawgClient.Details["1"] = new RawgGameDetails("1", "Some Game", 2020, "Synopsis", ["Action"], ["PC"], null);
+        var videoGameClient = FakeVideoGameReferenceClient.Empty();
+        videoGameClient.Details["1"] = new VideoGameDetails("1", "Some Game", 2020, "Synopsis", ["Action"], ["PC"], null);
         var reference = new VideoGameReferenceModel
         {
             Id = "reference-1",
             Title = "Some Game",
             TitleNormalized = "some game",
-            ExternalIds = new Dictionary<string, string> { ["rawg"] = "1" },
+            ExternalIds = new Dictionary<string, string> { ["igdb"] = "1" },
             MatchedAliases = [new ReferenceMatchModel { Title = "some game", Year = 2020, Creator = null }]
         };
         _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) => m);
-        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), rawgClient: rawgClient);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: videoGameClient);
 
         var (result, _) = await service.RefreshVideoGameReferenceAsync(reference, TestContext.Current.CancellationToken);
 
@@ -2136,14 +2326,14 @@ public class ReferenceEnrichmentServiceTest
         new Mock<ITmdbClient>(MockBehavior.Strict).Object,
         new Mock<IOmdbClient>(MockBehavior.Strict).Object,
         _omdbCallBudget,
-        new BookReferenceClientRegistry([new Mock<IBookReferenceClient>(MockBehavior.Strict).Object], DefaultBookProvider),
+        new ReferenceClientRegistry<IBookReferenceClient>([new Mock<IBookReferenceClient>(MockBehavior.Strict).Object], DefaultBookProvider),
         new Mock<IBookRatingByIsbnLookup>(MockBehavior.Strict).Object,
-        new Mock<IRawgClient>(MockBehavior.Strict).Object,
+        new ReferenceClientRegistry<IVideoGameReferenceClient>([new Mock<IVideoGameReferenceClient>(MockBehavior.Strict).Object], RatingSourceCatalog.Igdb),
         new Mock<IDiscogsClient>(MockBehavior.Strict).Object,
         _tvShowReferenceRepository.Object, _movieReferenceRepository.Object, _personReferenceRepository.Object,
         _bookReferenceRepository.Object, _videoGameReferenceRepository.Object, _albumReferenceRepository.Object,
         _tvShowRepository.Object, _movieRepository.Object, _bookRepository.Object, _videoGameRepository.Object, _albumRepository.Object,
-        _appSettingRepository.Object);
+        _appSettingRepository.Object, NullLogger<ReferenceEnrichmentService>.Instance);
 
     [Theory]
     [InlineData("")]

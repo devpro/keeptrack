@@ -131,7 +131,7 @@ public partial class ReferenceEnrichmentService
 
     /// <summary>
     /// Best-effort automatic match for books - see <see cref="TryAutoResolveTvShowAsync"/>. Always searches
-    /// the deployment's *default* provider (<see cref="BookReferenceClientRegistry.Resolve"/> with a null
+    /// the deployment's *default* provider (<see cref="ReferenceClientRegistry{TClient}.Resolve"/> with a null
     /// key) - this is the unattended background path, so there's no admin picking a provider here. Passing
     /// <paramref name="author"/> narrows the search considerably - without it, a common title easily
     /// returns more than one candidate and the match is correctly left for the admin queue.

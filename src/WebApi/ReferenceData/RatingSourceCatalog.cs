@@ -3,18 +3,37 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// <summary>
 /// The single declaration of which rating sources a domain can pick a primary from, and the code default
 /// when an admin hasn't chosen one. Only domains with more than one source are worth making selectable;
-/// today that's just video games (RAWG vs Metacritic). When movies/TV gain a second source (IMDb, phase 2)
-/// they get an entry here and reuse the same admin-selection + recompute mechanism with no other change.
+/// today that's video games (IGDB, IGDB's critic aggregate, Metacritic) and movies/TV (TMDB vs IMDb).
 /// Keeping defaults and available options in one place is what lets the enrichment service and the admin
 /// endpoints agree without duplicating that knowledge.
+/// <para>
+/// A source key is not the same thing as a provider: a source stays declared here for as long as any stored
+/// value carries it, even after the provider that produced it stops being the domain's default (see
+/// <see cref="Rawg"/>).
+/// </para>
 /// </summary>
 public static class RatingSourceCatalog
 {
-    /// <summary>RAWG's own 0-5 user score - the safer video-game default (usually present).</summary>
+    /// <summary>
+    /// RAWG's own 0-5 user score. No longer selectable as a primary (IGDB replaced RAWG as the default video
+    /// game provider) but deliberately still declared: <see cref="ScaleOf"/> throws on an unknown source, and
+    /// references linked through RAWG keep this value on record and keep rendering it on detail pages.
+    /// Dropping it from <see cref="s_sources"/> is what makes <see cref="Resolve"/> ignore a stored
+    /// RAWG-era override and fall back to the current default.
+    /// </summary>
     public const string Rawg = "rawg";
 
-    /// <summary>Metacritic's 0-100 critic score - frequently absent on RAWG for smaller/older games.</summary>
+    /// <summary>Metacritic's 0-100 critic score - republished by RAWG, absent from IGDB entirely.</summary>
     public const string Metacritic = "metacritic";
+
+    /// <summary>IGDB's own 0-100 user score - the video game default (usually present).</summary>
+    public const string Igdb = "igdb";
+
+    /// <summary>
+    /// IGDB's 0-100 aggregate of external critic scores. A press score like <see cref="Metacritic"/> but
+    /// computed by IGDB from its own sources, so it is a separate key and never written under Metacritic's.
+    /// </summary>
+    public const string IgdbCritic = "igdbcritic";
 
     /// <summary>TMDB's own 0-10 vote average - the movie/TV default (always present once resolved).</summary>
     public const string Tmdb = "tmdb";
@@ -38,7 +57,7 @@ public static class RatingSourceCatalog
         {
             [ReferenceItemType.Movie] = [Tmdb, Imdb],
             [ReferenceItemType.TvShow] = [Tmdb, Imdb],
-            [ReferenceItemType.VideoGame] = [Rawg, Metacritic]
+            [ReferenceItemType.VideoGame] = [Igdb, IgdbCritic, Metacritic]
         };
 
     // the scale each source's values are expressed on - the domains don't share one, so any rating that
@@ -49,13 +68,15 @@ public static class RatingSourceCatalog
         [Tmdb] = 10,
         [Imdb] = 10,
         [Rawg] = 5,
-        [Metacritic] = 100
+        [Metacritic] = 100,
+        [Igdb] = 100,
+        [IgdbCritic] = 100
     };
 
     /// <summary>Domains whose primary rating source an admin can choose (those with more than one source).</summary>
     public static IReadOnlyList<ReferenceItemType> SelectableDomains => s_sources.Keys.ToList();
 
-    /// <summary>The scale <paramref name="source"/>'s values are expressed on (10 for TMDB/IMDb, 5 for RAWG, 100 for Metacritic).</summary>
+    /// <summary>The scale <paramref name="source"/>'s values are expressed on (10 for TMDB/IMDb, 5 for RAWG, 100 for Metacritic/IGDB).</summary>
     public static double ScaleOf(string source) =>
         s_scales.TryGetValue(source, out var scale)
             ? scale

@@ -24,11 +24,11 @@ namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 [Trait("Category", "UnitTests")]
 public class ExternalProviderResilienceTest
 {
-    private static IRawgClient BuildClient(HttpMessageHandler primaryHandler, Action<Microsoft.Extensions.Http.Resilience.HttpStandardResilienceOptions>? configure = null)
+    private static IVideoGameReferenceClient BuildClient(HttpMessageHandler primaryHandler, Action<Microsoft.Extensions.Http.Resilience.HttpStandardResilienceOptions>? configure = null)
     {
         var services = new ServiceCollection();
         services.AddSingleton(new RawgSettings { ApiKey = "test-key" });
-        services.AddHttpClient<IRawgClient, RawgClient>(client => client.BaseAddress = new Uri("https://example.test/"))
+        services.AddHttpClient<IVideoGameReferenceClient, RawgClient>(client => client.BaseAddress = new Uri("https://example.test/"))
             .ConfigurePrimaryHttpMessageHandler(() => primaryHandler)
             .AddStandardResilienceHandler(options =>
             {
@@ -44,7 +44,7 @@ public class ExternalProviderResilienceTest
                 configure?.Invoke(options);
             });
 
-        return services.BuildServiceProvider().GetRequiredService<IRawgClient>();
+        return services.BuildServiceProvider().GetRequiredService<IVideoGameReferenceClient>();
     }
 
     private sealed class StubHttpMessageHandler(Func<int, HttpResponseMessage> respond) : HttpMessageHandler

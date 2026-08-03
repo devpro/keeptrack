@@ -30,7 +30,8 @@ public class ExploreService(
     IMovieReferenceRepository movieReferenceRepository,
     ITvShowReferenceRepository tvShowReferenceRepository,
     IVideoGameReferenceRepository videoGameReferenceRepository,
-    IExploreDismissalRepository dismissalRepository)
+    IExploreDismissalRepository dismissalRepository,
+    ExploreRankings exploreRankings)
 {
     /// <summary>
     /// How many ranked entries to read per round-trip while filling a page. Larger than a typical page size
@@ -59,7 +60,7 @@ public class ExploreService(
         ExploreItemType type, string ownerId, int limit, int? afterRank, CancellationToken cancellationToken = default)
     {
         var ratingSource = await ResolveRatingSourceAsync(type);
-        var ranking = ExploreRankings.For(type, ratingSource);
+        var ranking = exploreRankings.For(type, ratingSource);
 
         var excludedIds = await BuildExcludedExternalIdsAsync(type, ownerId);
         var excludedTitles = await BuildExcludedTitlesAsync(type, ownerId);
@@ -111,7 +112,7 @@ public class ExploreService(
         {
             OwnerId = ownerId,
             ItemType = type,
-            ExternalSource = ExploreRankings.DiscoverySource(type),
+            ExternalSource = exploreRankings.DiscoverySource(type),
             ExternalId = externalId
         });
 
@@ -119,22 +120,30 @@ public class ExploreService(
     /// Undoes a dismissal so the title can be suggested again.
     /// </summary>
     public Task UndismissAsync(ExploreItemType type, string ownerId, string externalId) =>
-        dismissalRepository.RemoveAsync(ownerId, type, ExploreRankings.DiscoverySource(type), externalId);
+        dismissalRepository.RemoveAsync(ownerId, type, exploreRankings.DiscoverySource(type), externalId);
 
     /// <summary>
     /// The admin-selected primary rating source for the domain - the same setting (and the same resolver) the
     /// rest of the app ranks and displays by. An admin can additionally force movies/TV back onto TMDB; that
-    /// flag is only ever read when IMDb actually won, and it cannot apply to video games (RAWG's two sources
-    /// don't include IMDb). It now selects which stored rating to show, and tells the refresh pass whether
-    /// IMDb values are worth fetching at all - no longer anything a request pays for.
+    /// flag is only ever read when IMDb actually won, so it cannot leak into the video game domain. It selects
+    /// which stored rating to show, and tells the refresh pass whether IMDb values are worth fetching at all -
+    /// no longer anything a request pays for.
+    /// <para>
+    /// The final <see cref="ExploreRankings.DisplaySource"/> step handles the other direction: a source the
+    /// catalogue genuinely cannot carry (Metacritic, once the discovery provider stopped reporting it) falls
+    /// back to the ranking's own rather than blanking every card.
+    /// </para>
     /// </summary>
     private async Task<string> ResolveRatingSourceAsync(ExploreItemType type)
     {
         var overrides = await appSettingRepository.GetReferenceRatingSourcesAsync();
         var source = RatingSourceCatalog.Resolve(overrides, ExploreRankings.ToReferenceItemType(type));
-        return source == RatingSourceCatalog.Imdb && await appSettingRepository.GetExploreUseTmdbAsync()
-            ? RatingSourceCatalog.Tmdb
-            : source;
+        if (source == RatingSourceCatalog.Imdb && await appSettingRepository.GetExploreUseTmdbAsync())
+        {
+            source = RatingSourceCatalog.Tmdb;
+        }
+
+        return exploreRankings.DisplaySource(type, source);
     }
 
     private IExploreSourceRepository SourceRepository(ExploreItemType type) => type switch
@@ -151,7 +160,7 @@ public class ExploreService(
     private async Task<HashSet<string>> BuildExcludedExternalIdsAsync(ExploreItemType type, string ownerId)
     {
         var excluded = new HashSet<string>(
-            await dismissalRepository.FindDismissedExternalIdsAsync(ownerId, type, ExploreRankings.DiscoverySource(type)));
+            await dismissalRepository.FindDismissedExternalIdsAsync(ownerId, type, exploreRankings.DiscoverySource(type)));
         excluded.UnionWith(await TrackedExternalIdsAsync(type, await SourceRepository(type).FindLinkedReferenceIdsAsync(ownerId)));
         return excluded;
     }
@@ -170,7 +179,7 @@ public class ExploreService(
     // that otherwise costs a couple of indexed reads.
     private async Task<IReadOnlyList<string>> TrackedExternalIdsAsync(ExploreItemType type, IReadOnlyList<string> referenceIds)
     {
-        var provider = ExploreRankings.DiscoverySource(type);
+        var provider = exploreRankings.DiscoverySource(type);
         return type switch
         {
             ExploreItemType.Movie => await movieReferenceRepository.FindExternalIdsAsync(referenceIds, provider),

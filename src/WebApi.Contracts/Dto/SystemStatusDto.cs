@@ -22,6 +22,9 @@ public class SystemStatusDto
     /// <summary>The effective book reference provider on this instance.</summary>
     public required string BookProvider { get; set; }
 
+    /// <summary>The effective video game reference provider on this instance.</summary>
+    public required string VideoGameProvider { get; set; }
+
     /// <summary>
     /// The reference-sync single-runner lease, or null when no sync pass has ever been elected.
     /// Shared state (MongoDB), identical from every instance.

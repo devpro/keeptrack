@@ -13,6 +13,7 @@ using Keeptrack.BlazorApp.Components.Account;
 using Keeptrack.BlazorApp.PlaywrightTests.Hosting;
 using Keeptrack.BlazorApp.PlaywrightTests.Support;
 using Keeptrack.Domain.Models;
+using Keeptrack.WebApi.ReferenceData;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.Testing.Shared.Firebase;
 using Keeptrack.Testing.Shared.Hosting;
@@ -131,14 +132,24 @@ public sealed class End2EndFixture : IAsyncLifetime
     private void EnsureReferenceProviderKeysConfigured()
     {
         var configuration = _webApiFactory!.Services.GetRequiredService<IConfiguration>();
-        var missingVariables = new (string ConfigKey, string EnvVarName)[] { ("Tmdb:ApiKey", "Tmdb__ApiKey"), ("Rawg:ApiKey", "Rawg__ApiKey"), ("Discogs:Token", "Discogs__Token") }
+        // the video game entry is IGDB's Twitch pair, not RAWG's key: what a smoke test links through is
+        // whichever provider is the *default*, and RAWG stopped being it. RAWG is still registered (references
+        // linked through it keep their stored ratings), but no e2e path reaches it unless a test picks it explicitly, so
+        // requiring its key would fail runs for a provider they never call.
+        var missingVariables = new (string ConfigKey, string EnvVarName)[]
+            {
+                ("Tmdb:ApiKey", "Tmdb__ApiKey"),
+                ("Igdb:ClientId", "Igdb__ClientId"),
+                ("Igdb:ClientSecret", "Igdb__ClientSecret"),
+                ("Discogs:Token", "Discogs__Token")
+            }
             .Where(x => string.IsNullOrEmpty(configuration[x.ConfigKey])).Select(x => x.EnvVarName).ToList();
 
         if (missingVariables.Count > 0)
         {
             throw new InvalidOperationException(
                 $"Missing required reference-provider configuration for e2e tests: {string.Join(", ", missingVariables)}. " +
-                "Movie/TvShow/VideoGame/Album smoke tests link real titles against real TMDB/RAWG/Discogs providers.");
+                "Movie/TvShow/VideoGame/Album smoke tests link real titles against real TMDB/IGDB/Discogs providers.");
         }
     }
 
@@ -297,6 +308,18 @@ public sealed class End2EndFixture : IAsyncLifetime
     {
         using var scope = _webApiFactory!.Services.CreateScope();
         await scope.ServiceProvider.GetRequiredService<IExploreCatalogueRepository>().UpsertManyAsync(entries);
+    }
+
+    /// <summary>
+    /// The ordering the Explore page will actually read for a domain, asked of the hosted app rather than
+    /// hardcoded - a seeded entry filed under any other ranking key is invisible to the page. Resolved from
+    /// the API's own container because the answer now depends on which provider that deployment has registered
+    /// as the domain's discovery provider.
+    /// </summary>
+    public string ExploreRankingFor(ExploreItemType type, string ratingSource)
+    {
+        using var scope = _webApiFactory!.Services.CreateScope();
+        return scope.ServiceProvider.GetRequiredService<ExploreRankings>().For(type, ratingSource);
     }
 
     /// <summary>
