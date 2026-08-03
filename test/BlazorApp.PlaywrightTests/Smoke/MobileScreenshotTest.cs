@@ -33,6 +33,7 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
         ("/add?type=movie", "quickadd-movie-form"),
         ("/watch-next", "watch-next"),
         ("/wishlist", "wishlist"),
+        ("/explore", "explore"),
         ("/books", "books"),
         ("/movies", "movies"),
         ("/albums", "albums"),
@@ -188,14 +189,6 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
 
     private static async Task SeedAsync(HttpClient api, List<string> created)
     {
-        await CreateAsync(api, created, "api/movies", new MovieDto
-        {
-            Title = "The Shawshank Redemption",
-            Year = 1994,
-            Rating = 4.5f,
-            IsFavorite = true,
-            FirstSeenAt = new DateOnly(2024, 3, 12)
-        });
         await CreateAsync(api, created, "api/movies", new MovieDto
         {
             Title = "Heat",

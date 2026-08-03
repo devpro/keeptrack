@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Keeptrack.BlazorApp.PlaywrightTests.Hosting;
 using Keeptrack.BlazorApp.PlaywrightTests.Support;
 using Keeptrack.Common.System;
+using Keeptrack.Testing.Shared.Hosting;
 using Microsoft.Playwright;
 using Microsoft.Playwright.Xunit.v3;
 using Xunit;
@@ -154,14 +155,26 @@ public abstract partial class SmokeTestBase : PageTest
     /// creates items the test never sees the ids of.
     /// </summary>
     protected void TrackItemsMatching(string apiRoute, string listQueryUrl)
+        => TrackCleanup(() => RemoveItemsMatchingAsync(apiRoute, listQueryUrl));
+
+    /// <summary>
+    /// The immediate form of <see cref="TrackItemsMatching"/>, for a test that needs the tenant in a known
+    /// state *before* it starts rather than after it finishes.
+    /// <para>
+    /// Deleting something the test didn't create is normally forbidden here, and this is the one narrow
+    /// exception: a scenario whose precondition is "the tenant does not already hold this item" cannot be set
+    /// up any other way (Explore's add, where the feature's whole contract is to hide what you already track).
+    /// It is safe only because <see cref="TestDatabaseGuard"/> refuses to let the suite run against anything
+    /// but a dedicated test database - never <c>keeptrack_dev</c> or a real one. Match as narrowly as the list
+    /// query allows, and never reach for this to paper over a missing cleanup.
+    /// </para>
+    /// </summary>
+    protected async Task RemoveItemsMatchingAsync(string apiRoute, string listQueryUrl)
     {
-        TrackCleanup(async () =>
+        foreach (var id in await Fixture.GetItemIdsAsync(listQueryUrl))
         {
-            foreach (var id in await Fixture.GetItemIdsAsync(listQueryUrl))
-            {
-                await Fixture.DeleteItemAsync($"{apiRoute.TrimEnd('/')}/{id}");
-            }
-        });
+            await Fixture.DeleteItemAsync($"{apiRoute.TrimEnd('/')}/{id}");
+        }
     }
 
     /// <summary>

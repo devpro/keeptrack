@@ -588,6 +588,13 @@ This is why `ReconnectModal` kept its scaffolded white/blue colors despite an `a
   Movie/TvShow/VideoGame/Album smoke tests link real titles against real providers through `InlineReferenceLinker`, so `Tmdb__ApiKey`/`Rawg__ApiKey`/`Discogs__Token` are hard-required (the fixture fails fast if missing).
   `WatchNextSmokeTest` is in a `DisableParallelization` collection - it aggregates across the whole shared tenant, so parallel classes' traffic raced its assertions.
   `E2eFixture` is shared by parallel classes, so `ApiHttpClient` is built with `LazyInitializer.EnsureInitialized` (a plain `??=` caused a real intermittent failure).
+  `ExploreSmokeTest` seeds `explore_catalogue` directly through the hosted `IExploreCatalogueRepository` (`End2EndFixture.SeedExploreCatalogueAsync`, self-hosted mode only - it self-skips under `E2E_TARGET_URL`):
+  the ranking is otherwise only ever written by the weekly refresh pass, which the e2e host never runs, so a seeded ranking *is* the whole ranking and low ranks land on the page's first fetch.
+  Every seeded entry is removed by external id at the end of the test, as is every dismissal it records; only the `Add` case uses a real TMDB id (adding resolves the reference from the exact provider id, which a synthetic id can't).
+  Video games are deliberately not covered while RAWG is unavailable (2026-08-02).
+  **Gotcha: a smoke test must stay in the default *list* view.** `ItemGridCard` covers its card with an empty Bootstrap `stretched-link` anchor (the clickable area is the `::after` pseudo-element), so the `<a>` itself has no size and
+  Playwright refuses to click it - "element is not visible", on an element it just resolved by accessible name.
+  `ListPage.OpenItemAsync` therefore only works in list view, which is what every list page renders by default; switching to thumbnails mid-test breaks it.
   `MobileScreenshotTest` is an assertion-free visual harness behind `E2E_SCREENSHOTS=true`, capturing every page at 390x844 into `E2E_SHOTS_DIR`.
   See `CONTRIBUTING.md` for the full `E2E_*` surface and the three run modes.
 - Assertions use `AwesomeAssertions` (FluentAssertions-compatible); data via `Bogus`.
@@ -610,6 +617,12 @@ That's how it accumulated 180 `test-lease-*` documents, 65 `Export Test Actor` p
   `SmokeTestBase` mirrors it for Playwright (`TrackOpenItem` reads the id from the detail page URL, `CreateItemAsync`, `TrackItemsMatching`).
 - `DisposeAsync` **drains** the registry rather than iterating a cached count, since `TrackResourcesMatching` discovers and registers ids at cleanup time.
 - Cleanups run under `CancellationToken.None`, never `TestContext.Current.CancellationToken` - that token is cancelled exactly when a test times out, which is when leftovers are most likely.
+- **Deleting what a test did *not* create is forbidden, with exactly one exception: a scenario whose precondition is "the tenant doesn't already hold this item".** `ExploreSmokeTest`'s add is the only one -
+  Explore's whole contract is to hide what the caller already tracks, so a database that already holds that title shows no suggestion card at all and the test can never pass, however well it cleans up afterwards.
+  `SmokeTestBase.RemoveItemsMatchingAsync` (the immediate form of `TrackItemsMatching`) clears it up front, matched on the full title rather than the short search term.
+  It is only acceptable because `TestDatabaseGuard` refuses any database name containing `dev`/`prod`/`staging`/`preprod`, so the suite can only ever run against a throwaway one.
+  Never reach for it to paper over a missing cleanup - **a failure that leaks is what makes the next run fail**, which is exactly how this test taught the lesson: it died before `TrackOpenItem` claimed the id, and every later run then
+  found an empty Explore page.
 
 **Gotcha, and why this class of bug persists: a delete filter that matches nothing looks exactly like a delete that worked.** `Builders<TEntity>.Filter.Eq("_id", id)` with a `string` id against an `ObjectId` `_id` matches nothing, deletes
 nothing and reports success - those tests passed for months while 65 documents piled up.
@@ -624,6 +637,11 @@ two classes both inserting `tmdb: "1"` is a real duplicate-key failure).
 Fixed-title real-provider smoke tests (Movie/TvShow/VideoGame/Album) do clean up, since a leftover there is an accumulating duplicate.
 
 Deleting a TV show **does** cascade to its episodes, like `Car`/`House`/`HealthProfile`, so a test that marks an episode watched only has to delete the show (it used to have to clean up the episodes itself).
+
+**A document with no list page is the easiest one to leak.** `explore_dismissal` is the current example: dismissing a suggestion writes an owner-scoped document that appears in no UI, nothing else ever deletes, and whose only visible effect
+is that the title silently never comes back in that account's real Explore feed.
+`ExploreResourceTest`/`ExploreSmokeTest` both register the undo (`DELETE /api/explore/{type}/dismiss/{externalId}`) at the moment they dismiss, never afterwards.
+Same for `explore_catalogue` seeds (see the Explore testing note below).
 
 ## Code style
 

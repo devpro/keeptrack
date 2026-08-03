@@ -12,6 +12,7 @@ using FirebaseAdmin.Auth;
 using Keeptrack.BlazorApp.Components.Account;
 using Keeptrack.BlazorApp.PlaywrightTests.Hosting;
 using Keeptrack.BlazorApp.PlaywrightTests.Support;
+using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.Testing.Shared.Firebase;
 using Keeptrack.Testing.Shared.Hosting;
@@ -265,6 +266,56 @@ public sealed class End2EndFixture : IAsyncLifetime
         catch (Exception exception)
         {
             await Console.Error.WriteLineAsync($"Failed to remove the ephemeral e2e user's documents: {exception.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Whether this run may write to MongoDB directly, i.e. self-hosted mode - live mode (<c>E2E_TARGET_URL</c>)
+    /// drives a remote deployment whose database this process has no handle on.
+    /// Only the Explore catalogue needs it (see <see cref="SeedExploreCatalogueAsync"/>); a test that does
+    /// self-skips when it is false.
+    /// </summary>
+    public bool CanSeedDatabaseDirectly => _webApiFactory is not null;
+
+    /// <summary>
+    /// Writes entries into the shared, owner-less <c>explore_catalogue</c> so the Explore page has a
+    /// deterministic ranking to render.
+    /// <para>
+    /// Straight through the hosted <see cref="IExploreCatalogueRepository"/>, unlike the reference seed above
+    /// which goes over HTTP: the catalogue is only ever written by <c>ExploreCatalogueRefreshService</c>, which
+    /// this host deliberately never runs (<c>Features:IsReferenceSyncEnabled</c> is false) and which would call
+    /// the real TMDB/RAWG rankings if it did. There is no admin endpoint that writes one entry, and inventing
+    /// one just so tests can seed would be the wrong trade - the same reasoning as
+    /// <see cref="RemoveSeededReferenceDataAsync"/> going straight to a repository to delete.
+    /// </para>
+    /// <para>
+    /// That the sync never runs here is also what makes low ranks safe to seed at: nothing else ever puts an
+    /// entry in this collection, so a seeded ranking is the whole ranking and the page's first fetch shows it.
+    /// </para>
+    /// </summary>
+    public async Task SeedExploreCatalogueAsync(IReadOnlyList<ExploreCatalogueEntryModel> entries)
+    {
+        using var scope = _webApiFactory!.Services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<IExploreCatalogueRepository>().UpsertManyAsync(entries);
+    }
+
+    /// <summary>
+    /// Removes seeded catalogue entries by their provider ids. The repository only exposes the refresh pass's
+    /// own "delete what I didn't rewrite" sweep, which would take the whole ranking with it, so this deletes
+    /// exactly what the test created and nothing else.
+    /// Best-effort like <see cref="DeleteItemAsync"/>: a teardown error shouldn't turn a green run red.
+    /// </summary>
+    public async Task RemoveExploreCatalogueEntriesAsync(IEnumerable<string> externalIds)
+    {
+        try
+        {
+            var database = _webApiFactory!.Services.GetRequiredService<IMongoDatabase>();
+            await database.GetCollection<BsonDocument>("explore_catalogue")
+                .DeleteManyAsync(Builders<BsonDocument>.Filter.In("external_id", externalIds));
+        }
+        catch (Exception exception)
+        {
+            await Console.Error.WriteLineAsync($"Failed to remove the seeded Explore catalogue entries: {exception.Message}");
         }
     }
 

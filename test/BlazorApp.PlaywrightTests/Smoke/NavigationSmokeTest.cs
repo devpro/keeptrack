@@ -24,6 +24,13 @@ public class NavigationSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture
     [Fact]
     public async Task Wishlist_Loads() => await (await new HomePage(Page).OpenAsync()).OpenWishlistAsync();
 
+    /// <summary>
+    /// Read-only safe: with no catalogue seeded the page renders its "still being prepared" empty state, which
+    /// is as much a load as a full ranking is.
+    /// </summary>
+    [Fact]
+    public async Task Explore_Loads() => await (await new HomePage(Page).OpenAsync()).OpenExploreAsync();
+
     [Fact]
     public async Task Books_Loads() => await (await new HomePage(Page).OpenAsync()).OpenBooksAsync();
 

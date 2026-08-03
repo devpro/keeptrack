@@ -53,6 +53,7 @@ Cross-cutting API concerns are covered too: `FreeTierTest` (quota + policy refle
 **UI happy paths — one Playwright smoke test per type.**
 `ListStateSmokeTest` (search/filter/pagination URL persistence and back-navigation), `OwnershipSmokeTest`, `VideoGamePlatformSmokeTest`, `SharedWishlistSmokeTest` (genuinely anonymous), `WatchNextSmokeTest`, `AuthSmokeTest` (login redirect
 then logout), and per-type add/link/delete flows all exist.
+`ExploreSmokeTest` drives discovery (seeded catalogue → dismiss, load more, domain tabs, and one real-TMDB add) for movies and TV shows; video games are left out while RAWG is unavailable.
 `MobileScreenshotTest` provides an assertion-free phone-viewport visual-review harness.
 
 ## Coverage gaps: walkthroughs with no end-to-end (browser) test

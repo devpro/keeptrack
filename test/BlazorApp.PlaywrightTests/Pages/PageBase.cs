@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using Microsoft.Playwright;
 
@@ -38,14 +39,28 @@ public abstract class PageBase(IPage page)
     /// This is a bounded, no-blind-sleep mitigation for exactly that - plain link-based navigation (<see cref="NavigateAsync{TPage}"/>) doesn't need it,
     /// since Blazor's enhanced navigation intercepts anchor clicks independently of the interactive circuit.
     /// </summary>
-    protected static async Task ClickUntilAsync(ILocator trigger, ILocator expectedResult, int maxAttempts = 5)
+    protected static Task ClickUntilAsync(ILocator trigger, ILocator expectedResult, int maxAttempts = 5)
+        => ClickUntilAsync(trigger, () => Assertions.Expect(expectedResult).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 2000 }), maxAttempts);
+
+    /// <summary>
+    /// The same mitigation for an effect a "wait until this locator is visible" check can't express - a card
+    /// *disappearing*, a query-string navigation - supplied as the assertion itself.
+    /// <para>
+    /// Two things the caller owns, and both matter. The trigger must be safe to click twice, since it may be.
+    /// And <paramref name="expected"/>'s own timeout must comfortably exceed how long the action really takes:
+    /// a re-click issued while a *successful* click is still in flight lands on a control the page has since
+    /// disabled (Explore's busy guard) or removed (the "Load more" button once the ranking is exhausted), and
+    /// then fails on the click rather than on anything under test. Wait longer, retry fewer times.
+    /// </para>
+    /// </summary>
+    protected static async Task ClickUntilAsync(ILocator trigger, Func<Task> expected, int maxAttempts = 5)
     {
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
             await trigger.ClickAsync();
             try
             {
-                await Assertions.Expect(expectedResult).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 2000 });
+                await expected();
                 return;
             }
             catch (PlaywrightException) when (attempt < maxAttempts)
@@ -78,6 +93,8 @@ public abstract class PageBase(IPage page)
     public Task<WatchNextPage> OpenWatchNextAsync() => NavigateAsync("Watch next", new WatchNextPage(Page));
 
     public Task<WishlistPage> OpenWishlistAsync() => NavigateAsync("Wishlist", new WishlistPage(Page));
+
+    public Task<ExplorePage> OpenExploreAsync() => NavigateAsync("Explore", new ExplorePage(Page));
 
     public Task<ListPage> OpenBooksAsync() => NavigateAsync("Books", new ListPage(Page, "/books", "Books"));
 
