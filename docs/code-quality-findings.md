@@ -53,12 +53,15 @@ The five copy-pasted per-domain sync loops and the five copy-pasted rating-propa
 
 Two leftovers from the OMDb-budget and recompute-no-op work above, both fixed on 2026-08-03.
 
-`BackfillImdbRatingAsync` short-circuited only on an imdb rating being *present*, so a title IMDb genuinely has nothing for had nothing to short-circuit on: every sync pass past the 3-day staleness cutoff paid a TMDB external-ids call and an OMDb call to learn the same thing again, indefinitely, and that traffic came out of the same 1000/day allowance the rated titles need.
-The Explore catalogue backfill already solved this with a per-source attempt stamp; the reference documents now carry the same `RatingsCheckedAt` map on the same 90-day window (`RatingSourceCatalog.RatingReattemptAfter`, moved out of `ExploreCatalogueRefreshService` so the two consumers share one declaration).
+`BackfillImdbRatingAsync` short-circuited only on an imdb rating being *present*, so a title IMDb genuinely has nothing for had nothing to short-circuit on:
+every sync pass past the 3-day staleness cutoff paid a TMDB external-ids call and an OMDb call to learn the same thing again, indefinitely, and that traffic came out of the same 1000/day allowance the rated titles need.
+The Explore catalogue backfill already solved this with a per-source attempt stamp; the reference documents now carry the same `RatingsCheckedAt` map on the same 90-day window (`RatingSourceCatalog.RatingReattemptAfter`, moved out of
+`ExploreCatalogueRefreshService` so the two consumers share one declaration).
 The window is checked before the id lookup, so both calls are skipped, and only an attempt OMDb actually answered is stamped.
 Found alongside it: a full fetch rebuilt `Ratings` from TMDB and dropped a known imdb value whenever OMDb was unreachable - `RebuildRatingsAsync` now keeps it when the call never happened.
 
-`RecomputeReferenceRatingsAsync` did nothing when nothing was mismatched, but when there *was* work it read every reference document whole (for TV, each show's entire embedded episode guide) and fired one `UpdateMany` round trip per document.
+`RecomputeReferenceRatingsAsync` did nothing when nothing was mismatched, but when there *was* work it read every reference document whole (for TV, each show's entire embedded episode guide) and fired one `UpdateMany` round trip per
+document.
 It now pages a projected `_id` + `ratings` read by id cursor and writes each page back as a single unordered `BulkWrite`: two round trips per 500 references, none per tenant item.
 The distinction matters as the user base grows - the items are re-stamped server-side inside each `UpdateMany`, so more users mean more documents written, never more round trips or more memory in the API.
 

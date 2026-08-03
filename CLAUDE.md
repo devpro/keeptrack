@@ -145,6 +145,11 @@ Deliberate: these grow unbounded per parent, and features query them across *all
 Embed only genuinely small, always-together, never-queried-alone data (`TvShowReferenceModel.Episodes` is the counter-example: bounded, always fetched whole, never queried across shows).
 
 - `GetFilter` on a child repository filters the parent id with `Eq`, **not** `Text` - MongoDB allows only one `$text` expression per query, so a `Text` id filter throws whenever a free-text `search` is also supplied.
+- **Every parent cascades its delete**: the parent's controller overrides `DataCrudControllerBase.OnDeletedAsync` and calls its child repository's `DeleteAllFor<Parent>Async`, since a child is only ever reachable via the parent id and would
+  otherwise be orphaned in MongoDB forever.
+  The four cascade methods are one line each over `MongoDbRepositoryBase.DeleteAllByParentAsync`, which takes the parent-id **expression** (never an element-name string, same contract as `SortTitleField`) -
+  don't re-hand-write the owner-scoped `DeleteMany`.
+  Each cascade has a real-MongoDB `*ResourceTest` case; a mocked repository can't prove the filter matches.
 - Never name a property bare `Type`: discriminators are `CarHistoryModel.EventType` (`CarHistoryType`), `HouseEventType`, `HealthEventType`, `TvShowModel.State`.
 - **Car:** `CarHistoryModel.DeltaMileage` is real user-entered data (read off the trip computer), not derived - `CarMetricsService` cross-checks it against consecutive `Mileage` readings to flag typos/skipped entries.
   `CarMetricsService` (consumption only across a full refill, cost history, mileage warnings, next maintenance due) is a pure `AddSingleton` computation class exposed via `CarController.GetMetrics`, the same way
@@ -325,9 +330,13 @@ Run-once scripts follow that same idempotent style: `dedupe-matched-aliases.js`,
     It used to read every reference document and fire one `UpdateMany` per document, all of them setting values that were already correct.
     An item stamped with nothing (linked before the field existed) counts as mismatched, so the first recompute backfills it and no migration script is needed.
     Deliberately **not** a value-drift repair - a value that moved while the source stayed put is the periodic sync's job, through the same `SetReferenceRatingAsync`.
-  - **When it does have work, a batch is one projected read and one bulk write** (`RecomputeBatchSize` = 500, sizing both): `I<X>ReferenceRepository.FindRatingsAsync(afterId, limit)` projects `_id` + `ratings` and pages by an `_id` cursor, and `I<X>Repository.SetReferenceRatingsAsync` writes the page back as a single unordered `BulkWrite` of `UpdateMany` entries.
-    Reading whole reference documents for two fields is the waste `FindExternalIdsAsync`/`FindStaleAsync` already exist to avoid (for TV it hauls each show's entire embedded episode guide), and a round trip per reference is what made the pass scale with the catalogue.
-    **The tenant items are still re-stamped server-side inside each entry**, which is the property that matters as the user base grows: more users mean more documents written per reference, never more round trips, more payload, or more memory in the API.
+  - **When it does have work, a batch is one projected read and one bulk write** (`RecomputeBatchSize` = 500, sizing both):
+    `I<X>ReferenceRepository.FindRatingsAsync(afterId, limit)` projects `_id` + `ratings` and pages by an `_id` cursor, and `I<X>Repository.SetReferenceRatingsAsync` writes the page back as a single unordered `BulkWrite` of `UpdateMany`
+    entries.
+    Reading whole reference documents for two fields is the waste `FindExternalIdsAsync`/`FindStaleAsync` already exist to avoid (for TV it hauls each show's entire embedded episode guide), and a round trip per reference is what made the
+    pass scale with the catalogue.
+    **The tenant items are still re-stamped server-side inside each entry**, which is the property that matters as the user base grows:
+    more users mean more documents written per reference, never more round trips, more payload, or more memory in the API.
   - The five identical propagation bodies now live once in `Infrastructure.MongoDb/Repositories/ReferenceRatingQueries.cs`, over the `IHasReferenceRating` entity interface (the four fields are named identically everywhere, so unlike
     `ExploreExclusionQueries` this needs no per-domain field expressions).
   - Books are the one domain with no selectable source: `BookPrimaryRating` reads whichever provider key the reference happens to store, and a reference with no rating at all genuinely has no source to name - which is why the source is
@@ -350,10 +359,12 @@ Run-once scripts follow that same idempotent style: `dedupe-matched-aliases.js`,
     it has a tmdb rating so it short-circuits, but no stored imdb id because only a full fetch writes that.
     `BackfillImdbRatingAsync` resolves the id cheaply on the no-change path via `/{tv,movie}/{id}/external_ids` (one call, no season fan-out), stores it, then does one OMDb call.
     Self-correcting: once the id is stored, later passes skip the lookup.
-  - **A title IMDb has nothing for is remembered, not re-asked every pass.** TV/movie reference documents carry `RatingsCheckedAt` (`ratings_checked_at`, source → last attempt), the same map and the same window as the Explore catalogue's - `RatingSourceCatalog.RatingReattemptAfter` (90 days) is the single declaration both read.
+  - **A title IMDb has nothing for is remembered, not re-asked every pass.** TV/movie reference documents carry `RatingsCheckedAt` (`ratings_checked_at`, source → last attempt), the same map and the same window as the Explore catalogue's -
+    `RatingSourceCatalog.RatingReattemptAfter` (90 days) is the single declaration both read.
     Such a title never gains an `imdb` key, so there was nothing to short-circuit on and every pass past the 3-day cutoff paid a TMDB external-ids call **and** an OMDb call, forever.
     `BackfillImdbRatingAsync` checks the window **before** the id lookup, so both are skipped; the deferral is temporary, so a rating that appears later is still picked up.
-    Only an attempt OMDb actually answered is stamped (see `OmdbLookupResult.Attempted` above), a re-resolve carries the existing stamps over rather than restarting them, and the Interactive paths ignore the window entirely - someone is waiting on that answer.
+    Only an attempt OMDb actually answered is stamped (see `OmdbLookupResult.Attempted` above), a re-resolve carries the existing stamps over rather than restarting them, and the Interactive paths ignore the window entirely -
+    someone is waiting on that answer.
     No index and no migration: unlike Explore's map this is never a query filter, only read from a document the sync already loaded, and a missing field deserializes to "never attempted".
   - **Gotcha:** a full fetch rebuilds `Ratings` from TMDB, and the imdb value doesn't come from TMDB.
     Dropping it whenever OMDb couldn't be reached (no key, spent budget, failed request) discarded a rating that cost a call to obtain, on exactly the days the budget was tight.
@@ -375,8 +386,10 @@ It is **one** generic loop over five one-line domain arms (`SyncDomainAsync`), t
 **Which documents a pass takes, and in what order, is `I<X>ReferenceRepository.FindStaleAsync(cutoff, limit)`** - a server-side filter and sort (shared once in `Infrastructure.MongoDb/Repositories/ReferenceStalenessQueries.cs`), replacing a
 `FindAllAsync()` that read every reference document into memory each tick - for TV, including every show's whole embedded episode guide - to then discard most of them.
 Never-enriched first, then least-recently-enriched, capped at `MaxDocumentsPerDomainPerPass` (500).
-The order is what makes the cap safe: a pass always takes the stalest end, so whatever it doesn't reach leads the next one. Unordered, a capped pass would re-walk the same head forever and the tail would be refreshed never.
-- **Gotcha:** "never enriched" cannot come from the date comparison. MongoDB compares within a type, so `Lte(LastEnrichedAt, cutoff)` matches neither a null nor a missing field, and the documents most in need of a pass would be exactly the
+The order is what makes the cap safe: a pass always takes the stalest end, so whatever it doesn't reach leads the next one.
+Unordered, a capped pass would re-walk the same head forever and the tail would be refreshed never.
+- **Gotcha:** "never enriched" cannot come from the date comparison.
+  MongoDB compares within a type, so `Lte(LastEnrichedAt, cutoff)` matches neither a null nor a missing field, and the documents most in need of a pass would be exactly the
   ones the query could never return.
   `Eq(field, null)` matches both null and missing (also covering documents written before the field existed), and ascending order then puts them first for free - BSON sorts null ahead of every date.
   Same silent-empty-match family as the `ReferenceId` null/empty gotcha below; only the real-Mongo `ReferenceStalenessRepositoryTest` catches it.
@@ -610,7 +623,7 @@ Synthetic fixtures are the opposite - made-up ids accumulate and collide with th
 two classes both inserting `tmdb: "1"` is a real duplicate-key failure).
 Fixed-title real-provider smoke tests (Movie/TvShow/VideoGame/Album) do clean up, since a leftover there is an accumulating duplicate.
 
-**Gotcha:** deleting a TV show does **not** cascade to its episodes (unlike `House`/`HealthProfile`, which have an `OnDeletedAsync` hook), so a test that marks an episode watched must delete the episodes itself.
+Deleting a TV show **does** cascade to its episodes, like `Car`/`House`/`HealthProfile`, so a test that marks an episode watched only has to delete the show (it used to have to clean up the episodes itself).
 
 ## Code style
 

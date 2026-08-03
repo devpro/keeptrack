@@ -133,6 +133,22 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
         return result.DeletedCount;
     }
 
+    /// <summary>
+    /// Deletes every owner-scoped document whose parent-id field matches - the single implementation behind
+    /// each child repository's cascade method (CarHistory/HouseHistory/HealthRecord/Episode). Child entities
+    /// are separate top-level collections referencing their parent by id (see CLAUDE.md's "Child entities"
+    /// section), so deleting the parent alone would leave them in MongoDB forever, only ever reachable via a
+    /// parent id that no longer exists.
+    /// The parent field is an expression rather than an element-name string, so the BSON name mapping stays
+    /// with the entity class - same contract as <see cref="SortTitleField"/>.
+    /// </summary>
+    protected async Task<long> DeleteAllByParentAsync(Expression<Func<TEntity, string>> parentIdField, string parentId, string ownerId)
+    {
+        var builder = Builders<TEntity>.Filter;
+        var result = await GetCollection().DeleteManyAsync(builder.Eq(f => f.OwnerId, ownerId) & builder.Eq(parentIdField, parentId));
+        return result.DeletedCount;
+    }
+
     protected virtual FilterDefinition<TEntity> GetFilter(string ownerId, string? search, TModel input)
     {
         var builder = Builders<TEntity>.Filter;

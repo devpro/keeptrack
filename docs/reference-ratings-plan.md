@@ -73,11 +73,13 @@ It is an admin-selectable, global (not per-user) setting, wired for video games 
     without reading the reference collection at all.
     That is the ordinary case - the button sits next to the source picker and gets pressed again "just in case" - and it previously cost one `UpdateMany` per reference document, every one of them writing values that were already correct.
     (`ModifiedCount` kept the reported counts honest, so the waste was in round trips, not in the numbers.)
-  - An item stamped with **no** source (linked before the field existed) counts as mismatched, so the first recompute backfills the whole domain and every later one costs a single count. No migration script.
+  - An item stamped with **no** source (linked before the field existed) counts as mismatched, so the first recompute backfills the whole domain and every later one costs a single count.
+    No migration script.
   - Deliberately **not** a value-drift repair: a value that changed while the source stayed the same is the periodic sync's job, which re-propagates through the same `SetReferenceRatingAsync`.
   - The source is stamped even when the selected source has no value for that reference (`(null, null, source)`), or an unrated item would look mismatched forever and the no-op above could never trigger.
   - The five identical propagation bodies moved into `ReferenceRatingQueries` over the `IHasReferenceRating` entity interface - the fields are named identically on all five entities, so no per-domain field expressions are needed.
-  - **When there *is* work, the pass costs two round trips per 500 references and none per tenant item.** It reads `FindRatingsAsync(afterId, limit)` - a server-side projection over `_id` + `ratings`, paged by an `_id` cursor - and writes each page back through `SetReferenceRatingsAsync`, one unordered `BulkWrite` of `UpdateMany` entries.
+  - **When there *is* work, the pass costs two round trips per 500 references and none per tenant item.** It reads `FindRatingsAsync(afterId, limit)` - a server-side projection over `_id` + `ratings`, paged by an `_id` cursor -
+    and writes each page back through `SetReferenceRatingsAsync`, one unordered `BulkWrite` of `UpdateMany` entries.
     It previously read whole reference documents (every synopsis, every cast list, and for TV each show's entire embedded episode guide) and then fired one `UpdateMany` round trip per document.
     Both halves matter as the app grows: the tenant items are still re-stamped server-side inside each entry, so more users mean more documents written but not more round trips, more payload, or more memory in the API.
     `RecomputeBatchSize` (500) sizes the read page and the bulk write together - one knob, not two that have to agree.
@@ -131,14 +133,17 @@ Fixed by `BackfillImdbRatingAsync` on the no-change path: when the imdb rating i
 (`ITmdbClient.GetTvShowImdbIdAsync`/`GetMovieImdbIdAsync` - one call, **no** season fan-out, deliberately not the full details re-fetch the short-circuit avoids), stores it, then does the one OMDb call.
 Self-correcting: once the id is stored, later syncs skip the external-ids lookup, and the whole backfill is skipped (including the TMDB external-ids lookup, whose answer would be unusable) once the shared daily budget is spent.
 
-**A title IMDb has nothing for is now remembered, not re-asked every pass.** `TvShowReferenceModel`/`MovieReferenceModel` carry `RatingsCheckedAt` (`ratings_checked_at`, source → when it was last attempted), the same map and the same `RatingSourceCatalog.RatingReattemptAfter` (90 days) window the Explore catalogue backfill already used - the constant moved to the catalog so the two consumers can't drift.
+**A title IMDb has nothing for is now remembered, not re-asked every pass.** `TvShowReferenceModel`/`MovieReferenceModel` carry `RatingsCheckedAt` (`ratings_checked_at`, source → when it was last attempted), the same map and the same
+`RatingSourceCatalog.RatingReattemptAfter` (90 days) window the Explore catalogue backfill already used - the constant moved to the catalog so the two consumers can't drift.
 Without it, a title with no IMDb rating had nothing to short-circuit on, so every pass past the 3-day staleness cutoff paid a TMDB external-ids call *and* an OMDb call to be told the same thing again, forever.
 The window check runs before the id lookup, so both calls are skipped, and the deferral is temporary - a rating that appears later is still picked up one window on.
 Only an attempt OMDb actually answered is stamped (`OmdbLookupResult.Attempted`): a call that never happened must leave no trace, or one exhausted afternoon would write those titles off for the whole window.
 No index and no migration - the map is only ever read from a document the sync has already loaded (unlike Explore's, which is a server-side query filter), and a missing field deserializes to an empty map, i.e. "never attempted".
-A re-resolve carries the existing document's stamps over rather than restarting them; the interactive resolve paths ignore the window entirely, since someone is waiting on the answer and they spend from a reserve the scheduled passes can't touch.
+A re-resolve carries the existing document's stamps over rather than restarting them; the interactive resolve paths ignore the window entirely, since someone is waiting on the answer and they spend from a reserve the scheduled passes can't
+touch.
 
-**Related fix in the same area:** a full fetch rebuilds `Ratings` from TMDB, and the imdb value doesn't come from TMDB. When OMDb was unreachable (no key, spent budget, failed request) the rebuild silently dropped a rating that had cost a call to obtain - on exactly the days the budget was tight - leaving the cheap backfill to buy it back later.
+**Related fix in the same area:** a full fetch rebuilds `Ratings` from TMDB, and the imdb value doesn't come from TMDB.
+When OMDb was unreachable (no key, spent budget, failed request) the rebuild silently dropped a rating that had cost a call to obtain - on exactly the days the budget was tight - leaving the cheap backfill to buy it back later.
 `RebuildRatingsAsync` (shared by both full-fetch paths) keeps the known value when OMDb was never asked; an answer of "OMDb has nothing for this title" is a real answer and does clear it.
 Backfilling onto existing data is just a "Sync now" (or waiting for the periodic pass), never a `scripts/*.js`.
 
@@ -189,9 +194,11 @@ It lives behind a dedicated one-method `IBookRatingByIsbnLookup` interface (impl
 - `ReferenceEnrichmentServiceTest` (unit, mocked) gained the IMDb slice: resolve adds the `imdb` rating and stores the imdb id in `ExternalIds` (even when OMDb has no rating yet, so the backfill has a key);
   imdb-as-selected-primary denormalizes imdb's value; the cheap no-change backfill adds imdb without a details re-fetch; the **bootstrap** case resolves a missing imdb id via the external-ids lookup then OMDb;
   no OMDb call when imdb is already present; movies recompute re-stamps with the selected source.
-- `ReferenceEnrichmentServiceTest` (unit, mocked) gained the attempt-stamp slice: a recent stamp skips OMDb *and* the TMDB external-ids lookup; a stamp past the window re-attempts; "OMDb answered, no rating" stamps while "never asked" doesn't; a full fetch keeps a known imdb rating when OMDb is unreachable and drops it when OMDb says there is none; a re-resolve carries the stamps over.
+- `ReferenceEnrichmentServiceTest` (unit, mocked) gained the attempt-stamp slice: a recent stamp skips OMDb *and* the TMDB external-ids lookup; a stamp past the window re-attempts;
+  "OMDb answered, no rating" stamps while "never asked" doesn't; a full fetch keeps a known imdb rating when OMDb is unreachable and drops it when OMDb says there is none; a re-resolve carries the stamps over.
   Plus recompute paging: it continues from the last id and stops on the first short page.
-- `MovieReferenceRatingRepositoryTest` (integration, real MongoDB) gained: the batched `SetReferenceRatingsAsync` re-stamps every reference in one bulk write (and every linked item of each), `FindRatingsAsync` projects the ratings and pages forward from its id cursor, and `RatingsCheckedAt` round-trips through BSON **as UTC** - the re-attempt check subtracts it from `DateTime.UtcNow`, so a value read back as Local would shift the window by the host's offset.
+- `MovieReferenceRatingRepositoryTest` (integration, real MongoDB) gained: the batched `SetReferenceRatingsAsync` re-stamps every reference in one bulk write (and every linked item of each), `FindRatingsAsync` projects the ratings and pages
+  forward from its id cursor, and `RatingsCheckedAt` round-trips through BSON **as UTC** - the re-attempt check subtracts it from `DateTime.UtcNow`, so a value read back as Local would shift the window by the host's offset.
 - `ReferenceEnrichmentServiceTest` (unit, mocked) gained: the source resolver (default / valid override / invalid-override-falls-back-to-default); `ResolveVideoGameAsync` denormalizes Metacritic's `/100` when it's the selected source;
   `RecomputeReferenceRatingsAsync` re-stamps every linked item with the selected source's value+scale, uses the default when unset, and throws for a non-selectable domain.
 

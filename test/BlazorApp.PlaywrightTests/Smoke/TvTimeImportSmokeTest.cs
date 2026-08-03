@@ -25,18 +25,13 @@ public class TvTimeImportSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixtu
         var showTitle = $"E2e TvTime Show {Guid.NewGuid():N}";
         var zip = TvTimeImportFixtureZipBuilder.Build(showTitle);
 
-        // registered before the upload, so a partial import is cleaned up too. The show needs the extra hop
-        // through its episodes: an episode is a separate top-level document keyed by show id, not something
-        // a title search can reach.
+        // registered before the upload, so a partial import is cleaned up too. Deleting the show takes its
+        // imported episodes with it (TvShowController.OnDeletedAsync), which is the only way to reach them:
+        // an episode is a separate top-level document keyed by show id, not something a title search finds.
         TrackCleanup(async () =>
         {
             foreach (var showId in await Fixture.GetItemIdsAsync($"/api/tv-shows?search={Uri.EscapeDataString(showTitle)}"))
             {
-                foreach (var episodeId in await Fixture.GetItemIdsAsync($"/api/episodes?TvShowId={showId}"))
-                {
-                    await Fixture.DeleteItemAsync($"/api/episodes/{episodeId}");
-                }
-
                 await Fixture.DeleteItemAsync($"/api/tv-shows/{showId}");
             }
         });

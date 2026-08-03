@@ -31,4 +31,7 @@ public class EpisodeRepository(IMongoDatabase mongoDatabase, ILogger<EpisodeRepo
         var entities = await GetCollection().Find(filter).ToListAsync();
         return Mapper.ToModels(entities);
     }
+
+    public Task<long> DeleteAllForShowAsync(string tvShowId, string ownerId)
+        => DeleteAllByParentAsync(f => f.TvShowId, tvShowId, ownerId);
 }

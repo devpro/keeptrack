@@ -14,6 +14,7 @@ public class TvShowController(
     IDtoMapper<TvShowDto, TvShowModel> mapper,
     ITvShowRepository dataRepository,
     ITvShowReferenceRepository referenceRepository,
+    IEpisodeRepository episodeRepository,
     ReferenceEnrichmentService enrichmentService,
     IServiceScopeFactory scopeFactory,
     ILogger<TvShowController> logger)
@@ -90,5 +91,15 @@ public class TvShowController(
 
         model = await enrichmentService.UnlinkTvShowReferenceAsync(model);
         return Ok(Mapper.ToDto(model));
+    }
+
+    /// <summary>
+    /// Episodes are a separate top-level collection referencing their show by id - without this, deleting a
+    /// show would leave its whole watch history orphaned in MongoDB forever, since an episode is only ever
+    /// reachable via the show's own id. Same shape as House/HealthProfile/Car.
+    /// </summary>
+    protected override async Task OnDeletedAsync(string id, string ownerId)
+    {
+        await episodeRepository.DeleteAllForShowAsync(id, ownerId);
     }
 }

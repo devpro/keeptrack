@@ -49,18 +49,9 @@ public class WatchNextSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 
         var showDetail = new TvShowDetailPage(Page);
         await showDetail.WaitForReadyAsync();
+        // the episode marked watched below needs no cleanup of its own: TvShowController.OnDeletedAsync
+        // cascades the delete to every episode of the show.
         TrackOpenItem("/api/tv-shows");
-        // Deleting a TV show does NOT cascade to its episodes (unlike House/HealthProfile, which have an
-        // OnDeletedAsync hook), so marking one watched below would otherwise leave an episode document
-        // pointing at a show id that no longer exists.
-        var showId = ExtractIdFromUrl(Page.Url);
-        TrackCleanup(async () =>
-        {
-            foreach (var episodeId in await Fixture.GetItemIdsAsync($"/api/episodes?TvShowId={showId}"))
-            {
-                await Fixture.DeleteItemAsync($"/api/episodes/{episodeId}");
-            }
-        });
 
         await showDetail.SearchAndLinkFirstResultAsync();
         await showDetail.SetStateAsync("Current");

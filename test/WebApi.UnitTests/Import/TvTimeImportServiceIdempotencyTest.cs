@@ -225,5 +225,11 @@ public class TvTimeImportServiceIdempotencyTest
     {
         public Task<List<EpisodeModel>> FindByShowIdsAsync(string ownerId, IReadOnlyCollection<string> tvShowIds) =>
             Task.FromResult(Items.Where(e => e.OwnerId == ownerId && tvShowIds.Contains(e.TvShowId)).ToList());
+
+        public Task<long> DeleteAllForShowAsync(string tvShowId, string ownerId)
+        {
+            var removed = Items.RemoveAll(e => e.OwnerId == ownerId && e.TvShowId == tvShowId);
+            return Task.FromResult((long)removed);
+        }
     }
 }

@@ -13,12 +13,8 @@ public class HouseHistoryRepository(IMongoDatabase mongoDatabase, ILogger<HouseH
 {
     protected override string CollectionName => "house_history";
 
-    public async Task<long> DeleteAllForHouseAsync(string houseId, string ownerId)
-    {
-        var filter = Builders<HouseHistory>.Filter.Eq(f => f.OwnerId, ownerId) & Builders<HouseHistory>.Filter.Eq(f => f.HouseId, houseId);
-        var result = await GetCollection().DeleteManyAsync(filter);
-        return result.DeletedCount;
-    }
+    public Task<long> DeleteAllForHouseAsync(string houseId, string ownerId)
+        => DeleteAllByParentAsync(f => f.HouseId, houseId, ownerId);
 
     protected override FilterDefinition<HouseHistory> GetFilter(string ownerId, string? search, HouseHistoryModel input)
     {

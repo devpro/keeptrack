@@ -13,4 +13,11 @@ public interface IEpisodeRepository : IDataRepository<EpisodeModel>
     /// scaled with total watch history instead of with in-progress shows. An empty set returns no query.
     /// </summary>
     Task<List<EpisodeModel>> FindByShowIdsAsync(string ownerId, IReadOnlyCollection<string> tvShowIds);
+
+    /// <summary>
+    /// Deletes every episode owned by <paramref name="ownerId"/> for the given show - used to cascade a TV
+    /// show deletion, since Episode is a separate top-level collection referencing its parent by id rather
+    /// than an embedded array (see CLAUDE.md's "Child entities" section).
+    /// </summary>
+    Task<long> DeleteAllForShowAsync(string tvShowId, string ownerId);
 }
