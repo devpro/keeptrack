@@ -26,6 +26,13 @@ public interface ITvShowReferenceRepository
     /// </summary>
     Task<IReadOnlyList<string>> FindExternalIdsAsync(IReadOnlyCollection<string> ids, string provider);
 
+    /// <summary>
+    /// One page of (id, ratings) for the admin rating recompute - see
+    /// <see cref="IMovieReferenceRepository.FindRatingsAsync"/>. The projection matters most here: a show's
+    /// document embeds its entire episode guide, which a recompute has no use for whatsoever.
+    /// </summary>
+    Task<IReadOnlyList<(string Id, Dictionary<string, ReferenceRatingModel> Ratings)>> FindRatingsAsync(string? afterId, int limit);
+
     Task<TvShowReferenceModel?> FindByTitleYearAsync(string title, int? year);
 
     /// <summary>

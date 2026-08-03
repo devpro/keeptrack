@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
 using AwesomeAssertions;
@@ -10,6 +11,10 @@ using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.ReferenceData;
 using Moq;
 using Xunit;
+
+// the recompute's bulk re-stamp payload; aliased so those tests read as assertions rather than as type noise
+using RatingUpdateBatch = System.Collections.Generic.IReadOnlyList<(string ReferenceId, double? Rating, double? RatingScale, string? Source)>;
+using ReferenceRatingsPage = System.Collections.Generic.IReadOnlyList<(string Id, System.Collections.Generic.Dictionary<string, Keeptrack.Domain.Models.ReferenceRatingModel> Ratings)>;
 
 namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
@@ -822,32 +827,181 @@ public class ReferenceEnrichmentServiceTest
     }
 
     [Fact]
+    public async Task RefreshMovieReferenceAsync_CallsNoProviderAtAll_OnTheShortCircuit_WhenImdbWasAttemptedRecently()
+    {
+        // the case this whole stamp exists for: IMDb genuinely has nothing for this title, so no imdb rating
+        // will ever appear to short-circuit on. Before the stamp, every pass past the staleness cutoff paid a
+        // TMDB external-ids call AND an OMDb call to be told the same thing again, roughly every three days,
+        // forever. Both are skipped now - the stamp is checked before the id lookup, not just before OMDb.
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.ChangedSince["42"] = false;
+        tmdbClient.ImdbIds["42"] = "tt0042";
+        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => m);
+        var reference = MovieReferenceAwaitingImdb(attemptedAt: DateTime.UtcNow.AddDays(-10));
+        var service = CreateService(tmdbClient);
+
+        var (_, changed) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        changed.Should().BeFalse();
+        _omdbClient.Requested.Should().BeEmpty();
+        tmdbClient.ImdbIdsRequested.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task RefreshMovieReferenceAsync_ReAttemptsImdb_WhenTheLastAttemptFellOutOfTheReattemptWindow()
+    {
+        // the other half: the stamp defers a re-attempt, it doesn't write a title off permanently. A rating
+        // that appears on IMDb later is still picked up, one window after the last fruitless ask.
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.ChangedSince["42"] = false;
+        _omdbClient.Ratings["tt0042"] = new OmdbRating(8.9, 500_000);
+        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => m);
+        var reference = MovieReferenceAwaitingImdb(attemptedAt: DateTime.UtcNow - RatingSourceCatalog.RatingReattemptAfter.Add(TimeSpan.FromDays(1)));
+        reference.ExternalIds["imdb"] = "tt0042";
+        var service = CreateService(tmdbClient);
+
+        var (result, changed) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        changed.Should().BeTrue();
+        result.Ratings["imdb"].Value.Should().Be(8.9);
+    }
+
+    [Fact]
+    public async Task RefreshMovieReferenceAsync_StampsTheAttempt_WhenOmdbAnswersWithNoRating()
+    {
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.ChangedSince["42"] = false;
+        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => m);
+        var reference = MovieReferenceAwaitingImdb(attemptedAt: null);
+        reference.ExternalIds["imdb"] = "tt0042"; // OMDb has no rating seeded for it
+        var service = CreateService(tmdbClient);
+
+        var (result, changed) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        // "OMDb answered, and has nothing" is a real answer worth remembering - it is what the next pass reads
+        changed.Should().BeFalse();
+        _omdbClient.Requested.Should().ContainSingle();
+        result.RatingsCheckedAt.Should().ContainKey("imdb");
+        result.Ratings.Should().NotContainKey("imdb");
+    }
+
+    [Fact]
+    public async Task RefreshMovieReferenceAsync_LeavesNoAttemptStamp_WhenOmdbWasNeverActuallyAsked()
+    {
+        // no key, a spent budget, a failed request: nothing was learned, so nothing may be recorded. Stamping
+        // here would write a title off for the whole window over one bad afternoon.
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.ChangedSince["42"] = false;
+        _omdbClient.Unavailable = true;
+        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => m);
+        var reference = MovieReferenceAwaitingImdb(attemptedAt: null);
+        reference.ExternalIds["imdb"] = "tt0042";
+        var service = CreateService(tmdbClient);
+
+        var (result, _) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        result.RatingsCheckedAt.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task RefreshMovieReferenceAsync_KeepsTheKnownImdbRating_WhenAFullFetchCannotReachOmdb()
+    {
+        // a full fetch rebuilds the ratings map from TMDB, and the imdb value doesn't come from TMDB. With
+        // OMDb unreachable, dropping it would discard a rating that cost a call to obtain - and would do so
+        // exactly on the days the budget is tight, leaving the cheap backfill to buy it back afterwards.
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.MovieDetails["42"] = new TmdbMovieDetails("42", "Some Movie", 2020, "Synopsis", [], null, 7.9, 2000, "tt0042");
+        _omdbClient.Unavailable = true;
+        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => m);
+        var reference = MovieReferenceAwaitingImdb(attemptedAt: null);
+        reference.Ratings["imdb"] = new ReferenceRatingModel { Value = 8.9, Scale = 10, Count = 500_000 };
+        var service = CreateService(tmdbClient);
+
+        var (result, _) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        result.Ratings["tmdb"].Value.Should().Be(7.9); // TMDB's half was refreshed
+        result.Ratings["imdb"].Value.Should().Be(8.9); // IMDb's half survived
+    }
+
+    [Fact]
+    public async Task RefreshMovieReferenceAsync_DropsTheKnownImdbRating_WhenAFullFetchLearnsOmdbNoLongerHasOne()
+    {
+        // the counterpart: OMDb answering "no rating" is a real answer, so the stale value goes. Only a call
+        // that never happened preserves it.
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.MovieDetails["42"] = new TmdbMovieDetails("42", "Some Movie", 2020, "Synopsis", [], null, 7.9, 2000, "tt0042");
+        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => m);
+        var reference = MovieReferenceAwaitingImdb(attemptedAt: null);
+        reference.Ratings["imdb"] = new ReferenceRatingModel { Value = 8.9, Scale = 10, Count = 500_000 };
+        var service = CreateService(tmdbClient);
+
+        var (result, _) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        result.Ratings.Should().NotContainKey("imdb");
+        result.RatingsCheckedAt.Should().ContainKey("imdb");
+    }
+
+    [Fact]
+    public async Task ResolveMovieAsync_CarriesOverTheAttemptStamps_OfTheReferenceItReResolves()
+    {
+        // a re-resolve rebuilds the document from the provider response; the stamps are memory of what OMDb
+        // has already answered, so restarting them would hand the background backfill its old bill back.
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.MovieDetails["42"] = new TmdbMovieDetails("42", "Some Movie", 2020, "Synopsis", [], null, 7.8, 1234, null);
+        var attemptedAt = DateTime.UtcNow.AddDays(-10);
+        _movieReferenceRepository.Setup(r => r.FindByExternalIdAsync("tmdb", "42")).ReturnsAsync(new MovieReferenceModel
+        {
+            Id = "reference-1",
+            Title = "Some Movie",
+            TitleNormalized = "some movie",
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" },
+            RatingsCheckedAt = new Dictionary<string, DateTime> { ["imdb"] = attemptedAt }
+        });
+        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => m);
+        var service = CreateService(tmdbClient);
+
+        var result = await service.ResolveMovieAsync("Some Movie", 2020, "42");
+
+        result.RatingsCheckedAt["imdb"].Should().Be(attemptedAt);
+    }
+
+    /// <summary>
+    /// A movie reference that takes the cheap no-change short-circuit (already TMDB-rated, enriched days ago)
+    /// and has no imdb rating - the shape every backfill test starts from. <paramref name="attemptedAt"/> is
+    /// when OMDb was last asked about it, or null for never.
+    /// </summary>
+    private static MovieReferenceModel MovieReferenceAwaitingImdb(DateTime? attemptedAt) => new()
+    {
+        Id = "reference-1",
+        Title = "Some Movie",
+        TitleNormalized = "some movie",
+        Year = 2020,
+        ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" },
+        LastEnrichedAt = DateTime.UtcNow.AddDays(-5),
+        Ratings = new Dictionary<string, ReferenceRatingModel> { ["tmdb"] = new() { Value = 7.8, Scale = 10, Count = 1234 } },
+        RatingsCheckedAt = attemptedAt is null ? [] : new Dictionary<string, DateTime> { ["imdb"] = attemptedAt.Value }
+    };
+
+    [Fact]
     public async Task RecomputeReferenceRatingsAsync_ReStampsMovies_WithTheSelectedImdbSource()
     {
         _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync())
             .ReturnsAsync(new Dictionary<string, string> { ["Movie"] = "imdb" });
-        _movieReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync(
+        _movieReferenceRepository.Setup(r => r.FindRatingsAsync(null, It.IsAny<int>())).ReturnsAsync(
         [
-            new MovieReferenceModel
+            ("r1", new Dictionary<string, ReferenceRatingModel>
             {
-                Id = "r1",
-                Title = "Some Movie",
-                TitleNormalized = "some movie",
-                ExternalIds = [],
-                Ratings = new Dictionary<string, ReferenceRatingModel>
-                {
-                    ["tmdb"] = new() { Value = 7.8, Scale = 10, Count = 1 }, ["imdb"] = new() { Value = 8.9, Scale = 10, Count = 2 }
-                }
-            }
+                ["tmdb"] = new() { Value = 7.8, Scale = 10, Count = 1 }, ["imdb"] = new() { Value = 8.9, Scale = 10, Count = 2 }
+            })
         ]);
-        _movieRepository.Setup(r => r.SetReferenceRatingAsync("r1", 8.9, 10, It.IsAny<string?>())).ReturnsAsync(1);
+        var written = CaptureRatingUpdates(_movieRepository, r => r.SetReferenceRatingsAsync(It.IsAny<RatingUpdateBatch>()), itemsUpdatedPerBatch: 1);
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
 
         var (checkedCount, updated) = await service.RecomputeReferenceRatingsAsync(ReferenceItemType.Movie);
 
         checkedCount.Should().Be(1);
         updated.Should().Be(1);
-        _movieRepository.Verify(r => r.SetReferenceRatingAsync("r1", 8.9, 10, It.IsAny<string?>()), Times.Once);
+        written.Should().ContainSingle().Which.Should().Equal(("r1", 8.9, 10, RatingSourceCatalog.Imdb));
     }
 
     [Fact]
@@ -1441,36 +1595,57 @@ public class ReferenceEnrichmentServiceTest
     {
         _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync())
             .ReturnsAsync(new Dictionary<string, string> { ["VideoGame"] = RatingSourceCatalog.Metacritic });
-        _videoGameReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync(
+        _videoGameReferenceRepository.Setup(r => r.FindRatingsAsync(null, It.IsAny<int>())).ReturnsAsync(
         [
-            VideoGameReferenceWithRatings("r1", rawg: 4.5, metacritic: 90),
-            VideoGameReferenceWithRatings("r2", rawg: 3.0, metacritic: 60)
+            GameRatings("r1", rawg: 4.5, metacritic: 90),
+            GameRatings("r2", rawg: 3.0, metacritic: 60)
         ]);
-        _videoGameRepository.Setup(r => r.SetReferenceRatingAsync(It.IsAny<string>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>())).ReturnsAsync(1);
+        var written = CaptureRatingUpdates(_videoGameRepository, r => r.SetReferenceRatingsAsync(It.IsAny<RatingUpdateBatch>()), itemsUpdatedPerBatch: 2);
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
 
         var (referencesChecked, itemsUpdated) = await service.RecomputeReferenceRatingsAsync(ReferenceItemType.VideoGame);
 
         referencesChecked.Should().Be(2);
         itemsUpdated.Should().Be(2);
-        _videoGameRepository.Verify(r => r.SetReferenceRatingAsync("r1", 90, 100, It.IsAny<string?>()), Times.Once);
-        _videoGameRepository.Verify(r => r.SetReferenceRatingAsync("r2", 60, 100, It.IsAny<string?>()), Times.Once);
+        // both references travel in one bulk write, not one round trip each
+        written.Should().ContainSingle().Which.Should().Equal(
+            ("r1", 90, 100, RatingSourceCatalog.Metacritic),
+            ("r2", 60, 100, RatingSourceCatalog.Metacritic));
+    }
+
+    [Fact]
+    public async Task RecomputeReferenceRatingsAsync_PagesWithACursor_AndStopsOnTheFirstShortPage()
+    {
+        // a full page means there may be more behind it, so the next read continues *after* the last id
+        // rather than starting over; a short page is the end and costs no further query.
+        var firstPage = Enumerable.Range(0, 500).Select(i => GameRatings($"r{i}", rawg: 4.5, metacritic: 90)).ToList();
+        _videoGameReferenceRepository.Setup(r => r.FindRatingsAsync(null, It.IsAny<int>())).ReturnsAsync(firstPage);
+        _videoGameReferenceRepository.Setup(r => r.FindRatingsAsync("r499", It.IsAny<int>()))
+            .ReturnsAsync([GameRatings("r500", rawg: 4.5, metacritic: 90)]);
+        _videoGameRepository.Setup(r => r.SetReferenceRatingsAsync(It.IsAny<RatingUpdateBatch>())).ReturnsAsync(1);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+
+        var (referencesChecked, _) = await service.RecomputeReferenceRatingsAsync(ReferenceItemType.VideoGame);
+
+        referencesChecked.Should().Be(501);
+        _videoGameReferenceRepository.Verify(r => r.FindRatingsAsync(It.IsAny<string?>(), It.IsAny<int>()), Times.Exactly(2));
+        _videoGameRepository.Verify(r => r.SetReferenceRatingsAsync(It.IsAny<RatingUpdateBatch>()), Times.Exactly(2));
     }
 
     [Fact]
     public async Task RecomputeReferenceRatingsAsync_UsesTheCodeDefaultSource_WhenNoOverrideIsStored()
     {
-        _videoGameReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync(
+        _videoGameReferenceRepository.Setup(r => r.FindRatingsAsync(null, It.IsAny<int>())).ReturnsAsync(
         [
-            VideoGameReferenceWithRatings("r1", rawg: 4.5, metacritic: 90)
+            GameRatings("r1", rawg: 4.5, metacritic: 90)
         ]);
-        _videoGameRepository.Setup(r => r.SetReferenceRatingAsync(It.IsAny<string>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>())).ReturnsAsync(1);
+        var written = CaptureRatingUpdates(_videoGameRepository, r => r.SetReferenceRatingsAsync(It.IsAny<RatingUpdateBatch>()), itemsUpdatedPerBatch: 1);
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
 
         await service.RecomputeReferenceRatingsAsync(ReferenceItemType.VideoGame);
 
         // RAWG is the default: its /5 score, not Metacritic's /100.
-        _videoGameRepository.Verify(r => r.SetReferenceRatingAsync("r1", 4.5, 5, It.IsAny<string?>()), Times.Once);
+        written.Should().ContainSingle().Which.Should().Equal(("r1", 4.5, 5, RatingSourceCatalog.Rawg));
     }
 
     [Fact]
@@ -1494,11 +1669,10 @@ public class ReferenceEnrichmentServiceTest
 
         referencesChecked.Should().Be(0);
         itemsUpdated.Should().Be(0);
-        // the whole point: the reference collection isn't even read, let alone one UpdateMany fired per
-        // document to write values that are already correct
-        _videoGameReferenceRepository.Verify(r => r.FindAllAsync(), Times.Never);
-        _videoGameRepository.Verify(
-            r => r.SetReferenceRatingAsync(It.IsAny<string>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Never);
+        // the whole point: the reference collection isn't even read, let alone re-stamped with values that
+        // are already correct
+        _videoGameReferenceRepository.Verify(r => r.FindRatingsAsync(It.IsAny<string?>(), It.IsAny<int>()), Times.Never);
+        _videoGameRepository.Verify(r => r.SetReferenceRatingsAsync(It.IsAny<RatingUpdateBatch>()), Times.Never);
     }
 
     [Fact]
@@ -1506,37 +1680,52 @@ public class ReferenceEnrichmentServiceTest
     {
         _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync())
             .ReturnsAsync(new Dictionary<string, string> { ["VideoGame"] = RatingSourceCatalog.Metacritic });
-        _videoGameReferenceRepository.Setup(r => r.FindAllAsync()).ReturnsAsync(
+        _videoGameReferenceRepository.Setup(r => r.FindRatingsAsync(null, It.IsAny<int>())).ReturnsAsync(
         [
-            VideoGameReferenceWithRatings("r1", rawg: 4.5, metacritic: null)
+            GameRatings("r1", rawg: 4.5, metacritic: null)
         ]);
-        _videoGameRepository
-            .Setup(r => r.SetReferenceRatingAsync(It.IsAny<string>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>())).ReturnsAsync(1);
+        var written = CaptureRatingUpdates(_videoGameRepository, r => r.SetReferenceRatingsAsync(It.IsAny<RatingUpdateBatch>()), itemsUpdatedPerBatch: 1);
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
 
         await service.RecomputeReferenceRatingsAsync(ReferenceItemType.VideoGame);
 
         // the stamp records which source was applied, not where a number came from. Leaving it null here
         // would leave this item looking mismatched forever, so recompute could never report "nothing to do".
-        _videoGameRepository.Verify(
-            r => r.SetReferenceRatingAsync("r1", null, null, RatingSourceCatalog.Metacritic), Times.Once);
+        written.Should().ContainSingle().Which.Should().Equal(("r1", null, null, RatingSourceCatalog.Metacritic));
     }
 
-    /// <summary>A game reference carrying both sources - pass a null <paramref name="metacritic"/> for the common case of a game the press never scored.</summary>
-    private static VideoGameReferenceModel VideoGameReferenceWithRatings(string id, double rawg, double? metacritic) => new()
+    /// <summary>
+    /// Stubs a tenant repository's bulk re-stamp and hands back the list the batches land in, one entry per
+    /// bulk write. A captured batch is asserted with ordinary assertions afterwards: Moq's <c>It.Is</c> takes
+    /// an expression tree, and an expression tree may hold neither a tuple literal nor a tuple <c>==</c>, so
+    /// matching a batch inline is not an option here (CS8143/CS8382).
+    /// </summary>
+    private static List<RatingUpdateBatch> CaptureRatingUpdates<TRepository>(
+        Mock<TRepository> repository,
+        Expression<Func<TRepository, Task<long>>> setReferenceRatings,
+        long itemsUpdatedPerBatch)
+        where TRepository : class
     {
-        Id = id,
-        Title = "Some Game",
-        TitleNormalized = "some game",
-        ExternalIds = [],
-        Ratings = metacritic is null
+        var batches = new List<RatingUpdateBatch>();
+        repository.Setup(setReferenceRatings).Callback<RatingUpdateBatch>(batches.Add).ReturnsAsync(itemsUpdatedPerBatch);
+        return batches;
+    }
+
+    /// <summary>
+    /// One entry of what the recompute's projected read returns for a game reference carrying both sources -
+    /// pass a null <paramref name="metacritic"/> for the common case of a game the press never scored.
+    /// </summary>
+    private static (string Id, Dictionary<string, ReferenceRatingModel> Ratings) GameRatings(string id, double rawg, double? metacritic) =>
+    (
+        id,
+        metacritic is null
             ? new Dictionary<string, ReferenceRatingModel> { [RatingSourceCatalog.Rawg] = new() { Value = rawg, Scale = 5, Count = 100 } }
             : new Dictionary<string, ReferenceRatingModel>
             {
                 [RatingSourceCatalog.Rawg] = new() { Value = rawg, Scale = 5, Count = 100 },
                 [RatingSourceCatalog.Metacritic] = new() { Value = metacritic.Value, Scale = 100 }
             }
-    };
+    );
 
     [Fact]
     public async Task TryLinkExistingVideoGameReferenceAsync_LinksAndUpdatesTitle_OnTitleYearMatch()

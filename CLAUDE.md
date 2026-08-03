@@ -325,6 +325,9 @@ Run-once scripts follow that same idempotent style: `dedupe-matched-aliases.js`,
     It used to read every reference document and fire one `UpdateMany` per document, all of them setting values that were already correct.
     An item stamped with nothing (linked before the field existed) counts as mismatched, so the first recompute backfills it and no migration script is needed.
     Deliberately **not** a value-drift repair - a value that moved while the source stayed put is the periodic sync's job, through the same `SetReferenceRatingAsync`.
+  - **When it does have work, a batch is one projected read and one bulk write** (`RecomputeBatchSize` = 500, sizing both): `I<X>ReferenceRepository.FindRatingsAsync(afterId, limit)` projects `_id` + `ratings` and pages by an `_id` cursor, and `I<X>Repository.SetReferenceRatingsAsync` writes the page back as a single unordered `BulkWrite` of `UpdateMany` entries.
+    Reading whole reference documents for two fields is the waste `FindExternalIdsAsync`/`FindStaleAsync` already exist to avoid (for TV it hauls each show's entire embedded episode guide), and a round trip per reference is what made the pass scale with the catalogue.
+    **The tenant items are still re-stamped server-side inside each entry**, which is the property that matters as the user base grows: more users mean more documents written per reference, never more round trips, more payload, or more memory in the API.
   - The five identical propagation bodies now live once in `Infrastructure.MongoDb/Repositories/ReferenceRatingQueries.cs`, over the `IHasReferenceRating` entity interface (the four fields are named identically everywhere, so unlike
     `ExploreExclusionQueries` this needs no per-domain field expressions).
   - Books are the one domain with no selectable source: `BookPrimaryRating` reads whichever provider key the reference happens to store, and a reference with no rating at all genuinely has no source to name - which is why the source is
@@ -346,7 +349,15 @@ Run-once scripts follow that same idempotent style: `dedupe-matched-aliases.js`,
   - **Gotcha:** the `/changes` short-circuit (`LastEnrichedAt is not null && Ratings.Count > 0`) means a reference enriched before IMDb existed would never backfill one -
     it has a tmdb rating so it short-circuits, but no stored imdb id because only a full fetch writes that.
     `BackfillImdbRatingAsync` resolves the id cheaply on the no-change path via `/{tv,movie}/{id}/external_ids` (one call, no season fan-out), stores it, then does one OMDb call.
-    Self-correcting, no persisted "attempted" marker needed.
+    Self-correcting: once the id is stored, later passes skip the lookup.
+  - **A title IMDb has nothing for is remembered, not re-asked every pass.** TV/movie reference documents carry `RatingsCheckedAt` (`ratings_checked_at`, source → last attempt), the same map and the same window as the Explore catalogue's - `RatingSourceCatalog.RatingReattemptAfter` (90 days) is the single declaration both read.
+    Such a title never gains an `imdb` key, so there was nothing to short-circuit on and every pass past the 3-day cutoff paid a TMDB external-ids call **and** an OMDb call, forever.
+    `BackfillImdbRatingAsync` checks the window **before** the id lookup, so both are skipped; the deferral is temporary, so a rating that appears later is still picked up.
+    Only an attempt OMDb actually answered is stamped (see `OmdbLookupResult.Attempted` above), a re-resolve carries the existing stamps over rather than restarting them, and the Interactive paths ignore the window entirely - someone is waiting on that answer.
+    No index and no migration: unlike Explore's map this is never a query filter, only read from a document the sync already loaded, and a missing field deserializes to "never attempted".
+  - **Gotcha:** a full fetch rebuilds `Ratings` from TMDB, and the imdb value doesn't come from TMDB.
+    Dropping it whenever OMDb couldn't be reached (no key, spent budget, failed request) discarded a rating that cost a call to obtain, on exactly the days the budget was tight.
+    `RebuildRatingsAsync` (shared by both full-fetch paths) keeps the known value when the call never happened; "OMDb answered and has nothing" is a real answer and does clear it.
   - The admin picker is a `form-select` dropdown, not a button row - buttons render at different widths by text length.
 
 ### Keeping reference data fresh: periodic + on-demand sync

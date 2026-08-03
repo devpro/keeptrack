@@ -15,8 +15,10 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 /// <summary>
 /// Real-MongoDB coverage for the reference-rating feature's repository behaviors, which mocks can't prove:
 /// the <see cref="ListSort.ReferenceRating"/> sort ordering (with unrated items last), the two
-/// denormalized-copy propagation paths (<c>SetReferenceLinkAsync</c> on link and <c>SetReferenceRatingAsync</c>
-/// on refresh), and that the reference document's <c>Ratings</c> dictionary round-trips through BSON.
+/// denormalized-copy propagation paths (<c>SetReferenceLinkAsync</c> on link, <c>SetReferenceRatingAsync</c>
+/// on refresh and the batched <c>SetReferenceRatingsAsync</c> the admin recompute writes through), the
+/// projected, id-cursor-paged <c>FindRatingsAsync</c> that feeds it, and that the reference document's
+/// <c>Ratings</c>/<c>RatingsCheckedAt</c> dictionaries round-trip through BSON.
 /// Each test uses its own random owner id so parallel runs can't interfere.
 /// </summary>
 public class MovieReferenceRatingRepositoryTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)
@@ -152,6 +154,108 @@ public class MovieReferenceRatingRepositoryTest(KestrelWebAppFactory<Program> fa
         // is what lets the admin recompute report "nothing to do" and skip its whole pass
         (await repository.CountLinkedOnOtherRatingSourceAsync("tmdb")).Should().Be(before - 2);
         (await repository.FindOneAsync(onTmdb.Id!, ownerId))!.ReferenceRatingSource.Should().Be("tmdb");
+    }
+
+    [Fact]
+    public async Task SetReferenceRatingsAsync_ReStampsEveryReferenceInTheBatch_InOneBulkWrite()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IMovieRepository>();
+        var ownerId = $"refrating-bulk-{Guid.NewGuid():N}";
+        // unique per run for the same reason as SetReferenceRatingAsync's test: propagation is by reference
+        // id across every owner, so a fixed literal would also catch leftovers and break the exact counts
+        var firstReferenceId = $"reference-{Guid.NewGuid():N}";
+        var secondReferenceId = $"reference-{Guid.NewGuid():N}";
+        var untouchedReferenceId = $"reference-{Guid.NewGuid():N}";
+
+        var firstA = await CreateMovieAsync(repository, NewMovie(ownerId, "Heat", referenceId: firstReferenceId, referenceRating: 7.0));
+        var firstB = await CreateMovieAsync(repository, NewMovie(ownerId, "Heat", referenceId: firstReferenceId, referenceRating: 7.0));
+        var second = await CreateMovieAsync(repository, NewMovie(ownerId, "Casino", referenceId: secondReferenceId, referenceRating: 6.0));
+        var untouched = await CreateMovieAsync(repository, NewMovie(ownerId, "Other", referenceId: untouchedReferenceId, referenceRating: 5.0));
+
+        var modified = await repository.SetReferenceRatingsAsync(
+        [
+            (firstReferenceId, 8.4, 10, "imdb"),
+            (secondReferenceId, null, null, "imdb")
+        ]);
+
+        // one bulk write, but each entry still re-stamps *all* of its reference's linked items - which is what
+        // keeps a recompute's cost flat as the number of users grows
+        modified.Should().Be(3);
+        (await repository.FindOneAsync(firstA.Id!, ownerId))!.ReferenceRating.Should().Be(8.4);
+        (await repository.FindOneAsync(firstB.Id!, ownerId))!.ReferenceRating.Should().Be(8.4);
+
+        // a reference the selected source has no value for is still stamped with that source, value cleared
+        var reloadedSecond = await repository.FindOneAsync(second.Id!, ownerId);
+        reloadedSecond!.ReferenceRating.Should().BeNull();
+        reloadedSecond.ReferenceRatingSource.Should().Be("imdb");
+
+        (await repository.FindOneAsync(untouched.Id!, ownerId))!.ReferenceRating.Should().Be(5.0);
+    }
+
+    [Fact]
+    public async Task FindRatingsAsync_ReadsRatingsOnly_AndPagesForwardFromTheIdCursor()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var referenceRepository = scope.ServiceProvider.GetRequiredService<IMovieReferenceRepository>();
+
+        var first = await CreateReferenceAsync(referenceRepository, tmdb: 7.1);
+        var second = await CreateReferenceAsync(referenceRepository, tmdb: 7.2);
+        var third = await CreateReferenceAsync(referenceRepository, tmdb: 7.3);
+
+        // ObjectIds are monotonic, so these three are the tail of the collection and the cursor should walk
+        // straight from the first to the other two. Assertions stay relative: this is the shared reference
+        // collection, and other documents (including other tests') legitimately share it.
+        var page = await referenceRepository.FindRatingsAsync(first.Id, 100);
+
+        page.Select(r => r.Id).Should().BeInAscendingOrder("the cursor relies on _id order to page without gaps or repeats");
+        page.Select(r => r.Id).Should().NotContain(first.Id, "a cursor page starts strictly after the id it was given");
+        page.Should().Contain(r => r.Id == second.Id).And.Contain(r => r.Id == third.Id);
+
+        // the projection has to carry the ratings themselves, or the recompute would re-stamp everything null
+        var projected = page.Single(r => r.Id == third.Id).Ratings;
+        projected["tmdb"].Value.Should().Be(7.3);
+        projected["tmdb"].Scale.Should().Be(10);
+
+        // and a limit still applies on top of the cursor
+        (await referenceRepository.FindRatingsAsync(first.Id, 1)).Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task MovieReferenceRatingsCheckedAt_RoundTripsThroughBson_AsUtc()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var referenceRepository = scope.ServiceProvider.GetRequiredService<IMovieReferenceRepository>();
+        var attemptedAt = DateTime.UtcNow;
+
+        var saved = await referenceRepository.UpsertAsync(new MovieReferenceModel
+        {
+            Title = $"Attempt Stamp {Guid.NewGuid():N}",
+            TitleNormalized = "placeholder",
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = TestExternalId.New() },
+            RatingsCheckedAt = new Dictionary<string, DateTime> { ["imdb"] = attemptedAt }
+        });
+        TrackCleanup(() => referenceRepository.DeleteAsync(saved.Id!));
+
+        var reloaded = await referenceRepository.FindByIdAsync(saved.Id!);
+        // BSON dates are millisecond-precision, so the stamp comes back rounded - close enough for a 90-day
+        // window, but it must come back as UTC: the re-attempt check subtracts it from DateTime.UtcNow, and a
+        // value read back as Local or Unspecified would silently shift that window by the host's offset.
+        reloaded!.RatingsCheckedAt["imdb"].Should().BeCloseTo(attemptedAt, TimeSpan.FromMilliseconds(1));
+        reloaded.RatingsCheckedAt["imdb"].Kind.Should().Be(DateTimeKind.Utc);
+    }
+
+    private async Task<MovieReferenceModel> CreateReferenceAsync(IMovieReferenceRepository repository, double tmdb)
+    {
+        var saved = await repository.UpsertAsync(new MovieReferenceModel
+        {
+            Title = $"Ratings Page {Guid.NewGuid():N}",
+            TitleNormalized = "placeholder",
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = TestExternalId.New() },
+            Ratings = new Dictionary<string, ReferenceRatingModel> { ["tmdb"] = new() { Value = tmdb, Scale = 10, Count = 10 } }
+        });
+        TrackCleanup(() => repository.DeleteAsync(saved.Id!));
+        return saved;
     }
 
     private async Task<MovieModel> CreateMovieAsync(IMovieRepository repository, MovieModel movie)

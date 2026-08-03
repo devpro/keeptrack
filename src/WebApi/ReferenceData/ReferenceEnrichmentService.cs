@@ -75,51 +75,76 @@ public partial class ReferenceEnrichmentService(
         {
             ReferenceItemType.Movie => await RecomputeReferenceRatingsAsync(
                 movieRepository.CountLinkedOnOtherRatingSourceAsync,
-                movieReferenceRepository.FindAllAsync,
-                r => (r.Id!, r.Ratings),
-                movieRepository.SetReferenceRatingAsync,
+                movieReferenceRepository.FindRatingsAsync,
+                movieRepository.SetReferenceRatingsAsync,
                 source),
             ReferenceItemType.TvShow => await RecomputeReferenceRatingsAsync(
                 tvShowRepository.CountLinkedOnOtherRatingSourceAsync,
-                tvShowReferenceRepository.FindAllAsync,
-                r => (r.Id!, r.Ratings),
-                tvShowRepository.SetReferenceRatingAsync,
+                tvShowReferenceRepository.FindRatingsAsync,
+                tvShowRepository.SetReferenceRatingsAsync,
                 source),
             ReferenceItemType.VideoGame => await RecomputeReferenceRatingsAsync(
                 videoGameRepository.CountLinkedOnOtherRatingSourceAsync,
-                videoGameReferenceRepository.FindAllAsync,
-                r => (r.Id!, r.Ratings),
-                videoGameRepository.SetReferenceRatingAsync,
+                videoGameReferenceRepository.FindRatingsAsync,
+                videoGameRepository.SetReferenceRatingsAsync,
                 source),
             _ => throw new ArgumentOutOfRangeException(nameof(domain), $"Rating source is not admin-selectable for {domain}.")
         };
     }
 
     /// <summary>
-    /// Domain-agnostic recompute loop - each domain only differs in which reference repository it reads and
-    /// which tenant repository it re-propagates through, so the iteration itself lives once here (adding
-    /// books/albums later is a one-line switch arm above, never a copy of this loop).
+    /// How many references one round trip carries, in both directions: the size of a projected read page and
+    /// of the bulk write it produces. One knob rather than two that would have to agree, and it is what keeps
+    /// a recompute's memory flat no matter how large the reference collection or the user base gets.
     /// </summary>
-    private static async Task<(int ReferencesChecked, long ItemsUpdated)> RecomputeReferenceRatingsAsync<TReference>(
+    private const int RecomputeBatchSize = 500;
+
+    /// <summary>
+    /// Domain-agnostic recompute loop - each domain only differs in which reference collection it reads and
+    /// which tenant collection it re-propagates through, so the iteration itself lives once here (adding
+    /// books/albums later is a one-line switch arm above, never a copy of this loop).
+    /// <para>
+    /// A batch is one projected read and one bulk write, so the whole pass costs two round trips per 500
+    /// references and none per tenant item: the items are re-stamped server-side inside each entry's
+    /// <c>UpdateMany</c>. That is the property that matters as the app grows - more users mean more documents
+    /// written per reference, but not more round trips, more payload, or more memory here. It used to be one
+    /// <c>UpdateMany</c> round trip per reference, on top of reading every reference document whole.
+    /// </para>
+    /// </summary>
+    private static async Task<(int ReferencesChecked, long ItemsUpdated)> RecomputeReferenceRatingsAsync(
         Func<string, Task<long>> countOnOtherSource,
-        Func<Task<List<TReference>>> findAll,
-        Func<TReference, (string Id, IReadOnlyDictionary<string, ReferenceRatingModel> Ratings)> project,
-        Func<string, double?, double?, string?, Task<long>> setRating,
+        Func<string?, int, Task<IReadOnlyList<(string Id, Dictionary<string, ReferenceRatingModel> Ratings)>>> findRatings,
+        Func<IReadOnlyList<(string ReferenceId, double? Rating, double? RatingScale, string? Source)>, Task<long>> setRatings,
         string source)
     {
         // one counted query decides whether there is any work; nothing is read or written when there isn't
         if (await countOnOtherSource(source) == 0) return (0, 0);
 
-        var references = await findAll();
-        long updated = 0;
-        foreach (var reference in references)
+        var referencesChecked = 0;
+        long itemsUpdated = 0;
+        string? afterId = null;
+
+        while (true)
         {
-            var (id, ratings) = project(reference);
-            var (value, scale, stampedSource) = PrimaryRating(ratings, source);
-            updated += await setRating(id, value, scale, stampedSource);
+            var batch = await findRatings(afterId, RecomputeBatchSize);
+            if (batch.Count == 0) break;
+
+            var updates = new List<(string ReferenceId, double? Rating, double? RatingScale, string? Source)>(batch.Count);
+            foreach (var (id, ratings) in batch)
+            {
+                var (value, scale, stampedSource) = PrimaryRating(ratings, source);
+                updates.Add((id, value, scale, stampedSource));
+            }
+
+            itemsUpdated += await setRatings(updates);
+            referencesChecked += batch.Count;
+            afterId = batch[^1].Id;
+
+            // a short page is the last one - stop rather than pay for a query that can only come back empty
+            if (batch.Count < RecomputeBatchSize) break;
         }
 
-        return (references.Count, updated);
+        return (referencesChecked, itemsUpdated);
     }
 
     /// <summary>

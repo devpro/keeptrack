@@ -39,6 +39,10 @@ public class TvShowReference
     /// <summary>Aggregate ratings keyed by source name (e.g. "tmdb") - see <see cref="ReferenceRating"/>.</summary>
     public Dictionary<string, ReferenceRating> Ratings { get; set; } = [];
 
+    /// <summary>When each rating source was last attempted, successful or not - see <see cref="Keeptrack.Domain.Models.TvShowReferenceModel.RatingsCheckedAt"/>.</summary>
+    [BsonElement("ratings_checked_at")]
+    public Dictionary<string, DateTime> RatingsCheckedAt { get; set; } = [];
+
     [BsonElement("image_url")]
     public string? ImageUrl { get; set; }
 

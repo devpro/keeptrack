@@ -23,6 +23,15 @@ public interface IMovieRepository : IDataRepository<MovieModel>, IExploreSourceR
     Task<long> SetReferenceRatingAsync(string referenceId, double? rating, double? ratingScale, string? source);
 
     /// <summary>
+    /// <see cref="SetReferenceRatingAsync"/> for a batch of references, applied as one bulk write. Backs the
+    /// admin "recompute" action, which re-stamps a whole domain at once: a reference at a time cost one round
+    /// trip each, while the batch costs one for the lot. Every entry still updates all of that reference's
+    /// linked items server-side, so the work grows with the user base but the number of round trips does not.
+    /// Returns the total number of tenant items modified.
+    /// </summary>
+    Task<long> SetReferenceRatingsAsync(IReadOnlyList<(string ReferenceId, double? Rating, double? RatingScale, string? Source)> updates);
+
+    /// <summary>
     /// How many linked items are stamped with a rating source other than <paramref name="source"/> (an item
     /// stamped with none at all counts). Lets the admin "recompute" action skip its whole pass when every item
     /// is already on the selected source, instead of rewriting values that are already correct.

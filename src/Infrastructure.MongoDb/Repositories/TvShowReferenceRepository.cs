@@ -34,6 +34,9 @@ public class TvShowReferenceRepository(IMongoDatabase mongoDatabase, TvShowRefer
     public Task<IReadOnlyList<string>> FindExternalIdsAsync(IReadOnlyCollection<string> ids, string provider) =>
         ExploreExclusionQueries.FindExternalIdsAsync(Collection, ids, provider, x => x.Id, x => x.ExternalIds);
 
+    public Task<IReadOnlyList<(string Id, Dictionary<string, ReferenceRatingModel> Ratings)>> FindRatingsAsync(string? afterId, int limit) =>
+        ReferenceRatingQueries.FindRatingsAsync<TvShowReference>(Collection, afterId, limit);
+
     public async Task<TvShowReferenceModel?> FindByTitleYearAsync(string title, int? year)
     {
         // matches against every known-good (title, year) combination for this reference (see MatchedAliases), not just its canonical TitleNormalized/Year -

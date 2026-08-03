@@ -51,6 +51,16 @@ public class TvShowReferenceModel : IHasId
     /// <summary>Aggregate ratings keyed by source ("tmdb") - see <see cref="ReferenceRatingModel"/>.</summary>
     public Dictionary<string, ReferenceRatingModel> Ratings { get; set; } = [];
 
+    /// <summary>
+    /// When each rating source was last *attempted* for this show, whether or not it produced a value - the
+    /// marker that stops the periodic sync's IMDb backfill re-asking OMDb about the same handful of titles
+    /// IMDb genuinely has nothing for, every pass, forever. Only a source that actually answered is stamped;
+    /// a call that never happened (no key, spent budget, failed request) deliberately leaves no trace, so one
+    /// exhausted afternoon can't write those titles off for the whole re-attempt window. Same shape and same
+    /// window as <see cref="ExploreCatalogueEntryModel.RatingsCheckedAt"/>.
+    /// </summary>
+    public Dictionary<string, DateTime> RatingsCheckedAt { get; set; } = [];
+
     public string? ImageUrl { get; set; }
 
     public DateTime? LastEnrichedAt { get; set; }

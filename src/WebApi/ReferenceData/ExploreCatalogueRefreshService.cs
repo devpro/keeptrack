@@ -53,12 +53,6 @@ public class ExploreCatalogueRefreshService(
     private const int MaxBackfillPerPass = 1000;
 
     /// <summary>
-    /// How long before a fruitless rating attempt is worth retrying. Without it, the handful of titles OMDb
-    /// has no rating for would consume the same budget every pass and coverage would never advance past them.
-    /// </summary>
-    private static readonly TimeSpan s_ratingReattemptAfter = TimeSpan.FromDays(90);
-
-    /// <summary>
     /// Refreshes every (domain, ordering) whose stored copy is older than <paramref name="staleAfter"/>, then
     /// spends this pass's rating-backfill budget. Pass <see cref="TimeSpan.Zero"/> to force a full rebuild.
     /// One failing ordering never aborts the run - it is logged and the next is attempted, the same way
@@ -167,7 +161,7 @@ public class ExploreCatalogueRefreshService(
 
             var ranking = ExploreRankings.For(type, RatingSourceCatalog.Imdb);
             var pending = await catalogueRepository.FindMissingRatingAsync(
-                type, ranking, RatingSourceCatalog.Imdb, DateTime.UtcNow - s_ratingReattemptAfter, Math.Min(MaxBackfillPerPass, affordable));
+                type, ranking, RatingSourceCatalog.Imdb, DateTime.UtcNow - RatingSourceCatalog.RatingReattemptAfter, Math.Min(MaxBackfillPerPass, affordable));
             var imdbIdFetcher = ImdbIdFetcher(type);
 
             foreach (var entry in pending)

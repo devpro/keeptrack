@@ -179,6 +179,9 @@ public class TvTimeImportServiceIdempotencyTest
         public Task<long> SetReferenceRatingAsync(string referenceId, double? rating, double? ratingScale, string? source) =>
             Task.FromResult(0L);
 
+        public Task<long> SetReferenceRatingsAsync(IReadOnlyList<(string ReferenceId, double? Rating, double? RatingScale, string? Source)> updates) =>
+            Task.FromResult(0L);
+
         public Task<long> CountLinkedOnOtherRatingSourceAsync(string source) => Task.FromResult(0L);
 
         public Task<IReadOnlyList<(string Title, int? Year, string? Creator)>> FindDistinctUnresolvedTitleYearsAsync() =>
@@ -200,6 +203,9 @@ public class TvTimeImportServiceIdempotencyTest
             Task.FromResult(0L);
 
         public Task<long> SetReferenceRatingAsync(string referenceId, double? rating, double? ratingScale, string? source) =>
+            Task.FromResult(0L);
+
+        public Task<long> SetReferenceRatingsAsync(IReadOnlyList<(string ReferenceId, double? Rating, double? RatingScale, string? Source)> updates) =>
             Task.FromResult(0L);
 
         public Task<long> CountLinkedOnOtherRatingSourceAsync(string source) => Task.FromResult(0L);

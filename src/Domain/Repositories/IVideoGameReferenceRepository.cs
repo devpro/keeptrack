@@ -25,6 +25,12 @@ public interface IVideoGameReferenceRepository
     /// </summary>
     Task<IReadOnlyList<string>> FindExternalIdsAsync(IReadOnlyCollection<string> ids, string provider);
 
+    /// <summary>
+    /// One page of (id, ratings) for the admin rating recompute - see
+    /// <see cref="IMovieReferenceRepository.FindRatingsAsync"/>.
+    /// </summary>
+    Task<IReadOnlyList<(string Id, Dictionary<string, ReferenceRatingModel> Ratings)>> FindRatingsAsync(string? afterId, int limit);
+
     Task<VideoGameReferenceModel?> FindByTitleYearAsync(string title, int? year);
 
     /// <summary>

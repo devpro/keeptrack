@@ -58,6 +58,9 @@ public class TvShowRepository(IMongoDatabase mongoDatabase, ILogger<TvShowReposi
     public Task<long> SetReferenceRatingAsync(string referenceId, double? rating, double? ratingScale, string? source) =>
         ReferenceRatingQueries.SetRatingAsync(GetCollection(), referenceId, rating, ratingScale, source);
 
+    public Task<long> SetReferenceRatingsAsync(IReadOnlyList<(string ReferenceId, double? Rating, double? RatingScale, string? Source)> updates) =>
+        ReferenceRatingQueries.SetRatingsAsync(GetCollection(), updates);
+
     public Task<long> CountLinkedOnOtherRatingSourceAsync(string source) =>
         ReferenceRatingQueries.CountLinkedOnOtherSourceAsync(GetCollection(), source);
 

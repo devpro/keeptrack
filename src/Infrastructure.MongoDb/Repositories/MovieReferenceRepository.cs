@@ -35,6 +35,9 @@ public class MovieReferenceRepository(IMongoDatabase mongoDatabase, MovieReferen
     public Task<IReadOnlyList<string>> FindExternalIdsAsync(IReadOnlyCollection<string> ids, string provider) =>
         ExploreExclusionQueries.FindExternalIdsAsync(Collection, ids, provider, x => x.Id, x => x.ExternalIds);
 
+    public Task<IReadOnlyList<(string Id, Dictionary<string, ReferenceRatingModel> Ratings)>> FindRatingsAsync(string? afterId, int limit) =>
+        ReferenceRatingQueries.FindRatingsAsync<MovieReference>(Collection, afterId, limit);
+
     public async Task<MovieReferenceModel?> FindByTitleYearAsync(string title, int? year)
     {
         // matches against every known-good (title, year) combination for this reference (see

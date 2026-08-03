@@ -40,6 +40,12 @@ public class MovieReferenceModel : IHasId
     /// </summary>
     public Dictionary<string, ReferenceRatingModel> Ratings { get; set; } = [];
 
+    /// <summary>
+    /// When each rating source was last *attempted* for this movie, whether or not it produced a value -
+    /// see <see cref="TvShowReferenceModel.RatingsCheckedAt"/> for what it protects against.
+    /// </summary>
+    public Dictionary<string, DateTime> RatingsCheckedAt { get; set; } = [];
+
     public string? ImageUrl { get; set; }
 
     public DateTime? LastEnrichedAt { get; set; }

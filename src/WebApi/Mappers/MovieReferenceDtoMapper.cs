@@ -16,5 +16,7 @@ public partial class MovieReferenceDtoMapper
     [MapperIgnoreSource(nameof(MovieReferenceModel.MatchedAliases))]
     [MapperIgnoreSource(nameof(MovieReferenceModel.Cast))]
     [MapperIgnoreSource(nameof(MovieReferenceModel.LastEnrichedAt))]
+    // sync bookkeeping (when a rating source was last asked), like LastEnrichedAt above - of no use to a client
+    [MapperIgnoreSource(nameof(MovieReferenceModel.RatingsCheckedAt))]
     public partial MovieReferenceDto ToDto(MovieReferenceModel model);
 }

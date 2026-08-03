@@ -33,6 +33,9 @@ public class VideoGameReferenceRepository(IMongoDatabase mongoDatabase, VideoGam
     public Task<IReadOnlyList<string>> FindExternalIdsAsync(IReadOnlyCollection<string> ids, string provider) =>
         ExploreExclusionQueries.FindExternalIdsAsync(Collection, ids, provider, x => x.Id, x => x.ExternalIds);
 
+    public Task<IReadOnlyList<(string Id, Dictionary<string, ReferenceRatingModel> Ratings)>> FindRatingsAsync(string? afterId, int limit) =>
+        ReferenceRatingQueries.FindRatingsAsync<VideoGameReference>(Collection, afterId, limit);
+
     public async Task<VideoGameReferenceModel?> FindByTitleYearAsync(string title, int? year)
     {
         var normalized = TitleNormalizer.Normalize(title);

@@ -25,6 +25,16 @@ public interface IMovieReferenceRepository
     /// </summary>
     Task<IReadOnlyList<string>> FindExternalIdsAsync(IReadOnlyCollection<string> ids, string provider);
 
+    /// <summary>
+    /// One page of (id, ratings) for the admin rating recompute, ordered by id and starting after
+    /// <paramref name="afterId"/> (null for the first page). Another server-side projection, for the same
+    /// reason as <see cref="FindExternalIdsAsync"/>: the recompute reads two fields per document, and
+    /// <see cref="FindAllAsync"/> would haul whole documents - synopsis, cast, matched aliases - to supply
+    /// them. Paged by id cursor rather than read whole, so a growing collection can't grow the memory one
+    /// recompute needs.
+    /// </summary>
+    Task<IReadOnlyList<(string Id, Dictionary<string, ReferenceRatingModel> Ratings)>> FindRatingsAsync(string? afterId, int limit);
+
     Task<MovieReferenceModel?> FindByTitleYearAsync(string title, int? year);
 
     /// <summary>

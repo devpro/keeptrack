@@ -63,6 +63,11 @@ public class MovieRepository(IMongoDatabase mongoDatabase, ILogger<MovieReposito
         return ReferenceRatingQueries.SetRatingAsync(GetCollection(), referenceId, rating, ratingScale, source);
     }
 
+    public Task<long> SetReferenceRatingsAsync(IReadOnlyList<(string ReferenceId, double? Rating, double? RatingScale, string? Source)> updates)
+    {
+        return ReferenceRatingQueries.SetRatingsAsync(GetCollection(), updates);
+    }
+
     public Task<long> CountLinkedOnOtherRatingSourceAsync(string source)
     {
         return ReferenceRatingQueries.CountLinkedOnOtherSourceAsync(GetCollection(), source);

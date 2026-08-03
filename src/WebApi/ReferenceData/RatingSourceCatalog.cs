@@ -22,6 +22,16 @@ public static class RatingSourceCatalog
     /// <summary>IMDb's 0-10 aggregate (via OMDb) - same scale as TMDB, occasionally absent for obscure titles.</summary>
     public const string Imdb = "imdb";
 
+    /// <summary>
+    /// How long a *fruitless* rating attempt is remembered before it is worth asking the provider again.
+    /// Every consumer that stamps an attempt shares this window: the Explore catalogue backfill and the
+    /// reference sync's IMDb backfill. Without it, the handful of titles a source genuinely has nothing for
+    /// cost a call on every single pass, forever, and the budget they burn is budget the titles that *are*
+    /// rated never get - coverage stops advancing. Declared here beside the source keys rather than privately
+    /// in whichever service happens to backfill, so the two can't drift apart.
+    /// </summary>
+    public static readonly TimeSpan RatingReattemptAfter = TimeSpan.FromDays(90);
+
     // per domain, the selectable source keys; the first is the code default.
     private static readonly IReadOnlyDictionary<ReferenceItemType, IReadOnlyList<string>> s_sources =
         new Dictionary<ReferenceItemType, IReadOnlyList<string>>
