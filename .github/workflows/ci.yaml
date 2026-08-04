@@ -67,10 +67,12 @@ jobs:
       dotnet-test-args: "--report-xunit-trx --coverage --coverage-output-format cobertura"
       extra-vars: |
         AllowedOrigins__0=5207
+        AllowedOrigins__1=7042
         Features__IsScalarEnabled=true
         Features__IsHttpsRedirectionEnabled=false
         Infrastructure__MongoDB__ConnectionString=mongodb://localhost:27017
         Infrastructure__MongoDB__DatabaseName=keeptrack_ci
+        Logging__LogLevel__Keeptrack=Debug
       fossa-enabled: true
       sonar-enabled: true
       sonar-cpd-exclusions: "**/*.g.cs,**/*.generated.cs,**/src/WebApi.Contracts/Dto/*.cs,**/src/Domain/Models/*.cs,**/src/Infrastructure.MongoDb/Entities/*.cs"
@@ -89,8 +91,8 @@ jobs:
         Tmdb__ApiKey=${{ secrets.TMDB_APIKEY }}
         Rawg__ApiKey=${{ secrets.RAWG_APIKEY }}
         Discogs__Token=${{ secrets.DISCOGS_TOKEN }}
+        GoogleBooks__ApiKey=${{ secrets.GOOGLEBOOKS_APIKEY }}
         Omdb__ApiKey=${{ secrets.OMDB_APIKEY }}
-        Discogs__ApiKey=${{ secrets.DISCOGS_TOKEN }}
         Igdb__ClientId=${{ secrets.IGDB_CLIENTID }}
         Igdb__ClientSecret=${{ secrets.IGDB_CLIENTSECRET }}
         FIREBASE_APIKEY=${{ secrets.FIREBASE_APIKEY }}
