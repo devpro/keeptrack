@@ -231,11 +231,14 @@
     <div class="d-flex align-items-center gap-3 flex-wrap">
         <button class="btn btn-sm btn-secondary" @onclick="ExportAsync" disabled="@_exporting">Download export</button>
         <InputFile OnChange="OnImportFileSelectedAsync" accept=".zip" disabled="@_importing"/>
-        @if (_importing)
-        {
-            <div class="kt-spinner" style="width:1rem;height:1rem"></div>
-        }
     </div>
+    @if (_importing)
+    {
+        <div class="progress mt-3" style="height:8px;">
+            <div class="progress-bar" role="progressbar" style="width:@(ImportProgressPercent(_importStage))%"></div>
+        </div>
+        <p class="kt-card-meta mt-2">@ImportStageLabel(_importStage)</p>
+    }
     @if (_importResult is not null)
     {
         <div class="alert alert-info mt-3 mb-0">
@@ -394,8 +397,10 @@
     private bool _importing;
     private ReferenceDataImportResultDto? _importResult;
     private string? _importExportError;
+    private ReferenceDataImportStage _importStage;
 
     private static readonly TimeSpan SyncPollInterval = TimeSpan.FromMilliseconds(600);
+    private static readonly TimeSpan ImportPollInterval = TimeSpan.FromMilliseconds(600);
 
     private bool _syncing;
     private bool _forceSync;
@@ -505,10 +510,41 @@
         _importing = true;
         _importExportError = null;
         _importResult = null;
+        _importStage = ReferenceDataImportStage.Parsing;
         try
         {
-            await using var stream = e.File.OpenReadStream(MaxImportFileSize);
-            _importResult = await Api.ImportAsync(stream, e.File.Name);
+            // buffered here rather than handed to the API client as a live stream: an IBrowserFile stream is
+            // pulled down the SignalR circuit in small chunks, and doing that *during* the POST would count the
+            // whole upload against the request's own timeout.
+            using var buffer = new MemoryStream();
+            await using (var stream = e.File.OpenReadStream(MaxImportFileSize))
+            {
+                await stream.CopyToAsync(buffer);
+            }
+
+            buffer.Position = 0;
+            var jobId = await Api.StartImportAsync(buffer, e.File.Name);
+
+            while (true)
+            {
+                var status = await Api.GetImportStatusAsync(jobId);
+                _importStage = status.Stage;
+
+                if (status.Stage == ReferenceDataImportStage.Completed)
+                {
+                    _importResult = status.Result;
+                    break;
+                }
+
+                if (status.Stage == ReferenceDataImportStage.Failed)
+                {
+                    _importExportError = status.ErrorMessage ?? "The import failed.";
+                    break;
+                }
+
+                StateHasChanged();
+                await Task.Delay(ImportPollInterval);
+            }
         }
         catch (Exception ex)
         {
@@ -519,6 +555,33 @@
             _importing = false;
         }
     }
+
+    private static int ImportProgressPercent(ReferenceDataImportStage stage) => stage switch
+    {
+        ReferenceDataImportStage.ImportingPeople => 15,
+        ReferenceDataImportStage.ImportingTvShows => 55,
+        ReferenceDataImportStage.ImportingMovies => 70,
+        ReferenceDataImportStage.ImportingBooks => 80,
+        ReferenceDataImportStage.ImportingVideoGames => 88,
+        ReferenceDataImportStage.ImportingAlbums => 95,
+        ReferenceDataImportStage.Completed => 100,
+        _ => 5
+    };
+
+    private static string ImportStageLabel(ReferenceDataImportStage stage) => stage switch
+    {
+        ReferenceDataImportStage.Parsing => "Reading the export…",
+        // people are the bulk of a real export, so this stage holds for most of the run - say so rather than
+        // leaving a bar that looks stuck
+        ReferenceDataImportStage.ImportingPeople => "Importing people (the biggest collection - this is most of the wait)…",
+        ReferenceDataImportStage.ImportingTvShows => "Importing TV shows…",
+        ReferenceDataImportStage.ImportingMovies => "Importing movies…",
+        ReferenceDataImportStage.ImportingBooks => "Importing books…",
+        ReferenceDataImportStage.ImportingVideoGames => "Importing video games…",
+        ReferenceDataImportStage.ImportingAlbums => "Importing albums…",
+        ReferenceDataImportStage.Completed => "Done",
+        _ => ""
+    };
 
     private bool _loadingSystemStatus;
     private SystemStatusDto? _systemStatus;

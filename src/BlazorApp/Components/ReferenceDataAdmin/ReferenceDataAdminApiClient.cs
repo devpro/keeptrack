@@ -95,8 +95,18 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
     /// Re-import of a previously exported zip. Documents are matched by provider id, not by the <c>_id</c>
     /// they were exported with, so this is idempotent and safe against a database that already holds some of
     /// the same references - see <c>ReferenceDataImportService</c>.
+    /// <para>
+    /// Runs in the background; poll <see cref="GetImportStatusAsync"/> with the returned job id for progress.
+    /// A real export is tens of thousands of documents, which takes far longer than this client's default
+    /// 100s timeout - waiting on one response reported a timeout for an import that was still running fine.
+    /// </para>
     /// </summary>
-    public async Task<ReferenceDataImportResultDto> ImportAsync(Stream zipStream, string fileName)
+    /// <param name="zipStream">
+    /// Read to the end before the request is sent, so pass a stream that is already in memory. Handing
+    /// <c>IBrowserFile.OpenReadStream()</c> straight to <see cref="StreamContent"/> makes the API wait on the
+    /// browser drip-feeding the file down the SignalR circuit mid-request.
+    /// </param>
+    public async Task<Guid> StartImportAsync(Stream zipStream, string fileName)
     {
         using var content = new MultipartFormDataContent();
         using var streamContent = new StreamContent(zipStream);
@@ -105,19 +115,16 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
 
         var response = await http.PostAsync("/api/reference-data/import", content);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<ReferenceDataImportResultDto>() ?? EmptyImportResult();
+
+        var job = await response.Content.ReadFromJsonAsync<ReferenceDataImportJobDto>();
+        return job!.JobId;
     }
 
-    private static ReferenceDataImportResultDto EmptyImportResult() => new()
+    public async Task<ReferenceDataImportJobStatusDto> GetImportStatusAsync(Guid jobId)
     {
-        TvShows = new ReferenceDataImportCountsDto { Created = 0, Updated = 0 },
-        Movies = new ReferenceDataImportCountsDto { Created = 0, Updated = 0 },
-        People = new ReferenceDataImportCountsDto { Created = 0, Updated = 0 },
-        Books = new ReferenceDataImportCountsDto { Created = 0, Updated = 0 },
-        VideoGames = new ReferenceDataImportCountsDto { Created = 0, Updated = 0 },
-        Albums = new ReferenceDataImportCountsDto { Created = 0, Updated = 0 },
-        SkippedExternalIds = []
-    };
+        var status = await http.GetFromJsonAsync<ReferenceDataImportJobStatusDto>($"/api/reference-data/import/{jobId}");
+        return status ?? new ReferenceDataImportJobStatusDto { Stage = ReferenceDataImportStage.Failed, ErrorMessage = "Lost track of the import job." };
+    }
 
     /// <summary>
     /// Runs the reference sync now instead of waiting for the periodic background one (see

@@ -31,6 +31,7 @@ public class ReferenceDataAdminController(
     IDiscogsClient discogsClient,
     ReferenceEnrichmentService enrichmentService,
     JobStore<ReferenceSyncStage, ReferenceSyncResultDto> syncJobStore,
+    JobStore<ReferenceDataImportStage, ReferenceDataImportResultDto> importJobStore,
     IServiceScopeFactory scopeFactory,
     ITvShowReferenceRepository tvShowReferenceRepository,
     IMovieReferenceRepository movieReferenceRepository,
@@ -83,23 +84,135 @@ public class ReferenceDataAdminController(
     /// Every document is matched by its <b>provider id</b> (TMDB, IGDB, Google Books, Discogs...), never by the <c>_id</c> it was exported with -
     /// see <see cref="ReferenceDataImportService"/> for why that distinction is the whole feature, and for what a match merges rather than replaces.
     /// Idempotent either way: re-running the same import updates the same documents in place a second time.
+    /// <para>
+    /// Runs in the background; poll <see cref="GetImportStatus"/> with the returned job id for progress. A real
+    /// export is tens of thousands of documents (people alone run to five figures), each one a write, so this
+    /// comfortably outlives a single request/response - as a blocking call it died on the *client's* default
+    /// 100s <c>HttpClient.Timeout</c> while the server kept importing, reporting a failure for work that was
+    /// still running and would go on to succeed.
+    /// </para>
     /// </summary>
     [HttpPost("import")]
     [RequestSizeLimit(50_000_000)]
     [Consumes("multipart/form-data")]
-    [ProducesResponseType(200)]
+    [ProducesResponseType(202)]
     [ProducesResponseType(400)]
     [SuppressMessage("Security", "S5693:Make sure the content length limit is safe here",
         Justification = "The limit IS set (50 MB), deliberately above Sonar's 8 MB default: " +
                         "a full reference-data export (six collections of episode guides, cast, aliases) grows past 8 MB, and the endpoint is admin-only.")]
-    public async Task<ActionResult<ReferenceDataImportResultDto>> Import(IFormFile file)
+    public async Task<ActionResult<ReferenceDataImportJobDto>> Import(IFormFile file)
     {
         if (file.Length == 0) return BadRequest();
 
-        await using var uploadStream = file.OpenReadStream();
-        await using var archive = new ZipArchive(uploadStream, ZipArchiveMode.Read);
+        // buffered up front: IFormFile's stream isn't valid once this request finishes, but the import itself
+        // runs in the background after we respond
+        var buffer = new MemoryStream();
+        await using (var uploadStream = file.OpenReadStream())
+        {
+            await uploadStream.CopyToAsync(buffer);
+        }
 
-        var payload = new ReferenceDataImportPayload
+        buffer.Position = 0;
+        var jobId = await importJobStore.CreateAsync(this.GetUserId(), ReferenceDataImportStage.Parsing);
+
+        _ = RunImportJobAsync(jobId, buffer);
+
+        return Accepted(new ReferenceDataImportJobDto { JobId = jobId });
+    }
+
+    /// <summary>
+    /// Current status of a previously started import job.
+    /// </summary>
+    [HttpGet("import/{jobId:guid}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(404)]
+    public async Task<ActionResult<ReferenceDataImportJobStatusDto>> GetImportStatus(Guid jobId)
+    {
+        var status = await importJobStore.GetStatusAsync(jobId, this.GetUserId());
+        if (status is null) return NotFound();
+
+        return Ok(new ReferenceDataImportJobStatusDto { Stage = status.Value.Stage, Result = status.Value.Result, ErrorMessage = status.Value.ErrorMessage });
+    }
+
+    /// <summary>
+    /// Runs the import on a background task using its own DI scope - the request that started it has already
+    /// completed by the time this runs, so none of the request's scoped services (the six repositories, its own
+    /// JobStore) are still usable.
+    /// <para>
+    /// It runs on <see cref="IHostApplicationLifetime.ApplicationStopping"/> for the same reason
+    /// <see cref="RunSyncJobAsync"/> does: a shutdown mid-import would otherwise leave it writing against a
+    /// disposed Mongo client, including the final job-store write that would leave the job reading "Running"
+    /// forever. Stopping partway is safe here - the import is idempotent, so re-running the same zip picks up
+    /// what didn't land and updates what did.
+    /// </para>
+    /// </summary>
+    private async Task RunImportJobAsync(Guid jobId, MemoryStream buffer)
+    {
+        var cancellationToken = lifetime.ApplicationStopping;
+        await using (buffer)
+        {
+            using var scope = scopeFactory.CreateScope();
+            var scopedJobStore = scope.ServiceProvider.GetRequiredService<JobStore<ReferenceDataImportStage, ReferenceDataImportResultDto>>();
+
+            try
+            {
+                var payload = await ReadPayloadAsync(buffer);
+                var summary = await ReferenceDataImportService.ImportAsync(
+                    payload,
+                    new ReferenceRepositorySet(
+                        scope.ServiceProvider.GetRequiredService<ITvShowReferenceRepository>(),
+                        scope.ServiceProvider.GetRequiredService<IMovieReferenceRepository>(),
+                        scope.ServiceProvider.GetRequiredService<IPersonReferenceRepository>(),
+                        scope.ServiceProvider.GetRequiredService<IBookReferenceRepository>(),
+                        scope.ServiceProvider.GetRequiredService<IVideoGameReferenceRepository>(),
+                        scope.ServiceProvider.GetRequiredService<IAlbumReferenceRepository>()),
+                    collection => scopedJobStore.UpdateStageAsync(jobId, StageOf(collection)),
+                    cancellationToken);
+
+                foreach (var skipped in summary.SkippedExternalIds)
+                {
+                    // reported in the result too, but logged so the collision leaves a server-side trail: it means the
+                    // target holds two reference documents for one work, which the import deliberately won't merge on its own.
+                    logger.LogWarning("Reference-data import skipped external id {ExternalId}: another document in this database already claims it.", skipped);
+                }
+
+                await scopedJobStore.CompleteAsync(jobId, ReferenceDataImportStage.Completed, new ReferenceDataImportResultDto
+                {
+                    TvShows = ToDto(summary.TvShows),
+                    Movies = ToDto(summary.Movies),
+                    People = ToDto(summary.People),
+                    Books = ToDto(summary.Books),
+                    VideoGames = ToDto(summary.VideoGames),
+                    Albums = ToDto(summary.Albums),
+                    SkippedExternalIds = summary.SkippedExternalIds
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                // the API is going down, so this is neither a success nor a fault to investigate - just say so
+                // plainly and stop. Best-effort: the job store may already be unusable at this point.
+                try
+                {
+                    await scopedJobStore.FailAsync(jobId, ReferenceDataImportStage.Failed,
+                        "The API shut down before the import finished. Import the same file again once it is back up - it will pick up where this one stopped.");
+                }
+                catch (Exception writeFailure)
+                {
+                    logger.LogWarning(writeFailure, "Could not record that import job {JobId} was interrupted by shutdown.", jobId);
+                }
+            }
+            catch (Exception ex)
+            {
+                await scopedJobStore.FailAsync(jobId, ReferenceDataImportStage.Failed, ex.Message);
+            }
+        }
+    }
+
+    private static async Task<ReferenceDataImportPayload> ReadPayloadAsync(Stream zipStream)
+    {
+        using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
+
+        return new ReferenceDataImportPayload
         {
             TvShows = await ReadJsonEntryAsync<TvShowReferenceModel>(archive, TvShowEntryName),
             Movies = await ReadJsonEntryAsync<MovieReferenceModel>(archive, MovieEntryName),
@@ -108,34 +221,23 @@ public class ReferenceDataAdminController(
             VideoGames = await ReadJsonEntryAsync<VideoGameReferenceModel>(archive, VideoGameEntryName),
             Albums = await ReadJsonEntryAsync<AlbumReferenceModel>(archive, AlbumEntryName)
         };
-
-        var summary = await ReferenceDataImportService.ImportAsync(
-            payload,
-            tvShowReferenceRepository,
-            movieReferenceRepository,
-            personReferenceRepository,
-            bookReferenceRepository,
-            videoGameReferenceRepository,
-            albumReferenceRepository);
-
-        foreach (var skipped in summary.SkippedExternalIds)
-        {
-            // reported in the response too, but logged so the collision leaves a server-side trail: it means the
-            // target holds two reference documents for one work, which the import deliberately won't merge on its own.
-            logger.LogWarning("Reference-data import skipped external id {ExternalId}: another document in this database already claims it.", skipped);
-        }
-
-        return Ok(new ReferenceDataImportResultDto
-        {
-            TvShows = ToDto(summary.TvShows),
-            Movies = ToDto(summary.Movies),
-            People = ToDto(summary.People),
-            Books = ToDto(summary.Books),
-            VideoGames = ToDto(summary.VideoGames),
-            Albums = ToDto(summary.Albums),
-            SkippedExternalIds = summary.SkippedExternalIds
-        });
     }
+
+    /// <summary>
+    /// The client-facing stage for the collection the import just started. Domain reports which collection it
+    /// is writing; naming that as a job stage (alongside the parse/complete/fail states it knows nothing about)
+    /// is the web layer's job.
+    /// </summary>
+    private static ReferenceDataImportStage StageOf(ReferenceDataImportCollection collection) => collection switch
+    {
+        ReferenceDataImportCollection.People => ReferenceDataImportStage.ImportingPeople,
+        ReferenceDataImportCollection.TvShows => ReferenceDataImportStage.ImportingTvShows,
+        ReferenceDataImportCollection.Movies => ReferenceDataImportStage.ImportingMovies,
+        ReferenceDataImportCollection.Books => ReferenceDataImportStage.ImportingBooks,
+        ReferenceDataImportCollection.VideoGames => ReferenceDataImportStage.ImportingVideoGames,
+        ReferenceDataImportCollection.Albums => ReferenceDataImportStage.ImportingAlbums,
+        _ => throw new ArgumentOutOfRangeException(nameof(collection), collection, null)
+    };
 
     private static ReferenceDataImportCountsDto ToDto(ReferenceDataImportCounts counts) =>
         new() { Created = counts.Created, Updated = counts.Updated };

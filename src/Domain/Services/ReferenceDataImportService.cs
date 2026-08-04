@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
@@ -37,43 +38,55 @@ namespace Keeptrack.Domain.Services;
 /// </summary>
 public static class ReferenceDataImportService
 {
+    /// <param name="onCollectionStarted">
+    /// Called as each collection starts, so the caller can report progress. An import is a long-running
+    /// background job (a full export runs to tens of thousands of documents), never a blocking request.
+    /// </param>
+    /// <param name="cancellationToken">
+    /// Checked per document. A cancelled import stops partway and stays partly applied, which is safe
+    /// precisely because the whole thing is idempotent: re-running the same zip matches what already landed
+    /// by provider id and updates it in place a second time.
+    /// </param>
     public static async Task<ReferenceDataImportSummary> ImportAsync(
         ReferenceDataImportPayload payload,
-        ITvShowReferenceRepository tvShowReferenceRepository,
-        IMovieReferenceRepository movieReferenceRepository,
-        IPersonReferenceRepository personReferenceRepository,
-        IBookReferenceRepository bookReferenceRepository,
-        IVideoGameReferenceRepository videoGameReferenceRepository,
-        IAlbumReferenceRepository albumReferenceRepository)
+        ReferenceRepositorySet repositories,
+        Func<ReferenceDataImportCollection, Task> onCollectionStarted,
+        CancellationToken cancellationToken)
     {
         var summary = new ReferenceDataImportSummary();
 
         // People first, and not just for tidiness: the other five collections cite them by id, so a person who
         // already exists in the target under a different _id has to be discovered - and mapped - before any
         // document naming them is written, or every imported cast row would point at an id that isn't there.
+        await onCollectionStarted(ReferenceDataImportCollection.People);
         var personIds = await ImportCollectionAsync(
-            payload.People, personReferenceRepository.FindAllAsync, personReferenceRepository.UpsertAsync,
-            MergePerson, summary, summary.People);
+            payload.People, repositories.People.FindAllAsync, repositories.People.UpsertAsync,
+            MergePerson, summary, summary.People, cancellationToken);
 
+        await onCollectionStarted(ReferenceDataImportCollection.TvShows);
         await ImportCollectionAsync(
-            payload.TvShows, tvShowReferenceRepository.FindAllAsync, tvShowReferenceRepository.UpsertAsync,
-            MergeTvShow, summary, summary.TvShows, show => RemapCast(show.Cast, personIds));
+            payload.TvShows, repositories.TvShows.FindAllAsync, repositories.TvShows.UpsertAsync,
+            MergeTvShow, summary, summary.TvShows, cancellationToken, show => RemapCast(show.Cast, personIds));
 
+        await onCollectionStarted(ReferenceDataImportCollection.Movies);
         await ImportCollectionAsync(
-            payload.Movies, movieReferenceRepository.FindAllAsync, movieReferenceRepository.UpsertAsync,
-            MergeMovie, summary, summary.Movies, movie => RemapCast(movie.Cast, personIds));
+            payload.Movies, repositories.Movies.FindAllAsync, repositories.Movies.UpsertAsync,
+            MergeMovie, summary, summary.Movies, cancellationToken, movie => RemapCast(movie.Cast, personIds));
 
+        await onCollectionStarted(ReferenceDataImportCollection.Books);
         await ImportCollectionAsync(
-            payload.Books, bookReferenceRepository.FindAllAsync, bookReferenceRepository.UpsertAsync,
-            MergeBook, summary, summary.Books, book => book.AuthorReferenceId = Remap(book.AuthorReferenceId, personIds));
+            payload.Books, repositories.Books.FindAllAsync, repositories.Books.UpsertAsync,
+            MergeBook, summary, summary.Books, cancellationToken, book => book.AuthorReferenceId = Remap(book.AuthorReferenceId, personIds));
 
+        await onCollectionStarted(ReferenceDataImportCollection.VideoGames);
         await ImportCollectionAsync(
-            payload.VideoGames, videoGameReferenceRepository.FindAllAsync, videoGameReferenceRepository.UpsertAsync,
-            MergeVideoGame, summary, summary.VideoGames);
+            payload.VideoGames, repositories.VideoGames.FindAllAsync, repositories.VideoGames.UpsertAsync,
+            MergeVideoGame, summary, summary.VideoGames, cancellationToken);
 
+        await onCollectionStarted(ReferenceDataImportCollection.Albums);
         await ImportCollectionAsync(
-            payload.Albums, albumReferenceRepository.FindAllAsync, albumReferenceRepository.UpsertAsync,
-            MergeAlbum, summary, summary.Albums, album => album.ArtistReferenceId = Remap(album.ArtistReferenceId, personIds));
+            payload.Albums, repositories.Albums.FindAllAsync, repositories.Albums.UpsertAsync,
+            MergeAlbum, summary, summary.Albums, cancellationToken, album => album.ArtistReferenceId = Remap(album.ArtistReferenceId, personIds));
 
         return summary;
     }
@@ -91,6 +104,7 @@ public static class ReferenceDataImportService
         Action<T, T> merge,
         ReferenceDataImportSummary summary,
         ReferenceDataImportCounts counts,
+        CancellationToken cancellationToken,
         Action<T>? remapPersonIds = null)
         where T : class, IHasExternalIds
     {
@@ -109,6 +123,7 @@ public static class ReferenceDataImportService
 
         foreach (var document in imported)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var exportedId = document.Id;
             // before matching/merging, so a kept-from-the-target cast list is never remapped a second time
             remapPersonIds?.Invoke(document);

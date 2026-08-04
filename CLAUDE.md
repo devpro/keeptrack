@@ -278,6 +278,9 @@ Providers: TMDB (TV/movie), IGDB / RAWG (video games), Discogs (albums), Google 
   This is TMDB's sanctioned pattern, so there is no local storage/static-file subsystem to operate.
 - **Export/import:** `GET/POST /api/reference-data/export`/`import` round-trip all six reference collections as a zip of JSON arrays, so reference data is portable across environments instead of re-earned per deployment.
   `FindAllAsync()` exists solely to back the export (unpaged, acceptable because this data is small and shared); the export is a straight serialization of the models, so Mapperly's unmapped-member errors are what keep it field-complete.
+  **The import is a background job** (202 + job id, `GET /api/reference-data/import/{jobId}` to poll), not a blocking request: a real export is tens of thousands of documents - people alone run to five figures - written one at a time, so as
+  a blocking call it reliably outlived the client's default 100s `HttpClient.Timeout` and reported a failure for an import that was still running and would go on to succeed.
+  The upload is buffered on both sides for the same reason (a Blazor `IBrowserFile` stream handed to `StreamContent` makes the browser feed the file down the SignalR circuit *during* the POST).
   **The import matches every document by its provider id, never by the `_id` it was exported with** (`Domain/Services/ReferenceDataImportService.cs`, one generic algorithm over all six collections - the repositories share no base
   interface, so it takes `FindAllAsync`/`UpsertAsync` as delegates).
   An `_id` is local to the database that minted it: upserting by it meant the same real work (TMDB 1396) landed as a *second* document in any environment that had already resolved it on its own, which the unique partial indexes above

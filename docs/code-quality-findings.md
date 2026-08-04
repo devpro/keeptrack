@@ -72,6 +72,36 @@ first and remapping every reference to them, merging instead of replacing, and l
 
 Guarded by `ReferenceDataImportResourceTest` (real HTTP, real MongoDB, one case per domain and per provider) - a mocked repository can't prove any of it, since the failure being prevented *is* the unique index firing.
 
+### Reference-data import ran as a blocking request, so a real export always failed on the client's 100s HTTP timeout while the server kept importing
+
+Confirmed in the running app on 2026-08-04 (local dev, a 2.5 MB export zip): the admin page reported `The request was canceled due to the configured HttpClient.Timeout of 100 seconds elapsing.`, with **nothing** in the WebApi logs - which
+reads like the request never arrived, but only because `appsettings.json` sets `"Microsoft": "Warning"` (so ASP.NET Core never logs request start/finish) and the import path itself logs only its skipped-external-id warnings, at the end.
+
+The size of the file was misleading: a 2.5 MB zip is 11.7 MB of JSON and **17 468 documents** (14 757 people, 1 505 movies, 642 TV shows, 330 games, 160 books, 74 albums), and `ReferenceDataImportService` writes them one
+`InsertOne`/`ReplaceOne` at a time after reading all six collections whole.
+That is minutes of work, run inside a single request/response - so `HttpClient`'s default 100s timeout cancelled the *client* while the server carried on importing to completion.
+The user therefore saw a hard failure for work that had actually succeeded, and re-running it was the only way to find out.
+This is exactly what CLAUDE.md's "long-running work runs as a background job, never a blocking request" rule exists to prevent; the endpoint predated the rule being applied to it, unlike TV Time import and `sync-now`.
+
+Fixed by moving it onto the existing `JobStore<TStage, TResult>` machinery, the same shape as those two: `POST /api/reference-data/import` buffers the upload, starts the work on a fresh `IServiceScopeFactory.CreateScope()`, and returns
+**202** with a job id; `GET /api/reference-data/import/{jobId}` reports progress; the admin page polls it and shows a per-collection progress bar instead of a spinner that could only ever end in a timeout.
+The job runs on `IHostApplicationLifetime.ApplicationStopping` and the import checks that token per document, so a shutdown mid-import stops promptly and says so, rather than writing against a disposed Mongo client - safe because the
+import is idempotent, so re-running the same zip picks up what didn't land.
+
+Two smaller things on the same path, both real:
+
+- `ReferenceDataAdminPage` handed `IBrowserFile.OpenReadStream()` straight to `StreamContent`, so the browser drip-feeding the file down the SignalR circuit happened *during* the POST and counted against its timeout.
+  It's buffered into memory first now.
+- Domain reports which collection it is writing (`ReferenceDataImportCollection`); naming that as a client-facing job stage stays in the web layer (`ReferenceDataImportStage`), since Domain can't reference `WebApi.Contracts`.
+
+Still open, deliberately: the import is still one round trip per document, so a full export takes minutes even as a background job.
+Batching the six collections into `BulkWrite` pages would cut that by an order of magnitude, but it touches all six repositories and the merge loop's incremental indexing (each saved document is indexed before the next is matched), and
+the timeout - the actual failure - is gone either way.
+
+Files: `src/WebApi/ReferenceData/ReferenceDataAdminController.cs`, `src/Domain/Services/ReferenceDataImportService.cs`, `src/Domain/Models/ReferenceDataImportCollection.cs`, `src/Domain/Models/ReferenceRepositorySet.cs`,
+`src/WebApi.Contracts/Dto/ReferenceDataImportJobDto.cs`, `src/BlazorApp/Components/ReferenceDataAdmin/ReferenceDataAdminApiClient.cs`, `src/BlazorApp/Components/ReferenceDataAdmin/ReferenceDataAdminPage.razor`,
+`test/WebApi.IntegrationTests/Resources/ReferenceDataImportResourceTest.cs`
+
 ### A slow Open Library discarded every book refresh, and pinned those books at the head of the staleness queue
 
 Confirmed in the running app on 2026-08-04: a forced sync reported `booksChecked: 7, booksUpdated: 0` while every other domain refreshed normally, and the 7 book references kept a `last_enriched_at` from the previous day.

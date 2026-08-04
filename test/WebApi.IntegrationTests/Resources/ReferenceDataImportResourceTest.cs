@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Net;
 using System.Text.Json;
 using System.Threading.Tasks;
 using AwesomeAssertions;
@@ -70,6 +71,47 @@ public class ReferenceDataImportResourceTest(KestrelWebAppFactory<Program> facto
         result.TvShows.Created.Should().Be(1);
         result.TvShows.Updated.Should().Be(0);
         (await repository.FindByExternalIdAsync("tmdb", tmdbId)).Should().NotBeNull();
+    }
+
+    /// <summary>
+    /// Both branches in one run, over the same collection - the shape every real import has, and the one the
+    /// per-branch tests above can't cover on their own. "0 new + N updated" is a claim about the database, so
+    /// this asserts what that claim means: an updated document is still the target's original <c>_id</c> and
+    /// still the only document carrying its provider id (nothing was inserted for it), while the created one
+    /// is genuinely new.
+    /// </summary>
+    [Fact]
+    public async Task Import_WhenOneDocumentIsKnownAndOneIsNot_CountsEachAgainstWhatItActuallyDid()
+    {
+        await Authenticate();
+        using var scope = Factory.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<ITvShowReferenceRepository>();
+        var knownTmdbId = TestExternalId.New();
+        var seeded = await SeedTvShowAsync(repository, "Import Mixed Known Show", knownTmdbId);
+
+        var newTmdbId = TestExternalId.New();
+        var newId = NewObjectId();
+        TrackDocument("tvshow_reference", newId);
+
+        var result = await ImportAsync(new ReferenceDataImportPayload
+        {
+            TvShows =
+            [
+                // the known show as another environment's export carries it: same TMDB id, that environment's own _id
+                NewTvShow("Import Mixed Known Show (exported)", knownTmdbId, NewObjectId()),
+                NewTvShow("Import Mixed Unknown Show", newTmdbId, newId)
+            ]
+        });
+
+        result.TvShows.Created.Should().Be(1);
+        result.TvShows.Updated.Should().Be(1);
+
+        var all = await repository.FindAllAsync();
+        // counted as updated => merged into the document that was already there, not inserted alongside it
+        all.Count(s => s.ExternalIds.GetValueOrDefault("tmdb") == knownTmdbId).Should().Be(1);
+        all.Single(s => s.ExternalIds.GetValueOrDefault("tmdb") == knownTmdbId).Id.Should().Be(seeded.Id);
+        // counted as created => a document that was not there before now is
+        all.Count(s => s.ExternalIds.GetValueOrDefault("tmdb") == newTmdbId).Should().Be(1);
     }
 
     /// <summary>
@@ -426,9 +468,36 @@ public class ReferenceDataImportResourceTest(KestrelWebAppFactory<Program> facto
         stored.Count(s => s.ExternalIds.GetValueOrDefault("tmdb") == tmdbId).Should().Be(1);
     }
 
-    private async Task<ReferenceDataImportResultDto> ImportAsync(ReferenceDataImportPayload payload) =>
-        await PostFileAsync<ReferenceDataImportResultDto>(
-            "/api/reference-data/import", "file", BuildZip(payload), "keeptrack-reference-data.zip");
+    /// <summary>
+    /// Uploads the zip and waits for the background job it starts (see <c>ReferenceDataAdminController.Import</c>) -
+    /// the endpoint answers 202 with a job id, since a real export takes far longer than one request.
+    /// </summary>
+    private async Task<ReferenceDataImportResultDto> ImportAsync(ReferenceDataImportPayload payload)
+    {
+        var job = await PostFileAsync<ReferenceDataImportJobDto>(
+            "/api/reference-data/import", "file", BuildZip(payload), "keeptrack-reference-data.zip", HttpStatusCode.Accepted);
+
+        // the job row outlives the import itself (TTL-expired after a week), so it's cleaned up too
+        TrackDocument("background_job", job.JobId.ToString());
+
+        for (var attempt = 0; attempt < 100; attempt++)
+        {
+            var status = await GetAsync<ReferenceDataImportJobStatusDto>($"/api/reference-data/import/{job.JobId}");
+            switch (status.Stage)
+            {
+                case ReferenceDataImportStage.Completed:
+                    status.Result.Should().NotBeNull();
+                    return status.Result!;
+                case ReferenceDataImportStage.Failed:
+                    throw new InvalidOperationException($"Import job failed: {status.ErrorMessage}");
+                default:
+                    await Task.Delay(100);
+                    break;
+            }
+        }
+
+        throw new TimeoutException("Import job did not complete in time.");
+    }
 
     private async Task<TvShowReferenceModel> SeedTvShowAsync(ITvShowReferenceRepository repository, string title, string tmdbId)
     {
