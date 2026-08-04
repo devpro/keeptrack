@@ -1,6 +1,5 @@
-// Idempotent: safe to run against a fresh database or one that already has these indexes, and safe to
-// re-run after this file changes. Plain createIndex() is already a no-op when an identical index exists,
-// but throws IndexOptionsConflict/IndexKeySpecsConflict (codes 85/86) if an index with the same name
+// Idempotent: safe to run against a fresh database or one that already has these indexes, and safe to re-run after this file changes.
+// Plain createIndex() is already a no-op when an identical index exists, but throws IndexOptionsConflict/IndexKeySpecsConflict (codes 85/86) if an index with the same name
 // exists with a different definition - ensureIndex() drops and recreates in that case instead of failing.
 function ensureIndex(collection, keys, options) {
   try {
@@ -15,9 +14,8 @@ function ensureIndex(collection, keys, options) {
   }
 }
 
-// owner_id: every list/search query for every tenant-scoped collection filters by owner_id first: the
-// single most common access pattern in the app. episode/movie/tvshow already get this for free from a
-// compound index below whose leftmost field is owner_id; these collections have no such index otherwise.
+// owner_id: every list/search query for every tenant-scoped collection filters by owner_id first: the single most common access pattern in the app.
+// episode/movie/tvshow already get this for free from a compound index below whose leftmost field is owner_id; these collections have no such index otherwise.
 ensureIndex(db.album, { owner_id: 1 }, { name: "album_owner" });
 ensureIndex(db.book, { owner_id: 1 }, { name: "book_owner" });
 ensureIndex(db.car, { owner_id: 1 }, { name: "car_owner" });
@@ -34,13 +32,11 @@ ensureIndex(db.videogame, { owner_id: 1 }, { name: "videogame_owner" });
 ensureIndex(db.song, { owner_id: 1 }, { name: "song_owner" });
 ensureIndex(db.playlist, { owner_id: 1 }, { name: "playlist_owner" });
 
-// car / car_history: both repositories now search via builder.Where(f => f.Name/Description.Contains(...)),
-// the same regex-filter approach as Album/Book/Movie/TvShow/VideoGame, none of which use a text index either
-// - a "text" index never accelerates a regex filter, so one isn't declared here. car/car_history previously
-// had a car_text/car_history_text index (`{ title: "text" }`), but Car's/CarHistory's BSON documents have no
-// `title` field at all (Car's searchable field is `commercial_name`; CarHistory's is `description`) - that
-// index never covered anything and CarRepository/CarHistoryRepository no longer fall back to $text, so it
-// was removed rather than repointed.
+// car / car_history: both repositories now search via builder.Where(f => f.Name/Description.Contains(...)), the same regex-filter approach as Album/Book/Movie/TvShow/VideoGame,
+// none of which use a text index either - a "text" index never accelerates a regex filter, so one isn't declared here.
+// car/car_history previously had a car_text/car_history_text index (`{ title: "text" }`), but Car's/CarHistory's BSON documents have no `title` field at all
+// (Car's searchable field is `commercial_name`; CarHistory's is `description`) - that index never covered anything and CarRepository/CarHistoryRepository no longer fall back to
+// $text, so it was removed rather than repointed.
 
 // house / house_history: same regex-filter search shape as car/car_history above - no text index needed here
 // either, for the same reason.
@@ -59,9 +55,8 @@ ensureIndex(
 );
 
 // movie / tvshow: partial indexes over the sparse favorite/want-to-watch flags (most documents are false).
-// These do NOT serve a plain "all movies/shows for this owner" query (a partial index only accelerates
-// queries the planner can prove only match documents inside the partial filter) - that's what the plain
-// owner_id indexes above are for.
+// These do NOT serve a plain "all movies/shows for this owner" query (a partial index only accelerates queries the planner can prove only match documents inside the partial
+// filter) - that's what the plain owner_id indexes above are for.
 ensureIndex(
   db.movie,
   { owner_id: 1, is_favorite: 1 },
