@@ -23,6 +23,33 @@ Update this file as items are fixed or as new reviews are performed.
 
 ## Fixed
 
+### A third-party provider being down reported itself as a 500, and reddened CI
+
+Confirmed on 2026-08-04: `BookProviderSearchAndLinkResourceTest` failed in CI with a 500 from `GET /api/reference-data/search?...&provider=openlibrary`, on a commit that changed nothing on that path.
+
+The cause was entirely outside the codebase - Open Library's `search.json` was degraded again (measured directly during the investigation:
+52.3s, then 503 and two 504s), past `AddBookProviderResilienceHandler`'s 40s total budget, so `Polly.Timeout.TimeoutRejectedException` escaped the controller action.
+`ApiExceptionFilterAttribute` mapped it, like everything it doesn't recognize, to **500** - which claims the fault is ours and makes a provider outage indistinguishable from a defect in this API, for a caller, for a log reader, and for a
+test.
+This is the interactive-path sibling of the Open Library finding below: that one fixed the *background* refresh discarding its work, this one fixes how the resulting failure is *reported*.
+
+Two fixes.
+
+- **`ApiExceptionFilterAttribute` now maps `TimeoutRejectedException`, `BrokenCircuitException` and `HttpRequestException` to 502 Bad Gateway**, logged as a warning rather than an error -
+  a bad gateway is worth a server-side trail, but it is not this application erroring.
+  Everything else still maps to 500, and argument exceptions still to 400.
+  The only outbound HTTP an action makes is to the reference providers, so the classification can't catch anything else.
+  Guarded by `ApiExceptionFilterAttributeTest.OnException_MapsAFailedProviderCallTo502` (one case per way the resilience pipeline gives up).
+- **The test no longer pins the flakiest provider, and skips on a genuine outage rather than failing.**
+  It ran only against Open Library, chosen on the belief that keyless-and-free meant reliable; Open Library is in fact the slowest endpoint any provider here calls even when healthy.
+  It is now a `[Theory]` over Google Books (the deployment default, and so the provider a real user's search reaches) and BnF (keyless, quota-free, answering in under a second while the other two were down), each case skipping itself on a
+  502 via `ResourceTestBase.GetThroughLiveProviderAsync`/`PostNoContentThroughLiveProviderAsync`.
+  Deliberately narrow: only 502 skips, so a 500 - this API failing - still fails the test.
+  Verified against the real providers while Google Books itself was returning 503s: the Google Books case skipped with its reason and the BnF case linked a real reference end to end.
+
+Files: `src/WebApi/Filters/ApiExceptionFilterAttribute.cs`, `test/WebApi.UnitTests/Filters/ApiExceptionFilterAttributeTest.cs`, `test/WebApi.IntegrationTests/Resources/ResourceTestBase.cs`,
+`test/WebApi.IntegrationTests/Resources/BookProviderSearchAndLinkResourceTest.cs`, `.github/workflows/ci.yaml` (`GoogleBooks__ApiKey`, previously missing from CI)
+
 ### An id that names nothing reached the user as the generic error page instead of a 404, and an id that wasn't a valid ObjectId reached it as a 500
 
 Found on 2026-08-04 while adding a real 404 page to the Blazor app.

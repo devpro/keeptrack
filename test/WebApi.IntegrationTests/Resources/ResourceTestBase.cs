@@ -9,6 +9,7 @@ using AwesomeAssertions;
 using Keeptrack.Common.System;
 using Keeptrack.Testing.Shared.Firebase;
 using Keeptrack.WebApi.IntegrationTests.Hosting;
+using Xunit;
 
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
@@ -103,23 +104,35 @@ public abstract class ResourceTestBase(KestrelWebAppFactory<Program> factory)
         var response = await _httpClient.GetAsync(url);
         response.StatusCode.Should().Be(httpStatusCode);
 
-        var stringResponse = await response.Content.ReadAsStringAsync();
-        stringResponse.Should().NotBeNullOrEmpty();
-        var output = JsonSerializer.Deserialize<T>(stringResponse, JsonSerializerOptions.Web);
-        output.Should().NotBeNull();
-        return output;
+        return await ReadJsonAsync<T>(response);
+    }
+
+    /// <summary>
+    /// A GET whose answer comes from a live third-party provider (the reference-data search endpoints), which
+    /// can be down or degraded while this codebase is perfectly correct. A 502 says exactly that - the
+    /// resilience pipeline gave up on the provider, see <c>ApiExceptionFilterAttribute</c> - so the test skips
+    /// instead of reddening CI over someone else's outage.
+    /// <para>
+    /// Deliberately narrow: only 502. A 500 is this API failing and must still fail the test. Learned from a
+    /// real CI failure - Open Library's <c>search.json</c> went to 52s and then 503/504, past the 40s total
+    /// budget, and the resulting 500 read as a broken endpoint.
+    /// </para>
+    /// </summary>
+    protected async Task<T> GetThroughLiveProviderAsync<T>(string url, string provider)
+    {
+        var response = await _httpClient.GetAsync(url);
+        SkipWhenProviderUnavailable(response.StatusCode, provider);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        return await ReadJsonAsync<T>(response);
     }
 
     protected async Task<T> PostAsync<T>(string url, T body, HttpStatusCode httpStatusCode = HttpStatusCode.Created)
     {
-        var bodyContent = new StringContent(JsonSerializer.Serialize(body, JsonSerializerOptions.Web), Encoding.UTF8, MediaTypeJson);
-        var response = await _httpClient.PostAsync(url, bodyContent);
+        var response = await _httpClient.PostAsync(url, JsonBody(body));
         response.StatusCode.Should().Be(httpStatusCode);
 
-        var stringResponse = await response.Content.ReadAsStringAsync();
-        var output = JsonSerializer.Deserialize<T>(stringResponse, JsonSerializerOptions.Web);
-        output.Should().NotBeNull();
-        return output;
+        return await ReadJsonAsync<T>(response);
     }
 
     /// <summary>
@@ -129,20 +142,15 @@ public abstract class ResourceTestBase(KestrelWebAppFactory<Program> factory)
     /// </summary>
     protected async Task<TResult> PostAsync<TBody, TResult>(string url, TBody body, HttpStatusCode httpStatusCode = HttpStatusCode.OK)
     {
-        var bodyContent = new StringContent(JsonSerializer.Serialize(body, JsonSerializerOptions.Web), Encoding.UTF8, MediaTypeJson);
-        var response = await _httpClient.PostAsync(url, bodyContent);
+        var response = await _httpClient.PostAsync(url, JsonBody(body));
         response.StatusCode.Should().Be(httpStatusCode);
 
-        var stringResponse = await response.Content.ReadAsStringAsync();
-        var output = JsonSerializer.Deserialize<TResult>(stringResponse, JsonSerializerOptions.Web);
-        output.Should().NotBeNull();
-        return output;
+        return await ReadJsonAsync<TResult>(response);
     }
 
     protected async Task PutAsync<T>(string url, T body, HttpStatusCode httpStatusCode = HttpStatusCode.NoContent)
     {
-        var bodyContent = new StringContent(JsonSerializer.Serialize(body, JsonSerializerOptions.Web), Encoding.UTF8, MediaTypeJson);
-        var response = await _httpClient.PutAsync(url, bodyContent);
+        var response = await _httpClient.PutAsync(url, JsonBody(body));
         response.StatusCode.Should().Be(httpStatusCode);
     }
 
@@ -153,10 +161,24 @@ public abstract class ResourceTestBase(KestrelWebAppFactory<Program> factory)
     /// </summary>
     protected async Task PostNoContentAsync<T>(string url, T body, HttpStatusCode httpStatusCode = HttpStatusCode.NoContent)
     {
-        var bodyContent = new StringContent(JsonSerializer.Serialize(body, JsonSerializerOptions.Web), Encoding.UTF8, MediaTypeJson);
-        var response = await _httpClient.PostAsync(url, bodyContent);
+        var response = await _httpClient.PostAsync(url, JsonBody(body));
         response.StatusCode.Should().Be(httpStatusCode);
     }
+
+    /// <summary>
+    /// The no-body POST counterpart of <see cref="GetThroughLiveProviderAsync{T}"/>, for the actions that
+    /// reach the provider again after a search (linking re-fetches the chosen candidate's details).
+    /// </summary>
+    protected async Task PostNoContentThroughLiveProviderAsync<T>(string url, T body, string provider)
+    {
+        var response = await _httpClient.PostAsync(url, JsonBody(body));
+        SkipWhenProviderUnavailable(response.StatusCode, provider);
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
+
+    private static void SkipWhenProviderUnavailable(HttpStatusCode statusCode, string provider) =>
+        Assert.SkipWhen(statusCode == HttpStatusCode.BadGateway,
+            $"{provider} could not be reached (502 Bad Gateway); skipping rather than failing on a third-party outage.");
 
     protected async Task<T> PostFileAsync<T>(string url, string fieldName, byte[] fileContent, string fileName, HttpStatusCode httpStatusCode = HttpStatusCode.OK)
     {
@@ -167,7 +189,16 @@ public abstract class ResourceTestBase(KestrelWebAppFactory<Program> factory)
         var response = await _httpClient.PostAsync(url, content);
         response.StatusCode.Should().Be(httpStatusCode);
 
+        return await ReadJsonAsync<T>(response);
+    }
+
+    private static StringContent JsonBody<T>(T body) =>
+        new(JsonSerializer.Serialize(body, JsonSerializerOptions.Web), Encoding.UTF8, MediaTypeJson);
+
+    private static async Task<T> ReadJsonAsync<T>(HttpResponseMessage response)
+    {
         var stringResponse = await response.Content.ReadAsStringAsync();
+        stringResponse.Should().NotBeNullOrEmpty();
         var output = JsonSerializer.Deserialize<T>(stringResponse, JsonSerializerOptions.Web);
         output.Should().NotBeNull();
         return output;

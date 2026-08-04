@@ -369,6 +369,10 @@ Or in Rider, in "File | Settings | Build, Execution, Deployment | Unit Testing |
 
 Set `KESTREL_WEBAPP_URL` to target a specific already-running instance instead of letting the tests spin up their own.
 
+Provider keys (`Tmdb__ApiKey`, `GoogleBooks__ApiKey`, ...) are optional for this suite: only `BookProviderSearchAndLinkResourceTest` calls a provider live, and each of its cases skips itself - reporting which provider and why -
+when that provider answers 502, which is what an unconfigured key or a provider outage both come to.
+Supply `GoogleBooks__ApiKey` to actually exercise the default book provider's search+link path locally; its keyless BnF case runs either way.
+
 The standard test user above now carries the `role: admin` custom claim (set via `scripts/firebase-user-role.js`, see [Admin role](#admin-role) above).
 So `ReferenceDataAdminResourceTest` and any other admin-gated endpoint can be exercised end-to-end over HTTP with the same single test account.
 There's no separate non-admin test account, so there's no automated coverage of the "AdminOnly" policy actually rejecting a non-admin caller; that would need a second Firebase test user without the claim.

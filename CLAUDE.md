@@ -176,7 +176,10 @@ Embed only genuinely small, always-together, never-queried-alone data (`TvShowRe
 `DataCrudControllerBase<TDto, TModel>` implements the whole CRUD surface once, generically, reading the caller's `user_id` claim via `ControllerBaseExtensions.GetUserId()` to scope every query and stamp `OwnerId`.
 Any new controller (CRUD or not) uses that same extension rather than re-reading the claim.
 
-`ApiExceptionFilterAttribute` converts unhandled exceptions to JSON (`ArgumentException`/`ArgumentNullException` -> 400, else 500) and logs each one first, so a 500 leaves a server-side trail.
+`ApiExceptionFilterAttribute` converts unhandled exceptions to JSON (`ArgumentException`/`ArgumentNullException` -> 400, a failed provider call -> 502, else 500) and logs each one first, so a failed request leaves a server-side trail.
+**A third-party provider that timed out, exhausted its retries or tripped its circuit breaker is a 502, not a 500** (`TimeoutRejectedException`/`BrokenCircuitException`/`HttpRequestException`, logged as a warning):
+reporting it as 500 claims the fault is ours and makes an outage indistinguishable from a defect here - which is exactly how a degraded Open Library once read as a broken endpoint and reddened CI.
+The only outbound HTTP an action makes is to the reference providers, so nothing else lands in that bucket.
 
 **Resilience:** every outbound third-party client (`TmdbClient`/`RawgClient`/`OpenLibraryClient`/`DiscogsClient`/`GoogleBooksClient`/`BnfClient`/`OmdbClient`) chains `.AddStandardResilienceHandler()` on its `AddHttpClient<...>()`
 registration - retry, per-attempt and total timeouts, circuit breaker.
@@ -695,6 +698,10 @@ This is why `ReconnectModal` kept its scaffolded white/blue colors despite an `a
   signature checking, since the API validates on every call).
   `TvTimeFixtureZipBuilder` builds a synthetic export in memory - never commit a real personal export.
   `SyncNow_PollingReachesACompletedResult` self-skips unless `REFERENCE_SYNC_POLL_ENABLED=true`.
+  **A test whose subject is a live third-party provider calls it through `GetThroughLiveProviderAsync`/`PostNoContentThroughLiveProviderAsync`**, which skip on a 502 - the status the API now returns when the *provider* failed
+  (see `ApiExceptionFilterAttribute`), so a third-party outage can't red the build while a 500 (this API failing) still does.
+  `BookProviderSearchAndLinkResourceTest` is the pattern: a `[Theory]` over more than one provider (Google Books, the default, plus keyless BnF), so whichever is up still proves the search+link path.
+  Never widen that skip past 502.
 - `test/Testing.Shared` - shared hosting/Firebase infrastructure for both suites, not a test project.
   `KestrelWebAppFactory<TEntryPoint>` takes its env-var name and config overrides as constructor parameters so each host supplies its own.
 - `test/BlazorApp.PlaywrightTests` - Playwright e2e (`Microsoft.Playwright.Xunit.v3`'s `PageTest`, plain facts, no Gherkin; see `docs/playwright-e2e-tests-plan.md`). Every test self-skips unless `E2E_ENABLED=true`, so a plain `dotnet test`
