@@ -8,7 +8,7 @@ namespace Keeptrack.Domain.Models;
 /// Shared, tenant-agnostic video game metadata sourced from an external provider (RAWG).
 /// See <see cref="TvShowReferenceModel"/> for why this deliberately has no <c>OwnerId</c>.
 /// </summary>
-public class VideoGameReferenceModel : IHasId
+public class VideoGameReferenceModel : IHasExternalIds
 {
     public string? Id { get; set; }
 

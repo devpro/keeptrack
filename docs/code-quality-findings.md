@@ -23,6 +23,32 @@ Update this file as items are fixed or as new reviews are performed.
 
 ## Fixed
 
+### Reference-data import matched documents by the `_id` they were exported with, so importing into a non-empty database duplicated or failed outright
+
+Found on 2026-08-04 while reviewing the feature before relying on it.
+
+`POST /api/reference-data/import` looped each of the six collections straight into `UpsertAsync`, which replaces by `_id` with `IsUpsert = true`.
+That is idempotent only against the database the export came from.
+Anywhere else, an `_id` is a locally-minted value with no meaning: an environment that had already resolved "The Terminator" on its own held it under a different `_id`, so the import inserted a *second* document for the same TMDB id - which
+`movie_reference_tmdb_id` (unique, partial) rejects.
+The write threw, `ApiExceptionFilterAttribute` turned it into a 500, and everything the loop had already written stayed (a zip is not a transaction).
+The feature therefore only ever worked for its narrowest case: seeding an empty database.
+
+Three further consequences, all only visible once matching was fixed:
+
+- **Cast pointed at nothing.** `Cast[].PersonReferenceId`, `AuthorReferenceId` and `ArtistReferenceId` store a `person_reference` `_id`.
+  Matching people by provider id without re-pointing the documents citing them leaves imported cast rows referencing ids the target doesn't have - and a missing person renders as no cast, so it fails silently.
+- **A replace discarded what only the target knew**: `MatchedAliases` confirmed by its own tenants' searches, and `Ratings` from a provider the exporting environment never called (an `imdb` value costs a metered OMDb call).
+- **`external_ids` uniqueness was declared for one provider per collection.** `book_reference` had an index for `openlibrary` (a fallback) but none for `googlebooks` (the default), and `person_reference` had one only for `tmdb` even though
+  book authors and album artists are created under whichever provider linked their work.
+  The application check was all that stood in the way of a duplicate there.
+
+Fixed by `Domain/Services/ReferenceDataImportService.cs`: one generic algorithm over all six collections, matching by provider id (any key the document carries, so no provider is named in it), keeping the target's `_id`, importing people
+first and remapping every reference to them, merging instead of replacing, and leaving behind - and reporting - a provider id another document already claims rather than failing the run on it.
+`scripts/mongodb-create-index.js` now declares the index per provider that can write each collection.
+
+Guarded by `ReferenceDataImportResourceTest` (real HTTP, real MongoDB, one case per domain and per provider) - a mocked repository can't prove any of it, since the failure being prevented *is* the unique index firing.
+
 ### A slow Open Library discarded every book refresh, and pinned those books at the head of the staleness queue
 
 Confirmed in the running app on 2026-08-04: a forced sync reported `booksChecked: 7, booksUpdated: 0` while every other domain refreshed normally, and the 7 book references kept a `last_enriched_at` from the previous day.

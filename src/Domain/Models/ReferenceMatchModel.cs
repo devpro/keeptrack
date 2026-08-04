@@ -32,4 +32,18 @@ public class ReferenceMatchModel
     /// backfilled from the provider's own canonical value onto an alias that didn't actually rely on it).
     /// </summary>
     public string? Isbn { get; set; }
+
+    /// <summary>
+    /// Whether this alias is the exact same confirmed combination as the one described by the arguments -
+    /// the single definition of "already recorded" for <see cref="TvShowReferenceModel.MatchedAliases"/>,
+    /// shared by every path that merges aliases (enrichment's <c>MergeMatchedAliases</c> and the
+    /// reference-data import). All four members take part: a title+year pair means a different work
+    /// depending on its creator, and an ISBN-driven match is deliberately a separate alias from the
+    /// title-driven one. <paramref name="title"/>/<paramref name="creator"/> are expected already
+    /// normalized (aliases are only ever stored normalized), so this does no normalizing of its own.
+    /// Getting the comparison wrong duplicated an alias on every single re-resolve once already - see
+    /// <c>scripts/dedupe-matched-aliases.js</c>.
+    /// </summary>
+    public bool Matches(string title, int? year, string? creator, string? isbn) =>
+        Title == title && Year == year && Creator == creator && Isbn == isbn;
 }

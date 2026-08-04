@@ -14,8 +14,9 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
 /// Exercises the reference repositories' <c>FindAllAsync</c> (backs the admin zip export) directly against
-/// real MongoDB, and confirms re-upserting an already-exported document (the zip import path) is a true
-/// no-op the second time - the whole point of "idempotent" for POST /api/reference-data/import.
+/// real MongoDB - every document has to be in it, or the export silently ships an incomplete dataset.
+/// The import side is covered end-to-end over HTTP by <see cref="ReferenceDataImportResourceTest"/>, which is
+/// where the matching rules live; what stays here is the repository-level guarantee those rules build on.
 /// </summary>
 public class ReferenceDataExportImportTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)
 {
@@ -57,7 +58,7 @@ public class ReferenceDataExportImportTest(KestrelWebAppFactory<Program> factory
         });
         TrackDocument("tvshow_reference", created.Id);
 
-        // simulates re-running an import of a previously exported document: same id, same content
+        // re-upserting a document that already carries an id replaces it rather than inserting a second copy
         await repository.UpsertAsync(new TvShowReferenceModel
         {
             Id = created.Id,

@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Text.Json;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
+using Keeptrack.Domain.Services;
 using Keeptrack.WebApi.Controllers;
 using Keeptrack.WebApi.Jobs;
 using Microsoft.AspNetCore.Authorization;
@@ -78,8 +79,10 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// Idempotent (upsert-by-id) re-import of a previously exported zip -
-    /// re-running the same import twice is a no-op the second time, since every document already carries the id it was exported with.
+    /// Re-import of a previously exported zip, into whatever the target database already holds.
+    /// Every document is matched by its <b>provider id</b> (TMDB, IGDB, Google Books, Discogs...), never by the <c>_id</c> it was exported with -
+    /// see <see cref="ReferenceDataImportService"/> for why that distinction is the whole feature, and for what a match merges rather than replaces.
+    /// Idempotent either way: re-running the same import updates the same documents in place a second time.
     /// </summary>
     [HttpPost("import")]
     [RequestSizeLimit(50_000_000)]
@@ -96,59 +99,46 @@ public class ReferenceDataAdminController(
         await using var uploadStream = file.OpenReadStream();
         await using var archive = new ZipArchive(uploadStream, ZipArchiveMode.Read);
 
-        var tvShowCount = 0;
-        var movieCount = 0;
-        var personCount = 0;
-        var bookCount = 0;
-        var videoGameCount = 0;
-        var albumCount = 0;
-
-        foreach (var show in await ReadJsonEntryAsync<TvShowReferenceModel>(archive, TvShowEntryName))
+        var payload = new ReferenceDataImportPayload
         {
-            await tvShowReferenceRepository.UpsertAsync(show);
-            tvShowCount++;
-        }
+            TvShows = await ReadJsonEntryAsync<TvShowReferenceModel>(archive, TvShowEntryName),
+            Movies = await ReadJsonEntryAsync<MovieReferenceModel>(archive, MovieEntryName),
+            People = await ReadJsonEntryAsync<PersonReferenceModel>(archive, PersonEntryName),
+            Books = await ReadJsonEntryAsync<BookReferenceModel>(archive, BookEntryName),
+            VideoGames = await ReadJsonEntryAsync<VideoGameReferenceModel>(archive, VideoGameEntryName),
+            Albums = await ReadJsonEntryAsync<AlbumReferenceModel>(archive, AlbumEntryName)
+        };
 
-        foreach (var movie in await ReadJsonEntryAsync<MovieReferenceModel>(archive, MovieEntryName))
-        {
-            await movieReferenceRepository.UpsertAsync(movie);
-            movieCount++;
-        }
+        var summary = await ReferenceDataImportService.ImportAsync(
+            payload,
+            tvShowReferenceRepository,
+            movieReferenceRepository,
+            personReferenceRepository,
+            bookReferenceRepository,
+            videoGameReferenceRepository,
+            albumReferenceRepository);
 
-        foreach (var person in await ReadJsonEntryAsync<PersonReferenceModel>(archive, PersonEntryName))
+        foreach (var skipped in summary.SkippedExternalIds)
         {
-            await personReferenceRepository.UpsertAsync(person);
-            personCount++;
-        }
-
-        foreach (var book in await ReadJsonEntryAsync<BookReferenceModel>(archive, BookEntryName))
-        {
-            await bookReferenceRepository.UpsertAsync(book);
-            bookCount++;
-        }
-
-        foreach (var videoGame in await ReadJsonEntryAsync<VideoGameReferenceModel>(archive, VideoGameEntryName))
-        {
-            await videoGameReferenceRepository.UpsertAsync(videoGame);
-            videoGameCount++;
-        }
-
-        foreach (var album in await ReadJsonEntryAsync<AlbumReferenceModel>(archive, AlbumEntryName))
-        {
-            await albumReferenceRepository.UpsertAsync(album);
-            albumCount++;
+            // reported in the response too, but logged so the collision leaves a server-side trail: it means the
+            // target holds two reference documents for one work, which the import deliberately won't merge on its own.
+            logger.LogWarning("Reference-data import skipped external id {ExternalId}: another document in this database already claims it.", skipped);
         }
 
         return Ok(new ReferenceDataImportResultDto
         {
-            TvShowCount = tvShowCount,
-            MovieCount = movieCount,
-            PersonCount = personCount,
-            BookCount = bookCount,
-            VideoGameCount = videoGameCount,
-            AlbumCount = albumCount
+            TvShows = ToDto(summary.TvShows),
+            Movies = ToDto(summary.Movies),
+            People = ToDto(summary.People),
+            Books = ToDto(summary.Books),
+            VideoGames = ToDto(summary.VideoGames),
+            Albums = ToDto(summary.Albums),
+            SkippedExternalIds = summary.SkippedExternalIds
         });
     }
+
+    private static ReferenceDataImportCountsDto ToDto(ReferenceDataImportCounts counts) =>
+        new() { Created = counts.Created, Updated = counts.Updated };
 
     private static async Task WriteJsonEntryAsync<T>(ZipArchive archive, string entryName, T value)
     {

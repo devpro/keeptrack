@@ -11,7 +11,7 @@ namespace Keeptrack.Domain.Models;
 /// once and pointing every tenant's own <see cref="TvShowModel.ReferenceId"/> at it avoids duplicating
 /// the same show's data per user.
 /// </summary>
-public class TvShowReferenceModel : IHasId
+public class TvShowReferenceModel : IHasExternalIds
 {
     public string? Id { get; set; }
 

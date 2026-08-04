@@ -8,7 +8,7 @@ namespace Keeptrack.Domain.Models;
 /// Shared, tenant-agnostic movie metadata sourced from an external provider such as TMDB.
 /// See <see cref="TvShowReferenceModel"/> for why this deliberately has no <c>OwnerId</c>.
 /// </summary>
-public class MovieReferenceModel : IHasId
+public class MovieReferenceModel : IHasExternalIds
 {
     public string? Id { get; set; }
 

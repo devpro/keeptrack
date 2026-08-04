@@ -92,7 +92,9 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
     }
 
     /// <summary>
-    /// Idempotent (upsert-by-id) re-import of a previously exported zip.
+    /// Re-import of a previously exported zip. Documents are matched by provider id, not by the <c>_id</c>
+    /// they were exported with, so this is idempotent and safe against a database that already holds some of
+    /// the same references - see <c>ReferenceDataImportService</c>.
     /// </summary>
     public async Task<ReferenceDataImportResultDto> ImportAsync(Stream zipStream, string fileName)
     {
@@ -103,9 +105,19 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
 
         var response = await http.PostAsync("/api/reference-data/import", content);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<ReferenceDataImportResultDto>()
-               ?? new ReferenceDataImportResultDto { TvShowCount = 0, MovieCount = 0, PersonCount = 0, BookCount = 0, VideoGameCount = 0, AlbumCount = 0 };
+        return await response.Content.ReadFromJsonAsync<ReferenceDataImportResultDto>() ?? EmptyImportResult();
     }
+
+    private static ReferenceDataImportResultDto EmptyImportResult() => new()
+    {
+        TvShows = new ReferenceDataImportCountsDto { Created = 0, Updated = 0 },
+        Movies = new ReferenceDataImportCountsDto { Created = 0, Updated = 0 },
+        People = new ReferenceDataImportCountsDto { Created = 0, Updated = 0 },
+        Books = new ReferenceDataImportCountsDto { Created = 0, Updated = 0 },
+        VideoGames = new ReferenceDataImportCountsDto { Created = 0, Updated = 0 },
+        Albums = new ReferenceDataImportCountsDto { Created = 0, Updated = 0 },
+        SkippedExternalIds = []
+    };
 
     /// <summary>
     /// Runs the reference sync now instead of waiting for the periodic background one (see

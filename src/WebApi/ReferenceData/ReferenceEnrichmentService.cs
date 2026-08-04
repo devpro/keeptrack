@@ -162,7 +162,8 @@ public partial class ReferenceEnrichmentService(
     /// backfilled from data that wasn't actually used to find the match.
     /// </summary>
     /// <remarks>
-    /// The dedup check compares <c>Creator</c> directly (no null/empty-string normalization needed here):
+    /// The dedup check itself is <see cref="ReferenceMatchModel.Matches"/>, so this and the reference-data
+    /// import agree on what "already recorded" means. It compares <c>Creator</c> directly (no null/empty-string normalization needed here):
     /// <c>DataStorageMappingProfile</c>'s <c>ReferenceMatchModel</c> -&gt; <c>ReferenceMatch</c> map opts
     /// <c>Creator</c> out of the profile-wide <c>AllowNullDestinationValues = false</c> (<c>.ForMember(x =>
     /// x.Creator, opt => opt.AllowNull())</c>), so a null <c>Creator</c> round-trips through Mongo as an
@@ -178,7 +179,7 @@ public partial class ReferenceEnrichmentService(
         {
             var normalized = TitleNormalizer.Normalize(title);
             var normalizedCreator = creator is null ? null : TitleNormalizer.Normalize(creator);
-            if (!result.Any(m => m.Title == normalized && m.Year == year && m.Creator == normalizedCreator && m.Isbn == isbn))
+            if (!result.Any(m => m.Matches(normalized, year, normalizedCreator, isbn)))
             {
                 result.Add(new Domain.Models.ReferenceMatchModel { Title = normalized, Year = year, Creator = normalizedCreator, Isbn = isbn });
             }

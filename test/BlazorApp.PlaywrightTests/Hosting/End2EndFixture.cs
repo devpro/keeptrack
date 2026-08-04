@@ -209,10 +209,9 @@ public sealed class End2EndFixture : IAsyncLifetime
     /// The deterministic "look for a ref" path: import a synthetic reference document via the same admin endpoint a real export/import round-trip uses,
     /// so <c>ReferenceSmokeTest</c>'s "check for reference match" click only ever queries MongoDB, never a real provider.
     /// <para>
-    /// The seed carries a fixed <see cref="ReferenceFixtureZipBuilder.ReferenceId"/> rather than letting the import mint a new one.
-    /// Without it every run inserted another copy of the same synthetic book - 22 identical "The Playwright Chronicles" documents had piled up in a real test database -
-    /// because the import is only idempotent for a document that already carries an id (it replaces by id, see each reference repository's <c>UpsertAsync</c>).
-    /// A fixed id makes re-seeding a true no-op, and gives <see cref="RemoveSeededReferenceDataAsync"/> something to delete afterwards.
+    /// Re-seeding is a no-op rather than a 23rd copy of the same synthetic book (22 identical "The Playwright Chronicles" documents had once piled up in a real test database):
+    /// the import matches on the fixture's Open Library id, so it updates whatever document already carries it - see <c>ReferenceDataImportService</c>.
+    /// The fixed <see cref="ReferenceFixtureZipBuilder.ReferenceId"/> is what the *first* insert lands under, which is how <see cref="RemoveSeededReferenceDataAsync"/> knows what to delete afterwards.
     /// </para>
     /// </summary>
     private async Task SeedReferenceDataAsync()
@@ -232,7 +231,7 @@ public sealed class End2EndFixture : IAsyncLifetime
     /// <para>
     /// Goes through the hosted <see cref="IBookReferenceRepository"/> rather than an HTTP call, because there is no admin endpoint that deletes a single reference document
     /// (the only such path is a tenant item's own <c>unlink-reference</c>, which needs a linked item to unlink) - and inventing a delete endpoint just to let tests tidy up would be the wrong trade.
-    /// This is only possible in self-hosted mode; in live mode the fixed seed id already makes re-seeding a replace rather than an insert, so nothing accumulates there either.
+    /// This is only possible in self-hosted mode; in live mode the import's provider-id matching already makes re-seeding a replace rather than an insert, so nothing accumulates there either.
     /// </para>
     /// Best-effort and never fatal: the run's results are already in, and a teardown error shouldn't turn a green run red.
     /// </summary>

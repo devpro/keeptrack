@@ -21,9 +21,9 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Support;
 public static class ReferenceFixtureZipBuilder
 {
     /// <summary>
-    /// A fixed, valid ObjectId for the seeded document, so re-seeding replaces it instead of inserting another copy
-    /// (the import's idempotency comes from the model carrying an id - see each reference repository's <c>UpsertAsync</c>),
-    /// and so <c>End2EndFixture</c> can remove exactly this document afterwards.
+    /// A fixed, valid ObjectId for the seeded document, so <c>End2EndFixture</c> can remove exactly this document afterwards.
+    /// Re-seeding replaces rather than duplicates because of the fixture's Open Library id, not this one - the import matches on provider ids (see <c>ReferenceDataImportService</c>);
+    /// a fixed <c>_id</c> is simply what the first insert lands under.
     /// The value is arbitrary but deliberately recognizable rather than random.
     /// </summary>
     public const string ReferenceId = "e2e0e2e0e2e0e2e0e2e0e2e0";

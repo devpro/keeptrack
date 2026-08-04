@@ -260,20 +260,40 @@ ensureIndex(
 
 // person_reference: actors/cast are deduplicated across every show/movie that credits them, looked up
 // by external provider id (e.g. their TMDB person id), never by name - same uniqueness rationale as above.
-ensureIndex(
-  db.person_reference,
-  { "external_ids.tmdb": 1 },
-  { name: "person_reference_tmdb_id", unique: true, partialFilterExpression: { "external_ids.tmdb": { $exists: true } } }
+// One index per provider that can create a person: TMDB for cast, and a book author / album artist through
+// whichever provider linked their work (ResolvePersonReferenceIdAsync is handed the linking client's own
+// ProviderKey). A person is "a named individual or group identified by a provider id", so every one of those
+// id spaces needs the same guarantee - only the TMDB one existed before, which left an author or artist
+// reachable through a duplicate document with nothing but the application check standing in the way.
+["tmdb", "discogs", "googlebooks", "openlibrary", "bnf"].forEach((provider) =>
+  ensureIndex(
+    db.person_reference,
+    { [`external_ids.${provider}`]: 1 },
+    {
+      name: `person_reference_${provider}_id`,
+      unique: true,
+      partialFilterExpression: { [`external_ids.${provider}`]: { $exists: true } }
+    }
+  )
 );
 
 // book_reference / videogame_reference / album_reference: same external-provider-id dedup rationale as
-// tvshow_reference/movie_reference above. Video games carry one index per provider rather than one overall:
-// IGDB replaced RAWG as the default, but a reference can legitimately hold both ids (RAWG linked it, IGDB was
-// adopted onto it later), and each id space needs its own uniqueness guarantee.
-ensureIndex(
-  db.book_reference,
-  { "external_ids.openlibrary": 1 },
-  { name: "book_reference_openlibrary_id", unique: true, partialFilterExpression: { "external_ids.openlibrary": { $exists: true } } }
+// tvshow_reference/movie_reference above. Books and video games carry one index per provider rather than one
+// overall: a reference can legitimately hold ids from several of them (a book linked through Open Library and
+// later refreshed through Google Books keeps both; IGDB replaced RAWG as the default but a game can hold the
+// RAWG id that linked it alongside the IGDB one adopted later), and each id space needs its own guarantee.
+// Google Books is the *default* book provider, so its index is the one that matters most - it was missing
+// entirely while Open Library, a fallback, had one.
+["googlebooks", "openlibrary", "bnf"].forEach((provider) =>
+  ensureIndex(
+    db.book_reference,
+    { [`external_ids.${provider}`]: 1 },
+    {
+      name: `book_reference_${provider}_id`,
+      unique: true,
+      partialFilterExpression: { [`external_ids.${provider}`]: { $exists: true } }
+    }
+  )
 );
 ensureIndex(
   db.videogame_reference,

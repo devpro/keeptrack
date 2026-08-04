@@ -222,8 +222,11 @@
 
 <div class="kt-form-card">
     <p style="color:var(--kt-text-muted)">
-        Export the whole reference dataset (TV shows, movies, cast) as a zip, or re-import a previously
-        exported one - re-importing is safe to run more than once, since every document is upserted by id.
+        Export the whole reference dataset (TV shows, movies, books, video games, albums, cast) as a zip, or
+        re-import a previously exported one. Documents are matched by their provider id (TMDB, IGDB, Google
+        Books...), so re-importing into a database that already knows a title updates that title in place
+        rather than adding a second copy of it - safe to run as often as you like, and safe against a
+        database that earned some of its reference data on its own.
     </p>
     <div class="d-flex align-items-center gap-3 flex-wrap">
         <button class="btn btn-sm btn-secondary" @onclick="ExportAsync" disabled="@_exporting">Download export</button>
@@ -236,9 +239,18 @@
     @if (_importResult is not null)
     {
         <div class="alert alert-info mt-3 mb-0">
-            Imported @_importResult.TvShowCount TV show(s), @_importResult.MovieCount movie(s), @_importResult.PersonCount person(s),
-            @_importResult.BookCount book(s), @_importResult.VideoGameCount video game(s), @_importResult.AlbumCount album(s).
+            Imported @Summarize("TV show", _importResult.TvShows), @Summarize("movie", _importResult.Movies),
+            @Summarize("person", _importResult.People), @Summarize("book", _importResult.Books),
+            @Summarize("video game", _importResult.VideoGames), @Summarize("album", _importResult.Albums).
         </div>
+        @if (_importResult.SkippedExternalIds.Count > 0)
+        {
+            <div class="alert alert-warning mt-3 mb-0">
+                @_importResult.SkippedExternalIds.Count provider id(s) were left out because another document here
+                already claims them - this database holds two reference documents for the same work, which only you
+                can merge: @string.Join(", ", _importResult.SkippedExternalIds)
+            </div>
+        }
     }
     @if (_importExportError is not null)
     {
@@ -462,6 +474,9 @@
         ReferenceSyncStage.Completed => "Done",
         _ => ""
     };
+
+    private static string Summarize(string noun, ReferenceDataImportCountsDto counts) =>
+        $"{counts.Created} new + {counts.Updated} updated {noun}(s)";
 
     private async Task ExportAsync()
     {

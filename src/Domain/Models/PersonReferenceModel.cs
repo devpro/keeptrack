@@ -8,7 +8,7 @@ namespace Keeptrack.Domain.Models;
 /// across every show/movie that credits them - matched by external provider id, not by name (unlike
 /// <see cref="TvShowReferenceModel"/>/<see cref="MovieReferenceModel"/>, credits already give an exact id).
 /// </summary>
-public class PersonReferenceModel : IHasId
+public class PersonReferenceModel : IHasExternalIds
 {
     public string? Id { get; set; }
 

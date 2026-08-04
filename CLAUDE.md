@@ -259,6 +259,10 @@ Providers: TMDB (TV/movie), IGDB / RAWG (video games), Discogs (albums), Google 
 - `*_tmdb_id`/external-id indexes are `unique: true` with `partialFilterExpression: { "external_ids.<key>": { $exists: true } }`.
   The application check is what's *supposed* to prevent duplicates; the database constraint is what guarantees it.
   The partial filter (not `sparse`, not a plain unique index) is required so documents missing the key don't all collide on one null.
+  **One index per provider that can write that collection**, not one per collection: a document legitimately holds ids from several (a book linked through Open Library and later refreshed through Google Books, a game holding the RAWG id
+  that linked it plus the IGDB id adopted later), and each id space needs its own guarantee.
+  Books cover `googlebooks`/`openlibrary`/`bnf` and `person_reference` covers `tmdb`/`discogs`/`googlebooks`/`openlibrary`/`bnf` (`ResolvePersonReferenceIdAsync` is handed the *linking client's* `ProviderKey`, so an author or artist is
+  created under whichever provider linked their work) - both were long declared for one provider only, which left the default book provider and every non-TMDB person with nothing but the application check.
 - `TryLinkExisting<X>ReferenceAsync` is a second, cheaper path that never calls a provider: it only checks whether a matching document already exists.
   It backs `POST /api/<collection>/{id}/refresh-reference` - the "check for reference match" control shown **unconditionally** on every detail page to **any** authenticated user (it can only reuse a fact someone already established).
   It deliberately does **not** short-circuit on an existing `ReferenceId`: `Title`/`Year` are freely editable, and replacing a bad match (two real movies sharing a title is common) is the point.
@@ -272,9 +276,23 @@ Providers: TMDB (TV/movie), IGDB / RAWG (video games), Discogs (albums), Google 
   References store only the id; `ReferenceDataController` hydrates names/`Cast`/`ProfileImageUrl` by joining server-side, which is why those DTO members are `[MapperIgnoreTarget]` and not plain mapped members.
 - Images are **hotlinked from the provider CDN** (e.g. `https://image.tmdb.org/t/p/{size}{path}`, built once in the client and stored as a plain URL).
   This is TMDB's sanctioned pattern, so there is no local storage/static-file subsystem to operate.
-- **Export/import:** `GET/POST /api/reference-data/export`/`import` round-trip whole reference collections as a zip of JSON arrays, so reference data is portable across environments instead of re-earned per deployment.
-  Idempotency is free - `UpsertAsync` replaces by id.
-  `FindAllAsync()` exists solely to back the export (unpaged, acceptable because this data is small and shared).
+- **Export/import:** `GET/POST /api/reference-data/export`/`import` round-trip all six reference collections as a zip of JSON arrays, so reference data is portable across environments instead of re-earned per deployment.
+  `FindAllAsync()` exists solely to back the export (unpaged, acceptable because this data is small and shared); the export is a straight serialization of the models, so Mapperly's unmapped-member errors are what keep it field-complete.
+  **The import matches every document by its provider id, never by the `_id` it was exported with** (`Domain/Services/ReferenceDataImportService.cs`, one generic algorithm over all six collections - the repositories share no base
+  interface, so it takes `FindAllAsync`/`UpsertAsync` as delegates).
+  An `_id` is local to the database that minted it: upserting by it meant the same real work (TMDB 1396) landed as a *second* document in any environment that had already resolved it on its own, which the unique partial indexes above
+  reject outright - so an import into a non-empty database failed partway through, having already written everything before the collision.
+  Matching on the provider id instead keeps the **target's** `_id`, which is what every tenant's `ReferenceId` and every `Cast[].PersonReferenceId` points at.
+  Matching walks whatever keys a document carries, so no provider is named anywhere in the algorithm; an `_id` match survives only as the fallback for a document with no provider id at all.
+  - **People are imported first, and every document citing them is re-pointed** at the id the target stores them under (`Cast[].PersonReferenceId`, `AuthorReferenceId`, `ArtistReferenceId`).
+    Matching people by provider id without remapping would leave imported cast rows pointing at ids that don't exist in the target - a silent break, since a missing person just renders as no cast.
+  - **A match merges, it doesn't replace.** The target legitimately knows things the export doesn't: `MatchedAliases` its own tenants' searches confirmed, and `Ratings` from a provider the exporting environment never called (an `imdb`
+    value costs a metered OMDb call).
+    Accumulated fields are unioned (`RatingsCheckedAt` keeps the *later* attempt per source - an older stamp must never move the re-attempt window backwards), and anything the import has no value for leaves the target's alone, the same
+    "never overwrite with nothing" rule as `SetReferenceLinkAsync`.
+  - **A provider id another document already claims is left behind and reported** (`SkippedExternalIds`, surfaced in the admin UI and logged), rather than written and taking the whole import down with it.
+    It means the target holds two reference documents for one work, which only an admin can merge.
+  - Covered by `ReferenceDataImportResourceTest` over real HTTP + real MongoDB, per domain and per provider - a mocked repository can't prove any of this, since the failure mode being prevented *is* the unique index firing.
 - **Admin queue:** `ReferenceDataAdminController` (`AdminOnly`) handles manual search/link over a 5-way `ReferenceItemType`, using `ExternalId`/`Provider` (not TMDB-specific names) in its DTOs.
 
 **Gotcha (`null` string filters, still relevant for old data):** "does this document have no reference link yet" cannot be `Eq(x => x.ReferenceId, null)`.
