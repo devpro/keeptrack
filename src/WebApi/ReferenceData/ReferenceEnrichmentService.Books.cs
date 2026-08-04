@@ -37,15 +37,56 @@ public partial class ReferenceEnrichmentService
     /// rating by ISBN and store it under its own source key. No-op when a rating already exists, the linking
     /// provider IS Open Library (already covered), or there's no ISBN. Best-effort - a failed/empty lookup
     /// just leaves the book unrated rather than failing the resolve.
+    /// <para>
+    /// "Best-effort" has to be enforced here, not merely intended: this is a *secondary* provider adding an
+    /// optional number to work the linking provider has already returned in full, and an exception escaping it
+    /// discards all of that. It did. Open Library's <c>search.json</c> went slow enough to blow the 40s total
+    /// timeout (see <c>AddBookProviderResilienceHandler</c>), and every book refresh threw after Google Books
+    /// had already answered - so nothing was upserted, <c>LastEnrichedAt</c> was never stamped, and the same
+    /// books sat at the head of the staleness queue re-paying that timeout on every pass. On the interactive
+    /// path (<see cref="ResolveBookAsync"/>) the same throw is a 500 on admin linking. Same rule, and the same
+    /// reason, as <see cref="IOmdbClient"/> never throwing for anything OMDb or the network can do.
+    /// </para>
+    /// <para>
+    /// <paramref name="knownRating"/> is the other half of that rule, and it matters because both callers
+    /// rebuild <c>Ratings</c> from the linking provider - which never carries this value. Dropping it whenever
+    /// Open Library couldn't be reached would discard a rating that cost a call to obtain, on exactly the
+    /// passes where it can't be re-earned (observed: "The Hobbit"'s 4.29/498 disappearing during the outage
+    /// above). So a lookup that never answered keeps what is already known, while an answer of "no rating" is
+    /// a real answer and does clear it - the same distinction <c>RebuildRatingsAsync</c> makes for OMDb.
+    /// </para>
     /// </summary>
-    private async Task AddOpenLibraryRatingFallbackAsync(Dictionary<string, ReferenceRatingModel> ratings, string providerKey, string? isbn, CancellationToken cancellationToken)
+    private async Task AddOpenLibraryRatingFallbackAsync(Dictionary<string, ReferenceRatingModel> ratings, string providerKey, string? isbn,
+        ReferenceRatingModel? knownRating, CancellationToken cancellationToken)
     {
-        if (ratings.Count > 0 || providerKey == OpenLibraryProviderKey || string.IsNullOrWhiteSpace(isbn)) return;
+        if (ratings.Count > 0 || providerKey == OpenLibraryProviderKey) return;
 
-        var (average, count) = await bookRatingByIsbnLookup.GetRatingByIsbnAsync(isbn, cancellationToken);
-        if (average is > 0)
+        // no ISBN is not an answer either - there is nothing to ask with, so nothing that could have changed.
+        if (string.IsNullOrWhiteSpace(isbn))
         {
-            ratings[OpenLibraryProviderKey] = new ReferenceRatingModel { Value = average.Value, Scale = 5, Count = count };
+            KeepKnownRating();
+            return;
+        }
+
+        try
+        {
+            var (average, count) = await bookRatingByIsbnLookup.GetRatingByIsbnAsync(isbn, cancellationToken);
+            if (average is > 0)
+            {
+                ratings[OpenLibraryProviderKey] = new ReferenceRatingModel { Value = average.Value, Scale = 5, Count = count };
+            }
+        }
+        // a shutdown is not a provider being unhelpful: swallowing it would walk the rest of the pass against
+        // a container already being disposed, the same exclusion ReferenceSyncService's per-document catch makes.
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogWarning(exception, "Open Library rating lookup failed for ISBN {Isbn}; the book keeps the linking provider's data and whatever rating was already known.", isbn);
+            KeepKnownRating();
+        }
+
+        void KeepKnownRating()
+        {
+            if (knownRating is not null) ratings[OpenLibraryProviderKey] = knownRating;
         }
     }
 
@@ -185,7 +226,8 @@ public partial class ReferenceEnrichmentService
             : existing?.AuthorReferenceId;
 
         var ratings = BuildBookRatings(client.ProviderKey, details.Rating, details.RatingCount);
-        await AddOpenLibraryRatingFallbackAsync(ratings, client.ProviderKey, details.Isbn ?? existing?.Isbn, CancellationToken.None);
+        await AddOpenLibraryRatingFallbackAsync(ratings, client.ProviderKey, details.Isbn ?? existing?.Isbn,
+            existing?.Ratings.GetValueOrDefault(OpenLibraryProviderKey), CancellationToken.None);
 
         var model = new BookReferenceModel
         {
@@ -234,6 +276,10 @@ public partial class ReferenceEnrichmentService
         var details = await client.GetBookDetailsAsync(externalId, cancellationToken);
         if (details is null) return (reference, false);
 
+        // read before Ratings is rebuilt below: the linking provider never carries this value, so it is only
+        // recoverable from what is already stored (see AddOpenLibraryRatingFallbackAsync).
+        var knownOpenLibraryRating = reference.Ratings.GetValueOrDefault(OpenLibraryProviderKey);
+
         reference.Title = details.Title;
         reference.Year = details.Year ?? reference.Year;
         reference.Synopsis = details.Synopsis;
@@ -246,7 +292,7 @@ public partial class ReferenceEnrichmentService
         reference.ImageUrl = details.ImageUrl ?? reference.ImageUrl;
         reference.Language = details.Language ?? reference.Language;
         reference.Isbn = details.Isbn ?? reference.Isbn;
-        await AddOpenLibraryRatingFallbackAsync(reference.Ratings, client.ProviderKey, reference.Isbn, cancellationToken);
+        await AddOpenLibraryRatingFallbackAsync(reference.Ratings, client.ProviderKey, reference.Isbn, knownOpenLibraryRating, cancellationToken);
         reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, details.Author, details.Isbn));
         reference.LastEnrichedAt = DateTime.UtcNow;
 

@@ -80,6 +80,8 @@ public class ReferenceDataAdminResourceTest(KestrelWebAppFactory<Program> factor
     /// The poll-to-completion half lives in <see cref="SyncNow_PollingReachesACompletedResult"/>, opt-in,
     /// because its duration is unbounded by this repo (it re-checks every reference document against the
     /// live providers, so it grows with the shared database and flakes on provider latency/rate limits).
+    /// No <c>force</c> here, so this is the default incremental pass - the same documents the periodic
+    /// background tick would take.
     /// </summary>
     [Fact]
     public async Task SyncNow_StartsAJob_AndStatusIsQueryable()
@@ -97,9 +99,31 @@ public class ReferenceDataAdminResourceTest(KestrelWebAppFactory<Program> factor
     }
 
     /// <summary>
+    /// The forced variant: <c>?force=true</c> re-checks every document regardless of age, where the default
+    /// takes only what the periodic pass would (see <c>ReferenceSyncWindows</c>). Both are the same job over
+    /// the same endpoint, so this only pins that the parameter is accepted and still starts a real job -
+    /// what each mode selects is covered by <c>ReferenceSyncWindowsTest</c> and, for the query itself, by
+    /// <c>ReferenceStalenessRepositoryTest</c>.
+    /// </summary>
+    [Fact]
+    public async Task SyncNow_WithForce_StartsAJob_AndStatusIsQueryable()
+    {
+        await Authenticate();
+
+        var job = await PostAsync<ReferenceSyncJobDto?>("/api/reference-data/sync-now?force=true", null, HttpStatusCode.Accepted);
+        job.Should().NotBeNull();
+        job!.JobId.Should().NotBeEmpty();
+        TrackDocument("background_job", job.JobId.ToString());
+
+        var status = await GetAsync<ReferenceSyncJobStatusDto>($"/api/reference-data/sync-now/{job.JobId}");
+        status.Stage.Should().NotBe(ReferenceSyncStage.Failed, status.ErrorMessage);
+    }
+
+    /// <summary>
     /// The slow half of the lifecycle: polling until the job reports Completed with a result. Opt-in via
     /// REFERENCE_SYNC_POLL_ENABLED=true (see CONTRIBUTING.md) - run it on demand when touching the sync
-    /// pipeline, not on every default test run.
+    /// pipeline, not on every default test run. Forced on purpose: the point is to drive the whole pipeline
+    /// against the live providers, and the default pass can legitimately find nothing to do.
     /// </summary>
     [Fact]
     public async Task SyncNow_PollingReachesACompletedResult()
@@ -109,7 +133,7 @@ public class ReferenceDataAdminResourceTest(KestrelWebAppFactory<Program> factor
 
         await Authenticate();
 
-        var job = await PostAsync<ReferenceSyncJobDto?>("/api/reference-data/sync-now", null, HttpStatusCode.Accepted);
+        var job = await PostAsync<ReferenceSyncJobDto?>("/api/reference-data/sync-now?force=true", null, HttpStatusCode.Accepted);
         job.Should().NotBeNull();
         job!.JobId.Should().NotBeEmpty();
         TrackDocument("background_job", job.JobId.ToString());

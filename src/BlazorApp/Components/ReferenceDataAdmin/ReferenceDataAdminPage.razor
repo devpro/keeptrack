@@ -135,11 +135,18 @@
 <div class="kt-form-card">
     <p style="color:var(--kt-text-muted)">
         Reference data (episode guides, genres, posters, cast) drifts out of date after TMDB updates a show
-        or movie - a background sync re-checks documents older than 3 days every 24h. Use this to force an
-        immediate re-check of everything instead of waiting.
+        or movie - a background sync runs every 24h, re-checking documents older than 3 days and rebuilding
+        Explore rankings older than 7 days. Use this to run that same pass now instead of waiting: it only
+        touches what is past those windows, so it reports nothing checked when everything is already fresh.
+        Tick <strong>Force</strong> to ignore the windows and re-check every document and ranking - the
+        thorough option, and the expensive one in provider calls.
     </p>
-    <div class="d-flex align-items-center gap-3">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
         <button class="btn btn-sm btn-secondary" @onclick="SyncNowAsync" disabled="@_syncing">Sync now</button>
+        <div class="form-check mb-0">
+            <input class="form-check-input" type="checkbox" id="force-sync" @bind="_forceSync" disabled="@_syncing">
+            <label class="form-check-label" for="force-sync">Force: re-check everything, ignoring the freshness windows</label>
+        </div>
     </div>
     @if (_syncing)
     {
@@ -151,6 +158,10 @@
     @if (_syncResult is not null)
     {
         <div class="alert alert-info mt-3 mb-0">
+            @(_syncResultForced
+                ? "Full re-check of every document and ranking."
+                : "Incremental pass: only documents past their freshness window, exactly like the background sync.")
+            <br/>
             TV shows: @_syncResult.TvShowsChecked checked, @_syncResult.TvShowsUpdated updated.
             Movies: @_syncResult.MoviesChecked checked, @_syncResult.MoviesUpdated updated.
             Books: @_syncResult.BooksChecked checked, @_syncResult.BooksUpdated updated.
@@ -375,12 +386,20 @@
     private static readonly TimeSpan SyncPollInterval = TimeSpan.FromMilliseconds(600);
 
     private bool _syncing;
+    private bool _forceSync;
     private ReferenceSyncResultDto? _syncResult;
     private string? _syncError;
     private ReferenceSyncStage _syncStage;
 
+    /// <summary>
+    /// Which mode the *finished* run was started in - read while the checkbox is free to be toggled again,
+    /// so the result alert always describes the run it belongs to rather than the current checkbox state.
+    /// </summary>
+    private bool _syncResultForced;
+
     private async Task SyncNowAsync()
     {
+        var force = _forceSync;
         _syncing = true;
         _syncError = null;
         _syncResult = null;
@@ -388,7 +407,7 @@
 
         try
         {
-            var jobId = await Api.StartSyncAsync();
+            var jobId = await Api.StartSyncAsync(force);
 
             while (true)
             {
@@ -398,6 +417,7 @@
                 if (status.Stage == ReferenceSyncStage.Completed)
                 {
                     _syncResult = status.Result;
+                    _syncResultForced = force;
                     break;
                 }
 

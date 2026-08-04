@@ -108,13 +108,15 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
     }
 
     /// <summary>
-    /// Starts an immediate re-check of every reference document against its provider (see
-    /// <c>ReferenceDataAdminController.SyncNow</c>), instead of waiting for the periodic background sync.
+    /// Runs the reference sync now instead of waiting for the periodic background one (see
+    /// <c>ReferenceDataAdminController.SyncNow</c>). With <paramref name="force"/> it re-checks every
+    /// reference document and rebuilds every Explore ranking; without it, it takes exactly what the
+    /// background tick would have taken - only what is past its staleness window.
     /// Runs in the background; poll <see cref="GetSyncStatusAsync"/> with the returned job id for progress.
     /// </summary>
-    public async Task<Guid> StartSyncAsync()
+    public async Task<Guid> StartSyncAsync(bool force)
     {
-        var response = await http.PostAsync("/api/reference-data/sync-now", null);
+        var response = await http.PostAsync($"/api/reference-data/sync-now?force={force}", null);
         response.EnsureSuccessStatusCode();
 
         var job = await response.Content.ReadFromJsonAsync<ReferenceSyncJobDto>();

@@ -1455,6 +1455,99 @@ public class ReferenceEnrichmentServiceTest
         result.Genres.Should().Contain("Fiction");
     }
 
+    /// <summary>
+    /// Regression: Open Library's rating lookup is a *secondary* provider adding an optional number to a book
+    /// the linking provider already returned in full, but an exception from it used to escape the whole
+    /// refresh - so a slow Open Library discarded a complete BnF/Google Books response, skipped the upsert,
+    /// and left <c>LastEnrichedAt</c> unstamped, which pinned those books at the head of the staleness queue
+    /// to re-pay the same 40s timeout on every pass. Confirmed in the running app: 7 of 7 book references
+    /// failed a forced sync this way while every other domain refreshed normally.
+    /// </summary>
+    [Fact]
+    public async Task RefreshBookReferenceAsync_KeepsTheLinkingProvidersData_WhenTheOpenLibraryRatingLookupFails()
+    {
+        // bnf, not the default openlibrary: the fallback deliberately no-ops when the linking provider IS
+        // Open Library, so the failure can only be reached through another provider.
+        var bnfClient = FakeBnfClient.Empty();
+        bnfClient.Details["ark:/12148/cb1"] = new BookDetails(
+            "ark:/12148/cb1", "Some Book - Updated", 2020, "Synopsis", "Some Author", null, ["Fiction"], null, "fre", "9780000000001");
+        _bookRatingByIsbnLookup.Failure = new TimeoutException("Open Library took too long.");
+        var reference = new BookReferenceModel
+        {
+            Id = "reference-1",
+            Title = "Some Book",
+            TitleNormalized = "some book",
+            ExternalIds = new Dictionary<string, string> { ["bnf"] = "ark:/12148/cb1" },
+            // obtained by an earlier successful lookup: the linking provider never carries this value, so a
+            // refresh that couldn't reach Open Library must not be what deletes it ("The Hobbit"'s 4.29/498).
+            Ratings = new Dictionary<string, ReferenceRatingModel> { ["openlibrary"] = new() { Value = 4.29, Scale = 5, Count = 498 } },
+            LastEnrichedAt = DateTime.UtcNow.AddDays(-30)
+        };
+        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => m);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bnfClient: bnfClient);
+
+        var (result, changed) = await service.RefreshBookReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        changed.Should().BeTrue();
+        result.Title.Should().Be("Some Book - Updated");
+        result.Ratings["openlibrary"].Value.Should().Be(4.29);
+        result.Ratings["openlibrary"].Count.Should().Be(498);
+        // the half that keeps the staleness queue moving: an unstamped document is taken again on every pass
+        result.LastEnrichedAt.Should().BeAfter(DateTime.UtcNow.AddMinutes(-1));
+        _bookReferenceRepository.Verify(r => r.UpsertAsync(It.IsAny<BookReferenceModel>()), Times.Once);
+    }
+
+    /// <summary>
+    /// The other side of that rule: Open Library answering "no rating for this ISBN" is a real answer, so the
+    /// stored value goes - only a lookup that never happened is allowed to preserve it.
+    /// </summary>
+    [Fact]
+    public async Task RefreshBookReferenceAsync_ClearsAKnownRating_WhenOpenLibraryAnswersWithNoRating()
+    {
+        var bnfClient = FakeBnfClient.Empty();
+        bnfClient.Details["ark:/12148/cb1"] = new BookDetails(
+            "ark:/12148/cb1", "Some Book", 2020, "Synopsis", "Some Author", null, [], null, "fre", "9780000000001");
+        _bookRatingByIsbnLookup.Result = (null, null);
+        var reference = new BookReferenceModel
+        {
+            Id = "reference-1",
+            Title = "Some Book",
+            TitleNormalized = "some book",
+            ExternalIds = new Dictionary<string, string> { ["bnf"] = "ark:/12148/cb1" },
+            Ratings = new Dictionary<string, ReferenceRatingModel> { ["openlibrary"] = new() { Value = 4.29, Scale = 5, Count = 498 } }
+        };
+        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => m);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bnfClient: bnfClient);
+
+        var (result, _) = await service.RefreshBookReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        result.Ratings.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// The same guard on the interactive path, where the throw surfaced as a 500 from admin manual linking
+    /// (and from the auto-resolve a book creation fires) despite the linking provider having answered.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBookAsync_StillLinks_WhenTheOpenLibraryRatingLookupFails()
+    {
+        var bnfClient = FakeBnfClient.Empty();
+        bnfClient.Details["ark:/12148/cb1"] = new BookDetails(
+            "ark:/12148/cb1", "Some Book", 2020, "Synopsis", "Some Author", null, [], null, "fre", "9780000000001");
+        _bookRatingByIsbnLookup.Failure = new System.Net.Http.HttpRequestException("Open Library is down.");
+        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) =>
+        {
+            m.Id ??= "reference-1";
+            return m;
+        });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bnfClient: bnfClient);
+
+        var result = await service.ResolveBookAsync("Some Book", 2020, "ark:/12148/cb1", "bnf");
+
+        result.Id.Should().Be("reference-1");
+        result.Ratings.Should().BeEmpty();
+    }
+
     [Fact]
     public async Task RefreshBookReferenceAsync_RefreshesViaANonDefaultRegisteredProvider_WhenThatsTheOnlyOnePresent()
     {
@@ -2400,12 +2493,15 @@ public class ReferenceEnrichmentServiceTest
         /// <summary>Result the fallback returns; defaults to "no rating" so tests not exercising it are unaffected.</summary>
         public (double? Average, int? Count) Result { get; set; } = (null, null);
 
+        /// <summary>When set, the lookup throws it instead of answering - Open Library timing out or 5xx-ing.</summary>
+        public Exception? Failure { get; set; }
+
         public List<string> RequestedIsbns { get; } = [];
 
         public Task<(double? Average, int? Count)> GetRatingByIsbnAsync(string isbn, CancellationToken cancellationToken = default)
         {
             RequestedIsbns.Add(isbn);
-            return Task.FromResult(Result);
+            return Failure is not null ? Task.FromException<(double?, int?)>(Failure) : Task.FromResult(Result);
         }
     }
 

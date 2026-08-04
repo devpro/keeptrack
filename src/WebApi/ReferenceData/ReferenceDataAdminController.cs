@@ -167,19 +167,25 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// Starts an immediate re-check of every reference document, regardless of how recently it was last
-    /// enriched - the same logic the periodic background sync runs on a schedule (see
-    /// <see cref="ReferenceSyncBackgroundService"/>), just triggered on demand instead of waiting. Runs in
-    /// the background; poll <see cref="GetSyncStatus"/> with the returned job id for progress - a full
+    /// Runs the periodic background sync (see <see cref="ReferenceSyncBackgroundService"/>) right now instead
+    /// of waiting for its next tick - the same logic either way, only the staleness windows differ.
+    /// Runs in the background; poll <see cref="GetSyncStatus"/> with the returned job id for progress, since a
     /// re-check across five domains can easily exceed a single request/response's own timeout.
     /// </summary>
+    /// <param name="force">
+    /// <c>true</c> re-checks every reference document and rebuilds every Explore ranking, however recently
+    /// they were last enriched. The default runs exactly what the background tick would have taken (see
+    /// <see cref="ReferenceSyncWindows.Periodic"/>), so a collection already synced within the window
+    /// legitimately reports zero checked - it is the cheap option, and it spends no provider calls on
+    /// documents that are already fresh.
+    /// </param>
     [HttpPost("sync-now")]
     [ProducesResponseType(202)]
-    public async Task<ActionResult<ReferenceSyncJobDto>> SyncNow()
+    public async Task<ActionResult<ReferenceSyncJobDto>> SyncNow([FromQuery] bool force = false)
     {
         var jobId = await syncJobStore.CreateAsync(this.GetUserId(), ReferenceSyncStage.SyncingTvShows);
 
-        _ = RunSyncJobAsync(jobId);
+        _ = RunSyncJobAsync(jobId, ReferenceSyncWindows.For(force));
 
         return Accepted(new ReferenceSyncJobDto { JobId = jobId });
     }
@@ -211,7 +217,7 @@ public class ReferenceDataAdminController(
     /// app: a shutdown mid-pass surfaced as a disposed <c>TokenBucketRateLimiter</c> deep inside an IGDB call.
     /// </para>
     /// </summary>
-    private async Task RunSyncJobAsync(Guid jobId)
+    private async Task RunSyncJobAsync(Guid jobId, ReferenceSyncWindows windows)
     {
         var cancellationToken = lifetime.ApplicationStopping;
         using var scope = scopeFactory.CreateScope();
@@ -223,12 +229,12 @@ public class ReferenceDataAdminController(
         try
         {
             var result = await scopedSyncService.SyncStaleReferencesAsync(
-                TimeSpan.Zero, stage => scopedJobStore.UpdateStageAsync(jobId, stage), cancellationToken);
+                windows.References, stage => scopedJobStore.UpdateStageAsync(jobId, stage), cancellationToken);
             // an on-demand "sync now" reconciles finished-show status too, so its result matches the periodic pass's.
             result.FinishedShowsReopened = await scopedReconciliationService.ReconcileFinishedShowsAsync();
-            // ...and rebuilds the Explore discovery rankings regardless of how recently they were built, which
-            // is what makes this the "force it now" control for those too - no separate admin endpoint needed.
-            result.ApplyExploreRefresh(await scopedExploreRefreshService.RefreshAsync(TimeSpan.Zero, cancellationToken));
+            // ...and covers the Explore discovery rankings on the same window, which is what makes this the
+            // "run it now" control for those too - no separate admin endpoint needed.
+            result.ApplyExploreRefresh(await scopedExploreRefreshService.RefreshAsync(windows.Explore, cancellationToken));
             await scopedJobStore.CompleteAsync(jobId, ReferenceSyncStage.Completed, result);
         }
         catch (OperationCanceledException)

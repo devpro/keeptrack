@@ -330,6 +330,12 @@ Run-once scripts follow that same idempotent style: `dedupe-matched-aliases.js`,
   Its `first_publish_date` is routinely absent from the work JSON, so `GetBookDetailsAsync` falls back to a single-document `q=key:{workKey}` re-query.
   Its `covers` array is contributed, not curated, so an unattractive cover is expected, not a bug.
   It exposes **no** reliable series field (the `person`/`subject_people` facet is a character name and doesn't generalize) - `BookModel.Series` is deliberately not auto-filled.
+  Its `search.json` is also the slowest endpoint any provider here calls (36-41s, and 503s, measured during a real degradation), which is why its cross-provider **rating fallback is guarded, not just documented as best-effort**:
+  `AddOpenLibraryRatingFallbackAsync` catches everything but `OperationCanceledException`, because an exception there used to escape `RefreshBookReferenceAsync`/`ResolveBookAsync` and discard a *complete* Google Books/BnF response -
+  no upsert, no `LastEnrichedAt`, so those books led the staleness queue forever re-paying the timeout (see `docs/code-quality-findings.md`).
+  Same rule as OMDb: an optional secondary provider may never fail the primary operation.
+  And for the same reason both callers pass the **previously stored** openlibrary rating in: they rebuild `Ratings` from the linking provider, which never carries this value, so a lookup that never answered (failed, or no ISBN to ask with)
+  keeps what is known while a real "no rating" response clears it - exactly `RebuildRatingsAsync`'s distinction for OMDb.
 - **An optional narrowing parameter must never silently zero out results a broader search would find.** Discogs' `artist=` can fail to match its own indexing (disambiguation suffixes like `"Artist (2)"`, different formatting), returning
   nothing for a title that succeeds alone ("Born Pink").
   Both `DiscogsClient` and `OpenLibraryClient` retry once without the author/artist parameter when the constrained search comes back empty, rather than reporting a false "not found".
@@ -439,7 +445,12 @@ Every replica runs the loop but only one syncs per cycle: each tick tries `ILeas
 uniqueness (covered by the real-Mongo `LeaseRepositoryTest`).
 A replica dying while holding the lease delays the next pass by at most 1h against a 24h cadence.
 
-`ReferenceSyncService.SyncStaleReferencesAsync(staleAfter, ...)` is the single sync algorithm, shared by the loop and the admin's `POST /api/reference-data/sync-now` (3 days for the periodic pass, `TimeSpan.Zero` for the forced one).
+`ReferenceSyncService.SyncStaleReferencesAsync(staleAfter, ...)` is the single sync algorithm, shared by the loop and the admin's `POST /api/reference-data/sync-now`.
+**The two callers differ in nothing but the staleness windows, and those are declared once in `ReferenceSyncWindows`** (`Periodic` = 3 days for references / 7 days for Explore, `Forced` = `TimeSpan.Zero` for both).
+`sync-now?force=true` re-checks everything; **without `force` it runs exactly what the background tick would have taken** -
+which is why an admin run right after a forced one legitimately reports zero checked, the symptom that once read as "the background sync isn't running".
+Restating either window at the second call site is what would let them drift apart silently, so `ReferenceSyncBackgroundService` reads `ReferenceSyncWindows.Periodic` rather than holding its own constants (`ReferenceSyncWindowsTest` guards
+it).
 One failing document never aborts the run - each is caught and logged individually.
 It is **one** generic loop over five one-line domain arms (`SyncDomainAsync`), the same shape as `RecomputeReferenceRatingsAsync`; it used to be the identical loop copy-pasted per domain.
 
@@ -544,7 +555,7 @@ Movie, TvShow, VideoGame only; Book/Album 400 (no best-of listing to read).
   it prunes what it didn't rewrite **only after completing**, so a failed or empty pass leaves last week's ranking serving rather than emptying Explore;
   and staleness is read from the ***oldest*** `refreshed_at` in a ranking, not the newest - a pass that died halfway leaves its written entries freshly stamped, and taking the newest would read that as "just refreshed" and skip the retry.
 - The refresh rides `ReferenceSyncBackgroundService`'s existing 24h tick and lease on its own 7-day staleness window, rather than adding a second scheduled workload;
-  the admin's `POST /api/reference-data/sync-now` forces it with `TimeSpan.Zero`, so there's no separate Explore admin endpoint.
+  the admin's `POST /api/reference-data/sync-now` covers it on the same window pair (`?force=true` rebuilds every ranking, the default only what is past 7 days), so there's no separate Explore admin endpoint.
   Counts land in `ReferenceSyncResultDto`.
 - **Gotcha:** neither provider has a curated top-rated endpoint, and ordering a whole catalogue by a plain average ranks a single-vote unknown above every classic.
   IGDB reports a vote count per game, so its ranking uses a real floor (`MinUserRatingCount`/`MinCriticRatingCount`) - and that floor is deliberately its only filter, since DLC and remasters are things this app tracks in their own right.

@@ -23,6 +23,32 @@ Update this file as items are fixed or as new reviews are performed.
 
 ## Fixed
 
+### A slow Open Library discarded every book refresh, and pinned those books at the head of the staleness queue
+
+Confirmed in the running app on 2026-08-04: a forced sync reported `booksChecked: 7, booksUpdated: 0` while every other domain refreshed normally, and the 7 book references kept a `last_enriched_at` from the previous day.
+
+`AddOpenLibraryRatingFallbackAsync` (`ReferenceEnrichmentService.Books.cs`) documented itself as "best-effort - a failed/empty lookup just leaves the book unrated rather than failing the resolve", but awaited
+`IBookRatingByIsbnLookup.GetRatingByIsbnAsync` unguarded.
+Open Library's `search.json` went slow enough to blow `AddBookProviderResilienceHandler`'s 40s total timeout (measured directly: 36.4s, 40.9s, then a 503 on three consecutive calls), so `Polly.Timeout.TimeoutRejectedException` escaped
+`RefreshBookReferenceAsync` **after** Google Books had already returned title, synopsis, cover, language and ISBN - discarding all of it, skipping the `UpsertAsync`, and never stamping `LastEnrichedAt`.
+
+Two consequences.
+The refresh was caught per-document by `ReferenceSyncService.SyncDomainAsync` and logged, so the pass merely looked idle;
+and because nothing was stamped, the same books led the staleness queue on every subsequent pass, re-paying a 40s timeout each, unable to recover for as long as Open Library stayed slow.
+The identical unguarded call also sat on the interactive path (`ResolveBookAsync`), where it meant a 40s wait and then a 500 from admin manual linking and from the auto-resolve a book creation fires.
+
+Fixed by enforcing the documented contract at that boundary: the lookup is wrapped and logged, `OperationCanceledException` still propagates (a shutdown is not a provider being unhelpful, same exclusion as the sync's own per-document
+catch), and the book keeps the linking provider's data.
+Same rule, and the same reason, as `IOmdbClient` never throwing - an optional secondary provider must never be able to fail the primary operation.
+
+That guard immediately surfaced the second half of the same bug, confirmed the same way: with the refresh no longer aborting, it wrote back a `Ratings` map rebuilt from the linking provider - which never carries this value -
+so "The Hobbit"'s stored 4.29/498 and "Psion"'s 4.5/2 were **deleted** by a refresh that simply couldn't reach Open Library.
+`AddOpenLibraryRatingFallbackAsync` now takes the previously stored rating and keeps it whenever the lookup never answered (a failure, or no ISBN to ask with), while an actual "no rating for this ISBN" response still clears it -
+the same distinction `RebuildRatingsAsync` makes between "OMDb has nothing" and "we never asked".
+
+Guarded by `RefreshBookReferenceAsync_KeepsTheLinkingProvidersData_WhenTheOpenLibraryRatingLookupFails`, `ResolveBookAsync_StillLinks_WhenTheOpenLibraryRatingLookupFails` (both verified to fail without the fix) and
+`RefreshBookReferenceAsync_ClearsAKnownRating_WhenOpenLibraryAnswersWithNoRating`.
+
 ### An over-quota OMDb key turned admin manual linking and Explore "add" into 500s, and nothing bounded the calls that got it there
 
 OMDb's free tier is 1000 calls/day and it answers an exhausted key with an HTTP **401**, which `GetFromJsonAsync` throws for.
