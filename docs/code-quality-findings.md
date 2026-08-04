@@ -23,6 +23,29 @@ Update this file as items are fixed or as new reviews are performed.
 
 ## Fixed
 
+### An id that names nothing reached the user as the generic error page instead of a 404, and an id that wasn't a valid ObjectId reached it as a 500
+
+Found on 2026-08-04 while adding a real 404 page to the Blazor app.
+
+Two independent defects on the same path, both ending at the error page for what is only ever a stale bookmark, a hand-edited URL or a deleted item.
+
+- **A 404 from the API threw.** `InventoryApiClientBase.GetOneAsync` used `GetFromJsonAsync`, whose built-in `EnsureSuccessStatusCode` makes a 404 an `HttpRequestException`.
+  Every one of the eleven detail pages already renders a `<type> not found.` state from a null item, and that branch was simply unreachable:
+  the throw killed the circuit on an in-app navigation, and blew up the prerender pass into `/error` on a direct load.
+  Now only a 404 returns null; every other failure still throws, since an outage must not render as an empty detail page.
+- **A malformed id threw deeper down, as a 500.** Every entity behind `MongoDbRepositoryBase` maps `_id` as an ObjectId, so the driver runs the string in an id filter through `ObjectId.Parse` and raises `FormatException` on anything that
+  isn't 24 hex digits - which `ApiExceptionFilterAttribute` turns into a 500.
+  `GET/PUT/DELETE /api/movies/not-an-object-id` all returned 500 (confirmed against a real MongoDB, and reproduced as four failing tests before the fix).
+  `MongoDbRepositoryBase` now answers "names no document" for such an id, exactly as it does for a well-formed id that was never minted.
+  The guard also covers `DeleteAllByParentAsync`: the controller's `OnDeletedAsync` cascade hook runs on the raw route id whether or not the parent delete matched, so the id reaches the child collection's parent-id filter too.
+
+`TvShowDetail` needed one further fix: alone among the detail pages it queried its child collection *before* checking the parent existed, so the episode query - filtered on the same id -
+failed the whole page rather than letting it render "Show not found.".
+Car/House/HealthProfile already had the parent-then-children order.
+
+Still open, deliberately: a raw API caller can pass a malformed id as a *filter* (`GET /api/episodes?TvShowId=not-an-object-id`) and get a 500 from the child repository's `GetFilter`.
+No UI path reaches it, and fixing it means touching each of the four child repositories rather than one shared method.
+
 ### Reference-data import matched documents by the `_id` they were exported with, so importing into a non-empty database duplicated or failed outright
 
 Found on 2026-08-04 while reviewing the feature before relying on it.

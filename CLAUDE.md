@@ -644,6 +644,24 @@ This is the only reason `BlazorApp.csproj` references `MongoDB.Driver` (it still
 `Features:IsWebSocketsOnlyEnabled` (default `true`) starts the circuit with `skipNegotiation` + WebSockets-only, pinning a circuit to the pod owning its state;
 set it `false` only behind a proxy that can't pass WebSockets, and stay single-replica there.
 
+### Missing pages and missing items: 404, never the error page
+
+`Components/Pages/NotFound.razor` is reached three ways and has to work in all of them: `UseStatusCodePagesWithReExecute("/not-found")` re-executing an unknown URL on a full page load (so the path must stay routable), the Router's
+`NotFoundPage` on an in-circuit navigation, and `NavigationManager.NotFound()`.
+It carries `[ExcludeFromInteractiveRouting]`, which `App.razor`'s `RenderModeForPage` reads: the page renders statically, so the cascaded `HttpContext` is actually available, and a bogus URL never opens a SignalR circuit just to say "no".
+It reads the original status from `IStatusCodeReExecuteFeature` because the middleware re-executes onto this path for **every** 400-599 with no body of its own, not just 404s -
+a status below 400 means the page was opened through its own route and is relabelled 404, never the 200 the response carries.
+No `[Authorize]`: bouncing a signed-out visitor to login would tell them the page exists.
+
+**A missing *item* is a 404 too, and every layer has to agree.** Three separate things once turned a dead item link into the generic error page (all detailed in `docs/code-quality-findings.md`):
+
+- `InventoryApiClientBase.GetOneAsync` returns null only for a 404 and still throws for everything else - it used `GetFromJsonAsync`, whose `EnsureSuccessStatusCode` made an ordinary 404 throw, leaving each detail page's existing `<type>
+  not found.` state unreachable.
+- `MongoDbRepositoryBase` treats an id that isn't a valid ObjectId as naming no document (`FindOneAsync`/`UpdateAsync`/`DeleteAsync`/`DeleteAllByParentAsync`).
+  The driver otherwise raises `FormatException` from `ObjectId.Parse` for a hand-edited or truncated id, which becomes a 500.
+  Only a real-MongoDB test proves this (`MalformedIdResourceTest`); a mocked repository can't.
+- A detail page fetches its parent **before** its child collection and returns early when the parent is null, since the child query filters on that same id and would fail the whole page.
+
 ### Theme
 
 Dark-only: no light theme, no toggle.

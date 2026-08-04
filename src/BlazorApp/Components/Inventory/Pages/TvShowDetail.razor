@@ -279,6 +279,17 @@ else
     private async Task FetchAsync()
     {
         _show = await TvShowApi.GetOneAsync(Id);
+        if (_show is null)
+        {
+            // Nothing below means anything without the show, and the episode query is actively harmful here:
+            // it filters on this same id, so an id that names no show - a hand-edited or truncated URL - would
+            // fail the whole page instead of letting it render its "Show not found." state.
+            // Same parent-then-children order CarDetail/HouseDetail/HealthProfileDetail already use.
+            _episodes = null;
+            _reference = null;
+            return;
+        }
+
         var episodes = await EpisodeApi.GetAsync(string.Empty, 1, 5000, new Dictionary<string, string> { ["TvShowId"] = Id });
         _episodes = episodes.Items;
 

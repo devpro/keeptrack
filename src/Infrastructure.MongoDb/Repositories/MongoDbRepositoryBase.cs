@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Keeptrack.Common.System;
 using Keeptrack.Infrastructure.MongoDb.Mappers;
 using Microsoft.Extensions.Logging;
+using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
@@ -30,8 +31,27 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
     /// </summary>
     protected IStorageMapper<TModel, TEntity> Mapper { get; } = mapper;
 
+    /// <summary>
+    /// Whether <paramref name="id"/> could name a document in this collection at all.
+    /// Every entity reaching this base maps its <c>_id</c> as an ObjectId - the four collections with genuine
+    /// string ids (lease, background_job, app_setting, provider_quota) are owner-less and use purpose-built
+    /// repositories, so they never come through here. The driver therefore serializes the string in an id
+    /// filter through <c>ObjectId.Parse</c> and throws <see cref="FormatException"/> on anything that isn't
+    /// 24 hex digits (confirmed against a real MongoDB), which the API surfaced as a 500 and the Blazor app
+    /// as its generic error page.
+    /// A hand-edited, truncated or stale id in a URL is ordinary client input, not a server fault: it names
+    /// no document, exactly like a well-formed id that was never minted, and every caller below already has
+    /// a truthful answer for that case (a 404, and the detail page's own "not found" state).
+    /// </summary>
+    private static bool CanNameADocument(string id) => ObjectId.TryParse(id, out _);
+
     public async Task<TModel?> FindOneAsync(string id, string ownerId)
     {
+        if (!CanNameADocument(id))
+        {
+            return default;
+        }
+
         var entity = await GetCollection().Find(x => x.Id == id && x.OwnerId == ownerId).FirstOrDefaultAsync();
         return entity is null ? default : Mapper.ToModel(entity);
     }
@@ -122,6 +142,11 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
 
     public async Task<long> UpdateAsync(string id, TModel model, string ownerId)
     {
+        if (!CanNameADocument(id))
+        {
+            return 0;
+        }
+
         var entity = Mapper.ToEntity(model);
         var result = await GetCollection().ReplaceOneAsync(x => x.Id == id && x.OwnerId == ownerId, entity);
         return result.ModifiedCount;
@@ -129,6 +154,11 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
 
     public async Task<long> DeleteAsync(string id, string ownerId)
     {
+        if (!CanNameADocument(id))
+        {
+            return 0;
+        }
+
         var result = await GetCollection().DeleteOneAsync(x => x.Id == id && x.OwnerId == ownerId);
         return result.DeletedCount;
     }
@@ -144,6 +174,14 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
     /// </summary>
     protected async Task<long> DeleteAllByParentAsync(Expression<Func<TEntity, string>> parentIdField, string parentId, string ownerId)
     {
+        // A parent id is an ObjectId here too, and the controller's OnDeletedAsync cascade hook runs on the
+        // raw route id whether or not the parent delete matched anything - so an unparseable id reaches this
+        // far and would throw where the delete above already answered "nothing to remove".
+        if (!CanNameADocument(parentId))
+        {
+            return 0;
+        }
+
         var builder = Builders<TEntity>.Filter;
         var result = await GetCollection().DeleteManyAsync(builder.Eq(f => f.OwnerId, ownerId) & builder.Eq(parentIdField, parentId));
         return result.DeletedCount;

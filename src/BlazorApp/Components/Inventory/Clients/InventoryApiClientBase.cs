@@ -1,4 +1,5 @@
-﻿using Keeptrack.Common.System;
+﻿using System.Net;
+using Keeptrack.Common.System;
 
 namespace Keeptrack.BlazorApp.Components.Inventory.Clients;
 
@@ -34,9 +35,25 @@ public abstract class InventoryApiClientBase<TDto>(HttpClient http, bool hasRefe
         return result ?? new PagedResult<TDto>([], 0, 1, 1);
     }
 
+    /// <summary>
+    /// Returns null when the API reports 404 - an id that doesn't exist, or one belonging to another owner
+    /// (every query is owner-scoped server-side, so the two are indistinguishable from here, deliberately).
+    /// Every detail page already renders its own "&lt;type&gt; not found." state from that null; this used to call
+    /// <c>GetFromJsonAsync</c>, whose built-in <c>EnsureSuccessStatusCode</c> made an ordinary 404 throw instead -
+    /// killing the circuit on an in-app navigation, and blowing up the prerender pass into the generic /error
+    /// page on a direct load, which left that null branch unreachable.
+    /// Any other failure still throws: only "it isn't there" is an expected answer.
+    /// </summary>
     public async Task<TDto?> GetOneAsync(string id)
     {
-        return await http.GetFromJsonAsync<TDto>($"{ApiResourceName}/{id}");
+        var response = await http.GetAsync($"{ApiResourceName}/{id}");
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return default;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<TDto>();
     }
 
     public async Task<TDto> AddAsync(TDto movie)
