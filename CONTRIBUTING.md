@@ -85,12 +85,12 @@ Key                                       | Description
 `Infrastructure:MongoDB:DatabaseName`     | MongoDB database name
 `Tmdb:ApiKey`                             | TMDB v3 API key, used to auto-match shows/movies to episode titles and synopses (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
 `Rawg:ApiKey`                             | RAWG API key, the secondary video game provider (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
-`Igdb:ClientId`                           | Twitch application client id, used by the default video game provider IGDB to auto-match games to synopses/cover art/platforms (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
+`Igdb:ClientId`                           | Twitch application client id, used by the default video game provider IGDB to auto-match games to synopses/cover art/platforms (see Reference data below)
 `Igdb:ClientSecret`                       | Twitch application client secret, exchanged with the client id for the app access token every IGDB request carries
 `Discogs:Token`                           | Discogs personal access token, used to auto-match albums to synopses/cover art/genres (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
 `GoogleBooks:ApiKey`                      | Google Books API key, used to auto-match books to synopses/cover art/language/genres (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below)
-`ReferenceData:BookProvider`              | Default `IBookReferenceClient` provider key used for automatic/background book matching (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below). Default: `googlebooks`
-`ReferenceData:VideoGameProvider`         | Default `IVideoGameReferenceClient` provider key used for automatic/background video game matching, for adopting an id onto references linked before it, and as Explore's discovery provider. Default: `igdb`
+`ReferenceData:BookProvider`              | Default `IBookReferenceClient` used for automatic/background book matching (see [Reference data](#reference-data-tmdb-open-library-rawg-discogs) below). Default: `googlebooks`
+`ReferenceData:VideoGameProvider`         | Default `IVideoGameReferenceClient` used for automatic/background video game matching, for adopting an id onto references linked before it, and as Explore's discovery provider. Default: `igdb`
 
 This values can be easily provided as environment variables (replace ":" by "__") or by configuration (json).
 
