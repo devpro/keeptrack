@@ -23,6 +23,27 @@ Update this file as items are fixed or as new reviews are performed.
 
 ## Fixed
 
+### The guard protecting RAWG cover art fired against RAWG itself, so an admin re-linking through RAWG had the key art it just fetched thrown away
+
+Found on 2026-08-05 while verifying that the protection added with the IGDB default (`a8fdf40`) actually holds.
+
+The rule is right and the main case worked: `PreferredImageUrl` keeps a video game reference's stored image rather than letting a refresh overwrite it, because RAWG's `background_image` is curated landscape key art whose CDN still serves
+those URLs even though its API doesn't, IGDB's portrait box art is a downgrade, and the RAWG URL cannot be recomputed from the RAWG id once lost.
+A reference linked through RAWG that adopts an IGDB id during the sync correctly kept its cover.
+
+But the predicate was `externalIds.ContainsKey("rawg") && existing is not empty` - "this document carries a rawg id" as a proxy for "the stored image is a RAWG image".
+Those two diverge the moment a document holds both ids, which is the normal state after `TryAdoptDefaultVideoGameProviderAsync` has run, and the proxy then inverts the rule in the one case where the operator acted deliberately:
+
+- `ReferenceDataAdminController` passes the admin picker's provider straight into `ResolveVideoGameAsync`, which adds that provider's id to `externalIds` *before* computing the image.
+  Re-linking an IGDB-covered reference through RAWG therefore made the guard fire on the rawg id it had just written, and the freshly fetched RAWG key art was discarded in favour of the stored IGDB cover.
+- Which also meant a dead stored RAWG URL was unrepairable by any action short of unlinking - and unlinking deletes the shared reference document outright.
+- On a `ReferenceData:VideoGameProvider=rawg` deployment the same predicate froze every reference's image permanently, RAWG included, and locked an IGDB cover in the instant a reference adopted a rawg id.
+
+Fixed by passing the fetching client's `ProviderKey` in and exempting RAWG: every other provider still may not overwrite a stored image on a rawg-linked reference, and RAWG remains authoritative for its own data.
+Covered by four `RefreshVideoGameReferenceAsync_*` cases (keeps the RAWG cover through IGDB, updates when there is no rawg id, takes a cover when none is stored, never overwrites with nothing) plus
+`ResolveVideoGameAsync_TakesTheRawgCover_WhenAnAdminRelinksThroughRawg`, which fails against the old predicate.
+The rule had no test at all before this, which is why a one-line predicate could carry an inversion unnoticed.
+
 ### A reference the spent OMDb quota made the sync skip was stamped as enriched anyway, so it waited a full staleness window for its next chance
 
 Reported on 2026-08-05, one day after a deployment: half the movie list showed no rating, and the admin's rating recompute answered "0 references checked, 0 items updated" however often it was clicked.

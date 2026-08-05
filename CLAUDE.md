@@ -417,6 +417,15 @@ Run-once scripts follow that same idempotent style: `dedupe-matched-aliases.js`,
     A source the provider *does* own but no longer reports is correctly dropped - that's an answer, not an absence.
   - Unlike books, the details record carries the `Ratings` map *built by the client*: each game provider has two scores on scales that differ per provider, and that knowledge belongs to the provider rather than a switch in the enrichment
     service.
+  - **A stored cover on a RAWG-linked reference is never overwritten by another provider** (`PreferredImageUrl`, applied by both `ResolveVideoGameAsync` and `RefreshVideoGameReferenceAsync`).
+    RAWG's `background_image` is curated landscape key art and its image CDN still serves those URLs even though its API doesn't; IGDB's portrait box art is a downgrade, its artwork is contributed, and its screenshots are raw frames with
+    HUD.
+    The overwrite is also irreversible - the RAWG URL can't be recomputed from the RAWG id without RAWG's API - so a small cosmetic gain sits against permanent data loss.
+  - **RAWG itself is exempt from that guard, and that half is load-bearing.** The rule keys on "this document carries a rawg id", which is only a *proxy* for "the stored image is a RAWG image", and the two diverge as soon as a document
+    holds both ids - the normal state after `TryAdoptDefaultVideoGameProviderAsync` runs.
+    Without the exemption the guard fired against the provider it exists to protect: the admin picker passes its chosen provider straight into `ResolveVideoGameAsync`, so re-linking through RAWG added the rawg id and *then* discarded the
+    key art it had just fetched in favour of the stored IGDB cover.
+    It also left a dead RAWG URL unrepairable by anything short of unlinking, which deletes the shared reference document outright.
 - TV/movie/album stay hard-wired to TMDB/Discogs (provider-named DTOs and `ExternalIds` keys on purpose - swapping one would be a redesign, not config).
 - **Ratings:** `RatingSourceCatalog` declares each domain's selectable sources and code default (games `igdb`/`igdbcritic`/`metacritic`, movies/TV TMDB vs IMDb; defaults `igdb`/`tmdb`);
   **a source key is not a provider**: `rawg` stays declared with its scale-5 entry long after RAWG stopped being the default, because `ScaleOf` throws on an unknown source and references linked through RAWG still carry and display

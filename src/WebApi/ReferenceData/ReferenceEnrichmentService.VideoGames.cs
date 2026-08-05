@@ -131,7 +131,7 @@ public partial class ReferenceEnrichmentService
             MatchedAliases = MergeMatchedAliases(existing?.MatchedAliases, (details.Title, details.Year ?? year, null, null), (title, year, null, null)),
             Genres = details.Genres,
             Ratings = MergeProviderRatings(existing?.Ratings, details.Ratings, client.SupportedRatingSources),
-            ImageUrl = PreferredImageUrl(externalIds, existing?.ImageUrl, details.ImageUrl),
+            ImageUrl = PreferredImageUrl(client.ProviderKey, externalIds, existing?.ImageUrl, details.ImageUrl),
             LastEnrichedAt = DateTime.UtcNow
         };
 
@@ -185,7 +185,7 @@ public partial class ReferenceEnrichmentService
         reference.Platforms = details.Platforms;
         reference.Genres = details.Genres;
         reference.Ratings = MergeProviderRatings(reference.Ratings, details.Ratings, client.SupportedRatingSources);
-        reference.ImageUrl = PreferredImageUrl(reference.ExternalIds, reference.ImageUrl, details.ImageUrl);
+        reference.ImageUrl = PreferredImageUrl(client.ProviderKey, reference.ExternalIds, reference.ImageUrl, details.ImageUrl);
         reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, null, null));
         reference.LastEnrichedAt = DateTime.UtcNow;
 
@@ -243,8 +243,8 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// The image a video game reference keeps: the one it already has whenever it carries a RAWG id, otherwise
-    /// whatever the current provider just returned.
+    /// The image a video game reference keeps: whatever <paramref name="providerKey"/> just returned, except
+    /// that a provider other than RAWG may not overwrite a stored image on a reference carrying a RAWG id.
     /// <para>
     /// RAWG's <c>background_image</c> is curated landscape key art, and its image CDN is still serving those
     /// URLs even though its API is not - so for a reference linked through RAWG the stored image is both good
@@ -257,9 +257,23 @@ public partial class ReferenceEnrichmentService
     /// overwritten it is gone. That asymmetry - a small cosmetic gain against permanent data loss - is what
     /// makes "keep what we have" the right default rather than a special case.
     /// </para>
+    /// <para>
+    /// <b>RAWG itself is exempt, and that half is load-bearing.</b> The rule keys on "this document carries a
+    /// RAWG id", which is only a proxy for "the stored image is a RAWG image" - and the two diverge the moment
+    /// a document holds both ids, which is the normal state after
+    /// <see cref="TryAdoptDefaultVideoGameProviderAsync"/> has run. Without the exemption the guard fires
+    /// against the very provider it exists to protect: an admin re-linking a reference through RAWG
+    /// (<see cref="ReferenceDataAdminController"/> passes the picked provider straight through to
+    /// <see cref="ResolveVideoGameAsync"/>) adds the RAWG id and then has the freshly fetched RAWG key art
+    /// discarded in favour of the IGDB cover already stored - the exact inversion of the intent. It would also
+    /// leave a dead RAWG URL unrepairable by any action short of unlinking, which deletes the shared reference
+    /// document outright.
+    /// </para>
     /// </summary>
-    private static string? PreferredImageUrl(Dictionary<string, string> externalIds, string? existingImageUrl, string? fetchedImageUrl) =>
-        externalIds.ContainsKey(RatingSourceCatalog.Rawg) && !string.IsNullOrEmpty(existingImageUrl)
+    private static string? PreferredImageUrl(string providerKey, Dictionary<string, string> externalIds, string? existingImageUrl, string? fetchedImageUrl) =>
+        providerKey != RatingSourceCatalog.Rawg
+        && externalIds.ContainsKey(RatingSourceCatalog.Rawg)
+        && !string.IsNullOrEmpty(existingImageUrl)
             ? existingImageUrl
             : fetchedImageUrl ?? existingImageUrl;
 

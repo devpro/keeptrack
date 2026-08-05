@@ -2248,6 +2248,131 @@ public class ReferenceEnrichmentServiceTest
         igdbClient.SearchCount.Should().Be(0);
     }
 
+    // --- Cover art: RAWG's key art is protected from every provider except RAWG itself (PreferredImageUrl) ---
+
+    [Fact]
+    public async Task RefreshVideoGameReferenceAsync_KeepsTheRawgCover_WhenRefreshingThroughIgdb()
+    {
+        // RAWG's background_image is curated landscape key art and its CDN still serves it even though its API
+        // is gone; IGDB's portrait box art is a downgrade, and the RAWG URL can't be recomputed from the RAWG
+        // id once overwritten. This is the normal state after adoption: both ids on one document.
+        var igdbClient = FakeVideoGameReferenceClient.Empty();
+        igdbClient.Details["42"] = new VideoGameDetails("42", "Some Game", 2020, "Synopsis", [], [], "https://images.igdb.com/igdb/image/upload/t_1080p/abc.jpg");
+        var reference = new VideoGameReferenceModel
+        {
+            Id = "reference-1",
+            Title = "Some Game",
+            TitleNormalized = "some game",
+            Year = 2020,
+            ExternalIds = new Dictionary<string, string> { ["rawg"] = "7", ["igdb"] = "42" },
+            ImageUrl = "https://media.rawg.io/media/games/some-game.jpg"
+        };
+        _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) => m);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: igdbClient);
+
+        var (result, _) = await service.RefreshVideoGameReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        result.ImageUrl.Should().Be("https://media.rawg.io/media/games/some-game.jpg");
+        // everything else the refresh fetched still lands - only the image is held back
+        result.Synopsis.Should().Be("Synopsis");
+    }
+
+    [Fact]
+    public async Task RefreshVideoGameReferenceAsync_TakesTheFetchedCover_WhenTheReferenceCarriesNoRawgId()
+    {
+        // nothing to protect: a reference that never went through RAWG refreshes its image like any other field
+        var igdbClient = FakeVideoGameReferenceClient.Empty();
+        igdbClient.Details["42"] = new VideoGameDetails("42", "Some Game", 2020, "Synopsis", [], [], "https://images.igdb.com/igdb/image/upload/t_1080p/new.jpg");
+        var reference = new VideoGameReferenceModel
+        {
+            Id = "reference-1",
+            Title = "Some Game",
+            TitleNormalized = "some game",
+            ExternalIds = new Dictionary<string, string> { ["igdb"] = "42" },
+            ImageUrl = "https://images.igdb.com/igdb/image/upload/t_1080p/old.jpg"
+        };
+        _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) => m);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: igdbClient);
+
+        var (result, _) = await service.RefreshVideoGameReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        result.ImageUrl.Should().Be("https://images.igdb.com/igdb/image/upload/t_1080p/new.jpg");
+    }
+
+    [Fact]
+    public async Task RefreshVideoGameReferenceAsync_TakesTheFetchedCover_WhenTheRawgLinkedReferenceHasNoStoredImage()
+    {
+        // the guard protects a *stored* RAWG image, not the RAWG id: with nothing stored, any cover beats none
+        var igdbClient = FakeVideoGameReferenceClient.Empty();
+        igdbClient.Details["42"] = new VideoGameDetails("42", "Some Game", 2020, "Synopsis", [], [], "https://images.igdb.com/igdb/image/upload/t_1080p/abc.jpg");
+        var reference = new VideoGameReferenceModel
+        {
+            Id = "reference-1",
+            Title = "Some Game",
+            TitleNormalized = "some game",
+            ExternalIds = new Dictionary<string, string> { ["rawg"] = "7", ["igdb"] = "42" },
+            ImageUrl = null
+        };
+        _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) => m);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: igdbClient);
+
+        var (result, _) = await service.RefreshVideoGameReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        result.ImageUrl.Should().Be("https://images.igdb.com/igdb/image/upload/t_1080p/abc.jpg");
+    }
+
+    [Fact]
+    public async Task RefreshVideoGameReferenceAsync_KeepsTheStoredCover_WhenTheProviderReturnsNone()
+    {
+        // "never overwrite with nothing", the same rule SetReferenceLinkAsync follows for every other field
+        var igdbClient = FakeVideoGameReferenceClient.Empty();
+        igdbClient.Details["42"] = new VideoGameDetails("42", "Some Game", 2020, "Synopsis", [], [], null);
+        var reference = new VideoGameReferenceModel
+        {
+            Id = "reference-1",
+            Title = "Some Game",
+            TitleNormalized = "some game",
+            ExternalIds = new Dictionary<string, string> { ["igdb"] = "42" },
+            ImageUrl = "https://images.igdb.com/igdb/image/upload/t_1080p/old.jpg"
+        };
+        _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) => m);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: igdbClient);
+
+        var (result, _) = await service.RefreshVideoGameReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        result.ImageUrl.Should().Be("https://images.igdb.com/igdb/image/upload/t_1080p/old.jpg");
+    }
+
+    [Fact]
+    public async Task ResolveVideoGameAsync_TakesTheRawgCover_WhenAnAdminRelinksThroughRawg()
+    {
+        // Regression: the guard used to key on "the document carries a RAWG id" alone, which fires against RAWG
+        // itself. The admin picker passes its provider straight through to here, so re-linking a reference
+        // through RAWG added the RAWG id first and then discarded the key art it had just fetched in favour of
+        // the stored IGDB cover - the exact inversion of the rule's intent, and the only way to repair a dead
+        // RAWG image short of unlinking (which deletes the shared reference document).
+        var igdbClient = FakeVideoGameReferenceClient.Empty();
+        var rawgClient = FakeVideoGameReferenceClient.Empty(RatingSourceCatalog.Rawg);
+        rawgClient.Details["7"] = new VideoGameDetails("7", "Some Game", 2020, "Synopsis", [], [], "https://media.rawg.io/media/games/some-game.jpg");
+        _videoGameReferenceRepository.Setup(r => r.FindByExternalIdAsync(RatingSourceCatalog.Rawg, "7")).ReturnsAsync((VideoGameReferenceModel?)null);
+        _videoGameReferenceRepository.Setup(r => r.FindByTitleYearAsync("Some Game", 2020)).ReturnsAsync(new VideoGameReferenceModel
+        {
+            Id = "reference-1",
+            Title = "Some Game",
+            TitleNormalized = "some game",
+            Year = 2020,
+            ExternalIds = new Dictionary<string, string> { ["igdb"] = "42" },
+            ImageUrl = "https://images.igdb.com/igdb/image/upload/t_1080p/abc.jpg"
+        });
+        _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) => m);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: igdbClient, secondaryVideoGameClient: rawgClient);
+
+        var result = await service.ResolveVideoGameAsync("Some Game", 2020, "7", RatingSourceCatalog.Rawg);
+
+        result.ImageUrl.Should().Be("https://media.rawg.io/media/games/some-game.jpg");
+        result.ExternalIds.Should().ContainKey("igdb").WhoseValue.Should().Be("42");
+    }
+
     [Fact]
     public async Task RefreshVideoGameReferenceAsync_DoesNotDuplicateAnAliasAlreadyPersistedWithANullCreator()
     {
