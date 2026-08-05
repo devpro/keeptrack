@@ -49,6 +49,11 @@ public class ReferenceEnrichmentServiceTest
         _movieRepository.Setup(r => r.CountLinkedOnOtherRatingSourceAsync(It.IsAny<string>())).ReturnsAsync(1);
         _tvShowRepository.Setup(r => r.CountLinkedOnOtherRatingSourceAsync(It.IsAny<string>())).ReturnsAsync(1);
         _videoGameRepository.Setup(r => r.CountLinkedOnOtherRatingSourceAsync(It.IsAny<string>())).ReturnsAsync(1);
+
+        // the real OmdbClient spends from the shared allowance and writes the day off on OMDb's "limit
+        // reached" 401; the fakes only model that when they share a budget, so hand it the same one the
+        // service reads (see FakeOmdbClient.ReportsLimitReached).
+        _omdbClient.Budget = _omdbCallBudget;
     }
 
     /// <summary>
@@ -916,6 +921,126 @@ public class ReferenceEnrichmentServiceTest
         var (result, _) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
 
         result.RatingsCheckedAt.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task RefreshMovieReferenceAsync_LeavesLastEnrichedAtAlone_WhenTheOmdbBudgetIsSpent()
+    {
+        // Regression, confirmed in the running app: the day after a deploy, 509 of 1516 movie references held
+        // an imdb id, no imdb rating and no attempt stamp - the day's OMDb allowance had run out mid-pass. The
+        // pass stamped LastEnrichedAt anyway, which marked those documents fresh and dropped them out of
+        // FindStaleAsync for a full 3-day staleness window, so half the catalogue showed no rating and no
+        // amount of re-running the sync (or the admin recompute, which never calls a provider) moved it.
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.ChangedSince["42"] = false;
+        _omdbCallBudget.Exhausted = true;
+        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => m);
+        var lastEnrichedAt = DateTime.UtcNow.AddDays(-5);
+        var reference = MovieReferenceAwaitingImdb(attemptedAt: null);
+        reference.ExternalIds["imdb"] = "tt0042";
+        reference.LastEnrichedAt = lastEnrichedAt;
+        var service = CreateService(tmdbClient);
+
+        var (result, changed) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        changed.Should().BeFalse();
+        // the point: still stale, so the next pass takes it again as soon as the allowance renews
+        result.LastEnrichedAt.Should().Be(lastEnrichedAt);
+        _omdbClient.Requested.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task RefreshMovieReferenceAsync_LeavesLastEnrichedAtAlone_WhenTheBudgetRunsOutDuringThePass()
+    {
+        // the pre-call guard can't catch this one: the allowance was open when the call started and OMDb's own
+        // "Request limit reached!" 401 is what wrote the day off (another replica having spent the last of it
+        // does the same). Re-reading the budget after the lookup is what keeps this document on the queue.
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.ChangedSince["42"] = false;
+        _omdbClient.ReportsLimitReached = true;
+        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => m);
+        var lastEnrichedAt = DateTime.UtcNow.AddDays(-5);
+        var reference = MovieReferenceAwaitingImdb(attemptedAt: null);
+        reference.ExternalIds["imdb"] = "tt0042";
+        reference.LastEnrichedAt = lastEnrichedAt;
+        var service = CreateService(tmdbClient);
+
+        var (result, _) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        result.LastEnrichedAt.Should().Be(lastEnrichedAt);
+        _omdbCallBudget.LimitReported.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RefreshMovieReferenceAsync_StampsLastEnrichedAt_WhenOmdbIsUnreachableForAnyOtherReason()
+    {
+        // The deferral is deliberately narrow: only a spent allowance holds a document at the head of the
+        // staleness queue, because only that condition is self-limiting (it renews at UTC midnight). A missing
+        // key can never be retried into working, so deferring on it would pin every movie reference at the
+        // head forever and starve the rest of the collection - the failure mode
+        // RefreshVideoGameReferenceAsync_StampsItAsChecked_WhenNoProviderIdCouldBeResolved exists to prevent.
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.ChangedSince["42"] = false;
+        _omdbClient.Unavailable = true; // no key configured / the request failed - the budget is untouched
+        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => m);
+        var lastEnrichedAt = DateTime.UtcNow.AddDays(-5);
+        var reference = MovieReferenceAwaitingImdb(attemptedAt: null);
+        reference.ExternalIds["imdb"] = "tt0042";
+        reference.LastEnrichedAt = lastEnrichedAt;
+        var service = CreateService(tmdbClient);
+
+        var (result, _) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        result.LastEnrichedAt.Should().BeAfter(lastEnrichedAt);
+    }
+
+    [Fact]
+    public async Task RefreshMovieReferenceAsync_StampsLastEnrichedAt_WhenTheBudgetIsSpentButNothingNeededBackfilling()
+    {
+        // the other half of "narrow": a spent allowance is only a reason to come back if there was actually a
+        // call to make. An already-imdb-rated reference wanted nothing from OMDb, so it is fully enriched and
+        // must rotate out of the queue like any other.
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.ChangedSince["42"] = false;
+        _omdbCallBudget.Exhausted = true;
+        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => m);
+        var lastEnrichedAt = DateTime.UtcNow.AddDays(-5);
+        var reference = MovieReferenceAwaitingImdb(attemptedAt: null);
+        reference.Ratings["imdb"] = new ReferenceRatingModel { Value = 8.9, Scale = 10, Count = 500_000 };
+        reference.LastEnrichedAt = lastEnrichedAt;
+        var service = CreateService(tmdbClient);
+
+        var (result, _) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        result.LastEnrichedAt.Should().BeAfter(lastEnrichedAt);
+    }
+
+    [Fact]
+    public async Task RefreshTvShowReferenceAsync_LeavesLastEnrichedAtAlone_WhenTheOmdbBudgetIsSpent()
+    {
+        // TV spends from the same daily allowance and syncs first, so it is the domain that empties it - and
+        // it carries the same rule, on its own copy of the short-circuit.
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.ChangedSince["42"] = false;
+        _omdbCallBudget.Exhausted = true;
+        _tvShowReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>())).ReturnsAsync((TvShowReferenceModel m) => m);
+        var lastEnrichedAt = DateTime.UtcNow.AddDays(-5);
+        var reference = new TvShowReferenceModel
+        {
+            Id = "reference-1",
+            Title = "Some Show",
+            TitleNormalized = "some show",
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42", ["imdb"] = "tt0042" },
+            Ratings = new Dictionary<string, ReferenceRatingModel> { ["tmdb"] = new() { Value = 8.0, Scale = 10, Count = 100 } },
+            LastEnrichedAt = lastEnrichedAt
+        };
+        var service = CreateService(tmdbClient);
+
+        var (result, changed) = await service.RefreshTvShowReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        changed.Should().BeFalse();
+        result.LastEnrichedAt.Should().Be(lastEnrichedAt);
+        _omdbClient.Requested.Should().BeEmpty();
     }
 
     [Fact]

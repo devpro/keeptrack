@@ -20,20 +20,39 @@ internal sealed class FakeOmdbClient : IOmdbClient
 
     public List<OmdbCallPriority> Priorities { get; } = [];
 
-    /// <summary>When true every lookup comes back not-attempted, as it does once the daily budget is spent.</summary>
+    /// <summary>When true every lookup comes back not-attempted, as it does with no key or a failed request.</summary>
     public bool Unavailable { get; set; }
+
+    /// <summary>
+    /// The shared allowance this client spends from, when a test cares about it. Only
+    /// <see cref="ReportsLimitReached"/> uses it.
+    /// </summary>
+    public IOmdbCallBudget? Budget { get; set; }
+
+    /// <summary>
+    /// When true a lookup answers the way OMDb's "Request limit reached!" 401 does: the day is written off on
+    /// <see cref="Budget"/> and the call comes back not-attempted. That is the case a caller's own pre-call
+    /// budget guard cannot catch - the allowance was still open when the call started (another replica had
+    /// spent it, or this was the call that hit the ceiling), so exhaustion is only observable afterwards.
+    /// </summary>
+    public bool ReportsLimitReached { get; set; }
 
     public static FakeOmdbClient Empty() => new();
 
-    public Task<OmdbLookupResult> GetRatingAsync(string imdbId, OmdbCallPriority priority, CancellationToken cancellationToken = default)
+    public async Task<OmdbLookupResult> GetRatingAsync(string imdbId, OmdbCallPriority priority, CancellationToken cancellationToken = default)
     {
-        if (Unavailable) return Task.FromResult(OmdbLookupResult.NotAttempted);
+        if (Unavailable) return OmdbLookupResult.NotAttempted;
+        if (ReportsLimitReached)
+        {
+            if (Budget is not null) await Budget.MarkLimitReachedAsync(cancellationToken);
+            return OmdbLookupResult.NotAttempted;
+        }
 
         Requested.Add(imdbId);
         Priorities.Add(priority);
-        return Task.FromResult(Ratings.TryGetValue(imdbId, out var rating)
+        return Ratings.TryGetValue(imdbId, out var rating)
             ? OmdbLookupResult.Rated(rating)
-            : OmdbLookupResult.NoRating);
+            : OmdbLookupResult.NoRating;
     }
 }
 

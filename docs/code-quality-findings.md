@@ -23,6 +23,36 @@ Update this file as items are fixed or as new reviews are performed.
 
 ## Fixed
 
+### A reference the spent OMDb quota made the sync skip was stamped as enriched anyway, so it waited a full staleness window for its next chance
+
+Reported on 2026-08-05, one day after a deployment: half the movie list showed no rating, and the admin's rating recompute answered "0 references checked, 0 items updated" however often it was clicked.
+
+Neither symptom was what it looked like.
+The recompute is a **no-op by design** here and always would have been - it re-stamps the denormalized `ReferenceRating`/`Scale`/`Source` on tenant items from what the reference document already holds, makes no provider call, and opens with
+`CountLinkedOnOtherRatingSourceAsync`, which returned 0 because every linked movie was correctly stamped `imdb` already.
+It can never produce a rating value; the missing half was `ratings.imdb` on the *reference* documents.
+The database confirmed it exactly: 1516 linked movies (999 rated, 517 not), and 509 movie references holding an imdb id, **no** imdb rating and **no** attempt stamp - i.e. references OMDb had never been asked about -
+against `provider_quota` showing `omdb:2026-08-04` at 1000/1000.
+
+The bug is in the no-change short-circuit of `RefreshTvShowReferenceAsync`/`RefreshMovieReferenceAsync`.
+`BackfillImdbRatingAsync` correctly declines to spend a call it can't afford (and correctly leaves `RatingsCheckedAt` unstamped, so the title isn't written off), but both callers then set `LastEnrichedAt = DateTime.UtcNow` regardless.
+That marks a document the pass admittedly skipped as freshly enriched, dropping it out of `FindStaleAsync` for the whole 3-day window -
+so on a quota-capped day the sync stamped hundreds of references it had done nothing for, and each got its next chance three days later rather than the next morning.
+Convergence proceeded in 3-day steps instead of daily, which is what left the catalogue sitting at half coverage with no admin action able to move it.
+
+`BackfillImdbRatingAsync` now returns an `ImdbBackfillOutcome` instead of a bool, and `LastEnrichedAt` is stamped for every outcome but `Deferred`.
+Two things make the deferral safe rather than a starvation risk (the failure mode `RefreshVideoGameReferenceAsync_StampsItAsChecked_WhenNoProviderIdCouldBeResolved` guards):
+
+- **It is narrow.** Only a spent allowance defers - detected via `IOmdbCallBudget.IsExhausted` before the call, and re-read after it, since the allowance can also run out mid-pass (another replica, or OMDb's own "Request limit reached!" 401
+  writing the day off).
+  A missing key or a failed request does *not* defer: neither can be retried into working, so deferring on them would pin every reference at the head of the queue permanently.
+  Nor does a reference that wanted no call in the first place.
+- **It is self-limiting.** The allowance renews at UTC midnight, so a deferred reference costs one cheap TMDB `/changes` call per pass until then, and guarantees the next affordable calls are spent on the references actually missing a
+  rating rather than on whatever the 3-day rotation happened to surface.
+
+The full-fetch path deliberately keeps stamping: its expensive half (details, cast, the person upserts behind it) genuinely completed, and such a reference is left holding a TMDB rating, which puts it on the cheap short-circuit path next
+time round.
+
 ### A book search by ISBN had no fallback when Google Books was down, and the failure blamed Keeptrack rather than the provider
 
 Reported on 2026-08-05: an exact ISBN (`9782265002104`) failed with "Google Books search failed (Response status code does not indicate success: 502 (Bad Gateway))", which read as a regression in this codebase.

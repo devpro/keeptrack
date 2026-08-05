@@ -461,6 +461,13 @@ Run-once scripts follow that same idempotent style: `dedupe-matched-aliases.js`,
     Both of OMDb's 401s (`"Request limit reached!"` and a rejected key) write the day off via `OmdbCallBudget.MarkLimitReachedAsync`, which is what turns a blown quota from hundreds of doomed calls into one, and tells the other replicas.
   - **`OmdbLookupResult.Attempted` is the load-bearing half of that result.** "OMDb answered and has nothing for this title" may be recorded (it's what stops a backfill re-asking about the same titles);
     "we never got to ask" - no key, no budget, a failed request - must leave **no** stamp, or one exhausted afternoon writes those titles off for the whole re-attempt window.
+  - **A backfill the spent quota skipped must not stamp `LastEnrichedAt` either** (`ImdbBackfillOutcome.Deferred`, returned by `BackfillImdbRatingAsync` and honoured by both no-change short-circuits).
+    Stamping a document the pass admittedly did nothing for marks it fresh and drops it out of `FindStaleAsync` for the whole 3-day window, so a quota-capped day converges in 3-day steps instead of daily -
+    confirmed in the running app, where the day after a deploy left 509 movie references holding an imdb id, no imdb rating and no attempt stamp while `provider_quota` read 1000/1000.
+    This is the one exception to "always stamp so the queue keeps moving", and only because it's **narrow and self-limiting**: only a spent allowance defers (checked before the call *and* re-read after it - it can run out mid-pass, via
+    another replica or OMDb's own "limit reached" 401), and the allowance renews at UTC midnight.
+    A missing key or a failed request deliberately still stamps: neither can be retried into working, so deferring on them would pin every reference at the queue head forever.
+    The full-fetch path also still stamps - its expensive half (details, cast, person upserts) genuinely completed, and the reference is left with a TMDB rating, which routes it through the cheap short-circuit next pass.
   - **Gotcha:** the `/changes` short-circuit (`LastEnrichedAt is not null && Ratings.Count > 0`) means a reference enriched before IMDb existed would never backfill one -
     it has a tmdb rating so it short-circuits, but no stored imdb id because only a full fetch writes that.
     `BackfillImdbRatingAsync` resolves the id cheaply on the no-change path via `/{tv,movie}/{id}/external_ids` (one call, no season fan-out), stores it, then does one OMDb call.

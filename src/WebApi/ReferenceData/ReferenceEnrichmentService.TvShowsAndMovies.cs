@@ -79,6 +79,14 @@ public partial class ReferenceEnrichmentService
     /// obtain - and it would do so precisely on the days the budget is tight, leaving the cheap backfill to
     /// buy it back later. An answer of "OMDb has nothing for this title" is a real answer and does clear it.
     /// </para>
+    /// <para>
+    /// Unlike the no-change short-circuit, a spent budget does *not* hold this path's <c>LastEnrichedAt</c>
+    /// back (see <see cref="ImdbBackfillOutcome.Deferred"/>): the expensive half of the work - details, cast
+    /// and the person upserts behind it - genuinely completed, so the document really was refreshed, and
+    /// re-paying all of it every pass to retry one OMDb call would be the wrong trade. Such a reference is
+    /// left with a TMDB rating, which puts it on the cheap short-circuit path next time round, where the
+    /// missing imdb value is retried for the cost of a single <c>/changes</c> call.
+    /// </para>
     /// </summary>
     private async Task<Dictionary<string, ReferenceRatingModel>> RebuildRatingsAsync(
         Dictionary<string, ReferenceRatingModel> current,
@@ -103,7 +111,7 @@ public partial class ReferenceEnrichmentService
     /// OMDb call at all. When the reference has no stored imdb id (enriched before IMDb ratings existed), it's
     /// fetched via a cheap TMDB external-ids lookup (<paramref name="fetchImdbId"/>) - not the full details
     /// re-fetch the short-circuit avoids - and stored on <paramref name="externalIds"/> so later syncs skip
-    /// that lookup. Returns whether a rating was added.
+    /// that lookup.
     /// <para>
     /// The three guards are ordered cheapest-first, and each rules out a different kind of waste. A title
     /// OMDb was asked about within <see cref="RatingSourceCatalog.RatingReattemptAfter"/> is skipped for free:
@@ -111,19 +119,20 @@ public partial class ReferenceEnrichmentService
     /// staleness cutoff - forever, since no key was ever written and nothing recorded that we had already
     /// asked. Skipping before the id lookup is what saves both calls, not just the OMDb one. Then the budget:
     /// with no OMDb call available, the external-ids lookup would be a provider call made purely to throw its
-    /// answer away, so the whole backfill is deferred to the next pass instead.
+    /// answer away, so the whole backfill is deferred to the next pass instead - which is what
+    /// <see cref="ImdbBackfillOutcome.Deferred"/> is for.
     /// </para>
     /// </summary>
-    private async Task<bool> BackfillImdbRatingAsync(
+    private async Task<ImdbBackfillOutcome> BackfillImdbRatingAsync(
         Dictionary<string, ReferenceRatingModel> ratings,
         Dictionary<string, DateTime> ratingsCheckedAt,
         Dictionary<string, string> externalIds,
         Func<CancellationToken, Task<string?>> fetchImdbId,
         CancellationToken cancellationToken)
     {
-        if (ratings.ContainsKey(ImdbRatingSource)) return false;
-        if (AttemptedRecently(ratingsCheckedAt, ImdbRatingSource)) return false;
-        if (omdbCallBudget.IsExhausted(OmdbCallPriority.Background)) return false;
+        if (ratings.ContainsKey(ImdbRatingSource)) return ImdbBackfillOutcome.Complete;
+        if (AttemptedRecently(ratingsCheckedAt, ImdbRatingSource)) return ImdbBackfillOutcome.Complete;
+        if (omdbCallBudget.IsExhausted(OmdbCallPriority.Background)) return ImdbBackfillOutcome.Deferred;
 
         var imdbId = externalIds.GetValueOrDefault("imdb");
         if (string.IsNullOrEmpty(imdbId))
@@ -133,7 +142,53 @@ public partial class ReferenceEnrichmentService
         }
 
         var lookup = await AddImdbRatingAsync(ratings, ratingsCheckedAt, imdbId, OmdbCallPriority.Background, cancellationToken);
-        return lookup.Rating is not null;
+        if (lookup.Rating is not null) return ImdbBackfillOutcome.Backfilled;
+
+        // The allowance can also run out *during* this call - another replica spending the last of it, or
+        // OMDb's own "Request limit reached!" 401 writing the day off (see OmdbClient.HandleRejectedKeyAsync).
+        // Re-reading the budget is what tells that apart from the other reasons a lookup comes back with
+        // nothing, none of which are worth re-walking this document for: a missing key can't be retried into
+        // working and would pin every reference at the head of the staleness queue permanently, and a
+        // transport failure is transient enough to leave to the next ordinary pass.
+        return !lookup.Attempted && omdbCallBudget.IsExhausted(OmdbCallPriority.Background)
+            ? ImdbBackfillOutcome.Deferred
+            : ImdbBackfillOutcome.Complete;
+    }
+
+    /// <summary>
+    /// What a pass's IMDb backfill (<see cref="BackfillImdbRatingAsync"/>) actually managed to do - which
+    /// decides both whether tenant items need re-stamping and, more importantly, whether the reference may be
+    /// stamped as enriched at all.
+    /// </summary>
+    private enum ImdbBackfillOutcome
+    {
+        /// <summary>
+        /// Nothing left to do for this pass: the reference already had an imdb rating, was asked about
+        /// recently enough, has no imdb id to ask with, or OMDb answered and has nothing. The reference is as
+        /// enriched as it can currently be, so <c>LastEnrichedAt</c> is stamped and it leaves the queue head.
+        /// </summary>
+        Complete,
+
+        /// <summary>OMDb answered with a rating, which now has to be propagated to every linked tenant item.</summary>
+        Backfilled,
+
+        /// <summary>
+        /// The day's OMDb allowance was spent, so the lookup never happened and this reference still needs
+        /// one. <c>LastEnrichedAt</c> is deliberately left untouched here: stamping a document the pass
+        /// admittedly skipped marks it fresh and drops it out of <c>FindStaleAsync</c> for a whole staleness
+        /// window (3 days), which is how a deployment ends up with references that hold an imdb id, no imdb
+        /// rating and no record of ever having been asked - confirmed in the running app, 509 movie
+        /// references in exactly that state the day after a quota-capped pass.
+        /// <para>
+        /// Unlike every other reason a document goes unenriched, this one is self-limiting: the allowance
+        /// renews at UTC midnight, so holding these at the head of the queue costs one cheap TMDB
+        /// <c>/changes</c> call each per pass and guarantees the next affordable calls are spent on the
+        /// references that are actually missing a rating, rather than on whatever the 3-day rotation happened
+        /// to surface. That bound is why this is not the starvation the
+        /// <c>StampsItAsChecked_WhenNoProviderIdCouldBeResolved</c> rule exists to prevent.
+        /// </para>
+        /// </summary>
+        Deferred
     }
 
     /// <summary>
@@ -490,16 +545,18 @@ public partial class ReferenceEnrichmentService
             var changed = await tmdbClient.HasTvShowChangedSinceAsync(tmdbId, reference.LastEnrichedAt.Value, cancellationToken);
             if (!changed)
             {
-                var backfilled = await BackfillImdbRatingAsync(reference.Ratings, reference.RatingsCheckedAt, reference.ExternalIds,
+                var backfill = await BackfillImdbRatingAsync(reference.Ratings, reference.RatingsCheckedAt, reference.ExternalIds,
                     ct => tmdbClient.GetTvShowImdbIdAsync(tmdbId, ct), cancellationToken);
-                reference.LastEnrichedAt = DateTime.UtcNow;
+                // only a pass that actually finished its work may claim the document is enriched - see
+                // ImdbBackfillOutcome.Deferred for why the quota case keeps its old stamp
+                if (backfill is not ImdbBackfillOutcome.Deferred) reference.LastEnrichedAt = DateTime.UtcNow;
                 var refreshed = await tvShowReferenceRepository.UpsertAsync(reference);
-                if (backfilled)
+                if (backfill is ImdbBackfillOutcome.Backfilled)
                 {
                     var (v, s, backfilledSource) = PrimaryRating(refreshed.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.TvShow));
                     await tvShowRepository.SetReferenceRatingAsync(refreshed.Id!, v, s, backfilledSource);
                 }
-                return (refreshed, backfilled);
+                return (refreshed, backfill is ImdbBackfillOutcome.Backfilled);
             }
         }
 
@@ -548,16 +605,18 @@ public partial class ReferenceEnrichmentService
             {
                 // nothing changed on TMDB, but backfill a missing imdb rating cheaply (one OMDb call, no
                 // TMDB details re-fetch) from the imdb id already stored on the reference
-                var backfilled = await BackfillImdbRatingAsync(reference.Ratings, reference.RatingsCheckedAt, reference.ExternalIds,
+                var backfill = await BackfillImdbRatingAsync(reference.Ratings, reference.RatingsCheckedAt, reference.ExternalIds,
                     ct => tmdbClient.GetMovieImdbIdAsync(tmdbId, ct), cancellationToken);
-                reference.LastEnrichedAt = DateTime.UtcNow;
+                // only a pass that actually finished its work may claim the document is enriched - see
+                // ImdbBackfillOutcome.Deferred for why the quota case keeps its old stamp
+                if (backfill is not ImdbBackfillOutcome.Deferred) reference.LastEnrichedAt = DateTime.UtcNow;
                 var refreshed = await movieReferenceRepository.UpsertAsync(reference);
-                if (backfilled)
+                if (backfill is ImdbBackfillOutcome.Backfilled)
                 {
                     var (v, s, backfilledSource) = PrimaryRating(refreshed.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.Movie));
                     await movieRepository.SetReferenceRatingAsync(refreshed.Id!, v, s, backfilledSource);
                 }
-                return (refreshed, backfilled);
+                return (refreshed, backfill is ImdbBackfillOutcome.Backfilled);
             }
         }
 
