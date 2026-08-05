@@ -181,6 +181,14 @@ Any new controller (CRUD or not) uses that same extension rather than re-reading
 reporting it as 500 claims the fault is ours and makes an outage indistinguishable from a defect here - which is exactly how a degraded Open Library once read as a broken endpoint and reddened CI.
 The only outbound HTTP an action makes is to the reference providers, so nothing else lands in that bucket.
 
+**The 502's `{ error }` says what the provider actually did** - `DescribeUpstreamFailure` reports the provider's own status ("The external provider returned 503 (ServiceUnavailable)."), unreachable, timed out, or circuit-open, instead of
+echoing the raw framework message.
+The client half matters just as much: `BlazorApp/Components/Shared/ApiResponseExtensions` (`EnsureSuccessOrThrowAsync`/`ReadJsonOrThrowAsync`, throwing `ApiRequestException` with `IsUpstreamProviderFailure`) reads that body, because
+`HttpResponseMessage.EnsureSuccessStatusCode` throws with only the status line and **discards the body** - so the `{ error }` the API deliberately writes reached nobody, and every provider outage surfaced to the admin as an unexplained
+"Response status code does not indicate success: 502 (Bad Gateway)", i.e. *our* gateway status with the provider's real one nowhere in it.
+**Use those extensions, not `EnsureSuccessStatusCode`/`GetFromJsonAsync`, wherever a failure is shown to a user.**
+`InlineReferenceLinker` then names the provider, quotes that detail, and - when the failure was upstream and the domain has more than one provider - points at the picker instead of only saying "wait and try again".
+
 **Resilience:** every outbound third-party client (`TmdbClient`/`RawgClient`/`OpenLibraryClient`/`DiscogsClient`/`GoogleBooksClient`/`BnfClient`/`OmdbClient`) chains `.AddStandardResilienceHandler()` on its `AddHttpClient<...>()`
 registration - retry, per-attempt and total timeouts, circuit breaker.
 Give any new third-party client the same one-line treatment; never hand-roll it.
@@ -369,10 +377,18 @@ Run-once scripts follow that same idempotent style: `dedupe-matched-aliases.js`,
   LastName", and its ordinary records carry **no** cover art at all (expected, not a bug).
 - **Google Books** is the book default (real synopses, covers, language, widest catalogue including manga).
   Uses `intitle:`/`inauthor:`; an `isbn` supersedes title/author entirely as the sole query (an exact identifier must not be "and"-ed with a fuzzy match).
+  **Its `volumes?q=` search endpoint went fully 503 for days in August 2026 while `volumes/{id}` kept answering 200** - a total outage of the default provider's search, with the key, the project and the API enablement all provably fine.
+  That is the scenario the shared search policy below exists for; don't diagnose a "book search is broken" report from the app's error text alone, curl the endpoint.
   `CleanDescription` keeps the documented `b`/`i`/`br` HTML rather than flattening it: it decodes entities **first** (so an entity-encoded tag can't slip through and re-materialize), converts real `\n`/`\r\n` to `<br/>` **before** the
   allowlist pass (some descriptions break paragraphs with newlines only - "The Hobbit" rendered as one block), then reconstructs those three tags bare and strips everything else including attributes.
   That fixed allowlist-and-reconstruct (not a general sanitizer) is what makes `BookDetail.razor`'s `MarkupString` render safe - **never render a `MarkupString` from text that hasn't been through it.** It also upgrades
   `imageLinks.thumbnail` to `https://` to avoid mixed-content blocking.
+- **The book search policy is written once in `BookReferenceClientBase`**, not per provider: try the ISBN alone, then title+author, then title alone, widening only when a step returns **empty**.
+  A provider supplies just its two query shapes (`SearchByIsbnAsync`/`SearchByTitleAsync`); the author-fallback loop used to be the same algorithm copy-pasted into all three clients.
+  **An ISBN miss widens rather than short-circuiting** - a catalogue that doesn't index an edition (BnF holds no record for `9782265002104`, Open Library resolves it in one call) must never make supplying an ISBN *worse* than leaving it
+  blank, which is what "only Google Books searches by ISBN" amounted to while Google Books was down.
+  No new mis-linking risk: the fallback runs the exact query an ISBN-less item already runs, and automatic resolution still only acts on a single confident candidate.
+  No book provider sends `year` as a server-side filter, each for its own confirmed reason, so the shared primitives don't take one.
 - **Books are the one domain behind a provider-agnostic interface** (`IBookReferenceClient` with `ProviderKey`/`DisplayName`) and the one with several providers registered at once.
   `Program.cs` registers all of them (typed `AddHttpClient<TConcrete>` bridged via `AddTransient<IBookReferenceClient>` -
   `AddTransient`, so `IHttpClientFactory`'s handler rotation isn't defeated); registration order is the admin picker's display order. `BookReferenceClientRegistry` resolves a key (or the `ReferenceData:BookProvider` default, matched

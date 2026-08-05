@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using Keeptrack.BlazorApp.Components.Shared;
 using Keeptrack.WebApi.Contracts.Dto;
 
 namespace Keeptrack.BlazorApp.Components.ReferenceDataAdmin;
@@ -19,8 +20,11 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
         if (!string.IsNullOrEmpty(provider)) query += $"&provider={Uri.EscapeDataString(provider)}";
         if (!string.IsNullOrEmpty(isbn)) query += $"&isbn={Uri.EscapeDataString(isbn)}";
 
-        var results = await http.GetFromJsonAsync<List<ReferenceSearchResultDto>>(query);
-        return results ?? [];
+        // Not GetFromJsonAsync: this call reaches a live third-party provider, so it is the one most likely to
+        // fail for a reason worth reporting, and EnsureSuccessStatusCode would discard the API's explanation
+        // of it (see ApiResponseExtensions).
+        var response = await http.GetAsync(query);
+        return await response.ReadJsonOrThrowAsync<List<ReferenceSearchResultDto>>() ?? [];
     }
 
     /// <summary>
@@ -75,10 +79,14 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
         response.EnsureSuccessStatusCode();
     }
 
+    /// <summary>
+    /// Linking re-fetches the chosen candidate's full details from the provider, so it can fail upstream for
+    /// exactly the same reasons the search can - and is reported the same way.
+    /// </summary>
     public async Task LinkAsync(LinkReferenceRequestDto request)
     {
         var response = await http.PostAsJsonAsync("/api/reference-data/link", request);
-        response.EnsureSuccessStatusCode();
+        await response.EnsureSuccessOrThrowAsync();
     }
 
     /// <summary>

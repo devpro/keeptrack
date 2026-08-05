@@ -491,8 +491,9 @@ public class ReferenceDataAdminController(
     /// <paramref name="provider"/> selects which registered provider to search with, for the domains that have
     /// more than one (see <see cref="GetProviders"/>); ignored for the rest. Null falls back to the
     /// deployment default.
-    /// <paramref name="isbn"/> is Book-only - an exact identifier, only actually used by
-    /// <see cref="GoogleBooksClient"/> (see its own doc comment on <see cref="IBookReferenceClient.SearchBooksAsync"/>).
+    /// <paramref name="isbn"/> is Book-only - an exact identifier, tried first by every book provider and
+    /// widening to the title search when that provider's catalogue doesn't index the edition (see
+    /// <see cref="BookReferenceClientBase"/>).
     /// </summary>
     [HttpGet("search")]
     [ProducesResponseType(200)]

@@ -23,6 +23,44 @@ Update this file as items are fixed or as new reviews are performed.
 
 ## Fixed
 
+### A book search by ISBN had no fallback when Google Books was down, and the failure blamed Keeptrack rather than the provider
+
+Reported on 2026-08-05: an exact ISBN (`9782265002104`) failed with "Google Books search failed (Response status code does not indicate success: 502 (Bad Gateway))", which read as a regression in this codebase.
+
+It was not one.
+Google Books' **search** endpoint was returning 503 to everything, with no application code involved - reproduced directly with `curl`:
+
+- `volumes?q=isbn:9782265002104`, `q=dune`, `q=a` (simplest possible query) → all 503, 15/15 in a burst.
+- With the `fields=` partial-response parameter removed, without `maxResults`, plain `:` vs `%3a`, `&country=FR`/`US`, key in the query string vs the `X-Goog-Api-Key` header, on `www.googleapis.com` and `books.googleapis.com` → 503 every
+  time.
+- **`volumes/{id}` on the same key → 200**, and a bogus key → 400 `API key not valid`.
+  So the key, the GCP project and the Books API enablement were all fine; only search was failing.
+
+The search path's last change (`1dc91b0`, `fields=`) was ruled out by testing without it.
+Two real defects were exposed underneath, though, and both are fixed.
+
+- **An ISBN was only ever searchable through Google Books.** `OpenLibraryClient` and `BnfClient` accepted the `isbn` parameter and silently ignored it, so switching provider in the admin picker - the one advertised way around a provider
+  outage - silently degraded an exact-identifier search to a fuzzy title match.
+  Both now search by it (`q=isbn:` and `bib.isbn all`, each confirmed against the real API), and the ordering/fallback policy every provider shares moved into `BookReferenceClientBase` rather than being copy-pasted a third time.
+  An ISBN **miss** widens to the title search instead of short-circuiting: BnF holds no record for that ISBN while Open Library resolves it in one call, and reporting "no results" for a book the same provider can find by title would make
+  supplying an ISBN worse than leaving it blank.
+- **The error text named the wrong system.** `ApiExceptionFilterAttribute` correctly returned 502 with an `{ error }` body, but the Blazor client used `GetFromJsonAsync`/`EnsureSuccessStatusCode`, which throws with only the status line and
+  **discards the body** - so the API's explanation reached nobody and the admin saw this API's gateway status instead of the provider's real one.
+  The filter now describes what the provider actually did (`DescribeUpstreamFailure`: returned 503, unreachable, timed out, circuit open), `ApiResponseExtensions` reads that body into an `ApiRequestException`, and `InlineReferenceLinker`
+  names the provider and points at the picker when the domain has another one.
+
+Covered by `BookReferenceClientBaseTest` (the shared policy, once), ISBN query-shape cases in `OpenLibraryClientTest`/`BnfClientTest`, the new message cases in `ApiExceptionFilterAttributeTest`, and `ApiResponseExtensionsTest`.
+
+Worth knowing for the next outage: `BookProviderSearchAndLinkResourceTest` **does** cover googlebooks search+link against the live API, but `GetThroughLiveProviderAsync` skips on a 502 by design, so it goes green-by-skipping during exactly
+this scenario.
+That is deliberate (a third-party outage must not red CI) and should not be narrowed - but it does mean no test will ever warn about a provider being down.
+The entry below already recorded Google Books "returning 503s" on 2026-08-04, a day before this was reported as a regression - the same outage, seen and not recognized as one.
+
+Files: `src/WebApi/ReferenceData/BookReferenceClientBase.cs` (new), `GoogleBooksClient.cs`, `OpenLibraryClient.cs`, `BnfClient.cs`, `IBookReferenceClient.cs`, `ReferenceDataAdminController.cs`,
+`src/WebApi/Filters/ApiExceptionFilterAttribute.cs`, `src/BlazorApp/Components/Shared/ApiResponseExtensions.cs` (new), `src/BlazorApp/Components/ReferenceDataAdmin/ReferenceDataAdminApiClient.cs`, `InlineReferenceLinker.razor`,
+`test/WebApi.UnitTests/ReferenceData/BookReferenceClientBaseTest.cs` (new), `OpenLibraryClientTest.cs`, `BnfClientTest.cs`, `test/WebApi.UnitTests/Filters/ApiExceptionFilterAttributeTest.cs`,
+`test/BlazorApp.UnitTests/Components/Shared/ApiResponseExtensionsTest.cs` (new)
+
 ### A third-party provider being down reported itself as a 500, and reddened CI
 
 Confirmed on 2026-08-04: `BookProviderSearchAndLinkResourceTest` failed in CI with a 500 from `GET /api/reference-data/search?...&provider=openlibrary`, on a commit that changed nothing on that path.

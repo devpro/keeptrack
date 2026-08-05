@@ -192,4 +192,49 @@ public class BnfClientTest
         results[0].ExternalId.Should().Be("ark:/12148/cb1");
         results[0].Author.Should().Be("Albert Camus");
     }
+
+    /// <summary>
+    /// <c>bib.isbn</c> is an exact criterion, confirmed against the real API to round-trip a known ISBN
+    /// (2841142787) to the single matching record - so unlike the author clause it needs no client-side
+    /// re-check, and the search must not carry the ignored title/author text into the query.
+    /// </summary>
+    [Fact]
+    public async Task SearchBooksAsync_QueriesBibIsbnAlone_WhenAnIsbnIsSupplied()
+    {
+        string? capturedQuery = null;
+        var client = BuildClient(request =>
+        {
+            capturedQuery = Uri.UnescapeDataString(request.RequestUri!.Query);
+            return OneRecordResponse("ark:/12148/cb361713613", "Du fond de l'abîme", "Child, Lee (1954-....). Auteur du texte", "1997", "fre");
+        });
+
+        var results = await client.SearchBooksAsync("Ignored Title", null, "Ignored Author", "2841142787", TestContext.Current.CancellationToken);
+
+        capturedQuery.Should().Contain("bib.isbn all \"2841142787\"").And.NotContain("bib.title").And.NotContain("bib.author");
+        results.Should().ContainSingle().Which.ExternalId.Should().Be("ark:/12148/cb361713613");
+    }
+
+    /// <summary>
+    /// BnF's catalogue is far narrower than Google Books' for an arbitrary edition (it holds no record at all
+    /// for 9782265002104), so an ISBN miss is routine and must widen to the title search rather than reporting
+    /// a false "not found" - the shared policy in <c>BookReferenceClientBase</c>, proven here over real wire
+    /// parsing because an empty SRU response and a failed one look nothing alike.
+    /// </summary>
+    [Fact]
+    public async Task SearchBooksAsync_FallsBackToTheTitleSearch_WhenTheIsbnMatchesNoRecord()
+    {
+        var titleSearchAttempted = false;
+        var client = BuildClient(request =>
+        {
+            if (Uri.UnescapeDataString(request.RequestUri!.Query).Contains("bib.isbn")) return RecordsResponse();
+
+            titleSearchAttempted = true;
+            return OneRecordResponse("ark:/12148/cb1", "Du fond de l'abîme", "Child, Lee (1954-....). Auteur du texte", "1997", "fre");
+        });
+
+        var results = await client.SearchBooksAsync("Du fond de l'abime", null, null, "9782265002104", TestContext.Current.CancellationToken);
+
+        titleSearchAttempted.Should().BeTrue();
+        results.Should().ContainSingle();
+    }
 }

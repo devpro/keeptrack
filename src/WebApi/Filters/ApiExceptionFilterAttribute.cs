@@ -30,7 +30,7 @@ public sealed class ApiExceptionFilterAttribute(ILogger<ApiExceptionFilterAttrib
             // 52s, then 503/504 past AddBookProviderResilienceHandler's 40s total budget) once read as a broken
             // endpoint. 502 says who failed. The only outbound HTTP an action makes is to those providers.
             TimeoutRejectedException or BrokenCircuitException or HttpRequestException =>
-                (context.Exception.Message, StatusCodes.Status502BadGateway),
+                (DescribeUpstreamFailure(context.Exception), StatusCodes.Status502BadGateway),
             _ => (context.Exception.Message, StatusCodes.Status500InternalServerError)
         };
 
@@ -46,4 +46,31 @@ public sealed class ApiExceptionFilterAttribute(ILogger<ApiExceptionFilterAttrib
 
         base.OnException(context);
     }
+
+    /// <summary>
+    /// Says what the provider actually did, in place of the raw framework message.
+    /// <para>
+    /// The default <see cref="HttpRequestException"/> text ("Response status code does not indicate success:
+    /// 503 (Service Unavailable).") describes an exchange the reader can't see, and once it has been wrapped
+    /// in this API's own 502 and re-thrown by the Blazor client's <c>EnsureSuccessStatusCode</c>, what
+    /// actually reaches the admin is "...: 502 (Bad Gateway)" - our gateway status, with the provider's real
+    /// one lost. That is how a total Google Books search outage (confirmed: every <c>volumes?q=</c> query
+    /// answering 503 while <c>volumes/{id}</c> answered 200) read as a bug in Keeptrack. The distinctions
+    /// below are the ones that change what an operator should do next: wait, retry, or switch provider.
+    /// </para>
+    /// The original exception is still logged in full by the caller, so nothing is lost by not echoing it.
+    /// </summary>
+    private static string DescribeUpstreamFailure(Exception exception) => exception switch
+    {
+        // the provider answered, and with what - the single most useful fact, and the one previously dropped
+        HttpRequestException { StatusCode: { } status } =>
+            $"The external provider returned {(int)status} ({status}).",
+        // no response at all: DNS, TLS, connection refused
+        HttpRequestException => "The external provider could not be reached.",
+        TimeoutRejectedException => "The external provider did not respond in time.",
+        // Polly opened the circuit, so this call was never even attempted - worth saying, since it explains
+        // an instant failure that looks nothing like the slow one that caused it
+        BrokenCircuitException => "The external provider is failing repeatedly, so calls to it are paused for a short while.",
+        _ => exception.Message
+    };
 }

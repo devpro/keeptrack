@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Http;
 using AwesomeAssertions;
 using Keeptrack.WebApi.Filters;
@@ -94,5 +95,80 @@ public class ApiExceptionFilterAttributeTest
 
         var result = context.Result.Should().BeOfType<JsonResult>().Subject;
         result.Value.Should().BeEquivalentTo(new { error = "boom" });
+    }
+
+    private static string ErrorMessage(ExceptionContext context) =>
+        context.Result.Should().BeOfType<JsonResult>().Subject.Value!.GetType().GetProperty("error")!
+            .GetValue(context.Result.As<JsonResult>().Value)!.ToString()!;
+
+    /// <summary>
+    /// The provider's OWN status is the single most useful fact about an upstream failure, and it used to be
+    /// dropped: this API answered 502, the Blazor client's EnsureSuccessStatusCode then reported "Response
+    /// status code does not indicate success: 502 (Bad Gateway)", and the admin saw our gateway status with
+    /// the provider's real one nowhere in it. That is how a total Google Books search outage (every
+    /// volumes?q= answering 503 while volumes/{id} answered 200) read as a defect in Keeptrack.
+    /// </summary>
+    [Fact]
+    public void OnException_ReportsTheProvidersOwnStatus_WhenTheProviderAnswered()
+    {
+        var context = CreateContext(new HttpRequestException("Response status code does not indicate success: 503 (Service Unavailable).",
+            null, HttpStatusCode.ServiceUnavailable));
+
+        _filter.OnException(context);
+
+        ErrorMessage(context).Should().Be("The external provider returned 503 (ServiceUnavailable).");
+    }
+
+    /// <summary>
+    /// A provider that never answered at all (DNS, TLS, connection refused) carries no status to report -
+    /// saying so is different from, and more honest than, naming a status nobody sent.
+    /// </summary>
+    [Fact]
+    public void OnException_ReportsThatTheProviderWasUnreachable_WhenThereWasNoResponseAtAll()
+    {
+        var context = CreateContext(new HttpRequestException("No such host is known."));
+
+        _filter.OnException(context);
+
+        ErrorMessage(context).Should().Be("The external provider could not be reached.");
+    }
+
+    [Fact]
+    public void OnException_ReportsATimeoutAsSuch()
+    {
+        var context = CreateContext(new TimeoutRejectedException("provider took longer than the total request timeout"));
+
+        _filter.OnException(context);
+
+        ErrorMessage(context).Should().Be("The external provider did not respond in time.");
+    }
+
+    /// <summary>
+    /// An open circuit means the call was never attempted - worth saying, since it explains an instant
+    /// failure that looks nothing like the slow one that caused it.
+    /// </summary>
+    [Fact]
+    public void OnException_ExplainsAnOpenCircuit()
+    {
+        var context = CreateContext(new BrokenCircuitException("the circuit for this provider is open"));
+
+        _filter.OnException(context);
+
+        ErrorMessage(context).Should().Contain("failing repeatedly");
+    }
+
+    /// <summary>
+    /// The framework's own wording describes an exchange the reader can't see and must never be what a user
+    /// is shown - the full exception still goes to the log, which is where it belongs.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(UpstreamProviderFailures))]
+    public void OnException_NeverEchoesTheRawFrameworkMessage_ForAnUpstreamFailure(Exception exception)
+    {
+        var context = CreateContext(exception);
+
+        _filter.OnException(context);
+
+        ErrorMessage(context).Should().NotBe(exception.Message);
     }
 }

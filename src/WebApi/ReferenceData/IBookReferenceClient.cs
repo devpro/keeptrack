@@ -19,13 +19,17 @@ public interface IBookReferenceClient : IReferenceProviderClient
 {
     /// <summary>
     /// <paramref name="author"/> narrows the query when known - without it, a common title can return
-    /// dozens of unrelated results. <paramref name="year"/> is an optional hint; whether and how an
-    /// implementation uses it server-side is provider-specific (see e.g. <see cref="OpenLibraryClient"/>'s
-    /// own reasoning for why it never filters by year). It is still returned per candidate for the
-    /// caller/admin to use when picking. <paramref name="isbn"/>, when supplied, is an exact identifier -
-    /// currently only <see cref="GoogleBooksClient"/> actually uses it (as the sole query, superseding
-    /// title/author entirely, since an ISBN uniquely identifies an edition); other implementations accept
-    /// but ignore it rather than needing a separate interface per provider.
+    /// dozens of unrelated results. <paramref name="year"/> is an optional hint; no implementation currently
+    /// sends it as a server-side filter, each for its own confirmed reason (see
+    /// <see cref="BookReferenceClientBase.SearchByTitleAsync"/>). It is still returned per candidate for the
+    /// caller/admin to use when picking. <paramref name="isbn"/>, when supplied, is an exact identifier and
+    /// is tried first as the sole query, superseding title/author entirely, since an ISBN uniquely identifies
+    /// an edition; <b>every</b> implementation now searches by it, and a catalogue that doesn't index that
+    /// edition widens to the title search rather than reporting nothing.
+    /// <para>
+    /// The ordering and the fallbacks between those queries are implemented once in
+    /// <see cref="BookReferenceClientBase"/>; an implementation supplies only its own query shapes.
+    /// </para>
     /// </summary>
     Task<IReadOnlyList<BookSearchResult>> SearchBooksAsync(string title, int? year, string? author = null, string? isbn = null, CancellationToken cancellationToken = default);
 

@@ -83,8 +83,9 @@
     [Parameter] public string? Creator { get; set; }
 
     /// <summary>
-    /// The book's ISBN, when known - Book-only, and only actually used by Google Books (see
-    /// <see cref="IBookReferenceClient.SearchBooksAsync"/>'s own doc comment). Edited on the detail page
+    /// The book's ISBN, when known - Book-only. Every book provider searches by it (see
+    /// <see cref="IBookReferenceClient.SearchBooksAsync"/>'s own doc comment), so switching provider is a real
+    /// fallback for an ISBN search rather than a silent downgrade to a title match. Edited on the detail page
     /// itself (<c>BookDetail.razor</c>'s own ISBN field), not here - same convention as <see cref="Creator"/>.
     /// </summary>
     [Parameter] public string? Isbn { get; set; }
@@ -125,11 +126,8 @@
         {
             // an uncaught exception here would crash the whole Blazor Server circuit (not just this
             // component), forcing a full page reload - same reasoning as LinkAsync's own try/catch below.
-            // The provider's own exchange (which HTTP client, which status code) is an implementation
-            // detail the admin shouldn't have to parse out of a raw HttpRequestException message -
-            // "Search failed" plus a retry hint says the one thing that's actually actionable.
             _results = [];
-            _error = $"{ProviderName} search failed ({ex.Message}). This is usually transient - wait a moment and try again.";
+            _error = DescribeFailure("search", ex);
         }
         finally
         {
@@ -156,11 +154,36 @@
         }
         catch (Exception ex)
         {
-            _error = ex.Message;
+            _error = DescribeFailure("link", ex);
         }
         finally
         {
             _linking = false;
         }
+    }
+
+    /// <summary>
+    /// Names the provider, says what it actually did, and points at the way out.
+    /// <para>
+    /// This used to report <c>ex.Message</c>, which for any provider failure was the Blazor client's own
+    /// "Response status code does not indicate success: 502 (Bad Gateway)" - this API's gateway status, with
+    /// the provider's real one nowhere in sight. It read as a Keeptrack defect during what was actually a
+    /// total Google Books search outage. <c>ApiRequestException</c> now carries the API's own explanation.
+    /// </para>
+    /// Whether another provider is worth trying is the genuinely useful next step, and it is only suggested
+    /// when both halves are actually known: that the failure was upstream (so a different upstream may well
+    /// work) and that this domain has somewhere else to go - books and video games do, TV/movies/albums have a
+    /// single provider each. Anything this component can't identify falls back to the plain retry hint rather
+    /// than sending an admin round a picker for a failure that may have nothing to do with the provider.
+    /// </summary>
+    private string DescribeFailure(string action, Exception ex)
+    {
+        var api = ex as ApiRequestException;
+        var detail = api?.Message ?? "The request could not be completed.";
+        var nextStep = api is { IsUpstreamProviderFailure: true } && _providers.Count > 1
+            ? "Try one of the other providers above, or wait a moment and try again."
+            : "This is usually transient - wait a moment and try again.";
+
+        return $"{ProviderName} {action} failed. {detail} {nextStep}";
     }
 }
