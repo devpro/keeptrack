@@ -31,6 +31,26 @@ public class ReferenceDataImportSummary
     /// existing reference documents is an admin decision, not an import's.
     /// </summary>
     public List<string> SkippedExternalIds { get; } = [];
+
+    /// <summary>
+    /// Documents the import created that look, by title and year, like a work the target already had under a
+    /// different provider's id - reported as <c>"collection:Title (Year)"</c>.
+    /// <para>
+    /// This is the gap the provider-id matching cannot close, and it is a real one: matching is by provider
+    /// id, so an export whose video games are IGDB-linked lands *beside* a target's RAWG-linked copies of the
+    /// same games rather than merging into them, leaving two documents for one work. The tenants' items point
+    /// at whichever existed when they linked, so the work's ids, ratings and cover end up split across the two
+    /// and the Explore feature only ever recognises one of them.
+    /// </para>
+    /// <para>
+    /// Reported rather than merged, deliberately, and by the same rule the rest of this pipeline follows:
+    /// title text is not identity (two genuinely different works do share a title and a year), so an import
+    /// guessing here would silently fuse unrelated records - the one outcome nothing downstream could undo.
+    /// The admin reconciliation screen shows the same pairs with a merge action, which is where a human makes
+    /// that call.
+    /// </para>
+    /// </summary>
+    public List<string> PossibleDuplicates { get; } = [];
 }
 
 /// <summary>Per-collection outcome of a reference-data import.</summary>

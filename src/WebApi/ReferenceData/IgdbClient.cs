@@ -48,6 +48,22 @@ public class IgdbClient(HttpClient http, IgdbSettings settings) : IVideoGameRefe
             g.Id.ToString(CultureInfo.InvariantCulture), g.Name ?? title, ParseYear(g.FirstReleaseDate), CoverUrl(g.Cover))).ToList();
     }
 
+    public async Task<IReadOnlyList<VideoGameSearchResult>> FindGamesByExactTitleAsync(string title, CancellationToken cancellationToken = default)
+    {
+        if (!settings.IsConfigured || string.IsNullOrWhiteSpace(title)) return [];
+
+        // `name ~ "..."` is Apicalypse's case-insensitive *equality* on a string field, not the relevance
+        // `search` above - confirmed live: it returns the seven distinct games IGDB names exactly "Resident
+        // Evil" (1996 original, 2002 remake, ports, the 2014 HD remaster), where `search "Resident Evil"`
+        // returned only bundles and archive editions. A larger limit than the search path because this is a
+        // complete answer to a narrow question: truncating it would turn "several candidates, don't guess"
+        // into "exactly one, adopt it" purely by cutting the list short.
+        var query = $"{SearchFields} where name ~ \"{EscapeSearchTerm(title)}\"; limit {MaxExactTitleResults};";
+        var games = await QueryAsync(query, cancellationToken);
+        return games.Select(g => new VideoGameSearchResult(
+            g.Id.ToString(CultureInfo.InvariantCulture), g.Name ?? title, ParseYear(g.FirstReleaseDate), CoverUrl(g.Cover))).ToList();
+    }
+
     public async Task<VideoGameDetails?> GetGameDetailsAsync(string externalId, CancellationToken cancellationToken = default)
     {
         // ids are IGDB's own numeric ids; anything else is not a value this provider issued, and interpolating
@@ -108,6 +124,13 @@ public class IgdbClient(HttpClient http, IgdbSettings settings) : IVideoGameRefe
         "fields name,first_release_date,cover.image_id,rating,rating_count,aggregated_rating,aggregated_rating_count;";
 
     private const int MaxResults = 5;
+
+    /// <summary>
+    /// Bound on <see cref="FindGamesByExactTitleAsync"/>. Higher than <see cref="MaxResults"/> on purpose: an
+    /// exact-name query returns only genuine namesakes, and seeing all of them is what makes "more than one -
+    /// leave it for an admin" a real judgement (a common name like "Resident Evil" has seven).
+    /// </summary>
+    private const int MaxExactTitleResults = 50;
 
     /// <summary>IGDB's per-query maximum, so a full catalogue ranking costs as few round-trips as possible.</summary>
     private const int TopRatedPageSize = 500;

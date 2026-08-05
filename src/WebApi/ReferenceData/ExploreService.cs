@@ -31,7 +31,8 @@ public class ExploreService(
     ITvShowReferenceRepository tvShowReferenceRepository,
     IVideoGameReferenceRepository videoGameReferenceRepository,
     IExploreDismissalRepository dismissalRepository,
-    ExploreRankings exploreRankings)
+    ExploreRankings exploreRankings,
+    RatingSourceOptions ratingSourceOptions)
 {
     /// <summary>
     /// How many ranked entries to read per round-trip while filling a page. Larger than a typical page size
@@ -84,7 +85,7 @@ public class ExploreService(
                 // (and re-filters) a run of titles the caller already owns.
                 cursor = entry.Rank;
                 if (!excludedIds.Add(entry.ExternalId)) continue; // tracked, dismissed, or already on this page
-                if (excludedTitles.Contains(TitleNormalizer.Normalize(entry.Title))) continue;
+                if (excludedTitles.Contains(TitleNormalizer.NormalizeLoose(entry.Title))) continue;
 
                 items.Add(ToDto(entry, ratingSource));
                 if (items.Count >= limit) break;
@@ -137,7 +138,7 @@ public class ExploreService(
     private async Task<string> ResolveRatingSourceAsync(ExploreItemType type)
     {
         var overrides = await appSettingRepository.GetReferenceRatingSourcesAsync();
-        var source = RatingSourceCatalog.Resolve(overrides, ExploreRankings.ToReferenceItemType(type));
+        var source = ratingSourceOptions.Resolve(overrides, ExploreRankings.ToReferenceItemType(type));
         if (source == RatingSourceCatalog.Imdb && await appSettingRepository.GetExploreUseTmdbAsync())
         {
             source = RatingSourceCatalog.Tmdb;
@@ -170,8 +171,16 @@ public class ExploreService(
     // a title search returns several candidates), so it has no provider id to exclude by. Matching normalized
     // titles catches those. Two genuinely different works sharing one title is possible, but hiding one
     // discovery card is a far smaller cost than repeatedly suggesting something the owner already owns.
+    //
+    // Matched loosely (see TitleNormalizer.NormalizeLoose), because after a link the owner's item carries the
+    // *linking provider's* canonical title while the catalogue carries the *discovery provider's* - and once
+    // those are two different providers, the two spell the same work differently in small systematic ways
+    // ("Mass Effect: Legendary Edition" against "Mass Effect Legendary Edition"). Exact equality made this
+    // fallback miss precisely the references that could not adopt the discovery provider's id either, so both
+    // halves of the exclusion failed on the same games at the same time - which is what made Explore look like
+    // it was ignoring the owner's collection outright.
     private async Task<HashSet<string>> BuildExcludedTitlesAsync(ExploreItemType type, string ownerId) =>
-        [.. (await SourceRepository(type).FindDistinctTitlesAsync(ownerId)).Select(TitleNormalizer.Normalize)];
+        [.. (await SourceRepository(type).FindDistinctTitlesAsync(ownerId)).Select(TitleNormalizer.NormalizeLoose)];
 
     // Projected deliberately: only each reference's external_ids is read, never the whole document. The
     // exclusion set needs one string per reference, and a TV show reference carries its entire embedded

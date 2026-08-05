@@ -67,6 +67,16 @@ public class VideoGameReferenceRepository(IMongoDatabase mongoDatabase, VideoGam
         return entities.Select(mapper.ToModel).ToList();
     }
 
+    public async Task<List<VideoGameReferenceModel>> FindWithoutExternalIdAsync(string provider)
+    {
+        // Exists:false rather than Eq(null): a document written before this provider existed simply has no
+        // such key, and the same "a missing field is not a null field" trap the staleness query documents
+        // applies here - only Exists matches both a missing key and one explicitly set to null.
+        var filter = Builders<VideoGameReference>.Filter.Exists($"external_ids.{provider}", false);
+        var entities = await Collection.Find(filter).SortBy(x => x.Title).ToListAsync();
+        return entities.Select(mapper.ToModel).ToList();
+    }
+
     public async Task<List<VideoGameReferenceModel>> FindAllAsync()
     {
         var entities = await Collection.Find(FilterDefinition<VideoGameReference>.Empty).ToListAsync();

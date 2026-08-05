@@ -75,6 +75,13 @@ public class VideoGameRepository(IMongoDatabase mongoDatabase, ILogger<VideoGame
     public Task<long> SetReferenceRatingsAsync(IReadOnlyList<(string ReferenceId, double? Rating, double? RatingScale, string? Source)> updates) =>
         ReferenceRatingQueries.SetRatingsAsync(GetCollection(), updates);
 
+    public async Task<long> RepointReferenceAsync(string fromReferenceId, string toReferenceId)
+    {
+        var filter = Builders<VideoGame>.Filter.Eq(f => f.ReferenceId, fromReferenceId);
+        var result = await GetCollection().UpdateManyAsync(filter, Builders<VideoGame>.Update.Set(f => f.ReferenceId, toReferenceId));
+        return result.ModifiedCount;
+    }
+
     public Task<long> CountLinkedOnOtherRatingSourceAsync(string source) =>
         ReferenceRatingQueries.CountLinkedOnOtherSourceAsync(GetCollection(), source);
 

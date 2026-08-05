@@ -166,6 +166,9 @@ builder.Services.AddScoped<Keeptrack.WebApi.ReferenceData.TvShowStatusReconcilia
 // scoped, not singleton: it reads the video game registry to answer which provider discovers for that domain,
 // and that registry is itself scoped so the configured default is re-read per scope.
 builder.Services.AddScoped<Keeptrack.WebApi.ReferenceData.ExploreRankings>();
+// scoped for the same reason: which rating sources the video game domain offers is whatever its registered
+// default provider reports, so it follows ReferenceData:VideoGameProvider rather than a hardcoded list.
+builder.Services.AddScoped<Keeptrack.WebApi.ReferenceData.RatingSourceOptions>();
 builder.Services.AddScoped<Keeptrack.WebApi.ReferenceData.ExploreService>();
 builder.Services.AddScoped<Keeptrack.WebApi.ReferenceData.ExploreCatalogueRefreshService>();
 builder.Services.AddHostedService<Keeptrack.WebApi.ReferenceData.ReferenceSyncBackgroundService>();

@@ -306,6 +306,9 @@ Providers: TMDB (TV/movie), IGDB / RAWG (video games), Discogs (albums), Google 
     "never overwrite with nothing" rule as `SetReferenceLinkAsync`.
   - **A provider id another document already claims is left behind and reported** (`SkippedExternalIds`, surfaced in the admin UI and logged), rather than written and taking the whole import down with it.
     It means the target holds two reference documents for one work, which only an admin can merge.
+  - **Matching by provider id has one gap, and it is reported rather than closed** (`PossibleDuplicates`): an export whose games are IGDB-linked lands *beside* a target's RAWG-linked copies of the same games, since the two share no id.
+    Each entry means the database now holds two documents for one work, with tenants' items split between them - repaired from the admin provider-reconciliation screen.
+    Deliberately not auto-merged: title text is not identity, and an import fusing two unrelated records is the one outcome nothing downstream could undo.
   - Covered by `ReferenceDataImportResourceTest` over real HTTP + real MongoDB, per domain and per provider - a mocked repository can't prove any of this, since the failure mode being prevented *is* the unique index firing.
 - **Admin queue:** `ReferenceDataAdminController` (`AdminOnly`) handles manual search/link over a 5-way `ReferenceItemType`, using `ExternalId`/`Provider` (not TMDB-specific names) in its DTOs.
 
@@ -408,10 +411,43 @@ Run-once scripts follow that same idempotent style: `dedupe-matched-aliases.js`,
   and starve everything behind it - the same re-walking-the-same-head failure the cap's ordering exists to prevent).
   RAWG therefore stays registered for two reasons only: an admin can still search/link with it, and its stored `rawg`/`metacritic` values keep rendering.
   - **A reference linked before the default changed adopts the new provider's id during the sync** (`TryAdoptDefaultVideoGameProviderAsync`), which is what carries a catalogue across a provider change with no migration script.
-    Costs one search per not-yet-adopted reference per pass and nothing once adopted.
-    The match rule is stricter than ordinary auto-resolution - exactly one candidate whose *normalized* title equals the reference's, with a compatible year -
+    Costs at most a few calls per not-yet-adopted reference per pass and nothing once adopted.
+    The match rule is stricter than ordinary auto-resolution - exactly one candidate whose title matches the reference's, with a compatible year -
     because a reference's title/year is canonical provider data, not tenant-typed text.
     Anything ambiguous is left for manual linking, same "don't guess" rule as everywhere else.
+    - **Adoption failing is not a cosmetic backlog: it silently breaks Explore.** The exclusion asks each linked reference for the *discovery* provider's id, so a reference still in the previous provider's id space is a game the owner
+      tracks and keeps being suggested anyway (confirmed on real data: 105 of 344 references stuck, including Elden Ring and Red Dead Redemption 2).
+      Both halves of the exclusion failed on the *same* documents, because both compared titles the same way adoption did - which is what made it look like Explore was ignoring the collection outright rather than lagging on a third of it.
+    - **How it asks matters as much as how it compares.** `FindAdoptionCandidatesAsync` runs a ladder, widening only on an **empty** result: `IVideoGameReferenceClient.FindGamesByExactTitleAsync` (IGDB's `where name ~ "..."`, a
+      case-insensitive equality - relevance `search` is noisy enough that the canonical entry falls outside a small window entirely: "Resident Evil" returns five bundles and archive editions, no 1996 original), then the same two queries
+      again with `TitleNormalizer.StripDisambiguator` applied.
+      That last step is not a nicety - RAWG puts a remake's original year in the title (`GoldenEye 007 (1997)`, `God of War (2018)`), and IGDB answers **nothing at all** to either query for such a string, so there are no candidates for any
+      comparison to rescue.
+    - Confirmation uses `TitleNormalizer.NormalizeLoose` (accents folded, parenthesised groups, punctuation and "the" dropped), not exact normalized equality, which rejected `Mass Effect: Legendary Edition` against IGDB's
+      `Mass Effect Legendary Edition` and `Disco Elysium: Final Cut` against `Disco Elysium: The Final Cut`.
+      Loosening the *shortlist* is safe because nothing else loosens: the year must still agree and a single match is still required.
+      `Normalize` stays strict - it keys stored aliases, which are matched against tenant-typed text.
+    - A fruitless attempt is stamped on the document (`ProviderAdoptionCheckedAt`, per provider, `ProviderAdoptionReattemptAfter` = 7 days), the same "remember what was already asked" rule as `RatingsCheckedAt`: a title the provider has
+      no unambiguous match for cannot be searched into working, and re-asking every pass costs calls forever.
+      The admin reconciliation action ignores the window - someone is waiting on the answer.
+    - Measured against the live IGDB API over the real stuck set: 49 of 105 adopt unattended; the rest are genuine human calls (IGDB holds three separate "FIFA 15" 2014 entries, two "Max Payne") and land in the queue below **with
+      candidates**, where before they produced nothing at all.
+  - **Admin provider reconciliation** (`GET/POST /api/reference-data/provider-reconciliation*`, `AdminOnly`, video games only) is where what adoption refuses to guess gets resolved, plus the duplicates a provider change leaves behind.
+    Video-game-only on purpose: this is the one domain refreshed exclusively through the *default* provider, which is what makes "carries no id in that provider's space" a self-inflicting gap.
+    Books refresh through whichever provider
+    linked them and have no such gap.
+    - The gap list and duplicate groups are plain database reads (`FindWithoutExternalIdAsync` - `Exists(..., false)`, since a missing key is not a null one); **candidates are fetched per row on demand**, because each row costs a provider
+      call or two and the queue routinely runs to three figures.
+    - `AdoptVideoGameProviderIdAsync` writes the picked id onto the **existing** document and then reuses `RefreshVideoGameReferenceAsync`; it deliberately does *not* go through `ResolveVideoGameAsync`, whose title-based lookup could mint
+      a second document - the exact state this screen exists to repair.
+      It refuses outright when another document already claims that id, naming it, so "it didn't work" becomes "merge these two".
+    - `MergeVideoGameReferencesAsync` fills the survivor's gaps and never overwrites it (both documents were written by a provider about the same work, so a field only one has is strictly new information), **re-points every tenant's item**
+      via `IVideoGameRepository.RepointReferenceAsync`, then deletes the absorbed document - absorbed first, since while both exist they hold ids the unique partial indexes will not let two documents share.
+      Skipping the re-point would blank those items' cover, rating and Explore exclusion without a word.
+    - **The cover is the one field the survivor does not automatically win**: `MergedImageUrl` applies the same rule as `PreferredImageUrl`, so a RAWG-linked document's key art survives whichever document the admin keeps.
+      A duplicate pair is typically one RAWG-era document and one IGDB-era one, and a RAWG URL cannot be recomputed from its id without RAWG's API, so keeping the survivor's would be permanent loss for a cosmetic downgrade.
+      **It is computed before the ids are unioned, and that order is load-bearing**: the "is this a RAWG image" test is "does this document carry a rawg id", which is exact only while the two documents are still separate - merge the ids
+      first and the survivor's own IGDB box art passes the test.
   - **A provider may only overwrite its own sources' ratings** (`MergeProviderRatings`, keyed on `IVideoGameReferenceClient.SupportedRatingSources`).
     An IGDB refresh must leave a reference's `rawg`/`metacritic` values alone: they are still rendered on the detail page and re-earning them would cost a call to a provider that may be down.
     A source the provider *does* own but no longer reports is correctly dropped - that's an answer, not an absence.
@@ -427,11 +463,18 @@ Run-once scripts follow that same idempotent style: `dedupe-matched-aliases.js`,
     key art it had just fetched in favour of the stored IGDB cover.
     It also left a dead RAWG URL unrepairable by anything short of unlinking, which deletes the shared reference document outright.
 - TV/movie/album stay hard-wired to TMDB/Discogs (provider-named DTOs and `ExternalIds` keys on purpose - swapping one would be a redesign, not config).
-- **Ratings:** `RatingSourceCatalog` declares each domain's selectable sources and code default (games `igdb`/`igdbcritic`/`metacritic`, movies/TV TMDB vs IMDb; defaults `igdb`/`tmdb`);
-  **a source key is not a provider**: `rawg` stays declared with its scale-5 entry long after RAWG stopped being the default, because `ScaleOf` throws on an unknown source and references linked through RAWG still carry and display
-  rawg-keyed values.
-  Only its membership in the *selectable* list goes away, which makes `Resolve` ignore a stored RAWG-era override and fall back to the current default -
-  and the existing recompute then re-stamps every tenant item, so the switch needed no migration script.
+- **Ratings:** two classes, deliberately split.
+  `RatingSourceCatalog` is the *declaration table* - every source key any stored value can carry, its scale, and `RatingReattemptAfter`.
+  **A source key is not a provider**: `rawg` and `metacritic` stay declared long after RAWG stopped being the default, because `ScaleOf` throws on an unknown source and references linked through RAWG still carry and display those values.
+  `RatingSourceOptions` (injected, like `ExploreRankings`, and for the same reason) answers the *deployment* question - which sources a domain currently offers an admin, and which is effective.
+  - **The video game answer is read from whichever client is registered as that domain's default** (`SupportedRatingSources`), never from a list in the code, so `ReferenceData:VideoGameProvider=rawg` brings `rawg`/`metacritic` back and
+    retires IGDB's two, with no code change and no migration.
+    A hardcoded list got this wrong in both directions: it offered Metacritic long after IGDB became the default although IGDB cannot produce it - so every game linked since resolved to *no rating at all*, while `MergeProviderRatings`
+    kept the older RAWG-era values showing and hid the breakage - and it would equally have kept offering IGDB's scores on a deployment that had gone back to RAWG.
+  - **A stored override that isn't currently on offer is ignored, never erased**, which is what makes a provider change reversible: an admin who chose Metacritic under RAWG falls back to the current default while IGDB is in charge and
+    gets that choice back untouched the moment RAWG is again.
+    The existing recompute re-stamps every tenant item either way, so neither direction needs a migration script.
+  - Movies/TV stay a fixed pair (TMDB vs IMDb) because IMDb is not a second provider for that domain - it's an extra per-title lookup layered on TMDB's own data.
   IGDB reports no Metacritic score at all (its `aggregated_rating` is IGDB's own critic aggregation), so that number is never written under Metacritic's key;
   `ReferenceEnrichmentService.GetPrimaryRatingSourceAsync` reads the stored override.
   The admin card, `rating-sources` GET/PUT and `.../recompute` (bulk `SetReferenceRatingAsync`, no provider calls) are all domain-generic over `RatingSourceCatalog.SelectableDomains`, so a domain gaining a second source needs only a catalog
@@ -619,9 +662,15 @@ Movie, TvShow, VideoGame only; Book/Album 400 (no best-of listing to read).
   `GetTopRatedGamesAsync` constrains the pool server-side with `metacritic={MinMetacritic},100` - "reviewed by the professional press at all" is the closest equivalent of a minimum vote count and costs no extra call.
   `MinMetacritic` is the knob to raise.
   Don't filter client-side instead: the paging loop stops on an empty page, so a filter that can empty one would silently truncate results.
-- **The "already have it" exclusion needs both halves**: by provider id (`FindLinkedReferenceIdsAsync` resolved to those documents' `ExternalIds[provider]`) and by normalized title (`FindDistinctTitlesAsync` + `TitleNormalizer`), because
+- **The "already have it" exclusion needs both halves**: by provider id (`FindLinkedReferenceIdsAsync` resolved to those documents' `ExternalIds[provider]`) and by title (`FindDistinctTitlesAsync` + `TitleNormalizer`), because
   automatic resolution gives up on multiple candidates, so a manually-added item may have no link at all and would be re-suggested forever.
   Two different works sharing a title collapse under the fallback - an accepted trade.
+  **The title half matches with `NormalizeLoose`, not `Normalize`.** After a link, the owner's item carries the *linking* provider's canonical title while the catalogue carries the *discovery* provider's, and once those are two different
+  providers the two spell one work differently in small systematic ways.
+  Exact equality made this fallback miss exactly the references that couldn't adopt the discovery provider's id either - both halves failing on the same games at the same time, which is what made Explore look like it ignored the owner's
+  collection outright.
+  **Both halves are only ever as good as adoption is**, so a domain whose discovery provider changed needs its reconciliation queue drained (see the video game provider section above); nothing in Explore can compensate for a reference
+  that lives in the wrong id space.
   `IExploreSourceRepository` declares both projections once; `ExploreExclusionQueries` implements them for every domain, each repository contributing only a field expression.
   Resolving those reference ids to provider ids goes through `I<X>ReferenceRepository.FindExternalIdsAsync`, a **projected** read over `external_ids` alone - **not** `FindByIdsAsync`, which fetches whole documents (synopsis, cast, matched
   aliases, and for TV the entire embedded episode guide) to yield one string each.

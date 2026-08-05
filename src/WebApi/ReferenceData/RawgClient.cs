@@ -33,6 +33,21 @@ public class RawgClient(HttpClient http, RawgSettings settings) : IVideoGameRefe
             r.Id.ToString(CultureInfo.InvariantCulture), r.Name ?? title, ParseYear(r.Released), r.BackgroundImage)).ToList() ?? [];
     }
 
+    public async Task<IReadOnlyList<VideoGameSearchResult>> FindGamesByExactTitleAsync(string title, CancellationToken cancellationToken = default)
+    {
+        // RAWG has no equality operator on a field; `search_exact=true` only turns *off* the fuzziness of its
+        // relevance search, so it narrows the pool but still returns near-misses. The equality this method
+        // promises its callers is therefore applied here, on the response - a filter the paging loop's
+        // "an empty page ends the walk" rule makes unsafe elsewhere in this client, but this is a single page.
+        var query = $"games?key={ApiKey}&search={Encode(title)}&search_exact=true&page_size={MaxExactTitleResults}";
+        var response = await http.GetFromJsonAsync<RawgSearchResponse>(query, cancellationToken);
+        return response?.Results
+            .Where(r => string.Equals(r.Name, title, StringComparison.OrdinalIgnoreCase))
+            .Select(r => new VideoGameSearchResult(
+                r.Id.ToString(CultureInfo.InvariantCulture), r.Name ?? title, ParseYear(r.Released), r.BackgroundImage))
+            .ToList() ?? [];
+    }
+
     public async Task<VideoGameDetails?> GetGameDetailsAsync(string externalId, CancellationToken cancellationToken = default)
     {
         var details = await http.GetFromJsonAsync<RawgGameDetailsResponse>($"games/{externalId}?key={ApiKey}", cancellationToken);
@@ -75,6 +90,9 @@ public class RawgClient(HttpClient http, RawgSettings settings) : IVideoGameRefe
     }
 
     private const int MaxResults = 5;
+
+    /// <summary>Bound on <see cref="FindGamesByExactTitleAsync"/> - see <c>IgdbClient</c>'s own on why it is the larger one.</summary>
+    private const int MaxExactTitleResults = 40;
 
     /// <summary>RAWG's per-page maximum, so a discovery request needs as few round-trips as possible.</summary>
     private const int TopRatedPageSize = 40;

@@ -45,5 +45,19 @@ public class VideoGameReferenceModel : IHasExternalIds
 
     public string? ImageUrl { get; set; }
 
+    /// <summary>
+    /// When this document last had a provider id looked up for it, keyed by provider - written whether or not
+    /// one was found (see <c>ReferenceEnrichmentService.TryAdoptDefaultVideoGameProviderAsync</c>).
+    /// <para>
+    /// It exists for the same reason <see cref="TvShowReferenceModel.RatingsCheckedAt"/> does: a reference
+    /// whose title the provider genuinely has no unambiguous match for can never be adopted by searching
+    /// again, so without a record of the attempt every pass re-pays for the same two calls, forever, for
+    /// every such document. It is also what lets the admin reconciliation queue show what has been tried
+    /// rather than only what is missing. An admin acting on that queue ignores the window - someone is
+    /// waiting on the answer - exactly like the interactive rating paths do.
+    /// </para>
+    /// </summary>
+    public Dictionary<string, DateTime> ProviderAdoptionCheckedAt { get; set; } = [];
+
     public DateTime? LastEnrichedAt { get; set; }
 }

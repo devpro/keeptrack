@@ -62,6 +62,19 @@ public interface IVideoGameReferenceRepository
     Task<List<VideoGameReferenceModel>> FindStaleAsync(DateTime cutoff, int limit);
 
     /// <summary>
+    /// Every reference document carrying no id at all in <paramref name="provider"/>'s number space - the
+    /// admin reconciliation queue's backlog, and the exact set that the Explore "already have it" exclusion
+    /// (which asks each linked reference for the discovery provider's id) cannot see.
+    /// <para>
+    /// Whole documents rather than a projection, unlike <see cref="FindExternalIdsAsync"/>: the queue shows
+    /// title, year, every id already held and the last adoption attempt, and a video game reference carries no
+    /// embedded episode guide to make that expensive. Unpaged for the same reason
+    /// <see cref="FindAllAsync"/> is - this is the small shared collection, and the backlog is a fraction of it.
+    /// </para>
+    /// </summary>
+    Task<List<VideoGameReferenceModel>> FindWithoutExternalIdAsync(string provider);
+
+    /// <summary>
     /// Permanently removes a reference document - backs the admin "unlink" action, which deletes the
     /// shared document outright rather than merely detaching one tenant's link.
     /// </summary>

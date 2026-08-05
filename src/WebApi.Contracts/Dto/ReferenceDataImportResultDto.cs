@@ -27,6 +27,15 @@ public class ReferenceDataImportResultDto
     /// Empty on a normal import; anything listed here is worth acting on, not a routine warning.
     /// </summary>
     public required List<string> SkippedExternalIds { get; set; }
+
+    /// <summary>
+    /// Works the import created a *new* document for although the target already held one under a different
+    /// provider's id - reported as <c>"collection:Title (Year)"</c>. Not an error and nothing was lost, but
+    /// each entry means this database now holds two reference documents for one work, which the provider
+    /// reconciliation screen can merge. See <c>ReferenceDataImportSummary.PossibleDuplicates</c> for why an
+    /// import reports these rather than merging them itself.
+    /// </summary>
+    public List<string> PossibleDuplicates { get; set; } = [];
 }
 
 /// <summary>One collection's import outcome.</summary>

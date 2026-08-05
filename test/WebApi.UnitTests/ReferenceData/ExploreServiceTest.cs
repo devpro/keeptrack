@@ -41,7 +41,7 @@ public class ExploreServiceTest
             _appSettingRepository.Object, _catalogueRepository.Object,
             _movieRepository.Object, _tvShowRepository.Object, _videoGameRepository.Object,
             _movieReferenceRepository.Object, _tvShowReferenceRepository.Object, _videoGameReferenceRepository.Object,
-            _dismissalRepository.Object, new ExploreRankings(videoGameClients));
+            _dismissalRepository.Object, new ExploreRankings(videoGameClients), new RatingSourceOptions(videoGameClients));
     }
 
     private static ExploreCatalogueEntryModel Entry(ExploreItemType type, string ranking, string externalId, int rank, params (string Source, double Value)[] ratings) =>

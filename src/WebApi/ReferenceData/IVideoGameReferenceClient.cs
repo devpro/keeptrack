@@ -59,6 +59,22 @@ public interface IVideoGameReferenceClient : IReferenceProviderClient
 
     Task<IReadOnlyList<VideoGameSearchResult>> SearchGamesAsync(string title, int? year, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Every game this provider holds under exactly <paramref name="title"/> (case-insensitively), rather than
+    /// whatever its relevance ranking thinks the phrase means. Empty when it holds none.
+    /// <para>
+    /// Separate from <see cref="SearchGamesAsync"/> because the two answer different questions, and the
+    /// difference is load-bearing for <c>TryAdoptDefaultVideoGameProviderAsync</c>: relevance search is
+    /// documented as noisy here (IGDB returns three "Half-Life 2" MMod variants above the canonical game), and
+    /// with a small result window the canonical entry can fall outside it entirely - a live probe for
+    /// "Resident Evil" came back with five bundles and archive re-releases and no sign of either the 1996
+    /// original or the 2002 remake. Adoption asks "does this provider have a game named exactly this", which
+    /// an exact-name query answers directly and cheaply, and it is that query's *complete* result that makes
+    /// "exactly one candidate" a safe confirmation rather than an artefact of where the window stopped.
+    /// </para>
+    /// </summary>
+    Task<IReadOnlyList<VideoGameSearchResult>> FindGamesByExactTitleAsync(string title, CancellationToken cancellationToken = default);
+
     Task<VideoGameDetails?> GetGameDetailsAsync(string externalId, CancellationToken cancellationToken = default);
 
     /// <summary>

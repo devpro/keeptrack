@@ -40,6 +40,10 @@ public class VideoGameReference
     [BsonElement("image_url")]
     public string? ImageUrl { get; set; }
 
+    /// <summary>Last provider-id adoption attempt per provider - see <see cref="Keeptrack.Domain.Models.VideoGameReferenceModel.ProviderAdoptionCheckedAt"/>.</summary>
+    [BsonElement("provider_adoption_checked_at")]
+    public Dictionary<string, DateTime> ProviderAdoptionCheckedAt { get; set; } = [];
+
     [BsonElement("last_enriched_at")]
     public DateTime? LastEnrichedAt { get; set; }
 }

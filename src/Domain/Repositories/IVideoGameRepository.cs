@@ -33,6 +33,18 @@ public interface IVideoGameRepository : IDataRepository<VideoGameModel>, IExplor
     Task<long> CountLinkedOnOtherRatingSourceAsync(string source);
 
     /// <summary>
+    /// Moves every tenant's game linked to <paramref name="fromReferenceId"/> onto
+    /// <paramref name="toReferenceId"/>, returning how many items moved. Backs the admin merge of two
+    /// reference documents describing one work: the absorbed document is deleted, and an item still pointing
+    /// at it would lose its cover, rating and Explore exclusion without a word.
+    /// <para>
+    /// Cross-tenant by design, like <see cref="SetReferenceLinkAsync"/> - a reference document is shared, so
+    /// repairing one repairs it for everyone who linked it. Admin-only at the controller.
+    /// </para>
+    /// </summary>
+    Task<long> RepointReferenceAsync(string fromReferenceId, string toReferenceId);
+
+    /// <summary>
     /// Distinct (title, year) pairs across every tenant's games that have no <see cref="VideoGameModel.ReferenceId"/>
     /// yet - feeds the admin curation queue.
     /// </summary>

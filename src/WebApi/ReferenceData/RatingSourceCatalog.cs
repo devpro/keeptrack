@@ -1,29 +1,37 @@
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// The single declaration of which rating sources a domain can pick a primary from, and the code default
-/// when an admin hasn't chosen one. Only domains with more than one source are worth making selectable;
-/// today that's video games (IGDB, IGDB's critic aggregate, Metacritic) and movies/TV (TMDB vs IMDb).
-/// Keeping defaults and available options in one place is what lets the enrichment service and the admin
-/// endpoints agree without duplicating that knowledge.
+/// The declaration table for rating sources: every key any stored value can carry, the scale each is
+/// expressed on, and how long a fruitless attempt at one is remembered. Pure data, shared by everything that
+/// reads or renders a rating.
 /// <para>
-/// A source key is not the same thing as a provider: a source stays declared here for as long as any stored
-/// value carries it, even after the provider that produced it stops being the domain's default (see
-/// <see cref="Rawg"/>).
+/// A source key is not the same thing as a provider, and this table is deliberately the wider of the two: a
+/// key stays declared here for as long as any stored value carries it, long after the provider that produced
+/// it stopped being a domain's default (see <see cref="Rawg"/> and <see cref="Metacritic"/>). Which of them a
+/// domain currently *offers an admin* is a different, deployment-dependent question, answered by
+/// <see cref="RatingSourceOptions"/>.
 /// </para>
 /// </summary>
 public static class RatingSourceCatalog
 {
     /// <summary>
-    /// RAWG's own 0-5 user score. No longer selectable as a primary (IGDB replaced RAWG as the default video
-    /// game provider) but deliberately still declared: <see cref="ScaleOf"/> throws on an unknown source, and
-    /// references linked through RAWG keep this value on record and keep rendering it on detail pages.
-    /// Dropping it from <see cref="s_sources"/> is what makes <see cref="Resolve"/> ignore a stored
-    /// RAWG-era override and fall back to the current default.
+    /// RAWG's own 0-5 user score. Not offered while IGDB is the default video game provider, but deliberately
+    /// still declared: <see cref="ScaleOf"/> throws on an unknown source, and references linked through RAWG
+    /// keep this value on record and keep rendering it on detail pages. It becomes selectable again on its own
+    /// if a deployment goes back to RAWG - see <see cref="RatingSourceOptions"/>.
     /// </summary>
     public const string Rawg = "rawg";
 
-    /// <summary>Metacritic's 0-100 critic score - republished by RAWG, absent from IGDB entirely.</summary>
+    /// <summary>
+    /// Metacritic's 0-100 critic score - republished by RAWG, absent from IGDB entirely (whose own critic
+    /// aggregate is a separate number under <see cref="IgdbCritic"/>). Offered exactly while a provider that
+    /// reports it is the default, which is what <see cref="RatingSourceOptions"/> decides.
+    /// <para>
+    /// Offering it regardless was a slow leak rather than an obvious break: <c>MergeProviderRatings</c> keeps a
+    /// RAWG-era metacritic value through an IGDB refresh, so the games linked back then kept showing one while
+    /// every game linked or created since - having never been near RAWG - resolved to no rating at all.
+    /// </para>
+    /// </summary>
     public const string Metacritic = "metacritic";
 
     /// <summary>IGDB's own 0-100 user score - the video game default (usually present).</summary>
@@ -51,15 +59,6 @@ public static class RatingSourceCatalog
     /// </summary>
     public static readonly TimeSpan RatingReattemptAfter = TimeSpan.FromDays(90);
 
-    // per domain, the selectable source keys; the first is the code default.
-    private static readonly IReadOnlyDictionary<ReferenceItemType, IReadOnlyList<string>> s_sources =
-        new Dictionary<ReferenceItemType, IReadOnlyList<string>>
-        {
-            [ReferenceItemType.Movie] = [Tmdb, Imdb],
-            [ReferenceItemType.TvShow] = [Tmdb, Imdb],
-            [ReferenceItemType.VideoGame] = [Igdb, IgdbCritic, Metacritic]
-        };
-
     // the scale each source's values are expressed on - the domains don't share one, so any rating that
     // travels to a client has to carry its own. Declared here beside the source keys themselves rather than
     // as constants in whichever feature happens to display a rating.
@@ -73,35 +72,9 @@ public static class RatingSourceCatalog
         [IgdbCritic] = 100
     };
 
-    /// <summary>Domains whose primary rating source an admin can choose (those with more than one source).</summary>
-    public static IReadOnlyList<ReferenceItemType> SelectableDomains => s_sources.Keys.ToList();
-
     /// <summary>The scale <paramref name="source"/>'s values are expressed on (10 for TMDB/IMDb, 5 for RAWG, 100 for Metacritic/IGDB).</summary>
     public static double ScaleOf(string source) =>
         s_scales.TryGetValue(source, out var scale)
             ? scale
             : throw new ArgumentOutOfRangeException(nameof(source), $"No scale is declared for the rating source '{source}'.");
-
-    /// <summary>Whether <paramref name="domain"/>'s primary rating source is admin-selectable.</summary>
-    public static bool IsSelectable(ReferenceItemType domain) => s_sources.ContainsKey(domain);
-
-    /// <summary>The selectable source keys for <paramref name="domain"/> (empty if not selectable).</summary>
-    public static IReadOnlyList<string> AvailableSources(ReferenceItemType domain) =>
-        s_sources.TryGetValue(domain, out var sources) ? sources : [];
-
-    /// <summary>The code default source for <paramref name="domain"/> (used when no admin override is set).</summary>
-    public static string DefaultSource(ReferenceItemType domain) =>
-        AvailableSources(domain).FirstOrDefault()
-        ?? throw new ArgumentOutOfRangeException(nameof(domain), $"No rating sources are declared for {domain}.");
-
-    /// <summary>
-    /// The effective primary source for <paramref name="domain"/> given the admin's stored overrides: the
-    /// stored choice when it still names an available source, otherwise the code default (an override for a
-    /// source since removed from the catalog is ignored). The single resolver shared by
-    /// <c>ReferenceEnrichmentService.GetPrimaryRatingSourceAsync</c> and the Explore feature.
-    /// </summary>
-    public static string Resolve(IReadOnlyDictionary<string, string> overrides, ReferenceItemType domain) =>
-        overrides.TryGetValue(domain.ToString(), out var stored) && AvailableSources(domain).Contains(stored)
-            ? stored
-            : DefaultSource(domain);
 }

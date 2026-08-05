@@ -45,7 +45,8 @@ public class ExploreCatalogueRefreshServiceTest
         var videoGameClients = new ReferenceClientRegistry<IVideoGameReferenceClient>([_videoGameClient], _videoGameClient.ProviderKey);
         return new(
             _tmdbClient.Object, videoGameClients, new ExploreRankings(videoGameClients), _omdbClient.Object, _omdbCallBudget,
-            _appSettingRepository.Object, _catalogueRepository.Object, NullLogger<ExploreCatalogueRefreshService>.Instance);
+            _appSettingRepository.Object, new RatingSourceOptions(videoGameClients), _catalogueRepository.Object,
+            NullLogger<ExploreCatalogueRefreshService>.Instance);
     }
 
     /// <summary>

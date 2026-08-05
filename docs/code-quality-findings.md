@@ -23,6 +23,68 @@ Update this file as items are fixed or as new reviews are performed.
 
 ## Fixed
 
+### Explore stopped recognising the video games the owner already tracks, because both halves of its exclusion failed on the same documents after the IGDB switch
+
+Found on 2026-08-05, reported from the running app: Explore's movie and TV suggestions correctly hid what the owner tracks, while its video game suggestions did not.
+
+Explore excludes a suggestion two ways, and the discovery provider change (RAWG → IGDB, `a8fdf40`) broke both at once for the same set of references:
+
+- **By provider id.** `ExploreService` asks each linked reference document for `ExternalIds[discovery provider]`, which is now `igdb`.
+  A reference linked while RAWG was the default carries only a `rawg` id until
+  `TryAdoptDefaultVideoGameProviderAsync` gives it one, so it contributes nothing to the exclusion set.
+  On the real dataset **105 of 344 video game references had not adopted** - among them Elden Ring, Red Dead Redemption 2, Disco
+  Elysium, Mass Effect: Legendary Edition.
+  Those are top-of-ranking titles, so the owner's own games led their Explore feed.
+- **By title.** The fallback compared `TitleNormalizer.Normalize` (trim + lowercase) of the owner's item against the catalogue entry.
+  After a link an item carries the *linking* provider's canonical title while the catalogue carries the
+  *discovery* provider's, and the two catalogues spell one work differently in small systematic ways.
+  Confirmed live against IGDB: `Mass Effect: Legendary Edition` vs `Mass Effect Legendary Edition`, `Disco Elysium: Final Cut` vs
+  `Disco Elysium: The Final Cut`, and RAWG's habit of appending a remake's original year to the title (`GoldenEye 007 (1997)`).
+  Exact equality rejected every one - **the same divergences that had blocked adoption**, so the fallback missed
+  precisely the documents the id half had already missed.
+  76 of those 105 were invisible to both.
+
+Movies and TV were never affected: TMDB is both their discovery provider and the provider that linked every one of their references, so the id half always holds.
+
+Three further consequences, all confirmed on real data:
+
+- **Adoption's query was as wrong as its comparison.** It used IGDB's relevance `search`, which is documented here as noisy, with a 5-result window - a live probe for "Resident Evil" returned five bundles and archive re-releases, with
+  neither the 1996 original nor the 2002 remake among them.
+  And for a title carrying a `(1997)` disambiguator IGDB returns *nothing at all*, to either of its query shapes, so no comparison could have helped.
+- **Duplicate reference documents.** Six works existed twice in the dev database (Elden Ring, RDR2, Baldur's Gate III, ...), once `rawg`-only and once `igdb`-only.
+  `ReferenceDataImportService` matches by provider id then `_id` and never by
+  title, so importing an IGDB-era export into a RAWG-era database creates exactly this.
+  Tenants' items point at whichever document existed when they linked, splitting the work's ids, ratings and cover across two records.
+- **`metacritic` was still admin-selectable** although no registered provider reports it.
+  `MergeProviderRatings` preserves a RAWG-era value, so games linked back then kept showing a number while everything linked since resolved to no
+  rating at all - a leak that hid itself.
+  The root cause was that the per-domain source list was hardcoded, which is wrong in both directions: it would equally have kept offering IGDB's two scores on a deployment configured back to RAWG.
+
+Fixed by restoring the invariant (every reference carries the current default provider's id) rather than working around it in Explore:
+
+- `TitleNormalizer.NormalizeLoose`/`LooselyEqual` for provider-to-provider matching, and `StripDisambiguator` for re-querying without a `(year)` suffix.
+  `Normalize` stays strict - it keys stored aliases, which are matched against
+  tenant-typed text.
+- `IVideoGameReferenceClient.FindGamesByExactTitleAsync` (IGDB `where name ~ "..."`, RAWG `search_exact` plus a client-side equality check), and a query ladder in `FindAdoptionCandidatesAsync` that widens only on an empty result.
+- `VideoGameReferenceModel.ProviderAdoptionCheckedAt` so a fruitless attempt is remembered for 7 days instead of re-paid every pass.
+- An admin **provider reconciliation** screen: the gap queue with per-row candidates and one-click adopt, and duplicate groups with a merge that re-points every tenant's item (`IVideoGameRepository.RepointReferenceAsync`) before deleting
+  the absorbed document.
+  The merge keeps a RAWG-linked document's cover whichever document survives (`MergedImageUrl`, the same rule as `PreferredImageUrl`), computed before the ids are unioned - afterwards the survivor carries a rawg id
+  whatever its own cover is, and the test would pass for IGDB box art.
+- `ReferenceDataImportSummary.PossibleDuplicates`, reported and logged rather than auto-merged - title text is not identity, and fusing two unrelated records is the one outcome nothing downstream could undo.
+- `RatingSourceOptions` (injected) now derives the video game domain's selectable sources from its registered default provider, instead of a hardcoded list - so `ReferenceData:VideoGameProvider=rawg` brings `rawg`/`metacritic` back on its
+  own.
+  A stored override that isn't currently on offer is ignored but **never erased**, so an admin's Metacritic choice returns intact if RAWG does.
+  `RatingSourceCatalog` keeps only the keys, scales and re-attempt window, so every key
+  stays declared and stored values keep rendering whichever provider is active.
+- Explore's title fallback now matches loosely too.
+
+Measured against the live IGDB API over the real stuck set afterwards: **49 of 105 adopt unattended**, and the remainder reach the admin queue *with candidates* where they previously produced none.
+What is left is genuinely ambiguous -
+IGDB holds three separate "FIFA 15" (2014) entries and two "Max Payne" - which is exactly what the queue is for.
+
+Explore dismissals recorded under `rawg` stay as they are, deliberately: the owner's call, so that switching back to a previous provider restores them.
+
 ### The guard protecting RAWG cover art fired against RAWG itself, so an admin re-linking through RAWG had the key art it just fetched thrown away
 
 Found on 2026-08-05 while verifying that the protection added with the IGDB default (`a8fdf40`) actually holds.

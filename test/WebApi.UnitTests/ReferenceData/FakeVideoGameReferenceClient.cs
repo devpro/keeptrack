@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Keeptrack.WebApi.ReferenceData;
@@ -48,10 +50,27 @@ internal sealed class FakeVideoGameReferenceClient : IVideoGameReferenceClient
     public static FakeVideoGameReferenceClient WithSearchResults(string providerKey, params VideoGameSearchResult[] results) =>
         new([.. results], providerKey, DefaultSourcesFor(providerKey));
 
+    /// <summary>
+    /// What the provider holds under exactly the queried title. Empty by default, so a test that only sets up
+    /// search results exercises the widening path - the real clients answer this way for the case that path
+    /// exists for (the two catalogues spell the work differently).
+    /// </summary>
+    public List<VideoGameSearchResult> ExactTitleResults { get; } = [];
+
+    /// <summary>How many exact-title lookups were issued, counted separately from the relevance searches.</summary>
+    public int ExactTitleSearchCount { get; private set; }
+
     public Task<IReadOnlyList<VideoGameSearchResult>> SearchGamesAsync(string title, int? year, CancellationToken cancellationToken = default)
     {
         SearchCount++;
         return Task.FromResult<IReadOnlyList<VideoGameSearchResult>>(_searchResults);
+    }
+
+    public Task<IReadOnlyList<VideoGameSearchResult>> FindGamesByExactTitleAsync(string title, CancellationToken cancellationToken = default)
+    {
+        ExactTitleSearchCount++;
+        return Task.FromResult<IReadOnlyList<VideoGameSearchResult>>(
+            ExactTitleResults.Where(r => string.Equals(r.Title, title, StringComparison.OrdinalIgnoreCase)).ToList());
     }
 
     public Task<VideoGameDetails?> GetGameDetailsAsync(string externalId, CancellationToken cancellationToken = default) =>

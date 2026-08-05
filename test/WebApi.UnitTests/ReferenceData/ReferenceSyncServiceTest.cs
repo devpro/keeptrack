@@ -38,12 +38,13 @@ public class ReferenceSyncServiceTest
         bookRatingLookup.Setup(x => x.GetRatingByIsbnAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(((double?)null, (int?)null));
         var appSettingRepository = new Mock<IAppSettingRepository>();
         appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync()).ReturnsAsync(new Dictionary<string, string>());
+        var videoGameClients = new ReferenceClientRegistry<IVideoGameReferenceClient>([FakeVideoGameReferenceClient.Empty()], RatingSourceCatalog.Igdb);
         var enrichmentService = new ReferenceEnrichmentService(
-            tmdbClient, FakeOmdbClient.Empty(), new FakeOmdbCallBudget(), new ReferenceClientRegistry<IBookReferenceClient>([FakeBookReferenceClient.Empty()], "openlibrary"), bookRatingLookup.Object, new ReferenceClientRegistry<IVideoGameReferenceClient>([FakeVideoGameReferenceClient.Empty()], RatingSourceCatalog.Igdb), FakeDiscogsClient.Empty(),
+            tmdbClient, FakeOmdbClient.Empty(), new FakeOmdbCallBudget(), new ReferenceClientRegistry<IBookReferenceClient>([FakeBookReferenceClient.Empty()], "openlibrary"), bookRatingLookup.Object, videoGameClients, FakeDiscogsClient.Empty(),
             _tvShowReferenceRepository.Object, _movieReferenceRepository.Object, _personReferenceRepository.Object,
             _bookReferenceRepository.Object, _videoGameReferenceRepository.Object, _albumReferenceRepository.Object,
             _tvShowRepository.Object, _movieRepository.Object, _bookRepository.Object, _videoGameRepository.Object, _albumRepository.Object,
-            appSettingRepository.Object, NullLogger<ReferenceEnrichmentService>.Instance);
+            appSettingRepository.Object, new RatingSourceOptions(videoGameClients), NullLogger<ReferenceEnrichmentService>.Instance);
         return new ReferenceSyncService(
             _tvShowReferenceRepository.Object, _movieReferenceRepository.Object,
             _bookReferenceRepository.Object, _videoGameReferenceRepository.Object, _albumReferenceRepository.Object,

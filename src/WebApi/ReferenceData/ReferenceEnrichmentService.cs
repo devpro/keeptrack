@@ -33,19 +33,20 @@ public partial class ReferenceEnrichmentService(
     IVideoGameRepository videoGameRepository,
     IAlbumRepository albumRepository,
     IAppSettingRepository appSettingRepository,
+    RatingSourceOptions ratingSourceOptions,
     ILogger<ReferenceEnrichmentService> logger)
 {
     /// <summary>
     /// The primary rating source for <paramref name="domain"/> - the source whose value/scale is denormalized
     /// onto tenant items as the list pill / sort value. The admin's stored override (see
-    /// <see cref="IAppSettingRepository"/>) when it names a source the catalog still offers, otherwise the
-    /// code default (<see cref="RatingSourceCatalog.DefaultSource"/>). An override naming a source no longer
-    /// available is ignored rather than trusted, so removing a source from the catalog can't strand an item.
+    /// <see cref="IAppSettingRepository"/>) when it names a source the domain currently offers, otherwise the
+    /// code default (<see cref="RatingSourceOptions.DefaultSource"/>). An override naming a source that is not
+    /// on offer is ignored rather than trusted - and left stored, so a provider change is reversible.
     /// </summary>
     public async Task<string> GetPrimaryRatingSourceAsync(ReferenceItemType domain)
     {
         var overrides = await appSettingRepository.GetReferenceRatingSourcesAsync();
-        return RatingSourceCatalog.Resolve(overrides, domain);
+        return ratingSourceOptions.Resolve(overrides, domain);
     }
 
     /// <summary>

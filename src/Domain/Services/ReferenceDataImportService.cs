@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 
@@ -66,27 +67,32 @@ public static class ReferenceDataImportService
         await onCollectionStarted(ReferenceDataImportCollection.TvShows);
         await ImportCollectionAsync(
             payload.TvShows, repositories.TvShows.FindAllAsync, repositories.TvShows.UpsertAsync,
-            MergeTvShow, summary, summary.TvShows, cancellationToken, show => RemapCast(show.Cast, personIds));
+            MergeTvShow, summary, summary.TvShows, cancellationToken, show => RemapCast(show.Cast, personIds),
+            show => (show.Title, show.Year), ReferenceDataImportCollection.TvShows);
 
         await onCollectionStarted(ReferenceDataImportCollection.Movies);
         await ImportCollectionAsync(
             payload.Movies, repositories.Movies.FindAllAsync, repositories.Movies.UpsertAsync,
-            MergeMovie, summary, summary.Movies, cancellationToken, movie => RemapCast(movie.Cast, personIds));
+            MergeMovie, summary, summary.Movies, cancellationToken, movie => RemapCast(movie.Cast, personIds),
+            movie => (movie.Title, movie.Year), ReferenceDataImportCollection.Movies);
 
         await onCollectionStarted(ReferenceDataImportCollection.Books);
         await ImportCollectionAsync(
             payload.Books, repositories.Books.FindAllAsync, repositories.Books.UpsertAsync,
-            MergeBook, summary, summary.Books, cancellationToken, book => book.AuthorReferenceId = Remap(book.AuthorReferenceId, personIds));
+            MergeBook, summary, summary.Books, cancellationToken, book => book.AuthorReferenceId = Remap(book.AuthorReferenceId, personIds),
+            book => (book.Title, book.Year), ReferenceDataImportCollection.Books);
 
         await onCollectionStarted(ReferenceDataImportCollection.VideoGames);
         await ImportCollectionAsync(
             payload.VideoGames, repositories.VideoGames.FindAllAsync, repositories.VideoGames.UpsertAsync,
-            MergeVideoGame, summary, summary.VideoGames, cancellationToken);
+            MergeVideoGame, summary, summary.VideoGames, cancellationToken,
+            identityOf: game => (game.Title, game.Year), collection: ReferenceDataImportCollection.VideoGames);
 
         await onCollectionStarted(ReferenceDataImportCollection.Albums);
         await ImportCollectionAsync(
             payload.Albums, repositories.Albums.FindAllAsync, repositories.Albums.UpsertAsync,
-            MergeAlbum, summary, summary.Albums, cancellationToken, album => album.ArtistReferenceId = Remap(album.ArtistReferenceId, personIds));
+            MergeAlbum, summary, summary.Albums, cancellationToken, album => album.ArtistReferenceId = Remap(album.ArtistReferenceId, personIds),
+            album => (album.Title, album.Year), ReferenceDataImportCollection.Albums);
 
         return summary;
     }
@@ -105,7 +111,9 @@ public static class ReferenceDataImportService
         ReferenceDataImportSummary summary,
         ReferenceDataImportCounts counts,
         CancellationToken cancellationToken,
-        Action<T>? remapPersonIds = null)
+        Action<T>? remapPersonIds = null,
+        Func<T, (string Title, int? Year)>? identityOf = null,
+        ReferenceDataImportCollection collection = default)
         where T : class, IHasExternalIds
     {
         var idMap = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -116,9 +124,11 @@ public static class ReferenceDataImportService
         var existing = await findAllAsync();
         var byExternalId = new Dictionary<string, T>(StringComparer.Ordinal);
         var byId = new Dictionary<string, T>(StringComparer.Ordinal);
+        var knownTitles = new HashSet<string>(StringComparer.Ordinal);
         foreach (var document in existing)
         {
             Index(document, byExternalId, byId);
+            if (identityOf is not null) knownTitles.Add(TitleKey(identityOf(document)));
         }
 
         foreach (var document in imported)
@@ -138,12 +148,29 @@ public static class ReferenceDataImportService
             DropConflictingExternalIds(document, byExternalId, summary.SkippedExternalIds);
 
             var saved = await upsertAsync(document);
-            if (match is not null) counts.Updated++;
-            else counts.Created++;
+            if (match is not null)
+            {
+                counts.Updated++;
+            }
+            else
+            {
+                counts.Created++;
+                // a *new* document naming a work the target already knew means the two are in different
+                // provider id spaces and could not be matched - see ReferenceDataImportSummary.PossibleDuplicates
+                if (identityOf is not null)
+                {
+                    var (title, year) = identityOf(saved);
+                    if (knownTitles.Contains(TitleKey((title, year))))
+                    {
+                        summary.PossibleDuplicates.Add($"{collection}:{title}{(year is null ? "" : $" ({year})")}");
+                    }
+                }
+            }
 
             if (!string.IsNullOrEmpty(exportedId) && !string.IsNullOrEmpty(saved.Id)) idMap[exportedId] = saved.Id!;
             // keep the index current, so two documents inside the same archive can't both claim one id
             Index(saved, byExternalId, byId);
+            if (identityOf is not null) knownTitles.Add(TitleKey(identityOf(saved)));
         }
 
         return idMap;
@@ -192,6 +219,15 @@ public static class ReferenceDataImportService
     }
 
     private static string ExternalKey(string provider, string externalId) => $"{provider}:{externalId}";
+
+    /// <summary>
+    /// The "is this the same work?" key for duplicate *reporting* only - never for matching, which is by
+    /// provider id. Loose title normalization plus the year, because the whole point is to notice a work two
+    /// catalogues spell differently ("Mass Effect: Legendary Edition" against "Mass Effect Legendary Edition"),
+    /// while the year keeps a remake from being reported as its original.
+    /// </summary>
+    private static string TitleKey((string Title, int? Year) identity) =>
+        $"{TitleNormalizer.NormalizeLoose(identity.Title)}|{identity.Year}";
 
     private static void MergePerson(PersonReferenceModel existing, PersonReferenceModel imported)
     {

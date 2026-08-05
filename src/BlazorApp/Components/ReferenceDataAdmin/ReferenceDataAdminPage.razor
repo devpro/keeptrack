@@ -176,16 +176,133 @@
     }
 </div>
 
+@* Provider reconciliation. Sits right under the sync card because it is where a sync's "couldn't adopt"
+   outcomes land: everything here is a reference document the automatic rule refused to guess about. *@
+@if (_reconciliation is not null && (_reconciliation.Gaps.Count > 0 || _reconciliation.Duplicates.Count > 0))
+{
+    <div class="kt-form-card">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h2 class="kt-section-title mt-0 mb-0" style="border:none;padding:0">Provider reconciliation</h2>
+            <button class="btn btn-sm btn-secondary" @onclick="LoadReconciliationAsync" disabled="@_loadingReconciliation">↻ Refresh</button>
+        </div>
+        <p style="color:var(--kt-text-muted)">
+            Video game references are refreshed through the current default provider only, so one still living
+            in a previous provider's id space is stuck: it stops being refreshed, and <strong>Explore keeps
+            suggesting it even though you already have it</strong> - discovery recognises what you own by
+            @(_reconciliation.ProviderDisplayName)'s id. The nightly sync adopts an id automatically whenever
+            there is exactly one match; what is left below is what it refused to guess about.
+        </p>
+
+        @if (_reconciliation.Gaps.Count > 0)
+        {
+            <p class="kt-card-meta">
+                @_reconciliation.Gaps.Count of @_reconciliation.TotalReferences video game references carry no
+                @_reconciliation.ProviderDisplayName id.
+            </p>
+            <table class="table">
+                <tbody>
+                @foreach (var gap in _reconciliation.Gaps)
+                {
+                    <tr class="@(gap.ReferenceId == _selectedGapId ? "table-active" : "")" @onclick="() => SelectGapAsync(gap)" style="cursor:pointer">
+                        <td style="font-weight:500">@gap.Title</td>
+                        <td>@gap.Year</td>
+                        <td class="kt-card-meta">@(gap.Providers.Count == 0 ? "no provider id" : string.Join(", ", gap.Providers))</td>
+                        <td class="kt-card-meta">@(gap.LastAttemptedAt is null ? "never searched" : $"last tried {gap.LastAttemptedAt:yyyy-MM-dd}")</td>
+                    </tr>
+                    @if (gap.ReferenceId == _selectedGapId)
+                    {
+                        <tr>
+                            <td colspan="4">
+                                @if (_loadingCandidates)
+                                {
+                                    <span class="kt-card-meta"><span class="kt-icon-spin">↻</span> Asking @_reconciliation.ProviderDisplayName…</span>
+                                }
+                                else if (_candidates.Count == 0)
+                                {
+                                    <span class="kt-card-meta">@_reconciliation.ProviderDisplayName has nothing under this title. Rename the reference to the provider's own spelling, or leave it - its stored data still renders.</span>
+                                }
+                                else
+                                {
+                                    <div class="d-flex gap-3 flex-wrap">
+                                        @foreach (var candidate in _candidates)
+                                        {
+                                            <div class="kt-card" style="max-width:200px">
+                                                @if (!string.IsNullOrEmpty(candidate.ImageUrl))
+                                                {
+                                                    <img src="@candidate.ImageUrl" alt="@candidate.Title" style="width:100%;border-radius:4px"/>
+                                                }
+                                                <p class="mb-1" style="font-weight:500">@candidate.Title</p>
+                                                <p class="kt-card-meta mb-1">@candidate.Year</p>
+                                                @if (candidate.Synopsis is not null)
+                                                {
+                                                    <p class="kt-card-meta mb-1">✓ @candidate.Synopsis</p>
+                                                }
+                                                <button class="btn btn-sm btn-primary" @onclick="() => AdoptAsync(gap, candidate)" disabled="@_adopting">Link</button>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+                </tbody>
+            </table>
+        }
+
+        @if (_reconciliation.Duplicates.Count > 0)
+        {
+            <h3 class="kt-section-title" style="font-size:1rem">Duplicate references (@_reconciliation.Duplicates.Count)</h3>
+            <p style="color:var(--kt-text-muted)">
+                Two documents describing one work - what a provider change, or a reference-data import from an
+                environment on a different provider, leaves behind. Each account's items point at whichever one
+                existed when they linked, so the work's provider ids, ratings and cover are split between them.
+                Keep the one you want to survive; the other's data is merged into it and every item pointing at
+                it is moved over. A RAWG cover always wins the merge whichever one you keep - its key art can't
+                be fetched again without RAWG's API, so losing it would be permanent.
+            </p>
+            @foreach (var group in _reconciliation.Duplicates)
+            {
+                <div class="d-flex gap-3 align-items-start flex-wrap mb-3">
+                    <strong style="min-width:180px">@group.Title</strong>
+                    @foreach (var reference in group.References)
+                    {
+                        <div class="kt-card" style="max-width:260px">
+                            <p class="mb-1" style="font-weight:500">@reference.Title @(reference.Year is null ? "" : $"({reference.Year})")</p>
+                            <p class="kt-card-meta mb-1">ids: @(reference.ExternalIds.Count == 0 ? "none" : string.Join(", ", reference.ExternalIds.Select(pair => $"{pair.Key} {pair.Value}")))</p>
+                            <p class="kt-card-meta mb-1">ratings: @(reference.RatingSources.Count == 0 ? "none" : string.Join(", ", reference.RatingSources))</p>
+                            <button class="btn btn-sm btn-secondary" @onclick="() => MergeAsync(group, reference)" disabled="@_merging">Keep this one</button>
+                        </div>
+                    }
+                </div>
+            }
+        }
+
+        @if (_reconciliationMessage is not null)
+        {
+            <div class="alert alert-info mt-2 mb-0">@_reconciliationMessage</div>
+        }
+        @if (_reconciliationError is not null)
+        {
+            <div class="alert alert-danger mt-2 mb-0">@_reconciliationError</div>
+        }
+    </div>
+}
+
 @if (_ratingSources.Count > 0)
 {
     <div class="kt-form-card">
         <p style="color:var(--kt-text-muted)">
             Which provider score is shown as the rating pill and drives the "Ref ★" sort. Changing the source
             only affects new links and syncs until you recompute - use Recompute to re-apply the selected
-            source to every already-linked item at once. Note: Metacritic is out of 100 and often absent on
-            RAWG, so switching video games to it blanks the pill for many games and sorts them last. IMDb
-            (movies/TV) is out of 10 like TMDB, so switching rarely changes the pill, but a few titles have no
-            IMDb rating and will blank/sort last.
+            source to every already-linked item at once. IMDb (movies/TV) is out of 10 like TMDB, so switching
+            rarely changes the pill, but a few titles have no IMDb rating and will blank/sort last.
+            <br/>
+            The video game list follows whichever provider is configured as that domain's default, so it shows
+            IGDB's two scores today and would show RAWG's own plus Metacritic again if the deployment went back
+            to RAWG. A choice you made under another provider is kept, not erased - it simply falls back to the
+            default while that provider isn't in charge, and is honoured again as soon as it is. Values already
+            stored (a RAWG-era Metacritic score, say) keep showing on detail pages either way.
         </p>
         @foreach (var option in _ratingSources)
         {
@@ -252,6 +369,15 @@
                 @_importResult.SkippedExternalIds.Count provider id(s) were left out because another document here
                 already claims them - this database holds two reference documents for the same work, which only you
                 can merge: @string.Join(", ", _importResult.SkippedExternalIds)
+            </div>
+        }
+        @if (_importResult.PossibleDuplicates.Count > 0)
+        {
+            <div class="alert alert-warning mt-3 mb-0">
+                @_importResult.PossibleDuplicates.Count work(s) were imported as a second document because this
+                database already had them under a different provider's id - matching is by provider id, and an
+                import never fuses two records on title alone. Merge them in Provider reconciliation above:
+                @string.Join(", ", _importResult.PossibleDuplicates)
             </div>
         }
     }
@@ -600,7 +726,112 @@
         _ratingSources = await Api.GetRatingSourcesAsync();
         _exploreUseTmdb = (await Api.GetExploreSettingsAsync()).UseTmdbRanking;
         await LoadUnresolvedAsync();
+        await LoadReconciliationAsync();
         await LoadSystemStatusAsync();
+    }
+
+    private ProviderReconciliationDto? _reconciliation;
+    private bool _loadingReconciliation;
+    private string? _selectedGapId;
+    private List<ReferenceSearchResultDto> _candidates = [];
+    private bool _loadingCandidates;
+    private bool _adopting;
+    private bool _merging;
+    private string? _reconciliationMessage;
+    private string? _reconciliationError;
+
+    private async Task LoadReconciliationAsync()
+    {
+        _loadingReconciliation = true;
+        try
+        {
+            _reconciliation = await Api.GetProviderReconciliationAsync();
+            _reconciliationError = null;
+        }
+        catch (Exception ex)
+        {
+            _reconciliationError = ex.Message;
+        }
+        finally
+        {
+            _loadingReconciliation = false;
+        }
+    }
+
+    @* Candidates cost a live provider call, so they are fetched when a row is opened - never for the whole
+       queue, which routinely runs to three figures. *@
+    private async Task SelectGapAsync(ProviderGapDto gap)
+    {
+        if (_selectedGapId == gap.ReferenceId)
+        {
+            _selectedGapId = null;
+            return;
+        }
+
+        _selectedGapId = gap.ReferenceId;
+        _candidates = [];
+        _loadingCandidates = true;
+        _reconciliationError = null;
+        try
+        {
+            _candidates = await Api.GetAdoptionCandidatesAsync(gap.ReferenceId);
+        }
+        catch (Exception ex)
+        {
+            _reconciliationError = ex.Message;
+        }
+        finally
+        {
+            _loadingCandidates = false;
+        }
+    }
+
+    private async Task AdoptAsync(ProviderGapDto gap, ReferenceSearchResultDto candidate)
+    {
+        _adopting = true;
+        _reconciliationError = null;
+        try
+        {
+            await Api.AdoptProviderIdAsync(gap.ReferenceId, candidate.ExternalId);
+            _reconciliationMessage = $"\"{gap.Title}\" now carries {_reconciliation?.ProviderDisplayName} id {candidate.ExternalId}.";
+            _selectedGapId = null;
+            await LoadReconciliationAsync();
+        }
+        catch (Exception ex)
+        {
+            _reconciliationError = ex.Message;
+        }
+        finally
+        {
+            _adopting = false;
+        }
+    }
+
+    private async Task MergeAsync(DuplicateReferenceGroupDto group, DuplicateReferenceDto keep)
+    {
+        _merging = true;
+        _reconciliationError = null;
+        try
+        {
+            var repointed = 0L;
+            // a group can hold more than two documents; every one that isn't the keeper is folded in, in turn,
+            // so the admin's one click means "this is the work's document" rather than "merge this pair"
+            foreach (var absorbed in group.References.Where(r => r.ReferenceId != keep.ReferenceId))
+            {
+                repointed += (await Api.MergeReferencesAsync(keep.ReferenceId, absorbed.ReferenceId)).ItemsRepointed;
+            }
+
+            _reconciliationMessage = $"Merged into \"{keep.Title}\"; {repointed} item(s) re-pointed.";
+            await LoadReconciliationAsync();
+        }
+        catch (Exception ex)
+        {
+            _reconciliationError = ex.Message;
+        }
+        finally
+        {
+            _merging = false;
+        }
     }
 
     private async Task OnExploreUseTmdbChangedAsync(ChangeEventArgs e)

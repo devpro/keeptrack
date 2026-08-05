@@ -1,0 +1,62 @@
+using AwesomeAssertions;
+using Keeptrack.Common.System;
+using Xunit;
+
+namespace Keeptrack.WebApi.UnitTests.Services;
+
+/// <summary>
+/// The loose matcher exists to pair one provider's canonical title with another's, so every case here is a
+/// real divergence taken from live RAWG and IGDB records - the ones that left a third of a real catalogue
+/// unable to adopt the current default provider's id, and kept those same games in the owner's Explore feed.
+/// </summary>
+[Trait("Category", "UnitTests")]
+public class TitleNormalizerTest
+{
+    [Theory]
+    // punctuation only: IGDB drops the colon RAWG keeps
+    [InlineData("Mass Effect: Legendary Edition", "Mass Effect Legendary Edition")]
+    // the article: IGDB's record is "The Final Cut", RAWG's is "Final Cut"
+    [InlineData("Disco Elysium: Final Cut", "Disco Elysium: The Final Cut")]
+    // RAWG disambiguates a remake by appending the original's year to the title itself
+    [InlineData("GoldenEye 007 (1997)", "GoldenEye 007")]
+    [InlineData("Resident Evil 2 (1998)", "Resident Evil 2")]
+    [InlineData("DOOM (2016)", "Doom")]
+    // accents, spacing and case
+    [InlineData("Pokémon Scarlet", "Pokemon Scarlet")]
+    [InlineData("NieR:Automata", "NieR: Automata")]
+    [InlineData("Ratchet & Clank", "Ratchet and Clank")]
+    public void NormalizeLoose_TreatsProviderSpellingsOfOneWorkAsEqual(string left, string right) =>
+        TitleNormalizer.LooselyEqual(left, right).Should().BeTrue();
+
+    [Theory]
+    // an edition is its own product and must stay distinct - adopting one for the other is a wrong link,
+    // which is worse than an entry in the admin reconciliation queue
+    [InlineData("NieR:Automata Game of the YoRHa Edition", "NieR: Automata")]
+    [InlineData("Red Dead Redemption 2", "Red Dead Redemption")]
+    // sequels, and the deliberate decision not to equate roman numerals with digits
+    [InlineData("Final Fantasy IV", "Final Fantasy 4")]
+    [InlineData("Portal 2", "Portal")]
+    public void NormalizeLoose_KeepsGenuinelyDifferentWorksApart(string left, string right) =>
+        TitleNormalizer.LooselyEqual(left, right).Should().BeFalse();
+
+    [Theory]
+    // confirmed against the live IGDB API: querying with the suffix returns nothing at all - not a bad
+    // candidate list, an empty one - from both its exact-name lookup and its relevance search
+    [InlineData("GoldenEye 007 (1997)", "GoldenEye 007")]
+    [InlineData("God of War (2018)", "God of War")]
+    [InlineData("Demon's Souls (2020)", "Demon's Souls")]
+    // everything else survives untouched, so the result is still a title a provider could hold verbatim
+    [InlineData("Marvel's Spider-Man", "Marvel's Spider-Man")]
+    [InlineData("Pokémon Scarlet", "Pokémon Scarlet")]
+    public void StripDisambiguator_RemovesOnlyTheParenthesisedGroup(string title, string expected) =>
+        TitleNormalizer.StripDisambiguator(title).Should().Be(expected);
+
+    [Fact]
+    public void Normalize_StaysStrict_SoTenantTypedTextIsNotConflated()
+    {
+        // the stored alias/TitleNormalized key is matched against what a tenant typed, where losing this much
+        // information would start merging different items - only provider-to-provider matching goes loose
+        TitleNormalizer.Normalize("Mass Effect: Legendary Edition").Should().Be("mass effect: legendary edition");
+        TitleNormalizer.Normalize("  Portal 2 ").Should().Be("portal 2");
+    }
+}

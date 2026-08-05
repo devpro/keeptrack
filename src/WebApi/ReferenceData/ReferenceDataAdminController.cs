@@ -40,6 +40,7 @@ public class ReferenceDataAdminController(
     IVideoGameReferenceRepository videoGameReferenceRepository,
     IAlbumReferenceRepository albumReferenceRepository,
     IAppSettingRepository appSettingRepository,
+    RatingSourceOptions ratingSourceOptions,
     IHostApplicationLifetime lifetime,
     ILogger<ReferenceDataAdminController> logger) : ControllerBase
 {
@@ -176,6 +177,13 @@ public class ReferenceDataAdminController(
                     logger.LogWarning("Reference-data import skipped external id {ExternalId}: another document in this database already claims it.", skipped);
                 }
 
+                foreach (var duplicate in summary.PossibleDuplicates)
+                {
+                    // same reason as above: this leaves the database holding two reference documents for one
+                    // work, which nothing but the admin reconciliation action can put back together.
+                    logger.LogWarning("Reference-data import created a second document for {Work}: the target already had it under a different provider's id.", duplicate);
+                }
+
                 await scopedJobStore.CompleteAsync(jobId, ReferenceDataImportStage.Completed, new ReferenceDataImportResultDto
                 {
                     TvShows = ToDto(summary.TvShows),
@@ -184,7 +192,8 @@ public class ReferenceDataAdminController(
                     Books = ToDto(summary.Books),
                     VideoGames = ToDto(summary.VideoGames),
                     Albums = ToDto(summary.Albums),
-                    SkippedExternalIds = summary.SkippedExternalIds
+                    SkippedExternalIds = summary.SkippedExternalIds,
+                    PossibleDuplicates = summary.PossibleDuplicates
                 });
             }
             catch (OperationCanceledException)
@@ -369,21 +378,21 @@ public class ReferenceDataAdminController(
 
     /// <summary>
     /// Every domain whose primary rating source (the score shown as the pill / used for the "Ref ★" sort) is
-    /// admin-selectable, with its available sources and the one currently selected. Only domains with more
-    /// than one source appear - today video games (IGDB, IGDB's critic aggregate, Metacritic) and movies/TV
-    /// (TMDB vs IMDb).
+    /// admin-selectable, with its available sources and the one currently selected. The video game entry
+    /// follows whichever provider that deployment registered as its default, so it lists IGDB's two scores
+    /// today and would list RAWG's own plus Metacritic on a deployment configured back to RAWG.
     /// </summary>
     [HttpGet("rating-sources")]
     [ProducesResponseType(200)]
     public async Task<ActionResult<List<RatingSourceOptionDto>>> GetRatingSources()
     {
         var options = new List<RatingSourceOptionDto>();
-        foreach (var domain in RatingSourceCatalog.SelectableDomains)
+        foreach (var domain in ratingSourceOptions.SelectableDomains)
         {
             options.Add(new RatingSourceOptionDto
             {
                 Domain = domain,
-                AvailableSources = RatingSourceCatalog.AvailableSources(domain).ToList(),
+                AvailableSources = ratingSourceOptions.AvailableSources(domain).ToList(),
                 SelectedSource = await enrichmentService.GetPrimaryRatingSourceAsync(domain)
             });
         }
@@ -402,7 +411,7 @@ public class ReferenceDataAdminController(
     public async Task<IActionResult> SetRatingSource(ReferenceItemType domain, [FromBody] SetRatingSourceRequestDto request)
     {
         // ArgumentException maps to a 400 via ApiExceptionFilterAttribute
-        if (!RatingSourceCatalog.AvailableSources(domain).Contains(request.Source))
+        if (!ratingSourceOptions.AvailableSources(domain).Contains(request.Source))
         {
             throw new ArgumentException($"'{request.Source}' is not a selectable rating source for {domain}.", nameof(request));
         }
@@ -568,6 +577,106 @@ public class ReferenceDataAdminController(
         }
 
         return dtos;
+    }
+
+    /// <summary>
+    /// Provider reconciliation for video games: which reference documents have not caught up with the domain's
+    /// current default provider, and which look like duplicates of one another.
+    /// <para>
+    /// Video games only, and that is not an oversight. This is the one domain where a reference is refreshed
+    /// exclusively through the *default* provider (see
+    /// <c>ReferenceEnrichmentService.RefreshVideoGameReferenceAsync</c> for why - the second provider was added
+    /// because the first went down, so falling back to it means talking to a dead host), which makes "carries
+    /// no id in the default provider's number space" a real, self-inflicting gap rather than a detail. Books,
+    /// the other multi-provider domain, refresh through whichever provider linked them and have no such gap.
+    /// </para>
+    /// </summary>
+    [HttpGet("provider-reconciliation")]
+    [ProducesResponseType(200)]
+    public async Task<ActionResult<ProviderReconciliationDto>> GetProviderReconciliation()
+    {
+        var (provider, displayName, total, missing) = await enrichmentService.FindVideoGameProviderGapsAsync();
+        var duplicates = await enrichmentService.FindDuplicateVideoGameReferencesAsync();
+
+        return Ok(new ProviderReconciliationDto
+        {
+            Provider = provider,
+            ProviderDisplayName = displayName,
+            TotalReferences = total,
+            Gaps = missing.Select(reference => new ProviderGapDto
+            {
+                ReferenceId = reference.Id!,
+                Title = reference.Title,
+                Year = reference.Year,
+                Providers = reference.ExternalIds.Keys.OrderBy(key => key, StringComparer.Ordinal).ToList(),
+                LastAttemptedAt = reference.ProviderAdoptionCheckedAt.TryGetValue(provider, out var attemptedAt) ? attemptedAt : null
+            }).ToList(),
+            Duplicates = duplicates.Select(group => new DuplicateReferenceGroupDto
+            {
+                Title = group[0].Title,
+                References = group.Select(reference => new DuplicateReferenceDto
+                {
+                    ReferenceId = reference.Id!,
+                    Title = reference.Title,
+                    Year = reference.Year,
+                    ExternalIds = reference.ExternalIds,
+                    RatingSources = reference.Ratings.Keys.OrderBy(key => key, StringComparer.Ordinal).ToList(),
+                    ImageUrl = reference.ImageUrl,
+                    LastEnrichedAt = reference.LastEnrichedAt
+                }).ToList()
+            }).ToList()
+        });
+    }
+
+    /// <summary>
+    /// What the default video game provider offers for one stuck reference's own canonical title, with the
+    /// candidates the automatic rule would have accepted flagged. Fetched per row rather than for the whole
+    /// queue, since each row costs a provider call or two.
+    /// </summary>
+    [HttpGet("provider-reconciliation/{referenceId}/candidates")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    public async Task<ActionResult<List<ReferenceSearchResultDto>>> GetAdoptionCandidates(string referenceId, CancellationToken cancellationToken)
+    {
+        var (candidates, matchingIds) = await enrichmentService.FindVideoGameAdoptionCandidatesAsync(referenceId, cancellationToken);
+        return Ok(candidates.Select(candidate => new ReferenceSearchResultDto
+        {
+            ExternalId = candidate.ExternalId,
+            Title = candidate.Title,
+            Year = candidate.Year,
+            ImageUrl = candidate.ImageUrl,
+            // reuses the candidate's synopsis slot to say why it is (or isn't) the automatic pick - the admin's
+            // question here is "would this have linked itself?", and a listing carries no synopsis anyway
+            Synopsis = matchingIds.Contains(candidate.ExternalId) ? "Title and year match this reference." : null
+        }).ToList());
+    }
+
+    /// <summary>
+    /// Attaches an admin-chosen provider id to an existing video game reference and refreshes it through that
+    /// provider. Adds the id to the document that is already there - it never creates a second one, which is
+    /// the state this whole screen exists to repair.
+    /// </summary>
+    [HttpPost("provider-reconciliation/{referenceId}/adopt")]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(400)]
+    public async Task<IActionResult> AdoptProviderId(string referenceId, [FromBody] AdoptProviderIdRequestDto request, CancellationToken cancellationToken)
+    {
+        await enrichmentService.AdoptVideoGameProviderIdAsync(referenceId, request.ExternalId, cancellationToken);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Folds one duplicate video game reference into another: the surviving document gains every provider id,
+    /// rating and alias the other held, every tenant item linked to the absorbed one is re-pointed, and the
+    /// absorbed document is deleted.
+    /// </summary>
+    [HttpPost("provider-reconciliation/merge")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    public async Task<ActionResult<MergeReferencesResultDto>> MergeReferences([FromBody] MergeReferencesRequestDto request)
+    {
+        var (kept, itemsRepointed) = await enrichmentService.MergeVideoGameReferencesAsync(request.KeepReferenceId, request.MergeReferenceId);
+        return Ok(new MergeReferencesResultDto { KeptReferenceId = kept.Id!, ItemsRepointed = itemsRepointed });
     }
 
     /// <summary>

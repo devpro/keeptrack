@@ -28,6 +28,7 @@ public class ExploreCatalogueRefreshService(
     IOmdbClient omdbClient,
     IOmdbCallBudget omdbCallBudget,
     IAppSettingRepository appSettingRepository,
+    RatingSourceOptions ratingSourceOptions,
     IExploreCatalogueRepository catalogueRepository,
     ILogger<ExploreCatalogueRefreshService> logger)
 {
@@ -158,7 +159,7 @@ public class ExploreCatalogueRefreshService(
 
         foreach (var type in new[] { ExploreItemType.Movie, ExploreItemType.TvShow })
         {
-            if (RatingSourceCatalog.Resolve(overrides, ExploreRankings.ToReferenceItemType(type)) != RatingSourceCatalog.Imdb) continue;
+            if (ratingSourceOptions.Resolve(overrides, ExploreRankings.ToReferenceItemType(type)) != RatingSourceCatalog.Imdb) continue;
 
             var affordable = await omdbCallBudget.GetRemainingAsync(OmdbCallPriority.Background, cancellationToken);
             if (affordable <= 0)

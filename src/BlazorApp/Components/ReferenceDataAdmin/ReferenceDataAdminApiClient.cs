@@ -157,6 +157,44 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
     }
 
     /// <summary>
+    /// How far the video game reference documents have caught up with the domain's current default provider,
+    /// plus any that look like duplicates of one another (see
+    /// <c>ReferenceDataAdminController.GetProviderReconciliation</c>). Pure database reads - no provider call,
+    /// so it is safe to load with the page.
+    /// </summary>
+    public async Task<ProviderReconciliationDto> GetProviderReconciliationAsync() =>
+        await http.GetFromJsonAsync<ProviderReconciliationDto>("/api/reference-data/provider-reconciliation")
+        ?? new ProviderReconciliationDto { Provider = "", ProviderDisplayName = "" };
+
+    /// <summary>
+    /// The default provider's candidates for one stuck reference. Reaches a live provider, so it is read
+    /// through <see cref="ApiResponseExtensions"/> like the admin search is.
+    /// </summary>
+    public async Task<List<ReferenceSearchResultDto>> GetAdoptionCandidatesAsync(string referenceId)
+    {
+        var response = await http.GetAsync($"/api/reference-data/provider-reconciliation/{referenceId}/candidates");
+        return await response.ReadJsonOrThrowAsync<List<ReferenceSearchResultDto>>() ?? [];
+    }
+
+    /// <summary>Attaches an admin-picked provider id to an existing reference and refreshes it through that provider.</summary>
+    public async Task AdoptProviderIdAsync(string referenceId, string externalId)
+    {
+        var response = await http.PostAsJsonAsync(
+            $"/api/reference-data/provider-reconciliation/{referenceId}/adopt", new AdoptProviderIdRequestDto { ExternalId = externalId });
+        await response.EnsureSuccessOrThrowAsync();
+    }
+
+    /// <summary>Folds one duplicate reference document into another, re-pointing every tenant item that linked it.</summary>
+    public async Task<MergeReferencesResultDto> MergeReferencesAsync(string keepReferenceId, string mergeReferenceId)
+    {
+        var response = await http.PostAsJsonAsync(
+            "/api/reference-data/provider-reconciliation/merge",
+            new MergeReferencesRequestDto { KeepReferenceId = keepReferenceId, MergeReferenceId = mergeReferenceId });
+        return await response.ReadJsonOrThrowAsync<MergeReferencesResultDto>()
+               ?? new MergeReferencesResultDto { KeptReferenceId = keepReferenceId };
+    }
+
+    /// <summary>
     /// Operational snapshot: the answering instance's configuration plus the shared reference-sync lease
     /// and recent background jobs (see <c>SystemStatusController</c>).
     /// </summary>

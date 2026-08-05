@@ -6,6 +6,14 @@ namespace Keeptrack.WebApi.ReferenceData;
 public partial class ReferenceEnrichmentService
 {
     /// <summary>
+    /// How long a fruitless provider-id adoption attempt is remembered before it is worth asking again.
+    /// Shorter than the rating re-attempt window because the answer can change for an ordinary reason (the
+    /// provider corrects a year, or adds the missing entry), and long enough that the references a provider
+    /// genuinely can't match stop costing two calls a day each.
+    /// </summary>
+    private static readonly TimeSpan ProviderAdoptionReattemptAfter = TimeSpan.FromDays(7);
+
+    /// <summary>
     /// User-triggered "check for reference match" for video games - see
     /// <see cref="TryLinkExistingTvShowReferenceAsync"/> for the full rationale (this is the same local-only,
     /// no-HTTP-call lookup, just against <c>videogame_reference</c>). A successful match also sets
@@ -177,7 +185,10 @@ public partial class ReferenceEnrichmentService
         }
 
         var details = await client.GetGameDetailsAsync(externalId, cancellationToken);
-        if (details is null) return (reference, false);
+        // stamped rather than returned bare: the provider had nothing for an id it issued, which no amount of
+        // re-asking next pass changes - and this pass may just have adopted that id (or recorded an adoption
+        // attempt), which returning without a write would silently throw away and re-pay for every pass.
+        if (details is null) return (await StampCheckedAsync(reference), false);
 
         reference.Title = details.Title;
         reference.Year = details.Year ?? reference.Year;
@@ -216,12 +227,17 @@ public partial class ReferenceEnrichmentService
     {
         if (reference.ExternalIds.ContainsKey(client.ProviderKey) || string.IsNullOrWhiteSpace(reference.Title)) return;
 
-        var candidates = await client.SearchGamesAsync(reference.Title, reference.Year, cancellationToken);
-        var normalizedTitle = TitleNormalizer.Normalize(reference.Title);
-        var matches = candidates
-            .Where(c => TitleNormalizer.Normalize(c.Title) == normalizedTitle)
-            .Where(c => reference.Year is null || c.Year is null || c.Year == reference.Year)
-            .ToList();
+        // a title this provider has no unambiguous match for cannot be searched into working, so re-asking on
+        // every pass is pure waste - see VideoGameReferenceModel.ProviderAdoptionCheckedAt. The admin
+        // reconciliation action ignores this window, so a stuck reference is never *only* the timer's problem.
+        if (reference.ProviderAdoptionCheckedAt.TryGetValue(client.ProviderKey, out var lastAttempt)
+            && DateTime.UtcNow - lastAttempt < ProviderAdoptionReattemptAfter)
+        {
+            return;
+        }
+
+        var (candidates, matches) = await FindAdoptionCandidatesAsync(reference, client, cancellationToken);
+        reference.ProviderAdoptionCheckedAt[client.ProviderKey] = DateTime.UtcNow;
 
         if (matches.Count != 1)
         {
@@ -241,6 +257,263 @@ public partial class ReferenceEnrichmentService
             client.ProviderKey, matches[0].ExternalId, reference.Id, reference.Title);
         reference.ExternalIds[client.ProviderKey] = matches[0].ExternalId;
     }
+
+    /// <summary>
+    /// The candidates a provider offers for a reference's own canonical title, and the subset that confirms as
+    /// the same game. Shared by the background adoption above and the admin reconciliation queue, so what the
+    /// queue shows as "this would link" is decided by the same rule that decides whether to link it
+    /// unattended.
+    /// <para>
+    /// A ladder of queries, widening only when the one before it comes back <b>empty</b> - the same "never let
+    /// a narrower query return worse than a broader one" shape as <see cref="BookReferenceClientBase"/>'s
+    /// search policy. The exact-name lookup goes first because it answers adoption's actual question
+    /// completely (see <see cref="IVideoGameReferenceClient.FindGamesByExactTitleAsync"/>); the relevance
+    /// search is the fallback for when the two catalogues spell the work differently; and both are retried
+    /// without a parenthesised disambiguator, because a title like <c>GoldenEye 007 (1997)</c> makes IGDB
+    /// return nothing whatsoever to either query - a case no amount of loose *comparison* can fix, since there
+    /// are no candidates to compare against.
+    /// </para>
+    /// <para>
+    /// Confirmation is <see cref="TitleNormalizer.NormalizeLoose"/> plus a compatible year, not exact
+    /// normalized equality. Exact equality is what left a third of a real catalogue unable to adopt: it
+    /// rejected <c>Mass Effect: Legendary Edition</c> against IGDB's <c>Mass Effect Legendary Edition</c> and
+    /// every RAWG title carrying a <c>(1997)</c> disambiguation suffix. Loosening the *shortlist* is safe
+    /// because nothing else loosens: a reference's title and year are canonical provider data rather than
+    /// tenant-typed text, the year must still agree, and anything but a single match is still left for a human.
+    /// </para>
+    /// </summary>
+    private static async Task<(IReadOnlyList<VideoGameSearchResult> Candidates, IReadOnlyList<VideoGameSearchResult> Matches)> FindAdoptionCandidatesAsync(
+        VideoGameReferenceModel reference, IVideoGameReferenceClient client, CancellationToken cancellationToken)
+    {
+        // the queries to try, narrowest first: this title, then the same title without a disambiguator
+        var queries = new List<string> { reference.Title };
+        var stripped = TitleNormalizer.StripDisambiguator(reference.Title);
+        if (stripped.Length > 0 && !string.Equals(stripped, reference.Title, StringComparison.Ordinal)) queries.Add(stripped);
+
+        IReadOnlyList<VideoGameSearchResult> candidates = [];
+        foreach (var query in queries)
+        {
+            candidates = await client.FindGamesByExactTitleAsync(query, cancellationToken);
+            if (candidates.Count > 0) break;
+        }
+
+        foreach (var query in queries)
+        {
+            if (candidates.Count > 0) break;
+            candidates = await client.SearchGamesAsync(query, reference.Year, cancellationToken);
+        }
+
+        var matches = candidates
+            .Where(c => TitleNormalizer.LooselyEqual(c.Title, reference.Title))
+            .Where(c => reference.Year is null || c.Year is null || c.Year == reference.Year)
+            .ToList();
+
+        return (candidates, matches);
+    }
+
+    /// <summary>
+    /// The admin reconciliation queue: every video game reference that carries no id in the current default
+    /// provider's number space, newest gap concerns first by title.
+    /// <para>
+    /// This set is not a curiosity - it is exactly the set of works the Explore feature cannot tell the owner
+    /// already has. Explore excludes a suggestion by asking each linked reference for the *discovery*
+    /// provider's id, so a reference still living in the previous provider's id space is invisible to it, and
+    /// the title fallback misses the same documents for the same reason adoption did (the two catalogues spell
+    /// the work differently). Draining this queue is what makes discovery correct again.
+    /// </para>
+    /// </summary>
+    public async Task<(string Provider, string DisplayName, int Total, IReadOnlyList<VideoGameReferenceModel> Missing)> FindVideoGameProviderGapsAsync()
+    {
+        var client = videoGameReferenceClientRegistry.Resolve(null);
+        var missing = await videoGameReferenceRepository.FindWithoutExternalIdAsync(client.ProviderKey);
+        var total = (await videoGameReferenceRepository.FindAllAsync()).Count;
+        return (client.ProviderKey, client.DisplayName, total, missing);
+    }
+
+    /// <summary>
+    /// What the default provider offers for one reference's canonical title, with the subset the automatic
+    /// path would have accepted flagged - the per-row detail of the queue above, fetched on demand rather than
+    /// for every row at once, since each row costs a provider call or two.
+    /// <para>
+    /// Deliberately ignores <see cref="ProviderAdoptionReattemptAfter"/>: an admin looking at this row is
+    /// waiting on the answer, the same reason the interactive rating paths ignore their own re-attempt window.
+    /// </para>
+    /// </summary>
+    public async Task<(IReadOnlyList<VideoGameSearchResult> Candidates, IReadOnlyList<string> MatchingIds)> FindVideoGameAdoptionCandidatesAsync(
+        string referenceId, CancellationToken cancellationToken = default)
+    {
+        var reference = await videoGameReferenceRepository.FindByIdAsync(referenceId)
+                        ?? throw new ArgumentException($"No video game reference with id '{referenceId}'.", nameof(referenceId));
+
+        var client = videoGameReferenceClientRegistry.Resolve(null);
+        var (candidates, matches) = await FindAdoptionCandidatesAsync(reference, client, cancellationToken);
+        return (candidates, matches.Select(m => m.ExternalId).ToList());
+    }
+
+    /// <summary>
+    /// Attaches a provider id an admin picked to an existing reference document, then refreshes it through
+    /// that provider - the manual half of adoption, for the references the automatic rule refuses (several
+    /// games sharing one name, or two catalogues disagreeing about the year).
+    /// <para>
+    /// It writes the id onto the <b>existing</b> document and reuses
+    /// <see cref="RefreshVideoGameReferenceAsync"/> rather than going through
+    /// <see cref="ResolveVideoGameAsync"/>: resolving by title would find this same document in the ordinary
+    /// case but is matched on text, and the one thing this action must never do is mint a *second* reference
+    /// document for a work that already has one - that is the failure it exists to clean up.
+    /// </para>
+    /// </summary>
+    public async Task<VideoGameReferenceModel> AdoptVideoGameProviderIdAsync(string referenceId, string externalId, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(externalId);
+
+        var reference = await videoGameReferenceRepository.FindByIdAsync(referenceId)
+                        ?? throw new ArgumentException($"No video game reference with id '{referenceId}'.", nameof(referenceId));
+        var client = videoGameReferenceClientRegistry.Resolve(null);
+
+        var claimant = await videoGameReferenceRepository.FindByExternalIdAsync(client.ProviderKey, externalId);
+        if (claimant is not null && claimant.Id != reference.Id)
+        {
+            // the unique partial index would reject this write anyway; failing here says *which* document
+            // already holds the id, which is what turns "it didn't work" into "merge these two".
+            throw new ArgumentException(
+                $"{client.DisplayName} id '{externalId}' already belongs to the reference \"{claimant.Title}\" ({claimant.Year}). Merge the two references instead.",
+                nameof(externalId));
+        }
+
+        reference.ExternalIds[client.ProviderKey] = externalId;
+        reference.ProviderAdoptionCheckedAt[client.ProviderKey] = DateTime.UtcNow;
+        logger.LogInformation(
+            "Admin adopted {Provider} id {ExternalId} for video game reference {ReferenceId} \"{Title}\".",
+            client.ProviderKey, externalId, reference.Id, reference.Title);
+
+        var (saved, _) = await RefreshVideoGameReferenceAsync(reference, cancellationToken);
+        return saved;
+    }
+
+    /// <summary>
+    /// Every set of video game references that look like the same work under
+    /// <see cref="TitleNormalizer.NormalizeLoose"/> but are separate documents - the state a provider change
+    /// leaves behind, and one a reference-data import can create outright (it matches documents by provider
+    /// id, so an export whose games are IGDB-linked lands beside a target's RAWG-linked copies of the same
+    /// games rather than merging into them).
+    /// <para>
+    /// A duplicate is not cosmetic: tenants' items point at whichever document existed when they linked, so
+    /// the ratings, cover and provider ids a work has are split across two records, and Explore excludes on
+    /// only one of them.
+    /// </para>
+    /// </summary>
+    public async Task<IReadOnlyList<IReadOnlyList<VideoGameReferenceModel>>> FindDuplicateVideoGameReferencesAsync()
+    {
+        var references = await videoGameReferenceRepository.FindAllAsync();
+        return references
+            .GroupBy(r => TitleNormalizer.NormalizeLoose(r.Title))
+            .Where(group => group.Count() > 1)
+            // a same-name pair from genuinely different years (a remake) is a real pair of works, not a
+            // duplicate - the same year rule adoption confirms with
+            .Where(group => group.Select(r => r.Year).Distinct().Count() == 1)
+            .Select(IReadOnlyList<VideoGameReferenceModel> (group) => group.OrderBy(r => r.Id, StringComparer.Ordinal).ToList())
+            .ToList();
+    }
+
+    /// <summary>
+    /// Folds one duplicate reference document into another: the surviving document gains whatever the other
+    /// knew that it didn't, every tenant item pointing at the absorbed one is re-pointed, and the absorbed
+    /// document is deleted.
+    /// <para>
+    /// The merge direction is "fill the gaps in <paramref name="keepId"/>, never overwrite it" - the same rule
+    /// <c>SetReferenceLinkAsync</c> and the reference-data import follow, and the only safe one here: where
+    /// both documents hold a value for the same provider id or rating source they were written by that
+    /// provider about the same work, so either is right, while a field only one of them has is strictly new
+    /// information.
+    /// </para>
+    /// <para>
+    /// Re-pointing the tenant items is the step that makes this more than tidying. A tenant's
+    /// <c>ReferenceId</c> is what every hydrated cover, rating and Explore exclusion goes through, so deleting
+    /// the absorbed document without moving its dependants would silently blank all three for those items.
+    /// </para>
+    /// </summary>
+    public async Task<(VideoGameReferenceModel Kept, long ItemsRepointed)> MergeVideoGameReferencesAsync(string keepId, string mergeId)
+    {
+        if (keepId == mergeId) throw new ArgumentException("A reference cannot be merged into itself.", nameof(mergeId));
+
+        var keep = await videoGameReferenceRepository.FindByIdAsync(keepId)
+                   ?? throw new ArgumentException($"No video game reference with id '{keepId}'.", nameof(keepId));
+        var absorbed = await videoGameReferenceRepository.FindByIdAsync(mergeId)
+                       ?? throw new ArgumentException($"No video game reference with id '{mergeId}'.", nameof(mergeId));
+
+        // computed *before* the ids are unioned, and that order is load-bearing: the "is this a RAWG image"
+        // test is "does this document carry a rawg id", which is only true of each document while they are
+        // still separate. Merge the ids first and the survivor carries a rawg id whatever its own cover
+        // actually is, so its IGDB box art would pass the test and the real key art would be dropped.
+        var mergedImageUrl = MergedImageUrl(keep, absorbed);
+
+        foreach (var (provider, externalId) in absorbed.ExternalIds)
+        {
+            keep.ExternalIds.TryAdd(provider, externalId);
+        }
+
+        foreach (var (source, rating) in absorbed.Ratings)
+        {
+            keep.Ratings.TryAdd(source, rating);
+        }
+
+        foreach (var (provider, checkedAt) in absorbed.ProviderAdoptionCheckedAt)
+        {
+            // the later attempt wins, so a merge can never move a re-attempt window backwards
+            if (!keep.ProviderAdoptionCheckedAt.TryGetValue(provider, out var existing) || existing < checkedAt)
+            {
+                keep.ProviderAdoptionCheckedAt[provider] = checkedAt;
+            }
+        }
+
+        keep.MatchedAliases = MergeMatchedAliases(keep.MatchedAliases, [.. absorbed.MatchedAliases.Select(a => (a.Title, a.Year, a.Creator, a.Isbn))]);
+        keep.Year ??= absorbed.Year;
+        keep.Synopsis ??= absorbed.Synopsis;
+        keep.ImageUrl = mergedImageUrl;
+        if (keep.Platforms.Count == 0) keep.Platforms = absorbed.Platforms;
+        if (keep.Genres.Count == 0) keep.Genres = absorbed.Genres;
+
+        // the absorbed document goes first: while both exist they hold the same provider ids, and the unique
+        // partial indexes on external_ids.* reject the second writer of any of them.
+        await videoGameReferenceRepository.DeleteAsync(mergeId);
+        var saved = await videoGameReferenceRepository.UpsertAsync(keep);
+
+        var repointed = await videoGameRepository.RepointReferenceAsync(mergeId, saved.Id!);
+        var (ratingValue, ratingScale, ratingSource) = PrimaryRating(saved.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.VideoGame));
+        await videoGameRepository.SetReferenceRatingAsync(saved.Id!, ratingValue, ratingScale, ratingSource);
+
+        logger.LogInformation(
+            "Merged video game reference {MergedId} into {KeptId} (\"{Title}\"); {ItemCount} tenant item(s) re-pointed.",
+            mergeId, saved.Id, saved.Title, repointed);
+        return (saved, repointed);
+    }
+
+    /// <summary>
+    /// Which of two duplicate documents' covers the merged one keeps: <b>a RAWG-linked document's image wins</b>,
+    /// then the survivor's own, then the absorbed one's.
+    /// <para>
+    /// The same rule <see cref="PreferredImageUrl"/> applies to a refresh, for the same reason and with the
+    /// same test: RAWG's <c>background_image</c> is curated landscape key art whose CDN still serves those
+    /// URLs even though its API doesn't, IGDB's portrait box art is a downgrade, and a RAWG URL cannot be
+    /// recomputed from the RAWG id without RAWG's API - so losing one here is permanent, while keeping it
+    /// costs nothing. A merge is precisely where that loss would otherwise happen silently: the duplicate pair
+    /// this feature exists to fix is typically one RAWG-era document and one IGDB-era one, and "keep the
+    /// survivor's, fill in from the other" would throw the key art away whenever the admin picked the IGDB
+    /// document to survive.
+    /// </para>
+    /// <para>
+    /// Here the id test is exact rather than a proxy: each document is still separate and was written by one
+    /// provider, so "carries a rawg id" really does mean "this image came from RAWG". That is only true before
+    /// the ids are unioned - see the caller.
+    /// </para>
+    /// </summary>
+    private static string? MergedImageUrl(VideoGameReferenceModel keep, VideoGameReferenceModel absorbed) =>
+        RawgImageOf(keep) ?? RawgImageOf(absorbed) ?? keep.ImageUrl ?? absorbed.ImageUrl;
+
+    private static string? RawgImageOf(VideoGameReferenceModel reference) =>
+        reference.ExternalIds.ContainsKey(RatingSourceCatalog.Rawg) && !string.IsNullOrEmpty(reference.ImageUrl)
+            ? reference.ImageUrl
+            : null;
 
     /// <summary>
     /// The image a video game reference keeps: whatever <paramref name="providerKey"/> just returned, except
