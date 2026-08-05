@@ -2435,12 +2435,18 @@ public class ReferenceEnrichmentServiceTest
         var igdbClient = FakeVideoGameReferenceClient.Empty();
         var reference = new VideoGameReferenceModel
         {
-            Id = "reference-1", Title = "Some Game", TitleNormalized = "some game", Year = 2020,
+            Id = "reference-1",
+            Title = "Some Game",
+            TitleNormalized = "some game",
+            Year = 2020,
             ExternalIds = new Dictionary<string, string> { ["rawg"] = "7" }
         };
         var claimant = new VideoGameReferenceModel
         {
-            Id = "reference-2", Title = "Some Game", TitleNormalized = "some game", Year = 2020,
+            Id = "reference-2",
+            Title = "Some Game",
+            TitleNormalized = "some game",
+            Year = 2020,
             ExternalIds = new Dictionary<string, string> { ["igdb"] = "42" }
         };
         _videoGameReferenceRepository.Setup(r => r.FindByIdAsync("reference-1")).ReturnsAsync(reference);
@@ -2459,14 +2465,20 @@ public class ReferenceEnrichmentServiceTest
         // leaves behind: one work, two documents, its ids and ratings split between them
         var keep = new VideoGameReferenceModel
         {
-            Id = "reference-1", Title = "Elden Ring", TitleNormalized = "elden ring", Year = 2022,
+            Id = "reference-1",
+            Title = "Elden Ring",
+            TitleNormalized = "elden ring",
+            Year = 2022,
             ExternalIds = new Dictionary<string, string> { ["rawg"] = "326243" },
             Ratings = new Dictionary<string, ReferenceRatingModel> { ["rawg"] = new() { Value = 4.38, Scale = 5 } },
             ImageUrl = "https://media.rawg.io/elden-ring.jpg"
         };
         var absorbed = new VideoGameReferenceModel
         {
-            Id = "reference-2", Title = "Elden Ring", TitleNormalized = "elden ring", Year = 2022,
+            Id = "reference-2",
+            Title = "Elden Ring",
+            TitleNormalized = "elden ring",
+            Year = 2022,
             ExternalIds = new Dictionary<string, string> { ["igdb"] = "119133" },
             Ratings = new Dictionary<string, ReferenceRatingModel> { ["igdb"] = new() { Value = 93.4, Scale = 100 } }
         };
@@ -2496,13 +2508,19 @@ public class ReferenceEnrichmentServiceTest
         // duplicate pair is typically one RAWG-era document and one IGDB-era one.
         var keep = new VideoGameReferenceModel
         {
-            Id = "reference-1", Title = "Elden Ring", TitleNormalized = "elden ring", Year = 2022,
+            Id = "reference-1",
+            Title = "Elden Ring",
+            TitleNormalized = "elden ring",
+            Year = 2022,
             ExternalIds = new Dictionary<string, string> { ["igdb"] = "119133" },
             ImageUrl = "https://images.igdb.com/elden-ring.jpg"
         };
         var absorbed = new VideoGameReferenceModel
         {
-            Id = "reference-2", Title = "Elden Ring", TitleNormalized = "elden ring", Year = 2022,
+            Id = "reference-2",
+            Title = "Elden Ring",
+            TitleNormalized = "elden ring",
+            Year = 2022,
             ExternalIds = new Dictionary<string, string> { ["rawg"] = "326243" },
             ImageUrl = "https://media.rawg.io/elden-ring.jpg"
         };
@@ -2524,13 +2542,19 @@ public class ReferenceEnrichmentServiceTest
         // rawg id in play the ordinary "never overwrite the survivor" rule applies.
         var keep = new VideoGameReferenceModel
         {
-            Id = "reference-1", Title = "Some Game", TitleNormalized = "some game", Year = 2020,
+            Id = "reference-1",
+            Title = "Some Game",
+            TitleNormalized = "some game",
+            Year = 2020,
             ExternalIds = new Dictionary<string, string> { ["igdb"] = "1" },
             ImageUrl = "https://images.igdb.com/kept.jpg"
         };
         var absorbed = new VideoGameReferenceModel
         {
-            Id = "reference-2", Title = "Some Game", TitleNormalized = "some game", Year = 2020,
+            Id = "reference-2",
+            Title = "Some Game",
+            TitleNormalized = "some game",
+            Year = 2020,
             ExternalIds = [],
             ImageUrl = "https://images.igdb.com/absorbed.jpg"
         };
