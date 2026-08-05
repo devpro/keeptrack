@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using System.Web;
+using Keeptrack.Common.System;
 
 namespace Keeptrack.WebApi.ReferenceData;
 
@@ -17,6 +18,9 @@ public class DiscogsClient(HttpClient http, DiscogsSettings settings) : IDiscogs
         var results = await SearchAlbumsCoreAsync(title, year, artist, cancellationToken);
         if (results.Count == 0 && !string.IsNullOrEmpty(artist))
         {
+            // "no result" here also covers "the provider answered, but nothing it returned is actually
+            // titled what was searched for" - SearchAlbumsCoreAsync discards those, and for the purpose of
+            // deciding whether to widen the query they are the same thing as an empty response.
             // Discogs' artist field must match its own index closely (exact spelling, formatting, or a
             // disambiguation suffix like "Artist (2)" for a common name) - a mismatch there silently
             // returns zero results even when the title alone would find the album (confirmed: searching
@@ -30,6 +34,28 @@ public class DiscogsClient(HttpClient http, DiscogsSettings settings) : IDiscogs
         return results;
     }
 
+    /// <summary>
+    /// <c>q=</c> is Discogs' free-text parameter, not a title field: it matches the artist name, the label,
+    /// credits and the tracklist too, so results whose release title has nothing to do with the searched
+    /// title come back as ordinary hits. Confirmed against the real API - <c>q=Discovery&amp;artist=Daft Punk</c>
+    /// returns "Live @ Rex Club, Paris" and "MP3 Collection" beside the album, and <c>q=Sabbath</c> returns
+    /// releases whose only occurrence of the word is "Black Sabbath" in the artist name.
+    /// <para>
+    /// Every candidate's own release title is therefore re-checked here (<see cref="TitleNormalizer.LooselyContains"/>)
+    /// and mismatches discarded, the same client-side re-check <c>BnfClient.AuthorMatches</c> applies to a
+    /// provider clause that isn't a strict filter either. The check runs on the *parsed* album title from
+    /// <see cref="SplitArtistTitle"/>, which is what excludes a match that only ever occurred in the artist
+    /// half of Discogs' combined "Artist - Title" string.
+    /// </para>
+    /// <para>
+    /// Switching to Discogs' field-scoped <c>release_title=</c> instead was measured and rejected: it is
+    /// precise (2350 hits down to 209 for "Sabbath", all genuine title matches) but reorders results badly -
+    /// <c>release_title=Nevermind&amp;artist=Nirvana</c> ranks the canonical 1991 album fourth, behind
+    /// "Nevermind Sessions" - and callers only ever look at the first few candidates
+    /// (<c>ReferenceDataAdminController.MaxEnrichedCandidates</c>). Filtering keeps <c>q=</c>'s relevance
+    /// order and removes only what doesn't belong.
+    /// </para>
+    /// </summary>
     private async Task<IReadOnlyList<DiscogsSearchResult>> SearchAlbumsCoreAsync(string title, int? year, string? artist, CancellationToken cancellationToken)
     {
         var query = $"database/search?type=master&q={Encode(title)}&token={Token}"
@@ -40,7 +66,9 @@ public class DiscogsClient(HttpClient http, DiscogsSettings settings) : IDiscogs
         {
             var (artist, albumTitle) = SplitArtistTitle(r.Title, title);
             return new DiscogsSearchResult(r.Id.ToString(System.Globalization.CultureInfo.InvariantCulture), albumTitle, r.Year, artist, r.CoverImage ?? r.Thumb);
-        }).ToList() ?? [];
+        })
+        .Where(r => TitleNormalizer.LooselyContains(r.Title, title))
+        .ToList() ?? [];
     }
 
     public async Task<DiscogsAlbumDetails?> GetAlbumDetailsAsync(string externalId, CancellationToken cancellationToken = default)

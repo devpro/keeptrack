@@ -374,6 +374,16 @@ Run-once scripts follow that same idempotent style: `dedupe-matched-aliases.js`,
 - **An optional narrowing parameter must never silently zero out results a broader search would find.** Discogs' `artist=` can fail to match its own indexing (disambiguation suffixes like `"Artist (2)"`, different formatting), returning
   nothing for a title that succeeds alone ("Born Pink").
   Both `DiscogsClient` and `OpenLibraryClient` retry once without the author/artist parameter when the constrained search comes back empty, rather than reporting a false "not found".
+- **A provider's free-text parameter is not a title field, and `q=` results have to be re-checked.** Discogs' `q=` matches the artist name, label, credits and tracklist too: `q=Discovery&artist=Daft Punk` returns "Live @ Rex Club, Paris"
+  and "MP3 Collection", `q=Sabbath` returns releases whose only occurrence of the word is "Black Sabbath" in the artist name.
+  That noise made albums *unlinkable*, not just untidy - `TryAutoResolveAlbumAsync` acts only on a single candidate, and the admin picker shows five.
+  `SearchAlbumsCoreAsync` discards any candidate whose **parsed** release title fails `TitleNormalizer.LooselyContains` (whole-word containment under `NormalizeLoose`), the same client-side re-check as BnF's `AuthorMatches` below;
+  parsing the title out of Discogs' combined "Artist - Title" string first is what excludes an artist-only match.
+  Filtering rather than switching to the field-scoped `release_title=` is deliberate and measured: `release_title=` is precise but reorders badly (`Nevermind` + Nirvana ranks the canonical 1991 album fourth), which the five-candidate cap
+  turns into a worse failure.
+  The filter sits *inside* the core search, so "answered, but nothing was actually titled that" reaches the existing artist retry as the same state as an empty response.
+  Open Library's `q=` has the identical problem and is deliberately **not** filtered - the book ladder is multi-provider and widens on empty, so a filter changes which rung it lands on;
+  see `docs/code-quality-findings.md` before touching it.
 - **BnF**'s `"and (bib.author ...)"` CQL clause is not a strict intersection - title "La Peste" + author "Victor Hugo" returned genuine Hugo anthologies instead of zero. `BnfClient.SearchBooksCoreAsync` re-checks every candidate's parsed
   author client-side (`AuthorMatches`) and discards mismatches.
   BnF is the one XML/SRU client (Dublin Core per `srw:record`), its `ExternalId` is the bare ARK, its `dc:creator` "LastName, FirstName (dates). Role" is normalized to "FirstName

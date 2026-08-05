@@ -23,6 +23,35 @@ Update this file as items are fixed or as new reviews are performed.
 
 ## Fixed
 
+### Discogs' free-text search returned albums whose title never matched, crowding out the real one and blocking automatic album linking
+
+Found on 2026-08-05, reported from the running app: searching an album by title and artist returned results where the searched title occurred in the *artist* name rather than in any release title.
+
+`DiscogsClient.SearchAlbumsCoreAsync` sent the title as `q=`, which is Discogs' free-text parameter - it matches the artist name, the label, credits and the tracklist, not just the release title.
+`artist=` narrows the pool but doesn't constrain what `q=` matched on, and the pre-existing zero-result retry drops `artist=` entirely, leaving nothing but free text.
+Confirmed directly against the real API: `q=Discovery&artist=Daft Punk` returns 5 hits, of which "Live @ Rex Club, Paris" and "MP3 Collection" carry no trace of "Discovery" in their titles;
+`q=Sabbath` returns 2350 hits including releases whose only occurrence of the word is "Black Sabbath" in the artist name.
+
+This is not cosmetic, and it is why the owner reported linking as impossible for many albums:
+
+- `TryAutoResolveAlbumAsync` acts only on a **single** candidate (`candidates.Count != 1` returns).
+  A title that free-text matches a prolific artist's back catalogue therefore never auto-resolves, however unambiguous the album itself is.
+- The admin picker only ever shows the first few candidates (`ReferenceDataAdminController.MaxEnrichedCandidates`, 5), so noise ranked above the real master pushes it off the list entirely - leaving no way to link it by hand either.
+
+Fixed by re-checking every candidate's own **parsed** release title client-side (`TitleNormalizer.LooselyContains`, whole-word containment under `NormalizeLoose`) and discarding mismatches -
+the same client-side re-check `BnfClient.AuthorMatches` already applies to a provider clause that isn't a strict filter.
+Running it on the parsed title from `SplitArtistTitle` is what excludes a match that only ever occurred in the artist half of Discogs' combined "Artist - Title" string.
+The filter lives inside `SearchAlbumsCoreAsync`, so the existing widening step needs no new condition: "the provider answered but nothing it returned is actually titled that" reaches the artist retry as the same state as an empty response.
+
+Switching to Discogs' field-scoped `release_title=` instead was measured and rejected.
+It is precise ("Sabbath" drops from 2350 hits to 209, all genuine title matches) but reorders results badly - `release_title=Nevermind&artist=Nirvana` ranks the canonical 1991 album **fourth**, behind "Nevermind Sessions" -
+which given the 5-candidate cap trades one failure mode for a worse one.
+Filtering keeps `q=`'s relevance order and removes only what doesn't belong.
+
+Covered by `DiscogsClientTest` (verbatim real-API response shapes, including the retry path) and `TitleNormalizerTest.LooselyContains_*`.
+
+Files: `src/WebApi/ReferenceData/DiscogsClient.cs`, `src/Common.System/TitleNormalizer.cs`
+
 ### Explore stopped recognising the video games the owner already tracks, because both halves of its exclusion failed on the same documents after the IGDB switch
 
 Found on 2026-08-05, reported from the running app: Explore's movie and TV suggestions correctly hid what the owner tracks, while its video game suggestions did not.
@@ -576,6 +605,24 @@ This is intentional: each entity type exposes the search behavior that fits its 
 
 These are acknowledged as incomplete rather than deliberately permanent.
 Track and prioritize separately.
+
+### Open Library's book search has the same free-text noise as Discogs had, and is deliberately left alone (decided 2026-08-05 - read this before "fixing" it)
+
+`OpenLibraryClient.SearchByTitleAsync` queries `q=` for the same documented reason Discogs did (relevance across alternate and regional titles, which the field-scoped `title=` misses entirely -
+see the method's own remarks), and it has the same consequence.
+Confirmed against the real API while investigating the album finding above: `q=Dune&author=Frank Herbert` returns "House Corrino" among the top hits, and `q=Sabbath` returns "Iron man" by Tony Iommi -
+matches on description and subject text, not on the title.
+The `TitleNormalizer.LooselyContains` filter written for `DiscogsClient` would apply unchanged.
+
+**It was deliberately not applied**, at the owner's call, and the reason is specific rather than general caution.
+Book search is the one domain with a multi-provider ladder rather than a single query: `BookReferenceClientBase` tries the ISBN alone, then title+author, then title alone, widening only on an **empty** step, across three providers with
+different catalogues and different failure modes.
+Recent work made that ladder reliable through a full Google Books search outage (see "A book search by ISBN had no fallback when Google Books was down" above), and a filter that can empty a step changes which rung the ladder lands on -
+so it is not a local change to one client the way it is for Discogs, whose search is one query with one widening retry.
+
+If it is picked up later: the filter belongs inside each provider's own `SearchByTitleAsync`, never around `BookReferenceClientBase`'s ladder (a filtered-to-empty step must widen, not abort), it must not touch the ISBN rung at all (an exact
+identifier can legitimately resolve an edition whose title text differs from what the tenant typed), and it needs coverage proving the outage-era ISBN fallback still behaves.
+Google Books (`intitle:`) and BnF (`bib.title`) query title-scoped fields already, so only Open Library is affected.
 
 ### Playwright: an inventory list row intermittently isn't visible under a full parallel run (triaged 2026-07-31 - do not re-investigate from scratch)
 

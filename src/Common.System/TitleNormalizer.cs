@@ -116,6 +116,35 @@ public static class TitleNormalizer
         NormalizeLoose(left) == NormalizeLoose(right);
 
     /// <summary>
+    /// Whether <paramref name="candidate"/> contains <paramref name="searched"/> as a whole run of words,
+    /// under <see cref="NormalizeLoose"/>. Weaker than <see cref="LooselyEqual"/> on purpose: it answers
+    /// "did the searched title actually appear in this result's title", which is what tells a genuine
+    /// candidate ("Nevermind (Demo &amp; Outtakes)" for "Nevermind") apart from a result a provider returned
+    /// for some other reason entirely.
+    /// <para>
+    /// It exists because a provider's free-text search parameter matches fields other than the title -
+    /// confirmed against the real Discogs API, where <c>q=Discovery&amp;artist=Daft Punk</c> returns
+    /// "Live @ Rex Club, Paris" and "MP3 Collection" alongside the album, and <c>q=Sabbath</c> returns
+    /// releases whose only occurrence of the word is the artist's name.
+    /// See <c>DiscogsClient.SearchAlbumsCoreAsync</c>.
+    /// </para>
+    /// <para>
+    /// The comparison is over whole words rather than raw substrings so a search for "Blue" doesn't keep a
+    /// "Blueprint", and a title that normalizes to nothing at all matches everything rather than filtering
+    /// the caller's results down to none.
+    /// </para>
+    /// </summary>
+    public static bool LooselyContains(string candidate, string searched)
+    {
+        var searchedWords = NormalizeLoose(searched).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (searchedWords.Length == 0) return true;
+
+        var candidateWords = NormalizeLoose(candidate).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return Enumerable.Range(0, Math.Max(0, candidateWords.Length - searchedWords.Length + 1))
+            .Any(start => candidateWords.Skip(start).Take(searchedWords.Length).SequenceEqual(searchedWords));
+    }
+
+    /// <summary>
     /// Strips combining marks so "Pokémon" and "Pokemon" compare equal - the same work spelled by two
     /// catalogues with different opinions about accents.
     /// </summary>

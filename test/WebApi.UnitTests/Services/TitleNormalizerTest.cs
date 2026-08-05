@@ -51,6 +51,36 @@ public class TitleNormalizerTest
     public void StripDisambiguator_RemovesOnlyTheParenthesisedGroup(string title, string expected) =>
         TitleNormalizer.StripDisambiguator(title).Should().Be(expected);
 
+    [Theory]
+    // the album itself, and the editions/compilations that legitimately carry its name
+    [InlineData("Discovery", "Discovery")]
+    [InlineData("Homework / Discovery", "Discovery")]
+    [InlineData("Nevermind (Demo & Outtakes)", "Nevermind")]
+    [InlineData("Nevermind, It's An Interview", "Nevermind")]
+    [InlineData("Sabbath Bloody Sabbath", "Sabbath")]
+    // the same spelling divergences NormalizeLoose already absorbs, mid-title
+    [InlineData("Blue / Ladies Of The Canyon", "Blue")]
+    [InlineData("Ratchet and Clank Collection", "Ratchet & Clank")]
+    public void LooselyContains_KeepsAResultWhoseTitleActuallyCarriesTheSearchedOne(string candidate, string searched) =>
+        TitleNormalizer.LooselyContains(candidate, searched).Should().BeTrue();
+
+    [Theory]
+    // real Discogs hits for q=Discovery&artist=Daft Punk - free text matched something other than the title
+    [InlineData("Live @ Rex Club, Paris", "Discovery")]
+    [InlineData("MP3 Collection", "Discovery")]
+    // q=Sabbath: the word only ever occurs in the artist name, "Black Sabbath"
+    [InlineData("Paranoid", "Sabbath")]
+    // whole words, so a search doesn't keep every title that merely starts with the same letters
+    [InlineData("Blueprint", "Blue")]
+    [InlineData("Ghostbusters", "Ghost Town")]
+    public void LooselyContains_DiscardsAResultThatMatchedOnSomethingOtherThanItsTitle(string candidate, string searched) =>
+        TitleNormalizer.LooselyContains(candidate, searched).Should().BeFalse();
+
+    /// <summary>A title with nothing left to compare must not filter a caller's results down to none.</summary>
+    [Fact]
+    public void LooselyContains_MatchesAnything_WhenTheSearchedTitleNormalizesToNothing() =>
+        TitleNormalizer.LooselyContains("Paranoid", "(2)").Should().BeTrue();
+
     [Fact]
     public void Normalize_StaysStrict_SoTenantTypedTextIsNotConflated()
     {
