@@ -61,6 +61,20 @@ public static class End2EndConfiguration
     /// </summary>
     public static string? MobileDirectory => GetString("E2E_MOBILE_DIR");
 
+    /// <summary>
+    /// The MongoDB database the self-hosted apps run against, defaulted rather than inherited.
+    /// <para>
+    /// This suite and <c>WebApi.IntegrationTests</c> read the same ambient
+    /// <c>Infrastructure__MongoDB__DatabaseName</c>, so an IDE that sets test environment variables once for the
+    /// whole solution (Rider's Test Runner settings) can only ever give them the same database - and sharing one
+    /// is not neutral: the integration suite's <c>sync-now</c> tests write the real Explore ranking, which is
+    /// exactly what <c>ExploreSmokeTest</c> needs to be empty. Defaulting here makes the isolation a property of
+    /// the suite instead of something a developer has to remember to toggle between runs; set this variable to
+    /// override it (a shared database is still reachable, just never by accident).
+    /// </para>
+    /// </summary>
+    public static string DatabaseName => GetString("E2E_MONGODB_DATABASE") ?? "keeptrack_e2e";
+
     public static bool Headless => GetBool("E2E_HEADLESS", true);
 
     public static float SlowMoMs => GetFloat("E2E_SLOWMO_MS", 0);

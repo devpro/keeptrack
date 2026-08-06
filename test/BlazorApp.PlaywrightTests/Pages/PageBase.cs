@@ -21,8 +21,25 @@ public abstract class PageBase(IPage page)
 
     protected virtual string? PageTitle => null;
 
+    /// <summary>
+    /// The page's own route, for a page whose content alone can't prove the browser got there.
+    /// <para>
+    /// The import sub-pages are why this exists. <c>/import</c> is a hub that renders a section per importer,
+    /// each with its own level-1 heading and a link to the sub-page - so "the Amazon heading is visible" is true
+    /// on the hub too, and a sub-page object waiting only for that considered itself ready while the browser was
+    /// still on the hub. What followed then ran against the hub's DOM: <c>AmazonImportSmokeTest</c> failed
+    /// uploading its CSV to a file input the hub has three of. Waiting for the URL is what actually asserts the
+    /// navigation happened, and it costs nothing on a page that was already there.
+    /// </para>
+    /// </summary>
+    protected virtual string? Route => null;
+
     public virtual async Task WaitForReadyAsync()
     {
+        if (Route is not null)
+        {
+            await Page.WaitForURLAsync($"**{Route}");
+        }
         if (PageTitle is not null)
         {
             await Assertions.Expect(Page).ToHaveTitleAsync(PageTitle);

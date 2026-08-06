@@ -37,12 +37,7 @@ public class NotFoundSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
     [Fact]
     public async Task UnknownUrl_ShowsTheNotFoundPage_ToAnAnonymousVisitor()
     {
-        await using var anonymousContext = await NewContext(new BrowserNewContextOptions
-        {
-            BaseURL = Fixture.BlazorBaseUrl,
-            IgnoreHTTPSErrors = true
-        });
-        var anonymousPage = await anonymousContext.NewPageAsync();
+        var anonymousPage = await NewAnonymousPageAsync();
 
         var response = await anonymousPage.GotoAsync("/no-such-page-e2e");
 

@@ -854,6 +854,11 @@ This is why `ReconnectModal` kept its scaffolded white/blue colors despite an `a
   Playwright refuses to click it - "element is not visible", on an element it just resolved by accessible name.
   `ListPage.OpenItemAsync` therefore only works in list view, which is what every list page renders by default; switching to thumbnails mid-test breaks it.
   `MobileScreenshotTest` is an assertion-free visual harness behind `E2E_MOBILE_CHECK=true`, capturing every page at 390x844 into `E2E_MOBILE_DIR`.
+  **A failing test's evidence is in `test/BlazorApp.PlaywrightTests/bin/<config>/net10.0/e2e-diagnostics`** - `SmokeTestBase.DisposeAsync` writes a full-page screenshot plus the Playwright trace (unless `E2E_TRACE=off`) there and prints
+  the paths to the test output, and since every test class derives from that base it covers the whole suite rather than being opted into per test.
+  It captures **every context the test opened**, not just the shared signed-in one, which is why a test needing a clean/anonymous browser calls `SmokeTestBase.NewAnonymousPageAsync` instead of building its own context:
+  a context disposed inside the test body is closed before the diagnostics run, so the screenshot showed the untouched shared page rather than the page that actually failed (`base.DisposeAsync` closes contexts, hence capture before it).
+  Capturing never throws - diagnosing a failure must not replace the failure being diagnosed, nor cost the trace explaining it.
   See `CONTRIBUTING.md` for the full `E2E_*` surface and the three run modes.
 - Assertions use `AwesomeAssertions` (FluentAssertions-compatible); data via `Bogus`.
 
@@ -862,10 +867,16 @@ This is why `ReconnectModal` kept its scaffolded white/blue colors despite an `a
 The integration and Playwright suites run against a **real, long-lived MongoDB** - there is no per-test throwaway database.
 Two rules follow, and both have been broken expensively.
 
-**Point every suite at a dedicated database, never `keeptrack_dev`.** `Infrastructure__MongoDB__DatabaseName` selects it (`keeptrack_integrationtests`/`keeptrack_e2e` by convention).
-When unset it fails *silently*: the in-process host runs as `Development` and falls back to `appsettings.Development.json`, i.e. the database the developer browses in the app.
-That's how it accumulated 180 `test-lease-*` documents, 65 `Export Test Actor` person references and stray `E2e Smoke *` items - easy to hit, since running a filtered subset means exporting the runsettings vars yourself.
-`Testing.Shared/Hosting/TestDatabaseGuard.EnsureExplicitTestDatabase` now fails the run fast, called from `KestrelWebAppFactory`'s constructor and from `End2EndFixture` in self-hosted mode.
+**Each suite settles its own database, and never `keeptrack_dev`.** `IntegrationTestDatabase.Name` (`keeptrack_integrationtests`) and `End2EndConfiguration.DatabaseName` (`keeptrack_e2e`) resolve it -
+`Infrastructure__MongoDB__DatabaseName` /
+`E2E_MONGODB_DATABASE` override, but neither is required - and each pushes the resolved name into its host's configuration.
+That override is the load-bearing half: unset, the in-process host runs as `Development` and falls back to `appsettings.Development.json`, i.e. the database the developer browses in the app, *silently*.
+That's how it accumulated 180 `test-lease-*` documents, 65 `Export Test Actor` person references and stray `E2e Smoke *` items.
+`Testing.Shared/Hosting/TestDatabaseGuard.EnsureTestDatabaseName` then vouches for the name the run will actually use (called from `KestrelWebAppFactory`'s constructor and from `End2EndFixture` in self-hosted mode), so a
+`dev`/`prod`/`staging`
+name still fails fast.
+**Defaulting rather than demanding is deliberate**: an IDE sets test environment variables once for the whole solution, so requiring a variable both suites read meant they could only share one database - and removing it to stop that turned
+every integration test red at once (198 of them), which is a worse answer to a misconfiguration than picking a safe database.
 
 **Every test removes what it created, on success and on failure.** Not tidiness: `scripts/mongodb-create-index.js` enforces uniqueness, so yesterday's leftover fails today's run with a duplicate key.
 **Register cleanup at the moment of creation**, never as a per-test `try`/`finally` - a `finally` only covers what was created before the `try` opened, and "create two fixtures, then open the try" leaked whenever the second create failed.
@@ -900,6 +911,25 @@ Deleting a TV show **does** cascade to its episodes, like `Car`/`House`/`HealthP
 is that the title silently never comes back in that account's real Explore feed.
 `ExploreResourceTest`/`ExploreSmokeTest` both register the undo (`DELETE /api/explore/{type}/dismiss/{externalId}`) at the moment they dismiss, never afterwards.
 Same for `explore_catalogue` seeds (see the Explore testing note below).
+
+**A test that starts a background job leaves data no cleanup can register, so don't let it do real work.** The `sync-now` tests get their 202 and finish while the job they started runs on against the live providers, writing the real TMDB
+ranking
+into `explore_catalogue` minutes later - documents that don't exist yet when the test's cleanup runs, and stop being written only when the host stops.
+Nothing there asserts anything a provider returns, so those classes are hosted through `WebApi.IntegrationTests/Hosting/ProviderlessWebAppFactory` (every provider credential blanked, the sync-disabling override inherited rather than
+restated): the job still starts, reports its stages and ends - all these tests look at - while writing nothing, calling nobody, and spending none of OMDb's real 1000/day budget.
+The same "no provider keys in the test host" principle the e2e suite already runs on.
+`ReferenceSyncPollingResourceTest` (opt-in, `REFERENCE_SYNC_POLL_ENABLED`) is the one test that *wants* the live pass and keeps the ordinary factory.
+`ServerDerivedDataSweep` (an `[assembly: AssemblyFixture]`, so it disposes after every class *and* every `KestrelWebAppFactory` - nothing can write behind it) empties `explore_catalogue`/`lease` at the end of a run as the backstop for that
+one test and any future one; a normal run now leaves it nothing to do.
+It is only safe for derived state the server rebuilds from scratch, in a database `TestDatabaseGuard` has vouched for - `provider_quota` is deliberately excluded, being the ledger of OMDb calls really spent against a real allowance (and
+TTL-expired anyway).
+Not academic: 39 leftover ranking entries broke `ExploreSmokeTest`, whose premise is that a seeded ranking *is* the ranking - it saw its own 26 suggestions interleaved with 18 real films.
+That test now checks the premise and names this cause
+instead of failing on an unexplainable card count.
+**The Playwright suite no longer inherits the database name at all**: it hosts its apps against `E2E_MONGODB_DATABASE` (default `keeptrack_e2e`) whatever `Infrastructure__MongoDB__DatabaseName` says, because an IDE that sets test
+environment
+variables once for the whole solution (Rider's Test Runner settings) can only give both suites the same database - isolation has to be a property of the suite, not something a developer toggles between runs.
+`TestDatabaseGuard.EnsureTestDatabaseName` checks the name a run will really use, so vouching for the ambient variable while running against another one is impossible.
 
 ## Code style
 

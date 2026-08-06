@@ -299,10 +299,12 @@ No configuration needed - `dotnet test test/WebApi.UnitTests/WebApi.UnitTests.cs
 
 These need two things configured before they'll pass:
 
-1. **A MongoDB instance** (see [Requirements](#requirements) above), pointed at by `Infrastructure__MongoDB__ConnectionString`/`Infrastructure__MongoDB__DatabaseName`.
-   Use a dedicated database (e.g. `keeptrack_integrationtests`), not your dev database - tests create and delete real documents.
-   The suite refuses to start if `Infrastructure__MongoDB__DatabaseName` is unset or looks like a real database (`dev`/`prod`/`staging`/`preprod`), because the failure it prevents is silent:
-   the in-process host runs as `Development`, so an unset value falls back to `src/WebApi/appsettings.Development.json` - your own `keeptrack_dev` - and the whole suite happily creates and deletes documents in it.
+1. **A MongoDB instance** (see [Requirements](#requirements) above), pointed at by `Infrastructure__MongoDB__ConnectionString`.
+   The database name is **not** something you have to set: this suite runs against `keeptrack_integrationtests` unless `Infrastructure__MongoDB__DatabaseName` says otherwise, and the e2e suite defaults to its own `keeptrack_e2e` -
+   so the two never share one, and an IDE that sets test environment variables solution-wide (Rider) needs no per-suite juggling.
+   Whatever the name resolves to is pushed into the host's configuration, which is what stops the silent failure behind all this:
+   the in-process host runs as `Development`, so with nothing configured it would fall back to `src/WebApi/appsettings.Development.json` - your own `keeptrack_dev` - and the whole suite would happily create and delete documents in it.
+   A name that looks like a real database (`dev`/`prod`/`staging`/`preprod`) still refuses to start.
    Running `scripts/mongodb-create-index.js` against it first is recommended (keeps behavior closest to production) but not required for the tests themselves to pass.
    See [Requirements](#requirements) above for the exact `mongosh` command (swap in `keeptrack_integrationtests` for the database name).
 
@@ -409,10 +411,11 @@ Variable                     | Default                             | Purpose
 `E2E_READONLY`               | `false`                             | Skips every mutating test, user creation, and seeding
 `E2E_USERNAME`               | *(empty)*                           | Existing account email; empty triggers ephemeral admin user creation (integration mode only)
 `E2E_PASSWORD`               | *(empty)*                           | Password for `E2E_USERNAME`
+`E2E_MONGODB_DATABASE`       | `keeptrack_e2e`                     | Database the self-hosted apps run against, **defaulted rather than inherited** from `Infrastructure__MongoDB__DatabaseName` - see [Why this suite picks its own database](#why-this-suite-picks-its-own-database)
 `E2E_HEADLESS`               | `true`                              | `false` shows the browser window
 `E2E_SLOWMO_MS`              | `0`                                 | Milliseconds of delay injected before each Playwright action
 `E2E_BROWSER`                | `chromium`                          | `chromium`, `firefox` or `webkit`
-`E2E_TRACE`                  | `on-failure`                        | `off`, `on` or `on-failure`; traces/screenshots land in `bin/<config>/net10.0/e2e-diagnostics`
+`E2E_TRACE`                  | `on-failure`                        | `off`, `on` or `on-failure`; see [Diagnosing a failed run](#diagnosing-a-failed-run) below
 `E2E_MOBILE_CHECK`           | `false`                             | Opt-in for `MobileScreenshotTest`, an assertion-free visual-review walkthrough: seeds representative data, captures every page at a phone viewport, cleans up after itself
 `E2E_MOBILE_DIR`             | `bin/<config>/net10.0/mobile-shots` | Where `MobileScreenshotTest` writes its captures
 `GOOGLE_BOOKS_SMOKE_ENABLED` | `false`                             | Opt-in for `GoogleBooksSmokeTest` (requires `GoogleBooks:ApiKey` to be configured)
@@ -467,6 +470,38 @@ For an IDE-driven workflow, add the same variables to the `Local.runsettings` fi
 
 In integration mode both apps run inside the test process, so breakpoints hit in `BlazorApp`/`WebApi` source during a browser click, not just in test code.
 Set `E2E_HEADLESS=false` plus `E2E_SLOWMO_MS=250` to watch the run, or `PWDEBUG=1` to open the Playwright inspector.
+
+#### Why this suite picks its own database
+
+An IDE sets test environment variables once for the whole solution (Rider's **Build, Execution, Deployment > Unit Testing > Test Runner** environment variables apply to every test in it), so a database name both suites read could only ever
+give them the same one - and removing it to stop that is worse still, since it takes the integration suite's guard with it.
+Neither suite reads it as a requirement any more: this one hosts its apps against `E2E_MONGODB_DATABASE` (default `keeptrack_e2e`) and the integration suite against `Infrastructure__MongoDB__DatabaseName` (default
+`keeptrack_integrationtests`).
+Set neither, and both work, isolated.
+There is nothing to switch between runs.
+
+Sharing one database is not neutral.
+The integration suite's `sync-now` tests write the real Explore ranking into the shared `explore_catalogue`, and `ExploreSmokeTest` needs that collection to hold nothing but what it seeded -
+it asserts on a card count, so a shared database surfaced as `Locator expected to have count '26', but was '44'`, the extra 18 being real films interleaved with the seeded ones by rank.
+That test now names the cause instead, and reports the database it actually used.
+
+Set `E2E_MONGODB_DATABASE` if you deliberately want another one (a shared database stays reachable, just never by accident).
+`TestDatabaseGuard` checks the name this run will really use, so a `dev`/`prod`/`staging` value still fails fast.
+
+#### Diagnosing a failed run
+
+**Look in `test/BlazorApp.PlaywrightTests/bin/<config>/net10.0/e2e-diagnostics`.**
+Every Playwright test in the suite writes there when it fails.
+The behavior is `SmokeTestBase.DisposeAsync`, which every test class inherits, not something a test opts into:
+
+- `<test display name>.png`, a full-page screenshot of the browser as the test left it.
+  A test-driving more than one page (an anonymous visitor, a share recipient) gets one file per page, suffixed with that page's label (`...-recipient.png`).
+- `<test display name>.zip`, the Playwright trace, unless `E2E_TRACE=off`.
+  Open it at [trace.playwright.dev](https://trace.playwright.dev) or with `playwright show-trace` for the DOM snapshots, console and network of every step.
+  `E2E_TRACE=on` keeps it for passing tests too.
+
+The paths are also printed to the failing test's own output, so a CI log names the files rather than assuming the reader knows the convention.
+Capturing them can never fail a run: a page that has already crashed or is mid-navigation is reported and skipped, leaving the test's real failure as the reported one.
 
 Live run against a real deployment, read-only:
 

@@ -1,7 +1,6 @@
 using System.Threading.Tasks;
 using Keeptrack.BlazorApp.PlaywrightTests.Hosting;
 using Keeptrack.BlazorApp.PlaywrightTests.Pages;
-using Microsoft.Playwright;
 using Xunit;
 
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
@@ -15,12 +14,7 @@ public class AuthSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
     {
         // The shared Page/Context (from SmokeTestBase.ContextOptions) already carries a signed-in storage state -
         // a genuinely anonymous visit needs its own context with none, per the e2e plan ("only the dedicated auth test uses a clean context").
-        await using var anonymousContext = await NewContext(new BrowserNewContextOptions
-        {
-            BaseURL = Fixture.BlazorBaseUrl,
-            IgnoreHTTPSErrors = true
-        });
-        var anonymousPage = await anonymousContext.NewPageAsync();
+        var anonymousPage = await NewAnonymousPageAsync();
 
         await anonymousPage.GotoAsync("/books");
 

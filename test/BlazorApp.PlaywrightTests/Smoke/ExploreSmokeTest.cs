@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Keeptrack.BlazorApp.PlaywrightTests.Hosting;
 using Keeptrack.BlazorApp.PlaywrightTests.Pages;
+using Keeptrack.BlazorApp.PlaywrightTests.Support;
 using Keeptrack.Domain.Models;
 using Keeptrack.WebApi.ReferenceData;
 using Microsoft.Playwright;
@@ -71,7 +72,7 @@ public partial class ExploreSmokeTest(End2EndFixture fixture) : SmokeTestBase(fi
     [Fact]
     public async Task Dismiss_RemovesTheSuggestionForGood()
     {
-        SkipUnlessSeedable();
+        await SkipUnlessSeedableAsync();
 
         var seeded = await SeedAsync(ExploreItemType.Movie, count: 3);
         var explore = await (await new HomePage(Page).OpenAsync()).OpenExploreAsync();
@@ -97,7 +98,7 @@ public partial class ExploreSmokeTest(End2EndFixture fixture) : SmokeTestBase(fi
     [Fact]
     public async Task LoadMore_AppendsTheNextPageBelowTheCurrentCards()
     {
-        SkipUnlessSeedable();
+        await SkipUnlessSeedableAsync();
 
         // one more than a page, so the first fetch comes back full with the ranking not yet exhausted
         var seeded = await SeedAsync(ExploreItemType.Movie, count: PageCount + 2);
@@ -118,7 +119,7 @@ public partial class ExploreSmokeTest(End2EndFixture fixture) : SmokeTestBase(fi
     [Fact]
     public async Task Tabs_ShowEachDomainsOwnRanking()
     {
-        SkipUnlessSeedable();
+        await SkipUnlessSeedableAsync();
 
         var movie = (await SeedAsync(ExploreItemType.Movie, count: 1))[0];
         var show = (await SeedAsync(ExploreItemType.TvShow, count: 1))[0];
@@ -143,7 +144,7 @@ public partial class ExploreSmokeTest(End2EndFixture fixture) : SmokeTestBase(fi
     [Fact]
     public async Task Add_CreatesTheSuggestedMovie_LinkedToItsReference()
     {
-        SkipUnlessSeedable();
+        await SkipUnlessSeedableAsync();
 
         await SeedAsync(Entry(ExploreItemType.Movie, rank: 1, ShawshankTitle, ShawshankTmdbId, year: 1994));
 
@@ -187,11 +188,25 @@ public partial class ExploreSmokeTest(End2EndFixture fixture) : SmokeTestBase(fi
 
     /// <summary>
     /// Seeding writes straight to MongoDB, which only self-hosted mode can reach; every test here needs it.
+    /// <para>
+    /// It also checks the premise the whole class rests on - that a seeded ranking is the *whole* ranking - and
+    /// says so when it doesn't hold. Sharing a database with a suite whose <c>sync-now</c> tests rebuild the
+    /// real TMDB ranking breaks it, and the only symptom is a card count that matches nothing: the run this was
+    /// written for asserted 26 cards, found 44, and the 18 extra ones were real films (The Godfather, Parasite)
+    /// interleaved with the seeded ones by rank. Naming the cause here costs one count and saves that hunt.
+    /// </para>
     /// </summary>
-    private void SkipUnlessSeedable()
+    private async Task SkipUnlessSeedableAsync()
     {
         SkipIfReadOnly();
         Assert.SkipUnless(Fixture.CanSeedDatabaseDirectly, "E2E_TARGET_URL is set; the Explore catalogue can't be seeded in a remote deployment.");
+
+        var existing = await Fixture.CountExploreCatalogueEntriesAsync();
+        Assert.True(existing == 0,
+            $"explore_catalogue already holds {existing} entries this test didn't seed, so the Explore page will mix them into every "
+            + "assertion here. They come from a real ranking rebuild - a sync-now run against this database. This suite defaults to its "
+            + $"own database for that reason, so something pointed it elsewhere: check E2E_MONGODB_DATABASE (currently "
+            + $"'{End2EndConfiguration.DatabaseName}').");
     }
 
     /// <summary>

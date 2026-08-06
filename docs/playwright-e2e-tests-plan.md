@@ -83,7 +83,7 @@ Variable         | Default      | Purpose
 `E2E_HEADLESS`   | `true`       | `false` shows the browser window
 `E2E_SLOWMO_MS`  | `0`          | Milliseconds of delay injected before each Playwright action
 `E2E_BROWSER`    | `chromium`   | `chromium`, `firefox` or `webkit`
-`E2E_TRACE`      | `on-failure` | `off`, `on` or `on-failure`; traces and failure screenshots land in the test output directory
+`E2E_TRACE`      | `on-failure` | `off`, `on` or `on-failure`; traces and failure screenshots land in `e2e-diagnostics` under the test output directory (see [Failure diagnostics](#failure-diagnostics))
 
 Pass-through application settings (hosted mode reuses exactly the variables the integration tests already document in `CONTRIBUTING.md`):
 
@@ -126,8 +126,16 @@ Admin page (`/admin/reference-data`) and import page (`/import`) journeys are ex
 
 ## Failure diagnostics
 
+**Where to look after a failure: `test/BlazorApp.PlaywrightTests/bin/<config>/net10.0/e2e-diagnostics`.**
+
+- Every test class in the suite derives from `SmokeTestBase`, so this applies to all of them - it is inherited behaviour, not something a test opts into.
 - Tracing starts in `SmokeTestBase.InitializeAsync` when `E2E_TRACE` is `on` or `on-failure`.
 - `DisposeAsync` checks `TestContext.Current.TestState`; on failure it saves a full-page screenshot and the trace zip, named after the test, otherwise it discards the trace.
+  It then prints the written paths to the test's own output, so a CI log names its own evidence.
+- The capture walks **every context the test opened**, not just the shared signed-in one, and every open page within it (files suffixed with the context's label, e.g. `...-recipient.png`).
+  A test whose subject is an anonymous page opens it through `SmokeTestBase.NewAnonymousPageAsync` for exactly this reason:
+  a context disposed inside the test body is already closed by the time the diagnostics run, so the screenshot showed the untouched shared page instead of the one that failed.
+- A capture that throws (a crashed page, one mid-navigation) is reported and skipped: diagnosing a failure must never replace the failure being diagnosed, nor cost the trace that would explain it.
 - Trace zips open in `https://trace.playwright.dev` or via `playwright show-trace`, giving DOM snapshots and network for every failed CI run.
 - CI uploads the trace/screenshot directory as a build artifact when the e2e job fails.
 

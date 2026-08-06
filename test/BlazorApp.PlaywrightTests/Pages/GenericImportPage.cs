@@ -9,13 +9,15 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 /// </summary>
 public class GenericImportPage(IPage page) : PageBase(page)
 {
+    protected override string? Route => "/import/generic";
+
     public override async Task WaitForReadyAsync()
     {
         await base.WaitForReadyAsync();
         await Assertions.Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "a store (CSV)", Level = 1 })).ToBeVisibleAsync();
     }
 
-    private ILocator FileInput => Page.Locator(".kt-dropzone input[type='file']");
+    private ILocator FileInput => Page.Locator(".kt-dropzone input[type='file'][accept='.csv']");
 
     /// <summary>
     /// Only rendered once a preview exists; its label carries the selected-row count (e.g. "Import selected (1)"),

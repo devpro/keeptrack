@@ -38,9 +38,15 @@ public static class TestDatabaseGuard
     /// to the wrong database.
     /// </summary>
     public static void EnsureExplicitTestDatabase()
-    {
-        var databaseName = Environment.GetEnvironmentVariable(DatabaseNameVariable);
+        => EnsureTestDatabaseName(Environment.GetEnvironmentVariable(DatabaseNameVariable));
 
+    /// <summary>
+    /// The same check against a name the caller resolved itself, for a suite that picks its own database rather
+    /// than inheriting the ambient variable (see <c>End2EndConfiguration.DatabaseName</c>). Checking the
+    /// variable there would vouch for a name the run isn't going to use.
+    /// </summary>
+    public static void EnsureTestDatabaseName(string? databaseName)
+    {
         if (string.IsNullOrWhiteSpace(databaseName))
         {
             throw new InvalidOperationException(

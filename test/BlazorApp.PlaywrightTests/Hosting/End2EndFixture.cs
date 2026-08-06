@@ -86,11 +86,14 @@ public sealed class End2EndFixture : IAsyncLifetime
             // suite applies belongs here too - without it an unset Infrastructure__MongoDB__DatabaseName silently
             // points the whole e2e run at the developer's own keeptrack_dev database. Live mode is exempt: the
             // deployment owns its own configuration and there's no local database to mis-target.
-            TestDatabaseGuard.EnsureExplicitTestDatabase();
+            // The name checked is the one this run will actually use, which is E2E_MONGODB_DATABASE's, not the
+            // ambient variable's (see End2EndConfiguration.DatabaseName for why this suite picks its own).
+            TestDatabaseGuard.EnsureTestDatabaseName(End2EndConfiguration.DatabaseName);
 
             _webApiFactory = new KestrelWebAppFactory<Keeptrack.WebApi.Program>(
                 WebApiKestrelUrlOverride,
-                new KeyValuePair<string, string?>("Features:IsReferenceSyncEnabled", "false"));
+                new KeyValuePair<string, string?>("Features:IsReferenceSyncEnabled", "false"),
+                new KeyValuePair<string, string?>("Infrastructure:MongoDB:DatabaseName", End2EndConfiguration.DatabaseName));
             _webApiBaseUrl = _webApiFactory.ServerAddress;
 
             // The hosted Blazor app needs WebApi:BaseUrl injected with the WebApi host's own dynamic address -
@@ -319,6 +322,19 @@ public sealed class End2EndFixture : IAsyncLifetime
     {
         using var scope = _webApiFactory!.Services.CreateScope();
         return scope.ServiceProvider.GetRequiredService<ExploreRankings>().For(type, ratingSource);
+    }
+
+    /// <summary>
+    /// How many entries the shared catalogue already holds - the premise every Explore smoke test rests on
+    /// (see <see cref="SeedExploreCatalogueAsync"/>: a seeded ranking is meant to be the whole ranking).
+    /// It stops being true the moment this run shares its database with a suite whose <c>sync-now</c> tests
+    /// rebuild the real TMDB ranking, and the symptom is a card count nobody can explain.
+    /// </summary>
+    public async Task<long> CountExploreCatalogueEntriesAsync()
+    {
+        var database = _webApiFactory!.Services.GetRequiredService<IMongoDatabase>();
+        return await database.GetCollection<BsonDocument>("explore_catalogue")
+            .CountDocumentsAsync(Builders<BsonDocument>.Filter.Empty);
     }
 
     /// <summary>

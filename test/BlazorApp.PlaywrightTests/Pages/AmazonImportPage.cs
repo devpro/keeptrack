@@ -8,13 +8,20 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 /// </summary>
 public class AmazonImportPage(IPage page) : PageBase(page)
 {
+    protected override string? Route => "/import/amazon";
+
     public override async Task WaitForReadyAsync()
     {
         await base.WaitForReadyAsync();
         await Assertions.Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Amazon", Level = 1 })).ToBeVisibleAsync();
     }
 
-    private ILocator FileInput => Page.Locator(".kt-dropzone input[type='file']");
+    /// <summary>
+    /// Scoped by <c>accept</c>, the same way <see cref="ImportPage"/> disambiguates its three dropzones: this
+    /// page has one file input, but the hub it is reached from has three, so an unscoped locator turns a missed
+    /// navigation into "strict mode violation: resolved to 3 elements" instead of a wait.
+    /// </summary>
+    private ILocator FileInput => Page.Locator(".kt-dropzone input[type='file'][accept='.csv']");
 
     /// <summary>
     /// Only rendered once a preview exists; its label carries the selected-row count (e.g. "Import selected (1)"),

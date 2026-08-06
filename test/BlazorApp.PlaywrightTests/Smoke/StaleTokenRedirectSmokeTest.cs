@@ -2,7 +2,6 @@ using System;
 using System.Threading.Tasks;
 using Keeptrack.BlazorApp.PlaywrightTests.Hosting;
 using Keeptrack.BlazorApp.PlaywrightTests.Pages;
-using Microsoft.Playwright;
 using Xunit;
 
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
@@ -28,13 +27,8 @@ public class StaleTokenRedirectSmokeTest(End2EndFixture fixture) : SmokeTestBase
 
         // A fresh context with none of the run's signed-in storage state - this test supplies its own forged cookie
         // (a valid member principal carrying a Firebase token WebApi will reject), same clean-context approach as AuthSmokeTest.
-        await using var context = await NewContext(new BrowserNewContextOptions
-        {
-            BaseURL = Fixture.BlazorBaseUrl,
-            IgnoreHTTPSErrors = true
-        });
-        await context.AddCookiesAsync([cookie!]);
-        var page = await context.NewPageAsync();
+        var page = await NewAnonymousPageAsync("stale-token");
+        await page.Context.AddCookiesAsync([cookie!]);
 
         // The shared-collection page (the one in the original report) loads via OnInitializedAsync with no
         // try/catch, so the 401 propagates straight into the redirect path under test - unlike the inventory

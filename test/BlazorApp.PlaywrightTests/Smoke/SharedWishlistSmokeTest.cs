@@ -37,12 +37,7 @@ public class SharedWishlistSmokeTest(End2EndFixture fixture) : SmokeTestBase(fix
         TrackCleanup(() => Fixture.DeleteItemAsync($"api/wishlist/shares/{share.Id}"));
 
         // a brand-new context: no cookies, no storage state - a share recipient's browser
-        await using var anonymousContext = await Browser.NewContextAsync(new BrowserNewContextOptions
-        {
-            BaseURL = Fixture.BlazorBaseUrl,
-            IgnoreHTTPSErrors = true
-        });
-        var page = await anonymousContext.NewPageAsync();
+        var page = await NewAnonymousPageAsync("recipient");
 
         await page.GotoAsync($"/shared/wishlist/{share.Token}");
         await Assertions.Expect(page.GetByText(title)).ToBeVisibleAsync();

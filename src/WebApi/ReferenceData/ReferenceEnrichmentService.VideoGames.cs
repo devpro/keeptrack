@@ -309,6 +309,9 @@ public partial class ReferenceEnrichmentService
     /// query; only an exact-name lookup finds it). Confirmation is unaffected: it is always the reference that
     /// a candidate has to match.
     /// </param>
+    /// <param name="reference"></param>
+    /// <param name="client"></param>
+    /// <param name="cancellationToken"></param>
     private static async Task<(IReadOnlyList<VideoGameSearchResult> Candidates, IReadOnlyList<VideoGameSearchResult> Matches)> FindAdoptionCandidatesAsync(
         VideoGameReferenceModel reference, string searchTitle, IVideoGameReferenceClient client, CancellationToken cancellationToken)
     {
@@ -477,6 +480,8 @@ public partial class ReferenceEnrichmentService
     /// name no query finds at all, since a human can always open the provider's site and copy the address.
     /// </para>
     /// </param>
+    /// <param name="referenceId"></param>
+    /// <param name="cancellationToken"></param>
     public async Task<(IReadOnlyList<VideoGameSearchResult> Candidates, IReadOnlyList<string> MatchingIds)> FindVideoGameAdoptionCandidatesAsync(
         string referenceId, string? query = null, CancellationToken cancellationToken = default)
     {

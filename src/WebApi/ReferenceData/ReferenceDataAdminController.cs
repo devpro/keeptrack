@@ -661,6 +661,8 @@ public class ReferenceDataAdminController(
     /// at all. Candidates are still confirmed against the reference itself, so this widens what is *found*,
     /// never what counts as a match.
     /// </param>
+    /// <param name="referenceId"></param>
+    /// <param name="cancellationToken"></param>
     [HttpGet("provider-reconciliation/{referenceId}/candidates")]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]

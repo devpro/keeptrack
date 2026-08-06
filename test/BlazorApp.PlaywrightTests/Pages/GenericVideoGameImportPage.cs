@@ -8,13 +8,15 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 /// </summary>
 public class GenericVideoGameImportPage(IPage page) : PageBase(page)
 {
+    protected override string? Route => "/import/video-games";
+
     public override async Task WaitForReadyAsync()
     {
         await base.WaitForReadyAsync();
         await Assertions.Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "video game transactions", Level = 1 })).ToBeVisibleAsync();
     }
 
-    private ILocator FileInput => Page.Locator(".kt-dropzone input[type='file']");
+    private ILocator FileInput => Page.Locator(".kt-dropzone input[type='file'][accept='.csv']");
 
     /// <summary>
     /// Only rendered once a preview exists; its label carries the selected-row count (e.g. "Import selected (1)"),
