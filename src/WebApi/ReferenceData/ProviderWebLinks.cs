@@ -29,4 +29,37 @@ public static class ProviderWebLinks
 
     /// <summary>A game's page on rawg.io, from the slug RAWG returns beside every listing entry.</summary>
     public static string Rawg(string slug) => $"https://rawg.io/games/{slug}";
+
+    /// <summary>
+    /// Reads back the identifier a provider keys one of these pages on - the last path segment of a pasted
+    /// URL, or a bare numeric id - so an admin can name a title by address when no search query reaches it.
+    /// The inverse of the builders above, and here for the same reason they are: the shape of a provider page
+    /// URL is one fact, and spelling it in two places is how one of them rots.
+    /// <para>
+    /// Nothing else is treated as an identifier. A bare word is a perfectly ordinary thing to *search* for
+    /// ("Half-Life" looks exactly like a slug), so only text that is unambiguously an address or a number
+    /// short-circuits the search - a wrong guess here would silently swap "look this up" for "look nothing
+    /// up", which is the failure mode this whole screen exists to repair.
+    /// </para>
+    /// </summary>
+    public static bool TryReadIdentifier(string text, out string identifier)
+    {
+        identifier = string.Empty;
+        var trimmed = text.Trim();
+        if (trimmed.Length == 0) return false;
+
+        if (trimmed.All(char.IsAsciiDigit))
+        {
+            identifier = trimmed;
+            return true;
+        }
+
+        if (!Uri.TryCreate(trimmed, UriKind.Absolute, out var url) || (url.Scheme != Uri.UriSchemeHttp && url.Scheme != Uri.UriSchemeHttps))
+        {
+            return false;
+        }
+
+        identifier = url.Segments.Select(segment => segment.Trim('/')).LastOrDefault(segment => segment.Length > 0) ?? string.Empty;
+        return identifier.Length > 0;
+    }
 }

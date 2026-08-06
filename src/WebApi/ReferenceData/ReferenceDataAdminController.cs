@@ -280,13 +280,26 @@ public class ReferenceDataAdminController(
     /// legitimately reports zero checked - it is the cheap option, and it spends no provider calls on
     /// documents that are already fresh.
     /// </param>
+    /// <param name="exploreOnly">
+    /// <c>true</c> runs only the Explore ranking rebuild, skipping the five reference domains and the
+    /// finished-show reconciliation. Still the same endpoint and the same job rather than one of its own: the
+    /// two passes were always separate calls inside the job, so this is a flag rather than a second code path,
+    /// and Explore has deliberately never had an admin endpoint to itself.
+    /// <para>
+    /// Worth having because the two halves cost wildly different things. The reference sync walks up to 500
+    /// documents per domain, each a provider call or several; a ranking rebuild is a handful of listing pages.
+    /// So "I changed something about Explore and want to see it" no longer means paying for a full reference
+    /// pass - which, combined with <paramref name="force"/>, is the expensive option in the app.
+    /// </para>
+    /// </param>
     [HttpPost("sync-now")]
     [ProducesResponseType(202)]
-    public async Task<ActionResult<ReferenceSyncJobDto>> SyncNow([FromQuery] bool force = false)
+    public async Task<ActionResult<ReferenceSyncJobDto>> SyncNow([FromQuery] bool force = false, [FromQuery] bool exploreOnly = false)
     {
-        var jobId = await syncJobStore.CreateAsync(this.GetUserId(), ReferenceSyncStage.SyncingTvShows);
+        var jobId = await syncJobStore.CreateAsync(
+            this.GetUserId(), exploreOnly ? ReferenceSyncStage.RefreshingExplore : ReferenceSyncStage.SyncingTvShows);
 
-        _ = RunSyncJobAsync(jobId, ReferenceSyncWindows.For(force));
+        _ = RunSyncJobAsync(jobId, ReferenceSyncWindows.For(force), exploreOnly);
 
         return Accepted(new ReferenceSyncJobDto { JobId = jobId });
     }
@@ -318,21 +331,30 @@ public class ReferenceDataAdminController(
     /// app: a shutdown mid-pass surfaced as a disposed <c>TokenBucketRateLimiter</c> deep inside an IGDB call.
     /// </para>
     /// </summary>
-    private async Task RunSyncJobAsync(Guid jobId, ReferenceSyncWindows windows)
+    private async Task RunSyncJobAsync(Guid jobId, ReferenceSyncWindows windows, bool exploreOnly)
     {
         var cancellationToken = lifetime.ApplicationStopping;
         using var scope = scopeFactory.CreateScope();
-        var scopedSyncService = scope.ServiceProvider.GetRequiredService<ReferenceSyncService>();
-        var scopedReconciliationService = scope.ServiceProvider.GetRequiredService<TvShowStatusReconciliationService>();
         var scopedExploreRefreshService = scope.ServiceProvider.GetRequiredService<ExploreCatalogueRefreshService>();
         var scopedJobStore = scope.ServiceProvider.GetRequiredService<JobStore<ReferenceSyncStage, ReferenceSyncResultDto>>();
 
         try
         {
-            var result = await scopedSyncService.SyncStaleReferencesAsync(
-                windows.References, stage => scopedJobStore.UpdateStageAsync(jobId, stage), cancellationToken);
-            // an on-demand "sync now" reconciles finished-show status too, so its result matches the periodic pass's.
-            result.FinishedShowsReopened = await scopedReconciliationService.ReconcileFinishedShowsAsync();
+            // an Explore-only run leaves every reference count at zero, which is the truth about what it did -
+            // the admin page hides them rather than reporting "0 checked" as if the pass had found nothing.
+            var result = new ReferenceSyncResultDto();
+            if (!exploreOnly)
+            {
+                var scopedSyncService = scope.ServiceProvider.GetRequiredService<ReferenceSyncService>();
+                var scopedReconciliationService = scope.ServiceProvider.GetRequiredService<TvShowStatusReconciliationService>();
+
+                result = await scopedSyncService.SyncStaleReferencesAsync(
+                    windows.References, stage => scopedJobStore.UpdateStageAsync(jobId, stage), cancellationToken);
+                // an on-demand "sync now" reconciles finished-show status too, so its result matches the periodic pass's.
+                result.FinishedShowsReopened = await scopedReconciliationService.ReconcileFinishedShowsAsync();
+                await scopedJobStore.UpdateStageAsync(jobId, ReferenceSyncStage.RefreshingExplore);
+            }
+
             // ...and covers the Explore discovery rankings on the same window, which is what makes this the
             // "run it now" control for those too - no separate admin endpoint needed.
             result.ApplyExploreRefresh(await scopedExploreRefreshService.RefreshAsync(windows.Explore, cancellationToken));
@@ -629,16 +651,23 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// What the default video game provider offers for one stuck reference's own canonical title, with the
-    /// candidates the automatic rule would have accepted flagged. Fetched per row rather than for the whole
-    /// queue, since each row costs a provider call or two.
+    /// What the default video game provider offers for one stuck reference, with the candidates the automatic
+    /// rule would have accepted flagged. Fetched per row rather than for the whole queue, since each row costs
+    /// a provider call or two.
     /// </summary>
+    /// <param name="query">
+    /// Optional replacement for the reference's stored title - what an admin types when the provider does not
+    /// spell the work the way this document does, or a pasted provider page URL for the rows no query reaches
+    /// at all. Candidates are still confirmed against the reference itself, so this widens what is *found*,
+    /// never what counts as a match.
+    /// </param>
     [HttpGet("provider-reconciliation/{referenceId}/candidates")]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
-    public async Task<ActionResult<List<ReferenceSearchResultDto>>> GetAdoptionCandidates(string referenceId, CancellationToken cancellationToken)
+    public async Task<ActionResult<List<ReferenceSearchResultDto>>> GetAdoptionCandidates(
+        string referenceId, CancellationToken cancellationToken, [FromQuery] string? query = null)
     {
-        var (candidates, matchingIds) = await enrichmentService.FindVideoGameAdoptionCandidatesAsync(referenceId, cancellationToken);
+        var (candidates, matchingIds) = await enrichmentService.FindVideoGameAdoptionCandidatesAsync(referenceId, query, cancellationToken);
         return Ok(candidates.Select(candidate => new ReferenceSearchResultDto
         {
             ExternalId = candidate.ExternalId,

@@ -428,11 +428,30 @@ Run-once scripts follow that same idempotent style: `dedupe-matched-aliases.js`,
     - **Adoption failing is not a cosmetic backlog: it silently breaks Explore.** The exclusion asks each linked reference for the *discovery* provider's id, so a reference still in the previous provider's id space is a game the owner
       tracks and keeps being suggested anyway (confirmed on real data: 105 of 344 references stuck, including Elden Ring and Red Dead Redemption 2).
       Both halves of the exclusion failed on the *same* documents, because both compared titles the same way adoption did - which is what made it look like Explore was ignoring the collection outright rather than lagging on a third of it.
-    - **How it asks matters as much as how it compares.** `FindAdoptionCandidatesAsync` runs a ladder, widening only on an **empty** result: `IVideoGameReferenceClient.FindGamesByExactTitleAsync` (IGDB's `where name ~ "..."`, a
+    - **How it asks matters as much as how it compares.** `FindAdoptionCandidatesAsync` runs a ladder: `IVideoGameReferenceClient.FindGamesByExactTitleAsync` (IGDB's `where name ~ "..."`, a
       case-insensitive equality - relevance `search` is noisy enough that the canonical entry falls outside a small window entirely: "Resident Evil" returns five bundles and archive editions, no 1996 original), then the same two queries
       again with `TitleNormalizer.StripDisambiguator` applied.
       That last step is not a nicety - RAWG puts a remake's original year in the title (`GoldenEye 007 (1997)`, `God of War (2018)`), and IGDB answers **nothing at all** to either query for such a string, so there are no candidates for any
       comparison to rescue.
+    - **It widens on "nothing *matched*", not on "nothing came back", and accumulates candidates across every rung.** A provider's relevance search hands out an unrelated non-empty answer at least as readily as an empty one, and stopping
+      at the first non-empty reply meant the rung that would have found the game was never asked: confirmed live, IGDB answers `NieR:Automata` with a single "Untitled NieR:Automata Project" and `Marvel Avengers` with three LEGO expansion
+      packs.
+      Keeping every rung's results (rather than the last one replacing the ones before) is what puts the provider's actual answers in front of the admin as evidence.
+    - **A provider's search is far more punctuation-sensitive than its catalogue**, so the ladder also asks with `TitleNormalizer.ToProviderQuery` (accents folded, apostrophes dropped, every other non-alphanumeric run collapsed to a space -
+      a *query*, so unlike `NormalizeLoose` it keeps casing and every word).
+      Measured against live IGDB: `search "NieR:Automata"` - a colon glued to the next letter, exactly how RAWG spells it - never returns the game, while `search "NieR Automata"` returns it first and it now adopts unattended.
+      Last and only while nothing has matched, the folded form is retried with trailing words dropped (`MaxTruncatedQueries` = 3, never below `MinTruncatedQueryWords` = 2, both measured): IGDB answers `NieR Replicant v1.22474487139` and
+      `Pokémon: Let's Go, Pikachu! and Eevee!` with **nothing at all**, and `NieR Replicant`/`Pokemon Lets Go Pikachu and` with the right game.
+      Those two don't *confirm* (the catalogues genuinely spell them differently), which is the point: the queue's job is to put the right candidate in front of a human, and it was showing an empty list instead.
+    - **The last rung is every word as a substring** (`FindGamesContainingAllWordsAsync`, IGDB's `name ~ *"marvel"* & name ~ *"avengers"*`), the only shape that survives the provider spelling a title with punctuation the reference omits:
+      IGDB holds `Marvel's Avengers` (26950, 2020 - the game, not a LEGO one), which the exact-name lookup misses on the apostrophe-s and the relevance search answers with LEGO expansion packs and never the game itself.
+      It is unranked by construction, so its 40-odd hits are shortlisted to the eight closest to the title asked for (`ShortlistByClosestTitle`, on `NormalizeLoose` length) - a genuine match is distance zero and can never be cut.
+      RAWG has no substring operator and emulates it over one `search=` page, the same client-side shape as its `FindGamesByExactTitleAsync`.
+      The admin's row is ordered the same way, so the likeliest answer leads it rather than whichever rung replied first.
+    - **`Marvel's Avengers` still isn't adopted unattended, on purpose**: one apostrophe apart from `Marvel Avengers`, and a rule equating those would equally equate `The Sim` with `The Sims`. Same call as the roman numerals - a queue entry
+      is one click, a wrong link is silent data loss.
+    - Confirmation is always against the **reference's** own title, never against whichever query found the candidate - which is what keeps a widened or admin-typed query from confirming something the strict rule would refuse.
+      Apostrophes are dropped rather than spaced in `NormalizeLoose` for the same "two catalogues, one work" reason as the rest: spacing produced `assassin s creed`, matching neither `Assassin's Creed` nor `Assassins Creed`.
     - Confirmation uses `TitleNormalizer.NormalizeLoose` (accents folded, parenthesised groups, punctuation and "the" dropped), not exact normalized equality, which rejected `Mass Effect: Legendary Edition` against IGDB's
       `Mass Effect Legendary Edition` and `Disco Elysium: Final Cut` against `Disco Elysium: The Final Cut`.
       Loosening the *shortlist* is safe because nothing else loosens: the year must still agree and a single match is still required.
@@ -448,6 +467,11 @@ Run-once scripts follow that same idempotent style: `dedupe-matched-aliases.js`,
     linked them and have no such gap.
     - The gap list and duplicate groups are plain database reads (`FindWithoutExternalIdAsync` - `Exists(..., false)`, since a missing key is not a null one); **candidates are fetched per row on demand**, because each row costs a provider
       call or two and the queue routinely runs to three figures.
+    - **A row can be searched with the admin's own text, or by pasting the game's provider page URL** (`?query=` on the candidates endpoint), because a provider's search has genuine dead ends no automatic rung can clear: confirmed live,
+      IGDB returns the same three LEGO packs for *every* spelling of "Marvel's Avengers" and only an exact-name lookup for its own string finds the game.
+      A URL (or a bare numeric id) resolves through `IVideoGameReferenceClient.FindGameByIdentifierAsync` - IGDB filters on `slug`, RAWG's detail endpoint takes either - and `ProviderWebLinks.TryReadIdentifier` deliberately treats
+      **nothing else** as an address: a hyphenated word like `Half-Life` is an ordinary thing to search for and looks exactly like a slug, and guessing wrong would silently turn "look this up" into "look nothing up".
+      Candidates are still confirmed against the reference, so typed text widens what is *found*, never what counts as an automatic match.
     - `AdoptVideoGameProviderIdAsync` writes the picked id onto the **existing** document and then reuses `RefreshVideoGameReferenceAsync`; it deliberately does *not* go through `ResolveVideoGameAsync`, whose title-based lookup could mint
       a second document - the exact state this screen exists to repair.
       It refuses outright when another document already claims that id, naming it, so "it didn't work" becomes "merge these two".
@@ -675,6 +699,8 @@ Movie, TvShow, VideoGame only; Book/Album 400 (no best-of listing to read).
 - The refresh rides `ReferenceSyncBackgroundService`'s existing 24h tick and lease on its own 7-day staleness window, rather than adding a second scheduled workload;
   the admin's `POST /api/reference-data/sync-now` covers it on the same window pair (`?force=true` rebuilds every ranking, the default only what is past 7 days), so there's no separate Explore admin endpoint.
   Counts land in `ReferenceSyncResultDto`.
+  `?exploreOnly=true` runs the ranking rebuild *without* the five reference domains or the finished-show reconciliation - still the same endpoint and job, since the two passes were always separate calls inside it, but a fraction of the cost (a few listing pages against up to 500 documents per domain, each a provider call or several).
+  It reports `ReferenceSyncStage.RefreshingExplore` throughout and leaves every reference count at zero, which the admin page hides rather than printing as "0 checked" - "the pass never looked" and "the pass found nothing" must not read the same.
 - **Gotcha:** neither provider has a curated top-rated endpoint, and ordering a whole catalogue by a plain average ranks a single-vote unknown above every classic.
   IGDB reports a vote count per game, so its ranking uses a real floor (`MinUserRatingCount`/`MinCriticRatingCount`) - and that floor is deliberately its only filter, since DLC and remasters are things this app tracks in their own right.
   RAWG exposed no vote count at all, which is the only reason its client had to approximate one:

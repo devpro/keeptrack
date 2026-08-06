@@ -140,12 +140,19 @@
         touches what is past those windows, so it reports nothing checked when everything is already fresh.
         Tick <strong>Force</strong> to ignore the windows and re-check every document and ranking - the
         thorough option, and the expensive one in provider calls.
+        Tick <strong>Explore only</strong> to rebuild the discovery rankings without touching reference data:
+        a few listing pages instead of up to 500 documents per domain, so it is the cheap way to pick up an
+        Explore change - and the one to combine with Force.
     </p>
     <div class="d-flex align-items-center gap-3 flex-wrap">
         <button class="btn btn-sm btn-secondary" @onclick="SyncNowAsync" disabled="@_syncing">Sync now</button>
         <div class="form-check mb-0">
             <input class="form-check-input" type="checkbox" id="force-sync" @bind="_forceSync" disabled="@_syncing">
             <label class="form-check-label" for="force-sync">Force: re-check everything, ignoring the freshness windows</label>
+        </div>
+        <div class="form-check mb-0">
+            <input class="form-check-input" type="checkbox" id="explore-only-sync" @bind="_exploreOnlySync" disabled="@_syncing">
+            <label class="form-check-label" for="explore-only-sync">Explore only: rebuild the discovery rankings, skip reference data</label>
         </div>
     </div>
     @if (_syncing)
@@ -159,15 +166,26 @@
     {
         <div class="alert alert-info mt-3 mb-0">
             @(_syncResultForced
-                ? "Full re-check of every document and ranking."
-                : "Incremental pass: only documents past their freshness window, exactly like the background sync.")
+                ? "Full re-check, ignoring every freshness window."
+                : "Incremental pass: only what is past its freshness window, exactly like the background sync.")
             <br/>
-            TV shows: @_syncResult.TvShowsChecked checked, @_syncResult.TvShowsUpdated updated.
-            Movies: @_syncResult.MoviesChecked checked, @_syncResult.MoviesUpdated updated.
-            Books: @_syncResult.BooksChecked checked, @_syncResult.BooksUpdated updated.
-            Video games: @_syncResult.VideoGamesChecked checked, @_syncResult.VideoGamesUpdated updated.
-            Albums: @_syncResult.AlbumsChecked checked, @_syncResult.AlbumsUpdated updated.
-            Finished shows reopened as current: @_syncResult.FinishedShowsReopened.
+            @* An Explore-only run left every reference count at zero. Printing them anyway would read as
+               "the pass looked and found nothing", which is the opposite of "the pass never looked". *@
+            @if (!_syncResultExploreOnly)
+            {
+                <text>
+                    TV shows: @_syncResult.TvShowsChecked checked, @_syncResult.TvShowsUpdated updated.
+                    Movies: @_syncResult.MoviesChecked checked, @_syncResult.MoviesUpdated updated.
+                    Books: @_syncResult.BooksChecked checked, @_syncResult.BooksUpdated updated.
+                    Video games: @_syncResult.VideoGamesChecked checked, @_syncResult.VideoGamesUpdated updated.
+                    Albums: @_syncResult.AlbumsChecked checked, @_syncResult.AlbumsUpdated updated.
+                    Finished shows reopened as current: @_syncResult.FinishedShowsReopened.
+                    <br/>
+                </text>
+            }
+            Explore: @_syncResult.ExploreRankingsRefreshed ranking(s) rebuilt,
+            @_syncResult.ExploreEntriesRefreshed entries written,
+            @_syncResult.ExploreImdbRatingsBackfilled IMDb rating(s) backfilled.
         </div>
     }
     @if (_syncError is not null)
@@ -213,13 +231,24 @@
                     {
                         <tr>
                             <td colspan="4">
+                                @* The provider's search has real dead ends - it can answer a title with
+                                   nothing, or with unrelated games and never the one asked for - so the row
+                                   always offers a way to ask differently, rather than only when it failed. *@
+                                <div class="d-flex gap-2 align-items-center mb-2" style="max-width:640px">
+                                    <input class="form-control form-control-sm" placeholder="@($"Search {_reconciliation.ProviderDisplayName} with different text, or paste the game's page URL")"
+                                           @bind="_candidateQuery" @bind:event="oninput" @onkeydown="@(e => { if (e.Key == "Enter") return SearchCandidatesAsync(gap); return Task.CompletedTask; })"/>
+                                    <button class="btn btn-sm btn-secondary" @onclick="() => SearchCandidatesAsync(gap)" disabled="@(_loadingCandidates || string.IsNullOrWhiteSpace(_candidateQuery))">Search</button>
+                                </div>
                                 @if (_loadingCandidates)
                                 {
                                     <span class="kt-card-meta"><span class="kt-icon-spin">↻</span> Asking @_reconciliation.ProviderDisplayName…</span>
                                 }
                                 else if (_candidates.Count == 0)
                                 {
-                                    <span class="kt-card-meta">@_reconciliation.ProviderDisplayName has nothing under this title. Rename the reference to the provider's own spelling, or leave it - its stored data still renders.</span>
+                                    <span class="kt-card-meta">
+                                        @_reconciliation.ProviderDisplayName has nothing under this title. Search above with its own spelling of
+                                        the name - or open its page and paste the address, which names the game exactly when no wording finds it.
+                                    </span>
                                 }
                                 else
                                 {
@@ -530,27 +559,33 @@
 
     private bool _syncing;
     private bool _forceSync;
+    private bool _exploreOnlySync;
     private ReferenceSyncResultDto? _syncResult;
     private string? _syncError;
     private ReferenceSyncStage _syncStage;
 
     /// <summary>
-    /// Which mode the *finished* run was started in - read while the checkbox is free to be toggled again,
+    /// Which mode the *finished* run was started in - read while the checkboxes are free to be toggled again,
     /// so the result alert always describes the run it belongs to rather than the current checkbox state.
     /// </summary>
     private bool _syncResultForced;
 
+    private bool _syncResultExploreOnly;
+
     private async Task SyncNowAsync()
     {
         var force = _forceSync;
+        var exploreOnly = _exploreOnlySync;
         _syncing = true;
         _syncError = null;
         _syncResult = null;
-        _syncStage = ReferenceSyncStage.SyncingTvShows;
+        // an Explore-only run never enters the reference stages, so starting the bar on "TV shows" would show
+        // a phase it will never reach
+        _syncStage = exploreOnly ? ReferenceSyncStage.RefreshingExplore : ReferenceSyncStage.SyncingTvShows;
 
         try
         {
-            var jobId = await Api.StartSyncAsync(force);
+            var jobId = await Api.StartSyncAsync(force, exploreOnly);
 
             while (true)
             {
@@ -561,6 +596,7 @@
                 {
                     _syncResult = status.Result;
                     _syncResultForced = force;
+                    _syncResultExploreOnly = exploreOnly;
                     break;
                 }
 
@@ -590,7 +626,8 @@
         ReferenceSyncStage.SyncingMovies => 35,
         ReferenceSyncStage.SyncingBooks => 55,
         ReferenceSyncStage.SyncingVideoGames => 75,
-        ReferenceSyncStage.SyncingAlbums => 90,
+        ReferenceSyncStage.SyncingAlbums => 85,
+        ReferenceSyncStage.RefreshingExplore => 95,
         ReferenceSyncStage.Completed => 100,
         _ => 0
     };
@@ -602,6 +639,7 @@
         ReferenceSyncStage.SyncingBooks => "Checking books…",
         ReferenceSyncStage.SyncingVideoGames => "Checking video games…",
         ReferenceSyncStage.SyncingAlbums => "Checking albums…",
+        ReferenceSyncStage.RefreshingExplore => "Rebuilding Explore rankings…",
         ReferenceSyncStage.Completed => "Done",
         _ => ""
     };
@@ -734,6 +772,7 @@
     private bool _loadingReconciliation;
     private string? _selectedGapId;
     private List<ReferenceSearchResultDto> _candidates = [];
+    private string _candidateQuery = string.Empty;
     private bool _loadingCandidates;
     private bool _adopting;
     private bool _merging;
@@ -769,12 +808,23 @@
         }
 
         _selectedGapId = gap.ReferenceId;
+        _candidateQuery = string.Empty;
+        await LoadCandidatesAsync(gap, null);
+    }
+
+    @* The manual half: a provider's search has genuine dead ends - IGDB returns three LEGO expansion packs
+       for every spelling of "Marvel's Avengers" and never the game - so an admin can ask with their own text,
+       or paste the game's page URL when no text works at all. *@
+    private async Task SearchCandidatesAsync(ProviderGapDto gap) => await LoadCandidatesAsync(gap, _candidateQuery);
+
+    private async Task LoadCandidatesAsync(ProviderGapDto gap, string? query)
+    {
         _candidates = [];
         _loadingCandidates = true;
         _reconciliationError = null;
         try
         {
-            _candidates = await Api.GetAdoptionCandidatesAsync(gap.ReferenceId);
+            _candidates = await Api.GetAdoptionCandidatesAsync(gap.ReferenceId, query);
         }
         catch (Exception ex)
         {

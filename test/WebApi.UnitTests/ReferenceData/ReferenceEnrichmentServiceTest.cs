@@ -2272,6 +2272,9 @@ public class ReferenceEnrichmentServiceTest
     [InlineData("Mass Effect: Legendary Edition", "Mass Effect Legendary Edition")]
     [InlineData("Disco Elysium: Final Cut", "Disco Elysium: The Final Cut")]
     [InlineData("GoldenEye 007 (1997)", "GoldenEye 007")]
+    // and an apostrophe one catalogue writes and the other doesn't: spacing it produced "assassin s creed",
+    // which matched neither spelling of the game
+    [InlineData("Assassins Creed", "Assassin's Creed")]
     public async Task RefreshVideoGameReferenceAsync_Adopts_WhenTheProviderSpellsTheSameTitleDifferently(string referenceTitle, string providerTitle)
     {
         // exact normalized equality rejected every one of these, which is what left a third of a real
@@ -2456,6 +2459,281 @@ public class ReferenceEnrichmentServiceTest
         var act = () => service.AdoptVideoGameProviderIdAsync("reference-1", "42", TestContext.Current.CancellationToken);
 
         await act.Should().ThrowAsync<ArgumentException>().WithMessage("*already belongs*");
+    }
+
+    // --- What the adoption ladder asks, on the rows a real database was stuck on ---
+    //
+    // Every provider answer below was measured against the live IGDB API with the titles this database
+    // actually holds. The failure they share is not the comparison but the *query*: a provider's relevance
+    // search is far more punctuation-sensitive than its catalogue, and it answers with something unrelated at
+    // least as often as with nothing - which the previous ladder read as "found it, stop asking".
+
+    [Fact]
+    public async Task RefreshVideoGameReferenceAsync_Adopts_WhenOnlyThePunctuationFoldedTitleReachesTheProvider()
+    {
+        // live IGDB: `search "NieR:Automata"` (RAWG's spelling - the colon glued to the next letter) returns
+        // only "Untitled NieR:Automata Project", never the game. `search "NieR Automata"` returns it first.
+        // The junk answer is what used to end the ladder, so the rung that finds the game never ran.
+        var igdbClient = FakeVideoGameReferenceClient.Empty();
+        igdbClient.SearchResultsByQuery["NieR:Automata"] = [new VideoGameSearchResult("9", "Untitled NieR:Automata Project", null, null)];
+        igdbClient.SearchResultsByQuery["NieR Automata"] = [new VideoGameSearchResult("42", "NieR: Automata", 2017, null)];
+        igdbClient.Details["42"] = new VideoGameDetails("42", "NieR: Automata", 2017, "Synopsis", [], [], null);
+        var reference = new VideoGameReferenceModel
+        {
+            Id = "reference-1",
+            Title = "NieR:Automata",
+            TitleNormalized = TitleNormalizer.Normalize("NieR:Automata"),
+            Year = 2017,
+            ExternalIds = new Dictionary<string, string> { ["rawg"] = "7" }
+        };
+        _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) => m);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: igdbClient);
+
+        var (result, _) = await service.RefreshVideoGameReferenceAsync(reference, TestContext.Current.CancellationToken);
+
+        result.ExternalIds.Should().ContainKey("igdb").WhoseValue.Should().Be("42");
+        igdbClient.Queries.Should().Contain("NieR Automata");
+    }
+
+    [Theory]
+    // the two rows a shorter query is the only thing that reaches. Both were "never searched" dead ends: the
+    // provider answers the full string with nothing at all, from either of its query shapes.
+    [InlineData("NieR Replicant v1.22474487139", 2021, "NieR Replicant", "NieR Replicant ver.1.22474487139...")]
+    [InlineData("Pokémon: Let's Go, Pikachu! and Eevee!", 2018, "Pokemon Lets Go Pikachu and", "Pokémon: Let's Go, Pikachu!")]
+    public async Task FindVideoGameAdoptionCandidatesAsync_ProposesTheGame_WhenOnlyAShorterQueryReachesIt(
+        string referenceTitle, int year, string answeringQuery, string providerTitle)
+    {
+        // the candidate does not *confirm* - the two catalogues genuinely spell these differently, and this
+        // reference names two games at once - so it stays a human's call. Putting the right game in front of
+        // that human is the whole job of this screen, and before this it showed an empty list instead.
+        var igdbClient = FakeVideoGameReferenceClient.Empty();
+        igdbClient.SearchResultsByQuery[answeringQuery] = [new VideoGameSearchResult("42", providerTitle, year, null)];
+        var reference = new VideoGameReferenceModel
+        {
+            Id = "reference-1",
+            Title = referenceTitle,
+            TitleNormalized = TitleNormalizer.Normalize(referenceTitle),
+            Year = year,
+            ExternalIds = new Dictionary<string, string> { ["rawg"] = "7" }
+        };
+        _videoGameReferenceRepository.Setup(r => r.FindByIdAsync("reference-1")).ReturnsAsync(reference);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: igdbClient);
+
+        var (candidates, matchingIds) = await service.FindVideoGameAdoptionCandidatesAsync(
+            "reference-1", cancellationToken: TestContext.Current.CancellationToken);
+
+        candidates.Should().ContainSingle().Which.ExternalId.Should().Be("42");
+        matchingIds.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task FindVideoGameAdoptionCandidatesAsync_KeepsAskingAndKeepsEveryCandidate_WhenAnAnswerMatchesNothing()
+    {
+        // live IGDB answers "Marvel Avengers" with three unrelated LEGO expansion packs. That non-empty
+        // answer used to end the ladder on the spot, and it is also why the row must show what *was* found
+        // rather than only the last rung's reply - "the provider said these" is the admin's evidence.
+        var igdbClient = FakeVideoGameReferenceClient.Empty();
+        igdbClient.SearchResultsByQuery["Marvel Avengers: Ant-Man"] = [new VideoGameSearchResult("9", "LEGO Marvel's Avengers: Ant-Man Pack", 2016, null)];
+        igdbClient.SearchResultsByQuery["Marvel Avengers"] = [new VideoGameSearchResult("8", "Marvel Avengers Academy", 2016, null)];
+        var reference = new VideoGameReferenceModel
+        {
+            Id = "reference-1",
+            Title = "Marvel Avengers: Ant-Man",
+            TitleNormalized = TitleNormalizer.Normalize("Marvel Avengers: Ant-Man"),
+            Year = 2020,
+            ExternalIds = new Dictionary<string, string> { ["rawg"] = "7" }
+        };
+        _videoGameReferenceRepository.Setup(r => r.FindByIdAsync("reference-1")).ReturnsAsync(reference);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: igdbClient);
+
+        var (candidates, matchingIds) = await service.FindVideoGameAdoptionCandidatesAsync(
+            "reference-1", cancellationToken: TestContext.Current.CancellationToken);
+
+        candidates.Select(c => c.ExternalId).Should().BeEquivalentTo(["9", "8"]);
+        matchingIds.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task FindVideoGameAdoptionCandidatesAsync_StaysWithinItsCallBudget_WhenNothingIsEverFound()
+    {
+        // the ladder widens on "nothing matched", so its cost has to be bounded by construction rather than
+        // by the first answer that happens to arrive: three full-title forms x two query shapes, then at most
+        // three shortened queries. A stuck reference pays that once per re-attempt window, not per pass.
+        var igdbClient = FakeVideoGameReferenceClient.Empty();
+        var reference = new VideoGameReferenceModel
+        {
+            Id = "reference-1",
+            Title = "One Two Three Four Five Six Seven (2016)",
+            TitleNormalized = TitleNormalizer.Normalize("One Two Three Four Five Six Seven (2016)"),
+            Year = 2016,
+            ExternalIds = new Dictionary<string, string> { ["rawg"] = "7" }
+        };
+        _videoGameReferenceRepository.Setup(r => r.FindByIdAsync("reference-1")).ReturnsAsync(reference);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: igdbClient);
+
+        await service.FindVideoGameAdoptionCandidatesAsync("reference-1", cancellationToken: TestContext.Current.CancellationToken);
+
+        igdbClient.ExactTitleSearchCount.Should().Be(3);                 // the three full-title forms, asked once each
+        igdbClient.SearchCount.Should().Be(5);                          // the same three, then two shortened queries
+        igdbClient.ContainsSearchCount.Should().Be(1);                   // and the substring rung, once, at the end
+        igdbClient.Queries.Distinct().Should().HaveCount(5);            // no form is ever asked twice in the same shape
+        // and never a query so broad that no confirmation could accept its results
+        igdbClient.Queries.Should().AllSatisfy(query => query.Split(' ').Should().HaveCountGreaterThan(1));
+    }
+
+    [Fact]
+    public async Task FindVideoGameAdoptionCandidatesAsync_ProposesTheGameItself_WhenTheProviderSpellsItWithPunctuationTheReferenceOmits()
+    {
+        // the real row, and the real catalogue: IGDB holds "Marvel's Avengers" (26950, 2020) - the game, not a
+        // LEGO one - which the exact-name lookup misses on the apostrophe-s while the relevance search answers
+        // with expansion packs and never the game. Every word is still a substring of the provider's spelling,
+        // and among the 40 entries that matches live, the plain work is the closest to what was asked for.
+        var igdbClient = FakeVideoGameReferenceClient.Empty();
+        igdbClient.SearchResultsByQuery["Marvel Avengers"] = [new VideoGameSearchResult("9", "LEGO Marvel's Avengers: Marvel's Ant-Man Pack", 2016, null)];
+        igdbClient.Catalogue.AddRange([
+            new VideoGameSearchResult("26950", "Marvel's Avengers", 2020, null),
+            new VideoGameSearchResult("1", "LEGO Marvel's Avengers", 2016, null),
+            new VideoGameSearchResult("2", "Marvel Avengers Academy", 2016, null),
+            new VideoGameSearchResult("3", "Marvel: Avengers Alliance", 2012, null),
+            new VideoGameSearchResult("4", "Marvel's Avengers: Exclusive Digital Edition", 2020, null),
+            new VideoGameSearchResult("5", "Marvel's Avengers: Earth's Mightiest Edition", 2020, null),
+            new VideoGameSearchResult("6", "Marvel Disk Wars: Avengers - Ultimate Heroes", 2014, null),
+            new VideoGameSearchResult("7", "MInecraft: Marvel Avengers Skin Pack", 2013, null),
+            new VideoGameSearchResult("8", "Marvel Pinball: Avengers Chronicles", 2012, null),
+            new VideoGameSearchResult("10", "Marvel's Avengers: Endgame Edition", 2021, null),
+            new VideoGameSearchResult("11", "Zen Pinball: Marvel's Avengers - Age of Ultron", null, null)
+        ]);
+        var reference = new VideoGameReferenceModel
+        {
+            Id = "reference-1",
+            Title = "Marvel Avengers",
+            TitleNormalized = TitleNormalizer.Normalize("Marvel Avengers"),
+            Year = 2020,
+            ExternalIds = new Dictionary<string, string> { ["rawg"] = "7" }
+        };
+        _videoGameReferenceRepository.Setup(r => r.FindByIdAsync("reference-1")).ReturnsAsync(reference);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: igdbClient);
+
+        var (candidates, matchingIds) = await service.FindVideoGameAdoptionCandidatesAsync(
+            "reference-1", cancellationToken: TestContext.Current.CancellationToken);
+
+        // the game leads the row, ahead of the search's junk and of every edition and namesake that also
+        // contains both words
+        candidates.First().Title.Should().Be("Marvel's Avengers");
+        // and the row stays a list of candidates rather than the whole substring result
+        candidates.Should().HaveCount(9); // the search's one junk answer plus a shortlist of eight
+        // still not adopted unattended: "Marvel Avengers" and "Marvel's Avengers" are one apostrophe apart,
+        // and equating those would equally equate "The Sim" with "The Sims" - a wrong link is worse than a click
+        matchingIds.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task FindVideoGameAdoptionCandidatesAsync_NeverReachesTheSubstringQuery_WhenAnEarlierRungAnswers()
+    {
+        // it scans on title substrings with no relevance ordering behind it, so it is the last thing tried and
+        // an ordinary reference must never pay for it
+        var igdbClient = FakeVideoGameReferenceClient.Empty();
+        igdbClient.ExactTitleResults.Add(new VideoGameSearchResult("42", "Some Game", 2020, null));
+        igdbClient.Catalogue.Add(new VideoGameSearchResult("99", "Some Game: Definitive Edition", 2021, null));
+        var reference = new VideoGameReferenceModel
+        {
+            Id = "reference-1",
+            Title = "Some Game",
+            TitleNormalized = "some game",
+            Year = 2020,
+            ExternalIds = new Dictionary<string, string> { ["rawg"] = "7" }
+        };
+        _videoGameReferenceRepository.Setup(r => r.FindByIdAsync("reference-1")).ReturnsAsync(reference);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: igdbClient);
+
+        var (_, matchingIds) = await service.FindVideoGameAdoptionCandidatesAsync(
+            "reference-1", cancellationToken: TestContext.Current.CancellationToken);
+
+        matchingIds.Should().ContainSingle().Which.Should().Be("42");
+        igdbClient.ContainsSearchCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task FindVideoGameAdoptionCandidatesAsync_AsksWithTheAdminsOwnText_WhenNoQueryOnTheStoredTitleReachesTheGame()
+    {
+        // "Marvel's Avengers" is the dead end no automatic rung can clear: live IGDB returns the same three
+        // LEGO packs for every spelling of the phrase, and only an exact-name lookup for the provider's own
+        // string finds the game. So the admin gets to supply that string.
+        var igdbClient = FakeVideoGameReferenceClient.Empty();
+        igdbClient.ExactTitleResults.Add(new VideoGameSearchResult("26950", "Marvel's Avengers", 2020, null));
+        var reference = new VideoGameReferenceModel
+        {
+            Id = "reference-1",
+            Title = "Marvel Avengers",
+            TitleNormalized = TitleNormalizer.Normalize("Marvel Avengers"),
+            Year = 2020,
+            ExternalIds = new Dictionary<string, string> { ["rawg"] = "7" }
+        };
+        _videoGameReferenceRepository.Setup(r => r.FindByIdAsync("reference-1")).ReturnsAsync(reference);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: igdbClient);
+
+        var (candidates, matchingIds) = await service.FindVideoGameAdoptionCandidatesAsync(
+            "reference-1", "Marvel's Avengers", TestContext.Current.CancellationToken);
+
+        candidates.Should().ContainSingle().Which.ExternalId.Should().Be("26950");
+        // and confirmation still judges the candidate against the *reference*, not against what was typed:
+        // the admin's own text can widen what is found, never what counts as an automatic match
+        matchingIds.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData("https://www.igdb.com/games/marvels-avengers")]
+    [InlineData("https://www.igdb.com/games/marvels-avengers/")]
+    [InlineData("26950")]
+    public async Task FindVideoGameAdoptionCandidatesAsync_ResolvesAPastedPageAddress_WithoutSearchingAtAll(string typed)
+    {
+        // the escape hatch for a game no wording finds: its page names it exactly, and a human can always
+        // open the provider's site and copy the address
+        var igdbClient = FakeVideoGameReferenceClient.Empty();
+        igdbClient.Identifiers["marvels-avengers"] = new VideoGameSearchResult("26950", "Marvel's Avengers", 2020, null);
+        igdbClient.Identifiers["26950"] = new VideoGameSearchResult("26950", "Marvel's Avengers", 2020, null);
+        var reference = new VideoGameReferenceModel
+        {
+            Id = "reference-1",
+            Title = "Marvel Avengers",
+            TitleNormalized = TitleNormalizer.Normalize("Marvel Avengers"),
+            Year = 2020,
+            ExternalIds = new Dictionary<string, string> { ["rawg"] = "7" }
+        };
+        _videoGameReferenceRepository.Setup(r => r.FindByIdAsync("reference-1")).ReturnsAsync(reference);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: igdbClient);
+
+        var (candidates, _) = await service.FindVideoGameAdoptionCandidatesAsync(
+            "reference-1", typed, TestContext.Current.CancellationToken);
+
+        candidates.Should().ContainSingle().Which.ExternalId.Should().Be("26950");
+        igdbClient.IdentifierLookupCount.Should().Be(1);
+        igdbClient.Queries.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task FindVideoGameAdoptionCandidatesAsync_SearchesForOrdinaryText_RatherThanTreatingItAsAnAddress()
+    {
+        // a hyphenated word is a perfectly ordinary thing to search for, and looks exactly like a page slug -
+        // guessing wrong here would silently turn "look this up" into "look nothing up"
+        var igdbClient = FakeVideoGameReferenceClient.Empty();
+        igdbClient.ExactTitleResults.Add(new VideoGameSearchResult("42", "Half-Life", 1998, null));
+        var reference = new VideoGameReferenceModel
+        {
+            Id = "reference-1",
+            Title = "Half Life",
+            TitleNormalized = TitleNormalizer.Normalize("Half Life"),
+            Year = 1998,
+            ExternalIds = new Dictionary<string, string> { ["rawg"] = "7" }
+        };
+        _videoGameReferenceRepository.Setup(r => r.FindByIdAsync("reference-1")).ReturnsAsync(reference);
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: igdbClient);
+
+        var (candidates, _) = await service.FindVideoGameAdoptionCandidatesAsync(
+            "reference-1", "Half-Life", TestContext.Current.CancellationToken);
+
+        candidates.Should().ContainSingle().Which.ExternalId.Should().Be("42");
+        igdbClient.IdentifierLookupCount.Should().Be(0);
     }
 
     [Fact]

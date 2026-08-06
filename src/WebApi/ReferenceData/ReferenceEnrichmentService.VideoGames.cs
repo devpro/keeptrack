@@ -236,7 +236,7 @@ public partial class ReferenceEnrichmentService
             return;
         }
 
-        var (candidates, matches) = await FindAdoptionCandidatesAsync(reference, client, cancellationToken);
+        var (candidates, matches) = await FindAdoptionCandidatesAsync(reference, reference.Title, client, cancellationToken);
         reference.ProviderAdoptionCheckedAt[client.ProviderKey] = DateTime.UtcNow;
 
         if (matches.Count != 1)
@@ -264,52 +264,178 @@ public partial class ReferenceEnrichmentService
     /// queue shows as "this would link" is decided by the same rule that decides whether to link it
     /// unattended.
     /// <para>
-    /// A ladder of queries, widening only when the one before it comes back <b>empty</b> - the same "never let
-    /// a narrower query return worse than a broader one" shape as <see cref="BookReferenceClientBase"/>'s
-    /// search policy. The exact-name lookup goes first because it answers adoption's actual question
-    /// completely (see <see cref="IVideoGameReferenceClient.FindGamesByExactTitleAsync"/>); the relevance
-    /// search is the fallback for when the two catalogues spell the work differently; and both are retried
-    /// without a parenthesised disambiguator, because a title like <c>GoldenEye 007 (1997)</c> makes IGDB
-    /// return nothing whatsoever to either query - a case no amount of loose *comparison* can fix, since there
-    /// are no candidates to compare against.
+    /// A ladder of queries, widening until one of them produces a <b>match</b> - the same "never let a
+    /// narrower query return worse than a broader one" shape as <see cref="BookReferenceClientBase"/>'s search
+    /// policy. The exact-name lookup goes first because it answers adoption's actual question completely (see
+    /// <see cref="IVideoGameReferenceClient.FindGamesByExactTitleAsync"/>); the relevance search is the
+    /// fallback for when the two catalogues spell the work differently.
     /// </para>
     /// <para>
-    /// Confirmation is <see cref="TitleNormalizer.NormalizeLoose"/> plus a compatible year, not exact
-    /// normalized equality. Exact equality is what left a third of a real catalogue unable to adopt: it
-    /// rejected <c>Mass Effect: Legendary Edition</c> against IGDB's <c>Mass Effect Legendary Edition</c> and
-    /// every RAWG title carrying a <c>(1997)</c> disambiguation suffix. Loosening the *shortlist* is safe
-    /// because nothing else loosens: a reference's title and year are canonical provider data rather than
-    /// tenant-typed text, the year must still agree, and anything but a single match is still left for a human.
+    /// It widens on "nothing <i>matched</i>", not on "nothing came back", and that is the whole difference
+    /// between a stuck reference and an adopted one. An earlier version stopped at the first non-empty
+    /// answer, which a provider's relevance search hands out far too easily: confirmed live, IGDB answers
+    /// <c>NieR:Automata</c> with a single unrelated "Untitled NieR:Automata Project" and <c>Marvel Avengers</c>
+    /// with three LEGO expansion packs, and each of those ended the ladder on the spot - so the rung that
+    /// would have found the game was never asked. Candidates accumulate across every rung instead of the last
+    /// one replacing the ones before it, so an admin sees everything that was asked for rather than whatever
+    /// the final query happened to say.
+    /// </para>
+    /// <para>
+    /// The rungs, in order (see <see cref="AdoptionQueryForms"/> and <see cref="TruncatedQueryForms"/>): the
+    /// title as stored, the same without a parenthesised disambiguator - because a title like
+    /// <c>GoldenEye 007 (1997)</c> makes IGDB return nothing whatsoever, a case no amount of loose
+    /// *comparison* can fix since there are no candidates to compare against - and then the punctuation-folded
+    /// form, which is what rescues a title whose punctuation the provider's search cannot parse. Last and only
+    /// while nothing has matched, the folded form with trailing words dropped: a provider that answers nothing
+    /// at all to <c>NieR Replicant v1.22474487139</c> answers <c>NieR Replicant</c> with the very game, and
+    /// while that candidate does not *confirm* (the two catalogues genuinely spell it differently), putting it
+    /// in front of an admin is the entire point of the reconciliation queue.
+    /// </para>
+    /// <para>
+    /// Confirmation is <see cref="TitleNormalizer.NormalizeLoose"/> against the <b>reference's</b> own title
+    /// plus a compatible year - never against whatever query found the candidate, which is what keeps a
+    /// widened or admin-typed query from confirming something the strict rule would have refused. It is not
+    /// exact normalized equality: that is what left a third of a real catalogue unable to adopt, rejecting
+    /// <c>Mass Effect: Legendary Edition</c> against IGDB's <c>Mass Effect Legendary Edition</c> and every RAWG
+    /// title carrying a <c>(1997)</c> disambiguation suffix. Loosening the *shortlist* is safe because nothing
+    /// else loosens: a reference's title and year are canonical provider data rather than tenant-typed text,
+    /// the year must still agree, and anything but a single match is still left for a human.
     /// </para>
     /// </summary>
+    /// <param name="searchTitle">
+    /// What to ask the provider about - the reference's own title for the automatic path, or an admin's typed
+    /// text from the reconciliation screen when the provider simply does not spell the work the way this
+    /// document does (IGDB's search never returns "Marvel's Avengers" for any spelling of it, whatever the
+    /// query; only an exact-name lookup finds it). Confirmation is unaffected: it is always the reference that
+    /// a candidate has to match.
+    /// </param>
     private static async Task<(IReadOnlyList<VideoGameSearchResult> Candidates, IReadOnlyList<VideoGameSearchResult> Matches)> FindAdoptionCandidatesAsync(
-        VideoGameReferenceModel reference, IVideoGameReferenceClient client, CancellationToken cancellationToken)
+        VideoGameReferenceModel reference, string searchTitle, IVideoGameReferenceClient client, CancellationToken cancellationToken)
     {
-        // the queries to try, narrowest first: this title, then the same title without a disambiguator
-        var queries = new List<string> { reference.Title };
-        var stripped = TitleNormalizer.StripDisambiguator(reference.Title);
-        if (stripped.Length > 0 && !string.Equals(stripped, reference.Title, StringComparison.Ordinal)) queries.Add(stripped);
+        var candidates = new List<VideoGameSearchResult>();
+        IReadOnlyList<VideoGameSearchResult> matches = [];
 
-        IReadOnlyList<VideoGameSearchResult> candidates = [];
-        foreach (var query in queries)
+        // accumulates one rung's answer and re-confirms over everything seen so far, so a match found by a
+        // later, looser query is still judged against the same strict rule as the first rung's
+        bool Accumulate(IReadOnlyList<VideoGameSearchResult> found)
         {
-            candidates = await client.FindGamesByExactTitleAsync(query, cancellationToken);
-            if (candidates.Count > 0) break;
+            candidates.AddRange(found.Where(result => candidates.TrueForAll(known => known.ExternalId != result.ExternalId)));
+            matches = candidates
+                .Where(c => TitleNormalizer.LooselyEqual(c.Title, reference.Title))
+                .Where(c => reference.Year is null || c.Year is null || c.Year == reference.Year)
+                .ToList();
+            return matches.Count > 0;
         }
 
-        foreach (var query in queries)
+        var forms = AdoptionQueryForms(searchTitle);
+
+        foreach (var query in forms)
         {
-            if (candidates.Count > 0) break;
-            candidates = await client.SearchGamesAsync(query, reference.Year, cancellationToken);
+            if (Accumulate(await client.FindGamesByExactTitleAsync(query, cancellationToken))) return (candidates, matches);
         }
 
-        var matches = candidates
-            .Where(c => TitleNormalizer.LooselyEqual(c.Title, reference.Title))
-            .Where(c => reference.Year is null || c.Year is null || c.Year == reference.Year)
-            .ToList();
+        foreach (var query in forms)
+        {
+            if (Accumulate(await client.SearchGamesAsync(query, reference.Year, cancellationToken))) return (candidates, matches);
+        }
+
+        foreach (var query in TruncatedQueryForms(searchTitle).Where(query => !forms.Contains(query, StringComparer.Ordinal)))
+        {
+            var found = await client.SearchGamesAsync(query, reference.Year, cancellationToken);
+            // a shorter query is strictly vaguer than the one before it, so the first that answers at all is
+            // the most specific answer this rung will ever get - going further only buys noise
+            if (Accumulate(found) || found.Count > 0) return (candidates, matches);
+        }
+
+        // last resort, and the only shape that survives the provider spelling a title with punctuation this
+        // reference doesn't: every word as a substring, in any order. It is unranked by construction, so what
+        // comes back is shortlisted here rather than shown whole - see ShortlistByClosestTitle.
+        var words = TitleNormalizer.ToProviderQuery(searchTitle).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length >= MinTruncatedQueryWords)
+        {
+            Accumulate(ShortlistByClosestTitle(await client.FindGamesContainingAllWordsAsync(words, cancellationToken), reference.Title));
+        }
 
         return (candidates, matches);
     }
+
+    /// <summary>
+    /// The closest <see cref="MaxShortlistedCandidates"/> results to <paramref name="title"/>, nearest first,
+    /// compared on the length of their <see cref="TitleNormalizer.NormalizeLoose"/> form.
+    /// <para>
+    /// A substring filter answers with everything that contains the words and no opinion about which is the
+    /// game - "marvel" + "avengers" returns 40 entries on the real catalogue, mostly editions, DLC and
+    /// crossovers. Sorting by how far a candidate's title is from the one being looked for puts the plain work
+    /// first (measured: "Marvel's Avengers" leads those 40) and every longer variant behind it.
+    /// </para>
+    /// <para>
+    /// Ranking by *distance* rather than by plain length is what makes the cap safe: a candidate that loosely
+    /// equals the title has distance zero, so a genuine match can never be cut off by the shortlist.
+    /// </para>
+    /// </summary>
+    private static IReadOnlyList<VideoGameSearchResult> ShortlistByClosestTitle(IReadOnlyList<VideoGameSearchResult> found, string title) =>
+        OrderByClosestTitle(found, title).Take(MaxShortlistedCandidates).ToList();
+
+    /// <summary>
+    /// Candidates nearest the title first - shared by the shortlist above and by the order the admin's row
+    /// renders them in, so the most likely answer leads the row whichever rung produced it. An exact-name hit
+    /// is distance zero and therefore still comes first, which is what makes reordering safe: it can only move
+    /// a *worse* candidate down.
+    /// </summary>
+    private static IEnumerable<VideoGameSearchResult> OrderByClosestTitle(IReadOnlyList<VideoGameSearchResult> found, string title)
+    {
+        var target = TitleNormalizer.NormalizeLoose(title).Length;
+        return found
+            .OrderBy(candidate => Math.Abs(TitleNormalizer.NormalizeLoose(candidate.Title).Length - target))
+            .ThenBy(candidate => candidate.Title, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// How many of an unranked substring query's results reach the admin's row. Enough to hold the work plus
+    /// its nearest namesakes, few enough that the row stays a list of candidates rather than a page of them.
+    /// </summary>
+    private const int MaxShortlistedCandidates = 8;
+
+    /// <summary>
+    /// The full-title queries a provider is asked, in order and without repeating one: the title as stored,
+    /// the title without a parenthesised disambiguator, and the punctuation-folded form
+    /// (<see cref="TitleNormalizer.ToProviderQuery"/>). At most three, and fewer for the ordinary title that
+    /// carries no punctuation at all - which is the common case and costs exactly what it always did.
+    /// </summary>
+    private static List<string> AdoptionQueryForms(string title) =>
+        new List<string> { title, TitleNormalizer.StripDisambiguator(title), TitleNormalizer.ToProviderQuery(title) }
+            .Where(form => form.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+    /// <summary>
+    /// The last-resort queries: the folded title with trailing words dropped, longest first. Bounded by
+    /// <see cref="MaxTruncatedQueries"/> and never shorter than <see cref="MinTruncatedQueryWords"/> words, so
+    /// a stuck reference costs a handful of extra calls once per
+    /// <see cref="ProviderAdoptionReattemptAfter"/> rather than one per word.
+    /// <para>
+    /// Both bounds were measured against the real IGDB API on this database's own stuck rows: dropping one
+    /// word turns "Pokemon Lets Go Pikachu and Eevee" into an answer, dropping two turns
+    /// "NieR Replicant v1 22474487139" into one, and a two-word floor is what stops a search for a bare
+    /// "Marvel" or "Final" being asked at all - a query that broad returns a page of unrelated games no
+    /// confirmation would ever accept.
+    /// </para>
+    /// </summary>
+    private static IEnumerable<string> TruncatedQueryForms(string title)
+    {
+        var words = TitleNormalizer.ToProviderQuery(title).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        for (var length = words.Length - 1; length >= MinTruncatedQueryWords && length > words.Length - 1 - MaxTruncatedQueries; length--)
+        {
+            yield return string.Join(' ', words.Take(length));
+        }
+    }
+
+    /// <summary>How many trailing-word-dropped queries a single reference may cost, at most.</summary>
+    private const int MaxTruncatedQueries = 3;
+
+    /// <summary>The shortest query worth asking - see <see cref="TruncatedQueryForms"/>.</summary>
+    private const int MinTruncatedQueryWords = 2;
 
     /// <summary>
     /// The admin reconciliation queue: every video game reference that carries no id in the current default
@@ -331,23 +457,49 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// What the default provider offers for one reference's canonical title, with the subset the automatic
-    /// path would have accepted flagged - the per-row detail of the queue above, fetched on demand rather than
-    /// for every row at once, since each row costs a provider call or two.
+    /// What the default provider offers for one reference, with the subset the automatic path would have
+    /// accepted flagged - the per-row detail of the queue above, fetched on demand rather than for every row at
+    /// once, since each row costs a provider call or two.
     /// <para>
     /// Deliberately ignores <see cref="ProviderAdoptionReattemptAfter"/>: an admin looking at this row is
     /// waiting on the answer, the same reason the interactive rating paths ignore their own re-attempt window.
     /// </para>
     /// </summary>
+    /// <param name="query">
+    /// Optional: what the admin typed instead of the reference's stored title, for the rows no automatic query
+    /// can reach. It is not a nicety - confirmed live, IGDB's relevance search answers "Marvel's Avengers"
+    /// with three LEGO expansion packs whichever way the phrase is spelled, and only an exact-name lookup for
+    /// the provider's own string finds the game. Typing that string here is the difference between a row an
+    /// admin can clear and one that is stuck forever.
+    /// <para>
+    /// A pasted provider page URL (or a bare numeric id) is resolved directly instead of searched, via
+    /// <see cref="IVideoGameReferenceClient.FindGameByIdentifierAsync"/> - the escape hatch for a game whose
+    /// name no query finds at all, since a human can always open the provider's site and copy the address.
+    /// </para>
+    /// </param>
     public async Task<(IReadOnlyList<VideoGameSearchResult> Candidates, IReadOnlyList<string> MatchingIds)> FindVideoGameAdoptionCandidatesAsync(
-        string referenceId, CancellationToken cancellationToken = default)
+        string referenceId, string? query = null, CancellationToken cancellationToken = default)
     {
         var reference = await videoGameReferenceRepository.FindByIdAsync(referenceId)
                         ?? throw new ArgumentException($"No video game reference with id '{referenceId}'.", nameof(referenceId));
 
         var client = videoGameReferenceClientRegistry.Resolve(null);
-        var (candidates, matches) = await FindAdoptionCandidatesAsync(reference, client, cancellationToken);
-        return (candidates, matches.Select(m => m.ExternalId).ToList());
+        var searchTitle = string.IsNullOrWhiteSpace(query) ? reference.Title : query.Trim();
+
+        if (ProviderWebLinks.TryReadIdentifier(searchTitle, out var identifier))
+        {
+            var game = await client.FindGameByIdentifierAsync(identifier, cancellationToken);
+            // an id names exactly one game, so there is nothing to disambiguate - but it is still reported as
+            // an ordinary candidate rather than adopted outright: the admin picked the page, and the Link
+            // button is where that choice is confirmed.
+            return (game is null ? [] : [game], []);
+        }
+
+        var (candidates, matches) = await FindAdoptionCandidatesAsync(reference, searchTitle, client, cancellationToken);
+        // closest first, so the row leads with the likeliest answer rather than with whichever rung replied
+        // first - a provider's search hands back unrelated titles readily enough that "the first card" and
+        // "the game" were routinely not the same thing.
+        return (OrderByClosestTitle(candidates, reference.Title).ToList(), matches.Select(m => m.ExternalId).ToList());
     }
 
     /// <summary>

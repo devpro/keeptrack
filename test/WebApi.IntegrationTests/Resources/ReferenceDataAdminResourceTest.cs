@@ -120,6 +120,30 @@ public class ReferenceDataAdminResourceTest(KestrelWebAppFactory<Program> factor
     }
 
     /// <summary>
+    /// The Explore-only variant: <c>?exploreOnly=true</c> rebuilds the discovery rankings and skips the five
+    /// reference domains entirely. What is asserted is the part that can go wrong silently - the job starts in
+    /// (and stays in) the Explore stage rather than walking the reference stages first, since "it skipped the
+    /// expensive half" and "it ran the expensive half quickly" look identical from a 202 alone.
+    /// </summary>
+    [Fact]
+    public async Task SyncNow_WithExploreOnly_SkipsTheReferenceStagesEntirely()
+    {
+        await Authenticate();
+
+        var job = await PostAsync<ReferenceSyncJobDto?>("/api/reference-data/sync-now?exploreOnly=true", null, HttpStatusCode.Accepted);
+        job.Should().NotBeNull();
+        job!.JobId.Should().NotBeEmpty();
+        TrackDocument("background_job", job.JobId.ToString());
+
+        var status = await GetAsync<ReferenceSyncJobStatusDto>($"/api/reference-data/sync-now/{job.JobId}");
+
+        // a ranking rebuild is bounded (a few listing pages per ordering), so Completed is a legitimate answer
+        // by the time this poll lands - but a reference stage never is.
+        status.Stage.Should()
+            .BeOneOf([ReferenceSyncStage.RefreshingExplore, ReferenceSyncStage.Completed], because: status.ErrorMessage ?? "");
+    }
+
+    /// <summary>
     /// The slow half of the lifecycle: polling until the job reports Completed with a result. Opt-in via
     /// REFERENCE_SYNC_POLL_ENABLED=true (see CONTRIBUTING.md) - run it on demand when touching the sync
     /// pipeline, not on every default test run. Forced on purpose: the point is to drive the whole pipeline

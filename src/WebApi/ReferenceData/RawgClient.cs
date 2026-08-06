@@ -48,6 +48,38 @@ public class RawgClient(HttpClient http, RawgSettings settings) : IVideoGameRefe
             .ToList() ?? [];
     }
 
+    public async Task<IReadOnlyList<VideoGameSearchResult>> FindGamesContainingAllWordsAsync(IReadOnlyList<string> words, CancellationToken cancellationToken = default)
+    {
+        if (words.Count == 0) return [];
+
+        // RAWG has no substring operator on a field - `search=` is all it offers - so the containment this
+        // method promises is applied here, on one page of results, the same shape as FindGamesByExactTitleAsync
+        // above. Weaker than IGDB's version (RAWG's own relevance decides what is on that page at all) but it
+        // costs one call and can only ever return titles that genuinely contain every word.
+        var query = $"games?key={ApiKey}&search={Encode(string.Join(' ', words))}&page_size={MaxExactTitleResults}";
+        var response = await http.GetFromJsonAsync<RawgSearchResponse>(query, cancellationToken);
+        return response?.Results
+            .Where(r => r.Name is not null && words.All(word => r.Name.Contains(word, StringComparison.OrdinalIgnoreCase)))
+            .Select(r => new VideoGameSearchResult(
+                r.Id.ToString(CultureInfo.InvariantCulture), r.Name!, ParseYear(r.Released), r.BackgroundImage))
+            .ToList() ?? [];
+    }
+
+    public async Task<VideoGameSearchResult?> FindGameByIdentifierAsync(string identifier, CancellationToken cancellationToken = default)
+    {
+        // RAWG's own detail endpoint accepts either its numeric id or the slug its pages are keyed on, so a
+        // pasted address needs no separate lookup. It answers 404 for one it doesn't hold, which is an
+        // ordinary "no result" here rather than a failed request - hence GetAsync over GetFromJsonAsync.
+        using var response = await http.GetAsync($"games/{Uri.EscapeDataString(identifier)}?key={ApiKey}", cancellationToken);
+        if (!response.IsSuccessStatusCode) return null;
+
+        var details = await response.Content.ReadFromJsonAsync<RawgGameDetailsResponse>(cancellationToken);
+        return details is null
+            ? null
+            : new VideoGameSearchResult(
+                details.Id.ToString(CultureInfo.InvariantCulture), details.Name ?? identifier, ParseYear(details.Released), details.BackgroundImage);
+    }
+
     public async Task<VideoGameDetails?> GetGameDetailsAsync(string externalId, CancellationToken cancellationToken = default)
     {
         var details = await http.GetFromJsonAsync<RawgGameDetailsResponse>($"games/{externalId}?key={ApiKey}", cancellationToken);
@@ -151,6 +183,9 @@ public class RawgClient(HttpClient http, RawgSettings settings) : IVideoGameRefe
 
     private sealed class RawgGameDetailsResponse
     {
+        [JsonPropertyName("id")]
+        public long Id { get; set; }
+
         [JsonPropertyName("name")]
         public string? Name { get; set; }
 

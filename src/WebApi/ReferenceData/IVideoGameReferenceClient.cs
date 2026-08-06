@@ -80,6 +80,39 @@ public interface IVideoGameReferenceClient : IReferenceProviderClient
     /// </summary>
     Task<IReadOnlyList<VideoGameSearchResult>> FindGamesByExactTitleAsync(string title, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Every game whose title contains all of <paramref name="words"/> as substrings, in any order and
+    /// wherever they fall - the last resort for a title neither an exact-name lookup nor a relevance search
+    /// can reach.
+    /// <para>
+    /// It exists for one specific, confirmed shape: the reference spells the work without punctuation the
+    /// provider writes. "Marvel Avengers" is IGDB's "Marvel's Avengers" (id 26950, 2020), which its exact-name
+    /// lookup misses on the apostrophe-s and its relevance search answers with LEGO expansion packs and never
+    /// the game - while <c>name ~ *"marvel"* &amp; name ~ *"avengers"*</c> returns it, because each word is
+    /// still a substring of the provider's own spelling.
+    /// </para>
+    /// <para>
+    /// Deliberately unranked and unbounded by relevance - a substring filter has no notion of either - so the
+    /// caller is expected to shortlist what comes back rather than show it whole (see
+    /// <c>ReferenceEnrichmentService.FindAdoptionCandidatesAsync</c>).
+    /// </para>
+    /// </summary>
+    Task<IReadOnlyList<VideoGameSearchResult>> FindGamesContainingAllWordsAsync(IReadOnlyList<string> words, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The single game this provider publishes under <paramref name="identifier"/> - its own numeric id, or
+    /// the slug its public page URL is keyed on (see <see cref="ProviderWebLinks.TryReadIdentifier"/>). Null
+    /// when it holds none, never an exception: an admin pasting an address that turns out to be wrong is an
+    /// ordinary "no result", not a failed request.
+    /// <para>
+    /// This is the admin reconciliation screen's escape hatch, and it exists because a search-only surface has
+    /// a real dead end. Confirmed live against IGDB: no spelling of "Marvel's Avengers" makes its relevance
+    /// search return that game, so a reference whose stored title differs from the provider's cannot be
+    /// reached by any query at all - while its page, which a human can simply open and copy, names it exactly.
+    /// </para>
+    /// </summary>
+    Task<VideoGameSearchResult?> FindGameByIdentifierAsync(string identifier, CancellationToken cancellationToken = default);
+
     Task<VideoGameDetails?> GetGameDetailsAsync(string externalId, CancellationToken cancellationToken = default);
 
     /// <summary>

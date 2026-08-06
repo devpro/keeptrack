@@ -25,6 +25,10 @@ public class TitleNormalizerTest
     [InlineData("Pokémon Scarlet", "Pokemon Scarlet")]
     [InlineData("NieR:Automata", "NieR: Automata")]
     [InlineData("Ratchet & Clank", "Ratchet and Clank")]
+    // an apostrophe one catalogue writes and the other doesn't - dropped rather than spaced, or these
+    // normalize to "assassin s creed" and match neither spelling
+    [InlineData("Assassin's Creed", "Assassins Creed")]
+    [InlineData("Marvel’s Spider-Man", "Marvels Spider Man")]
     public void NormalizeLoose_TreatsProviderSpellingsOfOneWorkAsEqual(string left, string right) =>
         TitleNormalizer.LooselyEqual(left, right).Should().BeTrue();
 
@@ -50,6 +54,20 @@ public class TitleNormalizerTest
     [InlineData("Pokémon Scarlet", "Pokémon Scarlet")]
     public void StripDisambiguator_RemovesOnlyTheParenthesisedGroup(string title, string expected) =>
         TitleNormalizer.StripDisambiguator(title).Should().Be(expected);
+
+    [Theory]
+    // the rows a provider's search could not parse, all confirmed against the live IGDB API: it answers the
+    // left-hand string with nothing (or with unrelated games) and the right-hand one with the game itself
+    [InlineData("NieR:Automata", "NieR Automata")]
+    [InlineData("Pokémon: Let's Go, Pikachu! and Eevee!", "Pokemon Lets Go Pikachu and Eevee")]
+    [InlineData("NieR Replicant v1.22474487139", "NieR Replicant v1 22474487139")]
+    [InlineData("Marvel's Avengers", "Marvels Avengers")]
+    // unlike NormalizeLoose this is a query, not a key: every word survives (including "the") and so does the
+    // casing, because the result still has to read as a title the provider could hold
+    [InlineData("Disco Elysium: The Final Cut", "Disco Elysium The Final Cut")]
+    [InlineData("GoldenEye 007 (1997)", "GoldenEye 007 1997")]
+    public void ToProviderQuery_ReducesATitleToWordsAProviderSearchCanParse(string title, string expected) =>
+        TitleNormalizer.ToProviderQuery(title).Should().Be(expected);
 
     [Theory]
     // the album itself, and the editions/compilations that legitimately carry its name

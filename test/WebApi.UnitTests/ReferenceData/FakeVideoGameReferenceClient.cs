@@ -60,15 +60,58 @@ internal sealed class FakeVideoGameReferenceClient : IVideoGameReferenceClient
     /// <summary>How many exact-title lookups were issued, counted separately from the relevance searches.</summary>
     public int ExactTitleSearchCount { get; private set; }
 
+    /// <summary>
+    /// What the provider answers to one *specific* query, for the tests about the adoption ladder's widening.
+    /// A real provider's relevance search is punctuation-sensitive in ways that decide whether a game is
+    /// found at all (IGDB answers "NieR:Automata" with one unrelated project and "NieR Automata" with the
+    /// game), which a fake returning the same list whatever it is asked cannot express. Anything not listed
+    /// here falls back to the fixed results, so every test that predates this behaves exactly as before.
+    /// </summary>
+    public Dictionary<string, List<VideoGameSearchResult>> SearchResultsByQuery { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Every query the provider was asked, in order - what proves which rungs of the ladder ran.</summary>
+    public List<string> Queries { get; } = [];
+
+    /// <summary>Games reachable by <see cref="FindGameByIdentifierAsync"/>, keyed by id or page slug.</summary>
+    public Dictionary<string, VideoGameSearchResult> Identifiers { get; } = new(StringComparer.Ordinal);
+
     public Task<IReadOnlyList<VideoGameSearchResult>> SearchGamesAsync(string title, int? year, CancellationToken cancellationToken = default)
     {
         SearchCount++;
-        return Task.FromResult<IReadOnlyList<VideoGameSearchResult>>(_searchResults);
+        Queries.Add(title);
+        return Task.FromResult<IReadOnlyList<VideoGameSearchResult>>(
+            SearchResultsByQuery.TryGetValue(title, out var forQuery) ? forQuery : _searchResults);
     }
+
+    /// <summary>
+    /// The catalogue the substring rung filters, so a test states what the provider *holds* and lets the
+    /// containment rule decide - the same thing the real query does server-side.
+    /// </summary>
+    public List<VideoGameSearchResult> Catalogue { get; } = [];
+
+    /// <summary>How many substring queries were issued - it is the last resort, so mostly this should be 0.</summary>
+    public int ContainsSearchCount { get; private set; }
+
+    public Task<IReadOnlyList<VideoGameSearchResult>> FindGamesContainingAllWordsAsync(IReadOnlyList<string> words, CancellationToken cancellationToken = default)
+    {
+        ContainsSearchCount++;
+        return Task.FromResult<IReadOnlyList<VideoGameSearchResult>>(
+            Catalogue.Where(game => words.All(word => game.Title.Contains(word, StringComparison.OrdinalIgnoreCase))).ToList());
+    }
+
+    public Task<VideoGameSearchResult?> FindGameByIdentifierAsync(string identifier, CancellationToken cancellationToken = default)
+    {
+        IdentifierLookupCount++;
+        return Task.FromResult(Identifiers.GetValueOrDefault(identifier));
+    }
+
+    /// <summary>How many pasted-address lookups were issued, counted apart from the two search shapes.</summary>
+    public int IdentifierLookupCount { get; private set; }
 
     public Task<IReadOnlyList<VideoGameSearchResult>> FindGamesByExactTitleAsync(string title, CancellationToken cancellationToken = default)
     {
         ExactTitleSearchCount++;
+        Queries.Add(title);
         return Task.FromResult<IReadOnlyList<VideoGameSearchResult>>(
             ExactTitleResults.Where(r => string.Equals(r.Title, title, StringComparison.OrdinalIgnoreCase)).ToList());
     }

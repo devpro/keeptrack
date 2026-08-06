@@ -139,11 +139,13 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
     /// <c>ReferenceDataAdminController.SyncNow</c>). With <paramref name="force"/> it re-checks every
     /// reference document and rebuilds every Explore ranking; without it, it takes exactly what the
     /// background tick would have taken - only what is past its staleness window.
+    /// With <paramref name="exploreOnly"/> it rebuilds the Explore rankings alone, skipping the five reference
+    /// domains - much the cheaper half, and the only one that matters after an Explore change.
     /// Runs in the background; poll <see cref="GetSyncStatusAsync"/> with the returned job id for progress.
     /// </summary>
-    public async Task<Guid> StartSyncAsync(bool force)
+    public async Task<Guid> StartSyncAsync(bool force, bool exploreOnly)
     {
-        var response = await http.PostAsync($"/api/reference-data/sync-now?force={force}", null);
+        var response = await http.PostAsync($"/api/reference-data/sync-now?force={force}&exploreOnly={exploreOnly}", null);
         response.EnsureSuccessStatusCode();
 
         var job = await response.Content.ReadFromJsonAsync<ReferenceSyncJobDto>();
@@ -170,9 +172,15 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
     /// The default provider's candidates for one stuck reference. Reaches a live provider, so it is read
     /// through <see cref="ApiResponseExtensions"/> like the admin search is.
     /// </summary>
-    public async Task<List<ReferenceSearchResultDto>> GetAdoptionCandidatesAsync(string referenceId)
+    /// <param name="query">
+    /// What the admin typed instead of the reference's own title, or a pasted provider page URL. Null asks
+    /// with the stored title, which is what opening a row does.
+    /// </param>
+    public async Task<List<ReferenceSearchResultDto>> GetAdoptionCandidatesAsync(string referenceId, string? query = null)
     {
-        var response = await http.GetAsync($"/api/reference-data/provider-reconciliation/{referenceId}/candidates");
+        var url = $"/api/reference-data/provider-reconciliation/{referenceId}/candidates"
+                  + (string.IsNullOrWhiteSpace(query) ? "" : $"?query={Uri.EscapeDataString(query)}");
+        var response = await http.GetAsync(url);
         return await response.ReadJsonOrThrowAsync<List<ReferenceSearchResultDto>>() ?? [];
     }
 

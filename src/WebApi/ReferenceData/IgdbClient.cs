@@ -64,6 +64,39 @@ public class IgdbClient(HttpClient http, IgdbSettings settings) : IVideoGameRefe
             g.Id.ToString(CultureInfo.InvariantCulture), g.Name ?? title, ParseYear(g.FirstReleaseDate), CoverUrl(g.Cover))).ToList();
     }
 
+    public async Task<IReadOnlyList<VideoGameSearchResult>> FindGamesContainingAllWordsAsync(IReadOnlyList<string> words, CancellationToken cancellationToken = default)
+    {
+        if (!settings.IsConfigured || words.Count == 0) return [];
+
+        // `name ~ *"..."*` is Apicalypse's case-insensitive *contains*, and several of them "and"-ed is the
+        // only query shape here that survives the provider spelling a title with punctuation the reference
+        // doesn't: each word is still a substring of "Marvel's Avengers", where the whole phrase matches
+        // neither its name nor its search index.
+        var filter = string.Join(" & ", words.Select(word => $"name ~ *\"{EscapeSearchTerm(word)}\"*"));
+        var games = await QueryAsync($"{SearchFields} where {filter}; limit {MaxContainsResults};", cancellationToken);
+        return games.Select(g => new VideoGameSearchResult(
+            g.Id.ToString(CultureInfo.InvariantCulture), g.Name ?? string.Empty, ParseYear(g.FirstReleaseDate), CoverUrl(g.Cover))).ToList();
+    }
+
+    public async Task<VideoGameSearchResult?> FindGameByIdentifierAsync(string identifier, CancellationToken cancellationToken = default)
+    {
+        if (!settings.IsConfigured || string.IsNullOrWhiteSpace(identifier)) return null;
+
+        // IGDB keys its own pages on `slug` and exposes it as an ordinary filterable field, so the address a
+        // human copies out of the browser resolves in one call - verified live: `where slug =
+        // "marvels-avengers"` returns the game every spelling of its name fails to find.
+        var filter = long.TryParse(identifier, NumberStyles.None, CultureInfo.InvariantCulture, out var id)
+            ? $"id = {id}"
+            : $"slug = \"{EscapeSearchTerm(identifier)}\"";
+
+        var games = await QueryAsync($"{SearchFields} where {filter}; limit 1;", cancellationToken);
+        return games.Count == 0
+            ? null
+            : new VideoGameSearchResult(
+                games[0].Id.ToString(CultureInfo.InvariantCulture), games[0].Name ?? identifier,
+                ParseYear(games[0].FirstReleaseDate), CoverUrl(games[0].Cover));
+    }
+
     public async Task<VideoGameDetails?> GetGameDetailsAsync(string externalId, CancellationToken cancellationToken = default)
     {
         // ids are IGDB's own numeric ids; anything else is not a value this provider issued, and interpolating
@@ -133,6 +166,14 @@ public class IgdbClient(HttpClient http, IgdbSettings settings) : IVideoGameRefe
     /// leave it for an admin" a real judgement (a common name like "Resident Evil" has seven).
     /// </summary>
     private const int MaxExactTitleResults = 50;
+
+    /// <summary>
+    /// Bound on <see cref="FindGamesContainingAllWordsAsync"/>. A substring filter has no relevance ordering
+    /// to truncate *by*, so this is a cost ceiling rather than a window: the caller shortlists what comes back
+    /// against the title it was actually looking for. Measured on the real catalogue, "marvel" + "avengers"
+    /// returns 40 games, so this comfortably covers a genuine query while capping a careless one.
+    /// </summary>
+    private const int MaxContainsResults = 100;
 
     /// <summary>IGDB's per-query maximum, so a full catalogue ranking costs as few round-trips as possible.</summary>
     private const int TopRatedPageSize = 500;

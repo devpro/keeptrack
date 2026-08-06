@@ -68,6 +68,13 @@ public static class TitleNormalizer
             {
                 builder.Append(character);
             }
+            else if (character is '\'' or '’')
+            {
+                // an apostrophe is dropped rather than collapsed to a space, so one catalogue's
+                // "Assassin's Creed" and another's "Assassins Creed" tokenize the same way. Spacing it instead
+                // produced "assassin s creed", which matched neither spelling.
+                continue;
+            }
             else
             {
                 // "&" and every separator collapse to a single space, so "Rock & Roll", "Rock and Roll" and
@@ -105,6 +112,38 @@ public static class TitleNormalizer
         }
 
         return string.Join(' ', stripped.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+    }
+
+    /// <summary>
+    /// The title reduced to plain words a provider's own search can parse: diacritics folded, apostrophes
+    /// dropped, every other non-alphanumeric run collapsed to a single space. Unlike
+    /// <see cref="NormalizeLoose"/> it keeps every word (including "the") and the original casing, because the
+    /// result is a *query*, not a matching key.
+    /// <para>
+    /// It exists because a provider's free-text search is far less forgiving about punctuation than its
+    /// catalogue is, confirmed against the live IGDB API: <c>search "NieR:Automata"</c> - a colon glued to the
+    /// next letter, exactly how RAWG spells it - returns only "Untitled NieR:Automata Project" and never the
+    /// game itself, while <c>search "NieR Automata"</c> returns it as the top hit. The same query is what
+    /// rescues a title carrying <c>!</c>, <c>,</c> or an accent.
+    /// </para>
+    /// <para>
+    /// Asking with this form is safe because nothing about *confirmation* loosens: the candidates it brings
+    /// back are still checked against the reference's own title with <see cref="LooselyEqual"/> and a
+    /// compatible year, and anything but a single match is still left for a human.
+    /// </para>
+    /// </summary>
+    public static string ToProviderQuery(string title)
+    {
+        var folded = RemoveDiacritics(title);
+        var builder = new StringBuilder(folded.Length);
+
+        foreach (var character in folded)
+        {
+            if (character is '\'' or '’') continue;
+            builder.Append(char.IsLetterOrDigit(character) ? character : ' ');
+        }
+
+        return string.Join(' ', builder.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
     }
 
     /// <summary>
