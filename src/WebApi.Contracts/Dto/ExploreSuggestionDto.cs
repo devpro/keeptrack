@@ -32,4 +32,20 @@ public class ExploreSuggestionDto
 
     /// <summary>Scale of <see cref="Rating"/> (10 for TMDB/IMDb, 5 for RAWG, 100 for Metacritic).</summary>
     public double? RatingScale { get; set; }
+
+    /// <summary>
+    /// The title's own page on a provider's website, for a card to open in a new tab so the suggestion can be
+    /// read up on before it is added or dismissed. It follows the rating the card displays wherever possible -
+    /// a movie shown with an IMDb score links to IMDb - and otherwise falls back to the provider the
+    /// suggestion was discovered through. Null when neither is known (an entry written before links were
+    /// stored, or a provider that reported no page), in which case the card simply isn't a link.
+    /// </summary>
+    public string? ProviderUrl { get; set; }
+
+    /// <summary>
+    /// The name of the website <see cref="ProviderUrl"/> opens ("IMDb", "TMDB", "IGDB"), so the client can
+    /// label the link without keeping its own copy of every provider's name. Null exactly when
+    /// <see cref="ProviderUrl"/> is.
+    /// </summary>
+    public string? ProviderName { get; set; }
 }

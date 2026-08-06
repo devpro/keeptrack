@@ -87,7 +87,7 @@ public class ExploreService(
                 if (!excludedIds.Add(entry.ExternalId)) continue; // tracked, dismissed, or already on this page
                 if (excludedTitles.Contains(TitleNormalizer.NormalizeLoose(entry.Title))) continue;
 
-                items.Add(ToDto(entry, ratingSource));
+                items.Add(ToDto(entry, ratingSource, exploreRankings.DiscoverySource(type)));
                 if (items.Count >= limit) break;
             }
         }
@@ -200,9 +200,10 @@ public class ExploreService(
 
     // the shown rating is the selected source's own stored value, and null when there isn't one - the same
     // semantics as before (a title OMDb had no rating for showed no rating), just without the per-request call.
-    private static ExploreSuggestionDto ToDto(ExploreCatalogueEntryModel entry, string ratingSource)
+    private ExploreSuggestionDto ToDto(ExploreCatalogueEntryModel entry, string ratingSource, string discoverySource)
     {
         var hasRating = entry.Ratings.TryGetValue(ratingSource, out var rating);
+        var linkSource = LinkSource(entry, ratingSource, discoverySource);
         return new ExploreSuggestionDto
         {
             ExternalId = entry.ExternalId,
@@ -211,7 +212,21 @@ public class ExploreService(
             ImageUrl = entry.ImageUrl,
             Synopsis = entry.Synopsis,
             Rating = hasRating ? rating : null,
-            RatingScale = hasRating ? RatingSourceCatalog.ScaleOf(ratingSource) : null
+            RatingScale = hasRating ? RatingSourceCatalog.ScaleOf(ratingSource) : null,
+            ProviderUrl = linkSource is null ? null : entry.WebUrls[linkSource],
+            ProviderName = linkSource is null ? null : exploreRankings.SiteName(linkSource)
         };
+    }
+
+    // Which stored page a card links out to: the site whose number the card is showing, so clicking through
+    // lands where the rating came from (an IMDb-rated movie opens IMDb), falling back to the provider the
+    // suggestion was discovered through - which is always a page the entry could have, since the refresh pass
+    // writes it from the same listing that produced the entry. Null means neither is stored: an entry written
+    // before links existed and not yet revisited, or a provider that reported no page for it. A card with no
+    // link is simply not a link, never a dead one.
+    private static string? LinkSource(ExploreCatalogueEntryModel entry, string ratingSource, string discoverySource)
+    {
+        if (entry.WebUrls.ContainsKey(ratingSource)) return ratingSource;
+        return entry.WebUrls.ContainsKey(discoverySource) ? discoverySource : null;
     }
 }

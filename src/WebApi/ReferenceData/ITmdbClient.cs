@@ -8,9 +8,10 @@ public record TmdbSearchResult(string TmdbId, string Title, int? Year, string? S
 
 /// <summary>
 /// One entry from a TMDB "top rated" list - the same fields as a search hit plus TMDB's own aggregate
-/// vote average (0-10), which is what the Explore discovery feature ranks and displays by.
+/// vote average (0-10), which is what the Explore discovery feature ranks and displays by, and the URL of the
+/// title's own page on themoviedb.org, so a suggestion can be read up on before it is added or dismissed.
 /// </summary>
-public record TmdbTopRatedItem(string TmdbId, string Title, int? Year, string? Synopsis, string? PosterUrl, double? VoteAverage);
+public record TmdbTopRatedItem(string TmdbId, string Title, int? Year, string? Synopsis, string? PosterUrl, double? VoteAverage, string? WebUrl);
 
 public record TmdbEpisode(int SeasonNumber, int EpisodeNumber, string Title, DateOnly? AirDate);
 

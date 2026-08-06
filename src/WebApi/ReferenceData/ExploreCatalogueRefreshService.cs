@@ -87,7 +87,7 @@ public class ExploreCatalogueRefreshService(
         // what is declared, not on what this pass fetched, so a skipped or failed ranking is never affected.
         await catalogueRepository.DeleteRankingsExceptAsync(exploreRankings.All.Select(r => r.Ranking).Distinct().ToList());
 
-        return new ExploreCatalogueRefreshResult(rankingsRefreshed, entriesRefreshed, await BackfillImdbRatingsAsync(cancellationToken));
+        return new ExploreCatalogueRefreshResult(rankingsRefreshed, entriesRefreshed, await BackfillImdbAsync(cancellationToken));
     }
 
     private async Task<bool> IsStaleAsync(ExploreItemType type, string ranking, TimeSpan staleAfter)
@@ -136,8 +136,10 @@ public class ExploreCatalogueRefreshService(
     }
 
     /// <summary>
-    /// Fills in IMDb ratings for the movie/TV entries still missing one, top of the ranking first, spending
-    /// whatever is left of the day's shared OMDb allowance (see <see cref="OmdbCallBudget"/>).
+    /// Fills in the IMDb half of the movie/TV entries - the rating for those still missing one, and the link
+    /// to the title's own IMDb page for any entry whose id resolves - top of the ranking first, spending
+    /// whatever is left of the day's shared OMDb allowance (see <see cref="OmdbCallBudget"/>) on the ratings.
+    /// The link costs no allowance at all: it is made out of the id the rating lookup has to resolve anyway.
     /// <para>
     /// Only runs for a domain IMDb actually won: the value is display-only (the ordering stays TMDB's, since
     /// re-ranking by partial OMDb data would float unrated titles to the top), so fetching it for a domain
@@ -150,7 +152,7 @@ public class ExploreCatalogueRefreshService(
     /// authorizes a call, so another replica spending concurrently can't push this pass over the limit.
     /// </para>
     /// </summary>
-    private async Task<int> BackfillImdbRatingsAsync(CancellationToken cancellationToken)
+    private async Task<int> BackfillImdbAsync(CancellationToken cancellationToken)
     {
         if (await appSettingRepository.GetExploreUseTmdbAsync()) return 0;
 
@@ -169,7 +171,7 @@ public class ExploreCatalogueRefreshService(
             }
 
             var ranking = exploreRankings.For(type, RatingSourceCatalog.Imdb);
-            var pending = await catalogueRepository.FindMissingRatingAsync(
+            var pending = await catalogueRepository.FindMissingRatingOrLinkAsync(
                 type, ranking, RatingSourceCatalog.Imdb, DateTime.UtcNow - RatingSourceCatalog.RatingReattemptAfter, Math.Min(MaxBackfillPerPass, affordable));
             var imdbIdFetcher = ImdbIdFetcher(type);
 
@@ -178,6 +180,20 @@ public class ExploreCatalogueRefreshService(
                 try
                 {
                     var imdbId = await imdbIdFetcher(entry.ExternalId, cancellationToken);
+
+                    // the id is what a card's IMDb link is made of, so store it the moment it resolves - it is
+                    // already paid for, and whether the rating lookup below happens at all depends on a budget
+                    // that has nothing to do with the link.
+                    if (!string.IsNullOrEmpty(imdbId) && !entry.WebUrls.ContainsKey(RatingSourceCatalog.Imdb))
+                    {
+                        await catalogueRepository.SetWebUrlAsync(
+                            type, ranking, entry.ExternalId, RatingSourceCatalog.Imdb, ProviderWebLinks.Imdb(imdbId));
+                    }
+
+                    // an entry pulled in only because its link was missing already has its rating; spending an
+                    // OMDb call to re-learn it would take budget from the entries that have none.
+                    if (entry.Ratings.ContainsKey(RatingSourceCatalog.Imdb)) continue;
+
                     var lookup = string.IsNullOrEmpty(imdbId)
                         ? OmdbLookupResult.NoRating // TMDB has no imdb id for it at all: a real answer, worth stamping
                         : await omdbClient.GetRatingAsync(imdbId, OmdbCallPriority.Background, cancellationToken);
@@ -210,12 +226,17 @@ public class ExploreCatalogueRefreshService(
     }
 
     // which client answers for a (domain, ordering). TMDB has one top-rated list per domain; the video game
-    // provider orders natively by whichever of its own sources the ordering names.
+    // provider orders natively by whichever of its own sources the ordering names. Each arm names the source
+    // key its listing's page links are stored under - the discovery provider's, whatever the displayed rating.
     private Func<int, CancellationToken, Task<IReadOnlyList<CatalogueItem>>> TopRatedFetcher(ExploreItemType type, string ranking) => type switch
     {
-        ExploreItemType.Movie => async (page, token) => ToItems(await tmdbClient.GetTopRatedMoviesAsync(page, token)),
-        ExploreItemType.TvShow => async (page, token) => ToItems(await tmdbClient.GetTopRatedTvShowsAsync(page, token)),
-        ExploreItemType.VideoGame => async (page, token) => ToItems(await videoGameClients.Resolve(null).GetTopRatedGamesAsync(page, ranking, token)),
+        ExploreItemType.Movie => async (page, token) => ToItems(await tmdbClient.GetTopRatedMoviesAsync(page, token), RatingSourceCatalog.Tmdb),
+        ExploreItemType.TvShow => async (page, token) => ToItems(await tmdbClient.GetTopRatedTvShowsAsync(page, token), RatingSourceCatalog.Tmdb),
+        ExploreItemType.VideoGame => async (page, token) =>
+        {
+            var client = videoGameClients.Resolve(null);
+            return ToItems(await client.GetTopRatedGamesAsync(page, ranking, token), client.ProviderKey);
+        },
         _ => throw new ArgumentOutOfRangeException(nameof(type), $"Explore is not available for {type}.")
     };
 
@@ -226,22 +247,28 @@ public class ExploreCatalogueRefreshService(
         _ => throw new ArgumentOutOfRangeException(nameof(type), $"Explore is not available for {type}.")
     };
 
-    private static List<CatalogueItem> ToItems(IReadOnlyList<TmdbTopRatedItem> items) =>
+    private static List<CatalogueItem> ToItems(IReadOnlyList<TmdbTopRatedItem> items, string providerKey) =>
     [
         .. items.Select(i => new CatalogueItem(
-            i.TmdbId, i.Title, i.Year, i.Synopsis, i.PosterUrl, Ratings((RatingSourceCatalog.Tmdb, i.VoteAverage))))
+            i.TmdbId, i.Title, i.Year, i.Synopsis, i.PosterUrl,
+            Ratings((RatingSourceCatalog.Tmdb, i.VoteAverage)), WebUrls(providerKey, i.WebUrl)))
     ];
 
     // a video game provider reports every score it has on each listing entry, so all of them are stored
     // whichever one the list was ordered by - switching the admin's selection then costs no provider call at
     // all. The client has already keyed them by its own sources, so there is nothing to map per provider here.
-    private static List<CatalogueItem> ToItems(IReadOnlyList<VideoGameTopRatedItem> items) =>
+    private static List<CatalogueItem> ToItems(IReadOnlyList<VideoGameTopRatedItem> items, string providerKey) =>
     [
-        .. items.Select(i => new CatalogueItem(i.ExternalId, i.Title, i.Year, null, i.ImageUrl, i.Ratings))
+        .. items.Select(i => new CatalogueItem(i.ExternalId, i.Title, i.Year, null, i.ImageUrl, i.Ratings, WebUrls(providerKey, i.WebUrl)))
     ];
 
     private static Dictionary<string, double> Ratings(params (string Source, double? Value)[] ratings) =>
         ratings.Where(r => r.Value is not null).ToDictionary(r => r.Source, r => r.Value!.Value);
+
+    // a provider that didn't give a page URL simply contributes no key, exactly like a missing rating - the
+    // card then falls back to whatever other link the entry carries rather than showing a dead one.
+    private static Dictionary<string, string> WebUrls(string providerKey, string? webUrl) =>
+        string.IsNullOrWhiteSpace(webUrl) ? [] : new Dictionary<string, string> { [providerKey] = webUrl };
 
     private static ExploreCatalogueEntryModel ToEntry(ExploreItemType type, string ranking, CatalogueItem item, int rank, DateTime refreshedAt) => new()
     {
@@ -254,6 +281,7 @@ public class ExploreCatalogueRefreshService(
         Synopsis = item.Synopsis,
         ImageUrl = item.ImageUrl,
         Ratings = item.Ratings,
+        WebUrls = item.WebUrls,
         RefreshedAt = refreshedAt
     };
 
@@ -262,7 +290,13 @@ public class ExploreCatalogueRefreshService(
     /// once instead of per domain.
     /// </summary>
     private sealed record CatalogueItem(
-        string ExternalId, string Title, int? Year, string? Synopsis, string? ImageUrl, Dictionary<string, double> Ratings);
+        string ExternalId,
+        string Title,
+        int? Year,
+        string? Synopsis,
+        string? ImageUrl,
+        Dictionary<string, double> Ratings,
+        Dictionary<string, string> WebUrls);
 }
 
 /// <summary>

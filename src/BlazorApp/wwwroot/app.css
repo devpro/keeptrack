@@ -532,6 +532,8 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 .kt-explore-actions .kt-icon-btn { background: rgba(0, 0, 0, 0.55); border-radius: 6px; }
 /* list-row variant: actions on the right, always visible */
 .kt-explore-row-actions { position: relative; z-index: 2; display: flex; align-items: center; gap: 0.4rem; }
+/* "↗ IMDb" in a suggestion's meta line: the card/row leaves the app when clicked, so it says where to. */
+.kt-explore-source { display: inline-flex; align-items: center; gap: 0.25rem; }
 
 .kt-grid-caption { padding: 0.5rem 0.15rem 0; }
 .kt-grid-title {

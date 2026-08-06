@@ -66,6 +66,20 @@ public class ExploreCatalogueEntryModel
     public Dictionary<string, DateTime> RatingsCheckedAt { get; set; } = [];
 
     /// <summary>
+    /// Where a human can go and read more about this title, per source key ("tmdb"/"imdb", "igdb"/"rawg") - so
+    /// a suggestion card can be opened at the provider before it is added or dismissed, which is the one thing
+    /// Explore cannot answer itself (a suggestion is by definition not yet in the collection, so it has no
+    /// detail page to open).
+    /// <para>
+    /// Stored rather than derived because two of the four cannot be derived: IGDB and RAWG key their pages on
+    /// a slug, which <see cref="ExternalId"/> is not, so the URL has to come back from the listing that
+    /// produced the entry. The discovery provider's URL is written by every refresh pass; the "imdb" one is
+    /// filled in by the same backfill that fetches the IMDb rating, out of the id it already had to resolve.
+    /// </para>
+    /// </summary>
+    public Dictionary<string, string> WebUrls { get; set; } = [];
+
+    /// <summary>
     /// The refresh pass that last wrote this entry. Every entry written by one pass shares its timestamp, so
     /// the pass can drop what fell out of the ranking with a single "older than me" delete, and the *oldest*
     /// stamp in a ranking tells the scheduler whether the last pass actually completed.

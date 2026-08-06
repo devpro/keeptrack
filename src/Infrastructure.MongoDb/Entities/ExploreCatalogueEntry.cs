@@ -50,6 +50,10 @@ public class ExploreCatalogueEntry
     [BsonElement("ratings_checked_at")]
     public Dictionary<string, DateTime> RatingsCheckedAt { get; set; } = [];
 
+    /// <summary>The provider page a card links out to, per source key - see <see cref="ExploreCatalogueEntryModel.WebUrls"/>.</summary>
+    [BsonElement("web_urls")]
+    public Dictionary<string, string> WebUrls { get; set; } = [];
+
     [BsonElement("refreshed_at")]
     public DateTime RefreshedAt { get; set; }
 }

@@ -67,7 +67,8 @@ public class RawgClient(HttpClient http, RawgSettings settings) : IVideoGameRefe
         var response = await http.GetFromJsonAsync<RawgSearchResponse>(query, cancellationToken);
         return response?.Results.Select(r => new VideoGameTopRatedItem(
             r.Id.ToString(CultureInfo.InvariantCulture), r.Name ?? string.Empty, ParseYear(r.Released), r.BackgroundImage,
-            BuildRatings(r.Rating, null, r.Metacritic).ToDictionary(x => x.Key, x => x.Value.Value))).ToList() ?? [];
+            BuildRatings(r.Rating, null, r.Metacritic).ToDictionary(x => x.Key, x => x.Value.Value),
+            string.IsNullOrEmpty(r.Slug) ? null : ProviderWebLinks.Rawg(r.Slug))).ToList() ?? [];
     }
 
     /// <summary>
@@ -142,6 +143,10 @@ public class RawgClient(HttpClient http, RawgSettings settings) : IVideoGameRefe
 
         [JsonPropertyName("metacritic")]
         public int? Metacritic { get; set; }
+
+        /// <summary>What rawg.io keys a game's own page on - <see cref="Id"/> can't be turned into it.</summary>
+        [JsonPropertyName("slug")]
+        public string? Slug { get; set; }
     }
 
     private sealed class RawgGameDetailsResponse

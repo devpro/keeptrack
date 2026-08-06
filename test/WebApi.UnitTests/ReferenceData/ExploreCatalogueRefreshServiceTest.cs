@@ -39,7 +39,7 @@ public class ExploreCatalogueRefreshServiceTest
             .Callback((IReadOnlyList<ExploreCatalogueEntryModel> entries) => _upserted.AddRange(entries))
             .Returns(Task.CompletedTask);
         _catalogueRepository
-            .Setup(r => r.FindMissingRatingAsync(
+            .Setup(r => r.FindMissingRatingOrLinkAsync(
                 It.IsAny<ExploreItemType>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<int>()))
             .ReturnsAsync([]);
         var videoGameClients = new ReferenceClientRegistry<IVideoGameReferenceClient>([_videoGameClient], _videoGameClient.ProviderKey);
@@ -63,14 +63,15 @@ public class ExploreCatalogueRefreshServiceTest
     private void RankingIsStale(ExploreItemType type, string ranking) =>
         _catalogueRepository.Setup(r => r.FindOldestRefreshedAtAsync(type, ranking)).ReturnsAsync(DateTime.UtcNow.AddDays(-30));
 
-    private static TmdbTopRatedItem Movie(string id, double rating) => new(id, $"Movie {id}", 1999, "synopsis", "http://img", rating);
+    private static TmdbTopRatedItem Movie(string id, double rating) =>
+        new(id, $"Movie {id}", 1999, "synopsis", "http://img", rating, $"https://www.themoviedb.org/movie/{id}");
 
     private static VideoGameTopRatedItem Game(string id, double? userRating, double? criticRating)
     {
         var ratings = new Dictionary<string, double>();
         if (userRating is not null) ratings[RatingSourceCatalog.Igdb] = userRating.Value;
         if (criticRating is not null) ratings[RatingSourceCatalog.IgdbCritic] = criticRating.Value;
-        return new VideoGameTopRatedItem(id, $"Game {id}", 2010, "http://img", ratings);
+        return new VideoGameTopRatedItem(id, $"Game {id}", 2010, "http://img", ratings, $"https://www.igdb.com/games/game-{id}");
     }
 
     private void TmdbPages(params IReadOnlyList<TmdbTopRatedItem>[] pages)
@@ -218,7 +219,7 @@ public class ExploreCatalogueRefreshServiceTest
         AllRankingsFresh();
         _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync()).ReturnsAsync(new Dictionary<string, string> { ["Movie"] = "imdb" });
         _catalogueRepository
-            .Setup(r => r.FindMissingRatingAsync(ExploreItemType.Movie, "tmdb", "imdb", It.IsAny<DateTime>(), It.IsAny<int>()))
+            .Setup(r => r.FindMissingRatingOrLinkAsync(ExploreItemType.Movie, "tmdb", "imdb", It.IsAny<DateTime>(), It.IsAny<int>()))
             .ReturnsAsync([new ExploreCatalogueEntryModel { ItemType = ExploreItemType.Movie, Ranking = "tmdb", ExternalId = "42", Rank = 1, Title = "Movie 42" }]);
         _tmdbClient.Setup(c => c.GetMovieImdbIdAsync("42", It.IsAny<CancellationToken>())).ReturnsAsync("tt42");
         _omdbClient.Setup(c => c.GetRatingAsync("tt42", OmdbCallPriority.Background, It.IsAny<CancellationToken>()))
@@ -230,7 +231,7 @@ public class ExploreCatalogueRefreshServiceTest
         _catalogueRepository.Verify(r => r.RecordRatingAttemptAsync(ExploreItemType.Movie, "tmdb", "42", "imdb", 8.4), Times.Once);
         // TV shows kept the default source, so they cost nothing
         _catalogueRepository.Verify(
-            r => r.FindMissingRatingAsync(ExploreItemType.TvShow, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<int>()), Times.Never);
+            r => r.FindMissingRatingOrLinkAsync(ExploreItemType.TvShow, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<int>()), Times.Never);
     }
 
     [Fact]
@@ -240,7 +241,7 @@ public class ExploreCatalogueRefreshServiceTest
         AllRankingsFresh();
         _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync()).ReturnsAsync(new Dictionary<string, string> { ["Movie"] = "imdb" });
         _catalogueRepository
-            .Setup(r => r.FindMissingRatingAsync(ExploreItemType.Movie, "tmdb", "imdb", It.IsAny<DateTime>(), It.IsAny<int>()))
+            .Setup(r => r.FindMissingRatingOrLinkAsync(ExploreItemType.Movie, "tmdb", "imdb", It.IsAny<DateTime>(), It.IsAny<int>()))
             .ReturnsAsync([new ExploreCatalogueEntryModel { ItemType = ExploreItemType.Movie, Ranking = "tmdb", ExternalId = "42", Rank = 1, Title = "Movie 42" }]);
         _tmdbClient.Setup(c => c.GetMovieImdbIdAsync("42", It.IsAny<CancellationToken>())).ReturnsAsync((string?)null);
 
@@ -265,7 +266,7 @@ public class ExploreCatalogueRefreshServiceTest
         result.ImdbRatingsBackfilled.Should().Be(0);
         _omdbClient.Verify(c => c.GetRatingAsync(It.IsAny<string>(), It.IsAny<OmdbCallPriority>(), It.IsAny<CancellationToken>()), Times.Never);
         _catalogueRepository.Verify(
-            r => r.FindMissingRatingAsync(It.IsAny<ExploreItemType>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<int>()), Times.Never);
+            r => r.FindMissingRatingOrLinkAsync(It.IsAny<ExploreItemType>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<int>()), Times.Never);
     }
 
     [Fact]
@@ -282,7 +283,7 @@ public class ExploreCatalogueRefreshServiceTest
         // the pass asks for exactly what it can afford, instead of a hardcoded per-domain guess that had to
         // assume the worst about the other consumer
         _catalogueRepository.Verify(
-            r => r.FindMissingRatingAsync(ExploreItemType.Movie, "tmdb", "imdb", It.IsAny<DateTime>(), 7), Times.Once);
+            r => r.FindMissingRatingOrLinkAsync(ExploreItemType.Movie, "tmdb", "imdb", It.IsAny<DateTime>(), 7), Times.Once);
     }
 
     [Fact]
@@ -298,7 +299,7 @@ public class ExploreCatalogueRefreshServiceTest
         result.ImdbRatingsBackfilled.Should().Be(0);
         // not even the query runs: every entry it returned would cost a TMDB call whose answer is unusable
         _catalogueRepository.Verify(
-            r => r.FindMissingRatingAsync(It.IsAny<ExploreItemType>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<int>()), Times.Never);
+            r => r.FindMissingRatingOrLinkAsync(It.IsAny<ExploreItemType>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<int>()), Times.Never);
     }
 
     [Fact]
@@ -308,7 +309,7 @@ public class ExploreCatalogueRefreshServiceTest
         AllRankingsFresh();
         SelectImdbFor("Movie");
         _catalogueRepository
-            .Setup(r => r.FindMissingRatingAsync(ExploreItemType.Movie, "tmdb", "imdb", It.IsAny<DateTime>(), It.IsAny<int>()))
+            .Setup(r => r.FindMissingRatingOrLinkAsync(ExploreItemType.Movie, "tmdb", "imdb", It.IsAny<DateTime>(), It.IsAny<int>()))
             .ReturnsAsync([
                 new ExploreCatalogueEntryModel { ItemType = ExploreItemType.Movie, Ranking = "tmdb", ExternalId = "42", Rank = 1, Title = "Movie 42" },
                 new ExploreCatalogueEntryModel { ItemType = ExploreItemType.Movie, Ranking = "tmdb", ExternalId = "43", Rank = 2, Title = "Movie 43" }
@@ -331,6 +332,116 @@ public class ExploreCatalogueRefreshServiceTest
         // and the pass stops rather than paying a TMDB call for every remaining entry
         _tmdbClient.Verify(c => c.GetMovieImdbIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    [Fact]
+    public async Task RefreshAsync_StoresTheProvidersOwnPageLink_UnderTheDiscoveryProvidersKey()
+    {
+        AllRankingsFresh();
+        RankingIsStale(ExploreItemType.Movie, "tmdb");
+        RankingIsStale(ExploreItemType.VideoGame, RatingSourceCatalog.Igdb);
+        TmdbPages([Movie("a", 9.0)]);
+        _videoGameClient.TopRatedPages[1] = [Game("g1", 92, 96)];
+
+        await CreateService().RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
+
+        // a suggestion is by definition not in the collection yet, so its provider page is the only "read more
+        // about this" a card can offer. Keyed by the discovery provider, whatever rating is displayed on it.
+        _upserted.Single(e => e.ExternalId == "a").WebUrls.Should()
+            .BeEquivalentTo(new Dictionary<string, string> { ["tmdb"] = "https://www.themoviedb.org/movie/a" });
+        _upserted.Single(e => e.ExternalId == "g1").WebUrls.Should()
+            .BeEquivalentTo(new Dictionary<string, string> { [_videoGameClient.ProviderKey] = "https://www.igdb.com/games/game-g1" });
+    }
+
+    [Fact]
+    public async Task RefreshAsync_StoresTheImdbPageLink_OutOfTheIdTheRatingLookupAlreadyResolves()
+    {
+        var service = CreateService();
+        AllRankingsFresh();
+        SelectImdbFor("Movie");
+        PendingBackfill(Entry("42"));
+        _tmdbClient.Setup(c => c.GetMovieImdbIdAsync("42", It.IsAny<CancellationToken>())).ReturnsAsync("tt0042");
+        _omdbClient.Setup(c => c.GetRatingAsync("tt0042", OmdbCallPriority.Background, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(OmdbLookupResult.Rated(new OmdbRating(8.4, 100)));
+
+        await service.RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
+
+        // the id is already paid for by the rating lookup, so the link that shows a movie's IMDb page costs
+        // nothing extra - and it is what makes an IMDb-rated card open IMDb rather than TMDB.
+        _catalogueRepository.Verify(
+            r => r.SetWebUrlAsync(ExploreItemType.Movie, "tmdb", "42", "imdb", "https://www.imdb.com/title/tt0042/"), Times.Once);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_StoresTheImdbPageLink_EvenWhenTheRatingLookupNeverHappened()
+    {
+        var service = CreateService();
+        AllRankingsFresh();
+        SelectImdbFor("Movie");
+        PendingBackfill(Entry("42"));
+        _tmdbClient.Setup(c => c.GetMovieImdbIdAsync("42", It.IsAny<CancellationToken>())).ReturnsAsync("tt0042");
+        // the day's allowance went to the reference sync, so OMDb was never reached
+        _omdbClient.Setup(c => c.GetRatingAsync(It.IsAny<string>(), OmdbCallPriority.Background, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(OmdbLookupResult.NotAttempted);
+
+        await service.RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
+
+        // the link depends on the TMDB id alone; withholding it because a *different*, budgeted call failed
+        // would throw away a fact already in hand and leave the card linking nowhere for another week.
+        _catalogueRepository.Verify(
+            r => r.SetWebUrlAsync(ExploreItemType.Movie, "tmdb", "42", "imdb", "https://www.imdb.com/title/tt0042/"), Times.Once);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_ForAnEntryThatOnlyNeededItsLink_SpendsNoOmdbCall()
+    {
+        var service = CreateService();
+        AllRankingsFresh();
+        SelectImdbFor("Movie");
+        // already rated by an earlier pass, from before links were stored - the only thing missing is the link
+        var rated = Entry("42");
+        rated.Ratings["imdb"] = 8.4;
+        PendingBackfill(rated);
+        _tmdbClient.Setup(c => c.GetMovieImdbIdAsync("42", It.IsAny<CancellationToken>())).ReturnsAsync("tt0042");
+
+        await service.RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
+
+        _catalogueRepository.Verify(
+            r => r.SetWebUrlAsync(ExploreItemType.Movie, "tmdb", "42", "imdb", "https://www.imdb.com/title/tt0042/"), Times.Once);
+        // re-learning a rating already on record would take budget from the entries that have none
+        _omdbClient.Verify(
+            c => c.GetRatingAsync(It.IsAny<string>(), It.IsAny<OmdbCallPriority>(), It.IsAny<CancellationToken>()), Times.Never);
+        _catalogueRepository.Verify(
+            r => r.RecordRatingAttemptAsync(
+                It.IsAny<ExploreItemType>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<double?>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_DoesNotRewriteALinkTheEntryAlreadyCarries()
+    {
+        var service = CreateService();
+        AllRankingsFresh();
+        SelectImdbFor("Movie");
+        var linked = Entry("42");
+        linked.WebUrls["imdb"] = "https://www.imdb.com/title/tt0042/";
+        PendingBackfill(linked);
+        _tmdbClient.Setup(c => c.GetMovieImdbIdAsync("42", It.IsAny<CancellationToken>())).ReturnsAsync("tt0042");
+        _omdbClient.Setup(c => c.GetRatingAsync(It.IsAny<string>(), OmdbCallPriority.Background, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(OmdbLookupResult.NoRating);
+
+        await service.RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
+
+        _catalogueRepository.Verify(
+            r => r.SetWebUrlAsync(It.IsAny<ExploreItemType>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
+            Times.Never);
+    }
+
+    private static ExploreCatalogueEntryModel Entry(string externalId) =>
+        new() { ItemType = ExploreItemType.Movie, Ranking = "tmdb", ExternalId = externalId, Rank = 1, Title = $"Movie {externalId}" };
+
+    private void PendingBackfill(params ExploreCatalogueEntryModel[] entries) =>
+        _catalogueRepository
+            .Setup(r => r.FindMissingRatingOrLinkAsync(ExploreItemType.Movie, "tmdb", "imdb", It.IsAny<DateTime>(), It.IsAny<int>()))
+            .ReturnsAsync(entries);
 
     private void SelectImdbFor(string domain) =>
         _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync()).ReturnsAsync(new Dictionary<string, string> { [domain] = "imdb" });

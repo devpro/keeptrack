@@ -44,7 +44,12 @@ public class ExploreCatalogueRepositoryTest(KestrelWebAppFactory<Program> factor
         TrackDocumentsWhere(CollectionName, Builders<BsonDocument>.Filter.Eq("ranking", ranking));
 
     private static ExploreCatalogueEntryModel Entry(
-        string ranking, string externalId, int rank, DateTime refreshedAt, Dictionary<string, double>? ratings = null) => new()
+        string ranking,
+        string externalId,
+        int rank,
+        DateTime refreshedAt,
+        Dictionary<string, double>? ratings = null,
+        Dictionary<string, string>? webUrls = null) => new()
         {
             ItemType = ExploreItemType.Movie,
             Ranking = ranking,
@@ -53,6 +58,7 @@ public class ExploreCatalogueRepositoryTest(KestrelWebAppFactory<Program> factor
             Title = $"Explore Catalogue Test {externalId}",
             Year = 1999,
             Ratings = ratings ?? [],
+            WebUrls = webUrls ?? [],
             RefreshedAt = refreshedAt
         };
 
@@ -117,7 +123,7 @@ public class ExploreCatalogueRepositoryTest(KestrelWebAppFactory<Program> factor
     }
 
     [Fact]
-    public async Task FindMissingRatingAsync_ReturnsUnratedEntriesInRankOrder_AndSkipsRecentlyAttemptedOnes()
+    public async Task FindMissingRatingOrLinkAsync_ReturnsUnratedEntriesInRankOrder_AndSkipsRecentlyAttemptedOnes()
     {
         using var scope = Factory.Services.CreateScope();
         var repository = CreateRepository(scope);
@@ -127,7 +133,9 @@ public class ExploreCatalogueRepositoryTest(KestrelWebAppFactory<Program> factor
 
         await repository.UpsertManyAsync(
         [
-            Entry(ranking, "rated", 1, now, new Dictionary<string, double> { ["imdb"] = 9.0 }),
+            // rated *and* linked: nothing left to learn about this source
+            Entry(ranking, "done", 1, now, new Dictionary<string, double> { ["imdb"] = 9.0 },
+                new Dictionary<string, string> { ["imdb"] = "https://www.imdb.com/title/tt0009/" }),
             Entry(ranking, "attempted", 2, now),
             Entry(ranking, "pending-low", 4, now),
             Entry(ranking, "pending-high", 3, now)
@@ -135,15 +143,63 @@ public class ExploreCatalogueRepositoryTest(KestrelWebAppFactory<Program> factor
         // a title the provider has no rating for: attempted, stamped, no value stored
         await repository.RecordRatingAttemptAsync(ExploreItemType.Movie, ranking, "attempted", "imdb", null);
 
-        var pending = await repository.FindMissingRatingAsync(ExploreItemType.Movie, ranking, "imdb", now.AddDays(-90), 10);
+        var pending = await repository.FindMissingRatingOrLinkAsync(ExploreItemType.Movie, ranking, "imdb", now.AddDays(-90), 10);
 
-        // the already-rated one is done; the fruitless attempt is stamped and must not be retried this soon,
-        // or it would hold a slot of the budget every pass and coverage would never reach the entries below it.
+        // the finished one is done; the fruitless attempt is stamped and must not be retried this soon, or it
+        // would hold a slot of the budget every pass and coverage would never reach the entries below it.
+        // That the stamped-but-linkless "attempted" entry stays out is also what proves the link half can't
+        // loop: a title with no provider id has no rating and no link, and only the windowed branch takes it.
         pending.Select(e => e.ExternalId).Should().Equal(["pending-high", "pending-low"]);
     }
 
     [Fact]
-    public async Task FindMissingRatingAsync_ReattemptsAnOldFruitlessAttempt()
+    public async Task FindMissingRatingOrLinkAsync_TakesARatedEntryThatIsStillMissingItsLink()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var repository = CreateRepository(scope);
+        var ranking = TestRanking();
+        TrackRanking(ranking);
+        var now = DateTime.UtcNow;
+
+        // exactly what a pass from before links were stored leaves behind: the rating was obtained (so the
+        // provider id was resolved), the link wasn't.
+        await repository.UpsertManyAsync([Entry(ranking, "a", 1, now, new Dictionary<string, double> { ["imdb"] = 9.0 })]);
+        await repository.RecordRatingAttemptAsync(ExploreItemType.Movie, ranking, "a", "imdb", 9.0);
+
+        var pending = await repository.FindMissingRatingOrLinkAsync(ExploreItemType.Movie, ranking, "imdb", now.AddDays(-90), 10);
+
+        // deliberately not subject to the re-attempt window: it was attempted seconds ago, and waiting 90 days
+        // for a link one lookup can produce today would leave the top of the ranking linking to the wrong site.
+        pending.Should().ContainSingle().Which.ExternalId.Should().Be("a");
+    }
+
+    [Fact]
+    public async Task SetWebUrlAsync_StoresTheLink_AndAnOrdinaryRefreshKeepsIt()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var repository = CreateRepository(scope);
+        var ranking = TestRanking();
+        TrackRanking(ranking);
+        var discoveryLink = new Dictionary<string, string> { ["tmdb"] = "https://www.themoviedb.org/movie/9" };
+
+        await repository.UpsertManyAsync([Entry(ranking, "a", 1, DateTime.UtcNow, webUrls: discoveryLink)]);
+        await repository.SetWebUrlAsync(ExploreItemType.Movie, ranking, "a", "imdb", "https://www.imdb.com/title/tt0009/");
+        // next week's pass knows only the link its own listing carried
+        await repository.UpsertManyAsync([Entry(ranking, "a", 1, DateTime.UtcNow, webUrls: discoveryLink)]);
+
+        var entries = await repository.FindRankedAsync(ExploreItemType.Movie, ranking, 0, 10);
+
+        // same rule as the ratings map: replacing it wholesale would discard the IMDb link every single week,
+        // and the entry would then never be picked up again for it (it has a rating, so nothing looks pending).
+        entries[0].WebUrls.Should().BeEquivalentTo(new Dictionary<string, string>
+        {
+            ["tmdb"] = "https://www.themoviedb.org/movie/9",
+            ["imdb"] = "https://www.imdb.com/title/tt0009/"
+        });
+    }
+
+    [Fact]
+    public async Task FindMissingRatingOrLinkAsync_ReattemptsAnOldFruitlessAttempt()
     {
         using var scope = Factory.Services.CreateScope();
         var repository = CreateRepository(scope);
@@ -154,7 +210,7 @@ public class ExploreCatalogueRepositoryTest(KestrelWebAppFactory<Program> factor
         await repository.RecordRatingAttemptAsync(ExploreItemType.Movie, ranking, "a", "imdb", null);
 
         // "not attempted since" in the future: everything already attempted is due again
-        var pending = await repository.FindMissingRatingAsync(ExploreItemType.Movie, ranking, "imdb", DateTime.UtcNow.AddDays(1), 10);
+        var pending = await repository.FindMissingRatingOrLinkAsync(ExploreItemType.Movie, ranking, "imdb", DateTime.UtcNow.AddDays(1), 10);
 
         pending.Should().ContainSingle().Which.ExternalId.Should().Be("a");
     }

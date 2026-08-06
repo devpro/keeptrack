@@ -31,16 +31,27 @@ public class ExploreCatalogueRepository(IMongoDatabase mongoDatabase, ExploreCat
         return mapper.ToModels(entities);
     }
 
-    public async Task<IReadOnlyList<ExploreCatalogueEntryModel>> FindMissingRatingAsync(
-        ExploreItemType type, string ranking, string ratingSource, DateTime notAttemptedSince, int take)
+    public async Task<IReadOnlyList<ExploreCatalogueEntryModel>> FindMissingRatingOrLinkAsync(
+        ExploreItemType type, string ranking, string source, DateTime notAttemptedSince, int take)
     {
         var builder = Builders<ExploreCatalogueEntry>.Filter;
-        var filter = RankingFilter(type, ranking)
-                     & builder.Exists(RatingField(ratingSource), false)
-                     & (builder.Exists(AttemptField(ratingSource), false)
-                        | builder.Lt<DateTime>(AttemptField(ratingSource), notAttemptedSince));
 
-        var entities = await Collection.Find(filter).SortBy(e => e.Rank).Limit(take).ToListAsync();
+        // no value yet, and not asked about recently enough to be worth re-asking
+        var ratingPending = builder.Exists(RatingField(source), false)
+                            & (builder.Exists(AttemptField(source), false)
+                               | builder.Lt<DateTime>(AttemptField(source), notAttemptedSince));
+
+        // has a rating but no link: a pass from before links were stored resolved the provider id and then
+        // dropped it. One lookup fixes it permanently, so this half needs no re-attempt window - and can't
+        // loop, because "the provider has no id for this title" implies no rating either, which is the
+        // windowed branch above. See IExploreCatalogueRepository for the full argument.
+        var linkPending = builder.Exists(WebUrlField(source), false) & builder.Exists(RatingField(source));
+
+        var entities = await Collection
+            .Find(RankingFilter(type, ranking) & (ratingPending | linkPending))
+            .SortBy(e => e.Rank)
+            .Limit(take)
+            .ToListAsync();
         return mapper.ToModels(entities);
     }
 
@@ -64,6 +75,10 @@ public class ExploreCatalogueRepository(IMongoDatabase mongoDatabase, ExploreCat
             // the backfilled values (IMDb) that cost a separate provider call to obtain.
             update = entity.Ratings.Aggregate(update, (current, rating) => current.Set(RatingField(rating.Key), rating.Value));
 
+            // same reasoning for the links: a listing carries its own provider's page and nothing else, so
+            // replacing the map would drop the backfilled IMDb link on every weekly refresh.
+            update = entity.WebUrls.Aggregate(update, (current, link) => current.Set(WebUrlField(link.Key), link.Value));
+
             // the natural-key fields are deliberately not $set here: an upsert whose filter is pure equality
             // copies those fields into the document it inserts (the same mechanism LeaseRepository relies on
             // for its _id), so naming them twice would only risk a conflicting-path update error.
@@ -81,6 +96,11 @@ public class ExploreCatalogueRepository(IMongoDatabase mongoDatabase, ExploreCat
 
         await Collection.UpdateOneAsync(KeyFilter(type, ranking, externalId), update);
     }
+
+    public Task SetWebUrlAsync(ExploreItemType type, string ranking, string externalId, string source, string webUrl) =>
+        Collection.UpdateOneAsync(
+            KeyFilter(type, ranking, externalId),
+            Builders<ExploreCatalogueEntry>.Update.Set(WebUrlField(source), webUrl));
 
     public async Task<long> DeleteStaleAsync(ExploreItemType type, string ranking, DateTime refreshedBefore)
     {
@@ -118,10 +138,12 @@ public class ExploreCatalogueRepository(IMongoDatabase mongoDatabase, ExploreCat
     private static FilterDefinition<ExploreCatalogueEntry> KeyFilter(ExploreItemType type, string ranking, string externalId) =>
         RankingFilter(type, ranking) & Builders<ExploreCatalogueEntry>.Filter.Eq(e => e.ExternalId, externalId);
 
-    // dotted paths into the two rating maps. A string field name is correct here (these are genuine dynamic
+    // dotted paths into the per-source maps. A string field name is correct here (these are genuine dynamic
     // dictionary keys, not a typed member) - unlike an _id filter, where the string form silently matches
     // nothing; see DatabaseTestBase.TrackDocument.
-    private static string RatingField(string ratingSource) => $"ratings.{ratingSource}";
+    private static string RatingField(string source) => $"ratings.{source}";
 
-    private static string AttemptField(string ratingSource) => $"ratings_checked_at.{ratingSource}";
+    private static string AttemptField(string source) => $"ratings_checked_at.{source}";
+
+    private static string WebUrlField(string source) => $"web_urls.{source}";
 }

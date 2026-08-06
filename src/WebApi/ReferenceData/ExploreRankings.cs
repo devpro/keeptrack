@@ -69,6 +69,25 @@ public class ExploreRankings(ReferenceClientRegistry<IVideoGameReferenceClient> 
     public string DisplaySource(ExploreItemType type, string ratingSource) =>
         DisplayableSources(type).Contains(ratingSource) ? ratingSource : Rankings(type)[0];
 
+    /// <summary>
+    /// The name of the website a suggestion's "read more" link opens, given the source key that link is stored
+    /// under (see <c>ExploreCatalogueEntryModel.WebUrls</c>).
+    /// <para>
+    /// The video game answer is the registered client's own <see cref="IReferenceProviderClient.DisplayName"/>
+    /// rather than a second table, so a provider is never named twice. TMDB and IMDb have no client to ask -
+    /// TMDB's domain is single-provider and injected directly, and IMDb is a *website*, not a provider here at
+    /// all (its numbers arrive through OMDb) - so those two are spelled out.
+    /// </para>
+    /// </summary>
+    public string SiteName(string sourceKey) =>
+        videoGameClients.All.FirstOrDefault(c => c.ProviderKey == sourceKey)?.DisplayName
+        ?? sourceKey switch
+        {
+            RatingSourceCatalog.Tmdb => "TMDB",
+            RatingSourceCatalog.Imdb => "IMDb",
+            _ => sourceKey
+        };
+
     /// <summary>Every (domain, ordering) pair the refresh pass maintains - derived, so a new source needs no second list.</summary>
     public IEnumerable<(ExploreItemType Type, string Ranking)> All =>
         Enum.GetValues<ExploreItemType>().SelectMany(type => Rankings(type).Select(ranking => (type, ranking)));

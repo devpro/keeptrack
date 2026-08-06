@@ -31,8 +31,13 @@ public record VideoGameDetails(
 /// the provider reports for it, whichever one the list was ordered by, so switching the admin's displayed
 /// source costs no provider call at all. A listing response carries no description, so there is no synopsis
 /// here (unlike TMDB's, which does).
+/// <para>
+/// <c>WebUrl</c> is the game's own page on the provider's website, for a suggestion card to link out to. It
+/// comes from the provider rather than being built from <c>ExternalId</c> because both video game sites key
+/// their pages on a slug, not on the numeric id - see <see cref="ProviderWebLinks"/>.
+/// </para>
 /// </summary>
-public record VideoGameTopRatedItem(string ExternalId, string Title, int? Year, string? ImageUrl, Dictionary<string, double> Ratings);
+public record VideoGameTopRatedItem(string ExternalId, string Title, int? Year, string? ImageUrl, Dictionary<string, double> Ratings, string? WebUrl);
 
 /// <summary>
 /// Provider-agnostic video game lookup, backing <see cref="ReferenceEnrichmentService"/>'s video game

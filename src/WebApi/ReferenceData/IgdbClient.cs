@@ -109,7 +109,7 @@ public class IgdbClient(HttpClient http, IgdbSettings settings) : IVideoGameRefe
         var games = await QueryAsync(query, cancellationToken);
         return games.Select(g => new VideoGameTopRatedItem(
             g.Id.ToString(CultureInfo.InvariantCulture), g.Name ?? string.Empty, ParseYear(g.FirstReleaseDate), CoverUrl(g.Cover),
-            BuildRatings(g).ToDictionary(r => r.Key, r => r.Value.Value))).ToList();
+            BuildRatings(g).ToDictionary(r => r.Key, r => r.Value.Value), g.Url)).ToList();
     }
 
     // the admin's candidate list renders a small portrait thumb, so a search hit stays on the box art.
@@ -119,9 +119,11 @@ public class IgdbClient(HttpClient http, IgdbSettings settings) : IVideoGameRefe
         "fields name,summary,first_release_date,genres.name,platforms.name,cover.image_id," +
         "rating,rating_count,aggregated_rating,aggregated_rating_count;";
 
-    // cover only, like every other query here.
+    // cover only, like every other query here, plus `url`: a discovery card links out to the game's IGDB page
+    // so a suggestion can be read up on before it is added or dismissed, and that page is keyed on a slug the
+    // numeric id can't be turned into.
     private const string TopRatedFields =
-        "fields name,first_release_date,cover.image_id,rating,rating_count,aggregated_rating,aggregated_rating_count;";
+        "fields name,first_release_date,cover.image_id,rating,rating_count,aggregated_rating,aggregated_rating_count,url;";
 
     private const int MaxResults = 5;
 
@@ -252,6 +254,10 @@ public class IgdbClient(HttpClient http, IgdbSettings settings) : IVideoGameRefe
 
         [JsonPropertyName("aggregated_rating_count")]
         public int? AggregatedRatingCount { get; set; }
+
+        /// <summary>The game's own page on igdb.com. Requested rather than built: it is keyed on a slug, not on <see cref="Id"/>.</summary>
+        [JsonPropertyName("url")]
+        public string? Url { get; set; }
     }
 
     /// <summary>An IGDB image is just an <c>image_id</c> on its own record.</summary>

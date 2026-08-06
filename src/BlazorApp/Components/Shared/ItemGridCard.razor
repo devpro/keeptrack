@@ -7,7 +7,10 @@
        isn't a dead link and its own action overlay stays the only clickable thing. *@
     @if (!string.IsNullOrEmpty(Href))
     {
-        <a class="stretched-link" href="@Href" aria-label="@Title"></a>
+        @* rel is set alongside target rather than unconditionally: it only means anything on a new-tab link,
+           and every in-app card is a same-tab navigation. *@
+        <a class="stretched-link" href="@Href" target="@Target" rel="@(Target == "_blank" ? "noopener noreferrer" : null)"
+           aria-label="@(LinkLabel ?? Title)"></a>
     }
     <div class="kt-grid-cover @Shape">
         @if (!string.IsNullOrEmpty(ImageUrl))
@@ -35,6 +38,16 @@
 @code {
     /// <summary>Detail-page URL the whole card links to.</summary>
     [Parameter] public string? Href { get; set; }
+
+    /// <summary>
+    /// Anchor target for <see cref="Href"/>. Unset (same tab) for the in-app detail pages every inventory list
+    /// opens; "_blank" for a card that leaves the app, e.g. an Explore suggestion opening its provider page -
+    /// there the point is to read up on a title *without* losing the list you were working through.
+    /// </summary>
+    [Parameter] public string? Target { get; set; }
+
+    /// <summary>Accessible name of the card link when the destination isn't simply "the item" (e.g. "Titanic on IMDb").</summary>
+    [Parameter] public string? LinkLabel { get; set; }
 
     [Parameter] public string? Title { get; set; }
 

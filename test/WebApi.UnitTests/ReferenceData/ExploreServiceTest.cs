@@ -385,4 +385,76 @@ public class ExploreServiceTest
 
         _dismissalRepository.Verify(r => r.RemoveAsync("owner", ExploreItemType.Movie, "tmdb", "42"), Times.Once);
     }
+
+    [Fact]
+    public async Task GetSuggestionsAsync_LinksToTheSiteWhoseRatingTheCardShows()
+    {
+        var service = CreateService();
+        NoExclusions(ExploreItemType.Movie);
+        _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync()).ReturnsAsync(new Dictionary<string, string> { ["Movie"] = "imdb" });
+        Catalogue(ExploreItemType.Movie, "tmdb", Linked(
+            Entry(ExploreItemType.Movie, "tmdb", "20", 1, ("tmdb", 9.0), ("imdb", 8.5)),
+            ("tmdb", "https://www.themoviedb.org/movie/20"),
+            ("imdb", "https://www.imdb.com/title/tt0020/")));
+
+        var page = await service.GetSuggestionsAsync(ExploreItemType.Movie, "owner", 24, null, TestContext.Current.CancellationToken);
+
+        // clicking through has to land where the number came from - a card showing an IMDb score that opens
+        // TMDB sends the reader somewhere they can't check what they just read.
+        page.Items[0].ProviderUrl.Should().Be("https://www.imdb.com/title/tt0020/");
+        page.Items[0].ProviderName.Should().Be("IMDb");
+    }
+
+    [Fact]
+    public async Task GetSuggestionsAsync_FallsBackToTheDiscoveryProvidersPage_WhenTheDisplayedSourceHasNoneStored()
+    {
+        var service = CreateService();
+        NoExclusions(ExploreItemType.Movie);
+        _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync()).ReturnsAsync(new Dictionary<string, string> { ["Movie"] = "imdb" });
+        // an entry the bounded IMDb backfill hasn't reached yet: it has TMDB's page but not IMDb's
+        Catalogue(ExploreItemType.Movie, "tmdb", Linked(
+            Entry(ExploreItemType.Movie, "tmdb", "20", 1, ("tmdb", 9.0)),
+            ("tmdb", "https://www.themoviedb.org/movie/20")));
+
+        var page = await service.GetSuggestionsAsync(ExploreItemType.Movie, "owner", 24, null, TestContext.Current.CancellationToken);
+
+        // the whole ranking is deeper than one pass of backfill, so "no IMDb link yet" is a normal state and
+        // must degrade to a working link rather than to no link at all
+        page.Items[0].ProviderUrl.Should().Be("https://www.themoviedb.org/movie/20");
+        page.Items[0].ProviderName.Should().Be("TMDB");
+    }
+
+    [Fact]
+    public async Task GetSuggestionsAsync_ForAnEntryWithNoStoredPage_ReportsNoLinkAtAll()
+    {
+        NoExclusions(ExploreItemType.Movie);
+        // written before links were stored, or by a provider that reported no page for it
+        Catalogue(ExploreItemType.Movie, "tmdb", Entry(ExploreItemType.Movie, "tmdb", "20", 1, ("tmdb", 9.0)));
+
+        var page = await CreateService().GetSuggestionsAsync(ExploreItemType.Movie, "owner", 24, null, TestContext.Current.CancellationToken);
+
+        // the card renders as plain text rather than as an anchor pointing nowhere
+        page.Items[0].ProviderUrl.Should().BeNull();
+        page.Items[0].ProviderName.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetSuggestionsAsync_NamesTheLinkedSiteFromTheRegisteredProvider()
+    {
+        NoExclusions(ExploreItemType.VideoGame);
+        Catalogue(ExploreItemType.VideoGame, "igdb", Linked(
+            Entry(ExploreItemType.VideoGame, "igdb", "g1", 1, ("igdb", 92)),
+            ("igdb", "https://www.igdb.com/games/some-game")));
+
+        var page = await CreateService().GetSuggestionsAsync(ExploreItemType.VideoGame, "owner", 24, null, TestContext.Current.CancellationToken);
+
+        // taken from the registered client's own DisplayName, so a provider is never named twice in the code
+        page.Items[0].ProviderName.Should().Be("igdb");
+    }
+
+    private static ExploreCatalogueEntryModel Linked(ExploreCatalogueEntryModel entry, params (string Source, string Url)[] links)
+    {
+        entry.WebUrls = links.ToDictionary(l => l.Source, l => l.Url);
+        return entry;
+    }
 }

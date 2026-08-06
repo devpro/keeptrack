@@ -13,8 +13,10 @@
     </div>
 </div>
 
+@* The discovery provider is a deployment-time choice (video games moved from RAWG to IGDB without a line of
+   client code changing), so the blurb no longer names it - each card names its own link's destination. *@
 <p class="mb-3" style="color:var(--kt-text-muted)">
-    Top-rated @TabLabel.ToLowerInvariant() from @ProviderName you don't track yet. Add one to your
+    Top-rated @TabLabel.ToLowerInvariant() you don't track yet. Open one to read more, add it to your
     collection in a tap, or dismiss it to stop it coming back.
 </p>
 
@@ -65,7 +67,11 @@ else if (Current is { } state)
             <div class="kt-item-grid">
                 @foreach (var item in items)
                 {
-                    <ItemGridCard Href="@null" Title="@item.Title" ImageUrl="@item.ImageUrl">
+                    @* The card opens the title's provider page in a new tab rather than a detail page: a
+                       suggestion isn't in the collection yet, so there is nothing of ours to open, and the
+                       whole point is to read up on it without losing the list being worked through. *@
+                    <ItemGridCard Href="@item.ProviderUrl" Target="_blank" LinkLabel="@LinkLabel(item)"
+                                  Title="@item.Title" ImageUrl="@item.ImageUrl">
                         <Actions>
                             <div class="kt-explore-actions">
                                 @if (_busy.Contains(item.ExternalId))
@@ -92,6 +98,12 @@ else if (Current is { } state)
                             {
                                 <span class="kt-ref-rating"><span class="kt-ref-rating-star">★</span> @item.Rating.Value.ToString("0.0", CultureInfo.InvariantCulture)</span>
                             }
+                            @if (item.ProviderUrl is not null)
+                            {
+                                @* Names the destination rather than just marking the card clickable - a card
+                                   that silently leaves the app is worse than one that says where it goes. *@
+                                <span class="kt-explore-source"><ExternalLinkIcon Size="11"/> @item.ProviderName</span>
+                            }
                         </MetaContent>
                     </ItemGridCard>
                 }
@@ -105,7 +117,18 @@ else if (Current is { } state)
                     <div class="kt-item-row">
                         <ItemThumb ImageUrl="@item.ImageUrl" Shape="@null"/>
                         <div class="kt-item-main">
-                            <span class="kt-item-title">@item.Title</span>
+                            @* Same as the grid card: the whole row opens the provider page in a new tab (the
+                               stretched link), with the action buttons kept above it by z-index. A suggestion
+                               with no stored link is plain text rather than a dead anchor. *@
+                            @if (item.ProviderUrl is not null)
+                            {
+                                <a class="kt-item-title stretched-link" href="@item.ProviderUrl" target="_blank"
+                                   rel="noopener noreferrer" aria-label="@LinkLabel(item)">@item.Title</a>
+                            }
+                            else
+                            {
+                                <span class="kt-item-title">@item.Title</span>
+                            }
                             <div class="kt-item-meta">
                                 @if (item.Year > 0)
                                 {
@@ -114,6 +137,10 @@ else if (Current is { } state)
                                 @if (item.Rating is not null)
                                 {
                                     <span class="kt-ref-rating"><span class="kt-ref-rating-star">★</span> @item.Rating.Value.ToString("0.0", CultureInfo.InvariantCulture)</span>
+                                }
+                                @if (item.ProviderUrl is not null)
+                                {
+                                    <span class="kt-explore-source"><ExternalLinkIcon Size="11"/> @item.ProviderName</span>
                                 }
                             </div>
                         </div>
@@ -230,8 +257,9 @@ else if (Current is { } state)
         _ => "movies"
     };
 
-    // Each domain discovers through its own reference provider, so the blurb names the one actually queried.
-    private string ProviderName => _tab == Tab.VideoGames ? "RAWG" : "TMDB";
+    // Where a card's "read more" link goes, spelled out for screen readers - the visible affordance is the
+    // provider name in the meta line, which the row's own title doesn't repeat.
+    private static string LinkLabel(ExploreSuggestionDto item) => $"{item.Title} on {item.ProviderName}";
 
     protected override async Task OnInitializedAsync()
     {

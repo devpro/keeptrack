@@ -20,19 +20,38 @@ public interface IExploreCatalogueRepository
     Task<IReadOnlyList<ExploreCatalogueEntryModel>> FindRankedAsync(ExploreItemType type, string ranking, int afterRank, int take);
 
     /// <summary>
-    /// The highest-ranked entries still missing <paramref name="ratingSource"/> that haven't been attempted
-    /// since <paramref name="notAttemptedSince"/>, capped at <paramref name="take"/> - the work list for the
-    /// bounded per-pass rating backfill. Ordered by rank so coverage fills from the top of the list down.
+    /// The highest-ranked entries that still have something to learn about <paramref name="source"/>, capped
+    /// at <paramref name="take"/> - the work list for the bounded per-pass backfill. Ordered by rank so
+    /// coverage fills from the top of the list down. An entry qualifies when either:
+    /// <list type="bullet">
+    /// <item>its rating is missing and it hasn't been attempted since <paramref name="notAttemptedSince"/> -
+    /// the window that stops the titles the source genuinely has nothing for from burning the whole budget on
+    /// every pass, forever;</item>
+    /// <item>or its <see cref="ExploreCatalogueEntryModel.WebUrls"/> link is missing *while it already has a
+    /// rating*. That combination means a previous pass resolved the provider id but predates links being
+    /// stored, so one lookup closes it for good - which is why this half deliberately carries no re-attempt
+    /// window (it would make every already-rated entry wait up to 90 days for a link it could have today) and
+    /// still terminates: an entry the provider has no id for never gets a rating either, so it can only ever
+    /// match through the first bullet, where the window applies.</item>
+    /// </list>
     /// </summary>
-    Task<IReadOnlyList<ExploreCatalogueEntryModel>> FindMissingRatingAsync(
-        ExploreItemType type, string ranking, string ratingSource, DateTime notAttemptedSince, int take);
+    Task<IReadOnlyList<ExploreCatalogueEntryModel>> FindMissingRatingOrLinkAsync(
+        ExploreItemType type, string ranking, string source, DateTime notAttemptedSince, int take);
 
     /// <summary>
-    /// Inserts or updates entries by their natural key (item type, ranking, external id). Ratings are merged
-    /// key by key, never replaced wholesale, so a value only one backfill pass knows how to obtain survives
-    /// every ordinary refresh.
+    /// Inserts or updates entries by their natural key (item type, ranking, external id). Ratings and web
+    /// links are merged key by key, never replaced wholesale, so a value only one backfill pass knows how to
+    /// obtain survives every ordinary refresh.
     /// </summary>
     Task UpsertManyAsync(IReadOnlyList<ExploreCatalogueEntryModel> entries);
+
+    /// <summary>
+    /// Records where a human can read more about an entry on <paramref name="source"/>'s own website. Separate
+    /// from <see cref="RecordRatingAttemptAsync"/> on purpose: a link is worth keeping the moment the provider
+    /// id resolves, even when the rating lookup that usually follows never happened (no key, spent budget,
+    /// failed request) - gating it on the rating's outcome would throw away a fact already in hand.
+    /// </summary>
+    Task SetWebUrlAsync(ExploreItemType type, string ranking, string externalId, string source, string webUrl);
 
     /// <summary>
     /// Records the outcome of a rating lookup: stamps the attempt (always) and stores the value (only when
