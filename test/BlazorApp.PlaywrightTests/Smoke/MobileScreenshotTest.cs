@@ -14,13 +14,11 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Not a regression test: a visual-review harness that seeds representative items via the API
-/// (including reference-linked movies/shows/albums/games with real cover art),
+/// Not a regression test: a visual-review harness that seeds representative items via the API (including reference-linked movies/shows/albums/games with real cover art),
 /// captures full-page screenshots of every page at a phone viewport (390x844), then deletes everything it created.
-/// Assertion-free by design - its output is the screenshots, reviewed by a human (or an AI assistant) after UI changes.
-/// Doubly gated: besides the usual E2E_ENABLED, it also skips unless E2E_SCREENSHOTS=true,
-/// so a normal full e2e run doesn't pay for the slow walkthrough.
-/// Output directory: E2E_SHOTS_DIR.
+/// Assertion-free by design, its output is the screenshots, reviewed by a human (or an AI assistant) after UI changes.
+/// Doubly gated: besides the usual E2E_ENABLED, it also skips unless E2E_MOBILE_CHECK=true, so a normal full e2e run doesn't pay for the slow walkthrough.
+/// Output directory: E2E_MOBILE_DIR.
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]
@@ -47,8 +45,13 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
         ("/admin/reference-data", "admin-reference-data")
     ];
 
-    private static string ShotsDirectory =>
-        End2EndConfiguration.ScreenshotsDirectory ?? Path.Combine(AppContext.BaseDirectory, "mobile-shots");
+    private static string MobileDirectory
+    {
+        get
+        {
+            return End2EndConfiguration.MobileDirectory ?? Path.Combine(AppContext.BaseDirectory, "mobile-shots");
+        }
+    }
 
     public override BrowserNewContextOptions ContextOptions()
     {
@@ -63,9 +66,9 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
     [Fact]
     public async Task CaptureAllPagesAtPhoneViewport()
     {
-        Assert.SkipUnless(End2EndConfiguration.Screenshots, "E2E_SCREENSHOTS is not set; the visual-review capture is opt-in.");
+        Assert.SkipUnless(End2EndConfiguration.MobileCheck, "E2E_MOBILE_CHECK is not set; the visual-review capture is opt-in.");
         SkipIfReadOnly();
-        Directory.CreateDirectory(ShotsDirectory);
+        Directory.CreateDirectory(MobileDirectory);
 
         var api = Fixture.ApiHttpClient;
         var created = new List<string>();
@@ -85,7 +88,7 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             await Page.WaitForTimeoutAsync(1200);
             await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Thumbnail view" }).ClickAsync();
             await Page.WaitForTimeoutAsync(800);
-            await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(ShotsDirectory, "books-grid.png"), FullPage = true });
+            await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(MobileDirectory, "books-grid.png"), FullPage = true });
             await CaptureAsync("/albums", "albums-grid");
             await CaptureAsync("/video-games", "video-games-grid");
             await CaptureAsync("/movies", "movies-grid");
@@ -96,7 +99,7 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             await Page.WaitForTimeoutAsync(500);
             await Page.Locator("label.navbar-toggler-label").ClickAsync();
             await Page.WaitForTimeoutAsync(300);
-            await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(ShotsDirectory, "nav-open.png"), FullPage = false });
+            await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(MobileDirectory, "nav-open.png"), FullPage = false });
 
             await CaptureFirstDetailAsync("/movies", "movie-detail");
             await CaptureFirstDetailAsync("/tv-shows", "tvshow-detail");
@@ -113,7 +116,7 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             await Page.WaitForTimeoutAsync(1000);
             await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Add" }).First.ClickAsync();
             await Page.WaitForTimeoutAsync(500);
-            await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(ShotsDirectory, "movies-add-form.png"), FullPage = true });
+            await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(MobileDirectory, "movies-add-form.png"), FullPage = true });
 
             // The admin unresolved queue with the first row's inline search panel expanded (no linking).
             await Page.GotoAsync("/admin/reference-data");
@@ -135,7 +138,7 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
                 }
 
                 await Page.WaitForTimeoutAsync(3000);
-                await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(ShotsDirectory, "admin-expanded.png"), FullPage = true });
+                await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(MobileDirectory, "admin-expanded.png"), FullPage = true });
             }
 
             // The Albums queue: the expanded panel must prefill the tenant's saved artist.
@@ -158,7 +161,7 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
                 }
 
                 await Page.WaitForTimeoutAsync(3000);
-                await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(ShotsDirectory, "admin-album-expanded.png"), FullPage = true });
+                await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(MobileDirectory, "admin-album-expanded.png"), FullPage = true });
             }
 
             await Page.SetViewportSizeAsync(1280, 900);
@@ -482,7 +485,7 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
         await Assertions.Expect(Page.Locator("#blazor-error-ui")).ToBeHiddenAsync();
         // No networkidle with a live SignalR circuit - give data loads a moment to settle instead.
         await Page.WaitForTimeoutAsync(1200);
-        await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(ShotsDirectory, $"{name}.png"), FullPage = true });
+        await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(MobileDirectory, $"{name}.png"), FullPage = true });
     }
 
     private async Task CaptureFirstDetailAsync(string listRoute, string name)
@@ -497,7 +500,7 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
 
         await firstItemLink.ClickAsync();
         await Page.WaitForTimeoutAsync(1500);
-        await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(ShotsDirectory, $"{name}.png"), FullPage = true });
+        await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(MobileDirectory, $"{name}.png"), FullPage = true });
     }
 
     private async Task CaptureDetailByTitleAsync(string listRoute, string title, string name)
@@ -512,6 +515,6 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
 
         await itemLink.ClickAsync();
         await Page.WaitForTimeoutAsync(1500);
-        await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(ShotsDirectory, $"{name}.png"), FullPage = true });
+        await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(MobileDirectory, $"{name}.png"), FullPage = true });
     }
 }

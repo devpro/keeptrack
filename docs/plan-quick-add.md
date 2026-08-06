@@ -127,7 +127,7 @@ Three extraction refactors come first — they remove exactly the duplication **
 
 - `dotnet build`; `dotnet test` (needs local MongoDB + `Local.runsettings`; Playwright self-skips without `E2E_ENABLED`).
   E2E: `E2E_ENABLED=true dotnet test test/BlazorApp.PlaywrightTests/BlazorApp.PlaywrightTests.csproj` per the e2e-local-run-recipe memory / `CONTRIBUTING.md`.
-  Mobile review: `E2E_SCREENSHOTS=true` + `E2E_SHOTS_DIR` screenshot run, plus a manual pass of <https://localhost:5021/add> at 390px width.
+  Mobile review: `E2E_MOBILE_CHECK=true` + `E2E_MOBILE_DIR` screenshot run, plus a manual pass of <https://localhost:5021/add> at 390px width.
   Manual regression: the three detail pages' add/edit modals and the game platform cards must behave identically after the extractions (same fields, date/time proxies, balance preview).
 
 ## Ready-to-use implementation prompt

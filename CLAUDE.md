@@ -448,7 +448,8 @@ Run-once scripts follow that same idempotent style: `dedupe-matched-aliases.js`,
       It is unranked by construction, so its 40-odd hits are shortlisted to the eight closest to the title asked for (`ShortlistByClosestTitle`, on `NormalizeLoose` length) - a genuine match is distance zero and can never be cut.
       RAWG has no substring operator and emulates it over one `search=` page, the same client-side shape as its `FindGamesByExactTitleAsync`.
       The admin's row is ordered the same way, so the likeliest answer leads it rather than whichever rung replied first.
-    - **`Marvel's Avengers` still isn't adopted unattended, on purpose**: one apostrophe apart from `Marvel Avengers`, and a rule equating those would equally equate `The Sim` with `The Sims`. Same call as the roman numerals - a queue entry
+    - **`Marvel's Avengers` still isn't adopted unattended, on purpose**: one apostrophe apart from `Marvel Avengers`, and a rule equating those would equally equate `The Sim` with `The Sims`.
+      Same call as the roman numerals - a queue entry
       is one click, a wrong link is silent data loss.
     - Confirmation is always against the **reference's** own title, never against whichever query found the candidate - which is what keeps a widened or admin-typed query from confirming something the strict rule would refuse.
       Apostrophes are dropped rather than spaced in `NormalizeLoose` for the same "two catalogues, one work" reason as the rest: spacing produced `assassin s creed`, matching neither `Assassin's Creed` nor `Assassins Creed`.
@@ -684,12 +685,17 @@ Movie, TvShow, VideoGame only; Book/Album 400 (no best-of listing to read).
   Attempts are stamped whenever OMDb actually answered, whether or not it produced a value; without that, the handful of titles OMDb has nothing for would consume the whole budget every pass and coverage would never advance.
   A call the budget refused is **not** stamped and simply retries next pass.
   `app_setting.explore_use_tmdb` forces movies/TV back onto TMDB's vote and skips the backfill entirely; it's read only when IMDb won the resolve, so it can't leak into the game domain.
-- **A suggestion card links out to the title's provider page, in a new tab** (`ExploreSuggestionDto.ProviderUrl`/`ProviderName`, the whole card/row being the link) - the one "read more" a suggestion can offer, since it is by definition not in the collection yet and so has no detail page.
-  It follows the *displayed* rating source where possible and falls back to the discovery provider, so an IMDb-rated movie opens IMDb rather than TMDB (the owner's ask) while an entry the bounded backfill hasn't reached yet still opens TMDB instead of nothing.
-  - URLs are **stored per source** on the entry (`web_urls`, merged key-by-key exactly like `ratings`), not derived at read time, because two of the four cannot be derived: IGDB and RAWG key their pages on a *slug*, so those come back from the listing itself (IGDB's `url` field, RAWG's `slug`).
+- **A suggestion card links out to the title's provider page, in a new tab** (`ExploreSuggestionDto.ProviderUrl`/`ProviderName`, the whole card/row being the link) -
+  the one "read more" a suggestion can offer, since it is by definition not in the collection yet and so has no detail page.
+  It follows the *displayed* rating source where possible and falls back to the discovery provider, so an IMDb-rated movie opens IMDb rather than TMDB (the owner's ask) while an entry the bounded backfill hasn't reached yet still opens TMDB
+  instead of nothing.
+  - URLs are **stored per source** on the entry (`web_urls`, merged key-by-key exactly like `ratings`), not derived at read time, because two of the four cannot be derived:
+    IGDB and RAWG key their pages on a *slug*, so those come back from the listing itself (IGDB's `url` field, RAWG's `slug`).
     `ProviderWebLinks` holds only the ones an id does determine (TMDB's `/movie/{id}` vs `/tv/{id}`, IMDb's `/title/{ttId}/`).
-  - The IMDb link is a free by-product of the rating backfill: it is built from the id that lookup has to resolve anyway, and is **stored even when the OMDb call never happened** (no key, spent budget, failed request) - withholding a fact already in hand because a different, budgeted call failed would leave the card linking to the wrong site for another week.
-  - `FindMissingRatingOrLinkAsync` therefore takes an entry that has a rating but no link, **with no re-attempt window on that half** - those are entries from before links were stored, one lookup closes each for good, and making them wait 90 days would leave the top of the ranking pointing at TMDB.
+  - The IMDb link is a free by-product of the rating backfill: it is built from the id that lookup has to resolve anyway, and is **stored even when the OMDb call never happened** (no key, spent budget, failed request) -
+    withholding a fact already in hand because a different, budgeted call failed would leave the card linking to the wrong site for another week.
+  - `FindMissingRatingOrLinkAsync` therefore takes an entry that has a rating but no link, **with no re-attempt window on that half** -
+    those are entries from before links were stored, one lookup closes each for good, and making them wait 90 days would leave the top of the ranking pointing at TMDB.
     It still can't loop: a title the provider has no id for gets no rating either, so it can only ever match through the windowed rating branch.
     An entry pulled in for its link alone spends no OMDb call.
   - Existing entries gain their links on the next refresh pass that rewrites them (weekly, or `sync-now` with **Force** now); until then `ProviderUrl` is null and the card renders as plain text rather than a dead anchor.
@@ -699,8 +705,10 @@ Movie, TvShow, VideoGame only; Book/Album 400 (no best-of listing to read).
 - The refresh rides `ReferenceSyncBackgroundService`'s existing 24h tick and lease on its own 7-day staleness window, rather than adding a second scheduled workload;
   the admin's `POST /api/reference-data/sync-now` covers it on the same window pair (`?force=true` rebuilds every ranking, the default only what is past 7 days), so there's no separate Explore admin endpoint.
   Counts land in `ReferenceSyncResultDto`.
-  `?exploreOnly=true` runs the ranking rebuild *without* the five reference domains or the finished-show reconciliation - still the same endpoint and job, since the two passes were always separate calls inside it, but a fraction of the cost (a few listing pages against up to 500 documents per domain, each a provider call or several).
-  It reports `ReferenceSyncStage.RefreshingExplore` throughout and leaves every reference count at zero, which the admin page hides rather than printing as "0 checked" - "the pass never looked" and "the pass found nothing" must not read the same.
+  `?exploreOnly=true` runs the ranking rebuild *without* the five reference domains or the finished-show reconciliation -
+  still the same endpoint and job, since the two passes were always separate calls inside it, but a fraction of the cost (a few listing pages against up to 500 documents per domain, each a provider call or several).
+  It reports `ReferenceSyncStage.RefreshingExplore` throughout and leaves every reference count at zero, which the admin page hides rather than printing as "0 checked" -
+  "the pass never looked" and "the pass found nothing" must not read the same.
 - **Gotcha:** neither provider has a curated top-rated endpoint, and ordering a whole catalogue by a plain average ranks a single-vote unknown above every classic.
   IGDB reports a vote count per game, so its ranking uses a real floor (`MinUserRatingCount`/`MinCriticRatingCount`) - and that floor is deliberately its only filter, since DLC and remasters are things this app tracks in their own right.
   RAWG exposed no vote count at all, which is the only reason its client had to approximate one:
@@ -845,7 +853,7 @@ This is why `ReconnectModal` kept its scaffolded white/blue colors despite an `a
   **Gotcha: a smoke test must stay in the default *list* view.** `ItemGridCard` covers its card with an empty Bootstrap `stretched-link` anchor (the clickable area is the `::after` pseudo-element), so the `<a>` itself has no size and
   Playwright refuses to click it - "element is not visible", on an element it just resolved by accessible name.
   `ListPage.OpenItemAsync` therefore only works in list view, which is what every list page renders by default; switching to thumbnails mid-test breaks it.
-  `MobileScreenshotTest` is an assertion-free visual harness behind `E2E_SCREENSHOTS=true`, capturing every page at 390x844 into `E2E_SHOTS_DIR`.
+  `MobileScreenshotTest` is an assertion-free visual harness behind `E2E_MOBILE_CHECK=true`, capturing every page at 390x844 into `E2E_MOBILE_DIR`.
   See `CONTRIBUTING.md` for the full `E2E_*` surface and the three run modes.
 - Assertions use `AwesomeAssertions` (FluentAssertions-compatible); data via `Bogus`.
 
