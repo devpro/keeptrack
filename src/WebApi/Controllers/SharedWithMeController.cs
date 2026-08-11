@@ -43,6 +43,7 @@ public class SharedWithMeController(
     IDtoMapper<GearDto, GearModel> gearMapper,
     ICarRepository carRepository,
     ICarHistoryRepository carHistoryRepository,
+    ICarStationRepository carStationRepository,
     IHouseRepository houseRepository,
     IHouseHistoryRepository houseHistoryRepository,
     IHealthProfileRepository healthProfileRepository,
@@ -183,10 +184,14 @@ public class SharedWithMeController(
         }
 
         var (car, history, ownerName) = loaded.Value;
+        var entries = history.ConvertAll(carHistoryMapper.ToDto);
+        // a recipient sees the same station names as the owner - the catalogue is shared and owner-less,
+        // so this is the one hydration that needs no ownership check of its own
+        await CarStationHydrator.HydrateAsync(entries, carStationRepository);
         return Ok(new SharedDetailDto<CarDto, CarHistoryDto, CarMetricsDto>
         {
             Parent = carMapper.ToDto(car),
-            Children = history.ConvertAll(carHistoryMapper.ToDto),
+            Children = entries,
             Metrics = carMetricsMapper.ToDto(CarMetricsService.ComputeMetrics(history)),
             OwnerDisplayName = ownerName
         });

@@ -106,12 +106,25 @@ public class CarHistoryDto : IHasId
     public double? DeltaMileage { get; set; }
 
     /// <summary>
-    /// Station brand name.
+    /// The shared <see cref="CarStationDto"/> this Refuel happened at, by id. The station owns its own
+    /// city, postal code and coordinates, so a refuel no longer carries a copy of them.
+    /// </summary>
+    public string? StationId { get; set; }
+
+    /// <summary>
+    /// Brand name of <see cref="StationId"/>'s station. Server-hydrated for display and ignored on write -
+    /// one batched station lookup per list page, never one per entry.
     /// </summary>
     public string? StationBrandName { get; set; }
 
     /// <summary>
-    /// Garage/auto shop name - the Maintenance/Other-event counterpart of <see cref="StationBrandName"/>.
+    /// City of <see cref="StationId"/>'s station. Server-hydrated for display, like
+    /// <see cref="StationBrandName"/>.
+    /// </summary>
+    public string? StationCity { get; set; }
+
+    /// <summary>
+    /// Garage/auto shop name - the Maintenance/Other-event counterpart of <see cref="StationId"/>.
     /// </summary>
     public string? Garage { get; set; }
 }

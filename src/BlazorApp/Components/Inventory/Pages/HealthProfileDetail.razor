@@ -1,4 +1,4 @@
-@page "/health/{Id}"
+﻿@page "/health/{Id}"
 @attribute [Authorize]
 
 @if (!_loaded)
@@ -155,7 +155,7 @@ else
     @if (CanEdit && _showModal)
     {
         <div class="kt-modal-backdrop">
-            <div class="kt-modal">
+            <div class="kt-modal kt-modal-wide">
                 <div class="kt-modal-header">
                     <h5>@(IsEditMode ? "Edit" : "Add") journal entry</h5>
                     <button class="kt-modal-close" @onclick="RequestCancelModal">✕</button>

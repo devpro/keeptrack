@@ -1,0 +1,219 @@
+@page "/admin/car-stations"
+@attribute [Authorize(Policy = "AdminOnly")]
+@using System.Globalization
+
+@* Curation screen for the shared, owner-less car_station catalogue. Members create stations inline from
+   the refuel form with nothing but a brand name, so this is where one gains its real city, postal code and
+   coordinates - and where the near-duplicates that inline creation inevitably produces get merged. *@
+
+<div class="kt-page-header">
+    <h1>Fuel stations</h1>
+</div>
+
+<div class="kt-form-card">
+    <p style="color:var(--kt-text-muted)">
+        Stations are shared across every account - a refuel points at one by id rather than carrying its own
+        copy of the location. Editing a station here updates every entry that references it.
+    </p>
+</div>
+
+@if (_error is not null)
+{
+    <p class="kt-callout kt-callout-warning">⚠ @_error</p>
+}
+
+<div class="kt-table-wrap">
+    <div class="kt-table-header">
+        <span class="kt-table-title">Catalogue (@_stations.Count)</span>
+        @if (_loading)
+        {
+            <span class="kt-icon-spin">↻</span>
+        }
+    </div>
+    @if (_stations.Count == 0 && !_loading)
+    {
+        <div class="kt-empty">
+            <div class="kt-empty-icon">◈</div>
+            <p>No stations yet - one is created the first time a refuel names it.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table kt-sheet-table kt-table-grid">
+                <thead>
+                <tr>
+                    <th>Brand</th>
+                    <th>City</th>
+                    <th class="d-none d-md-table-cell">Postal code</th>
+                    <th class="d-none d-md-table-cell">Country</th>
+                    <th class="d-none d-md-table-cell">Coordinates</th>
+                    <th>Entries</th>
+                    <th></th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var station in _stations)
+                {
+                    <tr>
+                        <td>
+                            <input class="form-control form-control-sm" value="@station.BrandName"
+                                   @onchange="e => SaveAsync(station, s => s.BrandName = e.Value?.ToString())"/>
+                        </td>
+                        <td>
+                            <input class="form-control form-control-sm" value="@station.City"
+                                   @onchange="e => SaveAsync(station, s => s.City = e.Value?.ToString())"/>
+                        </td>
+                        <td class="d-none d-md-table-cell">
+                            <input class="form-control form-control-sm" value="@station.PostalCode"
+                                   @onchange="e => SaveAsync(station, s => s.PostalCode = e.Value?.ToString())"/>
+                        </td>
+                        <td class="d-none d-md-table-cell">
+                            <input class="form-control form-control-sm" value="@station.Country"
+                                   @onchange="e => SaveAsync(station, s => s.Country = e.Value?.ToString())"/>
+                        </td>
+                        <td class="d-none d-md-table-cell">
+                            <div class="d-flex gap-1">
+                                <input class="form-control form-control-sm" type="number" step="0.000001" placeholder="Lon" value="@station.Longitude"
+                                       @onchange="e => SaveAsync(station, s => s.Longitude = ParseCoordinate(e.Value))"/>
+                                <input class="form-control form-control-sm" type="number" step="0.000001" placeholder="Lat" value="@station.Latitude"
+                                       @onchange="e => SaveAsync(station, s => s.Latitude = ParseCoordinate(e.Value))"/>
+                            </div>
+                        </td>
+                        <td>@station.UsageCount</td>
+                        <td>
+                            <div class="d-flex gap-1 justify-content-end align-items-center">
+                                @* Merging is the only way to remove a station that is still in use: deleting
+                                   one would blank the location of every refuel pointing at it. *@
+                                <select class="form-select form-select-sm" style="max-width:200px"
+                                        value="@MergeTargetOf(station)"
+                                        @onchange="e => SetMergeTarget(station, e.Value?.ToString())">
+                                    <option value="">Merge into…</option>
+                                    @foreach (var other in _stations.Where(s => s.Id != station.Id))
+                                    {
+                                        <option value="@other.Id">@other.DisplayName</option>
+                                    }
+                                </select>
+                                <button class="kt-icon-btn" title="Merge this station into the selected one"
+                                        aria-label="Merge this station" disabled="@(!CanMerge(station))"
+                                        @onclick="() => MergeAsync(station)">↻</button>
+                                <button class="kt-icon-btn" title="Delete this station" aria-label="Delete this station"
+                                        @onclick="() => RequestDelete(station)">
+                                    <TrashIcon/>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<ConfirmModal Show="_pendingDelete is not null"
+              Title="Delete this station?"
+              Message="@($"\"{_pendingDelete?.DisplayName}\" will be removed from the shared catalogue.")"
+              ConfirmLabel="Delete"
+              OnConfirm="ConfirmDeleteAsync" OnCancel="CancelDelete"/>
+
+@code {
+    [Inject] private CarStationApiClient StationApi { get; set; } = null!;
+
+    private List<CarStationDto> _stations = [];
+    private readonly Dictionary<string, string> _mergeTargetByStationId = [];
+    private CarStationDto? _pendingDelete;
+    private bool _loading;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _stations = await StationApi.GetForAdminAsync();
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SaveAsync(CarStationDto station, Action<CarStationDto> apply)
+    {
+        apply(station);
+        _error = null;
+        try
+        {
+            await StationApi.UpdateAsync(station);
+        }
+        catch (ApiRequestException ex)
+        {
+            // the API refuses an edit that would collide with another station's natural key - show its own
+            // message ("merge them instead") rather than a bare status line
+            _error = ex.Message;
+            await LoadAsync();
+        }
+    }
+
+    private string MergeTargetOf(CarStationDto station) =>
+        station.Id is null ? "" : _mergeTargetByStationId.GetValueOrDefault(station.Id, "");
+
+    private void SetMergeTarget(CarStationDto station, string? targetId)
+    {
+        if (station.Id is null) return;
+        _mergeTargetByStationId[station.Id] = targetId ?? "";
+    }
+
+    private bool CanMerge(CarStationDto station) =>
+        station.Id is not null && !string.IsNullOrEmpty(_mergeTargetByStationId.GetValueOrDefault(station.Id));
+
+    private async Task MergeAsync(CarStationDto station)
+    {
+        if (!CanMerge(station)) return;
+        _error = null;
+        try
+        {
+            var result = await StationApi.MergeAsync(station.Id!, _mergeTargetByStationId[station.Id!]);
+            _mergeTargetByStationId.Remove(station.Id!);
+            if (result is not null)
+            {
+                _error = $"Merged - {result.RepointedEntries} entr{(result.RepointedEntries == 1 ? "y" : "ies")} moved to \"{result.Station?.DisplayName}\".";
+            }
+        }
+        catch (ApiRequestException ex)
+        {
+            _error = ex.Message;
+        }
+
+        await LoadAsync();
+    }
+
+    private void RequestDelete(CarStationDto station) => _pendingDelete = station;
+
+    private void CancelDelete() => _pendingDelete = null;
+
+    private async Task ConfirmDeleteAsync()
+    {
+        var station = _pendingDelete;
+        _pendingDelete = null;
+        if (station?.Id is null) return;
+        _error = null;
+        try
+        {
+            await StationApi.DeleteAsync(station.Id);
+        }
+        catch (ApiRequestException ex)
+        {
+            // 409 when entries still point at it - that's a merge, not a delete
+            _error = ex.Message;
+        }
+
+        await LoadAsync();
+    }
+
+    private static double? ParseCoordinate(object? value) =>
+        double.TryParse(value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) ? parsed : null;
+}

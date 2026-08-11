@@ -8,7 +8,10 @@
     <td>@Entry.Mileage</td>
     <td>@Entry.EventType</td>
     <td>@Entry.Cost?.ToString("F2")</td>
-    <td class="d-none d-md-table-cell">@Entry.City</td>
+    @* A refuel carries no location of its own any more - both columns read through to the station it
+       points at, which is where that data now lives (hydrated server-side, one lookup per page). *@
+    <td class="d-none d-md-table-cell">@(Entry.StationBrandName ?? Entry.Garage)</td>
+    <td class="d-none d-md-table-cell">@(Entry.City ?? Entry.StationCity)</td>
     <td class="d-none d-md-table-cell">@Entry.Description</td>
     <td>
         @if (HasWarning)

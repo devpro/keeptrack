@@ -1192,7 +1192,7 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   margin: 0;
   padding: 0.25rem;
   list-style: none;
-  max-height: 220px;
+  max-height: 300px;
   overflow-y: auto;
   background: var(--kt-surface-2);
   border: 1px solid var(--kt-border);
@@ -1321,6 +1321,13 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   flex-direction: column;
   animation: kt-slide-up 0.18s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* Multi-column form modals (the car/house/health history entry forms). 520px is right for a confirmation
+   or a single-column form, but it forces a four-field row down to ~110px a column, which wraps the longer
+   labels ("Fuel unit price (€/L)") onto two lines and drops that field's input out of line with its
+   neighbours - and leaves a suggestion dropdown too narrow to read a full station name in. Mobile is
+   unaffected: the max-width: 100% override below is declared after this and wins. */
+.kt-modal-wide { max-width: 880px; }
 
 .kt-modal-header {
   display: flex;

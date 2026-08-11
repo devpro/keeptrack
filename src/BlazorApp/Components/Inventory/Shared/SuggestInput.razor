@@ -2,7 +2,7 @@
    styled stand-in for an HTML <datalist> (whose popup is unstyleable native chrome that clashes with the
    dark theme and floats over content below it - see GearDetail.razor's Category field, the first caller). *@
 <div class="kt-autocomplete @CssClass">
-    <input class="form-control form-control-sm" placeholder="@Placeholder" autocomplete="off"
+    <input class="@InputCssClass" placeholder="@Placeholder" autocomplete="off"
            value="@_query" @oninput="OnInput" @onfocus="OnFocus" @onfocusout="OnBlurAsync" @onkeydown="OnKeyDownAsync"/>
     @if (_open && FilteredSuggestions.Any())
     {
@@ -16,7 +16,12 @@
 </div>
 
 @code {
-    private const int MaxSuggestions = 8;
+    /// <summary>
+    /// How many matches the dropdown offers at once. 8 suits a short, closed-ish list like gear categories;
+    /// a caller backed by a genuinely large catalogue (the fuel-station picker) raises it, since with
+    /// hundreds of entries a short list makes the field feel like it can't find anything.
+    /// </summary>
+    [Parameter] public int MaxSuggestions { get; set; } = 8;
 
     [Parameter] public string? Value { get; set; }
 
@@ -29,6 +34,13 @@
     /// <summary>Applied to the wrapper div - lets a caller size this differently than the default
     /// full-width detail-page field (e.g. Gear.razor's fixed-width list-filter usage).</summary>
     [Parameter] public string? CssClass { get; set; }
+
+    /// <summary>
+    /// Classes on the input itself. Defaults to the small control the detail pages use everywhere; a caller
+    /// sitting in a row of full-size inputs passes plain "form-control", or this field renders visibly
+    /// shorter than the ones beside it (the car history form's Fuel type next to Fuel volume).
+    /// </summary>
+    [Parameter] public string InputCssClass { get; set; } = "form-control form-control-sm";
 
     private string _query = "";
     private string? _lastValueParam;

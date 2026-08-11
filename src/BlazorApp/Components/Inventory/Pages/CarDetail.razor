@@ -1,4 +1,4 @@
-@page "/cars/{Id}"
+﻿@page "/cars/{Id}"
 @attribute [Authorize]
 
 @if (!_loaded)
@@ -191,6 +191,7 @@ else
                         <th>Mileage</th>
                         <th>Event</th>
                         <th>Cost</th>
+                        <th class="d-none d-md-table-cell">Station / garage</th>
                         <th class="d-none d-md-table-cell">City</th>
                         <th class="d-none d-md-table-cell">Description</th>
                         <th></th>
@@ -218,7 +219,7 @@ else
     @if (CanEdit && _showModal)
     {
         <div class="kt-modal-backdrop">
-            <div class="kt-modal">
+            <div class="kt-modal kt-modal-wide">
                 <div class="kt-modal-header">
                     <h5>@(IsEditMode ? "Edit" : "Add") history entry</h5>
                     <button class="kt-modal-close" @onclick="RequestCancelModal">✕</button>
@@ -494,7 +495,9 @@ else
         ElectricUnitPrice = entry.ElectricUnitPrice,
         IsFullRefill = entry.IsFullRefill,
         DeltaMileage = entry.DeltaMileage,
-        StationBrandName = entry.StationBrandName,
+        // StationId only - StationBrandName/StationCity are server-hydrated display copies, and carrying
+        // them into an edit would just send back values the API ignores.
+        StationId = entry.StationId,
         Garage = entry.Garage
     };
 

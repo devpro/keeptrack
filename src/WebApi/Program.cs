@@ -15,6 +15,7 @@ builder.Services.Configure<HostOptions>(opts => opts.BackgroundServiceExceptionB
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<BookDto, Keeptrack.Domain.Models.BookModel>, Keeptrack.WebApi.Mappers.BookDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<CarDto, Keeptrack.Domain.Models.CarModel>, Keeptrack.WebApi.Mappers.CarDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<CarHistoryDto, Keeptrack.Domain.Models.CarHistoryModel>, Keeptrack.WebApi.Mappers.CarHistoryDtoMapper>();
+builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<CarStationDto, Keeptrack.Domain.Models.CarStationModel>, Keeptrack.WebApi.Mappers.CarStationDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<HouseDto, Keeptrack.Domain.Models.HouseModel>, Keeptrack.WebApi.Mappers.HouseDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<HouseHistoryDto, Keeptrack.Domain.Models.HouseHistoryModel>, Keeptrack.WebApi.Mappers.HouseHistoryDtoMapper>();
 builder.Services.AddSingleton<Keeptrack.WebApi.Mappers.IDtoMapper<HealthProfileDto, Keeptrack.Domain.Models.HealthProfileModel>, Keeptrack.WebApi.Mappers.HealthProfileDtoMapper>();

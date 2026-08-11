@@ -15,6 +15,8 @@ internal static class InfrastructureServiceCollectionExtensions
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
         services.AddHttpClient<CarHistoryApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
+        services.AddHttpClient<CarStationApiClient>(client => client.BaseAddress = webApiUri)
+            .AddHttpMessageHandler<AuthenticationTokenHandler>();
         services.AddHttpClient<HouseApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
         services.AddHttpClient<HouseHistoryApiClient>(client => client.BaseAddress = webApiUri)

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Keeptrack.Common.System;
@@ -193,6 +194,26 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
         var filter = builder.Eq(f => f.OwnerId, ownerId);
         if (!string.IsNullOrEmpty(search)) filter &= builder.Text(search);
         return filter;
+    }
+
+    /// <summary>
+    /// Every distinct non-empty value this owner has used in one string field, sorted case-insensitively -
+    /// the single implementation behind each "suggest what you've already typed" endpoint
+    /// (<c>GearController.GetCategories</c>, <c>CarHistoryController.GetFuelCategories</c>).
+    /// The field is an expression rather than an element-name string, so the BSON name mapping stays with
+    /// the entity class - same contract as <see cref="SortTitleField"/> and
+    /// <see cref="DeleteAllByParentAsync"/>, and the only form that works for a nested field.
+    /// </summary>
+    protected async Task<IReadOnlyList<string>> FindDistinctValuesAsync(Expression<Func<TEntity, string?>> field, string ownerId)
+    {
+        var builder = Builders<TEntity>.Filter;
+        // "has a value" is the negation of TvShowRepository/MovieRepository's UnresolvedFilter shape
+        // (matches null OR empty string) - both generations of "unset" must be excluded here too.
+        var filter = builder.Eq(f => f.OwnerId, ownerId) & builder.Ne(field, null) & builder.Ne(field, string.Empty);
+        var cursor = await GetCollection().DistinctAsync(field, filter);
+        var values = await cursor.ToListAsync();
+        values.Sort(StringComparer.OrdinalIgnoreCase);
+        return values!;
     }
 
     protected IMongoCollection<TEntity> GetCollection()

@@ -354,8 +354,10 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
                     FuelUnitPrice = 1.78,
                     Cost = Math.Round((38.2 + i) * 1.78, 2),
                     IsFullRefill = true,
-                    StationBrandName = "TotalEnergies",
-                    City = "Lyon"
+                    // No station: a refuel's location now lives on the shared car_station document it
+                    // points at, and this harness is a screenshot pass over one tenant's own pages - it has
+                    // no business writing into a catalogue every account sees.
+                    StationId = null
                 });
         }
 

@@ -44,15 +44,6 @@ public class GearRepository(IMongoDatabase mongoDatabase, ILogger<GearRepository
         return filter;
     }
 
-    public async Task<IReadOnlyList<string>> FindDistinctCategoriesAsync(string ownerId)
-    {
-        var builder = Builders<Gear>.Filter;
-        // "has a category" is the negation of TvShowRepository/MovieRepository's UnresolvedFilter shape
-        // (matches null OR empty string) - both generations of "unset" must be excluded here too.
-        var filter = builder.Eq(f => f.OwnerId, ownerId) & builder.Ne(f => f.Category, null) & builder.Ne(f => f.Category, string.Empty);
-        var cursor = await GetCollection().DistinctAsync(f => f.Category, filter);
-        var categories = await cursor.ToListAsync();
-        categories.Sort(StringComparer.OrdinalIgnoreCase);
-        return categories!;
-    }
+    public Task<IReadOnlyList<string>> FindDistinctCategoriesAsync(string ownerId)
+        => FindDistinctValuesAsync(f => f.Category, ownerId);
 }

@@ -346,3 +346,28 @@ ensureIndex(db.explore_catalogue, { item_type: 1, ranking: 1, rank: 1 }, { name:
 // the refresh pass: the oldest stamp in a ranking (its staleness signal) and the "delete what this pass
 // didn't rewrite" prune, both filtering item_type + ranking and ordering/comparing on refreshed_at.
 ensureIndex(db.explore_catalogue, { item_type: 1, ranking: 1, refreshed_at: 1 }, { name: "explore_catalogue_refreshed" });
+
+// car_station: the shared, owner-less fuel-station catalogue. Like the *_reference collections it is a
+// deliberate exception to "every collection has an owner_id" - a station at an address is a public fact
+// pointed at by every tenant's car_history entries, not one account's data.
+//
+// The natural key is the normalized brand name + normalized city + postal code, and it is unique because
+// members create stations inline from the refuel form: the application's find-or-create is what is
+// *supposed* to prevent duplicates, this index is what guarantees it when two members type the same
+// station at the same moment. city_normalized is "" (never null/missing) for a station with no city yet,
+// so the key compares as a value rather than collapsing every cityless station onto one another - the same
+// null-or-empty trap as the reference collections' unresolved filters.
+ensureIndex(
+  db.car_station,
+  { brand_name_normalized: 1, city_normalized: 1, postal_code: 1 },
+  { name: "car_station_key", unique: true }
+);
+
+// car_history.station_id: backs the "is this station still in use" delete guard, the admin catalogue's
+// per-station entry counts (one grouped aggregation) and the merge's re-point. Partial, since only refuels
+// carry a station and a full index would be mostly empty.
+ensureIndex(
+  db.car_history,
+  { station_id: 1 },
+  { name: "car_history_station", partialFilterExpression: { station_id: { $exists: true } } }
+);
