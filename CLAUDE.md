@@ -61,6 +61,9 @@ Mapping is compile-time via [Riok.Mapperly](https://github.com/riok/mapperly): o
 
 - Unmapped members are **build errors** (`RMG012`/`RMG020` escalated in `.editorconfig`).
   Add an explicit `[MapperIgnoreSource]`/`[MapperIgnoreTarget]` for a member a direction genuinely doesn't need; never leave one unmapped.
+- **A single-word entity property is stored camelCase, not snake_case**: `CamelCaseElementNameConvention` is registered globally in `InfrastructureServiceCollectionExtensions`, so only multi-word members need (and carry) an explicit `[BsonElement("public_reimbursement")]`.
+  `HealthRecord.Specialty` is `specialty` in BSON.
+  Repository code is unaffected - every query here names the field with an **expression**, which resolves through the class map - but anything written by hand against the raw names must use the stored one: an index declaration or a `$rename` migration naming it `Specialty` matches zero documents and reports success, the same silent-empty-match family as the `ReferenceId` null/empty gotcha.
 - `OwnerId` uses `[MapValue(nameof(Model.OwnerId), "")]` on DTO -> model (a plain ignore won't compile - it's `required`).
   The placeholder is overwritten server-side from the caller's claims in `DataCrudControllerBase`, never trusted from client input.
 - Read-only feature controllers (`WatchNextController`, `WishlistController`, Car/House metrics, `ReferenceDataController`) use a small one-directional Model -> Dto mapper class injected by its concrete type.
@@ -182,6 +185,9 @@ Embed only genuinely small, always-together, never-queried-alone data (`TvShowRe
   **The balance rule lives only in `HealthMetricsService`** (`ComputeMissingAmount`/`IsBalanced`); the journal's "to check" badges come from the metrics' id list, never re-derived client-side. The detail page is journal-first and badge-only
   by owner feedback: no "to check" list, no chart, no per-row reimbursement column, and the yearly Paid/Reimbursed/OutOfPocket table sits *after* the journal.
   Both controllers are `MemberOnly`.
+  **`Specialty` and `Practitioner` are free text with a suggestion dropdown over what this account has already recorded** (`GET /api/health-records/suggestions` -> `SuggestInput`, the same "suggest what you've already typed" shape as gear categories and fuel grades, over the one `MongoDbRepositoryBase.FindDistinctValuesAsync`).
+  The two lists travel in one `HealthRecordSuggestionsDto` rather than one endpoint each, because the form needs both the moment it opens.
+  Owner-scoped, and unlike `car_station` this must never become a shared catalogue: a specialty or a doctor's name is one account's medical history, not a public fact about a place.
 - Charts: axis/geometry math is shared in `BlazorApp/Components/Shared/SvgChartHelpers.cs` (`ChartGeometry`, `RenderAxes`, `EvenlySpacedIndices`); each page's own series-drawing loop stays local -
   forcing one shared renderer would be over-generalization.
   Chart CSS (`.kt-callout*`, `.kt-chart-*`, `.kt-sheet-table`, `.kt-legend-*`) is global in `app.css`, not scoped.
@@ -788,6 +794,18 @@ The title sort attaches a per-query `Collation` ("en", strength 2) for case/diac
   This is safe today only because every `GetFilter` searches via regex `Contains` (the base's `builder.Text` default is effectively dead) - a future `$text`-searching repository must gate the collation.
 - `InventoryList`'s search box keeps a deliberate local copy of the text (so a parent re-render racing fast typing can't revert characters) and adopts an external `Search` change only when it didn't originate from its own `OnSearchChanged`
   - read the sent/received tracking in `OnParametersSet` before touching it.
+- **`SuggestInput`'s menu must never be torn down by the blur its own click causes** (`@onmousedown:preventDefault` on the item and the menu, plus the `_menuMouseDown` guard).
+  Blazor Server processes one event at a time per circuit, so the `focusout` a suggestion click fires runs its handler **to completion** - closing the menu, re-rendering, disposing the item's click handler - before the click that caused it is ever dispatched.
+  Clicking a suggestion then did nothing at all, in every caller (gear category, fuel type, station picker), and the flag that was supposed to guard it could only be set by the click it was waiting for, so it never fired.
+  A `Task.Delay` cannot fix this either, for the same reason: the click can't be processed *during* the delay.
+  A mousedown-based guard is the only ordering that works - it reaches the server before the focusout it causes.
+- **Typing highlights a match immediately** (`DefaultActiveIndex` - the exact match if the text already is one, else the first), the ARIA combobox pattern's *automatic selection* rather than its *manual selection* variant.
+  With manual selection nothing is highlighted until ↓ is pressed, so **Enter completes nothing** and every keyboard completion costs a trip to the arrow keys - which is exactly how it first shipped, and unusable.
+  An empty field highlights nothing: it must never complete to whatever sorts first.
+- **Enter takes the highlight, Tab only takes one the user moved to with ↑/↓.** Enter is a committing key, Tab is a *navigation* key: auto-completing on Tab silently rewrites a genuinely new value into an existing one that merely contains it ("Dr Kim" tabbed away into "Dr Kimura").
+  Escape drops the highlight, which is what lets the next Enter or Tab keep the literal text.
+  There's deliberately no `preventDefault` on keydown: Blazor can only decide it per render, and a blanket one would swallow the characters being typed.
+  Nothing here sits in a `<form>`, so Enter submits nothing.
 
 **Gotcha:** a `string`-typed component `[Parameter]` needs the `@` prefix - `Title="_movie.Title"` binds the **literal text**, not the value.
 Razor only infers C# when the parameter type couldn't accept a string literal (`Year="_movie.Year"` on `int?` works unprefixed).

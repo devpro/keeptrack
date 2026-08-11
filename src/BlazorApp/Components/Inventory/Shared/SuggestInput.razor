@@ -1,15 +1,40 @@
-@* Free-text input with a filtered, click-to-fill suggestion dropdown - not a closed choice, the app's own
-   styled stand-in for an HTML <datalist> (whose popup is unstyleable native chrome that clashes with the
-   dark theme and floats over content below it - see GearDetail.razor's Category field, the first caller). *@
+@* Free-text input with a filtered suggestion dropdown - not a closed choice, the app's own styled stand-in
+   for an HTML <datalist> (whose popup is unstyleable native chrome that clashes with the dark theme and
+   floats over content below it - see GearDetail.razor's Category field, the first caller).
+   A suggestion is taken three ways, all of which must work: clicking it, pressing Enter on the match
+   typing already highlighted, or moving to another with ↑/↓ first. *@
+@{
+    var suggestions = FilteredSuggestions;
+    var menuOpen = _open && suggestions.Count > 0;
+}
 <div class="kt-autocomplete @CssClass">
+    @* @attributes last so a caller can add what this component doesn't model (a data-testid for the e2e
+       suite, a title) - and, deliberately, override one of the above when it has to. *@
     <input class="@InputCssClass" placeholder="@Placeholder" autocomplete="off"
-           value="@_query" @oninput="OnInput" @onfocus="OnFocus" @onfocusout="OnBlurAsync" @onkeydown="OnKeyDownAsync"/>
-    @if (_open && FilteredSuggestions.Any())
+           role="combobox" aria-autocomplete="list" aria-expanded="@(menuOpen ? "true" : "false")"
+           value="@_query" @oninput="OnInput" @onfocus="OnFocus" @onfocusout="OnBlurAsync" @onkeydown="OnKeyDownAsync"
+           @attributes="AdditionalAttributes"/>
+    @if (menuOpen)
     {
-        <ul class="kt-autocomplete-menu">
-            @foreach (var suggestion in FilteredSuggestions)
+        @* :preventDefault on mousedown is what makes clicking a suggestion work at all. Without it the
+           browser blurs the input before the click, and since Blazor Server runs one event at a time, the
+           whole focusout handler - close the menu, re-render, dispose the <li>'s handler - completes
+           before the click is ever dispatched, so the click lands on nothing. Preventing the default
+           keeps focus in the input, so no focusout happens and the menu is still there when the click
+           arrives. It sits on the <ul> so it covers the items and a drag on the menu's own scrollbar.
+           OnMenuMouseDown is the belt-and-braces half for any browser that blurs anyway (touch): unlike
+           the click, a mousedown reaches the server *before* the focusout it causes, so it is the one
+           guard that can win that race. It sits on the item, not the <ul>, because only an item is
+           guaranteed a click behind it - a scrollbar drag would set a flag nothing ever clears. *@
+        <ul class="kt-autocomplete-menu" role="listbox" @onmousedown:preventDefault>
+            @for (var i = 0; i < suggestions.Count; i++)
             {
-                <li class="kt-autocomplete-item @(suggestion == Value ? "active" : "")" @onclick="() => SelectAsync(suggestion)">@suggestion</li>
+                var index = i;
+                var suggestion = suggestions[index];
+                <li class="kt-autocomplete-item @(IsHighlighted(index, suggestion) ? "active" : "")"
+                    role="option" aria-selected="@(suggestion == Value ? "true" : "false")"
+                    @onmousedown="OnMenuMouseDown" @onmousedown:preventDefault
+                    @onclick="() => SelectAsync(suggestion)">@suggestion</li>
             }
         </ul>
     }
@@ -42,15 +67,45 @@
     /// </summary>
     [Parameter] public string InputCssClass { get; set; } = "form-control form-control-sm";
 
+    /// <summary>Anything else the caller puts on the component lands on the input itself (e.g. the
+    /// <c>data-testid</c> the Playwright suite resolves unlabeled form fields by).</summary>
+    [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
     private string _query = "";
     private string? _lastValueParam;
     private bool _open;
 
-    // guards OnBlurAsync's delayed close against a suggestion click that's still in flight - see SelectAsync
-    private bool _suppressBlurClose;
+    /// <summary>Which suggestion is highlighted, -1 for none.</summary>
+    private int _activeIndex = -1;
 
-    private IEnumerable<string> FilteredSuggestions =>
-        Suggestions.Where(s => string.IsNullOrEmpty(_query) || s.Contains(_query, StringComparison.OrdinalIgnoreCase)).Take(MaxSuggestions);
+    /// <summary>
+    /// Whether the highlight is the user's own doing (↑/↓) rather than the one typing put there. Only an
+    /// explicit one is taken by Tab - see <see cref="OnKeyDownAsync"/>.
+    /// </summary>
+    private bool _highlightIsExplicit;
+
+    /// <summary>Set by a mousedown inside the menu, consumed by the focusout it may cause - see the markup.</summary>
+    private bool _menuMouseDown;
+
+    private List<string> FilteredSuggestions =>
+        Suggestions.Where(s => string.IsNullOrEmpty(_query) || s.Contains(_query, StringComparison.OrdinalIgnoreCase))
+            .Take(MaxSuggestions)
+            .ToList();
+
+    /// <summary>The suggestion Enter would take - see <see cref="DefaultActiveIndex"/>.</summary>
+    private string? HighlightedSuggestion
+    {
+        get
+        {
+            if (!_open) return null;
+            var suggestions = FilteredSuggestions;
+            return _activeIndex >= 0 && _activeIndex < suggestions.Count ? suggestions[_activeIndex] : null;
+        }
+    }
+
+    /// <summary>Highlights what the keyboard moved to; falls back to marking the current value while it hasn't.</summary>
+    private bool IsHighlighted(int index, string suggestion) =>
+        _activeIndex >= 0 ? index == _activeIndex : suggestion == Value;
 
     protected override void OnParametersSet()
     {
@@ -67,31 +122,48 @@
     {
         _query = e.Value?.ToString() ?? "";
         _open = true;
+        // typing rebuilds the list, so any ↑/↓ walk over the old one is void
+        _activeIndex = DefaultActiveIndex();
+        _highlightIsExplicit = false;
     }
 
     /// <summary>
-    /// A suggestion is a plain, non-focusable &lt;li&gt; rather than a &lt;button&gt;, so clicking it never
-    /// steals focus from the input in the first place - the input's blur handler still fires on a real
-    /// blur (tab away, click elsewhere), just not from this click. The delay/flag pair only has to cover
-    /// touch, where a tap can blur before the click event finishes.
+    /// What typing highlights on its own: the exact match if the text is already one, else the first match.
+    /// This is the ARIA combobox pattern's "automatic selection" - without it Enter has nothing to take and
+    /// completing a value means reaching for ↓ first, which is the whole point of not having to.
+    /// An exact match wins over the first one so typing "dentiste" in full keeps it rather than completing
+    /// to a longer "dentiste pédiatrique" sitting above it.
+    /// Nothing is highlighted while the field is empty: an empty field must never complete to whatever
+    /// happens to sort first.
     /// </summary>
+    private int DefaultActiveIndex()
+    {
+        if (string.IsNullOrWhiteSpace(_query)) return -1;
+        var suggestions = FilteredSuggestions;
+        var exact = suggestions.FindIndex(s => string.Equals(s, _query, StringComparison.OrdinalIgnoreCase));
+        if (exact >= 0) return exact;
+        return suggestions.Count > 0 ? 0 : -1;
+    }
+
+    private void OnMenuMouseDown() => _menuMouseDown = true;
+
     private async Task SelectAsync(string suggestion)
     {
-        _suppressBlurClose = true;
+        _menuMouseDown = false;
         _query = suggestion;
-        _open = false;
+        Close();
         await CommitAsync(suggestion);
     }
 
     private async Task OnBlurAsync()
     {
-        await Task.Delay(150);
-        if (_suppressBlurClose)
+        if (_menuMouseDown)
         {
-            _suppressBlurClose = false;
+            // a click on the menu is on its way - leave it standing, SelectAsync closes it
+            _menuMouseDown = false;
             return;
         }
-        _open = false;
+        Close();
         await CommitAsync(_query);
     }
 
@@ -99,14 +171,65 @@
     {
         switch (e.Key)
         {
-            case "Escape":
-                _open = false;
+            case "ArrowDown":
+                Move(1);
                 break;
+            case "ArrowUp":
+                Move(-1);
+                break;
+            // the escape hatch out of an automatic highlight: dropping it is what lets the next Enter or
+            // Tab keep the literal text, when what was typed is a real new value that happens to be part
+            // of an existing one
+            case "Escape":
+                Close();
+                break;
+            // Enter is the committing key and takes the highlight however it got there - that is the whole
+            // "complete it without leaving the keyboard" path.
             case "Enter":
-                _open = false;
-                await CommitAsync(_query);
+                await TakeAsync(HighlightedSuggestion);
+                break;
+            // Tab is a *navigation* key, so it only takes a highlight the user moved to deliberately.
+            // Auto-completing on it would silently rewrite a genuinely new value into an existing one that
+            // merely contains it ("Dr Kim" tabbed away into "Dr Kimura"). Whatever it commits, the focusout
+            // that follows commits the same thing again and falls through CommitAsync's no-op.
+            case "Tab":
+                await TakeAsync(_highlightIsExplicit ? HighlightedSuggestion : null);
                 break;
         }
+    }
+
+    /// <summary>Takes <paramref name="suggestion"/>, or commits the typed text when there is none.</summary>
+    private async Task TakeAsync(string? suggestion)
+    {
+        if (suggestion is not null)
+        {
+            await SelectAsync(suggestion);
+            return;
+        }
+        Close();
+        await CommitAsync(_query);
+    }
+
+    /// <summary>
+    /// Moves the highlight, wrapping around, and opens the menu if ↓ was pressed on a closed one - the
+    /// keyboard's equivalent of clicking into the field to see what's on offer.
+    /// </summary>
+    private void Move(int delta)
+    {
+        var suggestions = FilteredSuggestions;
+        if (suggestions.Count == 0) return;
+        _open = true;
+        _highlightIsExplicit = true;
+        _activeIndex = _activeIndex < 0
+            ? delta > 0 ? 0 : suggestions.Count - 1
+            : (_activeIndex + delta + suggestions.Count) % suggestions.Count;
+    }
+
+    private void Close()
+    {
+        _open = false;
+        _activeIndex = -1;
+        _highlightIsExplicit = false;
     }
 
     private async Task CommitAsync(string? value)

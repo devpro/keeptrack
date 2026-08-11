@@ -177,5 +177,22 @@ public class HealthImportServiceTest
     {
         public Task<long> DeleteAllForProfileAsync(string healthProfileId, string ownerId) =>
             Task.FromResult((long)Items.RemoveAll(x => x.HealthProfileId == healthProfileId && x.OwnerId == ownerId));
+
+        // suggestion lists: nothing the import service reads, so the same in-memory shape as the queries above
+        public Task<IReadOnlyList<string>> FindDistinctSpecialtiesAsync(string ownerId) =>
+            DistinctValues(ownerId, x => x.Specialty);
+
+        public Task<IReadOnlyList<string>> FindDistinctPractitionersAsync(string ownerId) =>
+            DistinctValues(ownerId, x => x.Practitioner);
+
+        private Task<IReadOnlyList<string>> DistinctValues(string ownerId, Func<HealthRecordModel, string?> field) =>
+            Task.FromResult<IReadOnlyList<string>>(Items
+                .Where(x => x.OwnerId == ownerId)
+                .Select(field)
+                .Where(value => !string.IsNullOrEmpty(value))
+                .Select(value => value!)
+                .Distinct()
+                .Order(StringComparer.OrdinalIgnoreCase)
+                .ToList());
     }
 }

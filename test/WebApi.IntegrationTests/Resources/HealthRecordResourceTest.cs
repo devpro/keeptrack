@@ -73,4 +73,48 @@ public class HealthRecordResourceTest(KestrelWebAppFactory<Program> factory)
         var bySearch = await GetAsync<PagedResult<HealthRecordDto>>($"/{ResourceEndpoint}?HealthProfileId={profileId}&search={practitioner}");
         bySearch.Items.Should().ContainSingle(x => x.Id == created.Id);
     }
+
+    [Fact]
+    public async Task HealthRecordSuggestionsEndpoint_ReturnsDistinctSortedSpecialtiesAndPractitioners_IsOk()
+    {
+        await GetAsync($"/{ResourceEndpoint}/suggestions", HttpStatusCode.Unauthorized);
+
+        await Authenticate();
+
+        var profileId = Guid.NewGuid().ToString();
+        var specialty = $"Zz-specialty-{Guid.NewGuid():N}";
+        var otherSpecialty = $"Aa-specialty-{Guid.NewGuid():N}";
+        var practitioner = $"Dr {Guid.NewGuid():N}";
+
+        var first = NewEntry(profileId);
+        first.Specialty = specialty;
+        first.Practitioner = practitioner;
+        await CreateAsync($"/{ResourceEndpoint}", first);
+
+        // the same specialty twice must appear only once, and an entry with neither field set must add nothing
+        var second = NewEntry(profileId);
+        second.Specialty = specialty;
+        second.Practitioner = practitioner;
+        await CreateAsync($"/{ResourceEndpoint}", second);
+
+        var third = NewEntry(profileId);
+        third.Specialty = otherSpecialty;
+        third.Practitioner = null;
+        await CreateAsync($"/{ResourceEndpoint}", third);
+
+        var unset = NewEntry(profileId);
+        unset.Specialty = null;
+        unset.Practitioner = null;
+        await CreateAsync($"/{ResourceEndpoint}", unset);
+
+        var suggestions = await GetAsync<HealthRecordSuggestionsDto>($"/{ResourceEndpoint}/suggestions");
+        suggestions.Specialties.Should().Contain([specialty, otherSpecialty]);
+        suggestions.Specialties.Should().OnlyHaveUniqueItems();
+        suggestions.Specialties.Should().NotContainNulls().And.NotContain(string.Empty);
+        suggestions.Specialties.IndexOf(otherSpecialty).Should().BeLessThan(suggestions.Specialties.IndexOf(specialty),
+            "results are sorted case-insensitively");
+
+        suggestions.Practitioners.Should().Contain(practitioner);
+        suggestions.Practitioners.Should().OnlyHaveUniqueItems();
+    }
 }

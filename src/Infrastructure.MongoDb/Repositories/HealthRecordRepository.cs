@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
@@ -15,6 +16,12 @@ public class HealthRecordRepository(IMongoDatabase mongoDatabase, ILogger<Health
 
     public Task<long> DeleteAllForProfileAsync(string healthProfileId, string ownerId)
         => DeleteAllByParentAsync(f => f.HealthProfileId, healthProfileId, ownerId);
+
+    public Task<IReadOnlyList<string>> FindDistinctSpecialtiesAsync(string ownerId)
+        => FindDistinctValuesAsync(f => f.Specialty, ownerId);
+
+    public Task<IReadOnlyList<string>> FindDistinctPractitionersAsync(string ownerId)
+        => FindDistinctValuesAsync(f => f.Practitioner, ownerId);
 
     protected override FilterDefinition<HealthRecord> GetFilter(string ownerId, string? search, HealthRecordModel input)
     {
