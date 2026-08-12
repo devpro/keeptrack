@@ -313,15 +313,20 @@ public sealed class End2EndFixture : IAsyncLifetime
     }
 
     /// <summary>
-    /// The ordering the Explore page will actually read for a domain, asked of the hosted app rather than
-    /// hardcoded - a seeded entry filed under any other ranking key is invisible to the page. Resolved from
-    /// the API's own container because the answer now depends on which provider that deployment has registered
-    /// as the domain's discovery provider.
+    /// Every ordering a domain's catalogue is maintained under, asked of the hosted app rather than hardcoded -
+    /// a seeded entry filed under any other ranking key is invisible to the page. Resolved from the API's own
+    /// container because the answer depends on which provider that deployment has registered as the domain's
+    /// discovery provider (movies/TV have one ordering, video games one per rating source IGDB supports).
+    /// <para>
+    /// All of them, not just the effective one: which ordering the page reads follows the admin-selected
+    /// primary rating source, a stored setting no test controls, so a seed that guessed at it would break on a
+    /// database where someone had picked the other one.
+    /// </para>
     /// </summary>
-    public string ExploreRankingFor(ExploreItemType type, string ratingSource)
+    public IReadOnlyList<string> ExploreRankingsFor(ExploreItemType type)
     {
         using var scope = _webApiFactory!.Services.CreateScope();
-        return scope.ServiceProvider.GetRequiredService<ExploreRankings>().For(type, ratingSource);
+        return scope.ServiceProvider.GetRequiredService<ExploreRankings>().Rankings(type);
     }
 
     /// <summary>
