@@ -11,39 +11,43 @@
     <nav class="nav flex-column">
         <div class="nav-item">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="nav-icon">⌂</span> Home
+                <span class="nav-icon"><NavIcon Name="home"/></span> Home
             </NavLink>
         </div>
         <AuthorizeView>
             <Authorized>
                 <div class="nav-item">
                     <NavLink class="nav-link" href="add">
-                        <span class="nav-icon">+</span> Quick add
+                        <span class="nav-icon"><NavIcon Name="add"/></span> Quick add
                     </NavLink>
                 </div>
                 <div class="nav-item">
                     <NavLink class="nav-link" href="watch-next">
-                        <span class="nav-icon">▶</span> Watch next
+                        <span class="nav-icon"><NavIcon Name="watch-next"/></span> Watch next
                     </NavLink>
                 </div>
                 <div class="nav-item">
                     <NavLink class="nav-link" href="wishlist">
-                        <span class="nav-icon">○</span> Wishlist
+                        <span class="nav-icon"><NavIcon Name="wishlist"/></span> Wishlist
                     </NavLink>
                 </div>
                 <div class="nav-item">
                     <NavLink class="nav-link" href="explore">
-                        <span class="nav-icon">✦</span> Explore
+                        <span class="nav-icon"><NavIcon Name="explore"/></span> Explore
                     </NavLink>
                 </div>
+                @* Eighteen flat rows had no shape. These three labels group them by what the row is for -
+                   a place to look at everything (above), one collection type (here), account-level tools
+                   (below) - which is the only structure the list ever actually had. *@
+                <div class="kt-nav-group">Collection</div>
                 <div class="nav-item">
                     <NavLink class="nav-link" href="movies">
-                        <span class="nav-icon">◼</span> Movies
+                        <span class="nav-icon"><NavIcon Name="movies"/></span> Movies
                     </NavLink>
                 </div>
                 <div class="nav-item">
                     <NavLink class="nav-link" href="tv-shows">
-                        <span class="nav-icon">▭</span> TV shows
+                        <span class="nav-icon"><NavIcon Name="tv-shows"/></span> TV shows
                     </NavLink>
                 </div>
                 @* Free preview accounts (no Firebase "member"/"admin" role) only get movies and TV shows - the two links above sit outside this block on purpose.
@@ -52,52 +56,56 @@
                     <Authorized>
                         <div class="nav-item">
                             <NavLink class="nav-link" href="books">
-                                <span class="nav-icon">▬</span> Books
+                                <span class="nav-icon"><NavIcon Name="books"/></span> Books
                             </NavLink>
                         </div>
                         <div class="nav-item">
                             <NavLink class="nav-link" href="albums">
-                                <span class="nav-icon">♪</span> Albums
+                                <span class="nav-icon"><NavIcon Name="albums"/></span> Albums
                             </NavLink>
                         </div>
                         <div class="nav-item">
                             <NavLink class="nav-link" href="playlists">
-                                <span class="nav-icon">♫</span> Playlists
+                                <span class="nav-icon"><NavIcon Name="playlists"/></span> Playlists
                             </NavLink>
                         </div>
                         <div class="nav-item">
                             <NavLink class="nav-link" href="video-games">
-                                <span class="nav-icon">◆</span> Video games
+                                <span class="nav-icon"><NavIcon Name="video-games"/></span> Video games
                             </NavLink>
                         </div>
                         <div class="nav-item">
                             <NavLink class="nav-link" href="cars">
-                                <span class="nav-icon">◉</span> Cars
+                                <span class="nav-icon"><NavIcon Name="cars"/></span> Cars
                             </NavLink>
                         </div>
                         <div class="nav-item">
                             <NavLink class="nav-link" href="houses">
-                                <span class="nav-icon">▲</span> Houses
+                                <span class="nav-icon"><NavIcon Name="houses"/></span> Houses
                             </NavLink>
                         </div>
                         <div class="nav-item">
                             <NavLink class="nav-link" href="health">
-                                <span class="nav-icon">✚</span> Health
+                                <span class="nav-icon"><NavIcon Name="health"/></span> Health
                             </NavLink>
                         </div>
                         <div class="nav-item">
                             <NavLink class="nav-link" href="collectibles">
-                                <span class="nav-icon">▦</span> Collectibles
+                                <span class="nav-icon"><NavIcon Name="collectibles"/></span> Collectibles
                             </NavLink>
                         </div>
                         <div class="nav-item">
                             <NavLink class="nav-link" href="gear">
-                                <span class="nav-icon">▧</span> Gear
+                                <span class="nav-icon"><NavIcon Name="gear"/></span> Gear
                             </NavLink>
                         </div>
+                        @* Import opens the "Manage" group; the admin-only rows below join it when present.
+                           Inside MemberOnly on purpose - a free preview account has none of these rows, so
+                           it must not get a group label heading an empty group. *@
+                        <div class="kt-nav-group">Manage</div>
                         <div class="nav-item">
                             <NavLink class="nav-link" href="import">
-                                <span class="nav-icon">⬆</span> Import
+                                <span class="nav-icon"><NavIcon Name="import"/></span> Import
                             </NavLink>
                         </div>
                     </Authorized>
@@ -111,12 +119,12 @@
                     <Authorized>
                         <div class="nav-item">
                             <NavLink class="nav-link" href="admin/reference-data">
-                                <span class="nav-icon">⚙</span> Admin
+                                <span class="nav-icon"><NavIcon Name="admin"/></span> Admin
                             </NavLink>
                         </div>
                         <div class="nav-item">
                             <NavLink class="nav-link" href="admin/car-stations">
-                                <span class="nav-icon">◈</span> Stations
+                                <span class="nav-icon"><NavIcon Name="stations"/></span> Stations
                             </NavLink>
                         </div>
                     </Authorized>
@@ -131,14 +139,14 @@
                 </div>
                 <div class="nav-item">
                     <a class="nav-link nav-link-logout" href="/auth/logout">
-                        <span class="nav-icon">⇥</span> Log out
+                        <span class="nav-icon"><NavIcon Name="logout"/></span> Log out
                     </a>
                 </div>
             </Authorized>
             <NotAuthorized>
                 <div class="nav-item">
                     <a class="nav-link" href="/account/login" data-enhance-nav="false">
-                        <span class="nav-icon">→</span> Sign in
+                        <span class="nav-icon"><NavIcon Name="signin"/></span> Sign in
                     </a>
                 </div>
             </NotAuthorized>

@@ -137,7 +137,9 @@ else
 
     @foreach (var entry in Game.Platforms)
     {
-        <div class="kt-form-card mb-3">
+        @* A platform entry *is* this game's copy, so it takes the same kt-copy-card treatment as
+           OwnedVersionsEditor's cards - full-width equal columns, no field-grid cap. *@
+        <div class="kt-form-card kt-copy-card mb-3">
             <h3 class="mb-2">@entry.Platform</h3>
             <OwnedVersionFields Copy="entry" OnChanged="SaveGameAsync">
                 <ButtonRowSuffix>

@@ -195,11 +195,30 @@ div.content,
 button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199, 58, 82, 0.08) !important; }
 
 .nav-icon {
-  width: 16px;
-  text-align: center;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
   font-style: normal;
-  opacity: 0.8;
+  opacity: 0.85;
+}
+/* NavIcon renders a bare <svg>; sizing it here (rather than per-icon) keeps every glyph on one optical
+   scale, and stroke:currentColor on the svg means the nav link's own colour states drive it. */
+.nav-icon svg { width: 18px; height: 18px; display: block; }
+.nav-link.active .nav-icon { opacity: 1; }
+
+/* Section label between nav groups - the sidebar's only structure, so it stays very quiet: it must read
+   as a divider with a name on it, never as another clickable row. */
+.kt-nav-group {
+  padding: 1rem 0.75rem 0.35rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--kt-text-subtle);
+  user-select: none;
 }
 
 /* the signed-in user's nav row has no plain-text glyph that reads as "profile" (a person silhouette is a
@@ -278,7 +297,11 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
 .form-control::placeholder { color: var(--kt-text-subtle) !important; }
 .form-select option { background: var(--kt-surface-3); color: var(--kt-text); }
 .form-control-sm, .form-select-sm { padding: 0.3rem 0.65rem !important; font-size: 0.82rem !important; border-radius: 6px !important; }
-.form-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--kt-text-muted); margin-bottom: 0.35rem; }
+/* Field labels are sentence case; uppercase is reserved for the things that structure a page - section
+   headings (.kt-section-title, .kt-form-card h5) and table column headers. A detail page otherwise stacks
+   a dozen shouted micro-labels down one screen, at which point the treatment stops marking hierarchy
+   because everything has it. Labels are written sentence-case in the markup, so this is CSS-only. */
+.form-label { font-size: 0.78rem; font-weight: 500; letter-spacing: 0; color: var(--kt-text-muted); margin-bottom: 0.3rem; }
 .form-check-input:checked { background-color: var(--kt-accent) !important; border-color: var(--kt-accent) !important; }
 
 /* ── TABLE ─────────────────────────────────────────────────────────── */
@@ -331,6 +354,13 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
   box-shadow: var(--kt-shadow);
   width: 100%;
 }
+
+/* Inventory rows in *list* view only (InventoryList adds this; the grid deliberately doesn't get it).
+   A .kt-item-row is a flex line whose content clusters left and whose delete button is pushed to the far
+   edge, so across the full 1100px content column the title and its own delete icon ended up ~900px apart
+   with nothing in between. Capping the measure keeps a row readable as one object; the grid, the admin
+   queues and the dense car/health journals all still take the full width. */
+.kt-table-wrap-list { max-width: 920px; margin-inline: auto; }
 
 .kt-table-header {
   display: flex;
@@ -386,14 +416,20 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 .kt-item-thumb.wide { width: 96px; height: 54px; }
 
 .kt-item-main { min-width: 0; flex: 1; }
+/* the title is body text, not a link colour: the row is one big click target whose hover state carries
+   the affordance, and a column of accent-blue titles is the loudest thing on a list page. This is what
+   .kt-grid-title (a plain div, so it never inherited the anchor colour) has always looked like - the two
+   views now agree. */
 .kt-item-title {
   font-weight: 500;
+  color: var(--kt-text);
   text-decoration: none;
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.kt-item-row:hover .kt-item-title { color: var(--kt-accent); }
 .kt-item-meta {
   display: flex;
   align-items: center;
@@ -536,12 +572,18 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 .kt-explore-source { display: inline-flex; align-items: center; gap: 0.25rem; }
 
 .kt-grid-caption { padding: 0.5rem 0.15rem 0; }
+/* Two lines, clamped - a single nowrap line truncated most real titles mid-word ("Project Hail M…"),
+   and the cards are narrow enough that a second line costs less than the lost words did.
+   Same clamp mechanism as .kt-ref-synopsis. */
 .kt-grid-title {
   font-weight: 500;
   font-size: 0.9rem;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .kt-grid-meta {
   display: flex;
@@ -552,6 +594,12 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   font-size: 0.75rem;
   color: var(--kt-text-muted);
 }
+/* A caption is a caption, not a second detail page: at full size the stars alone were taller than the
+   text they sat under, and every flag pill claimed its own line, so cards in one row ended at wildly
+   different heights. Smaller stars and pills keep the whole caption to about three lines. */
+.kt-grid-meta .kt-stars { font-size: 0.72rem; }
+.kt-grid-meta .star { font-size: 0.95rem; }
+.kt-grid-meta .kt-flag-badge { font-size: 0.62rem; padding: 0.02rem 0.4rem; }
 /* Watch Next thumbnails: stack the "Next: SxxExx" badge and the episode title in a centered column so a
    short episode title drops below the badge instead of sitting beside it, and the whole caption stays
    evenly spaced and horizontally centered under the cover. */
@@ -740,30 +788,45 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 }
 .kt-menu-item:hover { background: var(--kt-surface-3); }
 
-/* Album/Book/VideoGame detail hero: cover + fields side by side. A fixed grid (not flex-wrap) so the
-   layout never depends on how much horizontal space the field values happen to need - relying on
-   flex-wrap's intrinsic-sizing heuristics caused the cover to intermittently land alone on its own row
-   for some albums (long genre text, etc.) while others stayed side-by-side, with no clear pattern from
-   the markup alone. */
-.kt-album-hero {
+/* Detail hero (DetailHero.razor): cover + fields side by side, used by Book/Movie/TvShow/Album.
+   A fixed grid, not flex-wrap, so the layout never depends on how much horizontal space the field values
+   happen to need - relying on flex-wrap's intrinsic-sizing heuristics used to drop the cover onto its own
+   row for some albums (long genre text) but not others, with no clear pattern from the markup.
+   The cover column is a real size rather than a fraction of the row: a 1/6th Bootstrap column rendered the
+   artwork at thumbnail scale on a wide card and squeezed the fields into a strip beside it. */
+.kt-detail-hero {
   display: grid;
-  grid-template-columns: 300px minmax(0, 480px);
-  gap: 1.5rem;
+  grid-template-columns: var(--kt-hero-cover-width, 230px) minmax(0, 1fr);
+  gap: 1.75rem;
   align-items: start;
+  /* same measure as .kt-form-card > .row, so a hero card and a plain field card line up */
+  max-width: 900px;
 }
-.kt-album-hero.kt-album-hero-no-cover { grid-template-columns: minmax(0, 480px); }
-.kt-album-cover {
-  width: 300px;
-  height: 300px;
+.kt-detail-hero.square { --kt-hero-cover-width: 260px; }
+.kt-detail-hero.kt-detail-hero-no-cover { grid-template-columns: minmax(0, 1fr); }
+
+/* aspect-ratio + object-fit rather than a fixed height: provider artwork is not reliably the ratio it
+   claims, and cropping to the shape keeps a row of covers optically equal. */
+.kt-detail-cover {
+  width: 100%;
+  display: block;
+  aspect-ratio: 2 / 3;
   object-fit: cover;
   border-radius: var(--kt-radius-lg);
+  background: var(--kt-surface-3);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
 }
+.kt-detail-cover.square { aspect-ratio: 1 / 1; }
+
 @media (max-width: 767px) {
-  .kt-album-hero, .kt-album-hero.kt-album-hero-no-cover { grid-template-columns: 1fr; }
-  .kt-album-cover { width: 200px; height: 200px; }
+  .kt-detail-hero,
+  .kt-detail-hero.kt-detail-hero-no-cover { grid-template-columns: 1fr; gap: 1.25rem; }
+  /* capped, not full-bleed: a phone-width poster pushes every field below the fold on its own */
+  .kt-detail-cover { max-width: 170px; }
+  .kt-detail-cover.square { max-width: 200px; }
 }
 
-/* Gear/Collectible detail cover: full-width, on top of the fields (unlike .kt-album-hero's side-by-side
+/* Gear/Collectible detail cover: full-width, on top of the fields (unlike .kt-detail-hero's side-by-side
    layout) - sized and fitted for e-shop-style product photography (e.g. an Amazon listing photo), which is
    usually a product shot on a plain background rather than a poster/album-art image with a fixed aspect
    ratio. "contain" (not "cover") so the product is never cropped. No background/border - just the image,
@@ -799,16 +862,28 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 .kt-track-row:first-of-type { border-top: none; }
 
 /* ── Form card ─────────────────────────────────────────────────────── */
+/* Deliberately no accent top border: a detail page stacks four or more of these, so a highlight every card
+   carries highlights nothing - and it gave an admin-only notice the same weight as the item's own data.
+   .kt-modal and .kt-login-card keep theirs, where it reads as "this is the one active surface".
+   The preceding .kt-section-title plus the card's own border already do the separating. */
 .kt-form-card {
   position: relative;
   background: var(--kt-surface);
   border: 1px solid var(--kt-border);
-  border-top: 2px solid var(--kt-accent);
   border-radius: var(--kt-radius-lg);
   padding: 1.5rem 1.75rem;
   margin-bottom: 1.75rem;
   box-shadow: var(--kt-shadow);
 }
+
+/* A field's width should follow the length of what goes in it, not the width of the monitor: uncapped,
+   the col-md-* split gave a 120px Year input a ~350px column and left ~250px of void beside Notes.
+   Direct children only, and the two card kinds whose content genuinely wants the full width opt out -
+   the car metrics charts, and the copy/platform cards, whose equal-width col-md columns are already
+   sized to re-share whatever room they have (see OwnedVersionFields). */
+.kt-form-card > .row { max-width: 860px; }
+.kt-car-metrics > .row,
+.kt-copy-card > .row { max-width: none; }
 .kt-form-card h5 {
   color: var(--kt-accent);
   font-size: 0.85rem;
@@ -818,26 +893,48 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   letter-spacing: 0.06em;
 }
 
-/* corner flag: e.g. "watched" status on a movie/show presentation card */
+/* Corner flag: "watched" on a movie, "read" on a book.
+   This keeps its own place rather than becoming a fourth pill in the header row, deliberately: whether
+   you have seen a film or read a book is the most important single fact on the page, and the header row's
+   accent-blue .kt-toggle-btn states all mean "flagged", not "finished" - the success green here is what
+   carries that distinction, and it is worth more than the consistency of collapsing the two together.
+   What changed is only what was genuinely wrong with it:
+     - it is a real <button> (it was a <span>: unreachable by keyboard, announced as nothing, no pressed state)
+     - its top-right radius is the card's own *inner* radius, so it nests into the corner instead of
+       overhanging it by the width of the card border
+     - the two states are now clearly different from each other rather than differing only in colour. */
 .kt-corner-flag {
   position: absolute;
   top: 0;
   right: 0;
-  padding: 0.35rem 0.9rem;
-  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 1rem;
+  border: none;
+  border-left: 1px solid var(--kt-border);
+  border-bottom: 1px solid var(--kt-border);
+  border-radius: 0 calc(var(--kt-radius-lg) - 1px) 0 var(--kt-radius);
+  font-family: var(--kt-font);
+  font-size: 0.76rem;
   font-weight: 600;
-  border-radius: 0 var(--kt-radius-lg) 0 var(--kt-radius);
   cursor: pointer;
-  background: var(--kt-surface-3);
+  background: var(--kt-surface-2);
   color: var(--kt-text-muted);
   transition: background var(--kt-transition), color var(--kt-transition);
   user-select: none;
 }
-.kt-corner-flag:hover { background: var(--kt-border-hover); }
+.kt-corner-flag:hover { background: var(--kt-surface-3); color: var(--kt-text); }
+.kt-corner-flag:focus-visible { outline: 2px solid var(--kt-accent); outline-offset: -2px; }
 .kt-corner-flag.active {
   background: var(--kt-success-bg);
   color: var(--kt-success);
+  border-left-color: transparent;
+  border-bottom-color: transparent;
 }
+.kt-corner-flag.active:hover { background: var(--kt-success-bg); color: var(--kt-success); }
+/* The tick is the state, so it gets the weight - the label beside it just names what is ticked. */
+.kt-corner-flag .kt-corner-check { font-size: 1rem; line-height: 1; }
 
 /* favorite/watchlist toggle buttons on a detail page: a soft tinted "selected" state instead of the
    solid btn-primary blue/white block, which read as unnecessarily aggressive, especially in dark mode -
@@ -1145,15 +1242,18 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   padding-left: 2.4rem !important;
 }
 
+/* An inline SVG, not a glyph: U+1F50D (the obvious magnifier codepoint) has Emoji_Presentation=Yes and
+   renders in full colour everywhere, which is exactly what the Theme section of CLAUDE.md rules out - and
+   it was the one coloured thing on every list page. stroke:currentColor inherits the token below. */
 .kt-search-icon {
   position: absolute;
   left: 0.75rem;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 0.85rem;
   color: var(--kt-text-subtle);
   pointer-events: none;
 }
+.kt-search-icon svg { display: block; }
 
 /* pushed to the far right of the search bar row via margin-left:auto - the search input/Clear button stay
    left-aligned, filter toggles (status, favorites, ...) sit on the opposite end of the same line instead

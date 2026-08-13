@@ -70,45 +70,37 @@ else
 
     <div class="kt-form-card">
         @{ var coverUrl = !string.IsNullOrEmpty(Album.CustomImageUrl) ? Album.CustomImageUrl : Reference?.ImageUrl; }
-        <div class="kt-album-hero @(string.IsNullOrEmpty(coverUrl) ? "kt-album-hero-no-cover" : "")">
-            @if (!string.IsNullOrEmpty(coverUrl))
-            {
-                <img src="@coverUrl" alt="@Album.Title cover" class="kt-album-cover"/>
-            }
-            <div>
-                <div class="row g-3">
-                    <div class="col-12">
-                        <label class="form-label">Artist</label>
-                        <input class="form-control form-control-sm" data-testid="artist-input" value="@Album.Artist" @onchange="SaveArtistAsync"/>
-                    </div>
-                    <div class="col-4">
-                        <label class="form-label">Year</label>
-                        <input class="form-control form-control-sm" type="number" min="1900" max="2100"
-                               value="@Album.Year" @onchange="SaveYearAsync"/>
-                    </div>
-                    <div class="col-8">
-                        <label class="form-label">Genre</label>
-                        <input class="form-control form-control-sm" value="@Album.Genre" @onchange="SaveGenreAsync"/>
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label">Rating</label>
-                        <StarRatingInput Rating="Album.Rating" RatingChanged="SetRatingAsync"/>
-                    </div>
-                    @if (Reference?.Ratings.Count > 0)
-                    {
-                        <div class="col-12">
-                            <label class="form-label">Reference rating</label>
-                            <ReferenceRatings Ratings="Reference.Ratings"/>
-                        </div>
-                    }
-                    <div class="col-12">
-                        <label class="form-label">Cover image URL</label>
-                        <input class="form-control form-control-sm" placeholder="@(Reference?.ImageUrl is null ? "" : "Leave blank to use the linked reference's cover")"
-                               value="@Album.CustomImageUrl" @onchange="SaveCustomImageUrlAsync"/>
-                    </div>
-                </div>
+        <DetailHero ImageUrl="@coverUrl" Shape="square" Alt="@($"{Album.Title} cover")">
+            <div class="col-12">
+                <label class="form-label">Artist</label>
+                <input class="form-control form-control-sm" data-testid="artist-input" value="@Album.Artist" @onchange="SaveArtistAsync"/>
             </div>
-        </div>
+            <div class="col-4">
+                <label class="form-label">Year</label>
+                <input class="form-control form-control-sm" type="number" min="1900" max="2100"
+                       value="@Album.Year" @onchange="SaveYearAsync"/>
+            </div>
+            <div class="col-8">
+                <label class="form-label">Genre</label>
+                <input class="form-control form-control-sm" value="@Album.Genre" @onchange="SaveGenreAsync"/>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Rating</label>
+                <StarRatingInput Rating="Album.Rating" RatingChanged="SetRatingAsync"/>
+            </div>
+            @if (Reference?.Ratings.Count > 0)
+            {
+                <div class="col-12">
+                    <label class="form-label">Reference rating</label>
+                    <ReferenceRatings Ratings="Reference.Ratings"/>
+                </div>
+            }
+            <div class="col-12">
+                <label class="form-label">Cover image URL</label>
+                <input class="form-control form-control-sm" placeholder="@(Reference?.ImageUrl is null ? "" : "Leave blank to use the linked reference's cover")"
+                       value="@Album.CustomImageUrl" @onchange="SaveCustomImageUrlAsync"/>
+            </div>
+        </DetailHero>
     </div>
 
     @if (Reference?.Tracks.Count > 0)

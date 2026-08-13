@@ -36,7 +36,9 @@
 }
 else
 {
-    <div class="kt-table-wrap">
+    @* List view caps its measure (see .kt-table-wrap-list); the grid keeps the full width, which is what
+       lets it fit another column of cover art per row. *@
+    <div class="kt-table-wrap @(IsGridView ? "" : "kt-table-wrap-list")">
         <div class="kt-table-header">
             <h1 class="kt-table-title">@if (!ReadOnly){<text>My </text>}<span>@Title</span></h1>
             @if (!ReadOnly && !ShowForm)
@@ -49,7 +51,13 @@ else
                 <input class="form-control" type="search" placeholder="Search…"
                        @bind="_localSearch" @bind:event="oninput"
                        @onkeyup="HandleSearchKeyUp"/>
-                <span class="kt-search-icon">&#128269;</span>
+                <span class="kt-search-icon">
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+                         stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+                        <circle cx="7" cy="7" r="4.5"/>
+                        <path d="M10.5 10.5 14 14"/>
+                    </svg>
+                </span>
             </div>
             @if (!string.IsNullOrEmpty(_localSearch))
             {
@@ -85,7 +93,7 @@ else
         </div>
         @if (Items.Count > 0)
         {
-            @if (View == "grid" && ItemImageUrl is not null)
+            @if (IsGridView)
             {
                 @* Poster/thumbnail view: the cover art is the hero, with title + meta captioned underneath.
                    Same stretched-link-opens-detail / delete-button-above-via-z-index model as the list rows. *@
@@ -93,7 +101,7 @@ else
                     @foreach (var item in Items)
                     {
                         <ItemGridCard Href="@(ReadOnly ? DetailHref?.Invoke(item) : $"{Route}/{item.Id}")" Title="@ItemTitle(item)"
-                                      ImageUrl="@ItemImageUrl(item)" Shape="@ItemImageShape">
+                                      ImageUrl="@ItemImageUrl!(item)" Shape="@ItemImageShape">
                             <Actions>
                                 @if (ReadOnly)
                                 {
@@ -216,6 +224,17 @@ else
 }
 
 @code {
+    /// <summary>
+    /// Whether the poster/thumbnail grid renders rather than the media rows - the caller can ask for "grid"
+    /// on a type that has no cover art to show, which still falls back to rows. Read by both the layout
+    /// itself and the width cap on the wrapper, so the condition is stated once.
+    /// <para>
+    /// Its <see cref="ItemImageUrl"/> null check is invisible to flow analysis behind this property, which
+    /// is why the grid branch dereferences it with <c>!</c> - guarded by this, never actually null there.
+    /// </para>
+    /// </summary>
+    private bool IsGridView => View == "grid" && ItemImageUrl is not null;
+
     private string? _pendingDeleteId;
     private string _localSearch = "";
     private string _lastSearchParam = "";

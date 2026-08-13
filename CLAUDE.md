@@ -854,6 +854,23 @@ It was removed when the theme made it unnecessary.
 Check a new codepoint's default presentation before using it, never append U+FE0F, and drop a symbol entirely rather than force a semantic near-match when the label text already carries the meaning.
 `.kt-icon-spin` rotates a plain glyph for in-progress states instead of an hourglass emoji.
 
+**The sidebar is the exception, and inline SVG is how to grow past a glyph** (`Components/Layout/NavIcon.razor`, one `switch` over 21 paths).
+The rule above bans codepoints whose default presentation is a color glyph; it never banned drawing.
+A column of geometric primitives (`◼` Movies over `▭` TV shows over `▬` Books) is indistinguishable at 16px in a vertical list and carries no meaning, which is what the glyph set had degraded into once there were eighteen rows of it.
+`stroke="currentColor"` means each icon inherits the nav link's own muted/hover/active color, so there is nothing extra to theme, no webfont, and no request a CSP or an offline deployment could fail - the same reasons the plain-glyph rule exists.
+Reach for it anywhere a glyph would be a semantic near-match; `InventoryList`'s search icon is the other one (it was `&#128269;`, a color emoji, in the search box of all ten list pages).
+Nav rows are grouped by three `.kt-nav-group` labels; **Manage** sits inside the `MemberOnly` block on purpose, so a free preview account never gets a heading over an empty group.
+
+**A media detail page's hero is `DetailHero.razor`**, not a Bootstrap column split: cover on the left at a real size (230px portrait, 260px square), fields on the right, stacking below 767px with the cover *capped* rather than full-bleed.
+Book/Movie/TvShow each used `col-md-2` - one sixth of the row, so a ~130px poster - and Album had its own `.kt-album-hero` grid doing the job properly, i.e. the same layout existed twice and wrong three times.
+The component owns the "no cover -> single column" rule, the per-shape sizing and the breakpoint, and renders the fields `.row` itself, so a page supplies only `col-*` children.
+Video games (full-width 16:9 key art) and Gear/Collectibles (`.kt-product-cover-box`, "contain" so a product photo is never cropped) deliberately stay out of it - different needs, not the same layout done differently.
+
+**`.kt-corner-flag` is the "watched"/"read" toggle, and it stays a corner flag on purpose.**
+It was briefly moved into the header row beside Favorites/Watchlist/Wishlist for consistency; that was wrong and the owner said so.
+Whether a film has been seen or a book read outranks those three, and their `.kt-toggle-btn.active` accent blue means *flagged* where this one's `--kt-success` green means *finished* - collapsing the two loses that distinction.
+It is a real `<button>` with `aria-pressed` (it was a `<span>`: no keyboard access, no announced state), and its top-right radius is the card's **inner** radius (`calc(var(--kt-radius-lg) - 1px)`) so it nests into the corner instead of overhanging the card border.
+
 **Before assuming an `app.css` rule applies, check for a scoped `{Component}.razor.css`** - CSS isolation compiles an extra scope attribute, so a scoped selector always wins over an equally-specific shared one.
 This is why `ReconnectModal` kept its scaffolded white/blue colors despite an `app.css` override; the scoped file has to be edited.
 

@@ -49,7 +49,8 @@ else
                 </AuthorizeView>
             }
         </div>
-        <div class="d-flex gap-2">
+        @* "Read" is deliberately NOT here - it lives on the card below as a .kt-corner-flag, see MovieDetail. *@
+        <div class="d-flex gap-2 flex-wrap">
             <button class="btn btn-sm kt-toggle-btn @(Book.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>
             <button class="btn btn-sm kt-toggle-btn @(Book.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync">○ Wishlist</button>
         </div>
@@ -70,82 +71,83 @@ else
                   OnConfirm="UnlinkReferenceAsync" OnCancel="() => _pendingUnlink = false"/>
 
     <div class="kt-form-card">
-        <span class="kt-corner-flag @(Book.FirstReadAt is not null ? "active" : "")" @onclick="ToggleReadAsync">
-            @(Book.FirstReadAt is not null ? "✓ Read" : "Mark as read")
-        </span>
-        <div class="row g-3">
-            @{ var coverUrl = !string.IsNullOrEmpty(Book.CustomImageUrl) ? Book.CustomImageUrl : Reference?.ImageUrl; }
-            @if (!string.IsNullOrEmpty(coverUrl))
+        <button type="button" class="kt-corner-flag @(Book.FirstReadAt is not null ? "active" : "")"
+                aria-pressed="@(Book.FirstReadAt is not null)" @onclick="ToggleReadAsync">
+            @if (Book.FirstReadAt is not null)
             {
-                <div class="col-md-2">
-                    <img src="@coverUrl" alt="@Book.Title cover" class="img-fluid rounded"/>
+                <span class="kt-corner-check">✓</span>
+                <span>Read</span>
+            }
+            else
+            {
+                <span>Mark as read</span>
+            }
+        </button>
+        @{ var coverUrl = !string.IsNullOrEmpty(Book.CustomImageUrl) ? Book.CustomImageUrl : Reference?.ImageUrl; }
+        <DetailHero ImageUrl="@coverUrl" Alt="@($"{Book.Title} cover")">
+            <div class="col-12">
+                <label class="form-label">Author</label>
+                <input class="form-control form-control-sm" data-testid="author-input" value="@Book.Author" @onchange="SaveAuthorAsync"/>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Series</label>
+                <input class="form-control form-control-sm" data-testid="series-input" value="@Book.Series" @onchange="SaveSeriesAsync"/>
+            </div>
+            <div class="col-6">
+                <label class="form-label">Year</label>
+                <input class="form-control form-control-sm" type="number" min="1400" max="2100"
+                       value="@Book.Year" @onchange="SaveYearAsync"/>
+            </div>
+            @if (Book.FirstReadAt is not null)
+            {
+                <div class="col-6">
+                    <label class="form-label">Read on</label>
+                    <input class="form-control form-control-sm" type="date"
+                           value="@Book.FirstReadAt?.ToString("yyyy-MM-dd")" @onchange="SetReadDateAsync"/>
                 </div>
             }
-            <div class="col-md-4">
-                <div>
-                    <label class="form-label">Author</label>
-                    <input class="form-control form-control-sm" data-testid="author-input" value="@Book.Author" @onchange="SaveAuthorAsync"/>
+            <div class="col-12">
+                <label class="form-label">Rating</label>
+                <StarRatingInput Rating="Book.Rating" RatingChanged="SetRatingAsync"/>
+            </div>
+            @if (Reference?.Ratings.Count > 0)
+            {
+                <div class="col-12">
+                    <label class="form-label">Reference rating</label>
+                    <ReferenceRatings Ratings="Reference.Ratings"/>
                 </div>
-                <div class="mt-3">
-                    <label class="form-label">Series</label>
-                    <input class="form-control form-control-sm" data-testid="series-input" value="@Book.Series" @onchange="SaveSeriesAsync"/>
-                </div>
-                <div class="mt-3">
-                    <label class="form-label">Year</label>
-                    <input class="form-control form-control-sm" style="max-width:120px" type="number" min="1400" max="2100"
-                           value="@Book.Year" @onchange="SaveYearAsync"/>
-                </div>
-                <div class="mt-3">
-                    <label class="form-label">Rating</label>
-                    <StarRatingInput Rating="Book.Rating" RatingChanged="SetRatingAsync"/>
-                </div>
-                @if (Reference?.Ratings.Count > 0)
-                {
-                    <div class="mt-3">
-                        <label class="form-label">Reference rating</label>
-                        <ReferenceRatings Ratings="Reference.Ratings"/>
-                    </div>
-                }
-                @if (Book.FirstReadAt is not null)
-                {
-                    <div class="mt-3">
-                        <label class="form-label">Read on</label>
-                        <input class="form-control form-control-sm" style="max-width:160px" type="date"
-                               value="@Book.FirstReadAt?.ToString("yyyy-MM-dd")" @onchange="SetReadDateAsync"/>
-                    </div>
-                }
-                <div class="mt-3">
-                    <label class="form-label">Genre</label>
-                    <input class="form-control form-control-sm" value="@Book.Genre" @onchange="SaveGenreAsync"/>
-                </div>
-                <div class="mt-3">
-                    <label class="form-label">Language</label>
-                    <input class="form-control form-control-sm" value="@Book.Language" @onchange="SaveLanguageAsync"/>
-                </div>
-                <div class="mt-3">
-                    <label class="form-label">ISBN</label>
-                    <div class="d-flex gap-2 align-items-center">
-                        <input class="form-control form-control-sm" value="@Book.Isbn" @onchange="SaveIsbnAsync"/>
-                        @if (!string.IsNullOrEmpty(Book.Isbn) && ShowChasseAuxLivresLink)
-                        {
-                            <a class="kt-icon-btn" href="@($"https://www.chasse-aux-livres.fr/{Book.Isbn}")"
-                               target="_blank" rel="noopener noreferrer" title="Open on chasse-aux-livres.fr">
-                                <ExternalLinkIcon/>
-                            </a>
-                        }
-                    </div>
-                </div>
-                <div class="mt-3">
-                    <label class="form-label">Cover image URL</label>
-                    <input class="form-control form-control-sm" placeholder="@(Reference?.ImageUrl is null ? "" : "Leave blank to use the linked reference's cover")"
-                           value="@Book.CustomImageUrl" @onchange="SaveCustomImageUrlAsync"/>
+            }
+            <div class="col-6">
+                <label class="form-label">Genre</label>
+                <input class="form-control form-control-sm" value="@Book.Genre" @onchange="SaveGenreAsync"/>
+            </div>
+            <div class="col-6">
+                <label class="form-label">Language</label>
+                <input class="form-control form-control-sm" value="@Book.Language" @onchange="SaveLanguageAsync"/>
+            </div>
+            <div class="col-12">
+                <label class="form-label">ISBN</label>
+                <div class="d-flex gap-2 align-items-center">
+                    <input class="form-control form-control-sm" value="@Book.Isbn" @onchange="SaveIsbnAsync"/>
+                    @if (!string.IsNullOrEmpty(Book.Isbn) && ShowChasseAuxLivresLink)
+                    {
+                        <a class="kt-icon-btn" href="@($"https://www.chasse-aux-livres.fr/{Book.Isbn}")"
+                           target="_blank" rel="noopener noreferrer" title="Open on chasse-aux-livres.fr">
+                            <ExternalLinkIcon/>
+                        </a>
+                    }
                 </div>
             </div>
-            <div class="col-md-6">
+            <div class="col-12">
+                <label class="form-label">Cover image URL</label>
+                <input class="form-control form-control-sm" placeholder="@(Reference?.ImageUrl is null ? "" : "Leave blank to use the linked reference's cover")"
+                       value="@Book.CustomImageUrl" @onchange="SaveCustomImageUrlAsync"/>
+            </div>
+            <div class="col-12">
                 <label class="form-label">Notes</label>
                 <textarea class="form-control" rows="3" @onchange="SaveNotesAsync">@Book.Notes</textarea>
             </div>
-        </div>
+        </DetailHero>
         @if (!string.IsNullOrEmpty(Reference?.Synopsis))
         {
             <hr/>

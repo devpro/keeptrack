@@ -1,0 +1,133 @@
+@* Monochrome line icons for the sidebar, drawn inline rather than pulled from an icon font or a CDN.
+   Replaces a column of plain Unicode geometry (◼ ▭ ▬ ♪ ♫ ◆ ◉ ▲ ✚ ▦ ▧) which, at 16px in a vertical list,
+   was indistinguishable shape-to-shape and carried no meaning - a filled square for Movies next to a hollow
+   rectangle for TV shows next to a wide bar for Books.
+
+   This does not relax the "no colour emoji" rule in CLAUDE.md's Theme section: that rule bans codepoints
+   whose default presentation is a colour glyph, and these are paths, not text. stroke="currentColor" means
+   each icon inherits the nav link's own muted/hover/active colour for free, so there is nothing extra to
+   theme, no webfont to load, and no request that the artifact CSP or an offline deployment could fail. *@
+
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+    @switch (Name)
+    {
+        case "home":
+            <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/>
+            <path d="M9.5 21v-6h5v6"/>
+            break;
+
+        case "add":
+            <path d="M12 5v14M5 12h14"/>
+            break;
+
+        case "watch-next":
+            <path d="M8 5.6v12.8L18.5 12z"/>
+            break;
+
+        case "wishlist":
+            <path d="M6.5 3.5h11a1 1 0 0 1 1 1V21l-6.5-4.2L5.5 21V4.5a1 1 0 0 1 1-1z"/>
+            break;
+
+        case "explore":
+            <path d="M12 3.5 13.9 9.3 19.7 11l-5.8 1.7L12 18.5l-1.9-5.8L4.3 11l5.8-1.7z"/>
+            break;
+
+        case "movies":
+            <rect x="3" y="4.5" width="18" height="15" rx="2"/>
+            <path d="M3 9.5h18M3 14.5h18M8 4.5v15M16 4.5v15"/>
+            break;
+
+        case "tv-shows":
+            <rect x="2.5" y="4" width="19" height="13" rx="2"/>
+            <path d="M8.5 21h7M12 17v4"/>
+            break;
+
+        case "books":
+            <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v14.5H6.5A2.5 2.5 0 0 0 4 20z"/>
+            <path d="M4 20a2.5 2.5 0 0 1 2.5-2.5H19V21H6.5A2.5 2.5 0 0 1 4 18.5z"/>
+            break;
+
+        case "albums":
+            <circle cx="12" cy="12" r="8.5"/>
+            <circle cx="12" cy="12" r="2.1"/>
+            break;
+
+        case "playlists":
+            <path d="M4 7h11M4 12h11M4 17h6"/>
+            <circle cx="17.3" cy="16.7" r="2.4"/>
+            <path d="M19.7 16.7V8.8"/>
+            break;
+
+        case "video-games":
+            <rect x="2.5" y="7.5" width="19" height="10" rx="4"/>
+            <path d="M7 10.6v3.8M5.1 12.5h3.8"/>
+            <circle cx="16.4" cy="11.4" r="1" fill="currentColor" stroke="none"/>
+            <circle cx="18.5" cy="13.8" r="1" fill="currentColor" stroke="none"/>
+            break;
+
+        case "cars":
+            <path d="M4.2 13.8 6 8.6a2 2 0 0 1 1.9-1.4h8.2a2 2 0 0 1 1.9 1.4l1.8 5.2"/>
+            <rect x="3" y="13.8" width="18" height="4.6" rx="1.4"/>
+            <path d="M6.8 18.4v1.4M17.2 18.4v1.4"/>
+            break;
+
+        case "houses":
+            <path d="M4 21V6.6l7-3.4V21"/>
+            <path d="M11 10.4h8.5V21"/>
+            <path d="M7 9.4h.9M7 13h.9M7 16.6h.9M14.6 14h1.5M14.6 17.5h1.5"/>
+            break;
+
+        case "health":
+            <path d="M3.5 12.4h3.9l2-5.6 4 11.2 2-5.6h4.6"/>
+            break;
+
+        case "collectibles":
+            <rect x="3" y="4" width="18" height="4.6" rx="1.2"/>
+            <path d="M4.9 8.6V19a1.6 1.6 0 0 0 1.6 1.6h11A1.6 1.6 0 0 0 19.1 19V8.6"/>
+            <path d="M10 12.6h4"/>
+            break;
+
+        case "gear":
+            <path d="M6 20.4v-8.9a6 6 0 0 1 12 0v8.9a.6.6 0 0 1-.6.6H6.6a.6.6 0 0 1-.6-.6z"/>
+            <path d="M9.5 11.2V7a2.5 2.5 0 0 1 5 0v4.2"/>
+            <path d="M9 15.6h6"/>
+            break;
+
+        case "import":
+            <path d="M12 16V4M7.6 8.4 12 4l4.4 4.4"/>
+            <path d="M4 15.2v3.3A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5v-3.3"/>
+            break;
+
+        case "admin":
+            <path d="M4 7.5h9.5M18 7.5h2M4 16.5h2M10.5 16.5h9.5"/>
+            <circle cx="15.7" cy="7.5" r="2.2"/>
+            <circle cx="8.3" cy="16.5" r="2.2"/>
+            break;
+
+        case "stations":
+            <path d="M4 20.5V5.2A2.2 2.2 0 0 1 6.2 3h4.6a2.2 2.2 0 0 1 2.2 2.2v15.3"/>
+            <path d="M2.8 20.5h11.4"/>
+            <rect x="6.4" y="6.6" width="4.2" height="3.4" rx=".6"/>
+            <path d="M13 9.6h2.8a2 2 0 0 1 2 2v5.3a1.7 1.7 0 0 0 3.4 0v-6.4l-2.6-2.8"/>
+            break;
+
+        case "logout":
+            <path d="M10 20.5H6.2A2.2 2.2 0 0 1 4 18.3V5.7a2.2 2.2 0 0 1 2.2-2.2H10"/>
+            <path d="M15.8 8.2 19.5 12l-3.7 3.8M19.5 12H9.3"/>
+            break;
+
+        case "signin":
+            <path d="M14 3.5h3.8A2.2 2.2 0 0 1 20 5.7v12.6a2.2 2.2 0 0 1-2.2 2.2H14"/>
+            <path d="M9.7 8.2 13.4 12l-3.7 3.8M13.4 12H4"/>
+            break;
+    }
+</svg>
+
+@code {
+    /// <summary>
+    /// Which glyph to draw. An unknown name deliberately renders an empty (invisible) svg rather than
+    /// throwing: a missing icon is a cosmetic gap, never a reason to fail a nav render.
+    /// </summary>
+    [Parameter] public required string Name { get; set; }
+}
