@@ -24,7 +24,7 @@
                Re-runs with the page's *current* title/year (and author/artist) field values - the
                wrong-candidates fix is "edit the fields above, then search again". *@
             <button class="btn btn-sm btn-secondary mb-2" @onclick="SearchAsync" disabled="@(_searching || string.IsNullOrWhiteSpace(Title))">
-                @(_searched ? "↻ Search again" : "Search")
+                @if (_searched) { <Icon Name="refresh" Size="13"/> <text> Search again</text> } else { <text>Search</text> }
             </button>
 
             @if (_searching)

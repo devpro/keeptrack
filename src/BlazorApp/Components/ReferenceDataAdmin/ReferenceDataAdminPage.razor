@@ -31,7 +31,7 @@
     @if (_unresolved.Count == 0)
     {
         <div class="kt-empty">
-            <div class="kt-empty-icon">◈</div>
+            <div class="kt-empty-icon"><Icon Name="empty" Size="40" StrokeWidth="1.1"/></div>
             <p>Nothing waiting on a manual match.</p>
         </div>
     }
@@ -201,7 +201,7 @@
     <div class="kt-form-card">
         <div class="d-flex justify-content-between align-items-center mb-2">
             <h2 class="kt-section-title mt-0 mb-0" style="border:none;padding:0">Provider reconciliation</h2>
-            <button class="btn btn-sm btn-secondary" @onclick="LoadReconciliationAsync" disabled="@_loadingReconciliation">↻ Refresh</button>
+            <button class="btn btn-sm btn-secondary" @onclick="LoadReconciliationAsync" disabled="@_loadingReconciliation"><Icon Name="refresh" Size="13"/> Refresh</button>
         </div>
         <p style="color:var(--kt-text-muted)">
             Video game references are refreshed through the current default provider only, so one still living
@@ -241,7 +241,7 @@
                                 </div>
                                 @if (_loadingCandidates)
                                 {
-                                    <span class="kt-card-meta"><span class="kt-icon-spin">↻</span> Asking @_reconciliation.ProviderDisplayName…</span>
+                                    <span class="kt-card-meta"><span class="kt-icon-spin"><Icon Name="refresh" Size="15"/></span> Asking @_reconciliation.ProviderDisplayName…</span>
                                 }
                                 else if (_candidates.Count == 0)
                                 {
@@ -419,7 +419,7 @@
 <div class="kt-form-card">
     <div class="d-flex justify-content-between align-items-center mb-2">
         <h2 class="kt-section-title mt-0 mb-0" style="border:none;padding:0">System</h2>
-        <button class="btn btn-sm btn-secondary" @onclick="LoadSystemStatusAsync" disabled="@_loadingSystemStatus">↻ Refresh</button>
+        <button class="btn btn-sm btn-secondary" @onclick="LoadSystemStatusAsync" disabled="@_loadingSystemStatus"><Icon Name="refresh" Size="13"/> Refresh</button>
     </div>
     <p style="color:var(--kt-text-muted)">
         Configuration is reported by whichever instance answered this request - with several replicas,

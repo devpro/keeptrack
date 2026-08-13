@@ -8,9 +8,9 @@
 
 <div class="kt-view-toggle" role="group" aria-label="View mode">
     <button type="button" class="kt-view-btn @(View != "grid" ? "active" : "")"
-            title="List view" aria-label="List view" @onclick='() => SetAsync("")'>&#9776;</button>
+            title="List view" aria-label="List view" @onclick='() => SetAsync("")'><Icon Name="view-list" Size="15"/></button>
     <button type="button" class="kt-view-btn @(View == "grid" ? "active" : "")"
-            title="Thumbnail view" aria-label="Thumbnail view" @onclick='() => SetAsync("grid")'>&#9638;</button>
+            title="Thumbnail view" aria-label="Thumbnail view" @onclick='() => SetAsync("grid")'><Icon Name="view-grid" Size="15"/></button>
 </div>
 
 @code {

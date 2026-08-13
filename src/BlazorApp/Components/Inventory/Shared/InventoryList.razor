@@ -51,13 +51,7 @@ else
                 <input class="form-control" type="search" placeholder="Search…"
                        @bind="_localSearch" @bind:event="oninput"
                        @onkeyup="HandleSearchKeyUp"/>
-                <span class="kt-search-icon">
-                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor"
-                         stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
-                        <circle cx="7" cy="7" r="4.5"/>
-                        <path d="M10.5 10.5 14 14"/>
-                    </svg>
-                </span>
+                <span class="kt-search-icon"><Icon Name="search" Size="15"/></span>
             </div>
             @if (!string.IsNullOrEmpty(_localSearch))
             {
@@ -111,7 +105,7 @@ else
                                 {
                                     <button type="button" class="kt-icon-btn kt-grid-delete" title="Delete" aria-label="Delete"
                                             @onclick="() => RequestDelete(item)">
-                                        <TrashIcon/>
+                                        <Icon Name="trash" Size="15"/>
                                     </button>
                                 }
                             </Actions>
@@ -157,7 +151,7 @@ else
                             {
                                 <button type="button" class="kt-icon-btn kt-item-delete" title="Delete" aria-label="Delete"
                                         @onclick="() => RequestDelete(item)">
-                                    <TrashIcon/>
+                                    <Icon Name="trash" Size="15"/>
                                 </button>
                             }
                         </div>
@@ -168,7 +162,7 @@ else
         else
         {
             <div class="kt-empty">
-                <div class="kt-empty-icon">◈</div>
+                <div class="kt-empty-icon"><Icon Name="empty" Size="40" StrokeWidth="1.1"/></div>
                 <p>@(EmptyText ?? "Your collection is empty.")</p>
             </div>
         }
@@ -177,10 +171,10 @@ else
         {
             <div class="kt-pagination">
                 <button class="kt-page-btn" disabled="@(Page == 1)"
-                        @onclick="() => OnGoToPage.InvokeAsync(1)">&#8676;
+                        @onclick="() => OnGoToPage.InvokeAsync(1)"><Icon Name="first" Size="14"/>
                 </button>
                 <button class="kt-page-btn" disabled="@(Page == 1)"
-                        @onclick="() => OnGoToPage.InvokeAsync(Page - 1)">&#8592;
+                        @onclick="() => OnGoToPage.InvokeAsync(Page - 1)"><Icon Name="previous" Size="14"/>
                 </button>
                 @{
                     int start, end;
@@ -212,10 +206,10 @@ else
                             @onclick="() => OnGoToPage.InvokeAsync(pageNum)">@pageNum</button>
                 }
                 <button class="kt-page-btn" disabled="@(Page == TotalPages)"
-                        @onclick="() => OnGoToPage.InvokeAsync(Page + 1)">&#8594;
+                        @onclick="() => OnGoToPage.InvokeAsync(Page + 1)"><Icon Name="next" Size="14"/>
                 </button>
                 <button class="kt-page-btn" disabled="@(Page == TotalPages)"
-                        @onclick="() => OnGoToPage.InvokeAsync(TotalPages)">&#8677;
+                        @onclick="() => OnGoToPage.InvokeAsync(TotalPages)"><Icon Name="last" Size="14"/>
                 </button>
                 <span class="kt-page-info">@TotalCount results</span>
             </div>

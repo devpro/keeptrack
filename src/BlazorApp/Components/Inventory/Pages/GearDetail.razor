@@ -14,7 +14,7 @@
 else if (Item is null)
 {
     <div class="kt-empty">
-        <div class="kt-empty-icon">◈</div>
+        <div class="kt-empty-icon"><Icon Name="empty" Size="40" StrokeWidth="1.1"/></div>
         <p>Gear not found.</p>
     </div>
 }
@@ -57,7 +57,7 @@ else
                     @if (!string.IsNullOrEmpty(Item.Category))
                     {
                         <button class="kt-icon-btn" title="Clear category" aria-label="Clear category" @onclick="() => SaveCategoryAsync(null)">
-                            <TrashIcon/>
+                            <Icon Name="trash" Size="15"/>
                         </button>
                     }
                 </div>

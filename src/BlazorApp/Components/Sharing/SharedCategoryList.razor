@@ -35,11 +35,11 @@
     <Filters>
         @if (ShowFavoriteFilter)
         {
-            <button class="btn btn-sm kt-toggle-btn @(_favorite ? "active" : "")" @onclick="ToggleFavorite">★ Favorites</button>
+            <button class="btn btn-sm kt-toggle-btn @(_favorite ? "active" : "")" @onclick="ToggleFavorite"><Icon Name="favorite" Size="13"/> Favorites</button>
         }
         @if (ShowOwnedFilter)
         {
-            <button class="btn btn-sm kt-toggle-btn @(_owned ? "active" : "")" @onclick="ToggleOwned">● Owned</button>
+            <button class="btn btn-sm kt-toggle-btn @(_owned ? "active" : "")" @onclick="ToggleOwned"><Icon Name="owned" Size="13"/> Owned</button>
         }
     </Filters>
     <MetaTemplate Context="item">
@@ -60,13 +60,13 @@
         }
         else if (_copyingId == id)
         {
-            <span class="kt-icon-btn" aria-label="Adding"><span class="kt-icon-spin">↻</span></span>
+            <span class="kt-icon-btn" aria-label="Adding"><span class="kt-icon-spin"><Icon Name="refresh" Size="15"/></span></span>
         }
         else
         {
             <button class="kt-icon-btn" title="Add to my collection" aria-label="Add to my collection"
                     data-testid="share-add" @onclick="() => AddAsync(id)">
-                <AddToCollectionIcon/>
+                <Icon Name="add-to-collection" Size="17"/>
             </button>
         }
     </RowActions>

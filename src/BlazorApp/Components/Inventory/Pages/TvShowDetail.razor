@@ -16,7 +16,7 @@
 else if (_show is null)
 {
     <div class="kt-empty">
-        <div class="kt-empty-icon">◈</div>
+        <div class="kt-empty-icon"><Icon Name="empty" Size="40" StrokeWidth="1.1"/></div>
         <p>Show not found.</p>
     </div>
 }
@@ -35,7 +35,7 @@ else
             </span>
             <button class="kt-icon-btn" @onclick="RefreshReferenceAsync" disabled="@_refreshingReference"
                     title="@(string.IsNullOrEmpty(_show.ReferenceId) ? "Check for reference match using the title and year below." : $"Linked to \"{_reference?.Title}\". Not right? Edit the title or year below, then check again.")">
-                <span class="@(_refreshingReference ? "kt-icon-spin" : "")">↻</span>
+                <span class="@(_refreshingReference ? "kt-icon-spin" : "")"><Icon Name="refresh" Size="17"/></span>
             </button>
             @if (!string.IsNullOrEmpty(_show.ReferenceId))
             {
@@ -43,7 +43,7 @@ else
                     <Authorized>
                         <button class="kt-icon-btn" title="Unlink and remove this reference" aria-label="Unlink reference"
                                 @onclick="() => _pendingUnlink = true">
-                            <TrashIcon/>
+                            <Icon Name="trash" Size="15"/>
                         </button>
                     </Authorized>
                 </AuthorizeView>
@@ -51,7 +51,7 @@ else
         </div>
         <div class="d-flex gap-2">
             <button class="btn btn-sm kt-toggle-btn @(_show.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>
-            <button class="btn btn-sm kt-toggle-btn @(_show.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync">○ Wishlist</button>
+            <button class="btn btn-sm kt-toggle-btn @(_show.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync"><Icon Name="wishlist" Size="13"/> Wishlist</button>
         </div>
     </div>
 
@@ -125,7 +125,7 @@ else
         @if (_seasons.Count == 0)
         {
             <div class="kt-empty">
-                <div class="kt-empty-icon">◈</div>
+                <div class="kt-empty-icon"><Icon Name="empty" Size="40" StrokeWidth="1.1"/></div>
                 <p>No episode data available for this show yet.</p>
             </div>
         }
@@ -196,7 +196,7 @@ else
         @if (_unresolvedSeasons.Count == 0)
         {
             <div class="kt-empty">
-                <div class="kt-empty-icon">◈</div>
+                <div class="kt-empty-icon"><Icon Name="empty" Size="40" StrokeWidth="1.1"/></div>
                 <p>No episodes tracked yet. This show hasn't been matched to a reference source yet, so the full episode list isn't available - add episodes manually above.</p>
             </div>
         }

@@ -16,7 +16,7 @@
 else if (Movie is null)
 {
     <div class="kt-empty">
-        <div class="kt-empty-icon">◈</div>
+        <div class="kt-empty-icon"><Icon Name="empty" Size="40" StrokeWidth="1.1"/></div>
         <p>Movie not found.</p>
     </div>
 }
@@ -35,7 +35,7 @@ else
             </span>
             <button class="kt-icon-btn" @onclick="RefreshReferenceAsync" disabled="@_refreshingReference"
                     title="@(string.IsNullOrEmpty(Movie.ReferenceId) ? "Check for reference match using the title and year below." : $"Linked to \"{Reference?.Title}\". Not right? Edit the title or year below, then check again.")">
-                <span class="@(_refreshingReference ? "kt-icon-spin" : "")">↻</span>
+                <span class="@(_refreshingReference ? "kt-icon-spin" : "")"><Icon Name="refresh" Size="17"/></span>
             </button>
             @if (!string.IsNullOrEmpty(Movie.ReferenceId))
             {
@@ -43,7 +43,7 @@ else
                     <Authorized>
                         <button class="kt-icon-btn" title="Unlink and remove this reference" aria-label="Unlink reference"
                                 @onclick="() => _pendingUnlink = true">
-                            <TrashIcon/>
+                            <Icon Name="trash" Size="15"/>
                         </button>
                     </Authorized>
                 </AuthorizeView>
@@ -55,7 +55,7 @@ else
         <div class="d-flex gap-2 flex-wrap">
             <button class="btn btn-sm kt-toggle-btn @(Movie.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>
             <button class="btn btn-sm kt-toggle-btn @(Movie.WantToWatch ? "active" : "")" @onclick="ToggleWantToWatchAsync">Watchlist</button>
-            <button class="btn btn-sm kt-toggle-btn @(Movie.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync">○ Wishlist</button>
+            <button class="btn btn-sm kt-toggle-btn @(Movie.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync"><Icon Name="wishlist" Size="13"/> Wishlist</button>
         </div>
     </div>
     @if (string.IsNullOrEmpty(Movie.ReferenceId))

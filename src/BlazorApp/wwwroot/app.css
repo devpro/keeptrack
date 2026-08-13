@@ -990,7 +990,19 @@ a.kt-item-row { color: inherit; text-decoration: none; }
    match" - spins in place using the same animation as .kt-spinner while the action is running */
 .kt-icon-spin { display: inline-block; animation: spin 0.75s linear infinite; }
 .kt-empty { text-align: center; padding: 5rem 2rem; }
-.kt-empty-icon { font-size: 2.5rem; color: var(--kt-text-subtle); display: block; margin-bottom: 1rem; }
+.kt-empty-icon { color: var(--kt-text-subtle); display: flex; justify-content: center; margin-bottom: 1rem; }
+
+/* ── Inline icons (Components/Shared/Icon.razor) ───────────────────── */
+/* An <svg> is an inline element, so inside a non-flex button it sits on the text baseline and reads as
+   sunk against its label. Containers that are already flex (.kt-icon-btn, .kt-page-btn) don't need this -
+   there the svg is a flex item and vertical-align does nothing. */
+.btn > svg { vertical-align: -0.18em; }
+.kt-home-feature > svg,
+.kt-flag-badge > svg { vertical-align: -0.15em; }
+/* the segmented list/grid control was sized for a text glyph */
+.kt-view-btn { display: inline-flex; align-items: center; justify-content: center; }
+/* Quick add's type picker reuses .kt-stat-tile, so its "value" slot holds an icon instead of a number. */
+.kt-stat-value > svg { display: block; }
 .kt-empty p { font-size: 0.9rem; color: var(--kt-text-muted); margin: 0; line-height: 1.8; }
 
 /* ── Stars ─────────────────────────────────────────────────────────── */

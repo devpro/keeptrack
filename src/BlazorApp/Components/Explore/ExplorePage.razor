@@ -9,7 +9,7 @@
     <h1>Ex<span>plore</span></h1>
     <div class="d-flex gap-2 align-items-center">
         <ListViewToggle View="@_view" ViewChanged="@OnViewChanged"/>
-        <button class="btn btn-sm kt-toggle-btn" @onclick="RefreshAsync" disabled="@_loading" title="Refresh suggestions">↻ Refresh</button>
+        <button class="btn btn-sm kt-toggle-btn" @onclick="RefreshAsync" disabled="@_loading" title="Refresh suggestions"><Icon Name="refresh" Size="13"/> Refresh</button>
     </div>
 </div>
 
@@ -45,7 +45,7 @@
 else if (Current is { Items.Count: 0 } empty)
 {
     <div class="kt-empty">
-        <div class="kt-empty-icon">◈</div>
+        <div class="kt-empty-icon"><Icon Name="empty" Size="40" StrokeWidth="1.1"/></div>
         @* "not built yet" and "you've seen it all" are the same empty list but opposite messages - the server
            distinguishes them so this page doesn't have to tell a fresh deployment it has run out. *@
         @if (empty.CataloguePending)
@@ -76,13 +76,13 @@ else if (Current is { } state)
                             <div class="kt-explore-actions">
                                 @if (_busy.Contains(item.ExternalId))
                                 {
-                                    <span class="kt-icon-btn" aria-label="Adding"><span class="kt-icon-spin">↻</span></span>
+                                    <span class="kt-icon-btn" aria-label="Adding"><span class="kt-icon-spin"><Icon Name="refresh" Size="15"/></span></span>
                                 }
                                 else
                                 {
                                     <button type="button" class="kt-icon-btn" title="Add to my collection" aria-label="Add to my collection"
                                             @onclick="() => AddAsync(item)">
-                                        <AddToCollectionIcon/>
+                                        <Icon Name="add-to-collection" Size="17"/>
                                     </button>
                                 }
                                 <button type="button" class="kt-icon-btn" title="Dismiss" aria-label="Dismiss"
@@ -102,7 +102,7 @@ else if (Current is { } state)
                             {
                                 @* Names the destination rather than just marking the card clickable - a card
                                    that silently leaves the app is worse than one that says where it goes. *@
-                                <span class="kt-explore-source"><ExternalLinkIcon Size="11"/> @item.ProviderName</span>
+                                <span class="kt-explore-source"><Icon Name="external-link" Size="11"/> @item.ProviderName</span>
                             }
                         </MetaContent>
                     </ItemGridCard>
@@ -140,20 +140,20 @@ else if (Current is { } state)
                                 }
                                 @if (item.ProviderUrl is not null)
                                 {
-                                    <span class="kt-explore-source"><ExternalLinkIcon Size="11"/> @item.ProviderName</span>
+                                    <span class="kt-explore-source"><Icon Name="external-link" Size="11"/> @item.ProviderName</span>
                                 }
                             </div>
                         </div>
                         <div class="kt-explore-row-actions">
                             @if (_busy.Contains(item.ExternalId))
                             {
-                                <span class="kt-icon-btn" aria-label="Adding"><span class="kt-icon-spin">↻</span></span>
+                                <span class="kt-icon-btn" aria-label="Adding"><span class="kt-icon-spin"><Icon Name="refresh" Size="15"/></span></span>
                             }
                             else
                             {
                                 <button type="button" class="kt-icon-btn" title="Add to my collection" aria-label="Add to my collection"
                                         @onclick="() => AddAsync(item)">
-                                    <AddToCollectionIcon/>
+                                    <Icon Name="add-to-collection" Size="17"/>
                                 </button>
                             }
                             <button type="button" class="kt-icon-btn" title="Dismiss" aria-label="Dismiss"
@@ -171,7 +171,7 @@ else if (Current is { } state)
             <button type="button" class="btn kt-toggle-btn" disabled="@_loadingMore" @onclick="LoadMoreAsync">
                 @if (_loadingMore)
                 {
-                    <span class="kt-icon-spin">↻</span>
+                    <span class="kt-icon-spin"><Icon Name="refresh" Size="15"/></span>
                     <span>Loading…</span>
                 }
                 else

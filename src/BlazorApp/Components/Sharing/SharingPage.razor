@@ -68,7 +68,7 @@
 @if (_shares.Count == 0)
 {
     <div class="kt-empty">
-        <div class="kt-empty-icon">◈</div>
+        <div class="kt-empty-icon"><Icon Name="empty" Size="40" StrokeWidth="1.1"/></div>
         <p>You haven't shared anything yet.</p>
     </div>
 }
@@ -90,7 +90,7 @@ else
                     </div>
                     <button class="kt-icon-btn" title="Revoke this share" aria-label="Revoke this share"
                             @onclick="() => _pendingRevoke = share">
-                        <TrashIcon/>
+                        <Icon Name="trash" Size="15"/>
                     </button>
                 </div>
             }
