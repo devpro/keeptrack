@@ -5,7 +5,7 @@
 <tr>
     <td>@Entry.HistoryDate.ToString("yyyy-MM-dd")</td>
     <td>@Entry.EventType</td>
-    <td>@Entry.Cost?.ToString("F2")</td>
+    <td class="kt-num">@Entry.Cost?.ToString("F2")</td>
     <td class="d-none d-md-table-cell">@Entry.Provider</td>
     <td class="d-none d-md-table-cell">@Entry.Description</td>
     @if (!ReadOnly)

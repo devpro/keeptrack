@@ -8,7 +8,7 @@
     <td>@Entry.Practitioner</td>
     @* wider screens have room for more than the mobile essentials (d-md-table-cell = hidden below 768px) *@
     <td class="d-none d-md-table-cell">@Entry.Description</td>
-    <td class="d-none d-md-table-cell text-end">@Entry.Price?.ToString("F2")</td>
+    <td class="d-none d-md-table-cell kt-num">@Entry.Price?.ToString("F2")</td>
     <td class="text-center">
         @if (IsUnbalanced)
         {

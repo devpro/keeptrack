@@ -53,6 +53,11 @@ else
                        @onkeyup="HandleSearchKeyUp"/>
                 <span class="kt-search-icon"><Icon Name="search" Size="15"/></span>
             </div>
+            @* Everything that isn't the search box shares one row. On a phone the search box takes the
+               full width and this row scrolls sideways rather than wrapping, so the toolbar costs two
+               rows instead of three - roughly 90px back above the first item on an 844px screen, with
+               nothing hidden behind a "filters" button. *@
+            <div class="kt-search-controls">
             @if (!string.IsNullOrEmpty(_localSearch))
             {
                 <button class="btn btn-secondary btn-sm" @onclick="HandleClear">Clear</button>
@@ -84,6 +89,7 @@ else
             {
                 <div class="kt-search-filters">@Filters</div>
             }
+            </div>
         </div>
         @if (Items.Count > 0)
         {
@@ -124,7 +130,7 @@ else
                         <div class="kt-item-row">
                             @if (ItemImageUrl is not null)
                             {
-                                <ItemThumb ImageUrl="@ItemImageUrl(item)" Shape="@ItemImageShape"/>
+                                <ItemThumb ImageUrl="@ItemImageUrl(item)" Title="@ItemTitle(item)" Shape="@ItemImageShape"/>
                             }
                             <div class="kt-item-main">
                                 @if (!ReadOnly)

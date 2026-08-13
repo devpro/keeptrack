@@ -410,6 +410,19 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   color: var(--kt-text-subtle);
 }
 .kt-item-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+/* No-cover fallback (CoverPlaceholder.razor): the item's initial, set low-contrast so it recedes instead
+   of announcing a broken image. Sized per container rather than by a shared value - a 44px row thumb and
+   a 300px grid cover want very different letters. */
+.kt-cover-initial {
+  font-weight: 600;
+  line-height: 1;
+  color: var(--kt-text-subtle);
+  opacity: 0.5;
+  user-select: none;
+}
+.kt-item-thumb .kt-cover-initial { font-size: 1.1rem; }
+.kt-grid-cover .kt-cover-initial { font-size: 2.6rem; }
 /* per-provider aspect ratios: Discogs album art is square, RAWG game imagery is wide - cropping either
    into the default 2:3 poster shape cuts the artwork badly */
 .kt-item-thumb.square { width: 56px; height: 56px; }
@@ -529,7 +542,6 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   align-items: center;
   justify-content: center;
   color: var(--kt-text-subtle);
-  font-size: 2rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   transition: transform var(--kt-transition), box-shadow var(--kt-transition);
 }
@@ -694,6 +706,11 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   min-width: 0;
   font-family: var(--kt-font);
 }
+/* A heading you can type into needs to say so without pretending to be a button: a faint rule under the
+   text (the inline-edit convention) plus a text cursor, resolving to a full border on hover and the accent
+   on focus. An adjacent pencil icon was the alternative and was rejected - it would sit in a row that
+   already holds real icon buttons, so it would read as a fourth one. */
+.kt-title-input { cursor: text; border-bottom-color: var(--kt-border); }
 .kt-title-input:hover:not(:disabled) { border-color: var(--kt-border); }
 .kt-title-input:focus { border-color: var(--kt-accent); outline: none; background: var(--kt-surface); }
 .kt-title-input:disabled { cursor: not-allowed; }
@@ -1228,6 +1245,13 @@ a.kt-item-row { color: inherit; text-decoration: none; }
      stretched whichever one of those happened to be active to full width too. */
   .kt-quickadd-picker { grid-template-columns: repeat(2, 1fr); }
   .kt-quickadd-save-btn { width: 100%; }
+
+  /* The signed-in home page is the one screen that should open on data. Centring a 70vh block behind a
+     three-line headline put the collection tiles around y=750 on an 844px screen, i.e. entirely below the
+     fold. Desktop keeps the centred treatment - there the tiles are visible either way. */
+  .kt-home { min-height: 0; justify-content: flex-start; padding-top: 0.5rem; }
+  .kt-home h1 { font-size: 1.85rem; }
+  .kt-home-sub { font-size: 0.92rem; line-height: 1.6; margin-bottom: 1.5rem; }
 }
 
 @media (min-width: 768px) and (max-width: 1024px) {
@@ -1329,6 +1353,16 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   color: var(--kt-accent);
 }
 
+/* Everything in the toolbar except the search box. On desktop it is a transparent flex row that behaves
+   exactly as the loose children did; on mobile it becomes the single second line (see the override below). */
+.kt-search-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .kt-search-filters {
   display: flex;
   align-items: center;
@@ -1340,9 +1374,21 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 /* must come after the base rules above (like the pagination override below) - an equally-specific override
    placed in the main responsive section earlier in the file loses the cascade to them */
 @media (max-width: 767px) {
-  .kt-search-bar { flex-wrap: wrap; padding: 0.75rem 1rem; }
+  .kt-search-bar { flex-wrap: wrap; padding: 0.75rem 1rem; gap: 0.6rem; }
   .kt-search-input-wrap { flex: 1 1 100%; max-width: none; }
-  .kt-search-filters { margin-left: 0; }
+  /* One scrolling line instead of two wrapped ones. Scrolling beats wrapping here because the controls
+     are a single ordered set (sort, view, then filters) - a wrap splits that set at whatever point the
+     viewport happens to fall, which differs per page depending on how many filters a type has. */
+  .kt-search-controls {
+    flex: 1 1 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 0.5rem;
+    /* room for the scrollbar/overscroll shadow without clipping the focus ring of the last chip */
+    padding-bottom: 0.15rem;
+  }
+  .kt-search-controls > * { flex-shrink: 0; }
+  .kt-search-filters { margin-left: 0; flex-wrap: nowrap; }
 }
 
 /* ── Pagination ────────────────────────────────────────────────────── */
@@ -1590,6 +1636,14 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 .kt-sheet-table td {
   padding: 0.4rem 0.6rem;
   vertical-align: middle;
+}
+
+/* Money and odometer columns: lining figures so digits stack in a column, right-aligned so magnitudes
+   compare at a glance. Proportional left-aligned digits made 45825 and 45100 impossible to scan against
+   each other. Opt-in per cell (td.kt-num) because a table's other columns are text. */
+.kt-num, th.kt-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 /* width: 100%, height: auto (not a fixed px height) lets each SVG's own viewBox aspect ratio drive the

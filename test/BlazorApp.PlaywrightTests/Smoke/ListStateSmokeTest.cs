@@ -63,7 +63,7 @@ public partial class ListStateSmokeTest(End2EndFixture fixture) : SmokeTestBase(
     {
         var list = await (await new HomePage(Page).OpenAsync()).OpenMoviesAsync();
         var favoritesUrl = FavoriteRegex();
-        var favoritesButton = Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "★ Favorites" });
+        var favoritesButton = Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Favorites" });
 
         // The toggle-on click is this page load's first @onclick - see ClickUntilAsync's prerender-gap remarks.
         await list.ClickFilterUntilActiveAsync(favoritesButton);

@@ -115,7 +115,7 @@ else if (Current is { } state)
                 @foreach (var item in items)
                 {
                     <div class="kt-item-row">
-                        <ItemThumb ImageUrl="@item.ImageUrl" Shape="@null"/>
+                        <ItemThumb ImageUrl="@item.ImageUrl" Title="@item.Title" Shape="@null"/>
                         <div class="kt-item-main">
                             @* Same as the grid card: the whole row opens the provider page in a new tab (the
                                stretched link), with the action buttons kept above it by z-index. A suggestion

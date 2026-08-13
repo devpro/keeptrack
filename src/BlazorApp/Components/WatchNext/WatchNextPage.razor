@@ -63,7 +63,7 @@ else if (Data is not null)
                         @foreach (var show in Data.InProgressShows)
                         {
                             <a class="kt-item-row" href="@($"/tv-shows/{show.TvShowId}")">
-                                <ItemThumb ImageUrl="@show.ImageUrl"/>
+                                <ItemThumb ImageUrl="@show.ImageUrl" Title="@show.TvShowTitle"/>
                                 <div class="kt-item-main">
                                     <span class="kt-item-title">@show.TvShowTitle</span>
                                     <div class="kt-item-meta">
@@ -113,7 +113,7 @@ else if (Data is not null)
                         @foreach (var movie in Data.MoviesToWatch)
                         {
                             <a class="kt-item-row" href="@($"/movies/{movie.Id}")">
-                                <ItemThumb ImageUrl="@movie.ImageUrl"/>
+                                <ItemThumb ImageUrl="@movie.ImageUrl" Title="@movie.Title"/>
                                 <div class="kt-item-main">
                                     <span class="kt-item-title">@movie.Title</span>
                                     <div class="kt-item-meta">

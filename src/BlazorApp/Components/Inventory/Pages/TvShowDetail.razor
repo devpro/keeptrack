@@ -61,7 +61,7 @@ else
         <button class="btn btn-sm @(_show.State == TvShowStatus.Stopped ? "btn-danger" : "btn-secondary")" @onclick='() => SetStateAsync(TvShowStatus.Stopped)'>Stopped</button>
     </div>
 
-    @if (string.IsNullOrEmpty(_show.ReferenceId))
+    @if (_showLinker)
     {
         <AuthorizeView Policy="AdminOnly">
             <Authorized>
@@ -251,6 +251,10 @@ else
     private int _selectedSeason;
     private string? _error;
     private static readonly TimeSpan RefreshMessageDuration = TimeSpan.FromSeconds(4);
+    // The admin search panel is revealed by the title row's check-for-match button coming back
+    // empty, not by the item merely being unlinked - otherwise it sits above the item's own data
+    // on every unlinked item, permanently, for the one role that sees most of them.
+    private bool _showLinker;
     private bool _refreshingReference;
     private string? _refreshMessage;
     private string _refreshMessageStyle = "neutral";
@@ -265,6 +269,10 @@ else
 
     private async Task LoadAsync()
     {
+        // Closes the admin search panel on every (re)load, which covers linking from it (OnLinked calls
+        // this) as well as navigating to another item. RefreshReferenceAsync re-opens it afterwards when
+        // its own check came back without a link - it sets the flag *after* awaiting this.
+        _showLinker = false;
         await LoadingIndicator.RunAsync(FetchAsync(), v => _loading = v, StateHasChanged);
         _loading = false;
         _loaded = true;
@@ -380,6 +388,7 @@ else
             await LoadAsync();
 
             (_refreshMessage, _refreshMessageStyle) = ReferenceRefreshMessage.Compute(previousReferenceId, refreshed.ReferenceId);
+            _showLinker = string.IsNullOrEmpty(_show.ReferenceId);
         }
         catch (Exception ex)
         {

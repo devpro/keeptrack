@@ -104,7 +104,7 @@ else if (Data is not null)
                     @foreach (var row in rows)
                     {
                         <a class="kt-item-row" href="@row.Href">
-                            <ItemThumb ImageUrl="@row.ImageUrl" Shape="@row.Shape"/>
+                            <ItemThumb ImageUrl="@row.ImageUrl" Title="@row.Title" Shape="@row.Shape"/>
                             <div class="kt-item-main">
                                 <span class="kt-item-title">@row.Title</span>
                                 <div class="kt-item-meta">

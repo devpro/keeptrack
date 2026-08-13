@@ -2,9 +2,11 @@
 
 <AuthorizeView Policy="AdminOnly" Context="adminContext">
     <Authorized>
+        @* No "not yet matched to a reference source" line any more: this panel is now only rendered after
+           an admin has clicked the title row's check-for-match button and it came back without a link, so
+           saying so would restate what the toast beside that button just said. It used to sit permanently
+           above the item's own data on every unlinked item, which for an admin is most of them. *@
         <div class="kt-form-card">
-            <p class="kt-card-meta mb-2">Not yet matched to a reference source (admin only).</p>
-
             @* only the domains with more than one registered provider return anything, so this renders a
                picker for books and video games and nothing at all for the rest. *@
             @if (_providers.Count > 1)

@@ -111,6 +111,23 @@ else
         <div class="kt-table-wrap">
             <div class="table-responsive">
                 <table class="table kt-sheet-table kt-table-grid mb-0">
+                    @* The journal is the one table here that had no header row, while the yearly review
+                       directly below it does - so its columns had to be inferred from their contents.
+                       Column set and the d-none d-md-table-cell breakpoints mirror HealthRecordRow. *@
+                    <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Specialty</th>
+                        <th>Practitioner</th>
+                        <th class="d-none d-md-table-cell">Description</th>
+                        <th class="d-none d-md-table-cell kt-num">Price</th>
+                        <th><span class="visually-hidden">To check</span></th>
+                        @if (CanEdit)
+                        {
+                            <th><span class="visually-hidden">Actions</span></th>
+                        }
+                    </tr>
+                    </thead>
                     <tbody>
                     @foreach (var entry in _recordsByYear.GetValueOrDefault(_selectedYear, []))
                     {

@@ -5,9 +5,9 @@
 
 <tr class="@(HasWarning ? "kt-history-row-warning" : "")">
     <td>@Entry.HistoryDate.ToString(Entry.HistoryDate.TimeOfDay == TimeSpan.Zero ? "yyyy-MM-dd" : "yyyy-MM-dd HH:mm")</td>
-    <td>@Entry.Mileage</td>
+    <td class="kt-num">@Entry.Mileage</td>
     <td>@Entry.EventType</td>
-    <td>@Entry.Cost?.ToString("F2")</td>
+    <td class="kt-num">@Entry.Cost?.ToString("F2")</td>
     @* A refuel carries no location of its own any more - both columns read through to the station it
        points at, which is where that data now lives (hydrated server-side, one lookup per page). *@
     <td class="d-none d-md-table-cell">@(Entry.StationBrandName ?? Entry.Garage)</td>
