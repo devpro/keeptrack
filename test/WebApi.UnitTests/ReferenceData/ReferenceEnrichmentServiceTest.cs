@@ -1751,6 +1751,147 @@ public class ReferenceEnrichmentServiceTest
         _videoGameRepository.Verify(r => r.SetReferenceLinkAsync("Some Game", 2020, It.IsAny<string>(), "Some Game", It.IsAny<int?>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Once);
     }
 
+    /// <summary>
+    /// The year is what makes an automatic link possible at all for a title with namesakes, and this domain is
+    /// full of them - IGDB holds eight games named exactly "Resident Evil 2". Only one of them is from 2019, so
+    /// a tenant recording the remake resolves unattended rather than waiting in the admin queue behind seven
+    /// games it plainly is not.
+    /// </summary>
+    [Fact]
+    public async Task TryAutoResolveVideoGameAsync_ResolvesOnTheYear_WhenSeveralCandidatesShareTheTitle()
+    {
+        var videoGameClient = FakeVideoGameReferenceClient.WithSearchResults(
+            new VideoGameSearchResult("19686", "Resident Evil 2", 2019, null),
+            new VideoGameSearchResult("880", "Resident Evil 2", 1998, null),
+            new VideoGameSearchResult("287844", "Resident Evil 2", 1999, null),
+            new VideoGameSearchResult("210710", "Resident Evil 2", null, null));
+        videoGameClient.Details["19686"] = new VideoGameDetails("19686", "Resident Evil 2", 2019, "Synopsis", [], [], null);
+        _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) =>
+        {
+            m.Id ??= "generated-id";
+            return m;
+        });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: videoGameClient);
+
+        await service.TryAutoResolveVideoGameAsync("Resident Evil 2", 2019);
+
+        _videoGameReferenceRepository.Verify(r => r.UpsertAsync(It.Is<VideoGameReferenceModel>(m => m.ExternalIds["igdb"] == "19686")), Times.Once);
+    }
+
+    /// <summary>
+    /// The year narrows, it never invents certainty: IGDB carries three separate 1998 "Resident Evil 2"
+    /// entries, so that one stays a human decision.
+    /// </summary>
+    [Fact]
+    public async Task TryAutoResolveVideoGameAsync_DoesNothing_WhenSeveralCandidatesShareBothTitleAndYear()
+    {
+        var videoGameClient = FakeVideoGameReferenceClient.WithSearchResults(
+            new VideoGameSearchResult("880", "Resident Evil 2", 1998, null),
+            new VideoGameSearchResult("186400", "Resident Evil 2", 1998, null),
+            new VideoGameSearchResult("217953", "Resident Evil 2", 1998, null));
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: videoGameClient);
+
+        await service.TryAutoResolveVideoGameAsync("Resident Evil 2", 1998);
+
+        _videoGameReferenceRepository.Verify(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>()), Times.Never);
+    }
+
+    /// <summary>
+    /// A lone candidate is not a confirmation. IGDB answers "NieR:Automata" with a single "Untitled
+    /// NieR:Automata Project", which the old "exactly one search result" rule would have linked without ever
+    /// comparing the two titles.
+    /// </summary>
+    [Fact]
+    public async Task TryAutoResolveVideoGameAsync_DoesNothing_WhenTheOnlyCandidateIsNotActuallyThatGame()
+    {
+        var videoGameClient = FakeVideoGameReferenceClient.WithSearchResults(
+            new VideoGameSearchResult("391942", "Untitled NieR:Automata Project", null, null));
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: videoGameClient);
+
+        await service.TryAutoResolveVideoGameAsync("NieR:Automata", 2017);
+
+        _videoGameReferenceRepository.Verify(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>()), Times.Never);
+    }
+
+    /// <summary>
+    /// A single candidate that carries the title but a contradicting year is a remake or a same-named sequel
+    /// far more often than it is a provider getting the date wrong - and linking it is silent data loss.
+    /// </summary>
+    [Fact]
+    public async Task TryAutoResolveVideoGameAsync_DoesNothing_WhenTheOnlyTitleMatchIsFromAnotherYear()
+    {
+        var videoGameClient = FakeVideoGameReferenceClient.WithSearchResults(
+            new VideoGameSearchResult("880", "Resident Evil 2", 1998, null));
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: videoGameClient);
+
+        await service.TryAutoResolveVideoGameAsync("Resident Evil 2", 2019);
+
+        _videoGameReferenceRepository.Verify(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>()), Times.Never);
+    }
+
+    /// <summary>
+    /// Reported from the running app on 2026-08-16: entering "Resident Evil 2" with <b>no year</b> silently
+    /// adopted the 2019 remake. With no year there is nothing to choose between eight same-titled games with,
+    /// so nothing may be chosen - the owner's rule, and the same one the yearless local lookup has to follow.
+    /// </summary>
+    [Fact]
+    public async Task TryAutoResolveVideoGameAsync_DoesNothing_WhenNoYearIsGivenAndSeveralGamesShareTheTitle()
+    {
+        var videoGameClient = FakeVideoGameReferenceClient.WithSearchResults(
+            new VideoGameSearchResult("19686", "Resident Evil 2", 2019, null),
+            new VideoGameSearchResult("880", "Resident Evil 2", 1998, null),
+            new VideoGameSearchResult("287844", "Resident Evil 2", 1999, null));
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: videoGameClient);
+
+        await service.TryAutoResolveVideoGameAsync("Resident Evil 2", null);
+
+        _videoGameReferenceRepository.Verify(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>()), Times.Never);
+    }
+
+    /// <summary>
+    /// <b>A year is required for any automatic link in this domain</b> (owner's rule), so a yearless item is
+    /// left alone even where the provider holds exactly one game by that name - IGDB has one "Code Vein".
+    /// <para>
+    /// The provider is not even asked: the answer cannot depend on what comes back, so the call would be spent
+    /// either way.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task TryAutoResolveVideoGameAsync_DoesNothingAndAsksNoProvider_WhenNoYearIsGiven()
+    {
+        var videoGameClient = FakeVideoGameReferenceClient.WithSearchResults(
+            new VideoGameSearchResult("28168", "Code Vein", 2019, null));
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: videoGameClient);
+
+        await service.TryAutoResolveVideoGameAsync("Code Vein", null);
+
+        _videoGameReferenceRepository.Verify(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>()), Times.Never);
+        videoGameClient.SearchCount.Should().Be(0);
+    }
+
+    /// <summary>
+    /// The other half of the owner's rule: the moment a year is supplied, the same item resolves. Scenario 3
+    /// of the reported journey - create without a year, add the year, check again.
+    /// </summary>
+    [Fact]
+    public async Task TryAutoResolveVideoGameAsync_Resolves_AsSoonAsTheYearIsSupplied()
+    {
+        var videoGameClient = FakeVideoGameReferenceClient.WithSearchResults(
+            new VideoGameSearchResult("28168", "Code Vein", 2019, null),
+            new VideoGameSearchResult("131955", "Code Vein: Season Pass", 2019, null));
+        videoGameClient.Details["28168"] = new VideoGameDetails("28168", "Code Vein", 2019, "Synopsis", [], [], null);
+        _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) =>
+        {
+            m.Id ??= "generated-id";
+            return m;
+        });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: videoGameClient);
+
+        await service.TryAutoResolveVideoGameAsync("Code Vein", 2019);
+
+        _videoGameReferenceRepository.Verify(r => r.UpsertAsync(It.Is<VideoGameReferenceModel>(m => m.ExternalIds["igdb"] == "28168")), Times.Once);
+    }
+
     [Fact]
     public async Task ResolveVideoGameAsync_PropagatesTheUpsertedReferenceId()
     {

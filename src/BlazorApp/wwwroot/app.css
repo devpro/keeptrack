@@ -1003,9 +1003,12 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 .kt-spinner { width: 18px; height: 18px; border: 2px solid var(--kt-surface-3); border-top-color: var(--kt-accent); border-radius: 50%; animation: spin 0.75s linear infinite; flex-shrink: 0; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* plain monochrome glyph (not a color emoji) for a small inline action button, e.g. "check for reference
-   match" - spins in place using the same animation as .kt-spinner while the action is running */
-.kt-icon-spin { display: inline-block; animation: spin 0.75s linear infinite; }
+/* Spins its icon in place while an action is running, using the same animation as .kt-spinner - e.g. "check for reference match".
+   inline-flex, not inline-block, and that is the whole reason this comment exists.
+   Every one of these now wraps an <Icon> (an inline <svg>), which an inline-block box aligns on the text baseline: the box then includes the font's descender space and stands taller than the icon, so transform-origin's 50% 50% lands below the icon's real centre and it orbits instead of spinning.
+   Measured in Chromium at Size="17": a 21px box around a 17px icon, pivoting 2px low.
+   inline-flex makes the svg a flex item, so the box hugs it exactly and the centre is the icon's own. */
+.kt-icon-spin { display: inline-flex; animation: spin 0.75s linear infinite; }
 .kt-empty { text-align: center; padding: 5rem 2rem; }
 .kt-empty-icon { color: var(--kt-text-subtle); display: flex; justify-content: center; margin-bottom: 1rem; }
 

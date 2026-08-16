@@ -17,9 +17,16 @@
         <div class="row g-3">
             @FormTemplate(Form)
         </div>
-        <div class="d-flex gap-2 mt-3">
-            <button class="btn btn-success" @onclick="OnSave">Save</button>
-            <button class="btn btn-secondary" @onclick="OnCancelForm">Cancel</button>
+        <div class="d-flex gap-2 mt-3 align-items-center">
+            <button class="btn btn-success" @onclick="OnSave" disabled="@Matching">Save</button>
+            <button class="btn btn-secondary" @onclick="OnCancelForm" disabled="@Matching">Cancel</button>
+            @* The item is already saved by this point - this is the reference lookup the detail page would otherwise show popping in. *@
+            @if (Matching)
+            {
+                <span class="kt-card-meta d-flex align-items-center gap-2">
+                    <span class="kt-icon-spin"><Icon Name="refresh" Size="15"/></span> Looking for a match…
+                </span>
+            }
         </div>
     </div>
 }
@@ -375,6 +382,9 @@ else
     [Parameter] public RenderFragment<TDto>? FormTemplate { get; set; }
     [Parameter] public RenderFragment? Filters { get; set; }
     [Parameter] public EventCallback OnSave { get; set; }
+
+    /// <summary>Whether the just-saved item is still being matched to reference data, so the form stays put instead of opening a detail page that would fill itself in a moment later.</summary>
+    [Parameter] public bool Matching { get; set; }
     [Parameter] public EventCallback OnCancelForm { get; set; }
     [Parameter] public EventCallback OnShowAddForm { get; set; }
     [Parameter] public required EventCallback OnClearSearch { get; set; }

@@ -42,7 +42,7 @@ public class GoogleBooksSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixtur
         TrackOpenItem("/api/books");
 
         await detail.ClickCheckReferenceMatchAsync();
-        
+
         // Google Books is already the registered default (first in Program.cs), but select it
         // explicitly so this test still proves the right thing if that ever changes.
         await detail.SelectProviderAsync("Google Books");

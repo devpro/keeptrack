@@ -3,7 +3,7 @@ using Keeptrack.Common.System;
 
 namespace Keeptrack.Domain.Models;
 
-public class VideoGameModel : IHasIdAndOwnerId
+public class VideoGameModel : IHasIdAndOwnerId, IReferenceLinkedModel
 {
     public string? Id { get; set; }
 

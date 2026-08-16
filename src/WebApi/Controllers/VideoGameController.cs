@@ -52,8 +52,11 @@ public class VideoGameController(
     }
 
     /// <summary>
-    /// User-triggered, exact-match-only re-check against the local reference collection - see
-    /// <see cref="TvShowController.RefreshReference"/>.
+    /// User-triggered re-check for this game's reference - see <see cref="TvShowController.RefreshReference"/>
+    /// for the shared shape. Unlike the other four domains this one falls back to the provider when nothing
+    /// local matches, so a game that was created before its year was known can still be linked once the year
+    /// is filled in - see <see cref="ReferenceEnrichmentService.LinkVideoGameReferenceAsync"/> for why the
+    /// local-only version could not keep the button's own promise.
     /// </summary>
     [HttpPost("{id}/refresh-reference")]
     [ProducesResponseType(200)]
@@ -63,7 +66,7 @@ public class VideoGameController(
         var model = await dataRepository.FindOneAsync(id, this.GetUserId());
         if (model is null) return NotFound();
 
-        model = await enrichmentService.TryLinkExistingVideoGameReferenceAsync(model);
+        model = await enrichmentService.LinkVideoGameReferenceAsync(model);
         return Ok(Mapper.ToDto(model));
     }
 

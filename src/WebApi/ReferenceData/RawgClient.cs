@@ -16,24 +16,28 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// <c>ReferenceEnrichmentService.RefreshVideoGameReferenceAsync</c> for why only the default provider is.
 /// </para>
 /// </summary>
-public class RawgClient(HttpClient http, RawgSettings settings) : IVideoGameReferenceClient
+public class RawgClient(HttpClient http, RawgSettings settings) : VideoGameReferenceClientBase
 {
-    public string ProviderKey => RatingSourceCatalog.Rawg;
+    public override string ProviderKey => RatingSourceCatalog.Rawg;
 
-    public string DisplayName => "RAWG";
+    public override string DisplayName => "RAWG";
 
     /// <summary>RAWG's own 0-5 user score (its default ordering) and the Metacritic score it republishes.</summary>
-    public IReadOnlyList<string> SupportedRatingSources { get; } = [RatingSourceCatalog.Rawg, RatingSourceCatalog.Metacritic];
+    public override IReadOnlyList<string> SupportedRatingSources { get; } = [RatingSourceCatalog.Rawg, RatingSourceCatalog.Metacritic];
 
-    public async Task<IReadOnlyList<VideoGameSearchResult>> SearchGamesAsync(string title, int? year, CancellationToken cancellationToken = default)
+    protected override async Task<IReadOnlyList<VideoGameSearchResult>> SearchByRelevanceAsync(string title, int limit, CancellationToken cancellationToken)
     {
-        var query = $"games?key={ApiKey}&search={Encode(title)}&page_size={MaxResults}" + (year is null ? "" : $"&dates={year}-01-01,{year}-12-31");
+        // no `&dates=` narrowing any more, and dropping it is a fix rather than a simplification: it was a hard
+        // server-side filter on RAWG's own release date, so a game whose date RAWG records in the year either
+        // side of the one a tenant typed was not ranked lower, it was absent - see
+        // VideoGameReferenceClientBase.SearchByRelevanceAsync.
+        var query = $"games?key={ApiKey}&search={Encode(title)}&page_size={limit}";
         var response = await http.GetFromJsonAsync<RawgSearchResponse>(query, cancellationToken);
         return response?.Results.Select(r => new VideoGameSearchResult(
             r.Id.ToString(CultureInfo.InvariantCulture), r.Name ?? title, ParseYear(r.Released), r.BackgroundImage)).ToList() ?? [];
     }
 
-    public async Task<IReadOnlyList<VideoGameSearchResult>> FindGamesByExactTitleAsync(string title, CancellationToken cancellationToken = default)
+    public override async Task<IReadOnlyList<VideoGameSearchResult>> FindGamesByExactTitleAsync(string title, CancellationToken cancellationToken = default)
     {
         // RAWG has no equality operator on a field; `search_exact=true` only turns *off* the fuzziness of its
         // relevance search, so it narrows the pool but still returns near-misses. The equality this method
@@ -48,7 +52,7 @@ public class RawgClient(HttpClient http, RawgSettings settings) : IVideoGameRefe
             .ToList() ?? [];
     }
 
-    public async Task<IReadOnlyList<VideoGameSearchResult>> FindGamesContainingAllWordsAsync(IReadOnlyList<string> words, CancellationToken cancellationToken = default)
+    public override async Task<IReadOnlyList<VideoGameSearchResult>> FindGamesContainingAllWordsAsync(IReadOnlyList<string> words, CancellationToken cancellationToken = default)
     {
         if (words.Count == 0) return [];
 
@@ -65,7 +69,7 @@ public class RawgClient(HttpClient http, RawgSettings settings) : IVideoGameRefe
             .ToList() ?? [];
     }
 
-    public async Task<VideoGameSearchResult?> FindGameByIdentifierAsync(string identifier, CancellationToken cancellationToken = default)
+    public override async Task<VideoGameSearchResult?> FindGameByIdentifierAsync(string identifier, CancellationToken cancellationToken = default)
     {
         // RAWG's own detail endpoint accepts either its numeric id or the slug its pages are keyed on, so a
         // pasted address needs no separate lookup. It answers 404 for one it doesn't hold, which is an
@@ -80,7 +84,7 @@ public class RawgClient(HttpClient http, RawgSettings settings) : IVideoGameRefe
                 details.Id.ToString(CultureInfo.InvariantCulture), details.Name ?? identifier, ParseYear(details.Released), details.BackgroundImage);
     }
 
-    public async Task<VideoGameDetails?> GetGameDetailsAsync(string externalId, CancellationToken cancellationToken = default)
+    public override async Task<VideoGameDetails?> GetGameDetailsAsync(string externalId, CancellationToken cancellationToken = default)
     {
         var details = await http.GetFromJsonAsync<RawgGameDetailsResponse>($"games/{externalId}?key={ApiKey}", cancellationToken);
         return details is null
@@ -92,7 +96,7 @@ public class RawgClient(HttpClient http, RawgSettings settings) : IVideoGameRefe
                 details.BackgroundImage, BuildRatings(details.Rating, details.RatingsCount, details.Metacritic));
     }
 
-    public async Task<IReadOnlyList<VideoGameTopRatedItem>> GetTopRatedGamesAsync(int page, string ratingSource, CancellationToken cancellationToken = default)
+    public override async Task<IReadOnlyList<VideoGameTopRatedItem>> GetTopRatedGamesAsync(int page, string ratingSource, CancellationToken cancellationToken = default)
     {
         var ordering = ratingSource == RatingSourceCatalog.Metacritic ? "metacritic" : "rating";
         var query = $"games?key={ApiKey}&ordering=-{ordering}&metacritic={MinMetacritic},100&page={page}&page_size={TopRatedPageSize}";
@@ -121,8 +125,6 @@ public class RawgClient(HttpClient http, RawgSettings settings) : IVideoGameRefe
         }
         return ratings;
     }
-
-    private const int MaxResults = 5;
 
     /// <summary>Bound on <see cref="FindGamesByExactTitleAsync"/> - see <c>IgdbClient</c>'s own on why it is the larger one.</summary>
     private const int MaxExactTitleResults = 40;

@@ -4,7 +4,7 @@ using Keeptrack.Common.System;
 
 namespace Keeptrack.Domain.Models;
 
-public class BookModel : IHasIdAndOwnerId
+public class BookModel : IHasIdAndOwnerId, IReferenceLinkedModel
 {
     public string? Id { get; set; }
 

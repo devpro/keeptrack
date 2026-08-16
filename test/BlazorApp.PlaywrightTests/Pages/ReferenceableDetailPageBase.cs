@@ -11,7 +11,11 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 /// </summary>
 public abstract class ReferenceableDetailPageBase(IPage page) : DetailPageBase(page)
 {
-    private ILocator RefreshReferenceButton => Page.Locator("button.kt-icon-btn");
+    /// <summary>
+    /// Located by accessible name rather than by <c>.kt-icon-btn</c>.
+    /// Once an item is linked an admin also sees the unlink button, which carries the same class, so the plain class selector resolves to two elements and Playwright refuses to click either.
+    /// </summary>
+    private ILocator RefreshReferenceButton => Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Check for reference match" });
 
     private ILocator ReferenceToast => Page.Locator(".kt-inline-toast");
 

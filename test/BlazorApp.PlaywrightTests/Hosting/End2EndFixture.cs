@@ -283,6 +283,40 @@ public sealed class End2EndFixture : IAsyncLifetime
     }
 
     /// <summary>
+    /// Removes video game reference documents by id, for the one scenario whose premise is that no reference exists yet.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Reference documents resolved from a real provider are normally left in place on purpose: they are shared canonical facts, deduplicated by provider id, so a re-run reuses them and deleting only forces a re-fetch.
+    /// This is the deliberate exception, and it is not tidiness.
+    /// A test proving that matching reaches the <b>provider</b> can only observe that while nothing local answers - and it creates exactly such a local answer by passing.
+    /// Left behind, it makes its own next run take the cheap local path instead, still green and no longer testing anything.
+    /// Confirmed by mutation: with the provider escalation disabled, the three video game matching scenarios all still passed against a database holding last run's references.
+    /// </para>
+    /// <para>
+    /// Self-hosted mode only, and silent when it cannot run - see <see cref="CanSeedDatabaseDirectly"/>.
+    /// </para>
+    /// </remarks>
+    public async Task RemoveVideoGameReferencesAsync(IEnumerable<string> referenceIds)
+    {
+        if (!CanSeedDatabaseDirectly) return;
+
+        var ids = referenceIds.Where(id => !string.IsNullOrEmpty(id) && ObjectId.TryParse(id, out _)).Select(ObjectId.Parse).ToList();
+        if (ids.Count == 0) return;
+
+        try
+        {
+            var database = _webApiFactory!.Services.GetRequiredService<IMongoDatabase>();
+            await database.GetCollection<BsonDocument>("videogame_reference")
+                .DeleteManyAsync(Builders<BsonDocument>.Filter.In("_id", ids));
+        }
+        catch (Exception exception)
+        {
+            await Console.Error.WriteLineAsync($"Failed to remove e2e video game reference documents: {exception.Message}");
+        }
+    }
+
+    /// <summary>
     /// Whether this run may write to MongoDB directly, i.e. self-hosted mode - live mode (<c>E2E_TARGET_URL</c>)
     /// drives a remote deployment whose database this process has no handle on.
     /// Only the Explore catalogue needs it (see <see cref="SeedExploreCatalogueAsync"/>); a test that does

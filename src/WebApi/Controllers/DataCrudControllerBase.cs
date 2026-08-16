@@ -1,4 +1,5 @@
 ﻿using Keeptrack.Common.System;
+using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.WebApi.Mappers;
 using Microsoft.AspNetCore.Mvc;
@@ -115,8 +116,40 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IDtoMapper<TDto, TMod
 
         var input = mapper.ToModel(dto);
         input.OwnerId = this.GetUserId();
+        await PreserveServerOwnedFieldsAsync(id, input);
         await dataRepository.UpdateAsync(id, input, this.GetUserId());
         return NoContent();
+    }
+
+    /// <summary>
+    /// Restores the fields the server owns onto <paramref name="input"/>, so an ordinary update can never write them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// An update is a full replace of the document, so every field the client sent wins - including ones it was never entitled to set.
+    /// <c>OwnerId</c> is already handled that way (overwritten from the caller's claims just above); a reference link is the other case, and it is the one that bit.
+    /// <b>A record update must never change an item's reference link. Only the detail page's "check for reference match" does.</b>
+    /// </para>
+    /// <para>
+    /// Without this, the Blazor detail page - which sends the whole DTO on every field edit - erases a link simply by saving something else.
+    /// Its copy is fetched the instant the page opens, which for a just-created item is before the background resolution has linked it, so the first edit writes that stale empty link back over the real one.
+    /// It cost a long run of "it doesn't match, but if I click refresh it matches" reports: the match had happened, the next edit undid it, and the button resolved it again.
+    /// Nothing about the page changes when a save removes a link, which is what kept it invisible.
+    /// </para>
+    /// <para>
+    /// Costs one read per update, and only for the five reference-linked types - everything else fails the type test and pays nothing.
+    /// </para>
+    /// </remarks>
+    private async Task PreserveServerOwnedFieldsAsync(string id, TModel input)
+    {
+        if (input is not IReferenceLinkedModel incoming) return;
+
+        if (await dataRepository.FindOneAsync(id, input.OwnerId) is not IReferenceLinkedModel stored) return;
+
+        incoming.ReferenceId = stored.ReferenceId;
+        incoming.ReferenceRating = stored.ReferenceRating;
+        incoming.ReferenceRatingScale = stored.ReferenceRatingScale;
+        incoming.ReferenceRatingSource = stored.ReferenceRatingSource;
     }
 
     [HttpDelete("{id}")]

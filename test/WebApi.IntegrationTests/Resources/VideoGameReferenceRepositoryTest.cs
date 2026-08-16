@@ -110,6 +110,84 @@ public class VideoGameReferenceRepositoryTest(KestrelWebAppFactory<Program> fact
         (await repository.FindByExternalIdAsync("igdb", rawgId)).Should().BeNull();
     }
 
+    /// <summary>
+    /// <b>Desired behaviour, reported from the running app on 2026-08-16 and not yet implemented.</b>
+    /// <para>
+    /// A tenant recording "Resident Evil 2" with <b>no year</b> must not be linked to whichever same-titled
+    /// reference document the database happens to return first. Today it is: <c>FindByTitleAsync</c> is a
+    /// <c>FirstOrDefaultAsync</c> over an unsorted, unbounded match, so the owner saw a yearless "Resident Evil
+    /// 2" silently adopt the 2019 remake's reference - and then, after deleting that link, adopt it again.
+    /// </para>
+    /// <para>
+    /// The rule: with no year there is nothing to choose between same-titled works with, so nothing is chosen.
+    /// This is the half of the "Road House" finding that was never closed - that fix stopped a *known* year
+    /// being ignored, and left the yearless case guessing.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task FindByTitleAsync_MatchesNothing_WhenSeveralReferencesShareTheTitleAndOnlyTheYearCouldTellThemApart()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IVideoGameReferenceRepository>();
+        var title = $"Resident Evil 2 {Guid.NewGuid()}";
+
+        await CreateReferenceAsync(repository, SameTitledGame(title, 1998));
+        await CreateReferenceAsync(repository, SameTitledGame(title, 2019));
+
+        var found = await repository.FindByTitleAsync(title);
+
+        found.Should().BeNull("nothing but the year separates two games called \"{0}\", and no year was given", title);
+    }
+
+    /// <summary>
+    /// The exception that keeps the rule above useful: one candidate for the title is not a guess, it is the
+    /// answer. A yearless tenant item must still link when the database holds exactly one work by that name -
+    /// which is the ordinary case and the reason the title-only lookup exists at all.
+    /// </summary>
+    [Fact]
+    public async Task FindByTitleAsync_StillMatches_WhenOnlyOneReferenceCarriesTheTitle()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IVideoGameReferenceRepository>();
+        var title = $"Code Vein {Guid.NewGuid()}";
+
+        var created = await CreateReferenceAsync(repository, SameTitledGame(title, 2019));
+
+        var found = await repository.FindByTitleAsync(title);
+
+        found.Should().NotBeNull();
+        found!.Id.Should().Be(created.Id);
+    }
+
+    /// <summary>
+    /// The other half of what the owner reported: a tenant who <i>did</i> supply the year must get the game
+    /// from that year, not whichever same-titled document sorts first. This is what makes "supply a year and
+    /// you get an immediate match" a real contract rather than luck.
+    /// </summary>
+    [Fact]
+    public async Task FindByTitleYearAsync_PicksTheReferenceFromTheRequestedYear_WhenSeveralShareTheTitle()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IVideoGameReferenceRepository>();
+        var title = $"Resident Evil 2 {Guid.NewGuid()}";
+
+        await CreateReferenceAsync(repository, SameTitledGame(title, 1998));
+        var remake = await CreateReferenceAsync(repository, SameTitledGame(title, 2019));
+
+        var found = await repository.FindByTitleYearAsync(title, 2019);
+
+        found.Should().NotBeNull();
+        found!.Id.Should().Be(remake.Id);
+    }
+
+    private static VideoGameReferenceModel SameTitledGame(string title, int year) => new()
+    {
+        Title = title,
+        TitleNormalized = title.ToLowerInvariant(),
+        Year = year,
+        ExternalIds = new Dictionary<string, string> { ["igdb"] = TestExternalId.New() }
+    };
+
     // There is deliberately no "a duplicate external id is rejected" test here, for igdb or for rawg - and
     // none on the other four reference collections either. The uniqueness guarantee is real (a unique partial
     // index per provider key, declared in scripts/mongodb-create-index.js), but nothing in this suite creates

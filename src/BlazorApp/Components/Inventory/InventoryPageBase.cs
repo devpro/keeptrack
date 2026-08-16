@@ -1,5 +1,6 @@
 using Keeptrack.BlazorApp.Components.Shared;
 using Keeptrack.Common.System;
+using Keeptrack.WebApi.Contracts.Dto;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
@@ -197,6 +198,7 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
         try
         {
             var created = await Api.AddAsync(_form);
+            await WaitForReferenceMatchAsync(created);
             Navigation.NavigateTo($"{ListRoute}/{created.Id}");
         }
         catch (Exception ex)
@@ -204,6 +206,59 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
             _error = ex.Message;
         }
     }
+
+    /// <summary>
+    /// Whether the Add form is holding back its navigation while the new item is matched to reference data.
+    /// </summary>
+    protected bool MatchingNewItem { get; private set; }
+
+    /// <summary>
+    /// Holds the Add form open until a newly created item has been matched to reference data, so its detail page opens already showing the result.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Matching happens on the server as a detached background task, which cannot be awaited there: it makes a chain of provider calls, and a slow or dead provider would otherwise hold up a create for the resilience pipeline's full timeout - or hold up a bulk import for that timeout per item.
+    /// Waiting on the client instead keeps the create as fast and as reliable as it was and puts the delay somewhere it can be bounded and shown.
+    /// </para>
+    /// <para>
+    /// Waiting at all is a deliberate UX choice: without it the detail page opens unmatched and the cover, rating and synopsis appear a second or two later, or don't, depending on how quickly the provider answered.
+    /// A short, predictable wait with a spinner is better than a result that pops in at an unpredictable moment - the owner's call, and it also removes the window in which editing a field could race the match.
+    /// </para>
+    /// <para>
+    /// It gives up quietly rather than blocking: the item exists either way, most items have no match to find, and the detail page's own watcher picks up a late arrival.
+    /// Only the five reference-linked types wait at all - everything else fails the type test and navigates immediately.
+    /// </para>
+    /// </remarks>
+    private async Task WaitForReferenceMatchAsync(TDto created)
+    {
+        if (created is not IReferenceLinkedDto || string.IsNullOrEmpty(created.Id)) return;
+
+        MatchingNewItem = true;
+        StateHasChanged();
+        try
+        {
+            for (var attempt = 0; attempt < MatchAttempts; attempt++)
+            {
+                await Task.Delay(MatchPollInterval);
+                if (await Api.GetOneAsync(created.Id) is IReferenceLinkedDto item && !string.IsNullOrEmpty(item.ReferenceId)) return;
+            }
+        }
+        finally
+        {
+            MatchingNewItem = false;
+        }
+    }
+
+    private static readonly TimeSpan MatchPollInterval = TimeSpan.FromMilliseconds(400);
+
+    /// <summary>
+    /// How long the Add form waits for a match before opening the detail page anyway - two seconds, and never more.
+    /// </summary>
+    /// <remarks>
+    /// This is a bound on how long a person is made to look at a spinner, not an estimate of how long matching takes, so it is set from what is tolerable rather than from what the provider needs.
+    /// A resolve that has not landed in two seconds is left to finish on its own; the detail page's own watcher shows it when it arrives, which is the behaviour this wait improves on rather than replaces.
+    /// </remarks>
+    private const int MatchAttempts = 5;
 
     protected async Task DeleteAsync(string id)
     {

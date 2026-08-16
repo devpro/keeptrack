@@ -26,13 +26,11 @@ public partial class ReferenceEnrichmentService
         // see TryLinkExistingTvShowReferenceAsync's empty-title guard
         if (string.IsNullOrWhiteSpace(model.Title)) return model;
 
-        // see TryLinkExistingTvShowReferenceAsync's own comment - the title-only fallback must not run when
-        // the tenant has a specific year that simply has no confirmed alias
+        // No title-only fallback here, unlike the other four domains: a year is required for any automatic
+        // link in this domain (see TryAutoResolveVideoGameAsync). The fallback exists for a tenant who
+        // recorded no year at all, and for video games that tenant is exactly the one who must not be linked
+        // to a title's first namesake.
         var reference = await videoGameReferenceRepository.FindByTitleYearAsync(model.Title, model.Year);
-        if (reference is null && model.Year is null)
-        {
-            reference = await videoGameReferenceRepository.FindByTitleAsync(model.Title);
-        }
 
         if (reference is null)
         {
@@ -65,6 +63,42 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
+    /// What the detail page's "check for reference match" does for video games: reuse a fact someone already
+    /// established, and only when there is none, ask the provider under the same confirmed-single-match rule
+    /// automatic resolution uses.
+    /// <para>
+    /// The escalation exists because the local-only half cannot keep the promise the button makes - the
+    /// control's own tooltip reads <i>"Not right? Edit the title or year below, then check again."</i> An item
+    /// created before its year was known writes <b>no</b> reference at all (resolution runs on create, and
+    /// correctly refuses to choose between same-titled games without a year), so from then on there is nothing
+    /// local for any amount of correcting the title and year to find, and the button silently does nothing
+    /// forever. Confirmed in the running app on "Code Vein: Season Pass".
+    /// </para>
+    /// <para>
+    /// It adds no new guessing: it links exactly what <see cref="TryAutoResolveVideoGameAsync"/> would have
+    /// linked on create, so a title with namesakes and no year still resolves to nothing. What it adds is a
+    /// second chance to run that rule once the tenant has supplied what it needs, which is otherwise only
+    /// available by creating the item again.
+    /// </para>
+    /// <para>
+    /// <b>Video games only, deliberately.</b> This domain's rule is the strict one (named the work, agreeing
+    /// about the year); the other four still resolve on "the provider returned exactly one result", and
+    /// escalating on that would turn a local-only control into a provider call that can link something nobody
+    /// compared. It also keeps a user-triggered provider call out of four domains that work as they are.
+    /// </para>
+    /// </summary>
+    public async Task<VideoGameModel> LinkVideoGameReferenceAsync(VideoGameModel model)
+    {
+        model = await TryLinkExistingVideoGameReferenceAsync(model);
+        if (!string.IsNullOrEmpty(model.ReferenceId)) return model;
+
+        // resolution propagates by title+year across every tenant's matching item rather than returning this
+        // one, so the caller's copy is re-read rather than patched up here
+        await TryAutoResolveVideoGameAsync(model.Title, model.Year);
+        return await videoGameRepository.FindOneAsync(model.Id!, model.OwnerId) ?? model;
+    }
+
+    /// <summary>
     /// Admin-triggered "unlink" for video games - see <see cref="UnlinkTvShowReferenceAsync"/> for the full
     /// rationale (clears the tenant's link and permanently deletes the shared reference document, rather
     /// than only detaching this one item).
@@ -89,15 +123,40 @@ public partial class ReferenceEnrichmentService
     /// Best-effort automatic match for video games - see <see cref="TryAutoResolveTvShowAsync"/>. Always
     /// searches the deployment's *default* provider (<see cref="ReferenceClientRegistry{TClient}.Resolve"/>
     /// with a null key) - this is the unattended background path, so there's no admin picking a provider here.
+    /// <para>
+    /// What counts as confident is <see cref="VideoGameMatchRules.ConfirmedMatches"/>: a single candidate that
+    /// is actually named this game and agrees about the year. It deliberately is <b>not</b> "the provider
+    /// returned exactly one result", which is what this used to be and which reads a property of the *search*
+    /// as a property of the *answer*. That was wrong in both directions. It linked whatever came back whenever
+    /// a query happened to be narrow - IGDB answers "NieR:Automata" with a single "Untitled NieR:Automata
+    /// Project", which it would have linked without ever comparing the two titles. And it refused every title
+    /// with namesakes however unambiguous the year made it: IGDB holds eight games named exactly "Resident Evil
+    /// 2", so a tenant recording the 2019 remake could never resolve automatically, though only one of the
+    /// eight is from 2019.
+    /// </para>
+    /// <para>
+    /// Strictly fewer wrong links, and a title the provider spells differently now lands in the admin queue
+    /// instead of linking to whatever the search returned - the same "a queue entry is one click, a wrong link
+    /// is silent data loss" trade every other rule in this file makes.
+    /// </para>
     /// </summary>
     public async Task TryAutoResolveVideoGameAsync(string title, int? year)
     {
         if (string.IsNullOrWhiteSpace(title)) return; // see TryAutoResolveTvShowAsync
 
+        // A year is required for any automatic link in this domain (owner's rule). Video game catalogues are
+        // full of same-titled works - IGDB holds eight games named exactly "Resident Evil 2" - so a title on
+        // its own identifies nothing, and the cases where it happens to identify exactly one game are not
+        // worth a rule that silently links the wrong thing everywhere else. Supplying a year is a legitimate
+        // part of the contract for an immediate match; without one the item waits, and the detail page's
+        // "check for reference match" resolves it the moment a year is filled in.
+        if (year is null) return;
+
         var client = videoGameReferenceClientRegistry.Resolve(null);
         var candidates = await client.SearchGamesAsync(title, year);
-        if (candidates.Count != 1) return;
-        await ResolveVideoGameAsync(title, year, candidates[0].ExternalId, client.ProviderKey);
+        var matches = VideoGameMatchRules.ConfirmedMatches(candidates, title, year);
+        if (matches.Count != 1) return;
+        await ResolveVideoGameAsync(title, year, matches[0].ExternalId, client.ProviderKey);
     }
 
     /// <summary>
@@ -319,14 +378,12 @@ public partial class ReferenceEnrichmentService
         IReadOnlyList<VideoGameSearchResult> matches = [];
 
         // accumulates one rung's answer and re-confirms over everything seen so far, so a match found by a
-        // later, looser query is still judged against the same strict rule as the first rung's
+        // later, looser query is still judged against the same strict rule as the first rung's - and the same
+        // rule a search ranks by and automatic resolution links on, since all three read VideoGameMatchRules
         bool Accumulate(IReadOnlyList<VideoGameSearchResult> found)
         {
             candidates.AddRange(found.Where(result => candidates.TrueForAll(known => known.ExternalId != result.ExternalId)));
-            matches = candidates
-                .Where(c => TitleNormalizer.LooselyEqual(c.Title, reference.Title))
-                .Where(c => reference.Year is null || c.Year is null || c.Year == reference.Year)
-                .ToList();
+            matches = VideoGameMatchRules.ConfirmedMatches(candidates, reference.Title, reference.Year);
             return matches.Count > 0;
         }
 
@@ -356,42 +413,29 @@ public partial class ReferenceEnrichmentService
         var words = TitleNormalizer.ToProviderQuery(searchTitle).Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (words.Length >= MinTruncatedQueryWords)
         {
-            Accumulate(ShortlistByClosestTitle(await client.FindGamesContainingAllWordsAsync(words, cancellationToken), reference.Title));
+            Accumulate(ShortlistByClosestTitle(await client.FindGamesContainingAllWordsAsync(words, cancellationToken), reference));
         }
 
         return (candidates, matches);
     }
 
     /// <summary>
-    /// The closest <see cref="MaxShortlistedCandidates"/> results to <paramref name="title"/>, nearest first,
-    /// compared on the length of their <see cref="TitleNormalizer.NormalizeLoose"/> form.
+    /// The <see cref="MaxShortlistedCandidates"/> best answers for this reference, out of everything an
+    /// unranked query returned - <see cref="VideoGameMatchRules.OrderByBestMatch"/> cut to length.
     /// <para>
     /// A substring filter answers with everything that contains the words and no opinion about which is the
     /// game - "marvel" + "avengers" returns 40 entries on the real catalogue, mostly editions, DLC and
-    /// crossovers. Sorting by how far a candidate's title is from the one being looked for puts the plain work
-    /// first (measured: "Marvel's Avengers" leads those 40) and every longer variant behind it.
+    /// crossovers - so an opinion has to be supplied here. Sorting by how far a candidate's title is from the
+    /// one being looked for puts the plain work first (measured: "Marvel's Avengers" leads those 40) and every
+    /// longer variant behind it.
     /// </para>
     /// <para>
-    /// Ranking by *distance* rather than by plain length is what makes the cap safe: a candidate that loosely
-    /// equals the title has distance zero, so a genuine match can never be cut off by the shortlist.
+    /// The cap is safe because the ordering leads with candidates that loosely equal the title, so a genuine
+    /// match can never be cut off by the shortlist.
     /// </para>
     /// </summary>
-    private static IReadOnlyList<VideoGameSearchResult> ShortlistByClosestTitle(IReadOnlyList<VideoGameSearchResult> found, string title) =>
-        OrderByClosestTitle(found, title).Take(MaxShortlistedCandidates).ToList();
-
-    /// <summary>
-    /// Candidates nearest the title first - shared by the shortlist above and by the order the admin's row
-    /// renders them in, so the most likely answer leads the row whichever rung produced it. An exact-name hit
-    /// is distance zero and therefore still comes first, which is what makes reordering safe: it can only move
-    /// a *worse* candidate down.
-    /// </summary>
-    private static IEnumerable<VideoGameSearchResult> OrderByClosestTitle(IReadOnlyList<VideoGameSearchResult> found, string title)
-    {
-        var target = TitleNormalizer.NormalizeLoose(title).Length;
-        return found
-            .OrderBy(candidate => Math.Abs(TitleNormalizer.NormalizeLoose(candidate.Title).Length - target))
-            .ThenBy(candidate => candidate.Title, StringComparer.OrdinalIgnoreCase);
-    }
+    private static IReadOnlyList<VideoGameSearchResult> ShortlistByClosestTitle(IReadOnlyList<VideoGameSearchResult> found, VideoGameReferenceModel reference) =>
+        VideoGameMatchRules.OrderByBestMatch(found, reference.Title, reference.Year).Take(MaxShortlistedCandidates).ToList();
 
     /// <summary>
     /// How many of an unranked substring query's results reach the admin's row. Enough to hold the work plus
@@ -501,10 +545,11 @@ public partial class ReferenceEnrichmentService
         }
 
         var (candidates, matches) = await FindAdoptionCandidatesAsync(reference, searchTitle, client, cancellationToken);
-        // closest first, so the row leads with the likeliest answer rather than with whichever rung replied
-        // first - a provider's search hands back unrelated titles readily enough that "the first card" and
-        // "the game" were routinely not the same thing.
-        return (OrderByClosestTitle(candidates, reference.Title).ToList(), matches.Select(m => m.ExternalId).ToList());
+        // best answer first, so the row leads with the likeliest candidate rather than with whichever rung
+        // replied first - a provider's search hands back unrelated titles readily enough that "the first card"
+        // and "the game" were routinely not the same thing. Same ordering an ordinary search shows, so the two
+        // screens can never disagree about which candidate looks best.
+        return (VideoGameMatchRules.OrderByBestMatch(candidates, reference.Title, reference.Year).ToList(), matches.Select(m => m.ExternalId).ToList());
     }
 
     /// <summary>

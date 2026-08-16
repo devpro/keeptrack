@@ -166,6 +166,21 @@ public abstract class ResourceTestBase(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
+    /// A no-body POST whose answer comes from a live third-party provider, returning the resource it produced -
+    /// same 502-skips-rather-than-fails contract as <see cref="GetThroughLiveProviderAsync{T}"/>, for the
+    /// actions that both reach a provider and answer with the updated item (the detail page's
+    /// "check for reference match").
+    /// </summary>
+    protected async Task<T> PostThroughLiveProviderAsync<T>(string url, string provider)
+    {
+        var response = await _httpClient.PostAsync(url, null);
+        SkipWhenProviderUnavailable(response.StatusCode, provider);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        return await ReadJsonAsync<T>(response);
+    }
+
+    /// <summary>
     /// The no-body POST counterpart of <see cref="GetThroughLiveProviderAsync{T}"/>, for the actions that
     /// reach the provider again after a search (linking re-fetches the chosen candidate's details).
     /// </summary>

@@ -49,7 +49,8 @@ public class AlbumReferenceRepository(IMongoDatabase mongoDatabase, AlbumReferen
         var filter = Builders<AlbumReference>.Filter.ElemMatch(x => x.MatchedAliases,
             Builders<ReferenceMatch>.Filter.Eq(m => m.Title, normalized)
             & Builders<ReferenceMatch>.Filter.Eq(m => m.Creator, normalizedArtist));
-        var entity = await Collection.Find(filter).FirstOrDefaultAsync();
+        // ambiguous and "no match" are the same answer here - see ReferenceTitleQueries.FindSingleMatchAsync
+        var entity = await ReferenceTitleQueries.FindSingleMatchAsync(Collection, filter);
         return entity is null ? null : mapper.ToModel(entity);
     }
 

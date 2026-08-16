@@ -3,7 +3,7 @@ using Keeptrack.Common.System;
 
 namespace Keeptrack.Domain.Models;
 
-public class AlbumModel : IHasIdAndOwnerId
+public class AlbumModel : IHasIdAndOwnerId, IReferenceLinkedModel
 {
     public string? Id { get; set; }
 

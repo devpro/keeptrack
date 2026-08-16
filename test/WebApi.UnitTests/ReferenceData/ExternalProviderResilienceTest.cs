@@ -72,7 +72,10 @@ public class ExternalProviderResilienceTest
             callCount < 3 ? new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) : SuccessResponse());
         var client = BuildClient(handler);
 
-        var results = await client.SearchGamesAsync("Nioh 3", null, TestContext.Current.CancellationToken);
+        // FindGamesByExactTitleAsync rather than SearchGamesAsync: the subject here is how many HTTP
+        // attempts the resilience pipeline makes for *one* request, and SearchGamesAsync is a two-request
+        // policy (see VideoGameReferenceClientBase), which would make CallCount measure the policy instead.
+        var results = await client.FindGamesByExactTitleAsync("Nioh 3", TestContext.Current.CancellationToken);
 
         results.Should().ContainSingle(r => r.Title == "Nioh 3");
         handler.CallCount.Should().Be(3);
@@ -84,7 +87,7 @@ public class ExternalProviderResilienceTest
         var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
         var client = BuildClient(handler);
 
-        var act = async () => await client.SearchGamesAsync("Nioh 3", null);
+        var act = async () => await client.FindGamesByExactTitleAsync("Nioh 3");
 
         await act.Should().ThrowAsync<HttpRequestException>();
         handler.CallCount.Should().Be(4); // 1 initial attempt + 3 retries, then it gives up

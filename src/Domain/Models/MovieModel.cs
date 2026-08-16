@@ -4,7 +4,7 @@ using Keeptrack.Common.System;
 
 namespace Keeptrack.Domain.Models;
 
-public class MovieModel : IHasIdAndOwnerId, IHasTvTimeId
+public class MovieModel : IHasIdAndOwnerId, IHasTvTimeId, IReferenceLinkedModel
 {
     public string? Id { get; set; }
 

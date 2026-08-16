@@ -145,6 +145,35 @@ public class TvShowReferenceRepositoryTest(KestrelWebAppFactory<Program> factory
     }
 
     /// <summary>
+    /// The yearless title lookup refuses to choose between same-titled works here too, not only for video
+    /// games where it was reported - the rule lives once in <c>ReferenceTitleQueries.FindSingleMatchAsync</c>
+    /// and TV shows reach it through the same title-only fallback. Two shows sharing a name is ordinary
+    /// (a revival, a remake), and with no year there is nothing to tell them apart with.
+    /// </summary>
+    [Fact]
+    public async Task FindByTitleAsync_MatchesNothing_WhenSeveralReferencesShareTheTitleAndOnlyTheYearCouldTellThemApart()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<ITvShowReferenceRepository>();
+        var title = $"Shared Show Title {Guid.NewGuid()}";
+
+        foreach (var year in (int[])[1990, 2024])
+        {
+            await CreateReferenceAsync(repository, new TvShowReferenceModel
+            {
+                Title = title,
+                TitleNormalized = title.ToLowerInvariant(),
+                Year = year,
+                ExternalIds = new Dictionary<string, string> { ["tmdb"] = TestExternalId.New() }
+            });
+        }
+
+        var found = await repository.FindByTitleAsync(title);
+
+        found.Should().BeNull("nothing but the year separates two shows called \"{0}\", and no year was given", title);
+    }
+
+    /// <summary>
     /// Upserts a reference and registers it for deletion in the same step, so no test body can create one
     /// without it being cleaned up.
     /// </summary>

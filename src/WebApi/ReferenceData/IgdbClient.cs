@@ -21,34 +21,33 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// than failing every request - see <see cref="IgdbSettings"/>.
 /// </para>
 /// </summary>
-public class IgdbClient(HttpClient http, IgdbSettings settings) : IVideoGameReferenceClient
+public class IgdbClient(HttpClient http, IgdbSettings settings) : VideoGameReferenceClientBase
 {
-    public string ProviderKey => RatingSourceCatalog.Igdb;
+    public override string ProviderKey => RatingSourceCatalog.Igdb;
 
-    public string DisplayName => "IGDB";
+    public override string DisplayName => "IGDB";
 
     /// <summary>
     /// IGDB's own 0-100 user score (its default ordering) and its 0-100 aggregate of external critic scores.
     /// Metacritic is deliberately absent: IGDB does not report it, and its critic aggregate is computed from
     /// IGDB's own sources, so writing it under Metacritic's key would misattribute the number.
     /// </summary>
-    public IReadOnlyList<string> SupportedRatingSources { get; } = [RatingSourceCatalog.Igdb, RatingSourceCatalog.IgdbCritic];
+    public override IReadOnlyList<string> SupportedRatingSources { get; } = [RatingSourceCatalog.Igdb, RatingSourceCatalog.IgdbCritic];
 
-    public async Task<IReadOnlyList<VideoGameSearchResult>> SearchGamesAsync(string title, int? year, CancellationToken cancellationToken = default)
+    protected override async Task<IReadOnlyList<VideoGameSearchResult>> SearchByRelevanceAsync(string title, int limit, CancellationToken cancellationToken)
     {
-        if (!settings.IsConfigured || string.IsNullOrWhiteSpace(title)) return [];
+        if (!settings.IsConfigured) return [];
 
-        // no year filter, deliberately: Apicalypse rejects `sort` alongside `search`, and narrowing a relevance
-        // search by an exact release year is the same trap OpenLibraryClient documents - an edition/regional
-        // release routinely carries a different year from the one a tenant typed, and filtering it away turns a
-        // good match into no match at all. The year is returned per candidate for the caller to tie-break with.
-        var query = $"{SearchFields} search \"{EscapeSearchTerm(title)}\"; limit {MaxResults};";
+        // no `where first_release_date` narrowing, though Apicalypse does accept one alongside `search` - see
+        // VideoGameReferenceClientBase.SearchByRelevanceAsync for why the year ranks the pool instead of
+        // filtering it.
+        var query = $"{SearchFields} search \"{EscapeSearchTerm(title)}\"; limit {limit};";
         var games = await QueryAsync(query, cancellationToken);
         return games.Select(g => new VideoGameSearchResult(
             g.Id.ToString(CultureInfo.InvariantCulture), g.Name ?? title, ParseYear(g.FirstReleaseDate), CoverUrl(g.Cover))).ToList();
     }
 
-    public async Task<IReadOnlyList<VideoGameSearchResult>> FindGamesByExactTitleAsync(string title, CancellationToken cancellationToken = default)
+    public override async Task<IReadOnlyList<VideoGameSearchResult>> FindGamesByExactTitleAsync(string title, CancellationToken cancellationToken = default)
     {
         if (!settings.IsConfigured || string.IsNullOrWhiteSpace(title)) return [];
 
@@ -64,7 +63,7 @@ public class IgdbClient(HttpClient http, IgdbSettings settings) : IVideoGameRefe
             g.Id.ToString(CultureInfo.InvariantCulture), g.Name ?? title, ParseYear(g.FirstReleaseDate), CoverUrl(g.Cover))).ToList();
     }
 
-    public async Task<IReadOnlyList<VideoGameSearchResult>> FindGamesContainingAllWordsAsync(IReadOnlyList<string> words, CancellationToken cancellationToken = default)
+    public override async Task<IReadOnlyList<VideoGameSearchResult>> FindGamesContainingAllWordsAsync(IReadOnlyList<string> words, CancellationToken cancellationToken = default)
     {
         if (!settings.IsConfigured || words.Count == 0) return [];
 
@@ -78,7 +77,7 @@ public class IgdbClient(HttpClient http, IgdbSettings settings) : IVideoGameRefe
             g.Id.ToString(CultureInfo.InvariantCulture), g.Name ?? string.Empty, ParseYear(g.FirstReleaseDate), CoverUrl(g.Cover))).ToList();
     }
 
-    public async Task<VideoGameSearchResult?> FindGameByIdentifierAsync(string identifier, CancellationToken cancellationToken = default)
+    public override async Task<VideoGameSearchResult?> FindGameByIdentifierAsync(string identifier, CancellationToken cancellationToken = default)
     {
         if (!settings.IsConfigured || string.IsNullOrWhiteSpace(identifier)) return null;
 
@@ -97,7 +96,7 @@ public class IgdbClient(HttpClient http, IgdbSettings settings) : IVideoGameRefe
                 ParseYear(games[0].FirstReleaseDate), CoverUrl(games[0].Cover));
     }
 
-    public async Task<VideoGameDetails?> GetGameDetailsAsync(string externalId, CancellationToken cancellationToken = default)
+    public override async Task<VideoGameDetails?> GetGameDetailsAsync(string externalId, CancellationToken cancellationToken = default)
     {
         // ids are IGDB's own numeric ids; anything else is not a value this provider issued, and interpolating
         // it into an Apicalypse `where` would be an injection point
@@ -118,7 +117,7 @@ public class IgdbClient(HttpClient http, IgdbSettings settings) : IVideoGameRefe
             BuildRatings(game));
     }
 
-    public async Task<IReadOnlyList<VideoGameTopRatedItem>> GetTopRatedGamesAsync(int page, string ratingSource, CancellationToken cancellationToken = default)
+    public override async Task<IReadOnlyList<VideoGameTopRatedItem>> GetTopRatedGamesAsync(int page, string ratingSource, CancellationToken cancellationToken = default)
     {
         if (!settings.IsConfigured) return [];
 
@@ -158,10 +157,8 @@ public class IgdbClient(HttpClient http, IgdbSettings settings) : IVideoGameRefe
     private const string TopRatedFields =
         "fields name,first_release_date,cover.image_id,rating,rating_count,aggregated_rating,aggregated_rating_count,url;";
 
-    private const int MaxResults = 5;
-
     /// <summary>
-    /// Bound on <see cref="FindGamesByExactTitleAsync"/>. Higher than <see cref="MaxResults"/> on purpose: an
+    /// Bound on <see cref="FindGamesByExactTitleAsync"/>. Higher than what a search displays on purpose: an
     /// exact-name query returns only genuine namesakes, and seeing all of them is what makes "more than one -
     /// leave it for an admin" a real judgement (a common name like "Resident Evil" has seven).
     /// </summary>
