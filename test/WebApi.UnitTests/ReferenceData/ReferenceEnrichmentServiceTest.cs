@@ -1267,7 +1267,7 @@ public class ReferenceEnrichmentServiceTest
         });
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bookReferenceClient);
 
-        await service.TryAutoResolveBookAsync("Some Book", 2020);
+        await service.TryAutoResolveBookAsync("Some Book", 2020, "Some Author");
 
         _bookReferenceRepository.Verify(r => r.UpsertAsync(It.Is<BookReferenceModel>(m => m.ExternalIds["openlibrary"] == "OL1W")), Times.Once);
         _bookRepository.Verify(r => r.SetReferenceLinkAsync("Some Book", 2020, It.IsAny<string>(), "Some Book", It.IsAny<int?>(), "Some Author", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Once);
@@ -1376,11 +1376,15 @@ public class ReferenceEnrichmentServiceTest
         result.MatchedAliases.Should().OnlyContain(a => a.Isbn == null);
     }
 
+    /// <summary>
+    /// Linking is one call to the linking provider and nothing else.
+    /// The Open Library rating lookup used to run here too, and the guard it sits behind (a rating is already present) is false for every book Google Books links, since Google Books serves no ratings at all: the "fallback" fired on every single link and made whoever clicked wait on a second, slower provider for a number that has no bearing on the link.
+    /// It belongs to <c>RefreshBookReferenceAsync</c>, where the tests further down cover it and nobody is waiting.
+    /// </summary>
     [Fact]
-    public async Task ResolveBookAsync_FallsBackToOpenLibraryRatingByIsbn_WhenTheLinkingProviderReportsNone()
+    public async Task ResolveBookAsync_NeverLooksUpTheOpenLibraryRating_SoLinkingCostsOneProviderCall()
     {
-        // BnF (like Google Books, the production default) serves no rating; the resolved ISBN lets Open
-        // Library supply one, stored under its own source key and denormalized as the book's primary rating.
+        // BnF, like Google Books the production default, serves no rating and does resolve an ISBN: everything the old fallback needed in order to fire.
         var bnfClient = FakeBnfClient.Empty();
         bnfClient.Details["ark:/12148/cb1"] = new BookDetails("ark:/12148/cb1", "Some Book", 2020, "Synopsis", "Some Author", null, [], null, "fre", "9780000000001");
         _bookRatingByIsbnLookup.Result = (4.2, 100);
@@ -1393,35 +1397,11 @@ public class ReferenceEnrichmentServiceTest
 
         var result = await service.ResolveBookAsync("Some Book", 2020, "ark:/12148/cb1", "bnf");
 
-        _bookRatingByIsbnLookup.RequestedIsbns.Should().Contain("9780000000001");
-        result.Ratings.Should().ContainKey("openlibrary");
-        result.Ratings["openlibrary"].Value.Should().Be(4.2);
-        result.Ratings["openlibrary"].Scale.Should().Be(5);
-        _bookRepository.Verify(r => r.SetReferenceLinkAsync("Some Book", 2020, "reference-1", "Some Book", It.IsAny<int?>(),
-            "Some Author", It.IsAny<string?>(), "fre", "9780000000001", 4.2, 5, It.IsAny<string?>()), Times.Once);
-    }
-
-    [Fact]
-    public async Task ResolveBookAsync_DoesNotCallTheOpenLibraryFallback_WhenTheLinkingProviderIsOpenLibrary()
-    {
-        // the default provider IS Open Library here - a rating (or its absence) already comes from the link itself
-        var bookReferenceClient = FakeBookReferenceClient.Empty();
-        bookReferenceClient.Details["OL1W"] = new BookDetails("OL1W", "Some Book", 2020, "Synopsis", "Some Author", "OL1A", [], null, null, "9780000000001");
-        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) =>
-        {
-            m.Id = "reference-1";
-            return m;
-        });
-        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) =>
-        {
-            m.Id ??= "person-1";
-            return m;
-        });
-        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bookReferenceClient);
-
-        await service.ResolveBookAsync("Some Book", 2020, "OL1W");
-
         _bookRatingByIsbnLookup.RequestedIsbns.Should().BeEmpty();
+        result.Ratings.Should().BeEmpty();
+        // the link itself is complete regardless: the rating is the only thing that waits for the sync.
+        _bookRepository.Verify(r => r.SetReferenceLinkAsync("Some Book", 2020, "reference-1", "Some Book", It.IsAny<int?>(),
+            "Some Author", It.IsAny<string?>(), "fre", "9780000000001", null, null, null), Times.Once);
     }
 
     [Fact]
@@ -1652,27 +1632,33 @@ public class ReferenceEnrichmentServiceTest
     }
 
     /// <summary>
-    /// The same guard on the interactive path, where the throw surfaced as a 500 from admin manual linking
-    /// (and from the auto-resolve a book creation fires) despite the linking provider having answered.
+    /// Re-linking a book must not blank a rating pill that is already correct.
+    /// <c>Ratings</c> is rebuilt from the linking provider, which never carries this value, so the stored Open Library entry is carried across in memory instead of being re-fetched: the number is worth keeping, it is not worth a second provider call while someone waits.
     /// </summary>
     [Fact]
-    public async Task ResolveBookAsync_StillLinks_WhenTheOpenLibraryRatingLookupFails()
+    public async Task ResolveBookAsync_KeepsAKnownOpenLibraryRating_WhenRelinkingABookItsProviderDoesNotRate()
     {
         var bnfClient = FakeBnfClient.Empty();
         bnfClient.Details["ark:/12148/cb1"] = new BookDetails(
             "ark:/12148/cb1", "Some Book", 2020, "Synopsis", "Some Author", null, [], null, "fre", "9780000000001");
-        _bookRatingByIsbnLookup.Failure = new System.Net.Http.HttpRequestException("Open Library is down.");
-        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) =>
+        var existing = new BookReferenceModel
         {
-            m.Id ??= "reference-1";
-            return m;
-        });
+            Id = "reference-1",
+            Title = "Some Book",
+            TitleNormalized = "some book",
+            ExternalIds = new Dictionary<string, string> { ["bnf"] = "ark:/12148/cb1" },
+            // earned by an earlier background refresh, which is the only thing that asks Open Library now.
+            Ratings = new Dictionary<string, ReferenceRatingModel> { ["openlibrary"] = new() { Value = 4.29, Scale = 5, Count = 498 } }
+        };
+        _bookReferenceRepository.Setup(r => r.FindByExternalIdAsync("bnf", "ark:/12148/cb1")).ReturnsAsync(existing);
+        _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) => m);
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bnfClient: bnfClient);
 
         var result = await service.ResolveBookAsync("Some Book", 2020, "ark:/12148/cb1", "bnf");
 
-        result.Id.Should().Be("reference-1");
-        result.Ratings.Should().BeEmpty();
+        _bookRatingByIsbnLookup.RequestedIsbns.Should().BeEmpty();
+        result.Ratings["openlibrary"].Value.Should().Be(4.29);
+        result.Ratings["openlibrary"].Count.Should().Be(498);
     }
 
     [Fact]
@@ -3174,7 +3160,7 @@ public class ReferenceEnrichmentServiceTest
         });
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), discogsClient: discogsClient);
 
-        await service.TryAutoResolveAlbumAsync("Some Album", 2020);
+        await service.TryAutoResolveAlbumAsync("Some Album", 2020, "Some Artist");
 
         _albumReferenceRepository.Verify(r => r.UpsertAsync(It.Is<AlbumReferenceModel>(m => m.ExternalIds["discogs"] == "1")), Times.Once);
         _albumRepository.Verify(r => r.SetReferenceLinkAsync("Some Album", 2020, It.IsAny<string>(), "Some Album", It.IsAny<int?>(), "Some Artist", It.IsAny<string?>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Once);

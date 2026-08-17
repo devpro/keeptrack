@@ -372,29 +372,101 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// Best-effort automatic match: does nothing if the search returns zero or more than one candidate,
-    /// leaving the show unresolved for the admin queue instead of guessing.
+    /// Best-effort automatic match for a TV show: links a single <b>confirmed</b> match and leaves anything
+    /// else for the admin queue rather than guessing.
+    /// <para>
+    /// What counts as confident is <see cref="ReferenceMatchRules.ConfirmedMatches"/>: a candidate actually
+    /// named this show, agreeing about the year. It deliberately is <b>not</b> "TMDB returned exactly one
+    /// result", which is what this used to be and which reads a property of the <i>search</i> as a property of
+    /// the <i>answer</i>. That was wrong in both directions, and both were measured against the live API.
+    /// </para>
+    /// <para>
+    /// It refused ordinary shows, because TMDB's search is a fuzzy match over titles rather than an exact one:
+    /// <c>The Bear</c> (2022) comes back with eight results and <c>Dark</c> (2017) with fifteen, the show
+    /// itself first and exactly named in both, and not one of them could ever link. This is what the owner
+    /// reported as "creating a show with the right title and year does not match".
+    /// </para>
+    /// <para>
+    /// And it linked things nobody had compared: <c>search/tv?query=Fallout&amp;first_air_date_year=2025</c>
+    /// returns exactly one result, and it is "Thirst Trap: The Fame. The Fantasy. The Fallout." - the 2024
+    /// show being excluded by the year filter is what leaves that alone in the list. Linking it is silent data
+    /// loss, since nothing in the app ever says a wrong reference was chosen.
+    /// </para>
     /// </summary>
     public async Task TryAutoResolveTvShowAsync(string title, int? year)
     {
         // never call the provider with an empty title - there is nothing to search with
         if (string.IsNullOrWhiteSpace(title)) return;
 
+        // A year is required for any automatic link here (owner's rule, and the same one video games follow).
+        // TMDB holds six shows named exactly "The Office" and two "Utopia" three years apart, so a title on
+        // its own identifies nothing; supplying a year is a legitimate part of the contract for an immediate
+        // match, and without one the item waits for the detail page's "check for reference match".
+        if (year is null) return;
+
         var candidates = await tmdbClient.SearchTvShowAsync(title, year);
-        if (candidates.Count != 1) return;
-        await ResolveTvShowAsync(title, year, candidates[0].TmdbId);
+        var matches = ReferenceMatchRules.ConfirmedMatches(candidates, title, year);
+        if (matches.Count != 1) return;
+        await ResolveTvShowAsync(title, year, matches[0].TmdbId);
     }
 
     /// <summary>
-    /// Best-effort automatic match for movies - see <see cref="TryAutoResolveTvShowAsync"/>.
+    /// Best-effort automatic match for movies - see <see cref="TryAutoResolveTvShowAsync"/>, which this shares
+    /// its rule with entirely.
+    /// <para>
+    /// The same defect was latent here and only looked healthy because a long title happens to narrow TMDB's
+    /// fuzzy search to one row. Measured live, <c>Heat</c> (1995) returns fourteen results and <c>Alien</c>
+    /// (1979) returns nine, each with the film first and exactly named, and neither linked. The year matters
+    /// just as much: TMDB holds a "Road House" from 1989 and another from 2024, both exactly named.
+    /// </para>
     /// </summary>
     public async Task TryAutoResolveMovieAsync(string title, int? year)
     {
         if (string.IsNullOrWhiteSpace(title)) return; // see TryAutoResolveTvShowAsync
+        if (year is null) return; // see TryAutoResolveTvShowAsync - a year is required here too
 
         var candidates = await tmdbClient.SearchMovieAsync(title, year);
-        if (candidates.Count != 1) return;
-        await ResolveMovieAsync(title, year, candidates[0].TmdbId);
+        var matches = ReferenceMatchRules.ConfirmedMatches(candidates, title, year);
+        if (matches.Count != 1) return;
+        await ResolveMovieAsync(title, year, matches[0].TmdbId);
+    }
+
+    /// <summary>
+    /// What the detail page's "check for reference match" does for TV shows: reuse a fact someone already
+    /// established, and only when there is none, ask TMDB under the same confirmed-single-match rule automatic
+    /// resolution uses - see <see cref="LinkVideoGameReferenceAsync"/>, where this escalation was first added
+    /// and where the full rationale lives.
+    /// <para>
+    /// The local-only half cannot keep the promise the button makes. Its own tooltip reads <i>"Not right? Edit
+    /// the title or year below, then check again."</i>, but an item created before its year was known writes
+    /// <b>no</b> reference at all - resolution runs on create and now correctly refuses to act without a year -
+    /// so from then on there is nothing local for any amount of correcting the title and year to find, and the
+    /// button silently does nothing forever.
+    /// </para>
+    /// <para>
+    /// It adds no new guessing: it links exactly what <see cref="TryAutoResolveTvShowAsync"/> would have
+    /// linked on create.
+    /// </para>
+    /// </summary>
+    public async Task<TvShowModel> LinkTvShowReferenceAsync(TvShowModel model)
+    {
+        model = await TryLinkExistingTvShowReferenceAsync(model);
+        if (!string.IsNullOrEmpty(model.ReferenceId)) return model;
+
+        // resolution propagates by title+year across every tenant's matching item rather than returning this
+        // one, so the caller's copy is re-read rather than patched up here
+        await TryAutoResolveTvShowAsync(model.Title, model.Year);
+        return await tvShowRepository.FindOneAsync(model.Id!, model.OwnerId) ?? model;
+    }
+
+    /// <summary>Movie equivalent of <see cref="LinkTvShowReferenceAsync"/>.</summary>
+    public async Task<MovieModel> LinkMovieReferenceAsync(MovieModel model)
+    {
+        model = await TryLinkExistingMovieReferenceAsync(model);
+        if (!string.IsNullOrEmpty(model.ReferenceId)) return model;
+
+        await TryAutoResolveMovieAsync(model.Title, model.Year);
+        return await movieRepository.FindOneAsync(model.Id!, model.OwnerId) ?? model;
     }
 
     /// <summary>

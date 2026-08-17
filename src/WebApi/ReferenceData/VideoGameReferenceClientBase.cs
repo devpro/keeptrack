@@ -20,7 +20,7 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// relevance ranking, which is what guarantees a perfect title match is always among the candidates - relevance
 /// can bury it arbitrarily deep, or (confirmed for "Marvel's Avengers") never return it at all. Second, the
 /// relevance query asks for a <see cref="RelevancePoolSize"/> pool rather than the handful that is displayed,
-/// and <see cref="VideoGameMatchRules.OrderByBestMatch"/> decides which of them are shown - because truncating
+/// and <see cref="ReferenceMatchRules.OrderByBestMatch"/> decides which of them are shown - because truncating
 /// first and ranking second is exactly how the right candidate got lost.
 /// </para>
 /// <para>
@@ -51,7 +51,7 @@ public abstract class VideoGameReferenceClientBase : IVideoGameReferenceClient
         // the same ordering the admin reconciliation row and the substring shortlist use - a perfect match
         // first, then whatever is closest to what was asked for. The provider's own relevance order is
         // deliberately not consulted: it is what buried the answer at rank six in the first place.
-        return VideoGameMatchRules.OrderByBestMatch(candidates, title, year).Take(MaxResults).ToList();
+        return ReferenceMatchRules.OrderByBestMatch(candidates, title, year).Take(MaxResults).ToList();
     }
 
     /// <summary>
@@ -63,7 +63,7 @@ public abstract class VideoGameReferenceClientBase : IVideoGameReferenceClient
     /// they actually own, so filtering on it server-side turns a good match into no match at all - the "an
     /// optional narrowing parameter must never silently zero out results a broader search would find" rule that
     /// <see cref="DiscogsClient"/>'s and <see cref="OpenLibraryClient"/>'s retries exist for. The year is used
-    /// in <see cref="VideoGameMatchRules.YearRank"/> instead, where being wrong about it costs a place in the
+    /// in <see cref="ReferenceMatchRules.YearRank"/> instead, where being wrong about it costs a place in the
     /// list rather than the whole result.
     /// </para>
     /// </summary>

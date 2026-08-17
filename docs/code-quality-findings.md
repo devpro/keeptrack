@@ -23,6 +23,62 @@ Update this file as items are fixed or as new reviews are performed.
 
 ## Fixed
 
+### TV shows, movies, books and albums resolved on "the provider returned exactly one row", which refused ordinary titles and linked unrelated ones
+
+Found on 2026-08-17, by measuring the four remaining providers directly rather than reasoning from the code.
+Commit `9b8f5ee` had fixed this class of defect for video games only; the other four domains carried it untouched.
+The owner reported it for TV shows and books, and it was equally present, and equally wrong, for movies and albums.
+
+**TMDB's search is a fuzzy match over titles, not an exact one.**
+An ordinary title comes back beside every neighbour whose name contains one of its words, with the right answer first and exactly named:
+
+Query | Results | Rank of the right answer
+---|---|---
+tv `The Bear` 2022 | 8 | 1
+tv `Dark` 2017 | 15 | 1
+movie `Heat` 1995 | 14 | 1
+movie `Alien` 1979 | 9 | 1
+movie `Oppenheimer` 2023 | 12 | 1
+movie `Sinners` 2024 | 5 | **2**
+
+`candidates.Count != 1` refuses every one of these.
+That is the owner's report, and it means **movies failed exactly as visibly as TV shows** - they only looked healthy because a long or unusual title happens to narrow the fuzzy search to a single row.
+`Sinners` also shows that a provider's own relevance is not the answer, so the title comparison is what identifies the work.
+
+**The same rule linked things nobody had compared, and that half is silent data loss.**
+Two confirmed live:
+
+- `search/tv?query=Fallout&first_air_date_year=2025` returns exactly one result, and it is *"Thirst Trap: The Fame. The Fantasy. The Fallout."* (TMDB 298844). The 2024 show is excluded by the year filter, which is what leaves the unrelated one alone in the list. This link was really written into the test database by the old rule, and had to be deleted by hand.
+- `database/search?type=master&q=Kid A&artist=Radiohead&year=2001` returns exactly one master, and it is *Amnesiac* (Discogs 2507). Only the `LooselyContains` title re-check `DiscogsClient` already happened to apply stopped that one being linked.
+
+**The year is a hard filter for two providers and a soft one for a third, and each had to be measured rather than assumed.**
+
+- TMDB TV `first_air_date_year` **is** hard: `Severance` + 2021, `Squid Game` + 2020, `The Wire` + 2003 and `Adolescence` + 2024 each return zero. A one-year disagreement means "absent", not "ranked lower", so `SearchTvShowAsync` now asks with and without the year and unions the two.
+- TMDB movie `year` is **not** hard: `Road House` + 2024 still returns the 1989 film, `Nosferatu` + 2025 returns the 2024 one first, `Dune` + 2020 returns the 1984 one. It narrows without excluding, so movies need ranking only and no second call. This contradicted the hypothesis the work started from.
+- Discogs `year` **is** hard (the `Kid A` case above). This contradicted a comment in `DiscogsClient` stating that no equivalent bug had been found for year; that comment is now corrected.
+
+**Books and albums are identified by a creator, not by a year, and copying the video game rule to them would have been actively wrong.**
+`intitle:The Hobbit+inauthor:Tolkien` returns 300 volumes whose first page alone spans 1981, 1999, 2011 and 2012 - all one book, credited variously to "J.R.R. Tolkien", "J. R. R. Tolkien" and "John Ronald Reuel Tolkien".
+So for those two domains the year is a tie-break inside the ranking and never a filter, several confirmed candidates are *printings of one work rather than an ambiguity*, and the candidates are deliberately not required to agree with each other about the creator - only with the one the tenant supplied, since demanding they agree reads those three spellings as three authors and refuses the very case the rule exists for.
+
+The fix is `ReferenceMatchRules`, which is `VideoGameMatchRules` hoisted to cover all five domains with two identity shapes, plus `Link<X>ReferenceAsync` escalation on the four remaining controllers so the detail page's button can keep the promise its tooltip makes.
+**An identity field is now mandatory for any automatic link in every domain** (owner's rule): a year for films, shows and games, a creator for books and albums.
+
+Deliberately not changed:
+
+- **The book search ladder** (`BookReferenceClientBase`). It widens on empty and is multi-provider, so changing what counts as a match changes which rung a query lands on. Only what is done with its answers changed.
+- **Open Library's `q=` results are still unfiltered**, unlike Discogs'. Same reason as before: the book ladder widens on empty, so a filter changes which rung answers.
+- **No year was added to any book provider query**, each provider still having its own confirmed reason not to send one.
+- **Movies were given no yearless widening**, because TMDB's movie `year` was measured not to exclude. Paying a second call per resolve to guard against a failure mode that does not exist would be cargo-culting the TV fix.
+
+One accepted trade, the owner's call and the same one already accepted for video games: requiring a creator means an album or a book recorded without one no longer links on a lucky single hit.
+It waits for the detail page's button instead, which now escalates to the provider.
+
+Two things the tests themselves taught, both worth keeping:
+
+- **`NormalizeLoose` drops "the", which is right across catalogues and wrong against tenant-typed text.** TMDB answers `Alien` (1979) with both *Alien* and *The Alien*, two different films from the same year that loose matching cannot separate, so the search reported an ambiguity the tenant had already resolved by typing one of the two titles exactly. `ConfirmedMatches` now prefers candidates spelled exactly what was asked for and falls back to the loose set only when none are - which still links `Shogun` to TMDB's *Shōgun*.
+- **Two test classes sharing a title deleted each other's reference documents.** `ReferenceMatchResourceTest` clears a title before exercising it, because the absence of a local reference is its premise; `BookProviderSearchAndLinkResourceTest` links "The Hobbit" through the real providers in parallel. Each passed alone and failed together. The classes no longer share a title.
+
 ### Saving any field on a detail page erased the item's reference link, which is what was really behind "it doesn't match, but if I click refresh it matches"
 
 Found on 2026-08-16, by an e2e assertion the owner insisted on: that editing a title leaves the reference link **unchanged**.

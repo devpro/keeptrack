@@ -66,7 +66,7 @@ public class BookController(
         var model = await dataRepository.FindOneAsync(id, this.GetUserId());
         if (model is null) return NotFound();
 
-        model = await enrichmentService.TryLinkExistingBookReferenceAsync(model);
+        model = await enrichmentService.LinkBookReferenceAsync(model);
         return Ok(Mapper.ToDto(model));
     }
 

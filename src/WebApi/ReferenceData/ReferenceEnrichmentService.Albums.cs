@@ -96,17 +96,48 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// Best-effort automatic match for albums - see <see cref="TryAutoResolveTvShowAsync"/>. Passing
-    /// <paramref name="artist"/> narrows the Discogs search considerably - without it, a common album
-    /// title easily returns more than one candidate and the match is correctly left for the admin queue.
+    /// Best-effort automatic match for albums - see <see cref="TryAutoResolveTvShowAsync"/>.
+    /// <para>
+    /// <b>An album is identified by its title and its artist</b>, the same shape as a book and for the same
+    /// reason: one release exists as many records, so the year is a tie-break rather than an identity, and an
+    /// artist is required instead (owner's rule). Several confirmed candidates are pressings of one release
+    /// rather than an ambiguity - measured live, Discogs returns two masters for "Thriller" by Michael
+    /// Jackson - so the best is linked rather than the set refused. See
+    /// <see cref="ReferenceMatchRules.ConfirmedCreatorMatches"/>.
+    /// </para>
+    /// <para>
+    /// Waiting for exactly one row was wrong in both directions here too. It refused "Kid A" by Radiohead
+    /// (2000), which comes back beside "Kid A (The World Premier Broadcast)"; and
+    /// <c>q=Kid A&amp;artist=Radiohead&amp;year=2001</c> returns exactly one master which is <i>Amnesiac</i>,
+    /// saved from being linked only by the title re-check <c>DiscogsClient</c> already happened to apply.
+    /// </para>
     /// </summary>
     public async Task TryAutoResolveAlbumAsync(string title, int? year, string? artist = null)
     {
         if (string.IsNullOrWhiteSpace(title)) return; // see TryAutoResolveTvShowAsync
 
+        // an artist is required for any automatic link here - see TryAutoResolveBookAsync, same rule
+        if (string.IsNullOrWhiteSpace(artist)) return;
+
         var candidates = await discogsClient.SearchAlbumsAsync(title, year, artist);
-        if (candidates.Count != 1) return;
-        await ResolveAlbumAsync(title, year, candidates[0].ExternalId);
+        var matches = ReferenceMatchRules.ConfirmedCreatorMatches(candidates, title, artist);
+        if (matches.Count == 0) return;
+        await ResolveAlbumAsync(title, year, matches[0].ExternalId);
+    }
+
+    /// <summary>
+    /// What the detail page's "check for reference match" does for albums - see
+    /// <see cref="LinkTvShowReferenceAsync"/> for the rationale this shares, and
+    /// <see cref="LinkBookReferenceAsync"/> for the domain whose missing field is the creator rather than the
+    /// year, as it is here.
+    /// </summary>
+    public async Task<AlbumModel> LinkAlbumReferenceAsync(AlbumModel model)
+    {
+        model = await TryLinkExistingAlbumReferenceAsync(model);
+        if (!string.IsNullOrEmpty(model.ReferenceId)) return model;
+
+        await TryAutoResolveAlbumAsync(model.Title, model.Year, model.Artist);
+        return await albumRepository.FindOneAsync(model.Id!, model.OwnerId) ?? model;
     }
 
     /// <summary>

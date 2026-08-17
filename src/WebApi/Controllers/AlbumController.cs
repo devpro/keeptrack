@@ -64,7 +64,7 @@ public class AlbumController(
         var model = await dataRepository.FindOneAsync(id, this.GetUserId());
         if (model is null) return NotFound();
 
-        model = await enrichmentService.TryLinkExistingAlbumReferenceAsync(model);
+        model = await enrichmentService.LinkAlbumReferenceAsync(model);
         return Ok(Mapper.ToDto(model));
     }
 

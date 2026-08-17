@@ -124,7 +124,7 @@ public partial class ReferenceEnrichmentService
     /// searches the deployment's *default* provider (<see cref="ReferenceClientRegistry{TClient}.Resolve"/>
     /// with a null key) - this is the unattended background path, so there's no admin picking a provider here.
     /// <para>
-    /// What counts as confident is <see cref="VideoGameMatchRules.ConfirmedMatches"/>: a single candidate that
+    /// What counts as confident is <see cref="ReferenceMatchRules.ConfirmedMatches"/>: a single candidate that
     /// is actually named this game and agrees about the year. It deliberately is <b>not</b> "the provider
     /// returned exactly one result", which is what this used to be and which reads a property of the *search*
     /// as a property of the *answer*. That was wrong in both directions. It linked whatever came back whenever
@@ -154,7 +154,7 @@ public partial class ReferenceEnrichmentService
 
         var client = videoGameReferenceClientRegistry.Resolve(null);
         var candidates = await client.SearchGamesAsync(title, year);
-        var matches = VideoGameMatchRules.ConfirmedMatches(candidates, title, year);
+        var matches = ReferenceMatchRules.ConfirmedMatches(candidates, title, year);
         if (matches.Count != 1) return;
         await ResolveVideoGameAsync(title, year, matches[0].ExternalId, client.ProviderKey);
     }
@@ -379,11 +379,11 @@ public partial class ReferenceEnrichmentService
 
         // accumulates one rung's answer and re-confirms over everything seen so far, so a match found by a
         // later, looser query is still judged against the same strict rule as the first rung's - and the same
-        // rule a search ranks by and automatic resolution links on, since all three read VideoGameMatchRules
+        // rule a search ranks by and automatic resolution links on, since all three read ReferenceMatchRules
         bool Accumulate(IReadOnlyList<VideoGameSearchResult> found)
         {
             candidates.AddRange(found.Where(result => candidates.TrueForAll(known => known.ExternalId != result.ExternalId)));
-            matches = VideoGameMatchRules.ConfirmedMatches(candidates, reference.Title, reference.Year);
+            matches = ReferenceMatchRules.ConfirmedMatches(candidates, reference.Title, reference.Year);
             return matches.Count > 0;
         }
 
@@ -421,7 +421,7 @@ public partial class ReferenceEnrichmentService
 
     /// <summary>
     /// The <see cref="MaxShortlistedCandidates"/> best answers for this reference, out of everything an
-    /// unranked query returned - <see cref="VideoGameMatchRules.OrderByBestMatch"/> cut to length.
+    /// unranked query returned - <see cref="ReferenceMatchRules.OrderByBestMatch"/> cut to length.
     /// <para>
     /// A substring filter answers with everything that contains the words and no opinion about which is the
     /// game - "marvel" + "avengers" returns 40 entries on the real catalogue, mostly editions, DLC and
@@ -435,7 +435,7 @@ public partial class ReferenceEnrichmentService
     /// </para>
     /// </summary>
     private static IReadOnlyList<VideoGameSearchResult> ShortlistByClosestTitle(IReadOnlyList<VideoGameSearchResult> found, VideoGameReferenceModel reference) =>
-        VideoGameMatchRules.OrderByBestMatch(found, reference.Title, reference.Year).Take(MaxShortlistedCandidates).ToList();
+        ReferenceMatchRules.OrderByBestMatch(found, reference.Title, reference.Year).Take(MaxShortlistedCandidates).ToList();
 
     /// <summary>
     /// How many of an unranked substring query's results reach the admin's row. Enough to hold the work plus
@@ -549,7 +549,7 @@ public partial class ReferenceEnrichmentService
         // replied first - a provider's search hands back unrelated titles readily enough that "the first card"
         // and "the game" were routinely not the same thing. Same ordering an ordinary search shows, so the two
         // screens can never disagree about which candidate looks best.
-        return (VideoGameMatchRules.OrderByBestMatch(candidates, reference.Title, reference.Year).ToList(), matches.Select(m => m.ExternalId).ToList());
+        return (ReferenceMatchRules.OrderByBestMatch(candidates, reference.Title, reference.Year).ToList(), matches.Select(m => m.ExternalId).ToList());
     }
 
     /// <summary>

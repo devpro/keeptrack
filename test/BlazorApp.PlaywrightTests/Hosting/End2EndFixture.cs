@@ -297,7 +297,14 @@ public sealed class End2EndFixture : IAsyncLifetime
     /// Self-hosted mode only, and silent when it cannot run - see <see cref="CanSeedDatabaseDirectly"/>.
     /// </para>
     /// </remarks>
-    public async Task RemoveVideoGameReferencesAsync(IEnumerable<string> referenceIds)
+    public Task RemoveVideoGameReferencesAsync(IEnumerable<string> referenceIds) =>
+        RemoveReferencesAsync("videogame_reference", referenceIds);
+
+    /// <summary>
+    /// The same removal for any reference collection - the four other domains now have matching journeys of
+    /// their own, and their references have to go for exactly the reason this one's do.
+    /// </summary>
+    public async Task RemoveReferencesAsync(string collectionName, IEnumerable<string> referenceIds)
     {
         if (!CanSeedDatabaseDirectly) return;
 
@@ -307,12 +314,12 @@ public sealed class End2EndFixture : IAsyncLifetime
         try
         {
             var database = _webApiFactory!.Services.GetRequiredService<IMongoDatabase>();
-            await database.GetCollection<BsonDocument>("videogame_reference")
+            await database.GetCollection<BsonDocument>(collectionName)
                 .DeleteManyAsync(Builders<BsonDocument>.Filter.In("_id", ids));
         }
         catch (Exception exception)
         {
-            await Console.Error.WriteLineAsync($"Failed to remove e2e video game reference documents: {exception.Message}");
+            await Console.Error.WriteLineAsync($"Failed to remove e2e {collectionName} documents: {exception.Message}");
         }
     }
 

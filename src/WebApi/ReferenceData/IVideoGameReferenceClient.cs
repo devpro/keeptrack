@@ -6,7 +6,7 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// One video game search hit - title, year and cover art, enough for automatic matching or for an admin
 /// to pick from when a match is ambiguous.
 /// </summary>
-public record VideoGameSearchResult(string ExternalId, string Title, int? Year, string? ImageUrl);
+public record VideoGameSearchResult(string ExternalId, string Title, int? Year, string? ImageUrl) : IReferenceSearchCandidate;
 
 /// <summary>
 /// Full details for one game. <paramref name="Ratings"/> is built by the client itself, keyed by its own

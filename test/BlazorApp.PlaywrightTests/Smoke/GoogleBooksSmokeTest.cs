@@ -20,7 +20,6 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 public class GoogleBooksSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 {
     private const string Title = "The Hobbit";
-    private const string Author = "J.R.R. Tolkien";
 
     [Fact]
     public async Task AddLinkAndDelete_BookThroughGoogleBooks()
@@ -33,7 +32,10 @@ public class GoogleBooksSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixtur
         var list = await home.OpenBooksAsync();
         await list.ClickAddAsync();
         await list.FillAsync("title-input", Title);
-        await list.FillAsync("author-input", Author);
+        // No author, and that is what makes this test deterministic rather than a saving of typing.
+        // The provider picker lives inside InlineReferenceLinker, which BookDetail renders only while the book is unlinked, so a check-for-reference-match that links the book by itself leaves nothing to select a provider on.
+        // TryAutoResolveBookAsync refuses to link without an author, since a title alone routinely names several works, so withholding one guarantees the check comes back unlinked and the picker is on screen.
+        // Filled in, "The Hobbit" by "J.R.R. Tolkien" is precisely the input ConfirmedCreatorMatches links on sight, and SelectProviderAsync then waited 30s for a button that could never render.
         await list.SaveNewAsync();
 
         var detail = new BookDetailPage(Page);

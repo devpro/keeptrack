@@ -20,13 +20,25 @@ public abstract class ReferenceableDetailPageBase(IPage page) : DetailPageBase(p
     private ILocator ReferenceToast => Page.Locator(".kt-inline-toast");
 
     /// <summary>
-    /// The non-admin, local-only-lookup "check for reference match" icon button - never calls a real provider, only used against pre-seeded/already-resolved data.
+    /// The non-admin "check for reference match" icon button.
     /// </summary>
+    /// <remarks>
+    /// It is no longer a local-only lookup in any domain: all five escalate to the provider when nothing local answers, which is what lets an item created before its identity field was known ever be matched.
+    /// So the toast can take as long as the provider does, and the wait has to clear a healthy provider's slowest honest answer - every provider client chains <c>AddStandardResilienceHandler</c> with a total-request-timeout ceiling of its own (30s for TMDB/RAWG/Discogs, 40s for the book providers, see <c>ProviderResilienceExtensions</c>), and a transient failure genuinely spends retries up to that ceiling before returning.
+    /// </remarks>
     public async Task ClickCheckReferenceMatchAsync()
     {
         await RefreshReferenceButton.ClickAsync();
-        await Assertions.Expect(ReferenceToast).ToBeVisibleAsync();
+        await Assertions.Expect(ReferenceToast).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = ProviderCallTimeoutMs });
     }
+
+    /// <summary>
+    /// How long a "check for reference match" may legitimately take now that it reaches a provider - see <see cref="ClickCheckReferenceMatchAsync"/>.
+    /// One full provider budget (40s, the book ceiling) plus margin: that covers any single leg exhausting its retries, and every healthy answer with room to spare.
+    /// It was 90s to allow a book's search, its details fetch and Open Library's rating lookup to fail one after another, and the rating lookup is no longer on this path at all.
+    /// Sitting through two complete failure budgets only arrives at the same failure later, since the assertions after this one need a provider that actually answered.
+    /// </summary>
+    private const float ProviderCallTimeoutMs = 45_000;
 
     /// <summary>
     /// Drives an unlinked item all the way to linked, the way an admin does it.
@@ -58,6 +70,8 @@ public abstract class ReferenceableDetailPageBase(IPage page) : DetailPageBase(p
     /// ceiling before the call gives up and returns. A client-side wait shorter than the longest of those
     /// ceilings can time out on a real, in-progress search rather than a stuck one - confirmed against a real
     /// run where the search was still visibly in progress when this assertion gave up at 20s.
+    /// A search is one provider leg, so it is bounded by exactly the same budget as the check above and shares
+    /// its <see cref="ProviderCallTimeoutMs"/> rather than restating the number.
     /// </para>
     /// </summary>
     public async Task SearchAndLinkFirstResultAsync()
@@ -75,7 +89,7 @@ public abstract class ReferenceableDetailPageBase(IPage page) : DetailPageBase(p
         var firstLinkButton = Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Link" }).First;
 
         await searchButton.ClickAsync();
-        await Assertions.Expect(firstLinkButton).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 45_000 });
+        await Assertions.Expect(firstLinkButton).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = ProviderCallTimeoutMs });
         await firstLinkButton.ClickAsync();
     }
 }

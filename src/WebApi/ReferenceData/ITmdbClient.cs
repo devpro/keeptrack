@@ -4,7 +4,7 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// One TMDB search hit - title, year and a short synopsis, enough for automatic matching or for an
 /// admin to pick from when a match is ambiguous.
 /// </summary>
-public record TmdbSearchResult(string TmdbId, string Title, int? Year, string? Synopsis, string? PosterUrl);
+public record TmdbSearchResult(string TmdbId, string Title, int? Year, string? Synopsis, string? PosterUrl) : IReferenceSearchCandidate;
 
 /// <summary>
 /// One entry from a TMDB "top rated" list - the same fields as a search hit plus TMDB's own aggregate

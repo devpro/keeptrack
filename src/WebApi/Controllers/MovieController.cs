@@ -64,7 +64,7 @@ public class MovieController(
         var model = await dataRepository.FindOneAsync(id, this.GetUserId());
         if (model is null) return NotFound();
 
-        model = await enrichmentService.TryLinkExistingMovieReferenceAsync(model);
+        model = await enrichmentService.LinkMovieReferenceAsync(model);
         return Ok(Mapper.ToDto(model));
     }
 

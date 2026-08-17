@@ -15,7 +15,7 @@ public class DiscogsClient(HttpClient http, DiscogsSettings settings) : IDiscogs
 {
     public async Task<IReadOnlyList<DiscogsSearchResult>> SearchAlbumsAsync(string title, int? year, string? artist = null, CancellationToken cancellationToken = default)
     {
-        var results = await SearchAlbumsCoreAsync(title, year, artist, cancellationToken);
+        var results = await SearchWithoutZeroingOutTheYearAsync(title, year, artist, cancellationToken);
         if (results.Count == 0 && !string.IsNullOrEmpty(artist))
         {
             // "no result" here also covers "the provider answered, but nothing it returned is actually
@@ -26,12 +26,38 @@ public class DiscogsClient(HttpClient http, DiscogsSettings settings) : IDiscogs
             // returns zero results even when the title alone would find the album (confirmed: searching
             // "Born Pink" with an artist value that doesn't match Discogs' exact indexing returns nothing,
             // while the same title alone finds it), so retry without it rather than reporting a false
-            // "not found". Year is kept, since no equivalent bug has been found for it (unlike Open
-            // Library's book-year problem - see IOpenLibraryClient.SearchBooksAsync).
-            results = await SearchAlbumsCoreAsync(title, year, null, cancellationToken);
+            // "not found".
+            results = await SearchWithoutZeroingOutTheYearAsync(title, year, null, cancellationToken);
         }
 
         return results;
+    }
+
+    /// <summary>
+    /// The same search asked with and without <c>year</c>, unioned - because Discogs' year <b>is</b> a hard
+    /// filter, which this file previously recorded the opposite of ("no equivalent bug has been found for
+    /// it").
+    /// <para>
+    /// Measured against the live API: <c>q=Kid A&amp;artist=Radiohead&amp;year=2001</c> returns exactly one
+    /// master and it is <i>Amnesiac</i>, while the same query without the year finds the album immediately. An
+    /// album's year is the least reliable thing a tenant records about it - a reissue, a pressing, the year
+    /// they bought it - so a one-year disagreement must cost a place in the ranking, never the result.
+    /// </para>
+    /// <para>
+    /// Nothing is loosened by this: the year still ranks candidates through
+    /// <see cref="ReferenceMatchRules.OrderByBestMatch"/>, and the artist re-check above and the title
+    /// re-check in <see cref="SearchAlbumsCoreAsync"/> both still apply to everything the wider query adds.
+    /// </para>
+    /// </summary>
+    private async Task<IReadOnlyList<DiscogsSearchResult>> SearchWithoutZeroingOutTheYearAsync(
+        string title, int? year, string? artist, CancellationToken cancellationToken)
+    {
+        var narrowed = year is null ? [] : await SearchAlbumsCoreAsync(title, year, artist, cancellationToken);
+        var widened = await SearchAlbumsCoreAsync(title, null, artist, cancellationToken);
+
+        var union = narrowed.ToList();
+        union.AddRange(widened.Where(result => union.TrueForAll(known => known.ExternalId != result.ExternalId)));
+        return ReferenceMatchRules.OrderByBestMatch(union, title, year).ToList();
     }
 
     /// <summary>

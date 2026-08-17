@@ -4,7 +4,11 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// One book search hit - title, year, author and cover, enough for automatic matching or for an admin to
 /// pick from when a match is ambiguous.
 /// </summary>
-public record BookSearchResult(string ExternalId, string Title, int? Year, string? Author, string? ImageUrl);
+public record BookSearchResult(string ExternalId, string Title, int? Year, string? Author, string? ImageUrl) : ICreatorSearchCandidate
+{
+    /// <summary>A book's identity is its title plus its author - see <see cref="ReferenceMatchRules"/>.</summary>
+    public string? Creator => Author;
+}
 
 public record BookDetails(string ExternalId, string Title, int? Year, string? Synopsis, string? Author, string? AuthorExternalId, List<string> Genres, string? ImageUrl, string? Language = null, string? Isbn = null, double? Rating = null, int? RatingCount = null);
 
