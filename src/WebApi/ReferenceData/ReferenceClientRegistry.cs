@@ -18,6 +18,9 @@ public class ReferenceClientRegistry<TClient>(IEnumerable<TClient> clients, stri
     /// <summary>Every registered provider for this domain, in DI registration order.</summary>
     public IReadOnlyList<TClient> All { get; } = clients.ToList();
 
+    /// <summary>The deployment default's provider key (<c>ReferenceData:BookProvider</c>/<c>ReferenceData:VideoGameProvider</c>), not necessarily <see cref="All"/>'s first entry.</summary>
+    public string DefaultProviderKey { get; } = defaultProviderKey;
+
     /// <summary>
     /// <paramref name="providerKey"/> is matched case-insensitively so an existing deployment's setting
     /// (historically the PascalCase switch-case label, e.g. "OpenLibrary") keeps resolving against the

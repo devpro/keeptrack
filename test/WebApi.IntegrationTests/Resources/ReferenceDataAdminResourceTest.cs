@@ -51,6 +51,8 @@ public class ReferenceDataAdminResourceTest(ProviderlessWebAppFactory factory)
         providers.Should().Contain(p => p.Key == "googlebooks" && p.DisplayName == "Google Books");
         providers.Should().Contain(p => p.Key == "openlibrary" && p.DisplayName == "Open Library");
         providers.Should().Contain(p => p.Key == "bnf" && p.DisplayName == "BnF");
+        providers.Single(p => p.Key == "googlebooks").IsDefault.Should().BeTrue();
+        providers.Where(p => p.Key != "googlebooks").Should().OnlyContain(p => !p.IsDefault);
     }
 
     [Fact]
@@ -63,6 +65,8 @@ public class ReferenceDataAdminResourceTest(ProviderlessWebAppFactory factory)
         var providers = await GetAsync<List<ReferenceProviderDto>>("/api/reference-data/providers?type=VideoGame");
 
         providers.Select(p => p.Key).Should().Equal("igdb", "rawg");
+        providers.Single(p => p.Key == "igdb").IsDefault.Should().BeTrue();
+        providers.Single(p => p.Key == "rawg").IsDefault.Should().BeFalse();
     }
 
     [Fact]

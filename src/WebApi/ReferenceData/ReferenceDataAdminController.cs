@@ -388,14 +388,21 @@ public class ReferenceDataAdminController(
     [ProducesResponseType(200)]
     public ActionResult<List<ReferenceProviderDto>> GetProviders([FromQuery] ReferenceItemType type)
     {
-        IEnumerable<IReferenceProviderClient> clients = type switch
+        (IEnumerable<IReferenceProviderClient> Clients, string DefaultProviderKey) providers = type switch
         {
-            ReferenceItemType.Book => bookReferenceClientRegistry.All,
-            ReferenceItemType.VideoGame => videoGameReferenceClientRegistry.All,
-            _ => []
+            ReferenceItemType.Book => (bookReferenceClientRegistry.All, bookReferenceClientRegistry.DefaultProviderKey),
+            ReferenceItemType.VideoGame => (videoGameReferenceClientRegistry.All, videoGameReferenceClientRegistry.DefaultProviderKey),
+            _ => ([], string.Empty)
         };
 
-        return Ok(clients.Select(c => new ReferenceProviderDto { Key = c.ProviderKey, DisplayName = c.DisplayName }).ToList());
+        return Ok(providers.Clients
+            .Select(c => new ReferenceProviderDto
+            {
+                Key = c.ProviderKey,
+                DisplayName = c.DisplayName,
+                IsDefault = string.Equals(c.ProviderKey, providers.DefaultProviderKey, StringComparison.OrdinalIgnoreCase)
+            })
+            .ToList());
     }
 
     /// <summary>

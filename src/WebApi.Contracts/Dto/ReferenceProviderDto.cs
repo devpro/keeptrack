@@ -12,4 +12,7 @@ public class ReferenceProviderDto
 
     /// <summary>Human-readable name for display, e.g. "Google Books"/"IGDB".</summary>
     public required string DisplayName { get; set; }
+
+    /// <summary>True for the domain's deployment-configured default provider, so a client can preselect it instead of assuming registration order.</summary>
+    public required bool IsDefault { get; set; }
 }

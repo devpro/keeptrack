@@ -112,7 +112,7 @@
     protected override async Task OnInitializedAsync()
     {
         _providers = await Api.GetProvidersAsync(Type);
-        _selectedProvider = _providers.FirstOrDefault()?.Key;
+        _selectedProvider = _providers.FirstOrDefault(p => p.IsDefault)?.Key ?? _providers.FirstOrDefault()?.Key;
     }
 
     private async Task SearchAsync()

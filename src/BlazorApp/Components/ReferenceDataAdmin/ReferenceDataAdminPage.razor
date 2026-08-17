@@ -993,13 +993,13 @@
     }
 
     /// <summary>
-    /// Reloads the provider list for the selected domain, defaulting the selection to the first (registration
-    /// order is priority order, so that is the deployment default).
+    /// Reloads the provider list for the selected domain, defaulting the selection to the deployment default
+    /// (registration order is display order, not necessarily the configured default).
     /// </summary>
     private async Task LoadProvidersAsync()
     {
         _providers = await Api.GetProvidersAsync(_type);
-        _selectedProvider = _providers.FirstOrDefault()?.Key;
+        _selectedProvider = _providers.FirstOrDefault(p => p.IsDefault)?.Key ?? _providers.FirstOrDefault()?.Key;
     }
 
     private async Task SelectItemAsync(UnresolvedReferenceDto item)
