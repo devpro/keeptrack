@@ -1,5 +1,6 @@
 using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
+using Keeptrack.Domain.Services;
 
 namespace Keeptrack.WebApi.ReferenceData;
 
@@ -122,13 +123,7 @@ public partial class ReferenceEnrichmentService
         // see TryLinkExistingTvShowReferenceAsync's empty-title guard
         if (string.IsNullOrWhiteSpace(model.Title)) return model;
 
-        // see TryLinkExistingTvShowReferenceAsync's own comment - the title-only fallback must not run when
-        // the tenant has a specific year that simply has no confirmed alias
-        var reference = await bookReferenceRepository.FindByTitleYearAsync(model.Title, model.Year, model.Author);
-        if (reference is null && model.Year is null)
-        {
-            reference = await bookReferenceRepository.FindByTitleAsync(model.Title, model.Author);
-        }
+        var reference = await FindKnownBookReferenceAsync(model.Title, model.Year, model.Author, model.Isbn);
 
         if (reference is null)
         {
@@ -164,6 +159,43 @@ public partial class ReferenceEnrichmentService
         await bookRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year, authorName, genre, reference.Language, reference.Isbn, ratingValue, ratingScale, ratingSource);
 
         return model;
+    }
+
+    /// <summary>
+    /// The reference this book has already been matched to by somebody, or null - the local half of every book match path, asked before any provider is.
+    /// <para>
+    /// Three tiers, strongest key first.
+    /// An <b>ISBN</b> names one printing outright, so it answers even when the tenant recorded a translated title nothing else would connect.
+    /// Then the exact (title, author, year) an alias was confirmed under.
+    /// Then <b>title and author alone</b>, which is where most of this domain's local matching actually happens: one work is republished as revisions years apart, so a tenant's year routinely names an edition nobody has confirmed - Google Books answers <c>intitle:The Hobbit+inauthor:Tolkien</c> with volumes spanning 1981 to 2012, all one book.
+    /// Refusing on that would send every reprint to the provider for an answer the collection was already holding.
+    /// </para>
+    /// <para>
+    /// The last tier is the one that could guess, and deliberately does not: <c>FindByTitleAsync</c> returns nothing when several references share a title and an author's name, which is the only case where the year would have been the thing telling them apart.
+    /// </para>
+    /// </summary>
+    private async Task<BookReferenceModel?> FindKnownBookReferenceAsync(string title, int? year, string author, string? isbn)
+    {
+        if (!string.IsNullOrWhiteSpace(isbn))
+        {
+            var byIsbn = await bookReferenceRepository.FindByIsbnAsync(isbn);
+            if (byIsbn is not null) return byIsbn;
+        }
+
+        return await bookReferenceRepository.FindByTitleYearAsync(title, year, author)
+               ?? await bookReferenceRepository.FindByTitleAsync(title, author);
+    }
+
+    /// <summary>
+    /// Points every tenant book still recorded under <paramref name="searchTitle"/>/<paramref name="searchYear"/> at <paramref name="reference"/> - see <see cref="PropagateTvShowLinkAsync"/>.
+    /// The author's name is joined from <c>person_reference</c>, since a book reference stores only the id.
+    /// </summary>
+    private async Task PropagateBookLinkAsync(BookReferenceModel reference, string searchTitle, int? searchYear)
+    {
+        var authorName = await ResolvePersonNameAsync(reference.AuthorReferenceId);
+        var (ratingValue, ratingScale, ratingSource) = BookPrimaryRating(reference);
+        await bookRepository.SetReferenceLinkAsync(searchTitle, searchYear, reference.Id!, reference.Title, reference.Year,
+            authorName, JoinGenres(reference.Genres), reference.Language, reference.Isbn, ratingValue, ratingScale, ratingSource);
     }
 
     /// <summary>
@@ -218,6 +250,14 @@ public partial class ReferenceEnrichmentService
         // several. Without one the item waits for the detail page's "check for reference match".
         if (string.IsNullOrWhiteSpace(author)) return;
 
+        // a reference someone already matched this book to is the answer - see TryLinkKnownReferenceAsync
+        if (await TryLinkKnownReferenceAsync(
+                () => FindKnownBookReferenceAsync(title, year, author, isbn),
+                reference => PropagateBookLinkAsync(reference, title, year)))
+        {
+            return;
+        }
+
         var client = bookReferenceClientRegistry.Resolve(null);
         var candidates = await client.SearchBooksAsync(title, year, author, isbn);
         var matches = ReferenceMatchRules.ConfirmedCreatorMatches(candidates, title, author);
@@ -241,15 +281,10 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// Resolves a title+year to a specific book provider id, upserts the reference document, and
-    /// propagates the link - see <see cref="ResolveTvShowAsync"/>. <paramref name="providerKey"/> is which
-    /// registered <see cref="IBookReferenceClient"/> <paramref name="externalId"/> came from - required from
-    /// the admin's manual link action (an id is meaningless without knowing which provider issued it once
-    /// more than one is registered), defaults to the deployment default for the automatic path above.
-    /// <paramref name="isbn"/> is the ISBN that was actually supplied as search input (if any) - it only
-    /// ever feeds the *tenant-search* alias entry (what the caller actually searched with), never the
-    /// canonical one (which always uses whatever the provider itself reports, <see cref="BookDetails.Isbn"/>,
-    /// regardless of what was searched for) - see <see cref="MergeMatchedAliases"/>.
+    /// Resolves a title+year to a specific book provider id, upserts the reference document, and propagates the link - see <see cref="ResolveTvShowAsync"/>.
+    /// <paramref name="providerKey"/> is which registered <see cref="IBookReferenceClient"/> <paramref name="externalId"/> came from - required from the admin's manual link action (an id is meaningless without knowing which provider issued it once more than one is registered), defaults to the deployment default for the automatic path above.
+    /// <paramref name="isbn"/>
+    /// is the ISBN that was actually supplied as search input (if any) - it only ever feeds the *tenant-search* alias entry (what the caller actually searched with), never the canonical one (which always uses whatever the provider itself reports, <see cref="BookDetails.Isbn"/>, regardless of what was searched for) - see <see cref="ReferenceAliasRule.TitleAndCreatorWithYear"/>.
     /// </summary>
     public async Task<BookReferenceModel> ResolveBookAsync(string title, int? year, string externalId, string? providerKey = null, string? isbn = null)
     {
@@ -259,15 +294,11 @@ public partial class ReferenceEnrichmentService
         var details = await client.GetBookDetailsAsync(externalId)
                       ?? throw new InvalidOperationException($"Book {externalId} could not be fetched from {client.ProviderKey}.");
 
-        // see ResolveTvShowAsync's own comment - the title-only fallback (which reuses existing.Id for the
-        // upsert) must not run when year is known but simply unconfirmed yet, or it risks overwriting an
-        // unrelated same-titled reference document instead of just linking wrong
+        // the provider id is checked first and is authoritative - see ResolveTvShowAsync.
+        // The fallback is this domain's own identity ladder, the same one the local match path asks (see FindKnownBookReferenceAsync): a document found under another printing's year is still this work, and minting a second reference for it is the outcome to avoid.
+        // It can only ever reuse a document the ladder is sure about, since its year-agnostic tier refuses to choose between several.
         var existing = await bookReferenceRepository.FindByExternalIdAsync(client.ProviderKey, externalId)
-                       ?? (details.Author is not null ? await bookReferenceRepository.FindByTitleYearAsync(title, year, details.Author) : null);
-        if (existing is null && year is null && details.Author is not null)
-        {
-            existing = await bookReferenceRepository.FindByTitleAsync(title, details.Author);
-        }
+                       ?? (details.Author is not null ? await FindKnownBookReferenceAsync(title, year, details.Author, isbn ?? details.Isbn) : null);
         var externalIds = existing?.ExternalIds ?? new Dictionary<string, string>();
         externalIds[client.ProviderKey] = externalId;
 
@@ -287,7 +318,7 @@ public partial class ReferenceEnrichmentService
             Synopsis = details.Synopsis,
             AuthorReferenceId = authorReferenceId,
             ExternalIds = externalIds,
-            MatchedAliases = MergeMatchedAliases(existing?.MatchedAliases,
+            MatchedAliases = ReferenceAliasRule.TitleAndCreatorWithYear.Merge(existing?.MatchedAliases,
                 (details.Title, details.Year ?? year, details.Author, details.Isbn),
                 (title, year, details.Author, isbn)),
             Genres = details.Genres,
@@ -342,7 +373,7 @@ public partial class ReferenceEnrichmentService
         reference.Language = details.Language ?? reference.Language;
         reference.Isbn = details.Isbn ?? reference.Isbn;
         await AddOpenLibraryRatingFallbackAsync(reference.Ratings, client.ProviderKey, reference.Isbn, knownOpenLibraryRating, cancellationToken);
-        reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, details.Author, details.Isbn));
+        reference.MatchedAliases = ReferenceAliasRule.TitleAndCreatorWithYear.Merge(reference.MatchedAliases, (details.Title, reference.Year, details.Author, details.Isbn));
         reference.LastEnrichedAt = DateTime.UtcNow;
 
         var saved = await bookReferenceRepository.UpsertAsync(reference);

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
+using Keeptrack.Domain.Services;
 using Keeptrack.Infrastructure.MongoDb.Entities;
 using Keeptrack.Infrastructure.MongoDb.Mappers;
 using MongoDB.Driver;
@@ -30,27 +31,28 @@ public class BookReferenceRepository(IMongoDatabase mongoDatabase, BookReference
         return entities.Select(mapper.ToModel).ToList();
     }
 
+    /// <summary>
+    /// Matches against every (title, year, author) combination ever confirmed for a reference, not just its canonical one - see <see cref="ReferenceAliasQueries"/> for the shared query.
+    /// </summary>
     public async Task<BookReferenceModel?> FindByTitleYearAsync(string title, int? year, string author)
     {
-        var normalized = TitleNormalizer.Normalize(title);
-        var normalizedAuthor = TitleNormalizer.Normalize(author);
-        var filter = Builders<BookReference>.Filter.ElemMatch(x => x.MatchedAliases,
-            Builders<ReferenceMatch>.Filter.Eq(m => m.Title, normalized)
-            & Builders<ReferenceMatch>.Filter.Eq(m => m.Year, year)
-            & Builders<ReferenceMatch>.Filter.Eq(m => m.Creator, normalizedAuthor));
-        var entity = await Collection.Find(filter).FirstOrDefaultAsync();
+        var entity = await ReferenceAliasQueries.FindByTitleYearCreatorAsync(Collection, title, year, author);
         return entity is null ? null : mapper.ToModel(entity);
     }
 
+    /// <summary>
+    /// The year-agnostic tier, and the one that carries most of this domain's local matching: a work is reprinted under as many years as it has printings, so a tenant's year routinely names an edition no alias was ever confirmed under.
+    /// Ambiguity is refused rather than guessed at - two works can genuinely share a title and an author's name.
+    /// </summary>
     public async Task<BookReferenceModel?> FindByTitleAsync(string title, string author)
     {
-        var normalized = TitleNormalizer.Normalize(title);
-        var normalizedAuthor = TitleNormalizer.Normalize(author);
-        var filter = Builders<BookReference>.Filter.ElemMatch(x => x.MatchedAliases,
-            Builders<ReferenceMatch>.Filter.Eq(m => m.Title, normalized)
-            & Builders<ReferenceMatch>.Filter.Eq(m => m.Creator, normalizedAuthor));
-        // ambiguous and "no match" are the same answer here - see ReferenceTitleQueries.FindSingleMatchAsync
-        var entity = await ReferenceTitleQueries.FindSingleMatchAsync(Collection, filter);
+        var entity = await ReferenceAliasQueries.FindByTitleCreatorAsync(Collection, title, author, refuseAmbiguous: true);
+        return entity is null ? null : mapper.ToModel(entity);
+    }
+
+    public async Task<BookReferenceModel?> FindByIsbnAsync(string isbn)
+    {
+        var entity = await ReferenceAliasQueries.FindByIsbnAsync(Collection, isbn);
         return entity is null ? null : mapper.ToModel(entity);
     }
 
@@ -76,15 +78,9 @@ public class BookReferenceRepository(IMongoDatabase mongoDatabase, BookReference
     public async Task<BookReferenceModel> UpsertAsync(BookReferenceModel model)
     {
         model.TitleNormalized = TitleNormalizer.Normalize(model.Title);
-        // this safety net can't know the canonical author text (the model only carries AuthorReferenceId,
-        // a dedup'd link, not denormalized text), so an alias added here has no Creator and simply won't
-        // match via FindByTitleYearAsync/FindByTitleAsync's required-creator filter - harmless, since the
-        // normal Resolve/Refresh path always adds a proper creator-bearing alias via MergeMatchedAliases
-        // before calling UpsertAsync; this only guards a caller that skipped that step entirely.
-        if (!model.MatchedAliases.Any(m => m.Title == model.TitleNormalized && m.Year == model.Year))
-        {
-            model.MatchedAliases.Add(new ReferenceMatchModel { Title = model.TitleNormalized, Year = model.Year });
-        }
+        // No canonical-alias safety net here, deliberately: a book is identified by title + author (or an ISBN), and this model carries only AuthorReferenceId - a dedup'd link, never the author's name - so there is nothing to build a complete key from.
+        // It used to add the (title, year) pair anyway, which wrote a creator-less alias onto every book reference ever upserted: unreachable by the creator-bearing lookups, and exactly the half-key ReferenceAliasRule refuses.
+        // The Resolve/Refresh paths add a proper alias through ReferenceAliasRule.TitleAndCreatorWithYear before calling this.
         var entity = mapper.ToEntity(model);
 
         if (string.IsNullOrEmpty(entity.Id))

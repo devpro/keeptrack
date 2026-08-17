@@ -83,6 +83,30 @@ public class VideoGameReferenceRepositoryTest(KestrelWebAppFactory<Program> fact
         found!.Id.Should().Be(created.Id);
     }
 
+    /// <summary>
+    /// A game is identified by its title <i>and</i> its year, so a document with no year has no complete key to record - and the title-only alias that used to be written for it answered every later lookup for that title, whatever year it carried.
+    /// IGDB holds eight games named exactly "Resident Evil 2".
+    /// </summary>
+    [Fact]
+    public async Task UpsertAsync_RecordsNoCanonicalAlias_WhenTheDocumentHasNoYear()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IVideoGameReferenceRepository>();
+        var title = $"Yearless Game Title {Guid.NewGuid()}";
+
+        var created = await CreateReferenceAsync(repository, new VideoGameReferenceModel
+        {
+            Title = title,
+            TitleNormalized = title.ToLowerInvariant(),
+            ExternalIds = new Dictionary<string, string> { ["igdb"] = TestExternalId.New() }
+        });
+
+        var found = await repository.FindByIdAsync(created.Id!);
+
+        found.Should().NotBeNull();
+        found!.MatchedAliases.Should().BeEmpty();
+    }
+
     [Fact]
     public async Task FindByExternalIdAsync_FindsAReferenceByEitherProvidersId()
     {

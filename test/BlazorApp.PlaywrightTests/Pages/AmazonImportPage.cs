@@ -10,9 +10,9 @@ public class AmazonImportPage(IPage page) : PageBase(page)
 {
     protected override string? Route => "/import/amazon";
 
-    public override async Task WaitForReadyAsync()
+    protected override async Task AssertReadyAsync()
     {
-        await base.WaitForReadyAsync();
+        await base.AssertReadyAsync();
         await Assertions.Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Amazon", Level = 1 })).ToBeVisibleAsync();
     }
 

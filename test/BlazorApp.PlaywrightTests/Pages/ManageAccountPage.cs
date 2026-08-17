@@ -15,9 +15,9 @@ public class ManageAccountPage(IPage page) : PageBase(page)
         return this;
     }
 
-    public override async Task WaitForReadyAsync()
+    protected override async Task AssertReadyAsync()
     {
-        await base.WaitForReadyAsync();
+        await base.AssertReadyAsync();
         await Assertions.Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Manage", Level = 1 })).ToBeVisibleAsync();
     }
 

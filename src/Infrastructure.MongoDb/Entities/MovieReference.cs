@@ -9,7 +9,7 @@ namespace Keeptrack.Infrastructure.MongoDb.Entities;
 /// Shared, owner-less movie metadata collection (<c>movie_reference</c>). See
 /// <see cref="TvShowReference"/> for why this has no <c>owner_id</c>.
 /// </summary>
-public class MovieReference
+public class MovieReference : IHasMatchedAliases
 {
     [BsonId]
     [BsonRepresentation(BsonType.ObjectId)]

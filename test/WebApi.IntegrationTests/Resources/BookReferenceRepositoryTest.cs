@@ -93,8 +93,11 @@ public class BookReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) 
         foundByBnf!.Id.Should().Be(created.Id);
     }
 
+    /// <summary>
+    /// A reference document carries its author as a <see cref="BookReferenceModel.AuthorReferenceId"/>, never as text, so the repository has nothing to build a complete alias from - and a creator-less one is exactly the half-key this collection must never hold, since it would answer for every author at once.
+    /// </summary>
     [Fact]
-    public async Task UpsertAsync_AlwaysIncludesTheCanonicalTitleAndYearInMatchedAliases_EvenIfTheCallerForgot()
+    public async Task UpsertAsync_AddsNoCanonicalAlias_BecauseItCannotKnowTheAuthor()
     {
         using var scope = Factory.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IBookReferenceRepository>();
@@ -108,13 +111,72 @@ public class BookReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) 
             ExternalIds = new Dictionary<string, string> { ["openlibrary"] = TestExternalId.New() }
         });
 
-        // this safety-net alias has no Creator (the model only carries AuthorReferenceId, not
-        // denormalized text - see BookReferenceRepository.UpsertAsync), so it's unreachable via the
-        // creator-required FindByTitleAsync/FindByTitleYearAsync; assert on the stored alias directly.
         var found = await repository.FindByIdAsync(created.Id!);
 
         found.Should().NotBeNull();
-        found!.MatchedAliases.Should().ContainSingle(m => string.Equals(m.Title, title, StringComparison.OrdinalIgnoreCase) && m.Year == 2010);
+        found!.MatchedAliases.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// An ISBN names one printing outright, which is what makes it worth its own lookup: a tenant who typed the French title of an English book matches on it and nothing else.
+    /// </summary>
+    [Fact]
+    public async Task FindByIsbnAsync_MatchesTheAliasThatWasConfirmedUnderThatIsbn()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IBookReferenceRepository>();
+        var title = $"Isbn Keyed Book {Guid.NewGuid()}";
+        var isbn = $"978{Random.Shared.NextInt64(1000000000, 9999999999):D10}";
+
+        var created = await CreateReferenceAsync(repository, new BookReferenceModel
+        {
+            Title = title,
+            TitleNormalized = title.ToLowerInvariant(),
+            Year = 2011,
+            ExternalIds = new Dictionary<string, string> { ["openlibrary"] = TestExternalId.New() },
+            MatchedAliases = [new ReferenceMatchModel { Title = title.ToLowerInvariant(), Year = 2011, Creator = "some author", Isbn = isbn }]
+        });
+
+        var found = await repository.FindByIsbnAsync(isbn);
+
+        found.Should().NotBeNull();
+        found!.Id.Should().Be(created.Id);
+    }
+
+    [Fact]
+    public async Task FindByIsbnAsync_MatchesNothing_WhenNoAliasWasConfirmedUnderThatIsbn()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IBookReferenceRepository>();
+
+        var found = await repository.FindByIsbnAsync($"978{Random.Shared.NextInt64(1000000000, 9999999999):D10}");
+
+        found.Should().BeNull();
+    }
+
+    /// <summary>
+    /// The same work is published again every few years, so a tenant's year routinely names an edition no alias was ever confirmed under - the title+author lookup is what still finds the work, and <c>FindSingleMatchAsync</c> is what keeps it from choosing between two genuinely different books.
+    /// </summary>
+    [Fact]
+    public async Task FindByTitleAsync_MatchesAWorkWhoseOnlyAliasCarriesADifferentEditionYear()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IBookReferenceRepository>();
+        var title = $"Reprinted Book Title {Guid.NewGuid()}";
+
+        var created = await CreateReferenceAsync(repository, new BookReferenceModel
+        {
+            Title = title,
+            TitleNormalized = title.ToLowerInvariant(),
+            Year = 2011,
+            ExternalIds = new Dictionary<string, string> { ["openlibrary"] = TestExternalId.New() },
+            MatchedAliases = [new ReferenceMatchModel { Title = title.ToLowerInvariant(), Year = 2011, Creator = "some author" }]
+        });
+
+        var found = await repository.FindByTitleAsync(title, "Some Author");
+
+        found.Should().NotBeNull();
+        found!.Id.Should().Be(created.Id);
     }
 
     private async Task<BookReferenceModel> CreateReferenceAsync(IBookReferenceRepository repository, BookReferenceModel model)

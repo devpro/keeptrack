@@ -1,5 +1,6 @@
 using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
+using Keeptrack.Domain.Services;
 
 namespace Keeptrack.WebApi.ReferenceData;
 
@@ -152,6 +153,14 @@ public partial class ReferenceEnrichmentService
         // "check for reference match" resolves it the moment a year is filled in.
         if (year is null) return;
 
+        // a reference someone already confirmed for this exact (title, year) is the answer - see TryLinkKnownReferenceAsync for why it is worth asking before the provider is
+        if (await TryLinkKnownReferenceAsync(
+                () => videoGameReferenceRepository.FindByTitleYearAsync(title, year),
+                reference => PropagateVideoGameLinkAsync(reference, title, year)))
+        {
+            return;
+        }
+
         var client = videoGameReferenceClientRegistry.Resolve(null);
         var candidates = await client.SearchGamesAsync(title, year);
         var matches = ReferenceMatchRules.ConfirmedMatches(candidates, title, year);
@@ -195,7 +204,7 @@ public partial class ReferenceEnrichmentService
             Synopsis = details.Synopsis,
             Platforms = details.Platforms,
             ExternalIds = externalIds,
-            MatchedAliases = MergeMatchedAliases(existing?.MatchedAliases, (details.Title, details.Year ?? year, null, null), (title, year, null, null)),
+            MatchedAliases = ReferenceAliasRule.TitleAndYear.Merge(existing?.MatchedAliases, (details.Title, details.Year ?? year, null, null), (title, year, null, null)),
             Genres = details.Genres,
             Ratings = MergeProviderRatings(existing?.Ratings, details.Ratings, client.SupportedRatingSources),
             ImageUrl = PreferredImageUrl(client.ProviderKey, externalIds, existing?.ImageUrl, details.ImageUrl),
@@ -203,9 +212,15 @@ public partial class ReferenceEnrichmentService
         };
 
         var saved = await videoGameReferenceRepository.UpsertAsync(model);
-        var (ratingValue, ratingScale, ratingSource) = PrimaryRating(saved.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.VideoGame));
-        await videoGameRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, ratingValue, ratingScale, ratingSource);
+        await PropagateVideoGameLinkAsync(saved, title, year);
         return saved;
+    }
+
+    /// <summary>Video game equivalent of <see cref="PropagateTvShowLinkAsync"/>.</summary>
+    private async Task PropagateVideoGameLinkAsync(VideoGameReferenceModel reference, string searchTitle, int? searchYear)
+    {
+        var (ratingValue, ratingScale, ratingSource) = PrimaryRating(reference.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.VideoGame));
+        await videoGameRepository.SetReferenceLinkAsync(searchTitle, searchYear, reference.Id!, reference.Title, reference.Year, ratingValue, ratingScale, ratingSource);
     }
 
     /// <summary>
@@ -256,7 +271,7 @@ public partial class ReferenceEnrichmentService
         reference.Genres = details.Genres;
         reference.Ratings = MergeProviderRatings(reference.Ratings, details.Ratings, client.SupportedRatingSources);
         reference.ImageUrl = PreferredImageUrl(client.ProviderKey, reference.ExternalIds, reference.ImageUrl, details.ImageUrl);
-        reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, null, null));
+        reference.MatchedAliases = ReferenceAliasRule.TitleAndYear.Merge(reference.MatchedAliases, (details.Title, reference.Year, null, null));
         reference.LastEnrichedAt = DateTime.UtcNow;
 
         var saved = await videoGameReferenceRepository.UpsertAsync(reference);
@@ -668,7 +683,7 @@ public partial class ReferenceEnrichmentService
             }
         }
 
-        keep.MatchedAliases = MergeMatchedAliases(keep.MatchedAliases, [.. absorbed.MatchedAliases.Select(a => (a.Title, a.Year, a.Creator, a.Isbn))]);
+        keep.MatchedAliases = ReferenceAliasRule.TitleAndYear.Merge(keep.MatchedAliases, [.. absorbed.MatchedAliases.Select(a => (a.Title, a.Year, a.Creator, a.Isbn))]);
         keep.Year ??= absorbed.Year;
         keep.Synopsis ??= absorbed.Synopsis;
         keep.ImageUrl = mergedImageUrl;

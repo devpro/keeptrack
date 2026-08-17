@@ -41,7 +41,7 @@ public class GearSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
         list = await detail.OpenGearAsync();
         // ItemImageShape="wide" (same as VideoGames.razor) - a plain default-portrait thumb was the
         // reported regression, so this pins the actual rendered shape, not just that an image exists.
-        await Assertions.Expect(list.Row(title).Locator(".kt-item-thumb.wide img")).ToHaveAttributeAsync("src", imageUrl);
+        await list.ExpectRowThumbnailAsync(title, imageUrl);
 
         await list.DeleteAsync(title);
         await Assertions.Expect(list.Row(title)).Not.ToBeVisibleAsync();

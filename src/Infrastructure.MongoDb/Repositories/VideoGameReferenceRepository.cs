@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
+using Keeptrack.Domain.Services;
 using Keeptrack.Infrastructure.MongoDb.Entities;
 using Keeptrack.Infrastructure.MongoDb.Mappers;
 using MongoDB.Driver;
@@ -36,22 +37,18 @@ public class VideoGameReferenceRepository(IMongoDatabase mongoDatabase, VideoGam
     public Task<IReadOnlyList<(string Id, Dictionary<string, ReferenceRatingModel> Ratings)>> FindRatingsAsync(string? afterId, int limit) =>
         ReferenceRatingQueries.FindRatingsAsync<VideoGameReference>(Collection, afterId, limit);
 
+    /// <summary>
+    /// Matches against every (title, year) combination ever confirmed for a reference, not just its canonical one - see <see cref="ReferenceAliasQueries"/> for the shared query and why every condition sits in one <c>ElemMatch</c>.
+    /// </summary>
     public async Task<VideoGameReferenceModel?> FindByTitleYearAsync(string title, int? year)
     {
-        var normalized = TitleNormalizer.Normalize(title);
-        var filter = Builders<VideoGameReference>.Filter.ElemMatch(x => x.MatchedAliases,
-            Builders<ReferenceMatch>.Filter.Eq(m => m.Title, normalized) & Builders<ReferenceMatch>.Filter.Eq(m => m.Year, year));
-        var entity = await Collection.Find(filter).FirstOrDefaultAsync();
+        var entity = await ReferenceAliasQueries.FindByTitleYearAsync(Collection, title, year);
         return entity is null ? null : mapper.ToModel(entity);
     }
 
     public async Task<VideoGameReferenceModel?> FindByTitleAsync(string title)
     {
-        var normalized = TitleNormalizer.Normalize(title);
-        var filter = Builders<VideoGameReference>.Filter.ElemMatch(x => x.MatchedAliases,
-            Builders<ReferenceMatch>.Filter.Eq(m => m.Title, normalized));
-        // ambiguous and "no match" are the same answer here - see ReferenceTitleQueries.FindSingleMatchAsync
-        var entity = await ReferenceTitleQueries.FindSingleMatchAsync(Collection, filter);
+        var entity = await ReferenceAliasQueries.FindByTitleAsync(Collection, title);
         return entity is null ? null : mapper.ToModel(entity);
     }
 
@@ -87,10 +84,9 @@ public class VideoGameReferenceRepository(IMongoDatabase mongoDatabase, VideoGam
     public async Task<VideoGameReferenceModel> UpsertAsync(VideoGameReferenceModel model)
     {
         model.TitleNormalized = TitleNormalizer.Normalize(model.Title);
-        if (!model.MatchedAliases.Any(m => m.Title == model.TitleNormalized && m.Year == model.Year))
-        {
-            model.MatchedAliases.Add(new ReferenceMatchModel { Title = model.TitleNormalized, Year = model.Year });
-        }
+        // the canonical (title, year) combination is always itself a valid match, whether or not the caller remembered to include it - but only while it is a complete key.
+        // A game with no year records nothing: IGDB holds eight named exactly "Resident Evil 2", and the title-only alias this used to write for them answered every later lookup for that title, whatever year it carried (see ReferenceAliasRule).
+        ReferenceAliasRule.TitleAndYear.EnsureCanonical(model.MatchedAliases, model.TitleNormalized, model.Year);
         var entity = mapper.ToEntity(model);
 
         if (string.IsNullOrEmpty(entity.Id))

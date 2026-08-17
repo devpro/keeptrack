@@ -18,6 +18,12 @@ namespace Keeptrack.BlazorApp.Components.Shared;
 /// This polls the item itself rather than the provider, so it costs a handful of cheap reads and only for an item that is actually unlinked.
 /// It gives up rather than waiting forever: an item that legitimately has no match must settle as unmatched, which is a real answer and not a spinner.
 /// </para>
+/// <para>
+/// It also gives up the moment the page has changes of its own, and that half is not a nicety.
+/// A re-read replaces the page's whole model, so a poll issued before a save and answered after it puts the pre-save document back on screen <b>and</b> back into the model - the user's edit disappears, and the next save writes the resurrected version back to the server.
+/// Observed on a just-created game whose platform was removed inside the polling window: the platform reappeared, with everything that had been set on it.
+/// Nothing is lost by stopping, either: someone editing the item is no longer waiting to see whether a link lands, and the link still shows on the next load.
+/// </para>
 /// </remarks>
 public static class PendingReferenceLink
 {
@@ -32,16 +38,23 @@ public static class PendingReferenceLink
     /// <summary>
     /// Re-reads the item until it reports a reference link, then renders it.
     /// </summary>
-    /// <param name="isLinked">Whether the item currently held by the page is linked - checked before the first wait, so an already-linked item costs nothing.</param>
-    /// <param name="reloadAsync">Re-reads the item; the same fetch the page does on load.</param>
-    /// <param name="renderAsync">The page's <c>InvokeAsync(StateHasChanged)</c> - the poll runs off the render loop, so it may not touch component state directly.</param>
-    public static async Task WatchAsync(Func<bool> isLinked, Func<Task> reloadAsync, Func<Task> renderAsync)
+    /// <param name="isLinked">
+    /// Whether the item currently held by the page is linked - checked before the first wait, so an already-linked item costs nothing.</param>
+    /// <param name="reloadAsync">
+    /// Re-reads the item; the same fetch the page does on load.</param>
+    /// <param name="renderAsync">
+    /// The page's <c>InvokeAsync(StateHasChanged)</c> - the poll runs off the render loop, so it may not touch component state directly.</param>
+    /// <param name="isUnedited">
+    /// Whether the page still holds exactly what it loaded - false once the user has saved anything, at which point a re-read would discard their change rather than reveal a link.</param>
+    public static async Task WatchAsync(Func<bool> isLinked, Func<Task> reloadAsync, Func<Task> renderAsync, Func<bool> isUnedited)
     {
         for (var attempt = 0; attempt < MaxAttempts; attempt++)
         {
-            if (isLinked()) return;
+            if (isLinked() || !isUnedited()) return;
 
             await Task.Delay(PollInterval);
+            // re-checked after the wait as well as before it: the whole window this guards against is the one *between* the two, where a save lands while this poll's own read is already in flight
+            if (!isUnedited()) return;
             try
             {
                 await reloadAsync();

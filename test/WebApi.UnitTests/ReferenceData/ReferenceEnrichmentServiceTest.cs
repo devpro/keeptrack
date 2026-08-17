@@ -3227,7 +3227,7 @@ public class ReferenceEnrichmentServiceTest
             Year = 2020
         };
         _albumReferenceRepository
-            .Setup(r => r.FindByTitleYearAsync("Some Typo'd Album", 2020, "Wrong Artist"))
+            .Setup(r => r.FindByTitleCreatorAsync("Some Typo'd Album", "Wrong Artist"))
             .ReturnsAsync(new AlbumReferenceModel
             {
                 Id = "reference-1",
@@ -3261,7 +3261,7 @@ public class ReferenceEnrichmentServiceTest
             Year = 2019
         };
         _albumReferenceRepository
-            .Setup(r => r.FindByTitleYearAsync("Some Album", 2019, "Some Artist"))
+            .Setup(r => r.FindByTitleCreatorAsync("Some Album", "Some Artist"))
             .ReturnsAsync(new AlbumReferenceModel
             {
                 Id = "reference-1",
@@ -3290,7 +3290,7 @@ public class ReferenceEnrichmentServiceTest
             Year = 2020
         };
         _albumReferenceRepository
-            .Setup(r => r.FindByTitleYearAsync("Some Album", 2020, "Some Artist"))
+            .Setup(r => r.FindByTitleCreatorAsync("Some Album", "Some Artist"))
             .ReturnsAsync(new AlbumReferenceModel
             {
                 Id = "reference-1",
@@ -3320,8 +3320,7 @@ public class ReferenceEnrichmentServiceTest
             Year = 2020,
             ReferenceId = "old-reference"
         };
-        _albumReferenceRepository.Setup(r => r.FindByTitleYearAsync("Some Album", 2020, "Some Artist")).ReturnsAsync((AlbumReferenceModel?)null);
-        _albumReferenceRepository.Setup(r => r.FindByTitleAsync("Some Album", "Some Artist")).ReturnsAsync((AlbumReferenceModel?)null);
+        _albumReferenceRepository.Setup(r => r.FindByTitleCreatorAsync("Some Album", "Some Artist")).ReturnsAsync((AlbumReferenceModel?)null);
 
         var result = await service.TryLinkExistingAlbumReferenceAsync(model);
 
@@ -3480,6 +3479,171 @@ public class ReferenceEnrichmentServiceTest
         await ((Func<Task>)(() => service.ResolveAlbumAsync(" ", 2020, "42"))).Should().ThrowAsync<ArgumentException>();
     }
 
+    /// <summary>
+    /// Automatic resolution asks the local reference collection before it asks anyone else: a reference someone already established is the answer, and paying a provider call to re-derive it is both slower and, when the provider is fuzzy about it, capable of producing a different one.
+    /// </summary>
+    [Fact]
+    public async Task TryAutoResolveTvShowAsync_LinksTheKnownReference_WithoutSearchingTmdb()
+    {
+        _tvShowReferenceRepository.Setup(r => r.FindByTitleYearAsync("The Wire", 2002))
+            .ReturnsAsync(new TvShowReferenceModel { Id = "reference-1", Title = "The Wire", TitleNormalized = "the wire", Year = 2002, ExternalIds = [] });
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults(new TmdbSearchResult("1", "The Wire", 2002, null, null));
+        var service = CreateService(tmdbClient);
+
+        await service.TryAutoResolveTvShowAsync("The Wire", 2002);
+
+        tmdbClient.SearchCount.Should().Be(0);
+        _tvShowRepository.Verify(r => r.SetReferenceLinkAsync("The Wire", 2002, "reference-1", "The Wire", 2002, It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task TryAutoResolveMovieAsync_LinksTheKnownReference_WithoutSearchingTmdb()
+    {
+        _movieReferenceRepository.Setup(r => r.FindByTitleYearAsync("Heat", 1995))
+            .ReturnsAsync(new MovieReferenceModel { Id = "reference-1", Title = "Heat", TitleNormalized = "heat", Year = 1995, ExternalIds = [] });
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        var service = CreateService(tmdbClient);
+
+        await service.TryAutoResolveMovieAsync("Heat", 1995);
+
+        tmdbClient.SearchCount.Should().Be(0);
+        _movieRepository.Verify(r => r.SetReferenceLinkAsync("Heat", 1995, "reference-1", "Heat", 1995, It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task TryAutoResolveVideoGameAsync_LinksTheKnownReference_WithoutSearchingTheProvider()
+    {
+        _videoGameReferenceRepository.Setup(r => r.FindByTitleYearAsync("Resident Evil 2", 2019))
+            .ReturnsAsync(new VideoGameReferenceModel { Id = "reference-1", Title = "Resident Evil 2", TitleNormalized = "resident evil 2", Year = 2019, ExternalIds = [] });
+        var videoGameClient = FakeVideoGameReferenceClient.WithSearchResults(new VideoGameSearchResult("1", "Resident Evil 2", 2019, null));
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), videoGameClient: videoGameClient);
+
+        await service.TryAutoResolveVideoGameAsync("Resident Evil 2", 2019);
+
+        videoGameClient.SearchCount.Should().Be(0);
+        _videoGameRepository.Verify(r => r.SetReferenceLinkAsync("Resident Evil 2", 2019, "reference-1", "Resident Evil 2", 2019, It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task TryAutoResolveBookAsync_LinksTheKnownReference_WithoutSearchingTheProvider()
+    {
+        _bookReferenceRepository.Setup(r => r.FindByTitleYearAsync("The Hobbit", 2011, "J.R.R. Tolkien"))
+            .ReturnsAsync(new BookReferenceModel { Id = "reference-1", Title = "The Hobbit", TitleNormalized = "the hobbit", Year = 2011, ExternalIds = [] });
+        var bookReferenceClient = FakeBookReferenceClient.WithSearchResults(new BookSearchResult("1", "The Hobbit", 2011, "J.R.R. Tolkien", null));
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), bookReferenceClient);
+
+        await service.TryAutoResolveBookAsync("The Hobbit", 2011, "J.R.R. Tolkien");
+
+        bookReferenceClient.SearchCount.Should().Be(0);
+        _bookRepository.Verify(r => r.SetReferenceLinkAsync("The Hobbit", 2011, "reference-1", "The Hobbit", 2011,
+            It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task TryAutoResolveAlbumAsync_LinksTheKnownReference_WithoutSearchingDiscogs()
+    {
+        _albumReferenceRepository.Setup(r => r.FindByTitleCreatorAsync("Kid A", "Radiohead"))
+            .ReturnsAsync(new AlbumReferenceModel { Id = "reference-1", Title = "Kid A", TitleNormalized = "kid a", Year = 2000, ExternalIds = [] });
+        var discogsClient = FakeDiscogsClient.WithSearchResults(new DiscogsSearchResult("1", "Kid A", 2000, "Radiohead", null));
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), discogsClient: discogsClient);
+
+        await service.TryAutoResolveAlbumAsync("Kid A", 2000, "Radiohead");
+
+        discogsClient.SearchCount.Should().Be(0);
+        _albumRepository.Verify(r => r.SetReferenceLinkAsync("Kid A", 2000, "reference-1", "Kid A", 2000,
+            It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Once);
+    }
+
+    /// <summary>
+    /// A tenant who supplied no year is exactly the one whose search must not be remembered as a match key: the alias would then answer for every year anyone ever asks about that title.
+    /// </summary>
+    [Fact]
+    public async Task ResolveTvShowAsync_RecordsNoSearchAlias_WhenTheSearchCarriedNoYear()
+    {
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.TvShowDetails["1"] = new TmdbTvShowDetails("1", "The Wire", 2002, "Synopsis", [], [], null);
+        _tvShowReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>())).ReturnsAsync((TvShowReferenceModel m) => m);
+        var service = CreateService(tmdbClient);
+
+        var saved = await service.ResolveTvShowAsync("Le Fil", null, "1");
+
+        saved.MatchedAliases.Should().ContainSingle(a => a.Title == "the wire" && a.Year == 2002);
+        saved.MatchedAliases.Should().NotContain(a => a.Title == "le fil");
+    }
+
+    /// <summary>
+    /// An album is one work per (title, artist) - see <see cref="ReferenceAliasRule.TitleAndCreator"/> - so its aliases carry no year and a re-resolve under a different year adds no second entry.
+    /// </summary>
+    [Fact]
+    public async Task ResolveAlbumAsync_RecordsTheTitleAndArtistAlias_WithoutAYear()
+    {
+        var discogsClient = FakeDiscogsClient.Empty();
+        discogsClient.Details["1"] = new DiscogsAlbumDetails("1", "Kid A", 2000, "Synopsis", "Radiohead", "100", [], null, []);
+        _albumReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<AlbumReferenceModel>())).ReturnsAsync((AlbumReferenceModel m) => m);
+        _personReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<PersonReferenceModel>())).ReturnsAsync((PersonReferenceModel m) =>
+        {
+            m.Id ??= "person-1";
+            return m;
+        });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults(), discogsClient: discogsClient);
+
+        var saved = await service.ResolveAlbumAsync("Kid A", 2001, "1");
+
+        saved.MatchedAliases.Should().ContainSingle();
+        saved.MatchedAliases[0].Title.Should().Be("kid a");
+        saved.MatchedAliases[0].Creator.Should().Be("radiohead");
+        saved.MatchedAliases[0].Year.Should().BeNull();
+    }
+
+    /// <summary>
+    /// The same book exists as many printings, so a tenant's year routinely names none of them - matching on title and author alone is what keeps that from costing a provider call, and the single-match rule is what keeps it from guessing between two genuinely different books.
+    /// </summary>
+    [Fact]
+    public async Task TryLinkExistingBookReferenceAsync_FallsBackToTitleAndAuthor_WhenNoAliasCarriesTheTenantsYear()
+    {
+        _bookReferenceRepository.Setup(r => r.FindByTitleYearAsync("The Hobbit", 1937, "J.R.R. Tolkien")).ReturnsAsync((BookReferenceModel?)null);
+        _bookReferenceRepository.Setup(r => r.FindByTitleAsync("The Hobbit", "J.R.R. Tolkien"))
+            .ReturnsAsync(new BookReferenceModel { Id = "reference-1", Title = "The Hobbit", TitleNormalized = "the hobbit", Year = 2011, ExternalIds = [] });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+
+        var model = await service.TryLinkExistingBookReferenceAsync(
+            new BookModel { OwnerId = "o", Id = "book-1", Title = "The Hobbit", Year = 1937, Author = "J.R.R. Tolkien" });
+
+        model.ReferenceId.Should().Be("reference-1");
+    }
+
+    /// <summary>An ISBN names one printing outright, so it is asked before any title text is.</summary>
+    [Fact]
+    public async Task TryLinkExistingBookReferenceAsync_MatchesByIsbn_BeforeAskingAboutTheTitle()
+    {
+        _bookReferenceRepository.Setup(r => r.FindByIsbnAsync("9780261102217"))
+            .ReturnsAsync(new BookReferenceModel { Id = "reference-1", Title = "The Hobbit", TitleNormalized = "the hobbit", Year = 2011, ExternalIds = [] });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+
+        var model = await service.TryLinkExistingBookReferenceAsync(
+            new BookModel { OwnerId = "o", Id = "book-1", Title = "Bilbo le Hobbit", Year = 1969, Author = "Tolkien", Isbn = "9780261102217" });
+
+        model.ReferenceId.Should().Be("reference-1");
+        _bookReferenceRepository.Verify(r => r.FindByTitleYearAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>()), Times.Never);
+    }
+
+    /// <summary>
+    /// An album's local lookup ignores the year entirely: title plus artist is the whole key, so a tenant whose year disagrees with the reference still links instead of paying a Discogs call.
+    /// </summary>
+    [Fact]
+    public async Task TryLinkExistingAlbumReferenceAsync_MatchesOnTitleAndArtist_WhateverYearTheTenantRecorded()
+    {
+        _albumReferenceRepository.Setup(r => r.FindByTitleCreatorAsync("Kid A", "Radiohead"))
+            .ReturnsAsync(new AlbumReferenceModel { Id = "reference-1", Title = "Kid A", TitleNormalized = "kid a", Year = 2000, ExternalIds = [] });
+        var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
+
+        var model = await service.TryLinkExistingAlbumReferenceAsync(
+            new AlbumModel { OwnerId = "o", Id = "album-1", Title = "Kid A", Year = 2009, Artist = "Radiohead" });
+
+        model.ReferenceId.Should().Be("reference-1");
+        model.Year.Should().Be(2000);
+    }
+
     private sealed class FakeBookRatingByIsbnLookup : IBookRatingByIsbnLookup
     {
         /// <summary>Result the fallback returns; defaults to "no rating" so tests not exercising it are unaffected.</summary>
@@ -3526,11 +3690,20 @@ public class ReferenceEnrichmentServiceTest
         public Task<IReadOnlyList<TmdbTopRatedItem>> GetTopRatedTvShowsAsync(int page, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<TmdbTopRatedItem>>([]);
 
-        public Task<IReadOnlyList<TmdbSearchResult>> SearchTvShowAsync(string title, int? year, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<TmdbSearchResult>>(_tvShowSearchResults);
+        /// <summary>How many searches were issued - zero is what "the local reference answered" looks like.</summary>
+        public int SearchCount { get; private set; }
 
-        public Task<IReadOnlyList<TmdbSearchResult>> SearchMovieAsync(string title, int? year, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<TmdbSearchResult>>([]);
+        public Task<IReadOnlyList<TmdbSearchResult>> SearchTvShowAsync(string title, int? year, CancellationToken cancellationToken = default)
+        {
+            SearchCount++;
+            return Task.FromResult<IReadOnlyList<TmdbSearchResult>>(_tvShowSearchResults);
+        }
+
+        public Task<IReadOnlyList<TmdbSearchResult>> SearchMovieAsync(string title, int? year, CancellationToken cancellationToken = default)
+        {
+            SearchCount++;
+            return Task.FromResult<IReadOnlyList<TmdbSearchResult>>([]);
+        }
 
         public Task<TmdbTvShowDetails?> GetTvShowDetailsAsync(string tmdbId, CancellationToken cancellationToken = default)
         {

@@ -1,5 +1,6 @@
 using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
+using Keeptrack.Domain.Services;
 
 namespace Keeptrack.WebApi.ReferenceData;
 
@@ -32,13 +33,8 @@ public partial class ReferenceEnrichmentService
         // see TryLinkExistingTvShowReferenceAsync's empty-title guard
         if (string.IsNullOrWhiteSpace(model.Title)) return model;
 
-        // see TryLinkExistingTvShowReferenceAsync's own comment - the title-only fallback must not run when
-        // the tenant has a specific year that simply has no confirmed alias
-        var reference = await albumReferenceRepository.FindByTitleYearAsync(model.Title, model.Year, model.Artist);
-        if (reference is null && model.Year is null)
-        {
-            reference = await albumReferenceRepository.FindByTitleAsync(model.Title, model.Artist);
-        }
+        // one lookup, and no year in it: title plus artist is an album's whole identity, while the year names a pressing - see IAlbumReferenceRepository.FindByTitleCreatorAsync
+        var reference = await albumReferenceRepository.FindByTitleCreatorAsync(model.Title, model.Artist);
 
         if (reference is null)
         {
@@ -119,6 +115,14 @@ public partial class ReferenceEnrichmentService
         // an artist is required for any automatic link here - see TryAutoResolveBookAsync, same rule
         if (string.IsNullOrWhiteSpace(artist)) return;
 
+        // a reference someone already confirmed for this (title, artist) is the answer - see TryLinkKnownReferenceAsync for why it is worth asking before Discogs is
+        if (await TryLinkKnownReferenceAsync(
+                () => albumReferenceRepository.FindByTitleCreatorAsync(title, artist),
+                reference => PropagateAlbumLinkAsync(reference, title, year)))
+        {
+            return;
+        }
+
         var candidates = await discogsClient.SearchAlbumsAsync(title, year, artist);
         var matches = ReferenceMatchRules.ConfirmedCreatorMatches(candidates, title, artist);
         if (matches.Count == 0) return;
@@ -151,15 +155,10 @@ public partial class ReferenceEnrichmentService
         var details = await discogsClient.GetAlbumDetailsAsync(externalId)
                       ?? throw new InvalidOperationException($"Discogs master {externalId} could not be fetched.");
 
-        // see ResolveTvShowAsync's own comment - the title-only fallback (which reuses existing.Id for the
-        // upsert) must not run when year is known but simply unconfirmed yet, or it risks overwriting an
-        // unrelated same-titled reference document instead of just linking wrong
+        // the Discogs id is checked first and is authoritative - see ResolveTvShowAsync.
+        // The fallback is the domain's own identity, title + artist, and takes no year: a document found under a different pressing's year is still this release, and minting a second one for it is the outcome to avoid.
         var existing = await albumReferenceRepository.FindByExternalIdAsync(DiscogsProviderKey, externalId)
-                       ?? (details.Artist is not null ? await albumReferenceRepository.FindByTitleYearAsync(title, year, details.Artist) : null);
-        if (existing is null && year is null && details.Artist is not null)
-        {
-            existing = await albumReferenceRepository.FindByTitleAsync(title, details.Artist);
-        }
+                       ?? (details.Artist is not null ? await albumReferenceRepository.FindByTitleCreatorAsync(title, details.Artist) : null);
         var externalIds = existing?.ExternalIds ?? new Dictionary<string, string>();
         externalIds[DiscogsProviderKey] = externalId;
 
@@ -176,7 +175,7 @@ public partial class ReferenceEnrichmentService
             Synopsis = details.Synopsis,
             ArtistReferenceId = artistReferenceId,
             ExternalIds = externalIds,
-            MatchedAliases = MergeMatchedAliases(existing?.MatchedAliases, (details.Title, details.Year ?? year, details.Artist, null), (title, year, details.Artist, null)),
+            MatchedAliases = ReferenceAliasRule.TitleAndCreator.Merge(existing?.MatchedAliases, (details.Title, details.Year ?? year, details.Artist, null), (title, year, details.Artist, null)),
             Genres = details.Genres,
             Tracks = MapTracks(details.Tracks),
             Ratings = BuildDiscogsRatings(details.Rating, details.RatingCount),
@@ -188,6 +187,18 @@ public partial class ReferenceEnrichmentService
         var (ratingValue, ratingScale, ratingSource) = PrimaryRating(saved.Ratings, DiscogsProviderKey);
         await albumRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, details.Artist, JoinGenres(details.Genres), ratingValue, ratingScale, ratingSource);
         return saved;
+    }
+
+    /// <summary>
+    /// Points every tenant album still recorded under <paramref name="searchTitle"/>/<paramref name="searchYear"/> at <paramref name="reference"/> - see <see cref="PropagateTvShowLinkAsync"/>.
+    /// The artist's name is joined from <c>person_reference</c>, since an album reference stores only the id.
+    /// </summary>
+    private async Task PropagateAlbumLinkAsync(AlbumReferenceModel reference, string searchTitle, int? searchYear)
+    {
+        var artistName = await ResolvePersonNameAsync(reference.ArtistReferenceId);
+        var (ratingValue, ratingScale, ratingSource) = PrimaryRating(reference.Ratings, DiscogsProviderKey);
+        await albumRepository.SetReferenceLinkAsync(searchTitle, searchYear, reference.Id!, reference.Title, reference.Year,
+            artistName, JoinGenres(reference.Genres), ratingValue, ratingScale, ratingSource);
     }
 
     /// <summary>
@@ -215,7 +226,7 @@ public partial class ReferenceEnrichmentService
         reference.Tracks = MapTracks(details.Tracks);
         reference.Ratings = BuildDiscogsRatings(details.Rating, details.RatingCount);
         reference.ImageUrl = details.ImageUrl ?? reference.ImageUrl;
-        reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, details.Artist, null));
+        reference.MatchedAliases = ReferenceAliasRule.TitleAndCreator.Merge(reference.MatchedAliases, (details.Title, reference.Year, details.Artist, null));
         reference.LastEnrichedAt = DateTime.UtcNow;
 
         var saved = await albumReferenceRepository.UpsertAsync(reference);

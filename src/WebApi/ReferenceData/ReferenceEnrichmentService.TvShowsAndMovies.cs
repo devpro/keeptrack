@@ -1,5 +1,6 @@
 using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
+using Keeptrack.Domain.Services;
 using Keeptrack.Domain.Repositories;
 
 namespace Keeptrack.WebApi.ReferenceData;
@@ -404,6 +405,14 @@ public partial class ReferenceEnrichmentService
         // match, and without one the item waits for the detail page's "check for reference match".
         if (year is null) return;
 
+        // a reference someone already confirmed for this exact (title, year) is the answer - see TryLinkKnownReferenceAsync for why it is worth asking before TMDB is
+        if (await TryLinkKnownReferenceAsync(
+                () => tvShowReferenceRepository.FindByTitleYearAsync(title, year),
+                reference => PropagateTvShowLinkAsync(reference, title, year)))
+        {
+            return;
+        }
+
         var candidates = await tmdbClient.SearchTvShowAsync(title, year);
         var matches = ReferenceMatchRules.ConfirmedMatches(candidates, title, year);
         if (matches.Count != 1) return;
@@ -424,6 +433,13 @@ public partial class ReferenceEnrichmentService
     {
         if (string.IsNullOrWhiteSpace(title)) return; // see TryAutoResolveTvShowAsync
         if (year is null) return; // see TryAutoResolveTvShowAsync - a year is required here too
+
+        if (await TryLinkKnownReferenceAsync(
+                () => movieReferenceRepository.FindByTitleYearAsync(title, year),
+                reference => PropagateMovieLinkAsync(reference, title, year)))
+        {
+            return;
+        }
 
         var candidates = await tmdbClient.SearchMovieAsync(title, year);
         var matches = ReferenceMatchRules.ConfirmedMatches(candidates, title, year);
@@ -520,7 +536,7 @@ public partial class ReferenceEnrichmentService
             // remembers both the canonical (TMDB title, TMDB year) and whatever (title, year) the tenant
             // actually searched with - see MatchedAliases: this is what lets a later, differently-titled or
             // differently-dated tenant match instantly
-            MatchedAliases = MergeMatchedAliases(existing?.MatchedAliases, (details.Title, details.Year ?? year, null, null), (title, year, null, null)),
+            MatchedAliases = ReferenceAliasRule.TitleAndYear.Merge(existing?.MatchedAliases, (details.Title, details.Year ?? year, null, null), (title, year, null, null)),
             Episodes = details.Episodes
                 .Select(e => new ReferenceEpisodeModel { SeasonNumber = e.SeasonNumber, EpisodeNumber = e.EpisodeNumber, Title = e.Title, AirDate = e.AirDate })
                 .ToList(),
@@ -533,9 +549,18 @@ public partial class ReferenceEnrichmentService
         };
 
         var saved = await tvShowReferenceRepository.UpsertAsync(model);
-        var (ratingValue, ratingScale, ratingSource) = PrimaryRating(saved.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.TvShow));
-        await tvShowRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, ratingValue, ratingScale, ratingSource);
+        await PropagateTvShowLinkAsync(saved, title, year);
         return saved;
+    }
+
+    /// <summary>
+    /// Points every tenant show still recorded under <paramref name="searchTitle"/>/<paramref name="searchYear"/> at <paramref name="reference"/>, carrying its canonical title, year and primary rating across.
+    /// Shared by the two paths that establish a link without a tenant document in hand: a fresh resolve, and the reuse of a reference the collection already held.
+    /// </summary>
+    private async Task PropagateTvShowLinkAsync(TvShowReferenceModel reference, string searchTitle, int? searchYear)
+    {
+        var (ratingValue, ratingScale, ratingSource) = PrimaryRating(reference.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.TvShow));
+        await tvShowRepository.SetReferenceLinkAsync(searchTitle, searchYear, reference.Id!, reference.Title, reference.Year, ratingValue, ratingScale, ratingSource);
     }
 
     /// <summary>
@@ -584,7 +609,7 @@ public partial class ReferenceEnrichmentService
             // remembers both the canonical (TMDB title, TMDB year) and whatever (title, year) the tenant
             // actually searched with - see MatchedAliases: this is what lets a later, differently-titled or
             // differently-dated tenant match instantly
-            MatchedAliases = MergeMatchedAliases(existing?.MatchedAliases, (details.Title, details.Year ?? year, null, null), (title, year, null, null)),
+            MatchedAliases = ReferenceAliasRule.TitleAndYear.Merge(existing?.MatchedAliases, (details.Title, details.Year ?? year, null, null), (title, year, null, null)),
             Genres = details.Genres,
             Cast = await ResolveCastAsync(cast),
             Ratings = ratings,
@@ -594,9 +619,15 @@ public partial class ReferenceEnrichmentService
         };
 
         var saved = await movieReferenceRepository.UpsertAsync(model);
-        var (ratingValue, ratingScale, ratingSource) = PrimaryRating(saved.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.Movie));
-        await movieRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, ratingValue, ratingScale, ratingSource);
+        await PropagateMovieLinkAsync(saved, title, year);
         return saved;
+    }
+
+    /// <summary>Movie equivalent of <see cref="PropagateTvShowLinkAsync"/>.</summary>
+    private async Task PropagateMovieLinkAsync(MovieReferenceModel reference, string searchTitle, int? searchYear)
+    {
+        var (ratingValue, ratingScale, ratingSource) = PrimaryRating(reference.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.Movie));
+        await movieRepository.SetReferenceLinkAsync(searchTitle, searchYear, reference.Id!, reference.Title, reference.Year, ratingValue, ratingScale, ratingSource);
     }
 
     /// <summary>
@@ -649,7 +680,7 @@ public partial class ReferenceEnrichmentService
         reference.Ratings = await RebuildRatingsAsync(
             reference.Ratings, reference.RatingsCheckedAt, details.VoteAverage, details.VoteCount, details.ImdbId, cancellationToken);
         reference.ImageUrl = details.PosterUrl ?? reference.ImageUrl;
-        reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, null, null));
+        reference.MatchedAliases = ReferenceAliasRule.TitleAndYear.Merge(reference.MatchedAliases, (details.Title, reference.Year, null, null));
         reference.LastEnrichedAt = DateTime.UtcNow;
 
         var saved = await tvShowReferenceRepository.UpsertAsync(reference);
@@ -706,7 +737,7 @@ public partial class ReferenceEnrichmentService
         reference.Ratings = await RebuildRatingsAsync(
             reference.Ratings, reference.RatingsCheckedAt, details.VoteAverage, details.VoteCount, details.ImdbId, cancellationToken);
         reference.ImageUrl = details.PosterUrl ?? reference.ImageUrl;
-        reference.MatchedAliases = MergeMatchedAliases(reference.MatchedAliases, (details.Title, reference.Year, null, null));
+        reference.MatchedAliases = ReferenceAliasRule.TitleAndYear.Merge(reference.MatchedAliases, (details.Title, reference.Year, null, null));
         reference.LastEnrichedAt = DateTime.UtcNow;
 
         var saved = await movieReferenceRepository.UpsertAsync(reference);

@@ -16,9 +16,9 @@ public class SharedWithMePage(IPage page) : PageBase(page)
         return this;
     }
 
-    public override async Task WaitForReadyAsync()
+    protected override async Task AssertReadyAsync()
     {
-        await base.WaitForReadyAsync();
+        await base.AssertReadyAsync();
         await Assertions.Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Shared with me", Level = 1 })).ToBeVisibleAsync();
         await Assertions.Expect(Page.Locator(".kt-spinner")).ToBeHiddenAsync();
     }

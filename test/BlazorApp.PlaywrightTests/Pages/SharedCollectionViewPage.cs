@@ -10,9 +10,9 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 /// </summary>
 public class SharedCollectionViewPage(IPage page) : PageBase(page)
 {
-    public override async Task WaitForReadyAsync()
+    protected override async Task AssertReadyAsync()
     {
-        await base.WaitForReadyAsync();
+        await base.AssertReadyAsync();
         await Assertions.Expect(Page.Locator(".kt-spinner")).ToBeHiddenAsync();
         await Assertions.Expect(Page.Locator(".kt-tabs")).ToBeVisibleAsync();
     }

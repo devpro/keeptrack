@@ -1,17 +1,16 @@
-using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
+using Keeptrack.Domain.Services;
 
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// Resolves a tracked item's title+year to a shared reference document and propagates its id to every
-/// tenant's matching document. Shared by both the automatic (best-effort, background) path and the
-/// admin manual-linking path so the "resolve and propagate" logic is never duplicated between them -
-/// only how an external id gets picked differs. Split into one partial-class file per domain
-/// (<c>.TvShowsAndMovies.cs</c>, <c>.Books.cs</c>, <c>.VideoGames.cs</c>, <c>.Albums.cs</c>) since each
-/// domain's five-method template (TryLinkExisting/TryAutoResolve/Resolve/Refresh) is sizeable on its own;
-/// this file holds the shared constructor and the one truly cross-domain helper, <see cref="MergeMatchedAliases"/>.
+/// Resolves a tracked item's title+year to a shared reference document and propagates its id to every tenant's matching document.
+/// Shared by both the automatic (best-effort, background) path and the admin manual-linking path so the "resolve and propagate" logic is never duplicated between them - only how an external id gets picked differs.
+/// Split into one partial-class file per domain (<c>.TvShowsAndMovies.cs</c>, <c>.Books.cs</c>, <c>.VideoGames.cs</c>, <c>.Albums.cs</c>) since each domain's five-method template (TryLinkExisting/TryAutoResolve/Resolve/Refresh) is sizeable on its own; this file holds the shared constructor and the cross-domain helpers.
+/// <para>
+/// Which (title, year, creator, isbn) combinations a resolve is allowed to remember is not decided here: it is <see cref="ReferenceAliasRule"/>, one declaration per domain, read by every path that writes an alias.
+/// </para>
 /// </summary>
 public partial class ReferenceEnrichmentService(
     ITmdbClient tmdbClient,
@@ -150,43 +149,24 @@ public partial class ReferenceEnrichmentService(
     }
 
     /// <summary>
-    /// Combines whatever (title, year, creator, isbn) combinations a reference document already remembered
-    /// with the new ones just confirmed (e.g. the provider's canonical (title, year) and the (title, year)
-    /// the tenant actually searched with, which may differ from canonical in either field). Deduplicated,
-    /// with title/creator normalized. Shared by every domain - the alias shape
-    /// (<see cref="Domain.Models.ReferenceMatchModel"/>) is deliberately generic, not per-domain.
-    /// <paramref name="aliases"/>' <c>Creator</c> is null for TV show/movie/video game (no creator dimension
-    /// in their match key); Book/Album always pass their resolved author/artist text - see
-    /// <see cref="ReferenceMatchModel.Creator"/> for why it matters there. <c>Isbn</c> is null for every
-    /// domain but Book, and null even for Book unless an ISBN was genuinely part of that specific
-    /// match/search - see <see cref="ReferenceMatchModel.Isbn"/>: an exact-identifier field must never be
-    /// backfilled from data that wasn't actually used to find the match.
+    /// Reuses a reference document the local collection already holds, if any, and reports whether it did - the first thing every <c>TryAutoResolve*Async</c> does, before a provider is contacted.
+    /// <para>
+    /// A stored alias <b>is</b> the answer: someone already established that this title (and year, or creator) means that work, so re-deriving it from a provider is at best a slower way to the same document and at worst a different one - these searches are fuzzy, and the rule that reads them deliberately refuses anything it cannot confirm.
+    /// The item then waits for a human instead of linking to a fact the database was holding all along.
+    /// </para>
+    /// <para>
+    /// It matters most exactly where the collection is most useful: a tenant adding a film someone else already tracks, and every row of a bulk import of them.
+    /// Creating an item used to go straight to the provider every time.
+    /// </para>
     /// </summary>
-    /// <remarks>
-    /// The dedup check itself is <see cref="ReferenceMatchModel.Matches"/>, so this and the reference-data
-    /// import agree on what "already recorded" means. It compares <c>Creator</c> directly (no null/empty-string normalization needed here):
-    /// <c>DataStorageMappingProfile</c>'s <c>ReferenceMatchModel</c> -&gt; <c>ReferenceMatch</c> map opts
-    /// <c>Creator</c> out of the profile-wide <c>AllowNullDestinationValues = false</c> (<c>.ForMember(x =>
-    /// x.Creator, opt => opt.AllowNull())</c>), so a null <c>Creator</c> round-trips through Mongo as an
-    /// actual BSON null, not <c>""</c> - keeping that distinction the database layer's job instead of a
-    /// workaround here. Getting this wrong once already duplicated an alias on every re-resolve/re-refresh
-    /// (confirmed against a real video game reference, RAWG's "God of War", that had accumulated an exact
-    /// duplicate this way) - see `scripts/dedupe-matched-aliases.js` for the one-off cleanup this needed.
-    /// </remarks>
-    private static List<Domain.Models.ReferenceMatchModel> MergeMatchedAliases(List<Domain.Models.ReferenceMatchModel>? existing, params (string Title, int? Year, string? Creator, string? Isbn)[] aliases)
+    private static async Task<bool> TryLinkKnownReferenceAsync<TReference>(Func<Task<TReference?>> findKnown, Func<TReference, Task> propagate)
+        where TReference : class
     {
-        var result = new List<Domain.Models.ReferenceMatchModel>(existing ?? []);
-        foreach (var (title, year, creator, isbn) in aliases)
-        {
-            var normalized = TitleNormalizer.Normalize(title);
-            var normalizedCreator = creator is null ? null : TitleNormalizer.Normalize(creator);
-            if (!result.Any(m => m.Matches(normalized, year, normalizedCreator, isbn)))
-            {
-                result.Add(new Domain.Models.ReferenceMatchModel { Title = normalized, Year = year, Creator = normalizedCreator, Isbn = isbn });
-            }
-        }
+        var known = await findKnown();
+        if (known is null) return false;
 
-        return result;
+        await propagate(known);
+        return true;
     }
 
     /// <summary>

@@ -34,7 +34,22 @@ public abstract class PageBase(IPage page)
     /// </summary>
     protected virtual string? Route => null;
 
-    public virtual async Task WaitForReadyAsync()
+    /// <summary>
+    /// Waits for this page to be up, <b>re-issuing the navigation once</b> if it never rendered.
+    /// <para>
+    /// A click that changes the URL without ever swapping the content is a real thing this app does, and it is not slowness: measured from a failing run's trace, <c>GET /cars</c> answered <b>200 in 223ms</b>, the URL became <c>/cars</c>, and the DOM still showed Home when the screenshot was taken seconds later.
+    /// The circuit's WebSocket had connected 100ms before the click - the same prerender-to-interactive gap <see cref="ClickUntilAsync(ILocator, ILocator, int)"/> exists for, reached here through enhanced navigation rather than an <c>@onclick</c>.
+    /// Two sidebar navigations and one row click were lost that way in a single run.
+    /// </para>
+    /// <para>
+    /// A reload is the honest retry for it: the browser is already on the right URL, so this re-fetches the page the click asked for rather than clicking something again and hoping.
+    /// It only ever runs after the page has already failed to appear, so it cannot turn a passing test green - it can only stop a lost navigation from being reported as a broken page.
+    /// </para>
+    /// </summary>
+    public async Task WaitForReadyAsync() => await ExpectWithReloadAsync(AssertReadyAsync);
+
+    /// <summary>What "ready" means for this page - overridden per page, never called directly by a test.</summary>
+    protected virtual async Task AssertReadyAsync()
     {
         if (Route is not null)
         {
@@ -45,6 +60,27 @@ public abstract class PageBase(IPage page)
             await Assertions.Expect(Page).ToHaveTitleAsync(PageTitle);
         }
         await Assertions.Expect(Page.Locator("#blazor-error-ui")).ToBeHiddenAsync();
+    }
+
+    /// <summary>
+    /// Runs <paramref name="assertion"/> and, if it fails, reloads the page and runs it once more.
+    /// <para>
+    /// For the two things a browser genuinely cannot wait for.
+    /// A navigation the client lost renders nothing however long the assertion waits (see <see cref="WaitForReadyAsync"/>).
+    /// And a detail page's save is a PUT the <i>server</i> issues over its circuit, invisible to the browser, so a list rendered while one is still in flight shows the pre-save item and never updates itself - re-reading is the only way to see it land, and a longer timeout would just wait longer on a page that will never change.
+    /// </para>
+    /// </summary>
+    protected async Task ExpectWithReloadAsync(Func<Task> assertion)
+    {
+        try
+        {
+            await assertion();
+        }
+        catch (PlaywrightException)
+        {
+            await Page.ReloadAsync();
+            await assertion();
+        }
     }
 
     /// <summary>

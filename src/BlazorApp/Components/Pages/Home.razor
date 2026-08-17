@@ -1,5 +1,6 @@
 @page "/"
 @inject StatsApiClient StatsApi
+@inject NavigationManager Navigation
 
 <PageTitle>Keeptrack</PageTitle>
 
@@ -97,6 +98,27 @@
         Stats is null
             ? 0
             : Stats.Movies + Stats.TvShows + Stats.Books + Stats.Albums + Stats.VideoGames + Stats.Playlists + Stats.Cars + Stats.Houses + Stats.Collectibles + Stats.Gear;
+
+    /// <summary>
+    /// Never paint over a page the user has already navigated to.
+    /// <para>
+    /// Blazor renders a component automatically when its asynchronous initialisation completes, and this page's initialisation is a call to <c>/api/stats</c> - eleven counts, so under load it is measured in seconds rather than milliseconds.
+    /// With enhanced navigation the sidebar link the user clicks meanwhile swaps the DOM to the destination while this component is still mounted and still loading, so that completion render puts the dashboard back over whatever they went to, and it stays.
+    /// </para>
+    /// <para>
+    /// Measured from a failing run's trace, and it is a user-facing bug rather than a test artifact: the click landed 150ms after this page loaded, <c>/health</c> rendered at 0.79s, and at 1.02s the dashboard was back - with the URL still <c>/health</c> and the sidebar still showing Health as the active item.
+    /// Another run put it back five seconds after the navigation.
+    /// Anyone clicking a nav link while this page is still loading sees the same thing.
+    /// </para>
+    /// </summary>
+    protected override bool ShouldRender() => IsStillTheCurrentPage;
+
+    /// <summary>
+    /// Whether the browser is still on this page's own route.
+    /// The circuit's <see cref="NavigationManager"/> is told about an enhanced navigation (it is what re-marks the sidebar's active item), so this is a reliable "am I still the page being shown" test rather than a guess.
+    /// </summary>
+    private bool IsStillTheCurrentPage =>
+        Navigation.ToBaseRelativePath(Navigation.Uri).Split('?')[0].Trim('/').Length == 0;
 
     protected override async Task OnInitializedAsync()
     {

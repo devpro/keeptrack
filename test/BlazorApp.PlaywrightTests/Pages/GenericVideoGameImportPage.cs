@@ -10,9 +10,9 @@ public class GenericVideoGameImportPage(IPage page) : PageBase(page)
 {
     protected override string? Route => "/import/video-games";
 
-    public override async Task WaitForReadyAsync()
+    protected override async Task AssertReadyAsync()
     {
-        await base.WaitForReadyAsync();
+        await base.AssertReadyAsync();
         await Assertions.Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "video game transactions", Level = 1 })).ToBeVisibleAsync();
     }
 

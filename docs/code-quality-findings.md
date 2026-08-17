@@ -23,6 +23,69 @@ Update this file as items are fixed or as new reviews are performed.
 
 ## Fixed
 
+### The home page painted itself back over the page it was navigated away from, seconds later - the app bug behind the Playwright suite's "element not visible" flake
+
+Found on 2026-08-17, from full parallel runs that failed `CarSmokeTest`, `GearSmokeTest`, `HouseSmokeTest`, `ExploreSmokeTest`'s video game add and `HealthSmokeTest` - none of them touching the code those runs were testing.
+This closes the "an inventory list row intermittently isn't visible under a full parallel run" entry triaged on 2026-07-31, which named two candidates (read latency, or an enhanced-navigation render race) and said to decide between them before changing anything.
+**It is neither exactly: it is the page being navigated away *from* finishing its load and re-rendering over the page being navigated to.**
+
+The traces show it frame by frame. In `HealthSmokeTest`: the sidebar click at 0.57s, `GET /health` answered 200, the health page in the DOM at **0.79s** - and at **1.02s** the dashboard is back, with the URL still `/health` and the sidebar still marking Health as the active item.
+`CarSmokeTest` shows the same 0.28s after its navigation, `GearSmokeTest` **5.4 seconds** after its own.
+That last number is what rules the other candidates out: nothing about a lost click or a slow read puts a *different* page's content on screen five seconds later.
+
+The mechanism is ordinary Blazor: a component renders automatically when its asynchronous initialisation completes, and `Home.razor`'s initialisation is a call to `/api/stats` - **eleven sequential Mongo counts**, so under a parallel run it is measured in seconds.
+Enhanced navigation swaps the DOM to the destination while that load is still in flight and this component is still mounted, so its completion render paints the dashboard back over the destination, and nothing renders after it to undo that.
+It is a user-facing bug, not a test artifact: anyone clicking a sidebar link while the home page is still loading gets thrown back to it, with the address bar and the sidebar both insisting they are somewhere else.
+
+Fixed in the page itself - `Home.razor` overrides `ShouldRender` to render only while the browser is still on its own route (the circuit's `NavigationManager` is told about an enhanced navigation, which is exactly why the sidebar's active item moved, so it is a reliable test rather than a guess).
+Same rule, and same reason, as the pending-reference poll below: **a component must never paint over a page the user has already moved on to.**
+
+Two test-side safety nets were added alongside it, for the two shapes a re-read genuinely cannot be waited out (`PageBase.ExpectWithReloadAsync`, one reload then re-assert, only ever after the assertion has already failed):
+
+- a navigation whose destination never renders - the browser is already on the right URL, so a reload re-fetches the page the click asked for;
+- a list showing an item as it was before a detail page's save (`ListPage.ExpectRowThumbnailAsync`, `HouseSmokeTest`'s failure): that PUT is issued by the **server** over its circuit, so the browser has nothing to wait for and the row would never update itself.
+
+### The poll that reveals a freshly created item's reference link overwrote whatever the user did while it ran, and resurrected a platform that had just been removed
+
+Found on 2026-08-17, from `VideoGamePlatformSmokeTest` failing with the removed platform still on screen - and its trace shows why, not a flake: the removal was clicked, confirmed and saved, and the card came back.
+
+`PendingReferenceLink.WatchAsync` re-reads the item every 1.5s for up to six attempts on any item that is not linked yet, and `FetchAsync` assigns the result to the page's whole model.
+A game created without a year never links, so the poll runs its full nine seconds - which is exactly the window a user spends adding a platform to it.
+A poll issued before a save and answered after it puts the **pre-save** document back into the model: the platform reappears with everything that had been set on it, and the next save writes that resurrected version to the server.
+
+Two guards, because they cover different halves of the window (`VideoGameDetail` sets `_edited` in `SaveGameAsync`, before the PUT):
+
+- the loop stops once the page reports changes of its own, so nothing is re-read after the first save - someone editing an item is no longer waiting to see whether a link lands, and the link still shows on the next load;
+- `FetchPendingLinkAsync` throws its own answer away if a save landed while the read was in flight, which is the part the loop's guard cannot see.
+
+Covered by `PendingReferenceLinkTest` (deterministic, no browser), since whether the e2e test hits the window at all depends on timing.
+
+### Matched aliases were stored without the field that identifies the work, so the local match key answered questions nobody had confirmed - and the create path never asked it anyway
+
+Found on 2026-08-17, from the owner's report that `matched_aliases` was accumulating entries carrying nothing but a title.
+
+`matched_aliases` is the **local match key**: a lookup that finds an alias links a tenant's item to that reference with no provider call at all.
+That only holds while every entry names exactly one work, and three separate paths were writing entries that name many.
+
+- **Every reference repository's `UpsertAsync` added the document's own `(title, year)` pair on every upsert, with no creator.** On a book or an album that is a key claiming every author or artist at once - and it was written to every single document in both collections, unreachable by the creator-bearing lookups but sitting in the array forever.
+- **A resolve recorded whatever the tenant searched with, year or no year.** A title-only alias for a film, show or game matches that title under *any* year - the same defect class as the yearless lookup finding below, one layer earlier: that one stopped a bad *read*, this is the bad *write* that fed it.
+- **Album aliases carried a year**, so one release accumulated an entry per pressing year anyone ever typed, none of which narrowed anything: a title plus an artist already identifies the release.
+
+Fixed by declaring what an alias must carry, once per domain, in `Domain/Services/ReferenceAliasRule.cs` - read by the enrichment merge *and* by each repository's canonical-alias safety net, so there is no path left that can write a half-key.
+Film/show/game need a title and a year; an album needs a title and a creator and stores no year; a book needs a title and a creator, or an ISBN, and *records* the year whenever one is known (a work is republished as revisions the year tells apart, so the alias names the printing it was confirmed under).
+The year is deliberately recorded rather than required there: requiring it would leave a book whose provider reports no year with no alias at all, and an item with no alias is not merely unmatched but actively **unlinked** the next time anyone presses "check for reference match", since finding nothing is what clears a link.
+An incomplete combination is refused rather than stored: the cost of refusing is one provider call next time the item is checked, and the cost of storing is a wrong link nothing downstream reports.
+
+**The other half of the finding is that nothing asked the aliases before calling a provider on the path that matters most.** `TryAutoResolve*Async` - what `<X>Controller.OnCreatedAsync` and every import row run - went straight to the provider, so creating an item someone else already tracks re-derived a fact the database was holding, through a fuzzy search that can answer differently or not at all.
+Every one of the five now starts with `TryLinkKnownReferenceAsync`, propagating through the same `Propagate<X>LinkAsync` a fresh resolve ends with.
+
+Books gained the tier that makes this real for that domain: `(title, creator)` regardless of year, asked after the ISBN and the exact `(title, creator, year)`.
+A tenant's year routinely names an edition nobody confirmed, and refusing on it sent every reprint to a provider for an answer already stored.
+It is also the tier that could guess and does not - `FindByTitleAsync` refuses several matches.
+
+Indexes now follow each domain's lookup instead of one shape for all five (`title`+`creator`+`year` for books, `title`+`creator` for albums, a partial `matched_aliases.isbn`); the old `title`+`year` index matched neither book nor album query's second field, leaving the `ElemMatch` to scan.
+Aliases already written under the old rules are pruned by `scripts/prune-incomplete-matched-aliases.js`.
+
 ### TV shows, movies, books and albums resolved on "the provider returned exactly one row", which refused ordinary titles and linked unrelated ones
 
 Found on 2026-08-17, by measuring the four remaining providers directly rather than reasoning from the code.
@@ -140,7 +203,7 @@ That fix stopped a *known* year from being ignored; the yearless path it deliber
 IGDB holds **eight** games named exactly "Resident Evil 2" (1998 ×3, 1999, 2019, 2024, 2025, one undated) and seven named "Resident Evil".
 With no year there is nothing to choose between them with, so nothing may be chosen.
 
-Fixed in `Infrastructure.MongoDb/Repositories/ReferenceTitleQueries.cs`, one shared query over all five reference collections (they differ only in the filter each builds - books and albums additionally narrow by creator), the same shape as `ReferenceStalenessQueries`/`ExploreExclusionQueries`.
+Fixed in `Infrastructure.MongoDb/Repositories/ReferenceAliasQueries.cs`, one shared query over all five reference collections (they differ only in the filter each builds - books and albums additionally narrow by creator), the same shape as `ReferenceStalenessQueries`/`ExploreExclusionQueries`.
 It reads **two** documents and returns the match only when there is exactly one.
 
 - **"Ambiguous" and "no match" are the same answer to a caller that must not guess**, so both are null - which is why no call site needed changing: every caller already treats null as "leave it unresolved".
@@ -819,26 +882,6 @@ so it is not a local change to one client the way it is for Discogs, whose searc
 If it is picked up later: the filter belongs inside each provider's own `SearchByTitleAsync`, never around `BookReferenceClientBase`'s ladder (a filtered-to-empty step must widen, not abort), it must not touch the ISBN rung at all (an exact
 identifier can legitimately resolve an edition whose title text differs from what the tenant typed), and it needs coverage proving the outage-era ISBN fallback still behaves.
 Google Books (`intitle:`) and BnF (`bib.title`) query title-scoped fields already, so only Open Library is affected.
-
-### Playwright: an inventory list row intermittently isn't visible under a full parallel run (triaged 2026-07-31 - do not re-investigate from scratch)
-
-**Symptom:** in a full `dotnet test` of `BlazorApp.PlaywrightTests`, exactly one test usually fails with
-`Locator expected to be visible / element(s) not found` waiting for `.kt-item-row` filtered to the title it just created.
-It is not always the same test - `ListStateSmokeTest.Search_PersistsInUrl_AndSurvivesBackNavigationFromDetail` and
-`BookSmokeTest.AddEditAndDelete_BookThroughTheList` have both been observed - which is the signature of a flake rather than a defect in any one test.
-
-**Already established, so nobody spends time re-deriving it:**
-
-- Each affected test passes reliably when run in isolation (its own class, repeated runs).
-- It is **not** caused by the test-cleanup rework of 2026-07-31: a full run on the pre-change code fails the same way, one test, same assertion.
-- Every affected assertion is a books-list row lookup, and books are the busiest collection in a parallel run
-  (Book/ListState/Ownership/Reference/GoogleBooks and both import smoke tests all create books against the same tenant).
-- The Playwright expect timeout for these assertions is the 5s default.
-
-**Not yet done:** finding the actual cause.
-The plausible candidates are list-read latency under concurrent load against the shared tenant
-(in which case the fix is a longer timeout on these specific assertions, not a global one) or a genuine enhanced-navigation render race.
-Decide between them before changing anything - raising timeouts blindly would hide the second case.
 
 ### No `CancellationToken` propagation
 

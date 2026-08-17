@@ -27,11 +27,16 @@ public interface IBookReferenceRepository
     Task<BookReferenceModel?> FindByTitleYearAsync(string title, int? year, string author);
 
     /// <summary>
-    /// Title-only fallback match (normalized, ignores year) for "or just title" matching when a
-    /// title+year lookup finds nothing - still requires <paramref name="author"/> to match, for the same
-    /// reason <see cref="FindByTitleYearAsync"/> does.
+    /// The year-agnostic tier (normalized title + author), asked whenever no alias carries the tenant's own year - which is the ordinary case rather than an edge one: the same work is republished as revisions years apart, so the year identifies a printing and not the book.
+    /// Ambiguity is refused rather than guessed at (two works can genuinely share a title and an author's name), so several matches answer the same as none.
     /// </summary>
     Task<BookReferenceModel?> FindByTitleAsync(string title, string author);
+
+    /// <summary>
+    /// The reference confirmed under this ISBN - the strongest key this domain has, and the first one asked: an ISBN names one printing outright, so it matches a tenant who recorded the work under a translated title no amount of text matching would connect.
+    /// It reads the aliases, so it matches both the ISBN the provider reported for the work (carried by the canonical alias) and one a tenant genuinely searched with - see <see cref="Domain.Models.ReferenceMatchModel.Isbn"/>.
+    /// </summary>
+    Task<BookReferenceModel?> FindByIsbnAsync(string isbn);
 
     /// <summary>
     /// Looks up a reference document by external provider id (e.g. its Open Library work id) - the

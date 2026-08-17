@@ -14,6 +14,18 @@ function ensureIndex(collection, keys, options) {
   }
 }
 
+// Removes an index this file no longer declares - a renamed or re-keyed one would otherwise stay behind forever, since createIndex only ever adds.
+// Idempotent: "index not found" (code 27) is the expected answer on every run after the first, and on a fresh database.
+function dropIndexIfExists(collection, name) {
+  try {
+    collection.dropIndex(name);
+  } catch (e) {
+    if (e.code !== 27) {
+      throw e;
+    }
+  }
+}
+
 // owner_id: every list/search query for every tenant-scoped collection filters by owner_id first: the single most common access pattern in the app.
 // episode/movie/tvshow already get this for free from a compound index below whose leftmost field is owner_id; these collections have no such index otherwise.
 ensureIndex(db.album, { owner_id: 1 }, { name: "album_owner" });
@@ -213,22 +225,34 @@ ensureIndex(
   { "matched_aliases.title": 1, "matched_aliases.year": 1 },
   { name: "movie_reference_title_year" }
 );
-// book_reference / videogame_reference / album_reference: same shape as tvshow_reference/movie_reference
-// above, keyed by their own provider's matched_aliases (Open Library, RAWG and Discogs respectively).
-ensureIndex(
-  db.book_reference,
-  { "matched_aliases.title": 1, "matched_aliases.year": 1 },
-  { name: "book_reference_title_year" }
-);
+// videogame_reference: same (title, year) identity as tvshow_reference/movie_reference above.
 ensureIndex(
   db.videogame_reference,
   { "matched_aliases.title": 1, "matched_aliases.year": 1 },
   { name: "videogame_reference_title_year" }
 );
+// book_reference / album_reference: their identity is a title plus a *creator*, not a title plus a year (see ReferenceAliasRule), and the index has to match the lookup or the ElemMatch scans the collection.
+// Books query (title, creator, year) and then (title, creator), so one compound index over the three in that order serves both - a prefix of a compound index is itself usable, which is why creator comes before year.
+// Albums never query a year at all, so theirs stops at the creator.
+// Both replace an earlier (title, year) index that indexed neither query's second field.
+dropIndexIfExists(db.book_reference, "book_reference_title_year");
+dropIndexIfExists(db.album_reference, "album_reference_title_year");
+ensureIndex(
+  db.book_reference,
+  { "matched_aliases.title": 1, "matched_aliases.creator": 1, "matched_aliases.year": 1 },
+  { name: "book_reference_title_creator_year" }
+);
 ensureIndex(
   db.album_reference,
-  { "matched_aliases.title": 1, "matched_aliases.year": 1 },
-  { name: "album_reference_title_year" }
+  { "matched_aliases.title": 1, "matched_aliases.creator": 1 },
+  { name: "album_reference_title_creator" }
+);
+// book_reference: the ISBN tier of the same lookup - an exact identifier, asked before any title text is.
+// Partial rather than sparse, and on the alias's own isbn rather than the document's: only an alias genuinely confirmed under an ISBN carries one, so most entries have no such key at all.
+ensureIndex(
+  db.book_reference,
+  { "matched_aliases.isbn": 1 },
+  { name: "book_reference_alias_isbn", partialFilterExpression: { "matched_aliases.isbn": { $exists: true } } }
 );
 
 // tvshow_reference / movie_reference: also looked up by external provider id (e.g. TMDB id) when resolving

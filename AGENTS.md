@@ -339,21 +339,37 @@ Providers: TMDB (TV/movie), IGDB / RAWG (video games), Discogs (albums), Google 
   Write a small purpose-built repository for any new owner-less collection.
 - `ReferenceEnrichmentService` is one `partial class` split by file (`.TvShowsAndMovies.cs`/`.Books.cs`/`.VideoGames.cs`/`.Albums.cs`), five methods per domain:
   `TryLinkExisting<X>ReferenceAsync`/`TryAutoResolve<X>Async`/`Resolve<X>Async`/`Refresh<X>ReferenceAsync`.
-  Shared helpers (`MergeMatchedAliases`, `ResolvePersonReferenceIdAsync`, `JoinGenres`) stay in the core file.
+  Shared helpers (`TryLinkKnownReferenceAsync`, `ResolvePersonReferenceIdAsync`, `JoinGenres`) stay in the core file.
 - It is the single place a title+year resolves to a provider id, and it propagates the result to every tenant's matching document via `I<X>Repository.SetReferenceLinkAsync`.
   Automatic resolution fires from `<X>Controller.OnCreatedAsync` and from `TvTimeImportService`, both on their own DI scope (never awaited inline - a bulk import must not block on a sequential chain of provider calls).
   The automatic path only acts on a **single, confident** search result; zero or several candidates leaves the item for the admin queue rather than guessing.
+- **Every match path asks the local aliases before it asks a provider** (`TryLinkKnownReferenceAsync`, first thing in every `TryAutoResolve<X>Async`, and the whole of `TryLinkExisting<X>ReferenceAsync`).
+  A stored alias *is* the answer: someone already established that this title means that work, so re-deriving it through a fuzzy provider search is at best slower and at worst a different answer, or none - and "none" leaves the item waiting for a human over a fact the database was holding.
+  Creating an item used to go straight to the provider every time, which is exactly the case this matters most in: a tenant adding a film someone else already tracks, and every row of a bulk import of them.
+  Propagation on a local hit reuses the same `Propagate<X>LinkAsync` a fresh resolve ends with.
 - `SetReferenceLinkAsync` also sets `Title`, `Year` and (per domain) `Author`/`Artist`/`Genre`/`Language` from the canonical record - linking corrects what the tenant typed, it doesn't just attach an id.
   Never overwrite with nothing: a field the provider has no value for is left alone.
   `VideoGameModel.Platform`/`State` describe this tenant's own copy and are never overwritten.
 - `MatchedAliases` (`List<ReferenceMatchModel>`, tuple `(Title, Year, Creator, Isbn)`) records every combination ever confirmed to mean this work - both the canonical values and whatever the tenant searched with - merged, never overwritten.
-  `UpsertAsync` guarantees the document's own title/year is present.
-  Queries use `Builders.Filter.ElemMatch` so title and year must match on the *same* array element (an `AnyEq`-per-field approach would match a title on one alias and a year on another).
-  Indexes are compound multikey over `matched_aliases.title`/`.year`.
-  - `Creator` (Book/Album only) exists because a title+year collision is realistic there; it is always derived from the canonical provider response, never from tenant-typed text.
-    TV/movie/game pass `null`.
+  Queries use `Builders.Filter.ElemMatch` so every condition must hold on the *same* array element (an `AnyEq`-per-field approach would match a title on one alias and a year on another), written once for all five collections in `Infrastructure.MongoDb/Repositories/ReferenceAliasQueries.cs` over the `IHasMatchedAliases` entity interface.
+- **An alias must carry its domain's whole identity or it is not stored at all** (`Domain/Services/ReferenceAliasRule.cs`, the single declaration, read by the enrichment merge *and* by each repository's canonical-alias safety net).
+  An alias is the local match key, so a half-key is not a weaker key: it answers questions it was never confirmed for.
+  Both halves of that were being written on every resolve - a title-only alias whenever the tenant left the year blank (claiming all eight games IGDB holds as "Resident Evil 2"), and a creator-less `(title, year)` pair that every `UpsertAsync` added to every book and album document (claiming every author or artist at once).
+  - **Film/show/game: title + year** (`TitleAndYear`), the same identity `ReferenceMatchRules` confirms with. No year, no alias.
+  - **Album: title + creator, and deliberately no year** (`TitleAndCreator`). One release exists as many pressings under as many years, so the year narrows nothing the artist has not settled, while storing it minted one alias per year anyone typed.
+    The lookup is a single `FindByTitleCreatorAsync`; there is no year-narrowed album lookup any more.
+  - **Book: title + creator, with the year recorded whenever known** (`TitleAndCreatorWithYear`), or an ISBN on its own - an ISBN names one printing outright.
+    Unlike an album, the year *is* stored, because a book genuinely is republished as revisions the year tells apart, so an alias records the printing it was confirmed under (this is the "always add title / artist / year" the owner asked for).
+    It is **recorded, not required**, and that distinction is load-bearing: requiring it would leave a book whose provider reports no year with no alias at all, and an item with no alias is not merely unmatched but *actively unlinked* the next time anyone presses "check for reference match", since finding nothing is what clears a link.
+    It would also buy nothing - two works sharing a title *and* an author's name are the one case the year-agnostic lookup already refuses to choose in.
+  - The book lookup is a three-tier ladder, strongest key first (`FindKnownBookReferenceAsync`): ISBN, then `(title, creator, year)`, then **`(title, creator)` whatever the year** - that last tier is where most book matching actually lands, since a tenant's year routinely names an edition nobody confirmed, and refusing on it would send every reprint to a provider for an answer already stored.
+    It is also the one tier that could guess, and does not: `FindByTitleAsync` returns nothing when several references share a title and an author.
+  - `Creator` is always derived from the canonical provider response, never from tenant-typed text. TV/movie/game pass `null`.
   - `Isbn` (Book only) is recorded only on the alias that actually used it: the canonical alias (provider-reported) and the tenant-search alias are separate entries, and the search alias's `Isbn` is never backfilled.
-- `Resolve<X>Async` checks for an existing reference document **by provider id first** (`FindByExternalIdAsync`), falling back to title+year/title-only.
+  - Indexes follow each domain's lookup rather than one shape for all five: `title`+`year` (tvshow/movie/videogame), `title`+`creator`+`year` (book, whose prefix also serves the year-agnostic tier), `title`+`creator` (album), plus a partial `matched_aliases.isbn` index.
+    An index that does not match the query leaves the `ElemMatch` scanning the collection, which is what the old `title`+`year` index did for books and albums.
+  - Aliases already stored under the old rules are pruned by `scripts/prune-incomplete-matched-aliases.js` (dry run by default, `APPLY=1` to write), then re-run `scripts/mongodb-create-index.js`.
+- `Resolve<X>Async` checks for an existing reference document **by provider id first** (`FindByExternalIdAsync`), falling back to its domain's identity lookup (title+year, or title+creator for books and albums).
   Title text alone can't prevent duplicates - two tenants (or an admin searching twice under different text) easily resolve the same entry through different strings.
   The provider id is invariant and authoritative.
 - `*_tmdb_id`/external-id indexes are `unique: true` with `partialFilterExpression: { "external_ids.<key>": { $exists: true } }`.
@@ -420,12 +436,12 @@ Providers: TMDB (TV/movie), IGDB / RAWG (video games), Discogs (albums), Google 
   Discogs' `year` is hard too (see the per-provider findings below).
   **TMDB's *movie* `year` is not** - `Road House` + 2024 still returns the 1989 film, `Nosferatu` + 2025 returns the 2024 one first - so movies are ranked and never widened, and paying a second call there would guard against a failure mode that does not exist.
 - **Admin queue:** `ReferenceDataAdminController` (`AdminOnly`) handles manual search/link over a 5-way `ReferenceItemType`, using `ExternalId`/`Provider` (not TMDB-specific names) in its DTOs.
-- **The yearless title-only lookup refuses to choose: `FindByTitleAsync` returns the match only when there is exactly one** (`Infrastructure.MongoDb/Repositories/ReferenceTitleQueries.FindSingleMatchAsync`, one shared query over all five collections - each contributes only its filter, books/albums additionally narrowing by creator).
+- **The yearless title-only lookup refuses to choose: `FindByTitleAsync` returns the match only when there is exactly one** (`Infrastructure.MongoDb/Repositories/ReferenceAliasQueries.FindSingleMatchAsync`, which every alias lookup that must not guess reads: the yearless title lookup for film/show/game, and the book `(title, creator)` tier).
   It reads two documents and returns null for "none" *and* for "several", because **ambiguous and no-match are the same answer to a caller that must not guess** - which is why no call site needed changing, every one already treats null as "leave it unresolved".
   It was a plain `FirstOrDefaultAsync` over an unsorted unbounded match, so a yearless "Resident Evil 2" adopted whichever of IGDB's **eight** same-named games sorted first (confirmed in the running app, twice).
   That is the half of the "Road House" finding below that stayed open: that fix stopped a *known* year being ignored and left the yearless path guessing.
   A single match still links - the ordinary case, and the reason the fallback exists at all.
-  Deliberately **not** applied to `FindByTitleYearAsync`: two documents sharing title *and* year are a duplicate to merge, not an ambiguity to refuse.
+  Deliberately **not** applied to `FindByTitleYearAsync` or to the album lookup: two documents sharing a domain's whole identity are a duplicate to merge, not an ambiguity to refuse.
   Existing bad links are cleared by `scripts/unlink-yearless-ambiguous-reference-matches.js` (dry run by default, `APPLY=1` to write).
 
 **Gotcha (`null` string filters, still relevant for old data):** "does this document have no reference link yet" cannot be `Eq(x => x.ReferenceId, null)`.
@@ -940,6 +956,18 @@ Razor only infers C# when the parameter type couldn't accept a string literal (`
 It compiles and renders fine; the bug shows up only in the data, which is how `InlineReferenceLinker` once searched TMDB for the literal `_movie.Title`.
 Always write `Title="@_movie.Title"`.
 
+**A page must never render after the user has navigated away** (`Home.razor`'s `ShouldRender`).
+Blazor renders a component automatically when its async initialisation completes, and enhanced navigation swaps the DOM while that component is still mounted - so a page still loading when its link is clicked paints itself back over the destination, and nothing renders afterwards to undo it.
+Measured on the home page, whose load is `/api/stats`' eleven sequential counts: the destination rendered at 0.79s and the dashboard was back at 1.02s, with the URL and the sidebar's active item both still on the destination; another run put it back **five seconds** after the navigation.
+Rendering only while the browser is still on the page's own route is the fix - the circuit's `NavigationManager` is told about an enhanced navigation (it is what moves the sidebar's active item), so it is a reliable test.
+Any page whose initialisation can outlive a click needs the same guard.
+
+**A detail page's own poll must never re-read over the user** (`Components/Shared/PendingReferenceLink`).
+Creating an item resolves its reference on a detached background task, so a just-created item is unlinked when the detail page first fetches it; the poll re-reads until the link lands, then gives up.
+The catch is that a re-read replaces the page's **whole model**: one issued before a save and answered after it restores the pre-save item, on screen and in the model, from where the next save writes it back to the server.
+Confirmed on a just-created game whose platform was removed inside the polling window - the platform reappeared with everything set on it.
+So the poll stops at the page's first save (`_edited`, set *before* the PUT) **and** the poll's own read discards its answer if a save landed while it was in flight; the loop's guard cannot see that second window on its own.
+
 **Scaling is an app-level design here, not an infrastructure assumption** - the app may sit behind a Cloudflare tunnel with no cookie affinity, so nothing may rely on sticky sessions.
 `DataProtection:MongoDb:*` (opt-in) persists the key ring via `DataProtection/MongoDbXmlRepository` so cookies and antiforgery tokens decrypt on every replica; without it multi-replica cookie auth breaks.
 This is the only reason `BlazorApp.csproj` references `MongoDB.Driver` (it still never references `Domain`/`Infrastructure.MongoDb`).
@@ -1037,6 +1065,11 @@ This is why `ReconnectModal` kept its scaffolded white/blue colors despite an `a
   **Gotcha: a smoke test must stay in the default *list* view.** `ItemGridCard` covers its card with an empty Bootstrap `stretched-link` anchor (the clickable area is the `::after` pseudo-element), so the `<a>` itself has no size and
   Playwright refuses to click it - "element is not visible", on an element it just resolved by accessible name.
   `ListPage.OpenItemAsync` therefore only works in list view, which is what every list page renders by default; switching to thumbnails mid-test breaks it.
+  **`PageBase.WaitForReadyAsync` reloads once and re-asserts, and both halves of why are measured** (`ExpectWithReloadAsync`, also behind `ListPage.ExpectRowThumbnailAsync`).
+  A click can change the URL without the content ever swapping: from a failing run's trace, `GET /cars` answered **200 in 223ms**, the URL became `/cars`, and the DOM still showed Home seconds later, with the circuit's WebSocket having connected 100ms before the click - the prerender-to-interactive gap `ClickUntilAsync` exists for, reached through enhanced navigation rather than an `@onclick`.
+  Waiting longer cannot fix that: the page will never render, and three navigations were lost that way in one run.
+  The second case is a list rendered while a detail page's save is still in flight - that PUT is issued by the *server* over its circuit, so the browser has nothing to wait for and the row keeps showing the pre-save item.
+  A reload only ever runs after the assertion has already failed, so it can't turn a passing test green; if it starts firing often, that is the signal to re-investigate rather than to raise a timeout.
   `MobileScreenshotTest` is an assertion-free visual harness behind `E2E_MOBILE_CHECK=true`, capturing every page at 390x844 into `E2E_MOBILE_DIR`.
   **A failing test's evidence is in `test/BlazorApp.PlaywrightTests/bin/<config>/net10.0/e2e-diagnostics`** - `SmokeTestBase.DisposeAsync` writes a full-page screenshot plus the Playwright trace (unless `E2E_TRACE=off`) there and prints
   the paths to the test output, and since every test class derives from that base it covers the whole suite rather than being opted into per test.

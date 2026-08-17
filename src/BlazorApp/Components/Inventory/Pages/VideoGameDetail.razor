@@ -282,6 +282,10 @@ else
     private VideoGamePlatformDto? _pendingRemovePlatform;
     private bool _pendingUnlink;
 
+    // Whether this page still holds exactly what it loaded.
+    // Only the pending-link poll reads it, to stop re-reading (and so overwriting) an item the user has since changed - see FetchPendingLinkAsync.
+    private bool _edited;
+
     protected override async Task OnParametersSetAsync()
     {
         // Game already holds this route's item when PersistentState restored the prerendered data
@@ -301,16 +305,18 @@ else
         // this) as well as navigating to another item. RefreshReferenceAsync re-opens it afterwards when
         // its own check came back without a link - it sets the flag *after* awaiting this.
         _showLinker = false;
+        _edited = false;
         await LoadingIndicator.RunAsync(FetchAsync(), v => _loading = v, StateHasChanged);
         _loading = false;
         _loaded = true;
 
         // Not awaited: a just-created game is still being resolved on the server, and the page must render now rather than sit blank until that lands.
-        // See PendingReferenceLink for why this is needed at all.
+        // See PendingReferenceLink for why this is needed at all, and for why it stops the moment this page has changes of its own.
         _ = PendingReferenceLink.WatchAsync(
             () => !string.IsNullOrEmpty(Game?.ReferenceId),
-            FetchAsync,
-            () => InvokeAsync(StateHasChanged));
+            FetchPendingLinkAsync,
+            () => InvokeAsync(StateHasChanged),
+            () => !_edited);
     }
 
     private async Task FetchAsync()
@@ -319,11 +325,28 @@ else
         Reference = string.IsNullOrEmpty(Game?.ReferenceId) ? null : await ReferenceDataApi.GetVideoGameAsync(Game.ReferenceId);
     }
 
+    /// <summary>
+    /// The poll's own read - identical to <see cref="FetchAsync"/> except that it throws its answer away when a save landed while it was in flight.
+    /// That window is the one the loop's own guard cannot cover: what it fetched describes the item as it was <em>before</em> the edit, so assigning it would put the removed platform (and everything set on it) back on screen and back into the model, from where the next save would write it to the server.
+    /// </summary>
+    private async Task FetchPendingLinkAsync()
+    {
+        var game = await VideoGameApi.GetOneAsync(Id);
+        var reference = string.IsNullOrEmpty(game?.ReferenceId) ? null : await ReferenceDataApi.GetVideoGameAsync(game.ReferenceId);
+        if (_edited) return;
+
+        Game = game;
+        Reference = reference;
+    }
+
     /// <summary>Every mutation on this page follows the same shape: mutate <c>Game</c> locally, then PUT
     /// the whole DTO - shared here since the per-platform/per-playthrough editors below call it often.</summary>
     private async Task SaveGameAsync()
     {
         if (Game is null) return;
+        // records that the page now holds something the server's copy may not - see FetchPendingLinkAsync.
+        // Set before the PUT, not after: the read this has to beat can be in flight already.
+        _edited = true;
         await VideoGameApi.UpdateAsync(Game);
     }
 

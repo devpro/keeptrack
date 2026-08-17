@@ -13,9 +13,9 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 /// </summary>
 public class ReferenceDataAdminPage(IPage page) : PageBase(page)
 {
-    public override async Task WaitForReadyAsync()
+    protected override async Task AssertReadyAsync()
     {
-        await base.WaitForReadyAsync();
+        await base.AssertReadyAsync();
         await Assertions.Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Reference data", Level = 1 })).ToBeVisibleAsync();
     }
 

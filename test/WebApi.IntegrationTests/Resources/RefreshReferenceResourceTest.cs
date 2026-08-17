@@ -28,17 +28,23 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
         using var scope = Factory.Services.CreateScope();
         var referenceRepository = scope.ServiceProvider.GetRequiredService<ITvShowReferenceRepository>();
         var title = $"Refresh Reference Test Show {Guid.NewGuid()}";
+        // unique per test, like the searched title: creating the show links it in the background, which rewrites its title to the canonical one, so the refresh below looks the *canonical* title up.
+        // A canonical title two tests share would let that lookup answer with the other test's document.
+        var canonicalTitle = $"Canonical Refresh Show {Guid.NewGuid()}";
         const int year = 2019;
 
         var reference = await referenceRepository.UpsertAsync(new TvShowReferenceModel
         {
-            Title = "Canonical Title",
-            TitleNormalized = "canonical title",
+            Title = canonicalTitle,
+            TitleNormalized = TitleNormalizer.Normalize(canonicalTitle),
             Year = year,
             ExternalIds = new Dictionary<string, string> { ["tmdb"] = TestExternalId.New() },
-            // the reference is only found by the show's own (title, year) via its aliases - a real reference
-            // resolved from this show would carry exactly this alias (see MatchedAliases / TryLinkExisting...)
-            MatchedAliases = [new ReferenceMatchModel { Title = TitleNormalizer.Normalize(title), Year = year }]
+            // both aliases a real resolve records: the canonical (title, year) and whatever the tenant searched with (see MatchedAliases / ReferenceAliasRule)
+            MatchedAliases =
+            [
+                new ReferenceMatchModel { Title = TitleNormalizer.Normalize(canonicalTitle), Year = year },
+                new ReferenceMatchModel { Title = TitleNormalizer.Normalize(title), Year = year }
+            ]
         });
         TrackDocument("tvshow_reference", reference.Id);
 
@@ -48,7 +54,7 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
         var refreshed = await PostAsync<TvShowDto?>($"/api/tv-shows/{created.Id}/refresh-reference", null, HttpStatusCode.OK);
 
         refreshed!.ReferenceId.Should().Be(reference.Id);
-        refreshed.Title.Should().Be("Canonical Title");
+        refreshed.Title.Should().Be(canonicalTitle);
     }
 
     [Fact]
@@ -69,15 +75,20 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
         using var scope = Factory.Services.CreateScope();
         var referenceRepository = scope.ServiceProvider.GetRequiredService<IMovieReferenceRepository>();
         var title = $"Refresh Reference Test Movie {Guid.NewGuid()}";
+        var canonicalTitle = $"Canonical Refresh Movie {Guid.NewGuid()}"; // see the TV show case
         const int year = 2019;
 
         var reference = await referenceRepository.UpsertAsync(new MovieReferenceModel
         {
-            Title = "Canonical Movie Title",
-            TitleNormalized = "canonical movie title",
+            Title = canonicalTitle,
+            TitleNormalized = TitleNormalizer.Normalize(canonicalTitle),
             Year = year,
             ExternalIds = new Dictionary<string, string> { ["tmdb"] = TestExternalId.New() },
-            MatchedAliases = [new ReferenceMatchModel { Title = TitleNormalizer.Normalize(title), Year = year }]
+            MatchedAliases =
+            [
+                new ReferenceMatchModel { Title = TitleNormalizer.Normalize(canonicalTitle), Year = year },
+                new ReferenceMatchModel { Title = TitleNormalizer.Normalize(title), Year = year }
+            ]
         });
         TrackDocument("movie_reference", reference.Id);
 
@@ -87,7 +98,7 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
         var refreshed = await PostAsync<MovieDto?>($"/api/movies/{created.Id}/refresh-reference", null, HttpStatusCode.OK);
 
         refreshed!.ReferenceId.Should().Be(reference.Id);
-        refreshed.Title.Should().Be("Canonical Movie Title");
+        refreshed.Title.Should().Be(canonicalTitle);
     }
 
     [Fact]
@@ -96,16 +107,21 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
         using var scope = Factory.Services.CreateScope();
         var referenceRepository = scope.ServiceProvider.GetRequiredService<IBookReferenceRepository>();
         var title = $"Refresh Reference Test Book {Guid.NewGuid()}";
+        var canonicalTitle = $"Canonical Refresh Book {Guid.NewGuid()}"; // see the TV show case
         const int year = 2019;
 
         var reference = await referenceRepository.UpsertAsync(new BookReferenceModel
         {
-            Title = "Canonical Book Title",
-            TitleNormalized = "canonical book title",
+            Title = canonicalTitle,
+            TitleNormalized = TitleNormalizer.Normalize(canonicalTitle),
             Year = year,
             ExternalIds = new Dictionary<string, string> { ["openlibrary"] = TestExternalId.New() },
-            // book/album aliases also carry the normalized creator - the lookup matches title+year+creator
-            MatchedAliases = [new ReferenceMatchModel { Title = TitleNormalizer.Normalize(title), Year = year, Creator = TitleNormalizer.Normalize("Some Author") }]
+            // book/album aliases also carry the normalized creator - it is part of the identity here, and a creator-less alias is refused outright (see ReferenceAliasRule), which is why the canonical one has to be seeded rather than left to the repository
+            MatchedAliases =
+            [
+                new ReferenceMatchModel { Title = TitleNormalizer.Normalize(canonicalTitle), Year = year, Creator = TitleNormalizer.Normalize("Some Author") },
+                new ReferenceMatchModel { Title = TitleNormalizer.Normalize(title), Year = year, Creator = TitleNormalizer.Normalize("Some Author") }
+            ]
         });
         TrackDocument("book_reference", reference.Id);
 
@@ -115,7 +131,7 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
         var refreshed = await PostAsync<BookDto?>($"/api/books/{created.Id}/refresh-reference", null, HttpStatusCode.OK);
 
         refreshed!.ReferenceId.Should().Be(reference.Id);
-        refreshed.Title.Should().Be("Canonical Book Title");
+        refreshed.Title.Should().Be(canonicalTitle);
     }
 
     [Fact]
@@ -124,15 +140,20 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
         using var scope = Factory.Services.CreateScope();
         var referenceRepository = scope.ServiceProvider.GetRequiredService<IVideoGameReferenceRepository>();
         var title = $"Refresh Reference Test Game {Guid.NewGuid()}";
+        var canonicalTitle = $"Canonical Refresh Game {Guid.NewGuid()}"; // see the TV show case
         const int year = 2019;
 
         var reference = await referenceRepository.UpsertAsync(new VideoGameReferenceModel
         {
-            Title = "Canonical Game Title",
-            TitleNormalized = "canonical game title",
+            Title = canonicalTitle,
+            TitleNormalized = TitleNormalizer.Normalize(canonicalTitle),
             Year = year,
             ExternalIds = new Dictionary<string, string> { ["rawg"] = TestExternalId.New() },
-            MatchedAliases = [new ReferenceMatchModel { Title = TitleNormalizer.Normalize(title), Year = year }]
+            MatchedAliases =
+            [
+                new ReferenceMatchModel { Title = TitleNormalizer.Normalize(canonicalTitle), Year = year },
+                new ReferenceMatchModel { Title = TitleNormalizer.Normalize(title), Year = year }
+            ]
         });
         TrackDocument("videogame_reference", reference.Id);
 
@@ -142,7 +163,7 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
         var refreshed = await PostAsync<VideoGameDto?>($"/api/video-games/{created.Id}/refresh-reference", null, HttpStatusCode.OK);
 
         refreshed!.ReferenceId.Should().Be(reference.Id);
-        refreshed.Title.Should().Be("Canonical Game Title");
+        refreshed.Title.Should().Be(canonicalTitle);
     }
 
     [Fact]
@@ -151,15 +172,21 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
         using var scope = Factory.Services.CreateScope();
         var referenceRepository = scope.ServiceProvider.GetRequiredService<IAlbumReferenceRepository>();
         var title = $"Refresh Reference Test Album {Guid.NewGuid()}";
+        var canonicalTitle = $"Canonical Refresh Album {Guid.NewGuid()}"; // see the TV show case
         const int year = 2019;
 
         var reference = await referenceRepository.UpsertAsync(new AlbumReferenceModel
         {
-            Title = "Canonical Album Title",
-            TitleNormalized = "canonical album title",
+            Title = canonicalTitle,
+            TitleNormalized = TitleNormalizer.Normalize(canonicalTitle),
             Year = year,
             ExternalIds = new Dictionary<string, string> { ["discogs"] = TestExternalId.New() },
-            MatchedAliases = [new ReferenceMatchModel { Title = TitleNormalizer.Normalize(title), Year = year, Creator = TitleNormalizer.Normalize("Some Artist") }]
+            // an album alias carries no year at all - title + artist is the identity (see ReferenceAliasRule)
+            MatchedAliases =
+            [
+                new ReferenceMatchModel { Title = TitleNormalizer.Normalize(canonicalTitle), Creator = TitleNormalizer.Normalize("Some Artist") },
+                new ReferenceMatchModel { Title = TitleNormalizer.Normalize(title), Creator = TitleNormalizer.Normalize("Some Artist") }
+            ]
         });
         TrackDocument("album_reference", reference.Id);
 
@@ -169,7 +196,7 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
         var refreshed = await PostAsync<AlbumDto?>($"/api/albums/{created.Id}/refresh-reference", null, HttpStatusCode.OK);
 
         refreshed!.ReferenceId.Should().Be(reference.Id);
-        refreshed.Title.Should().Be("Canonical Album Title");
+        refreshed.Title.Should().Be(canonicalTitle);
     }
 
     /// <summary>

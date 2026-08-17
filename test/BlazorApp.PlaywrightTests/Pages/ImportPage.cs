@@ -9,9 +9,9 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 /// </summary>
 public class ImportPage(IPage page) : PageBase(page)
 {
-    public override async Task WaitForReadyAsync()
+    protected override async Task AssertReadyAsync()
     {
-        await base.WaitForReadyAsync();
+        await base.AssertReadyAsync();
         // Unique to the landing page (the Amazon/video-game sub-pages don't carry this heading).
         await Assertions.Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "TV Time", Level = 1 })).ToBeVisibleAsync();
     }

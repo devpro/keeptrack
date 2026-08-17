@@ -9,7 +9,7 @@ namespace Keeptrack.Infrastructure.MongoDb.Entities;
 /// Shared, owner-less show metadata collection (<c>tvshow_reference</c>). Deliberately has no
 /// <c>owner_id</c> - see <see cref="Keeptrack.Domain.Models.TvShowReferenceModel"/> for why.
 /// </summary>
-public class TvShowReference
+public class TvShowReference : IHasMatchedAliases
 {
     [BsonId]
     [BsonRepresentation(BsonType.ObjectId)]
