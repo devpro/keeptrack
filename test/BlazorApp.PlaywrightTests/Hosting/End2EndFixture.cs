@@ -93,7 +93,12 @@ public sealed class End2EndFixture : IAsyncLifetime
             _webApiFactory = new KestrelWebAppFactory<Keeptrack.WebApi.Program>(
                 WebApiKestrelUrlOverride,
                 new KeyValuePair<string, string?>("Features:IsReferenceSyncEnabled", "false"),
-                new KeyValuePair<string, string?>("Infrastructure:MongoDB:DatabaseName", End2EndConfiguration.DatabaseName));
+                new KeyValuePair<string, string?>("Infrastructure:MongoDB:DatabaseName", End2EndConfiguration.DatabaseName),
+                // Pinned to igdb rather than inherited from appsettings.Development.json, so the suite doesn't
+                // drift with an unrelated deployment choice: IGDB is the more stable provider and is what
+                // VideoGameReferenceMatchSmokeTest is written against (it hard-requires Igdb__ClientId/
+                // Igdb__ClientSecret but deliberately not Rawg__ApiKey).
+                new KeyValuePair<string, string?>("ReferenceData:VideoGameProvider", "igdb"));
             _webApiBaseUrl = _webApiFactory.ServerAddress;
 
             // The hosted Blazor app needs WebApi:BaseUrl injected with the WebApi host's own dynamic address -

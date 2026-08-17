@@ -8,6 +8,12 @@ namespace Keeptrack.WebApi.IntegrationTests.Hosting;
 /// disabling <see cref="Keeptrack.WebApi.ReferenceData.ReferenceSyncBackgroundService"/> so it doesn't fire real
 /// TMDB calls against shared test data on every host start-up (see <see cref="Keeptrack.WebApi.AppConfiguration.IsReferenceSyncEnabled"/>).
 /// <para>
+/// <c>ReferenceData:VideoGameProvider</c> is pinned to <c>igdb</c> here rather than left to inherit whatever
+/// <c>appsettings.Development.json</c> currently says, so the suite doesn't drift with an unrelated deployment
+/// choice. IGDB is the more stable provider, and this is what every video game reference test is written
+/// against, including <c>VideoGameReferenceMatchSmokeTest</c>, which hard-requires <c>Igdb__ClientId</c>/
+/// <c>Igdb__ClientSecret</c> but deliberately not <c>Rawg__ApiKey</c>.</para>
+/// <para>
 /// Every fixture in this project routes through here, which is why the database is settled in the constructor:
 /// the name comes from <see cref="IntegrationTestDatabase"/> (defaulted, not required), it is pushed into the
 /// host's configuration so no appsettings fallback can reach <c>keeptrack_dev</c>, and
@@ -34,6 +40,7 @@ public class KestrelWebAppFactory<TEntryPoint> : Keeptrack.Testing.Shared.Hostin
         [
             new("Features:IsReferenceSyncEnabled", "false"),
             new("Infrastructure:MongoDB:DatabaseName", IntegrationTestDatabase.Name),
+            new("ReferenceData:VideoGameProvider", "igdb"),
             .. configOverrides
         ])
     {
