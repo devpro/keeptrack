@@ -4,75 +4,78 @@
 
 <PageTitle>Keeptrack</PageTitle>
 
-<div class="kt-home">
-    <AuthorizeView>
-        <Authorized>
-            <div class="kt-home-eyebrow">Your personal collection</div>
-            @if (!_loaded)
-            {
-                @if (_loading)
+@if (IsStillTheCurrentPage)
+{
+    <div class="kt-home">
+        <AuthorizeView>
+            <Authorized>
+                <div class="kt-home-eyebrow">Your personal collection</div>
+                @if (!_loaded)
                 {
-                    <div class="kt-loading">
-                        <div class="kt-spinner"></div>
-                        Loading…
+                    @if (_loading)
+                    {
+                        <div class="kt-loading">
+                            <div class="kt-spinner"></div>
+                            Loading…
+                        </div>
+                    }
+                }
+                else if (Stats is not null && TotalItems > 0)
+                {
+                    <h1>Welcome back —<br/><em>@TotalItems.ToString("N0") things remembered.</em></h1>
+                    <p class="kt-home-sub">
+                        Good work building this up@(Stats.EpisodesWatched > 0 ? $" — including {Stats.EpisodesWatched:N0} episodes watched across your shows" : "").
+                        Every entry below is one more thing you'll never lose.
+                    </p>
+                    <div class="kt-stat-grid">
+                        <a class="kt-stat-tile" href="/movies"><span class="kt-stat-value">@Stats.Movies</span><span class="kt-stat-label">Movies</span></a>
+                        <a class="kt-stat-tile" href="/tv-shows"><span class="kt-stat-value">@Stats.TvShows</span><span class="kt-stat-label">TV shows</span></a>
+                        <a class="kt-stat-tile" href="/books"><span class="kt-stat-value">@Stats.Books</span><span class="kt-stat-label">Books</span></a>
+                        <a class="kt-stat-tile" href="/albums"><span class="kt-stat-value">@Stats.Albums</span><span class="kt-stat-label">Albums</span></a>
+                        <a class="kt-stat-tile" href="/video-games"><span class="kt-stat-value">@Stats.VideoGames</span><span class="kt-stat-label">Video games</span></a>
+                        <a class="kt-stat-tile" href="/playlists"><span class="kt-stat-value">@Stats.Playlists</span><span class="kt-stat-label">Playlists</span></a>
+                        <a class="kt-stat-tile" href="/cars"><span class="kt-stat-value">@Stats.Cars</span><span class="kt-stat-label">Cars</span></a>
+                        <a class="kt-stat-tile" href="/houses"><span class="kt-stat-value">@Stats.Houses</span><span class="kt-stat-label">Houses</span></a>
+                        <a class="kt-stat-tile" href="/collectibles"><span class="kt-stat-value">@Stats.Collectibles</span><span class="kt-stat-label">Collectibles</span></a>
+                        <a class="kt-stat-tile" href="/gear"><span class="kt-stat-value">@Stats.Gear</span><span class="kt-stat-label">Gear</span></a>
                     </div>
                 }
-            }
-            else if (Stats is not null && TotalItems > 0)
-            {
-                <h1>Welcome back —<br/><em>@TotalItems.ToString("N0") things remembered.</em></h1>
-                <p class="kt-home-sub">
-                    Good work building this up@(Stats.EpisodesWatched > 0 ? $" — including {Stats.EpisodesWatched:N0} episodes watched across your shows" : "").
-                    Every entry below is one more thing you'll never lose.
-                </p>
-                <div class="kt-stat-grid">
-                    <a class="kt-stat-tile" href="/movies"><span class="kt-stat-value">@Stats.Movies</span><span class="kt-stat-label">Movies</span></a>
-                    <a class="kt-stat-tile" href="/tv-shows"><span class="kt-stat-value">@Stats.TvShows</span><span class="kt-stat-label">TV shows</span></a>
-                    <a class="kt-stat-tile" href="/books"><span class="kt-stat-value">@Stats.Books</span><span class="kt-stat-label">Books</span></a>
-                    <a class="kt-stat-tile" href="/albums"><span class="kt-stat-value">@Stats.Albums</span><span class="kt-stat-label">Albums</span></a>
-                    <a class="kt-stat-tile" href="/video-games"><span class="kt-stat-value">@Stats.VideoGames</span><span class="kt-stat-label">Video games</span></a>
-                    <a class="kt-stat-tile" href="/playlists"><span class="kt-stat-value">@Stats.Playlists</span><span class="kt-stat-label">Playlists</span></a>
-                    <a class="kt-stat-tile" href="/cars"><span class="kt-stat-value">@Stats.Cars</span><span class="kt-stat-label">Cars</span></a>
-                    <a class="kt-stat-tile" href="/houses"><span class="kt-stat-value">@Stats.Houses</span><span class="kt-stat-label">Houses</span></a>
-                    <a class="kt-stat-tile" href="/collectibles"><span class="kt-stat-value">@Stats.Collectibles</span><span class="kt-stat-label">Collectibles</span></a>
-                    <a class="kt-stat-tile" href="/gear"><span class="kt-stat-value">@Stats.Gear</span><span class="kt-stat-label">Gear</span></a>
-                </div>
-            }
-            else
-            {
+                else
+                {
+                    <h1>Everything you do,<br/><em>remembered.</em></h1>
+                    <p class="kt-home-sub">
+                        Your collection is waiting for its first entry - log a film watched, a book read, an album on repeat.
+                        Rate it, note it, never lose it.
+                    </p>
+                    <div class="kt-home-cta">
+                        <a class="btn btn-primary" href="/add">+ Quick add</a>
+                        <a class="btn btn-secondary" href="/movies">Go to my movies</a>
+                    </div>
+                }
+            </Authorized>
+            <NotAuthorized>
+                <div class="kt-home-eyebrow">Your personal collection</div>
                 <h1>Everything you do,<br/><em>remembered.</em></h1>
                 <p class="kt-home-sub">
-                    Your collection is waiting for its first entry - log a film watched, a book read, an album on repeat.
-                    Rate it, note it, never lose it.
+                    Keeptrack is your quiet space to log the things that matter - films watched, books read, places visited, habits tracked.
+                    Rate them, note them, never lose them.
                 </p>
-                <div class="kt-home-cta">
-                    <a class="btn btn-primary" href="/add">+ Quick add</a>
-                    <a class="btn btn-secondary" href="/movies">Go to my movies</a>
+
+                <div class="kt-home-features">
+                    <span class="kt-home-feature"><Icon Name="movies" Size="13"/> Movies</span>
+                    <span class="kt-home-feature"><Icon Name="tv-shows" Size="13"/> TV shows</span>
+                    <span class="kt-home-feature"><Icon Name="books" Size="13"/> Books</span>
+                    <span class="kt-home-feature"><Icon Name="cars" Size="13"/> Refuelling</span>
+                    <span class="kt-home-feature">+ more</span>
                 </div>
-            }
-        </Authorized>
-        <NotAuthorized>
-            <div class="kt-home-eyebrow">Your personal collection</div>
-            <h1>Everything you do,<br/><em>remembered.</em></h1>
-            <p class="kt-home-sub">
-                Keeptrack is your quiet space to log the things that matter - films watched, books read, places visited, habits tracked.
-                Rate them, note them, never lose them.
-            </p>
 
-            <div class="kt-home-features">
-                <span class="kt-home-feature"><Icon Name="movies" Size="13"/> Movies</span>
-                <span class="kt-home-feature"><Icon Name="tv-shows" Size="13"/> TV shows</span>
-                <span class="kt-home-feature"><Icon Name="books" Size="13"/> Books</span>
-                <span class="kt-home-feature"><Icon Name="cars" Size="13"/> Refuelling</span>
-                <span class="kt-home-feature">+ more</span>
-            </div>
-
-            <div class="kt-home-cta">
-                <a class="btn btn-primary" href="/account/login" data-enhance-nav="false">Get started</a>
-            </div>
-        </NotAuthorized>
-    </AuthorizeView>
-</div>
+                <div class="kt-home-cta">
+                    <a class="btn btn-primary" href="/account/login" data-enhance-nav="false">Get started</a>
+                </div>
+            </NotAuthorized>
+        </AuthorizeView>
+    </div>
+}
 
 @code {
     [CascadingParameter] private Task<AuthenticationState>? AuthenticationState { get; set; }
@@ -109,6 +112,11 @@
     /// Measured from a failing run's trace, and it is a user-facing bug rather than a test artifact: the click landed 150ms after this page loaded, <c>/health</c> rendered at 0.79s, and at 1.02s the dashboard was back - with the URL still <c>/health</c> and the sidebar still showing Health as the active item.
     /// Another run put it back five seconds after the navigation.
     /// Anyone clicking a nav link while this page is still loading sees the same thing.
+    /// </para>
+    /// <para>
+    /// This guard alone isn't enough: Blazor never calls <c>ShouldRender</c> for a component's first render, and the static-to-interactive handoff on circuit connect counts as one.
+    /// A second trace caught it: the circuit connected 20ms before a sidebar click, so this page's unconditional first interactive paint landed after enhanced navigation had already swapped the DOM to <c>/explore</c>, stomping over it with <c>ShouldRender</c> never in the loop.
+    /// The markup's own <c>@if (IsStillTheCurrentPage)</c> wrapper is what closes that gap, since it applies to every render including the first.
     /// </para>
     /// </summary>
     protected override bool ShouldRender() => IsStillTheCurrentPage;
