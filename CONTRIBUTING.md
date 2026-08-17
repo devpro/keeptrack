@@ -291,6 +291,19 @@ So run each pattern as its own `dotnet test` invocation.
 This project's test runner is `Microsoft.Testing.Platform` (`UseMicrosoftTestingPlatformRunner`, xunit v3), which does **not** understand the classic VSTest `--settings <file>.runsettings` flag - passing it also just prints the help.
 `Local.runsettings` (below) is read automatically by Rider/Visual Studio for IDE-driven runs; for a CLI run, export the same values as environment variables instead (see "Integration tests" below).
 
+`scripts/load-runsettings.js` does that export for an existing `Local.runsettings`, so the values only have to be written once:
+
+```bash
+eval "$(node scripts/load-runsettings.js)"
+dotnet test --project test/WebApi.IntegrationTests/WebApi.IntegrationTests.csproj --filter-method "*WishlistResourceTest*"
+```
+
+**Do not source the file's values as plain `NAME=value` lines instead.**
+Sourcing runs every value through shell expansion, so a password containing `$` silently loses everything from the `$` to the next non-word character.
+The only symptom is Firebase answering `INVALID_PASSWORD`, which reads as a wrong password rather than as a mangled one.
+The script single-quotes every value, escapes any embedded `'`, decodes XML entities, and skips commented-out variables.
+The PowerShell one-liner further down has no such trap, because `Set-Item -Value` never re-parses what it is given.
+
 ### Unit tests
 
 No configuration needed - `dotnet test test/WebApi.UnitTests/WebApi.UnitTests.csproj` works as soon as the solution restores.

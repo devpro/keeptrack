@@ -7,7 +7,7 @@
 }
 @foreach (var entry in Item.Platforms)
 {
-    <span class="kt-status-badge @StateBadgeClass(entry.State ?? "")">
+    <span class="kt-status-badge @Pages.VideoGames.StateBadgeClass(entry.State ?? "")">
         @entry.Platform@(string.IsNullOrEmpty(entry.State) ? "" : $" ({entry.State})")
     </span>
 }
@@ -27,10 +27,4 @@
 
 @code {
     [Parameter] public required VideoGameDto Item { get; set; }
-
-    /// <summary>
-    /// The <c>kt-status-badge</c> modifier class for a state value (see app.css) - same badge/color pattern
-    /// as the TV show status column.
-    /// </summary>
-    private static string StateBadgeClass(string state) => state.ToLowerInvariant().Replace(" ", "-");
 }

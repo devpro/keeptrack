@@ -93,6 +93,19 @@ $rs.RunSettings.RunConfiguration.EnvironmentVariables.ChildNodes | Where-Object 
 dotnet test test/WebApi.IntegrationTests/WebApi.IntegrationTests.csproj --filter-method "Keeptrack.WebApi.IntegrationTests.Resources.WishlistResourceTest.*"
 ```
 
+On bash, `scripts/load-runsettings.js` is the equivalent:
+
+```bash
+eval "$(node scripts/load-runsettings.js)"
+dotnet test --project test/WebApi.IntegrationTests/WebApi.IntegrationTests.csproj --filter-method "*WishlistResourceTest*"
+```
+
+**Never convert those values into plain `NAME=value` lines and source them.**
+Sourcing runs each value through shell expansion, so a secret containing `$` silently loses everything from the `$` to the next non-word character.
+It surfaces as Firebase answering `INVALID_PASSWORD`, which reads as a wrong password rather than a mangled one, and a real session lost an hour to it.
+The script single-quotes every value, escapes any embedded `'`, decodes XML entities and skips commented-out variables.
+The PowerShell form above is immune for the same reason: `Set-Item -Value` never re-parses what it is given.
+
 A full unfiltered run can still use `--settings`.
 
 ## Architecture
@@ -890,7 +903,21 @@ Nav rows are grouped by three `.kt-nav-group` labels, and **Manage** sits inside
 
 **A media detail page's hero is `DetailHero.razor`**, not a Bootstrap column split: cover on the left at a real size (230px portrait, 260px square), fields on the right, stacking below 767px with the cover *capped* rather than full-bleed.
 The component owns the "no cover means single column" rule, the per-shape sizing and the breakpoint, and renders the fields `.row` itself, so a page supplies only `col-*` children.
-Video games (full-width 16:9 key art) and Gear/Collectibles (`.kt-product-cover-box`, "contain" so a product photo is never cropped) deliberately stay out of it: different needs, not the same layout done differently.
+Video games (`.kt-game-banner`, full-width key art) and Gear/Collectibles (`.kt-product-cover-box`, "contain" so a product photo is never cropped) deliberately stay out of it: different needs, not the same layout done differently.
+
+**A video game's artwork is a full-width banner, and that follows from the stored data rather than from the provider's documentation.**
+Counted on the real collection: 329 of 345 references carry RAWG key art (measured 1536x864 and 1438x810, exactly 16:9) and 16 carry IGDB box art (810x1080 portrait), because a stored RAWG image is never overwritten by another provider (`PreferredImageUrl`) even though IGDB is now the default.
+Wide is the shape this page is built around, so shrinking the banner into a `DetailHero`-style side column to suit the portrait minority makes the page worse for 95% of the collection.
+**Count the collection before redesigning around an aspect ratio**: `db.videogame_reference.find({}, {image_url: 1})` grouped by host answers it in one query.
+
+What was wrong with the old `width: 100%; max-height: 320px; object-fit: cover` is the cropping, for *both* shapes: it makes a box far wider than 16:9, so key art lost the top and bottom of every frame and a portrait cover was cut to a strip.
+So `.kt-game-banner` is a plain `aspect-ratio: 16 / 9` box holding the art with `object-fit: cover`, which crops nothing at all for the ordinary case and takes a few percent off one edge of the handful that are 16:10 or wider.
+The few portrait covers are cropped hard by the same rule, deliberately: a zoom into the middle of the box art is preferred over empty bands either side of it, and `object-position: center 40%` biases that crop upward because box art carries its title at the top.
+
+**The banner is not wrapped in a card**, and that was owner feedback after it briefly was.
+It needs no surface, border or padding of its own, a card only inset the artwork and added a gap the rest of the page does not have, and `.kt-form-card`'s own padding is declared later in `app.css` so a bare `.kt-game-banner-card { padding: 0 }` lost the cascade to it anyway.
+The banner takes the same width as the cards below it and its height follows from the ratio.
+The page sits in its own `.kt-game-page` column (920px) rather than `.content`'s 1100px, so the artwork, the fields and the platform cards share one width and the synopsis lines stay shorter than the banner above them.
 
 **`.kt-corner-flag` is the "watched"/"read" toggle, and it stays a corner flag on purpose.**
 It was briefly moved into the header row beside Favorites/Watchlist/Wishlist for consistency, and that was wrong.

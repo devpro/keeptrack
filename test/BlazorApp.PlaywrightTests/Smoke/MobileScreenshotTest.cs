@@ -109,6 +109,7 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             // targeted by title (not "first") so these two land on the CustomImageUrl-seeded items specifically,
             // not whichever item happens to sort first in a list that grows over time
             await CaptureDetailByTitleAsync("/video-games", "Hades", "video-game-detail");
+            await CaptureDetailByTitleAsync("/video-games", "Half-Life 2", "video-game-detail-provider-art");
             await CaptureDetailByTitleAsync("/albums", "Nevermind", "album-detail");
 
             // The Add form modal on a list page.
@@ -164,8 +165,15 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
                 await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(MobileDirectory, "admin-album-expanded.png"), FullPage = true });
             }
 
+            // Desktop detail pages, targeted by title for the same reason the phone captures are.
+            // "First in the list" drifts as the seeded set grows, so a desktop shot could silently stop covering the page it was added for.
             await Page.SetViewportSizeAsync(1280, 900);
-            await CaptureFirstDetailAsync("/video-games", "video-game-detail-desktop");
+            await CaptureDetailByTitleAsync("/video-games", "Half-Life 2", "video-game-detail-provider-art-desktop");
+            await CaptureDetailByTitleAsync("/video-games", "Hades", "video-game-detail-desktop");
+            await CaptureDetailByTitleAsync("/albums", "Nevermind", "album-detail-desktop");
+            await CaptureFirstDetailAsync("/movies", "movie-detail-desktop");
+            await CaptureFirstDetailAsync("/tv-shows", "tvshow-detail-desktop");
+            await CaptureFirstDetailAsync("/books", "book-detail-desktop");
 
             // The same grid + list views at desktop width, to verify the responsive grid columns at both
             // breakpoints. Drive the view via the persisted preference, then restore list for the list shot.
@@ -273,8 +281,18 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             // taking priority over the linked RAWG cover it's about to be linked to below
             CustomImageUrl = "https://picsum.photos/seed/hades-custom-cover/600/300"
         });
+        // The same, with no CustomImageUrl, so the captures include a game showing the provider's own artwork.
+        // Every other seeded game overrides its cover, which is right for proving the override renders and useless for reviewing the artwork the collection actually holds.
+        await CreateAsync(api, created, "api/video-games", new VideoGameDto
+        {
+            Title = "Half-Life 2",
+            Year = 2004,
+            Rating = 5f,
+            Platforms = [new VideoGamePlatformDto { Platform = "PC", CopyType = CopyType.Digital, State = "Completed" }]
+        });
         await LinkFirstCandidateAsync(api, ReferenceItemType.Album, "Nevermind", 1991, "Nirvana");
         await LinkFirstCandidateAsync(api, ReferenceItemType.VideoGame, "Hades", 2020, null);
+        await LinkFirstCandidateAsync(api, ReferenceItemType.VideoGame, "Half-Life 2", 2004, null);
 
         // a health journal with a settled appointment, an unbalanced one (drives the "to check" panel)
         // and a sickness entry, so the detail shot shows every section

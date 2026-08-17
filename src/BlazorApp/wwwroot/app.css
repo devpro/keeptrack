@@ -865,6 +865,102 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   .kt-product-cover-box { height: 320px; }
 }
 
+/* The video game detail page's own column.
+   .content is 1100px wide because the list pages need it, which on this page leaves every card, and every line of synopsis in them, far wider than the artwork at the top.
+   Narrowing the page rather than each card is what keeps the banner, the fields and the platform cards on one shared width. */
+.kt-game-page {
+  max-width: 920px;
+  margin-inline: auto;
+}
+
+/* Video game banner (VideoGameDetail.razor): the game's artwork, full width, at the top of the page.
+
+   Measured against the real collection rather than assumed.
+   329 of 345 stored covers are RAWG key art (1536x864 and 1438x810, exactly 16:9), 16 are IGDB box art (810x1080 portrait).
+   The wide banner is therefore the shape this page is built around, which is why it never used .kt-detail-hero's side-by-side poster column.
+   Shrinking the banner into a fixed side column to suit the portrait minority makes the page worse for 95% of the collection.
+
+   The box is exactly 16:9 and the artwork fills its whole width, with no letterboxing at the sides in any case.
+   A random sample of the stored RAWG images measured 1920x1080, 4000x2250, 2560x1440, 1536x864 and 1000x562, all exactly 16:9, so `object-fit: cover` crops nothing at all for the ordinary case.
+   The few that are not (2048x1280, 1763x932, 3761x2158) lose a few percent of one edge, which is the accepted trade for never showing empty space beside the artwork.
+   A portrait cover is cropped hard by the same rule, which is deliberate: a zoom into the middle of the box art is preferred over bands either side of it, and IGDB is no longer the default provider.
+
+   The artwork is not wrapped in a .kt-form-card: it needs no surface, no border and no padding of its own, and a card around it only inset it and added a gap the rest of the page does not have.
+   It takes the same width as the cards below it instead, so its height follows from the ratio and the page column. */
+.kt-game-banner {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  /* the same radius as a .kt-form-card, since the banner sits in the same column and reads as the first block of it */
+  border-radius: var(--kt-radius-lg);
+  /* tighter than a card's own 1.75rem: the artwork and the fields under it are one unit, not two sections */
+  margin-bottom: 1rem;
+  background: var(--kt-surface-2);
+}
+.kt-game-banner-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Slightly above centre, which only has an effect on a portrait cover since 16:9 art has no vertical overflow to position.
+     Box art carries its title at the top, so a dead-centre crop is the one that loses it. */
+  object-position: center 40%;
+}
+/* No artwork: a short strip carrying the item's initial, rather than a blank block that reads as a failed image load.
+   It drops the 16:9 ratio deliberately: there is no artwork to give room to, and a full-height empty banner would be the largest thing on the page for the items with the least to show. */
+.kt-game-banner-none { aspect-ratio: auto; height: 150px; }
+.kt-game-banner-empty {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+.kt-game-banner-empty .kt-cover-initial { font-size: 4rem; }
+
+/* A set of short read-only facts (a game's genres, the platforms it released on) as a wrapping row of pills.
+   Comma-joined into a sentence they read as a paragraph of metadata and get skipped over. */
+.kt-chip-row { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.kt-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: 20px;
+  border: 1px solid var(--kt-border);
+  background: var(--kt-surface-2);
+  color: var(--kt-text-muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+/* Header row of a copy card (a video game's per-platform entry).
+   The platform name, then the badges saying what state that copy is in, then the card's own actions pushed to the end. */
+.kt-copy-card-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+.kt-copy-card-header h3 { font-size: 1.1rem; margin: 0; }
+.kt-copy-card-header .kt-copy-card-actions { margin-left: auto; }
+
+/* One playthrough per row: label, date, remove.
+   A grid rather than a flex row, so the date input keeps a real width instead of being squeezed by a growing label input, and so the columns line up down the list. */
+.kt-playthrough-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 170px auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+@media (max-width: 575px) {
+  /* The label takes its own full-width line and the date sits beside the remove button below it.
+     Three controls abreast on a phone leaves the date unreadable. */
+  .kt-playthrough-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .kt-playthrough-row > :first-child { grid-column: 1 / -1; }
+}
+
 /* compact aligned row for a list of tracks/songs inside a .kt-form-card (e.g. a playlist's song list) -
    a CSS grid so title/artist/album line up in columns across rows without resorting to a full
    .kt-table-wrap/<table>, which reads as a top-level list page rather than a detail-page sub-section. */
