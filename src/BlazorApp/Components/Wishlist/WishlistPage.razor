@@ -154,7 +154,7 @@ else if (Data is not null)
     // Deliberately NOT [PersistentState], unlike the detail pages: WishlistDto embeds every wishlisted
     // item across four collections, an unbounded payload that can exceed the Blazor hub's 32 KB
     // MaximumReceiveMessageSize and kill the circuit on the prerender-to-interactive handoff
-    // (dotnet/aspnetcore#65101, see docs/prerender-flash-fix.md). The interactive circuit re-fetches
+    // (dotnet/aspnetcore#65101, see docs/archived/prerender-flash-fix.md). The interactive circuit re-fetches
     // instead; the delay-gated spinner above keeps that re-fetch flash-free when it's fast.
     private WishlistDto? Data { get; set; }
 

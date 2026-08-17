@@ -66,7 +66,7 @@ public class BookReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) 
     /// <see cref="BookReferenceModel.ExternalIds"/> can carry more than one provider's id at once (e.g. a
     /// reference first linked via Open Library, then also confirmed via BnF for a different tenant) - both
     /// keys must keep resolving to the same document, which is what <c>ReferenceEnrichmentService.RefreshBookReferenceAsync</c>'s
-    /// multi-provider refresh fix (see docs/code-quality-findings.md) depends on.
+    /// multi-provider refresh fix (see docs/findings/providers.md) depends on.
     /// </summary>
     [Fact]
     public async Task FindByExternalIdAsync_FindsTheSameDocument_ByEitherOfTwoCoexistingProviderKeys()

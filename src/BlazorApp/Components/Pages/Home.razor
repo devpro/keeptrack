@@ -81,7 +81,7 @@
     // prerender pass are carried over to the interactive circuit, so the first interactive render reuses
     // them instead of resetting to null and re-fetching. CollectionStatsDto is a handful of counts, well
     // within the Blazor hub's 32 KB message-size limit, so this follows the detail pages' [PersistentState]
-    // pattern rather than WatchNext/Wishlist's re-fetch-on-circuit-start one (see docs/prerender-flash-fix.md).
+    // pattern rather than WatchNext/Wishlist's re-fetch-on-circuit-start one (see docs/archived/prerender-flash-fix.md).
     [PersistentState]
     public CollectionStatsDto? Stats { get; set; }
 

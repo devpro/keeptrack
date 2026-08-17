@@ -15,7 +15,7 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 /// these are new, hand-written Mongo queries (case-insensitive regex match, a "don't overwrite an
 /// existing link" guard, a $group aggregation), exactly the kind of per-type override logic that has
 /// historically hidden real bugs in this codebase (see the CarHistory $text-vs-$eq finding in
-/// docs/code-quality-findings.md). Goes through the repository resolved from the test host's DI
+/// docs/findings/persistence-and-mapping.md). Goes through the repository resolved from the test host's DI
 /// container rather than HTTP, since the cross-tenant propagation this proves has nothing to do with
 /// the calling user's own identity/role.
 /// </summary>

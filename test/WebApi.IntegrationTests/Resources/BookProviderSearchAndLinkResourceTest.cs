@@ -21,7 +21,7 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 /// whether a third party is up: it originally pinned Open Library alone, on the belief that keyless-and-free
 /// meant reliable, and went red when its <c>search.json</c> degraded to 52s and then 503/504 - past
 /// <c>AddBookProviderResilienceHandler</c>'s 40s total budget (the same degradation recorded in
-/// docs/code-quality-findings.md, which is why its rating fallback is guarded elsewhere). Google Books is the
+/// docs/findings/providers.md, which is why its rating fallback is guarded elsewhere). Google Books is the
 /// deployment default (<c>ReferenceData:BookProvider</c>), so it is the provider a real user's search actually
 /// reaches; BnF is keyless and quota-free, and was answering in under a second while the other two were down.
 /// A case whose provider is genuinely unreachable skips (see the 502 helpers below) instead of failing the

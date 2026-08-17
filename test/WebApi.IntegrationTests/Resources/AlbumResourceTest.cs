@@ -17,7 +17,7 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
 /// Basic full-cycle CRUD coverage for the renamed <c>Album</c> type (formerly <c>MusicAlbum</c>) - closes
-/// a gap flagged in docs/code-quality-findings.md ("MusicAlbum...still has none"), same shape as
+/// a gap flagged in docs/findings/by-design-and-gaps.md ("MusicAlbum...still has none"), same shape as
 /// <see cref="BookResourceTest"/>.
 /// </summary>
 public class AlbumResourceTest(KestrelWebAppFactory<Program> factory)

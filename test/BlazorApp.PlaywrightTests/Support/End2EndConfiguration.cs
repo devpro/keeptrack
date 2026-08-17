@@ -11,7 +11,7 @@ public enum TraceMode
 
 /// <summary>
 /// Every e2e-harness knob in one place, all read from environment variables.
-/// See docs/playwright-e2e-tests-plan.md's configuration table for the full rationale per variable.
+/// See docs/archived/playwright-e2e-tests-plan.md's configuration table for the full rationale per variable.
 /// Application settings for the hosted apps themselves (Mongo connection string, Firebase, JWT authority...) are deliberately not read here:
 /// they flow to the in-process hosts the same way any other environment variable reaches an ASP.NET Core configuration provider,
 /// exactly like <c>WebApi.IntegrationTests</c> already relies on.

@@ -12,7 +12,7 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 /// <see cref="BookSmokeTest"/>, which never links to any provider). Opt-in via
 /// <c>GOOGLE_BOOKS_SMOKE_ENABLED</c>, unlike TMDB/RAWG/Discogs (hard-required for their own always-on smoke
 /// tests) - Google Books has been observed to occasionally return a transient 503 (see
-/// docs/code-quality-findings.md), and it's the newest/least-proven of the three registered book providers,
+/// docs/findings/providers.md), and it's the newest/least-proven of the three registered book providers,
 /// so this stays a deliberate, on-demand check rather than part of the default run.
 /// </summary>
 [Trait("Category", "E2eTests")]

@@ -7,7 +7,7 @@ RPL-1.5 is an aggressive copyleft license: using AutoMapper under it obligates K
 Until this removal ships, Keeptrack relies on AutoMapper's commercial "Community" tier (free below $5M revenue), which keeps the project bound to a third party's licensing terms and enforcement mechanism (license keys).
 AutoMapper 16.2.0 is currently the only non-permissive dependency in `Directory.Packages.props`; every other package is MIT, Apache-2.0, BSD-3-Clause or MS-PL.
 Removing it therefore ends the last third-party licensing constraint on Keeptrack.
-It is also a quality win: the `AllowNullDestinationValues = false` behavior has caused at least four documented production bugs (see CLAUDE.md and `docs/code-quality-findings.md`).
+It is also a quality win: the `AllowNullDestinationValues = false` behavior has caused at least four documented production bugs (see CLAUDE.md and `docs/findings/`).
 
 ## Replacement choice
 
@@ -119,7 +119,7 @@ Each phase builds, passes the full test suite (including integration tests again
 4. Delete `AutoMapperConfigurationTest` - its job is now done at compile time.
 5. Escalate Mapperly's unmapped-member diagnostics (`RMG012`, `RMG020`) to errors in `.editorconfig`, so configuration drift fails the build the way the deleted test used to fail the run.
 6. Update CLAUDE.md: rewrite the `AllowNullDestinationValues` gotchas for the new null-preserving semantics, and update the "Adding a new trackable item type" checklist (step 6 becomes "add a storage mapper and a DTO mapper").
-7. Update `CONTRIBUTING.md` and `docs/code-quality-findings.md` where they reference AutoMapper.
+7. Update `CONTRIBUTING.md` and `docs/findings/` where they reference AutoMapper.
 
 ## Out of scope
 

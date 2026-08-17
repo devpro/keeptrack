@@ -79,7 +79,7 @@ public class ReferenceDataAdminResourceTest(ProviderlessWebAppFactory factory)
     /// <summary>
     /// Exercises the "sync now" job start over HTTP: POST returns immediately (202 + job id) rather than
     /// blocking on every reference document - the actual fix for the timeout reported against this
-    /// endpoint (see docs/code-quality-findings.md) - and the status endpoint reports the job it started.
+    /// endpoint (see docs/findings/sync-explore-and-import.md) - and the status endpoint reports the job it started.
     /// The poll-to-completion half lives in <see cref="SyncNow_PollingReachesACompletedResult"/>, opt-in,
     /// because its duration is unbounded by this repo (it re-checks every reference document against the
     /// live providers, so it grows with the shared database and flakes on provider latency/rate limits).

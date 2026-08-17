@@ -17,7 +17,7 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 /// against real MongoDB - both now match against every entry in <c>MatchedAliases</c> (an <c>ElemMatch</c>
 /// filter over the embedded (title, year) array, backing a compound multikey index), not just the
 /// document's own canonical <c>TitleNormalized</c>/<c>Year</c>. This is exactly the kind of hand-written
-/// Mongo filter that has hidden real bugs before (see docs/code-quality-findings.md), so it's verified
+/// Mongo filter that has hidden real bugs before (see docs/findings/persistence-and-mapping.md), so it's verified
 /// against a real database, not mocks.
 /// </summary>
 public class TvShowReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)

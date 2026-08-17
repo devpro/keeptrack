@@ -2,7 +2,7 @@
 
 This document assesses the state of Keeptrack's automated test suite as of 2026-07-27.
 It inventories what exists, judges how well each layer is covered, and lists the user walkthroughs that currently have **no** end-to-end coverage.
-It complements `docs/code-quality-findings.md` (which tracks specific defects) and `docs/playwright-e2e-tests-plan.md` (the original e2e design), rather than duplicating them.
+It complements `docs/findings/` (which tracks specific defects) and `docs/archived/playwright-e2e-tests-plan.md` (the original e2e design), rather than duplicating them.
 
 ## Summary
 

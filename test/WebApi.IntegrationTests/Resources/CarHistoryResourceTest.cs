@@ -11,7 +11,7 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
 /// Basic full-cycle CRUD coverage for <c>CarHistory</c>, plus a regression test for the specific bug tracked
-/// in docs/code-quality-findings.md: <c>CarHistoryRepository.GetFilter</c> used to combine two <c>$text</c>
+/// in docs/findings/persistence-and-mapping.md: <c>CarHistoryRepository.GetFilter</c> used to combine two <c>$text</c>
 /// expressions (one for <c>CarId</c>, one for the free-text search) in a single query, which MongoDB rejects
 /// whenever both are supplied at once.
 /// </summary>

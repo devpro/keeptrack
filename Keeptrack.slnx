@@ -12,17 +12,30 @@
     <File Path="README.md" />
   </Folder>
   <Folder Name="/Solution Items/docs/">
-    <File Path="docs/automapper-removal-plan.md" />
     <File Path="docs/backlog.md" />
-    <File Path="docs/code-quality-findings.md" />
     <File Path="docs/igdb-api-notes.md" />
     <File Path="docs/operations.md" />
-    <File Path="docs/plan-quick-add.md" />
-    <File Path="docs/playwright-e2e-tests-plan.md" />
-    <File Path="docs/prerender-flash-fix.md" />
-    <File Path="docs/reference-ratings-plan.md" />
-    <File Path="docs/share-collections-plan.md" />
-    <File Path="docs/testing-assessment.md" />
+  </Folder>
+  <Folder Name="/Solution Items/docs/archived/">
+    <File Path="docs/archived/automapper-removal-plan.md" />
+    <File Path="docs/archived/plan-quick-add.md" />
+    <File Path="docs/archived/playwright-e2e-tests-plan.md" />
+    <File Path="docs/archived/prerender-flash-fix.md" />
+    <File Path="docs/archived/README.md" />
+    <File Path="docs/archived/reference-ratings-plan.md" />
+    <File Path="docs/archived/share-collections-plan.md" />
+    <File Path="docs/archived/testing-assessment.md" />
+  </Folder>
+  <Folder Name="/Solution Items/docs/findings/">
+    <File Path="docs/findings/blazor-ui.md" />
+    <File Path="docs/findings/by-design-and-gaps.md" />
+    <File Path="docs/findings/persistence-and-mapping.md" />
+    <File Path="docs/findings/providers.md" />
+    <File Path="docs/findings/README.md" />
+    <File Path="docs/findings/reference-matching.md" />
+    <File Path="docs/findings/sonar.md" />
+    <File Path="docs/findings/sync-explore-and-import.md" />
+    <File Path="docs/findings/video-game-matching.md" />
   </Folder>
   <Folder Name="/Solution Items/pipelines/" />
   <Folder Name="/Solution Items/pipelines/azure-devops/">

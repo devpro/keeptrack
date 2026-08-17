@@ -14,7 +14,7 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 /// Exercises <see cref="IEpisodeRepository.FindByShowIdsAsync"/> against real MongoDB. This is the batched,
 /// owner-scoped multi-show read Watch Next uses instead of pulling the whole owner's episode history and
 /// discarding non-current shows in memory - verified against a real database, not mocks, since it's a
-/// hand-written Mongo filter (the class of code that has hidden bugs before, see docs/code-quality-findings.md).
+/// hand-written Mongo filter (the class of code that has hidden bugs before, see docs/findings/persistence-and-mapping.md).
 /// </summary>
 public class EpisodeRepositoryTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)
 {
