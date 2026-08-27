@@ -99,4 +99,28 @@ public class CarResourceTest(KestrelWebAppFactory<Program> factory)
         metrics.MileageWarnings.Should().BeEmpty();
         metrics.LastRecords.Should().BeEmpty();
     }
+
+    /// <summary>
+    /// CarHistory is a separate top-level collection referencing its car by id (see AGENTS.md's "Child entities" section).
+    /// Without CarController.OnDeletedAsync cascading the delete, a deleted car's history would be orphaned in MongoDB forever, only ever reachable via the now-gone car id.
+    /// Same shape as <see cref="HouseResourceTest.HouseResourceDelete_CascadesToItsHistory_IsOk"/>.
+    /// </summary>
+    [Fact]
+    public async Task CarResourceDelete_CascadesToItsHistory_IsOk()
+    {
+        await Authenticate();
+
+        // both are registered even though the delete below is the point of the test: if the cascade is ever broken, the orphaned history entry is exactly what would otherwise be left behind.
+        var car = await CreateAsync($"/{ResourceEndpoint}", new CarDto { Name = Guid.NewGuid().ToString() });
+        var entry = await CreateAsync("/api/car-history", new CarHistoryDto
+        {
+            CarId = car.Id!,
+            HistoryDate = DateTime.Today,
+            EventType = CarHistoryType.Maintenance
+        });
+
+        await DeleteAsync($"/{ResourceEndpoint}/{car.Id}");
+
+        await GetAsync($"/api/car-history/{entry.Id}", HttpStatusCode.NotFound);
+    }
 }
