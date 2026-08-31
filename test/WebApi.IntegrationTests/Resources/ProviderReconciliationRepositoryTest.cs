@@ -67,10 +67,10 @@ public class ProviderReconciliationRepositoryTest(KestrelWebAppFactory<Program> 
         var moved = await itemRepository.RepointReferenceAsync(absorbedReferenceId, keptReferenceId);
 
         moved.Should().Be(2);
-        var ownerAItems = await itemRepository.FindAllAsync(ownerA, 1, 50, null, new VideoGameModel { OwnerId = ownerA, Title = "" });
+        var ownerAItems = await itemRepository.FindAllAsync(ownerA, 1, 50, null, new VideoGameModel { OwnerId = ownerA, Title = "" }, cancellationToken: TestContext.Current.CancellationToken);
         ownerAItems.Items.Should().OnlyContain(item => item.ReferenceId == keptReferenceId);
         // an item linked to something else is left alone
-        (await itemRepository.FindOneAsync(untouched.Id!, ownerA))!.ReferenceId.Should().Be(keptReferenceId);
+        (await itemRepository.FindOneAsync(untouched.Id!, ownerA, TestContext.Current.CancellationToken))!.ReferenceId.Should().Be(keptReferenceId);
     }
 
     /// <summary>

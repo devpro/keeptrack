@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Keeptrack.Domain.Models;
 
@@ -19,5 +20,5 @@ public interface IEpisodeRepository : IDataRepository<EpisodeModel>
     /// show deletion, since Episode is a separate top-level collection referencing its parent by id rather
     /// than an embedded array (see CLAUDE.md's "Child entities" section).
     /// </summary>
-    Task<long> DeleteAllForShowAsync(string tvShowId, string ownerId);
+    Task<long> DeleteAllForShowAsync(string tvShowId, string ownerId, CancellationToken cancellationToken = default);
 }

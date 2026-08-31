@@ -1,4 +1,5 @@
-﻿using Keeptrack.Domain.Models;
+﻿using System.Threading;
+using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.WebApi.Mappers;
 using Microsoft.AspNetCore.Authorization;
@@ -21,9 +22,9 @@ public class CarHistoryController(
     /// </summary>
     [HttpGet("fuel-categories")]
     [ProducesResponseType(200)]
-    public async Task<ActionResult<IReadOnlyList<string>>> GetFuelCategories()
+    public async Task<ActionResult<IReadOnlyList<string>>> GetFuelCategories(CancellationToken cancellationToken)
     {
-        var categories = await dataRepository.FindDistinctFuelCategoriesAsync(this.GetUserId());
+        var categories = await dataRepository.FindDistinctFuelCategoriesAsync(this.GetUserId(), cancellationToken);
         return Ok(categories);
     }
 
@@ -31,6 +32,6 @@ public class CarHistoryController(
     /// Fills each Refuel entry's station name and city from the shared station catalogue, one batched
     /// lookup per page.
     /// </summary>
-    protected override Task OnListMappedAsync(List<CarHistoryDto> dtos)
+    protected override Task OnListMappedAsync(List<CarHistoryDto> dtos, CancellationToken cancellationToken)
         => CarStationHydrator.HydrateAsync(dtos, stationRepository);
 }

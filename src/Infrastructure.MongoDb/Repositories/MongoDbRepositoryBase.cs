@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Keeptrack.Common.System;
 using Keeptrack.Infrastructure.MongoDb.Mappers;
@@ -46,23 +47,23 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
     /// </summary>
     private static bool CanNameADocument(string id) => ObjectId.TryParse(id, out _);
 
-    public async Task<TModel?> FindOneAsync(string id, string ownerId)
+    public async Task<TModel?> FindOneAsync(string id, string ownerId, CancellationToken cancellationToken = default)
     {
         if (!CanNameADocument(id))
         {
             return default;
         }
 
-        var entity = await GetCollection().Find(x => x.Id == id && x.OwnerId == ownerId).FirstOrDefaultAsync();
+        var entity = await GetCollection().Find(x => x.Id == id && x.OwnerId == ownerId).FirstOrDefaultAsync(cancellationToken);
         return entity is null ? default : Mapper.ToModel(entity);
     }
 
-    public async Task<PagedResult<TModel>> FindAllAsync(string ownerId, int page, int pageSize, string? search, TModel input, string? sort = null)
+    public async Task<PagedResult<TModel>> FindAllAsync(string ownerId, int page, int pageSize, string? search, TModel input, string? sort = null, CancellationToken cancellationToken = default)
     {
         var collection = GetCollection();
         var filter = GetFilter(ownerId, search, input);
 
-        var totalCount = await collection.CountDocumentsAsync(filter);
+        var totalCount = await collection.CountDocumentsAsync(filter, cancellationToken: cancellationToken);
 
         var options = sort == ListSort.Title && SortTitleField is not null
             ? new FindOptions { Collation = new Collation("en", strength: CollationStrength.Secondary) }
@@ -73,7 +74,7 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
             .Sort(GetSort(sort))
             .Skip((page - 1) * pageSize)
             .Limit(pageSize)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         return new PagedResult<TModel>(
             Mapper.ToModels(entities),
@@ -129,19 +130,19 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
         };
     }
 
-    public async Task<long> CountAsync(string ownerId)
+    public async Task<long> CountAsync(string ownerId, CancellationToken cancellationToken = default)
     {
-        return await GetCollection().CountDocumentsAsync(Builders<TEntity>.Filter.Eq(f => f.OwnerId, ownerId));
+        return await GetCollection().CountDocumentsAsync(Builders<TEntity>.Filter.Eq(f => f.OwnerId, ownerId), cancellationToken: cancellationToken);
     }
 
-    public async Task<TModel> CreateAsync(TModel model)
+    public async Task<TModel> CreateAsync(TModel model, CancellationToken cancellationToken = default)
     {
         var entity = Mapper.ToEntity(model);
-        await GetCollection().InsertOneAsync(entity);
+        await GetCollection().InsertOneAsync(entity, cancellationToken: cancellationToken);
         return Mapper.ToModel(entity);
     }
 
-    public async Task<long> UpdateAsync(string id, TModel model, string ownerId)
+    public async Task<long> UpdateAsync(string id, TModel model, string ownerId, CancellationToken cancellationToken = default)
     {
         if (!CanNameADocument(id))
         {
@@ -149,18 +150,18 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
         }
 
         var entity = Mapper.ToEntity(model);
-        var result = await GetCollection().ReplaceOneAsync(x => x.Id == id && x.OwnerId == ownerId, entity);
+        var result = await GetCollection().ReplaceOneAsync(x => x.Id == id && x.OwnerId == ownerId, entity, cancellationToken: cancellationToken);
         return result.ModifiedCount;
     }
 
-    public async Task<long> DeleteAsync(string id, string ownerId)
+    public async Task<long> DeleteAsync(string id, string ownerId, CancellationToken cancellationToken = default)
     {
         if (!CanNameADocument(id))
         {
             return 0;
         }
 
-        var result = await GetCollection().DeleteOneAsync(x => x.Id == id && x.OwnerId == ownerId);
+        var result = await GetCollection().DeleteOneAsync(x => x.Id == id && x.OwnerId == ownerId, cancellationToken);
         return result.DeletedCount;
     }
 
@@ -173,7 +174,7 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
     /// The parent field is an expression rather than an element-name string, so the BSON name mapping stays
     /// with the entity class - same contract as <see cref="SortTitleField"/>.
     /// </summary>
-    protected async Task<long> DeleteAllByParentAsync(Expression<Func<TEntity, string>> parentIdField, string parentId, string ownerId)
+    protected async Task<long> DeleteAllByParentAsync(Expression<Func<TEntity, string>> parentIdField, string parentId, string ownerId, CancellationToken cancellationToken = default)
     {
         // A parent id is an ObjectId here too, and the controller's OnDeletedAsync cascade hook runs on the
         // raw route id whether or not the parent delete matched anything - so an unparseable id reaches this
@@ -184,7 +185,7 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
         }
 
         var builder = Builders<TEntity>.Filter;
-        var result = await GetCollection().DeleteManyAsync(builder.Eq(f => f.OwnerId, ownerId) & builder.Eq(parentIdField, parentId));
+        var result = await GetCollection().DeleteManyAsync(builder.Eq(f => f.OwnerId, ownerId) & builder.Eq(parentIdField, parentId), cancellationToken);
         return result.DeletedCount;
     }
 
@@ -204,14 +205,14 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
     /// the entity class - same contract as <see cref="SortTitleField"/> and
     /// <see cref="DeleteAllByParentAsync"/>, and the only form that works for a nested field.
     /// </summary>
-    protected async Task<IReadOnlyList<string>> FindDistinctValuesAsync(Expression<Func<TEntity, string?>> field, string ownerId)
+    protected async Task<IReadOnlyList<string>> FindDistinctValuesAsync(Expression<Func<TEntity, string?>> field, string ownerId, CancellationToken cancellationToken = default)
     {
         var builder = Builders<TEntity>.Filter;
         // "has a value" is the negation of TvShowRepository/MovieRepository's UnresolvedFilter shape
         // (matches null OR empty string) - both generations of "unset" must be excluded here too.
         var filter = builder.Eq(f => f.OwnerId, ownerId) & builder.Ne(field, null) & builder.Ne(field, string.Empty);
-        var cursor = await GetCollection().DistinctAsync(field, filter);
-        var values = await cursor.ToListAsync();
+        var cursor = await GetCollection().DistinctAsync(field, filter, cancellationToken: cancellationToken);
+        var values = await cursor.ToListAsync(cancellationToken);
         values.Sort(StringComparer.OrdinalIgnoreCase);
         return values!;
     }

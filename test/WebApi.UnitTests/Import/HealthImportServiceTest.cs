@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using AwesomeAssertions;
 using ClosedXML.Excel;
@@ -123,7 +124,7 @@ public class HealthImportServiceTest
     [Fact]
     public async Task Import_MatchesExistingProfilesByName_InsteadOfDuplicatingThem()
     {
-        await _profiles.CreateAsync(new HealthProfileModel { OwnerId = "owner-1", Name = "bertrand" }); // case differs on purpose
+        await _profiles.CreateAsync(new HealthProfileModel { OwnerId = "owner-1", Name = "bertrand" }, TestContext.Current.CancellationToken); // case differs on purpose
 
         var result = await CreateService().ImportAsync(new MemoryStream(BuildWorkbook()), "owner-1");
 
@@ -137,26 +138,26 @@ public class HealthImportServiceTest
     {
         public List<TModel> Items { get; } = [];
 
-        public Task<TModel?> FindOneAsync(string id, string ownerId) =>
+        public Task<TModel?> FindOneAsync(string id, string ownerId, CancellationToken cancellationToken = default) =>
             Task.FromResult(Items.FirstOrDefault(x => x.Id == id && x.OwnerId == ownerId));
 
-        public Task<long> CountAsync(string ownerId) =>
+        public Task<long> CountAsync(string ownerId, CancellationToken cancellationToken = default) =>
             Task.FromResult((long)Items.Count(x => x.OwnerId == ownerId));
 
-        public Task<PagedResult<TModel>> FindAllAsync(string ownerId, int page, int pageSize, string? search, TModel input, string? sort = null)
+        public Task<PagedResult<TModel>> FindAllAsync(string ownerId, int page, int pageSize, string? search, TModel input, string? sort = null, CancellationToken cancellationToken = default)
         {
             var items = Items.Where(x => x.OwnerId == ownerId).ToList();
             return Task.FromResult(new PagedResult<TModel>(items, items.Count, page, pageSize));
         }
 
-        public Task<TModel> CreateAsync(TModel model)
+        public Task<TModel> CreateAsync(TModel model, CancellationToken cancellationToken = default)
         {
             model.Id ??= Guid.NewGuid().ToString();
             Items.Add(model);
             return Task.FromResult(model);
         }
 
-        public Task<long> UpdateAsync(string id, TModel model, string ownerId)
+        public Task<long> UpdateAsync(string id, TModel model, string ownerId, CancellationToken cancellationToken = default)
         {
             var existing = Items.FirstOrDefault(x => x.Id == id && x.OwnerId == ownerId);
             if (existing != null)
@@ -167,7 +168,7 @@ public class HealthImportServiceTest
             return Task.FromResult(1L);
         }
 
-        public Task<long> DeleteAsync(string id, string ownerId) =>
+        public Task<long> DeleteAsync(string id, string ownerId, CancellationToken cancellationToken = default) =>
             Task.FromResult((long)Items.RemoveAll(x => x.Id == id && x.OwnerId == ownerId));
     }
 
@@ -175,7 +176,7 @@ public class HealthImportServiceTest
 
     private sealed class FakeHealthRecordRepository : InMemoryRepository<HealthRecordModel>, IHealthRecordRepository
     {
-        public Task<long> DeleteAllForProfileAsync(string healthProfileId, string ownerId) =>
+        public Task<long> DeleteAllForProfileAsync(string healthProfileId, string ownerId, CancellationToken cancellationToken = default) =>
             Task.FromResult((long)Items.RemoveAll(x => x.HealthProfileId == healthProfileId && x.OwnerId == ownerId));
 
         // suggestion lists: nothing the import service reads, so the same in-memory shape as the queries above

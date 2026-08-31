@@ -1,3 +1,4 @@
+using System.Threading;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.Domain.Services;
@@ -23,15 +24,15 @@ public class CarController(
     [HttpGet("{id}/metrics")]
     [ProducesResponseType(200)]
     [ProducesResponseType(404)]
-    public async Task<ActionResult<CarMetricsDto>> GetMetrics(string id)
+    public async Task<ActionResult<CarMetricsDto>> GetMetrics(string id, CancellationToken cancellationToken)
     {
         var ownerId = this.GetUserId();
 
-        var car = await dataRepository.FindOneAsync(id, ownerId);
+        var car = await dataRepository.FindOneAsync(id, ownerId, cancellationToken);
         if (car is null) return NotFound();
 
         var history = await carHistoryRepository.FindAllAsync(ownerId, 1, int.MaxValue, null,
-            new CarHistoryModel { OwnerId = ownerId, CarId = id, EventType = default, HistoryDate = default });
+            new CarHistoryModel { OwnerId = ownerId, CarId = id, EventType = default, HistoryDate = default }, cancellationToken: cancellationToken);
 
         return Ok(metricsMapper.ToDto(CarMetricsService.ComputeMetrics(history.Items)));
     }
@@ -40,8 +41,8 @@ public class CarController(
     /// CarHistory is a separate top-level collection referencing its car by id -
     /// without this, deleting a car would leave its fuel/maintenance history orphaned in MongoDB forever, since it's only ever reachable via the car's own id.
     /// </summary>
-    protected override async Task OnDeletedAsync(string id, string ownerId)
+    protected override async Task OnDeletedAsync(string id, string ownerId, CancellationToken cancellationToken)
     {
-        await carHistoryRepository.DeleteAllForCarAsync(id, ownerId);
+        await carHistoryRepository.DeleteAllForCarAsync(id, ownerId, cancellationToken);
     }
 }

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
@@ -32,6 +33,6 @@ public class EpisodeRepository(IMongoDatabase mongoDatabase, ILogger<EpisodeRepo
         return Mapper.ToModels(entities);
     }
 
-    public Task<long> DeleteAllForShowAsync(string tvShowId, string ownerId)
-        => DeleteAllByParentAsync(f => f.TvShowId, tvShowId, ownerId);
+    public Task<long> DeleteAllForShowAsync(string tvShowId, string ownerId, CancellationToken cancellationToken = default)
+        => DeleteAllByParentAsync(f => f.TvShowId, tvShowId, ownerId, cancellationToken);
 }

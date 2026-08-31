@@ -29,7 +29,7 @@ public class ReferenceClientRegistry<TClient>(IEnumerable<TClient> clients, stri
     /// </summary>
     public TClient Resolve(string? providerKey)
     {
-        var key = string.IsNullOrWhiteSpace(providerKey) ? defaultProviderKey : providerKey;
+        var key = string.IsNullOrWhiteSpace(providerKey) ? DefaultProviderKey : providerKey;
         return All.FirstOrDefault(c => string.Equals(c.ProviderKey, key, StringComparison.OrdinalIgnoreCase))
                ?? throw new ArgumentException($"Unknown provider '{key}'.", nameof(providerKey));
     }

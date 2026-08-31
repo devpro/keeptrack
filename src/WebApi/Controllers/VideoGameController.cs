@@ -1,3 +1,4 @@
+using System.Threading;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.WebApi.Mappers;
@@ -25,7 +26,7 @@ public class VideoGameController(
     /// its own <see cref="VideoGameDto.CustomImageUrl"/> set overrides that afterward - see
     /// <see cref="BookController.OnListMappedAsync"/>.
     /// </summary>
-    protected override Task OnListMappedAsync(List<VideoGameDto> dtos) =>
+    protected override Task OnListMappedAsync(List<VideoGameDto> dtos, CancellationToken cancellationToken) =>
         ReferenceImageHydrator.HydrateWithCustomOverrideAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl, x => x.CustomImageUrl);
 
     /// <summary>
@@ -61,9 +62,9 @@ public class VideoGameController(
     [HttpPost("{id}/refresh-reference")]
     [ProducesResponseType(200)]
     [ProducesResponseType(404)]
-    public async Task<ActionResult<VideoGameDto>> RefreshReference(string id)
+    public async Task<ActionResult<VideoGameDto>> RefreshReference(string id, CancellationToken cancellationToken)
     {
-        var model = await dataRepository.FindOneAsync(id, this.GetUserId());
+        var model = await dataRepository.FindOneAsync(id, this.GetUserId(), cancellationToken);
         if (model is null) return NotFound();
 
         model = await enrichmentService.LinkVideoGameReferenceAsync(model);
@@ -78,9 +79,9 @@ public class VideoGameController(
     [Authorize(Policy = "AdminOnly")]
     [ProducesResponseType(200)]
     [ProducesResponseType(404)]
-    public async Task<ActionResult<VideoGameDto>> UnlinkReference(string id)
+    public async Task<ActionResult<VideoGameDto>> UnlinkReference(string id, CancellationToken cancellationToken)
     {
-        var model = await dataRepository.FindOneAsync(id, this.GetUserId());
+        var model = await dataRepository.FindOneAsync(id, this.GetUserId(), cancellationToken);
         if (model is null) return NotFound();
 
         model = await enrichmentService.UnlinkVideoGameReferenceAsync(model);

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
+using System.Threading;
 using System.Threading.Tasks;
 using AwesomeAssertions;
 using Keeptrack.Common.System;
@@ -52,22 +53,22 @@ public class FreeTierTest
 
     private sealed class FakeRepository(long existingCount) : IDataRepository<TestModel>
     {
-        public Task<long> CountAsync(string ownerId) => Task.FromResult(existingCount);
+        public Task<long> CountAsync(string ownerId, CancellationToken cancellationToken = default) => Task.FromResult(existingCount);
 
-        public Task<TestModel> CreateAsync(TestModel model)
+        public Task<TestModel> CreateAsync(TestModel model, CancellationToken cancellationToken = default)
         {
             model.Id = Guid.NewGuid().ToString();
             return Task.FromResult(model);
         }
 
-        public Task<TestModel?> FindOneAsync(string id, string ownerId) => Task.FromResult<TestModel?>(null);
+        public Task<TestModel?> FindOneAsync(string id, string ownerId, CancellationToken cancellationToken = default) => Task.FromResult<TestModel?>(null);
 
-        public Task<PagedResult<TestModel>> FindAllAsync(string ownerId, int page, int pageSize, string? search, TestModel input, string? sort = null) =>
+        public Task<PagedResult<TestModel>> FindAllAsync(string ownerId, int page, int pageSize, string? search, TestModel input, string? sort = null, CancellationToken cancellationToken = default) =>
             Task.FromResult(new PagedResult<TestModel>([], 0, page, pageSize));
 
-        public Task<long> UpdateAsync(string id, TestModel model, string ownerId) => Task.FromResult(1L);
+        public Task<long> UpdateAsync(string id, TestModel model, string ownerId, CancellationToken cancellationToken = default) => Task.FromResult(1L);
 
-        public Task<long> DeleteAsync(string id, string ownerId) => Task.FromResult(1L);
+        public Task<long> DeleteAsync(string id, string ownerId, CancellationToken cancellationToken = default) => Task.FromResult(1L);
     }
 
     private sealed class CappedTestController(IDataRepository<TestModel> repository)
@@ -106,7 +107,7 @@ public class FreeTierTest
     {
         var controller = CreateController(existingCount: ConfiguredLimit - 1);
 
-        var result = await controller.Post(new TestDto());
+        var result = await controller.Post(new TestDto(), TestContext.Current.CancellationToken);
 
         result.Should().BeOfType<CreatedAtActionResult>();
     }
@@ -116,7 +117,7 @@ public class FreeTierTest
     {
         var controller = CreateController(existingCount: ConfiguredLimit);
 
-        var result = await controller.Post(new TestDto());
+        var result = await controller.Post(new TestDto(), TestContext.Current.CancellationToken);
 
         var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
         objectResult.StatusCode.Should().Be(StatusCodes.Status403Forbidden);
@@ -128,7 +129,7 @@ public class FreeTierTest
     {
         var controller = CreateController(existingCount: ConfiguredLimit + 100, "member");
 
-        (await controller.Post(new TestDto())).Should().BeOfType<CreatedAtActionResult>();
+        (await controller.Post(new TestDto(), TestContext.Current.CancellationToken)).Should().BeOfType<CreatedAtActionResult>();
     }
 
     [Fact]
@@ -136,7 +137,7 @@ public class FreeTierTest
     {
         var controller = CreateController(existingCount: ConfiguredLimit + 100, "admin");
 
-        (await controller.Post(new TestDto())).Should().BeOfType<CreatedAtActionResult>();
+        (await controller.Post(new TestDto(), TestContext.Current.CancellationToken)).Should().BeOfType<CreatedAtActionResult>();
     }
 
     /// <summary>

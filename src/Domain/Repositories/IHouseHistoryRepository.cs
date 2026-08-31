@@ -1,3 +1,4 @@
+using System.Threading;
 using System.Threading.Tasks;
 using Keeptrack.Domain.Models;
 
@@ -10,5 +11,5 @@ public interface IHouseHistoryRepository : IDataRepository<HouseHistoryModel>
     /// a house deletion, since HouseHistory is a separate top-level collection referencing its parent by id
     /// rather than an embedded array (see CLAUDE.md's "Child entities" section).
     /// </summary>
-    Task<long> DeleteAllForHouseAsync(string houseId, string ownerId);
+    Task<long> DeleteAllForHouseAsync(string houseId, string ownerId, CancellationToken cancellationToken = default);
 }

@@ -32,7 +32,7 @@ public class InventoryApiClientBaseTest
     [Fact]
     public async Task GetOneAsync_ReturnsNull_ForAnItemTheApiReports404For()
     {
-        var movie = await ClientReturning(HttpStatusCode.NotFound).GetOneAsync("missing-id");
+        var movie = await ClientReturning(HttpStatusCode.NotFound).GetOneAsync("missing-id", TestContext.Current.CancellationToken);
 
         movie.Should().BeNull();
     }
@@ -42,7 +42,7 @@ public class InventoryApiClientBaseTest
     {
         var client = ClientReturning(HttpStatusCode.OK, JsonContent.Create(new MovieDto { Id = "abc", Title = "Heat" }));
 
-        var movie = await client.GetOneAsync("abc");
+        var movie = await client.GetOneAsync("abc", TestContext.Current.CancellationToken);
 
         movie.Should().NotBeNull();
         movie!.Title.Should().Be("Heat");

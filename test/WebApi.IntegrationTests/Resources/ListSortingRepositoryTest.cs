@@ -34,19 +34,19 @@ public class ListSortingRepositoryTest(KestrelWebAppFactory<Program> factory) : 
         await CreateBookAsync(repository, NewBook(ownerId, "apple", rating: null));
         await CreateBookAsync(repository, NewBook(ownerId, "Cherry", rating: 4.5f));
 
-        var byDefault = await repository.FindAllAsync(ownerId, 1, 10, null, NewBook(ownerId, ""));
+        var byDefault = await repository.FindAllAsync(ownerId, 1, 10, null, NewBook(ownerId, ""), cancellationToken: TestContext.Current.CancellationToken);
         byDefault.Items.Select(b => b.Title).Should().Equal(["Cherry", "apple", "Banana"],
             "the default order is newest first");
 
-        var byTitle = await repository.FindAllAsync(ownerId, 1, 10, null, NewBook(ownerId, ""), ListSort.Title);
+        var byTitle = await repository.FindAllAsync(ownerId, 1, 10, null, NewBook(ownerId, ""), ListSort.Title, TestContext.Current.CancellationToken);
         byTitle.Items.Select(b => b.Title).Should().Equal(["apple", "Banana", "Cherry"],
             "the title sort is case-insensitive, not byte order (which would put every uppercase title first)");
 
-        var byRating = await repository.FindAllAsync(ownerId, 1, 10, null, NewBook(ownerId, ""), ListSort.Rating);
+        var byRating = await repository.FindAllAsync(ownerId, 1, 10, null, NewBook(ownerId, ""), ListSort.Rating, TestContext.Current.CancellationToken);
         byRating.Items.Select(b => b.Title).Should().Equal(["Cherry", "Banana", "apple"],
             "the rating sort is best-first with unrated items last");
 
-        var byUnknownKey = await repository.FindAllAsync(ownerId, 1, 10, null, NewBook(ownerId, ""), "nonsense");
+        var byUnknownKey = await repository.FindAllAsync(ownerId, 1, 10, null, NewBook(ownerId, ""), "nonsense", TestContext.Current.CancellationToken);
         byUnknownKey.Items.Select(b => b.Title).Should().Equal(["Cherry", "apple", "Banana"],
             "an unknown sort key falls back to the newest-first default rather than erroring");
     }
@@ -65,9 +65,9 @@ public class ListSortingRepositoryTest(KestrelWebAppFactory<Program> factory) : 
 
         // paging through a sorted list must partition it exactly: no duplicates, no drops - the
         // guarantee an unsorted skip/limit read never had
-        var page1 = await repository.FindAllAsync(ownerId, 1, 2, null, NewBook(ownerId, ""), ListSort.Title);
-        var page2 = await repository.FindAllAsync(ownerId, 2, 2, null, NewBook(ownerId, ""), ListSort.Title);
-        var page3 = await repository.FindAllAsync(ownerId, 3, 2, null, NewBook(ownerId, ""), ListSort.Title);
+        var page1 = await repository.FindAllAsync(ownerId, 1, 2, null, NewBook(ownerId, ""), ListSort.Title, TestContext.Current.CancellationToken);
+        var page2 = await repository.FindAllAsync(ownerId, 2, 2, null, NewBook(ownerId, ""), ListSort.Title, TestContext.Current.CancellationToken);
+        var page3 = await repository.FindAllAsync(ownerId, 3, 2, null, NewBook(ownerId, ""), ListSort.Title, TestContext.Current.CancellationToken);
 
         page1.Items.Concat(page2.Items).Concat(page3.Items).Select(b => b.Title)
             .Should().Equal("Book 00", "Book 01", "Book 02", "Book 03", "Book 04");

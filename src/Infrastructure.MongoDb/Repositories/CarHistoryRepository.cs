@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
@@ -16,11 +17,11 @@ public class CarHistoryRepository(IMongoDatabase mongoDatabase, ILogger<CarHisto
 {
     protected override string CollectionName => "car_history";
 
-    public Task<long> DeleteAllForCarAsync(string carId, string ownerId)
-        => DeleteAllByParentAsync(f => f.CarId, carId, ownerId);
+    public Task<long> DeleteAllForCarAsync(string carId, string ownerId, CancellationToken cancellationToken = default)
+        => DeleteAllByParentAsync(f => f.CarId, carId, ownerId, cancellationToken);
 
-    public Task<IReadOnlyList<string>> FindDistinctFuelCategoriesAsync(string ownerId)
-        => FindDistinctValuesAsync(f => f.Fuel!.Category, ownerId);
+    public Task<IReadOnlyList<string>> FindDistinctFuelCategoriesAsync(string ownerId, CancellationToken cancellationToken = default)
+        => FindDistinctValuesAsync(f => f.Fuel!.Category, ownerId, cancellationToken);
 
     /// <summary>
     /// Not owner-scoped, unlike everything else here: <c>car_station</c> is shared, so "is this station

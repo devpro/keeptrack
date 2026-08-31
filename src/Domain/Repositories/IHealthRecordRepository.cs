@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Keeptrack.Domain.Models;
 
@@ -24,5 +25,5 @@ public interface IHealthRecordRepository : IDataRepository<HealthRecordModel>
     /// a profile deletion, since HealthRecord is a separate top-level collection referencing its parent by
     /// id rather than an embedded array (see CLAUDE.md's "Child entities" section).
     /// </summary>
-    Task<long> DeleteAllForProfileAsync(string healthProfileId, string ownerId);
+    Task<long> DeleteAllForProfileAsync(string healthProfileId, string ownerId, CancellationToken cancellationToken = default);
 }

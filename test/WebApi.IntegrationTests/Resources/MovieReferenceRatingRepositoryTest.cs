@@ -34,7 +34,7 @@ public class MovieReferenceRatingRepositoryTest(KestrelWebAppFactory<Program> fa
         await CreateMovieAsync(repository, NewMovie(ownerId, "Unrated", referenceRating: null));
         await CreateMovieAsync(repository, NewMovie(ownerId, "Best", referenceRating: 9.1));
 
-        var byReferenceRating = await repository.FindAllAsync(ownerId, 1, 10, null, NewMovie(ownerId, ""), ListSort.ReferenceRating);
+        var byReferenceRating = await repository.FindAllAsync(ownerId, 1, 10, null, NewMovie(ownerId, ""), ListSort.ReferenceRating, TestContext.Current.CancellationToken);
         byReferenceRating.Items.Select(m => m.Title).Should().Equal(["Best", "Middle", "Unrated"],
             "the reference-rating sort is best-first with items that have no linked rating last");
     }
@@ -55,13 +55,13 @@ public class MovieReferenceRatingRepositoryTest(KestrelWebAppFactory<Program> fa
 
         await repository.SetReferenceLinkAsync(title, 1999, "reference-1", title, 1999, 8.2, 10);
 
-        var reloadedUnlinked = await repository.FindOneAsync(unlinked.Id!, ownerId);
+        var reloadedUnlinked = await repository.FindOneAsync(unlinked.Id!, ownerId, TestContext.Current.CancellationToken);
         reloadedUnlinked!.ReferenceId.Should().Be("reference-1");
         reloadedUnlinked.ReferenceRating.Should().Be(8.2);
         reloadedUnlinked.ReferenceRatingScale.Should().Be(10);
 
         // an already-linked document is left untouched by the link propagation (UnresolvedFilter)
-        var reloadedLinked = await repository.FindOneAsync(alreadyLinked.Id!, ownerId);
+        var reloadedLinked = await repository.FindOneAsync(alreadyLinked.Id!, ownerId, TestContext.Current.CancellationToken);
         reloadedLinked!.ReferenceId.Should().Be("pre-existing");
         reloadedLinked.ReferenceRating.Should().BeNull();
     }
@@ -83,10 +83,10 @@ public class MovieReferenceRatingRepositoryTest(KestrelWebAppFactory<Program> fa
         var modified = await repository.SetReferenceRatingAsync(referenceId, 8.4, 10, "tmdb");
         modified.Should().Be(2);
 
-        (await repository.FindOneAsync(linkedA.Id!, ownerId))!.ReferenceRating.Should().Be(8.4);
-        (await repository.FindOneAsync(linkedB.Id!, ownerId))!.ReferenceRating.Should().Be(8.4);
+        (await repository.FindOneAsync(linkedA.Id!, ownerId, TestContext.Current.CancellationToken))!.ReferenceRating.Should().Be(8.4);
+        (await repository.FindOneAsync(linkedB.Id!, ownerId, TestContext.Current.CancellationToken))!.ReferenceRating.Should().Be(8.4);
         // a movie linked to a different reference is untouched
-        (await repository.FindOneAsync(other.Id!, ownerId))!.ReferenceRating.Should().Be(5.0);
+        (await repository.FindOneAsync(other.Id!, ownerId, TestContext.Current.CancellationToken))!.ReferenceRating.Should().Be(5.0);
     }
 
     [Fact]
@@ -123,7 +123,7 @@ public class MovieReferenceRatingRepositoryTest(KestrelWebAppFactory<Program> fa
 
         await repository.SetReferenceRatingAsync(referenceId, 8.4, 10, "imdb");
 
-        var reloaded = await repository.FindOneAsync(movie.Id!, ownerId);
+        var reloaded = await repository.FindOneAsync(movie.Id!, ownerId, TestContext.Current.CancellationToken);
         reloaded!.ReferenceRatingSource.Should().Be("imdb", "the source travels with the value it was computed from");
     }
 
@@ -153,7 +153,7 @@ public class MovieReferenceRatingRepositoryTest(KestrelWebAppFactory<Program> fa
         // once everything this test created is on the selected source, none of it is counted any more - which
         // is what lets the admin recompute report "nothing to do" and skip its whole pass
         (await repository.CountLinkedOnOtherRatingSourceAsync("tmdb")).Should().Be(before - 2);
-        (await repository.FindOneAsync(onTmdb.Id!, ownerId))!.ReferenceRatingSource.Should().Be("tmdb");
+        (await repository.FindOneAsync(onTmdb.Id!, ownerId, TestContext.Current.CancellationToken))!.ReferenceRatingSource.Should().Be("tmdb");
     }
 
     [Fact]
@@ -182,15 +182,15 @@ public class MovieReferenceRatingRepositoryTest(KestrelWebAppFactory<Program> fa
         // one bulk write, but each entry still re-stamps *all* of its reference's linked items - which is what
         // keeps a recompute's cost flat as the number of users grows
         modified.Should().Be(3);
-        (await repository.FindOneAsync(firstA.Id!, ownerId))!.ReferenceRating.Should().Be(8.4);
-        (await repository.FindOneAsync(firstB.Id!, ownerId))!.ReferenceRating.Should().Be(8.4);
+        (await repository.FindOneAsync(firstA.Id!, ownerId, TestContext.Current.CancellationToken))!.ReferenceRating.Should().Be(8.4);
+        (await repository.FindOneAsync(firstB.Id!, ownerId, TestContext.Current.CancellationToken))!.ReferenceRating.Should().Be(8.4);
 
         // a reference the selected source has no value for is still stamped with that source, value cleared
-        var reloadedSecond = await repository.FindOneAsync(second.Id!, ownerId);
+        var reloadedSecond = await repository.FindOneAsync(second.Id!, ownerId, TestContext.Current.CancellationToken);
         reloadedSecond!.ReferenceRating.Should().BeNull();
         reloadedSecond.ReferenceRatingSource.Should().Be("imdb");
 
-        (await repository.FindOneAsync(untouched.Id!, ownerId))!.ReferenceRating.Should().Be(5.0);
+        (await repository.FindOneAsync(untouched.Id!, ownerId, TestContext.Current.CancellationToken))!.ReferenceRating.Should().Be(5.0);
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Keeptrack.Domain.Models;
 
@@ -11,14 +12,14 @@ public interface ICarHistoryRepository : IDataRepository<CarHistoryModel>
     /// a car deletion, since CarHistory is a separate top-level collection referencing its parent by id
     /// rather than an embedded array (see CLAUDE.md's "Child entities" section).
     /// </summary>
-    Task<long> DeleteAllForCarAsync(string carId, string ownerId);
+    Task<long> DeleteAllForCarAsync(string carId, string ownerId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Fuel grades this owner has already recorded (SP95-E10, Gazole, ...), feeding the history form's
     /// suggestion list - the same "suggest what you've already typed" shape as
     /// <see cref="IGearRepository.FindDistinctCategoriesAsync"/>.
     /// </summary>
-    Task<IReadOnlyList<string>> FindDistinctFuelCategoriesAsync(string ownerId);
+    Task<IReadOnlyList<string>> FindDistinctFuelCategoriesAsync(string ownerId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// How many entries - across every tenant, since <c>car_station</c> is shared and owner-less - point at

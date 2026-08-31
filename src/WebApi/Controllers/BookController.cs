@@ -1,3 +1,4 @@
+using System.Threading;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.WebApi.Mappers;
@@ -27,7 +28,7 @@ public class BookController(
     /// <c>CustomImageUrl</c>; the other reference-linked types (movie, TV show) have no equivalent override and
     /// use the plain <see cref="ReferenceImageHydrator.HydrateAsync"/> path instead.
     /// </summary>
-    protected override Task OnListMappedAsync(List<BookDto> dtos) =>
+    protected override Task OnListMappedAsync(List<BookDto> dtos, CancellationToken cancellationToken) =>
         ReferenceImageHydrator.HydrateWithCustomOverrideAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl, x => x.CustomImageUrl);
 
     /// <summary>
@@ -61,9 +62,9 @@ public class BookController(
     [HttpPost("{id}/refresh-reference")]
     [ProducesResponseType(200)]
     [ProducesResponseType(404)]
-    public async Task<ActionResult<BookDto>> RefreshReference(string id)
+    public async Task<ActionResult<BookDto>> RefreshReference(string id, CancellationToken cancellationToken)
     {
-        var model = await dataRepository.FindOneAsync(id, this.GetUserId());
+        var model = await dataRepository.FindOneAsync(id, this.GetUserId(), cancellationToken);
         if (model is null) return NotFound();
 
         model = await enrichmentService.LinkBookReferenceAsync(model);
@@ -78,9 +79,9 @@ public class BookController(
     [Authorize(Policy = "AdminOnly")]
     [ProducesResponseType(200)]
     [ProducesResponseType(404)]
-    public async Task<ActionResult<BookDto>> UnlinkReference(string id)
+    public async Task<ActionResult<BookDto>> UnlinkReference(string id, CancellationToken cancellationToken)
     {
-        var model = await dataRepository.FindOneAsync(id, this.GetUserId());
+        var model = await dataRepository.FindOneAsync(id, this.GetUserId(), cancellationToken);
         if (model is null) return NotFound();
 
         model = await enrichmentService.UnlinkBookReferenceAsync(model);

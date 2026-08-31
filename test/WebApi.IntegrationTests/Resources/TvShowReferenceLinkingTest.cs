@@ -45,17 +45,17 @@ public class TvShowReferenceLinkingTest(KestrelWebAppFactory<Program> factory) :
         var modifiedCount = await repository.SetReferenceLinkAsync(title, year, "reference-123", canonicalTitle);
 
         modifiedCount.Should().Be(2);
-        var tenantAResult = (await repository.FindOneAsync(tenantAShow.Id!, "reference-link-tenant-a"))!;
+        var tenantAResult = (await repository.FindOneAsync(tenantAShow.Id!, "reference-link-tenant-a", TestContext.Current.CancellationToken))!;
         tenantAResult.ReferenceId.Should().Be("reference-123");
         // the tenant's own title is replaced with the reference's canonical name, not just the id
         tenantAResult.Title.Should().Be(canonicalTitle);
-        (await repository.FindOneAsync(tenantBShow.Id!, "reference-link-tenant-b"))!.ReferenceId.Should().Be("reference-123");
+        (await repository.FindOneAsync(tenantBShow.Id!, "reference-link-tenant-b", TestContext.Current.CancellationToken))!.ReferenceId.Should().Be("reference-123");
         // An unset ReferenceId can round-trip as either "" (documents written before the
         // AutoMapper -> Mapperly migration) or null (new writes) - BeNullOrEmpty is the correct
         // "still unresolved" check that covers both generations.
-        (await repository.FindOneAsync(differentYearShow.Id!, "reference-link-tenant-a"))!.ReferenceId.Should().BeNullOrEmpty();
+        (await repository.FindOneAsync(differentYearShow.Id!, "reference-link-tenant-a", TestContext.Current.CancellationToken))!.ReferenceId.Should().BeNullOrEmpty();
         // a show that already has a link is never clobbered by a later automatic/admin resolution
-        var alreadyLinkedResult = (await repository.FindOneAsync(alreadyLinkedShow.Id!, "reference-link-tenant-c"))!;
+        var alreadyLinkedResult = (await repository.FindOneAsync(alreadyLinkedShow.Id!, "reference-link-tenant-c", TestContext.Current.CancellationToken))!;
         alreadyLinkedResult.ReferenceId.Should().Be("pre-existing-link");
         alreadyLinkedResult.Title.Should().Be(title);
     }

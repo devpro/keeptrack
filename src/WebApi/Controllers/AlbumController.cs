@@ -1,3 +1,4 @@
+using System.Threading;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.WebApi.Mappers;
@@ -25,7 +26,7 @@ public class AlbumController(
     /// its own <see cref="AlbumDto.CustomImageUrl"/> set overrides that afterward - see
     /// <see cref="BookController.OnListMappedAsync"/>.
     /// </summary>
-    protected override Task OnListMappedAsync(List<AlbumDto> dtos) =>
+    protected override Task OnListMappedAsync(List<AlbumDto> dtos, CancellationToken cancellationToken) =>
         ReferenceImageHydrator.HydrateWithCustomOverrideAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl, x => x.CustomImageUrl);
 
     /// <summary>
@@ -59,9 +60,9 @@ public class AlbumController(
     [HttpPost("{id}/refresh-reference")]
     [ProducesResponseType(200)]
     [ProducesResponseType(404)]
-    public async Task<ActionResult<AlbumDto>> RefreshReference(string id)
+    public async Task<ActionResult<AlbumDto>> RefreshReference(string id, CancellationToken cancellationToken)
     {
-        var model = await dataRepository.FindOneAsync(id, this.GetUserId());
+        var model = await dataRepository.FindOneAsync(id, this.GetUserId(), cancellationToken);
         if (model is null) return NotFound();
 
         model = await enrichmentService.LinkAlbumReferenceAsync(model);
@@ -76,9 +77,9 @@ public class AlbumController(
     [Authorize(Policy = "AdminOnly")]
     [ProducesResponseType(200)]
     [ProducesResponseType(404)]
-    public async Task<ActionResult<AlbumDto>> UnlinkReference(string id)
+    public async Task<ActionResult<AlbumDto>> UnlinkReference(string id, CancellationToken cancellationToken)
     {
-        var model = await dataRepository.FindOneAsync(id, this.GetUserId());
+        var model = await dataRepository.FindOneAsync(id, this.GetUserId(), cancellationToken);
         if (model is null) return NotFound();
 
         model = await enrichmentService.UnlinkAlbumReferenceAsync(model);
