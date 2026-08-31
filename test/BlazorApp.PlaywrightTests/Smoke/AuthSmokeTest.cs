@@ -70,4 +70,22 @@ public class AuthSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 
         Assert.Equal(401, response.Status);
     }
+
+    /// <summary>
+    /// The core guard in <c>AuthenticationController.Refresh</c>: a token that verifies fine but belongs to
+    /// a different Firebase user must never be allowed to swap the identity behind an existing session.
+    /// </summary>
+    [Fact]
+    public async Task Refresh_WithAnotherUsersValidToken_Answers401()
+    {
+        var anotherUsersToken = await Fixture.GetAnotherUsersIdTokenAsync();
+        Assert.SkipWhen(anotherUsersToken is null,
+            "Minting a second identity needs the in-process Blazor host's own Firebase Admin SDK access (self-hosted integration mode only).");
+
+        // The shared context is already signed in as the run's own identity.
+        var response = await Context.APIRequest.PostAsync("/auth/refresh",
+            new APIRequestContextOptions { DataObject = new { idToken = anotherUsersToken } });
+
+        Assert.Equal(401, response.Status);
+    }
 }

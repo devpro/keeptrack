@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -19,16 +20,25 @@ public static class AccountRepository
     /// test run used to fire dozens of concurrent sign-ins against the same fixed Firebase test account within
     /// seconds - enough to trip Google Identity Platform's abuse protection and fail the whole run with 400s.
     /// The received token is valid for an hour (see ExpiresIn below), far longer than a test run, so there's no
-    /// need for more than one real call: cache the in-flight/completed sign-in behind a Lazy so concurrent
-    /// callers share the same task instead of each starting their own.
+    /// need for more than one real call per identity: cache each username's in-flight/completed sign-in behind
+    /// its own Lazy, so concurrent callers for the same identity share one task instead of each starting their
+    /// own.
     /// </summary>
-    private static Lazy<Task<string?>>? s_cachedToken;
+    /// <remarks>
+    /// Keyed by username, not a single field: a single cached token once meant a second identity's sign-in
+    /// (<see cref="Keeptrack.BlazorApp.PlaywrightTests.Hosting.End2EndFixture"/>'s second ephemeral e2e user)
+    /// silently received the first identity's already-cached token instead of its own, since the parameters
+    /// were ignored once anything had signed in during the process.
+    /// A real-world consequence, not a theoretical one: it made <c>AuthSmokeTest</c>'s identity-swap test pass
+    /// for the wrong reason, both tokens being the same identity's.
+    /// </remarks>
+    private static readonly ConcurrentDictionary<string, Lazy<Task<string?>>> s_cachedTokensByUsername = new();
 
     private static readonly HttpClient s_httpClient = new();
 
     /// <summary>
-    /// Authenticate. Only performs a real sign-in once per test run - concurrent and subsequent calls reuse the
-    /// cached token/task.
+    /// Authenticate. Only performs a real sign-in once per username per test run - concurrent and subsequent
+    /// calls for the same username reuse the cached token/task; a different username signs in independently.
     /// </summary>
     /// <param name="username"></param>
     /// <param name="password"></param>
@@ -37,9 +47,9 @@ public static class AccountRepository
     /// <returns>Received token</returns>
     public static Task<string?> AuthenticateAsync(string username, string password, string applicationKey)
     {
-        return LazyInitializer.EnsureInitialized(
-            ref s_cachedToken,
-            () => new Lazy<Task<string?>>(
+        return s_cachedTokensByUsername.GetOrAdd(
+            username,
+            _ => new Lazy<Task<string?>>(
                 () => SignInAsync(username, password, applicationKey),
                 LazyThreadSafetyMode.ExecutionAndPublication)).Value;
     }

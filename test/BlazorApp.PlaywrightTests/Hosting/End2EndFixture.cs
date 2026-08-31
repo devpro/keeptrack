@@ -51,6 +51,10 @@ public sealed class End2EndFixture : IAsyncLifetime
 
     private string? _ephemeralUserUid;
 
+    private string? _secondEphemeralUserUid;
+
+    private string? _secondEphemeralUserIdToken;
+
     private string _idToken = "";
 
     private string _webApiBaseUrl = "";
@@ -511,6 +515,33 @@ public sealed class End2EndFixture : IAsyncLifetime
         };
     }
 
+    /// <summary>
+    /// A second, genuinely different Firebase identity's valid ID token, for the one test that proves
+    /// <c>AuthenticationController.Refresh</c> refuses a token that verifies but belongs to someone else's
+    /// session.
+    /// Created once per run on first call and reused, the same lazy-and-cached shape as
+    /// <see cref="ApiHttpClient"/>.
+    /// Returns <c>null</c> for the same reason <see cref="ForgeStaleTokenMemberCookie"/> does: minting a
+    /// user needs the in-process Blazor host's own Firebase Admin SDK access, which live and read-only
+    /// mode don't have.
+    /// </summary>
+    public async Task<string?> GetAnotherUsersIdTokenAsync()
+    {
+        if (_blazorFactory is null) return null;
+
+        if (_secondEphemeralUserUid is null)
+        {
+            var email = $"e2e-second-{Guid.NewGuid():N}@keeptrack.test";
+            var password = $"E2e-{Guid.NewGuid():N}!Aa1";
+            var user = await FirebaseAuth.DefaultInstance.CreateUserAsync(new UserRecordArgs { Email = email, Password = password, EmailVerified = true });
+            _secondEphemeralUserUid = user.Uid;
+            _secondEphemeralUserIdToken = await AccountRepository.AuthenticateAsync(email, password, FirebaseConfiguration.ApplicationKey)
+                                           ?? throw new InvalidOperationException("Firebase sign-in for the second e2e identity did not return an id token.");
+        }
+
+        return _secondEphemeralUserIdToken;
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (End2EndConfiguration.Enabled && !End2EndConfiguration.ReadOnly)
@@ -521,17 +552,8 @@ public sealed class End2EndFixture : IAsyncLifetime
 
         _apiHttpClient?.Dispose();
 
-        if (_ephemeralUserUid is not null)
-        {
-            try
-            {
-                await FirebaseAuth.DefaultInstance.DeleteUserAsync(_ephemeralUserUid);
-            }
-            catch (Exception ex)
-            {
-                await Console.Error.WriteLineAsync($"Failed to delete ephemeral e2e user {_ephemeralUserUid}: {ex.Message}");
-            }
-        }
+        await DeleteEphemeralUserAsync(_ephemeralUserUid);
+        await DeleteEphemeralUserAsync(_secondEphemeralUserUid);
 
         _playwright?.Dispose();
 
@@ -548,6 +570,27 @@ public sealed class End2EndFixture : IAsyncLifetime
             {
                 // best-effort cleanup of a temp file - not worth failing the run over.
             }
+        }
+    }
+
+    /// <summary>
+    /// Shared by both ephemeral users this fixture can create (the run's own signed-in identity, and the
+    /// second one <see cref="GetAnotherUsersIdTokenAsync"/> mints on demand).
+    /// A failure here must never fail the run: a leftover throwaway Firebase user is untidy, not a test
+    /// failure, so it is reported and swallowed the same way <see cref="RemoveSeededReferenceDataAsync"/>
+    /// treats its own best-effort cleanup.
+    /// </summary>
+    private static async Task DeleteEphemeralUserAsync(string? uid)
+    {
+        if (uid is null) return;
+
+        try
+        {
+            await FirebaseAuth.DefaultInstance.DeleteUserAsync(uid);
+        }
+        catch (Exception ex)
+        {
+            await Console.Error.WriteLineAsync($"Failed to delete ephemeral e2e user {uid}: {ex.Message}");
         }
     }
 }
