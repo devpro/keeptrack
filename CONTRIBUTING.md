@@ -228,6 +228,19 @@ Run the script:
 deno run -A scripts/firebase-user-role.js ./path/to/serviceAccount.json user@example.com admin
 ```
 
+### Creating a test user
+
+`scripts/firebase-create-user.js` creates a new Firebase user via the public `accounts:signUp` REST endpoint, the same one a real sign-up form calls, so it needs only the project's Web API key (`FIREBASE_APIKEY`) and never a service account:
+
+```bash
+node scripts/firebase-create-user.js
+node scripts/firebase-create-user.js someone@example.com "a specific password"
+```
+
+Email and password are both optional.
+Omitted, a random test address and a strong random password are generated, printed alongside the new user's uid.
+A new account starts as a free-preview user with no role claim; grant one with `firebase-user-role.js` above when a member or admin identity is needed, for example a second signed-in identity for a test that needs two.
+
 ### Blazor Server App settings
 
 Key                                     | Required | Default value
