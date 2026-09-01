@@ -1,3 +1,4 @@
+using System.Threading;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.WebApi.Mappers;
@@ -14,6 +15,7 @@ public class TvShowController(
     IDtoMapper<TvShowDto, TvShowModel> mapper,
     ITvShowRepository dataRepository,
     ITvShowReferenceRepository referenceRepository,
+    IEpisodeRepository episodeRepository,
     ReferenceEnrichmentService enrichmentService,
     IServiceScopeFactory scopeFactory,
     ILogger<TvShowController> logger)
@@ -26,7 +28,7 @@ public class TvShowController(
     /// Hydrates each page item's cover image from its linked reference document - one batched lookup per
     /// page (see <see cref="ReferenceImageHydrator"/>), keyed by the id-bearing documents only.
     /// </summary>
-    protected override Task OnListMappedAsync(List<TvShowDto> dtos)
+    protected override Task OnListMappedAsync(List<TvShowDto> dtos, CancellationToken cancellationToken)
         => ReferenceImageHydrator.HydrateAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl);
 
     /// <summary>
@@ -61,12 +63,12 @@ public class TvShowController(
     [HttpPost("{id}/refresh-reference")]
     [ProducesResponseType(200)]
     [ProducesResponseType(404)]
-    public async Task<ActionResult<TvShowDto>> RefreshReference(string id)
+    public async Task<ActionResult<TvShowDto>> RefreshReference(string id, CancellationToken cancellationToken)
     {
-        var model = await dataRepository.FindOneAsync(id, this.GetUserId());
+        var model = await dataRepository.FindOneAsync(id, this.GetUserId(), cancellationToken);
         if (model is null) return NotFound();
 
-        model = await enrichmentService.TryLinkExistingTvShowReferenceAsync(model);
+        model = await enrichmentService.LinkTvShowReferenceAsync(model);
         return Ok(Mapper.ToDto(model));
     }
 
@@ -83,12 +85,22 @@ public class TvShowController(
     [Authorize(Policy = "AdminOnly")]
     [ProducesResponseType(200)]
     [ProducesResponseType(404)]
-    public async Task<ActionResult<TvShowDto>> UnlinkReference(string id)
+    public async Task<ActionResult<TvShowDto>> UnlinkReference(string id, CancellationToken cancellationToken)
     {
-        var model = await dataRepository.FindOneAsync(id, this.GetUserId());
+        var model = await dataRepository.FindOneAsync(id, this.GetUserId(), cancellationToken);
         if (model is null) return NotFound();
 
         model = await enrichmentService.UnlinkTvShowReferenceAsync(model);
         return Ok(Mapper.ToDto(model));
+    }
+
+    /// <summary>
+    /// Episodes are a separate top-level collection referencing their show by id - without this, deleting a
+    /// show would leave its whole watch history orphaned in MongoDB forever, since an episode is only ever
+    /// reachable via the show's own id. Same shape as House/HealthProfile/Car.
+    /// </summary>
+    protected override async Task OnDeletedAsync(string id, string ownerId, CancellationToken cancellationToken)
+    {
+        await episodeRepository.DeleteAllForShowAsync(id, ownerId, cancellationToken);
     }
 }

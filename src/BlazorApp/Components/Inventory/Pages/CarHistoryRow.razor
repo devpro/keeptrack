@@ -5,10 +5,13 @@
 
 <tr class="@(HasWarning ? "kt-history-row-warning" : "")">
     <td>@Entry.HistoryDate.ToString(Entry.HistoryDate.TimeOfDay == TimeSpan.Zero ? "yyyy-MM-dd" : "yyyy-MM-dd HH:mm")</td>
-    <td>@Entry.Mileage</td>
+    <td class="kt-num">@Entry.Mileage</td>
     <td>@Entry.EventType</td>
-    <td>@Entry.Cost?.ToString("F2")</td>
-    <td class="d-none d-md-table-cell">@Entry.City</td>
+    <td class="kt-num">@Entry.Cost?.ToString("F2")</td>
+    @* A refuel carries no location of its own any more - both columns read through to the station it
+       points at, which is where that data now lives (hydrated server-side, one lookup per page). *@
+    <td class="d-none d-md-table-cell">@(Entry.StationBrandName ?? Entry.Garage)</td>
+    <td class="d-none d-md-table-cell">@(Entry.City ?? Entry.StationCity)</td>
     <td class="d-none d-md-table-cell">@Entry.Description</td>
     <td>
         @if (HasWarning)
@@ -16,12 +19,15 @@
             <span class="kt-history-warning-icon" title="@WarningMessage">⚠</span>
         }
     </td>
-    <td>
-        <div class="d-flex gap-1 justify-content-end">
-            <button class="kt-icon-btn" title="Edit this entry" aria-label="Edit this entry" @onclick="() => OnEdit.InvokeAsync(Entry)">✎</button>
-            <button class="kt-icon-btn" title="Delete this entry" aria-label="Delete this entry" @onclick="() => OnDelete.InvokeAsync(Entry.Id!)">✕</button>
-        </div>
-    </td>
+    @if (!ReadOnly)
+    {
+        <td>
+            <div class="d-flex gap-1 justify-content-end">
+                <button class="kt-icon-btn" title="Edit this entry" aria-label="Edit this entry" @onclick="() => OnEdit.InvokeAsync(Entry)">✎</button>
+                <button class="kt-icon-btn" title="Delete this entry" aria-label="Delete this entry" @onclick="() => OnDelete.InvokeAsync(Entry.Id!)">✕</button>
+            </div>
+        </td>
+    }
 </tr>
 
 @code {
@@ -30,6 +36,9 @@
     [Parameter] public bool HasWarning { get; set; }
 
     [Parameter] public string? WarningMessage { get; set; }
+
+    /// <summary>Read-only mode (a recipient viewing a shared car) hides the edit/delete actions column.</summary>
+    [Parameter] public bool ReadOnly { get; set; }
 
     [Parameter] public EventCallback<CarHistoryDto> OnEdit { get; set; }
 

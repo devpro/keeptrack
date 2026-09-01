@@ -9,7 +9,7 @@ namespace Keeptrack.Infrastructure.MongoDb.Entities;
 /// Shared, owner-less movie metadata collection (<c>movie_reference</c>). See
 /// <see cref="TvShowReference"/> for why this has no <c>owner_id</c>.
 /// </summary>
-public class MovieReference
+public class MovieReference : IHasMatchedAliases
 {
     [BsonId]
     [BsonRepresentation(BsonType.ObjectId)]
@@ -33,6 +33,13 @@ public class MovieReference
     public List<string> Genres { get; set; } = [];
 
     public List<CastMember> Cast { get; set; } = [];
+
+    /// <summary>Aggregate ratings keyed by source name (e.g. "tmdb") - see <see cref="ReferenceRating"/>.</summary>
+    public Dictionary<string, ReferenceRating> Ratings { get; set; } = [];
+
+    /// <summary>When each rating source was last attempted, successful or not - see <see cref="Keeptrack.Domain.Models.MovieReferenceModel.RatingsCheckedAt"/>.</summary>
+    [BsonElement("ratings_checked_at")]
+    public Dictionary<string, DateTime> RatingsCheckedAt { get; set; } = [];
 
     [BsonElement("image_url")]
     public string? ImageUrl { get; set; }

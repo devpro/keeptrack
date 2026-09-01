@@ -23,6 +23,8 @@ public class MovieRepository(IMongoDatabase mongoDatabase, ILogger<MovieReposito
 
     protected override Expression<Func<Movie, object>> SortRatingField => x => x.Rating!;
 
+    protected override Expression<Func<Movie, object>> SortReferenceRatingField => x => x.ReferenceRating!;
+
     protected override Expression<Func<Movie, object>> SortSecondaryDateField => x => x.FirstSeenAt!;
 
     protected override FilterDefinition<Movie> GetFilter(string ownerId, string? search, MovieModel input)
@@ -41,17 +43,34 @@ public class MovieRepository(IMongoDatabase mongoDatabase, ILogger<MovieReposito
         return filter;
     }
 
-    public async Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null)
+    public async Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null, double? canonicalRating = null, double? canonicalRatingScale = null, string? canonicalRatingSource = null)
     {
         var builder = Builders<Movie>.Filter;
         var filter = builder.Regex(f => f.Title, new BsonRegularExpression($"^{Regex.Escape(title)}$", "i"))
                      & builder.Eq(f => f.Year, year)
                      & UnresolvedFilter();
 
-        var update = Builders<Movie>.Update.Set(f => f.ReferenceId, referenceId).Set(f => f.Title, canonicalTitle);
+        var update = Builders<Movie>.Update.Set(f => f.ReferenceId, referenceId).Set(f => f.Title, canonicalTitle)
+            .Set(f => f.ReferenceRating, canonicalRating).Set(f => f.ReferenceRatingScale, canonicalRatingScale)
+            .Set(f => f.ReferenceRatingSource, canonicalRatingSource);
         if (canonicalYear is not null) update = update.Set(f => f.Year, canonicalYear);
         var result = await GetCollection().UpdateManyAsync(filter, update);
         return result.ModifiedCount;
+    }
+
+    public Task<long> SetReferenceRatingAsync(string referenceId, double? rating, double? ratingScale, string? source)
+    {
+        return ReferenceRatingQueries.SetRatingAsync(GetCollection(), referenceId, rating, ratingScale, source);
+    }
+
+    public Task<long> SetReferenceRatingsAsync(IReadOnlyList<(string ReferenceId, double? Rating, double? RatingScale, string? Source)> updates)
+    {
+        return ReferenceRatingQueries.SetRatingsAsync(GetCollection(), updates);
+    }
+
+    public Task<long> CountLinkedOnOtherRatingSourceAsync(string source)
+    {
+        return ReferenceRatingQueries.CountLinkedOnOtherSourceAsync(GetCollection(), source);
     }
 
     public async Task<IReadOnlyList<(string Title, int? Year, string? Creator)>> FindDistinctUnresolvedTitleYearsAsync()
@@ -61,14 +80,24 @@ public class MovieRepository(IMongoDatabase mongoDatabase, ILogger<MovieReposito
             .Group(f => new { f.Title, f.Year }, g => g.Key)
             .ToListAsync();
         // no creator dimension for this type - the tuple stays one shape across all five repositories
-        return groups.Select(g => (g.Title, g.Year, (string?)null)).ToList();
+        return [.. groups.Select(g => (g.Title, g.Year, (string?)null))];
+    }
+
+    public Task<IReadOnlyList<string>> FindLinkedReferenceIdsAsync(string ownerId)
+    {
+        return ExploreExclusionQueries.FindLinkedReferenceIdsAsync(GetCollection(), ownerId, f => f.ReferenceId);
+    }
+
+    public Task<IReadOnlyList<string>> FindDistinctTitlesAsync(string ownerId)
+    {
+        return ExploreExclusionQueries.FindDistinctTitlesAsync(GetCollection(), ownerId, f => f.Title);
     }
 
     /// <summary>
-    /// "Has no reference link yet" means <see cref="Movie.ReferenceId"/> is null OR empty string, not
-    /// just null: old documents (written before the AutoMapper -> Mapperly migration) can still store ""
-    /// for an unset field; new writes store a real null instead (Mapperly preserves nulls, and the Mongo
-    /// driver's IgnoreIfNullConvention then omits it entirely). Both generations must match.
+    /// "Has no reference link yet" means <see cref="Movie.ReferenceId"/> is null OR empty string, not just null:
+    /// old documents (written before the AutoMapper -> Mapperly migration) can still store "" for an unset field;
+    /// new writes store a real null instead (Mapperly preserves nulls, and the Mongo driver's IgnoreIfNullConvention then omits it entirely).
+    /// Both generations must match.
     /// </summary>
     private static FilterDefinition<Movie> UnresolvedFilter()
     {

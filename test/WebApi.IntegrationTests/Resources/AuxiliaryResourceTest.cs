@@ -12,7 +12,7 @@ public class AuxiliaryResourceTest(KestrelWebAppFactory<Program> factory)
 {
     [Trait("Mode", "Readonly")]
     [Theory]
-    [InlineData("/health", HttpStatusCode.OK, "text/plain", "Healthy")]
+    [InlineData("/healthz", HttpStatusCode.OK, "text/plain", "Healthy")]
     [InlineData("/scalar", HttpStatusCode.OK, "text/html", "<title>Keeptrack Web API</title>")]
     [InlineData("/openapi/v1.json", HttpStatusCode.OK, "application/json; charset=utf-8", "\"title\": \"Keeptrack Web API\"")]
     public async Task AuxiliaryResource_Get_ReturnsExpectedResponse(string url,

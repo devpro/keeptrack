@@ -30,26 +30,19 @@ public class SongResourceTest(KestrelWebAppFactory<Program> factory)
         var input = new Faker<SongDto>()
             .Rules((f, o) => { o.Title = f.Random.AlphaNumeric(14); o.Artist = f.Random.AlphaNumeric(8); })
             .Generate();
-        var created = await PostAsync($"/{ResourceEndpoint}", input);
+        var created = await CreateAsync($"/{ResourceEndpoint}", input);
         created.Id.Should().NotBeNullOrEmpty();
 
-        try
-        {
-            created.Title = "New shiny title";
-            await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
+        created.Title = "New shiny title";
+        await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
 
-            var updated = await GetAsync<SongDto>($"/{ResourceEndpoint}/{created.Id}");
-            updated.Should().BeEquivalentTo(created);
+        var updated = await GetAsync<SongDto>($"/{ResourceEndpoint}/{created.Id}");
+        updated.Should().BeEquivalentTo(created);
 
-            var finalItems = await GetAsync<PagedResult<SongDto>>($"/{ResourceEndpoint}");
-            var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
-            firstItem.Should().NotBeNull();
-            firstItem.Title.Should().Be(updated.Title);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        var finalItems = await GetAsync<PagedResult<SongDto>>($"/{ResourceEndpoint}");
+        var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
+        firstItem.Should().NotBeNull();
+        firstItem.Title.Should().Be(updated.Title);
     }
 
     [Fact]
@@ -57,17 +50,10 @@ public class SongResourceTest(KestrelWebAppFactory<Program> factory)
     {
         await Authenticate();
 
-        var created = await PostAsync($"/{ResourceEndpoint}", new SongDto { Title = "Time Is Running Out", Artist = "Muse", AlbumId = "some-album-id" });
+        var created = await CreateAsync($"/{ResourceEndpoint}", new SongDto { Title = "Time Is Running Out", Artist = "Muse", AlbumId = "some-album-id" });
 
-        try
-        {
-            var fetched = await GetAsync<SongDto>($"/{ResourceEndpoint}/{created.Id}");
-            fetched.AlbumId.Should().Be("some-album-id");
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        var fetched = await GetAsync<SongDto>($"/{ResourceEndpoint}/{created.Id}");
+        fetched.AlbumId.Should().Be("some-album-id");
     }
 
     /// <summary>
@@ -81,20 +67,12 @@ public class SongResourceTest(KestrelWebAppFactory<Program> factory)
         await Authenticate();
 
         const string albumId = "shared-album-id";
-        var trackOne = await PostAsync($"/{ResourceEndpoint}", new SongDto { Title = "Apocalypse Please", AlbumId = albumId, TrackPosition = "2" });
-        var trackTwo = await PostAsync($"/{ResourceEndpoint}", new SongDto { Title = "Time Is Running Out", AlbumId = albumId, TrackPosition = "3" });
+        var trackOne = await CreateAsync($"/{ResourceEndpoint}", new SongDto { Title = "Apocalypse Please", AlbumId = albumId, TrackPosition = "2" });
+        var trackTwo = await CreateAsync($"/{ResourceEndpoint}", new SongDto { Title = "Time Is Running Out", AlbumId = albumId, TrackPosition = "3" });
 
-        try
-        {
-            var results = await GetAsync<PagedResult<SongDto>>($"/{ResourceEndpoint}?AlbumId={albumId}&TrackPosition=3");
+        var results = await GetAsync<PagedResult<SongDto>>($"/{ResourceEndpoint}?AlbumId={albumId}&TrackPosition=3");
 
-            results.Items.Should().ContainSingle(x => x.Id == trackTwo.Id);
-            results.Items.Should().NotContain(x => x.Id == trackOne.Id);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{trackOne.Id}");
-            await DeleteAsync($"/{ResourceEndpoint}/{trackTwo.Id}");
-        }
+        results.Items.Should().ContainSingle(x => x.Id == trackTwo.Id);
+        results.Items.Should().NotContain(x => x.Id == trackOne.Id);
     }
 }

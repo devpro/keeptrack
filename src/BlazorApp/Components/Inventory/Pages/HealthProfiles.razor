@@ -6,6 +6,8 @@
                Title="Health"
                ItemName="Profile"
                Route="@ListRoute"
+               View="@_view"
+               OnViewChanged="@SetView"
                Items="@(Items ?? [])"
                Loading="@_loading"
                Loaded="@_loaded"
@@ -30,10 +32,7 @@
                Sort="@_sort"
                OnSortChanged="@SetSort">
     <MetaTemplate Context="profile">
-        @if (!string.IsNullOrEmpty(profile.Notes))
-        {
-            <span>@profile.Notes</span>
-        }
+        <HealthMetaRow Item="profile"/>
     </MetaTemplate>
     <FormTemplate Context="profile">
         <div class="col-12">

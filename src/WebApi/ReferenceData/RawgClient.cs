@@ -1,36 +1,147 @@
 using System.Globalization;
 using System.Text.Json.Serialization;
 using System.Web;
+using Keeptrack.Domain.Models;
 
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
 /// RAWG Video Games Database REST client. Configured as a typed <see cref="HttpClient"/> (see Program.cs),
 /// with the api key appended as a query parameter on every request, same convention as <see cref="TmdbClient"/>.
+/// <para>
+/// No longer the default video game provider (see <see cref="IgdbClient"/>) but deliberately still registered,
+/// for two reasons: an admin can still search and link with it, and the <c>rawg</c>/<c>metacritic</c> ratings it
+/// already produced stay on those reference documents and keep rendering.
+/// It is *not* called by the background refresh - see
+/// <c>ReferenceEnrichmentService.RefreshVideoGameReferenceAsync</c> for why only the default provider is.
+/// </para>
 /// </summary>
-public class RawgClient(HttpClient http, RawgSettings settings) : IRawgClient
+public class RawgClient(HttpClient http, RawgSettings settings) : VideoGameReferenceClientBase
 {
-    public async Task<IReadOnlyList<RawgSearchResult>> SearchGamesAsync(string title, int? year, CancellationToken cancellationToken = default)
+    public override string ProviderKey => RatingSourceCatalog.Rawg;
+
+    public override string DisplayName => "RAWG";
+
+    /// <summary>RAWG's own 0-5 user score (its default ordering) and the Metacritic score it republishes.</summary>
+    public override IReadOnlyList<string> SupportedRatingSources { get; } = [RatingSourceCatalog.Rawg, RatingSourceCatalog.Metacritic];
+
+    protected override async Task<IReadOnlyList<VideoGameSearchResult>> SearchByRelevanceAsync(string title, int limit, CancellationToken cancellationToken)
     {
-        var query = $"games?key={ApiKey}&search={Encode(title)}&page_size={MaxResults}" + (year is null ? "" : $"&dates={year}-01-01,{year}-12-31");
+        // no `&dates=` narrowing any more, and dropping it is a fix rather than a simplification: it was a hard
+        // server-side filter on RAWG's own release date, so a game whose date RAWG records in the year either
+        // side of the one a tenant typed was not ranked lower, it was absent - see
+        // VideoGameReferenceClientBase.SearchByRelevanceAsync.
+        var query = $"games?key={ApiKey}&search={Encode(title)}&page_size={limit}";
         var response = await http.GetFromJsonAsync<RawgSearchResponse>(query, cancellationToken);
-        return response?.Results.Select(r => new RawgSearchResult(
+        return response?.Results.Select(r => new VideoGameSearchResult(
             r.Id.ToString(CultureInfo.InvariantCulture), r.Name ?? title, ParseYear(r.Released), r.BackgroundImage)).ToList() ?? [];
     }
 
-    public async Task<RawgGameDetails?> GetGameDetailsAsync(string externalId, CancellationToken cancellationToken = default)
+    public override async Task<IReadOnlyList<VideoGameSearchResult>> FindGamesByExactTitleAsync(string title, CancellationToken cancellationToken = default)
+    {
+        // RAWG has no equality operator on a field; `search_exact=true` only turns *off* the fuzziness of its
+        // relevance search, so it narrows the pool but still returns near-misses. The equality this method
+        // promises its callers is therefore applied here, on the response - a filter the paging loop's
+        // "an empty page ends the walk" rule makes unsafe elsewhere in this client, but this is a single page.
+        var query = $"games?key={ApiKey}&search={Encode(title)}&search_exact=true&page_size={MaxExactTitleResults}";
+        var response = await http.GetFromJsonAsync<RawgSearchResponse>(query, cancellationToken);
+        return response?.Results
+            .Where(r => string.Equals(r.Name, title, StringComparison.OrdinalIgnoreCase))
+            .Select(r => new VideoGameSearchResult(
+                r.Id.ToString(CultureInfo.InvariantCulture), r.Name ?? title, ParseYear(r.Released), r.BackgroundImage))
+            .ToList() ?? [];
+    }
+
+    public override async Task<IReadOnlyList<VideoGameSearchResult>> FindGamesContainingAllWordsAsync(IReadOnlyList<string> words, CancellationToken cancellationToken = default)
+    {
+        if (words.Count == 0) return [];
+
+        // RAWG has no substring operator on a field - `search=` is all it offers - so the containment this
+        // method promises is applied here, on one page of results, the same shape as FindGamesByExactTitleAsync
+        // above. Weaker than IGDB's version (RAWG's own relevance decides what is on that page at all) but it
+        // costs one call and can only ever return titles that genuinely contain every word.
+        var query = $"games?key={ApiKey}&search={Encode(string.Join(' ', words))}&page_size={MaxExactTitleResults}";
+        var response = await http.GetFromJsonAsync<RawgSearchResponse>(query, cancellationToken);
+        return response?.Results
+            .Where(r => r.Name is not null && words.All(word => r.Name.Contains(word, StringComparison.OrdinalIgnoreCase)))
+            .Select(r => new VideoGameSearchResult(
+                r.Id.ToString(CultureInfo.InvariantCulture), r.Name!, ParseYear(r.Released), r.BackgroundImage))
+            .ToList() ?? [];
+    }
+
+    public override async Task<VideoGameSearchResult?> FindGameByIdentifierAsync(string identifier, CancellationToken cancellationToken = default)
+    {
+        // RAWG's own detail endpoint accepts either its numeric id or the slug its pages are keyed on, so a
+        // pasted address needs no separate lookup. It answers 404 for one it doesn't hold, which is an
+        // ordinary "no result" here rather than a failed request - hence GetAsync over GetFromJsonAsync.
+        using var response = await http.GetAsync($"games/{Uri.EscapeDataString(identifier)}?key={ApiKey}", cancellationToken);
+        if (!response.IsSuccessStatusCode) return null;
+
+        var details = await response.Content.ReadFromJsonAsync<RawgGameDetailsResponse>(cancellationToken);
+        return details is null
+            ? null
+            : new VideoGameSearchResult(
+                details.Id.ToString(CultureInfo.InvariantCulture), details.Name ?? identifier, ParseYear(details.Released), details.BackgroundImage);
+    }
+
+    public override async Task<VideoGameDetails?> GetGameDetailsAsync(string externalId, CancellationToken cancellationToken = default)
     {
         var details = await http.GetFromJsonAsync<RawgGameDetailsResponse>($"games/{externalId}?key={ApiKey}", cancellationToken);
         return details is null
             ? null
-            : new RawgGameDetails(
+            : new VideoGameDetails(
                 externalId, details.Name ?? string.Empty, ParseYear(details.Released), details.DescriptionRaw,
                 details.Genres.Select(g => g.Name).ToList(),
                 details.Platforms.Select(p => p.Platform?.Name).OfType<string>().ToList(),
-                details.BackgroundImage);
+                details.BackgroundImage, BuildRatings(details.Rating, details.RatingsCount, details.Metacritic));
     }
 
-    private const int MaxResults = 5;
+    public override async Task<IReadOnlyList<VideoGameTopRatedItem>> GetTopRatedGamesAsync(int page, string ratingSource, CancellationToken cancellationToken = default)
+    {
+        var ordering = ratingSource == RatingSourceCatalog.Metacritic ? "metacritic" : "rating";
+        var query = $"games?key={ApiKey}&ordering=-{ordering}&metacritic={MinMetacritic},100&page={page}&page_size={TopRatedPageSize}";
+        var response = await http.GetFromJsonAsync<RawgSearchResponse>(query, cancellationToken);
+        return response?.Results.Select(r => new VideoGameTopRatedItem(
+            r.Id.ToString(CultureInfo.InvariantCulture), r.Name ?? string.Empty, ParseYear(r.Released), r.BackgroundImage,
+            BuildRatings(r.Rating, null, r.Metacritic).ToDictionary(x => x.Key, x => x.Value.Value),
+            string.IsNullOrEmpty(r.Slug) ? null : ProviderWebLinks.Rawg(r.Slug))).ToList() ?? [];
+    }
+
+    /// <summary>
+    /// RAWG's two aggregates as a <c>Ratings</c> map: its own 0-5 user score plus Metacritic's 0-100 critic
+    /// score when it reports one (frequently absent for smaller/older games). A 0/absent value is treated as
+    /// "no rating" and omitted, never stored as a genuine zero.
+    /// </summary>
+    private static Dictionary<string, ReferenceRatingModel> BuildRatings(double? rating, int? ratingsCount, int? metacritic)
+    {
+        var ratings = new Dictionary<string, ReferenceRatingModel>();
+        if (rating is > 0)
+        {
+            ratings[RatingSourceCatalog.Rawg] = new ReferenceRatingModel { Value = rating.Value, Scale = 5, Count = ratingsCount };
+        }
+        if (metacritic is > 0)
+        {
+            ratings[RatingSourceCatalog.Metacritic] = new ReferenceRatingModel { Value = metacritic.Value, Scale = 100 };
+        }
+        return ratings;
+    }
+
+    /// <summary>Bound on <see cref="FindGamesByExactTitleAsync"/> - see <c>IgdbClient</c>'s own on why it is the larger one.</summary>
+    private const int MaxExactTitleResults = 40;
+
+    /// <summary>RAWG's per-page maximum, so a discovery request needs as few round-trips as possible.</summary>
+    private const int TopRatedPageSize = 40;
+
+    /// <summary>
+    /// Notability floor on the discovery pool: only games Metacritic rates "generally favorable" or better are
+    /// candidates, whichever score the list is then *ordered* by. RAWG has no curated top-rated endpoint like
+    /// TMDB's (whose own list already applies a minimum vote count), and its <c>rating</c> is a plain average
+    /// with no vote-count filter or sort option - so ordering the whole ~900k-game catalogue by <c>-rating</c>
+    /// would rank an unknown game carrying a single 5-star vote above every classic. Requiring a Metacritic
+    /// score (i.e. the game was reviewed by the professional press at all) is the closest server-side
+    /// equivalent of TMDB's vote threshold, and it costs no extra call. Raise it for a stricter list.
+    /// </summary>
+    private const int MinMetacritic = 60;
 
     private string ApiKey => settings.ApiKey;
 
@@ -58,10 +169,25 @@ public class RawgClient(HttpClient http, RawgSettings settings) : IRawgClient
 
         [JsonPropertyName("background_image")]
         public string? BackgroundImage { get; set; }
+
+        // only populated on the top-rated listing (the search path ignores both) - RAWG's list serializer
+        // returns the same shape for every /games query.
+        [JsonPropertyName("rating")]
+        public double? Rating { get; set; }
+
+        [JsonPropertyName("metacritic")]
+        public int? Metacritic { get; set; }
+
+        /// <summary>What rawg.io keys a game's own page on - <see cref="Id"/> can't be turned into it.</summary>
+        [JsonPropertyName("slug")]
+        public string? Slug { get; set; }
     }
 
     private sealed class RawgGameDetailsResponse
     {
+        [JsonPropertyName("id")]
+        public long Id { get; set; }
+
         [JsonPropertyName("name")]
         public string? Name { get; set; }
 
@@ -73,6 +199,15 @@ public class RawgClient(HttpClient http, RawgSettings settings) : IRawgClient
 
         [JsonPropertyName("background_image")]
         public string? BackgroundImage { get; set; }
+
+        [JsonPropertyName("rating")]
+        public double? Rating { get; set; }
+
+        [JsonPropertyName("ratings_count")]
+        public int? RatingsCount { get; set; }
+
+        [JsonPropertyName("metacritic")]
+        public int? Metacritic { get; set; }
 
         [JsonPropertyName("genres")]
         public List<RawgGenre> Genres { get; set; } = [];

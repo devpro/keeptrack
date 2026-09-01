@@ -9,11 +9,11 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// <summary>
 /// Google Books REST client.
 /// </summary>
-public partial class GoogleBooksClient(HttpClient http, GoogleBooksSettings settings) : IBookReferenceClient
+public partial class GoogleBooksClient(HttpClient http, GoogleBooksSettings settings) : BookReferenceClientBase
 {
-    public string ProviderKey => "googlebooks";
+    public override string ProviderKey => "googlebooks";
 
-    public string DisplayName => "Google Books";
+    public override string DisplayName => "Google Books";
 
     private const int MaxResults = 20;
 
@@ -21,24 +21,18 @@ public partial class GoogleBooksClient(HttpClient http, GoogleBooksSettings sett
 
     private string ApiKey => settings.ApiKey;
 
-    public async Task<IReadOnlyList<BookSearchResult>> SearchBooksAsync(string title, int? year, string? author = null, string? isbn = null,
-        CancellationToken cancellationToken = default)
-    {
-        // an ISBN is an exact identifier
-        // when supplied it supersedes title/author entirely rather than being combined with them
-        // since combining risks the same "and" narrowing correctness a plain identifier lookup doesn't need to worry about
-        if (!string.IsNullOrEmpty(isbn)) return await SearchBooksCoreAsync($"isbn:{isbn}", cancellationToken);
+    /// <summary>
+    /// An ISBN is an exact identifier, so it is the sole query rather than being combined with title/author -
+    /// "and"-ing an exact identifier with a fuzzy match risks the same narrowing-correctness problem a plain
+    /// identifier lookup doesn't have to worry about. Whether a miss then widens to a title search is
+    /// <see cref="BookReferenceClientBase.SearchBooksAsync"/>'s decision, shared by every provider.
+    /// </summary>
+    protected override Task<IReadOnlyList<BookSearchResult>> SearchByIsbnAsync(string isbn, CancellationToken cancellationToken) =>
+        SearchBooksCoreAsync($"isbn:{isbn}", cancellationToken);
 
-        var results = await SearchBooksCoreAsync(BuildQuery(title, author), cancellationToken);
-        if (results.Count == 0 && !string.IsNullOrEmpty(author))
-        {
-            // an optional narrowing parameter must never silently zero out results
-            // an "inauthor:" qualifier that doesn't exactly match Google's own indexing can zero out results the title alone would find
-            results = await SearchBooksCoreAsync(BuildQuery(title, null), cancellationToken);
-        }
-
-        return results;
-    }
+    /// <inheritdoc />
+    protected override Task<IReadOnlyList<BookSearchResult>> SearchByTitleAsync(string title, string? author, CancellationToken cancellationToken) =>
+        SearchBooksCoreAsync(BuildQuery(title, author), cancellationToken);
 
     /// <summary>
     /// Google's own <c>fields=</c> partial-response parameter (https://developers.google.com/books/docs/v1/performance),
@@ -53,7 +47,7 @@ public partial class GoogleBooksClient(HttpClient http, GoogleBooksSettings sett
     /// <summary>
     /// Same idea as <see cref="SearchFields"/>, restricted to what <see cref="BookDetails"/> reads.
     /// </summary>
-    private const string DetailsFields = "fields=volumeInfo(title,publishedDate,description,authors,categories,imageLinks/thumbnail,language,industryIdentifiers)";
+    private const string DetailsFields = "fields=volumeInfo(title,publishedDate,description,authors,categories,imageLinks/thumbnail,language,industryIdentifiers,averageRating,ratingsCount)";
 
     private async Task<IReadOnlyList<BookSearchResult>> SearchBooksCoreAsync(string query, CancellationToken cancellationToken)
     {
@@ -67,7 +61,7 @@ public partial class GoogleBooksClient(HttpClient http, GoogleBooksSettings sett
             .ToList() ?? [];
     }
 
-    public async Task<BookDetails?> GetBookDetailsAsync(string externalId, CancellationToken cancellationToken = default)
+    public override async Task<BookDetails?> GetBookDetailsAsync(string externalId, CancellationToken cancellationToken = default)
     {
         var volume = await http.GetFromJsonAsync<GoogleBooksVolume>($"volumes/{externalId}?key={ApiKey}&{DetailsFields}", cancellationToken);
         var info = volume?.VolumeInfo;
@@ -83,7 +77,9 @@ public partial class GoogleBooksClient(HttpClient http, GoogleBooksSettings sett
             info.Categories.Take(MaxGenres).ToList(),
             BuildImageUrl(info.ImageLinks),
             info.Language,
-            ExtractIsbn(info.IndustryIdentifiers));
+            ExtractIsbn(info.IndustryIdentifiers),
+            info.AverageRating,
+            info.RatingsCount);
     }
 
     private static string BuildQuery(string title, string? author)
@@ -212,6 +208,12 @@ public partial class GoogleBooksClient(HttpClient http, GoogleBooksSettings sett
 
         [JsonPropertyName("language")]
         public string? Language { get; set; }
+
+        [JsonPropertyName("averageRating")]
+        public double? AverageRating { get; set; }
+
+        [JsonPropertyName("ratingsCount")]
+        public int? RatingsCount { get; set; }
 
         [JsonPropertyName("imageLinks")]
         public GoogleBooksImageLinks? ImageLinks { get; set; }

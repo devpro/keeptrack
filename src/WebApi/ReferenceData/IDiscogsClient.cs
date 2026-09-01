@@ -4,9 +4,13 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// One Discogs master-release search hit - title, year, artist and cover art, enough for automatic
 /// matching or for an admin to pick from when a match is ambiguous.
 /// </summary>
-public record DiscogsSearchResult(string ExternalId, string Title, int? Year, string? Artist, string? ImageUrl);
+public record DiscogsSearchResult(string ExternalId, string Title, int? Year, string? Artist, string? ImageUrl) : ICreatorSearchCandidate
+{
+    /// <summary>An album's identity is its title plus its artist - see <see cref="ReferenceMatchRules"/>.</summary>
+    public string? Creator => Artist;
+}
 
-public record DiscogsAlbumDetails(string ExternalId, string Title, int? Year, string? Synopsis, string? Artist, string? ArtistExternalId, List<string> Genres, string? ImageUrl, List<DiscogsTrack> Tracks);
+public record DiscogsAlbumDetails(string ExternalId, string Title, int? Year, string? Synopsis, string? Artist, string? ArtistExternalId, List<string> Genres, string? ImageUrl, List<DiscogsTrack> Tracks, double? Rating = null, int? RatingCount = null);
 
 /// <summary>
 /// One tracklist entry from Discogs' <c>/masters/{id}</c> response - <paramref name="Position"/> isn't

@@ -10,7 +10,7 @@ namespace Keeptrack.WebApi.UnitTests.Services;
 [Trait("Category", "UnitTests")]
 public class AmazonOrderPreviewServiceTest
 {
-    private static Stream ToStream(string csv) => new MemoryStream(Encoding.UTF8.GetBytes(csv));
+    private static MemoryStream ToStream(string csv) => new(Encoding.UTF8.GetBytes(csv));
 
     // The "Ã©" sequence below is deliberately literal (not a copy/paste accident) - it reproduces the real
     // export's mojibake byte-for-byte, confirmed against the raw bytes of a real Amazon order-history CSV.

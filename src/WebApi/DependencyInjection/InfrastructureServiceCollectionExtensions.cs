@@ -37,6 +37,7 @@ internal static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IStorageMapper<Domain.Models.VideoGameModel, VideoGame>, VideoGameStorageMapper>();
         services.AddSingleton<IStorageMapper<Domain.Models.CarModel, Car>, CarStorageMapper>();
         services.AddSingleton<IStorageMapper<Domain.Models.CarHistoryModel, CarHistory>, CarHistoryStorageMapper>();
+        services.AddSingleton<IStorageMapper<Domain.Models.CarStationModel, CarStation>, CarStationStorageMapper>();
         services.AddSingleton<IStorageMapper<Domain.Models.HouseModel, House>, HouseStorageMapper>();
         services.AddSingleton<IStorageMapper<Domain.Models.HouseHistoryModel, HouseHistory>, HouseHistoryStorageMapper>();
         services.AddSingleton<IStorageMapper<Domain.Models.HealthProfileModel, HealthProfile>, HealthProfileStorageMapper>();
@@ -46,6 +47,7 @@ internal static class InfrastructureServiceCollectionExtensions
 
         services.AddSingleton<BackgroundJobStorageMapper>();
         services.AddSingleton<WishlistShareStorageMapper>();
+        services.AddSingleton<ShareStorageMapper>();
         services.AddSingleton<UserPreferencesStorageMapper>();
         services.AddSingleton<TvShowReferenceStorageMapper>();
         services.AddSingleton<MovieReferenceStorageMapper>();
@@ -53,10 +55,16 @@ internal static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<BookReferenceStorageMapper>();
         services.AddSingleton<VideoGameReferenceStorageMapper>();
         services.AddSingleton<AlbumReferenceStorageMapper>();
+        services.AddSingleton<ExploreCatalogueEntryStorageMapper>();
 
         services.TryAddScoped<Domain.Repositories.IBackgroundJobRepository, BackgroundJobRepository>();
         services.TryAddScoped<Domain.Repositories.IWishlistShareRepository, WishlistShareRepository>();
+        services.TryAddScoped<Domain.Repositories.IExploreDismissalRepository, ExploreDismissalRepository>();
+        services.TryAddScoped<Domain.Repositories.IExploreCatalogueRepository, ExploreCatalogueRepository>();
+        services.TryAddScoped<Domain.Repositories.IShareRepository, ShareRepository>();
         services.TryAddScoped<Domain.Repositories.ILeaseRepository, LeaseRepository>();
+        services.TryAddScoped<Domain.Repositories.IProviderQuotaRepository, ProviderQuotaRepository>();
+        services.TryAddScoped<Domain.Repositories.IAppSettingRepository, AppSettingRepository>();
         services.TryAddScoped<Domain.Repositories.IUserPreferencesRepository, UserPreferencesRepository>();
         services.TryAddScoped<Domain.Repositories.IAlbumRepository, AlbumRepository>();
         services.TryAddScoped<Domain.Repositories.ISongRepository, SongRepository>();
@@ -64,6 +72,7 @@ internal static class InfrastructureServiceCollectionExtensions
         services.TryAddScoped<Domain.Repositories.IBookRepository, BookRepository>();
         services.TryAddScoped<Domain.Repositories.ICarRepository, CarRepository>();
         services.TryAddScoped<Domain.Repositories.ICarHistoryRepository, CarHistoryRepository>();
+        services.TryAddScoped<Domain.Repositories.ICarStationRepository, CarStationRepository>();
         services.TryAddScoped<Domain.Repositories.IHouseRepository, HouseRepository>();
         services.TryAddScoped<Domain.Repositories.IHouseHistoryRepository, HouseHistoryRepository>();
         services.TryAddScoped<Domain.Repositories.IHealthProfileRepository, HealthProfileRepository>();

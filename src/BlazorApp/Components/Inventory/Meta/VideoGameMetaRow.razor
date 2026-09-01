@@ -1,0 +1,30 @@
+@* The video game list row's second line - year, per-platform badges (the game's copies), rating. Shared by
+   the owner list page and the shared-collection view. *@
+
+@if (Item.Year > 0)
+{
+    <span>@Item.Year</span>
+}
+@foreach (var entry in Item.Platforms)
+{
+    <span class="kt-status-badge @Pages.VideoGames.StateBadgeClass(entry.State ?? "")">
+        @entry.Platform@(string.IsNullOrEmpty(entry.State) ? "" : $" ({entry.State})")
+    </span>
+}
+@if (Item.ReferenceRating is not null)
+{
+    <span class="kt-ref-rating" title="Rating from the linked reference"><span class="kt-ref-rating-star">★</span> @Item.ReferenceRating.Value.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)</span>
+}
+@if (Item.Rating is not null)
+{
+    <span class="kt-stars"><StarRating Rating="Item.Rating"/></span>
+}
+@* no Owned badge here - the per-platform badges above already are the game's copies *@
+@if (Item.IsWishlisted)
+{
+    <span class="kt-flag-badge wishlist">Wishlist</span>
+}
+
+@code {
+    [Parameter] public required VideoGameDto Item { get; set; }
+}

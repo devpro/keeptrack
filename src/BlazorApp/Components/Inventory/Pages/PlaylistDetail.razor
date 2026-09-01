@@ -15,7 +15,7 @@
 else if (Playlist is null)
 {
     <div class="kt-empty">
-        <div class="kt-empty-icon">◈</div>
+        <div class="kt-empty-icon"><Icon Name="empty" Size="40" StrokeWidth="1.1"/></div>
         <p>Playlist not found.</p>
     </div>
 }
@@ -31,14 +31,14 @@ else
 
     <h2 class="kt-section-title">Songs</h2>
 
-    @if (PlaylistSongs.Count == 0)
+    @if (GetPlaylistSongs().Count == 0)
     {
         <p class="kt-card-meta">No songs yet - add one from an album below.</p>
     }
     else
     {
         <div class="kt-form-card">
-            @foreach (var (song, index) in PlaylistSongs)
+            @foreach (var (song, index) in GetPlaylistSongs())
             {
                 <div class="kt-track-row">
                     <span>@song.Title</span>
@@ -138,7 +138,7 @@ else
     /// deleted separately) is silently skipped rather than shown as a broken row, the same soft-reference
     /// tolerance already used for a missing reference-link elsewhere in the app.
     /// </summary>
-    private List<(SongDto Song, int Index)> PlaylistSongs =>
+    private List<(SongDto Song, int Index)> GetPlaylistSongs() =>
         Playlist is null
             ? []
             : Playlist.SongIds

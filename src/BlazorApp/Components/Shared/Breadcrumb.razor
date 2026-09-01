@@ -3,6 +3,11 @@
    the list from a detail page. *@
 
 <nav class="kt-breadcrumb" aria-label="Breadcrumb">
+    @if (!string.IsNullOrEmpty(ParentRoute) && !string.IsNullOrEmpty(ParentLabel))
+    {
+        <a href="@ParentRoute">@ParentLabel</a>
+        <span class="kt-breadcrumb-sep">›</span>
+    }
     <a href="@ListRoute">@ListLabel</a>
     @if (!string.IsNullOrEmpty(Current))
     {
@@ -12,6 +17,11 @@
 </nav>
 
 @code {
+    /// <summary>Optional grandparent crumb rendered before <see cref="ListRoute"/> (e.g. "Profile › …").</summary>
+    [Parameter] public string? ParentRoute { get; set; }
+
+    [Parameter] public string? ParentLabel { get; set; }
+
     [Parameter] public required string ListRoute { get; set; }
 
     [Parameter] public required string ListLabel { get; set; }

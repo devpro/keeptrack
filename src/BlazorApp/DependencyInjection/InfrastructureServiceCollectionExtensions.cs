@@ -15,6 +15,8 @@ internal static class InfrastructureServiceCollectionExtensions
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
         services.AddHttpClient<CarHistoryApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
+        services.AddHttpClient<CarStationApiClient>(client => client.BaseAddress = webApiUri)
+            .AddHttpMessageHandler<AuthenticationTokenHandler>();
         services.AddHttpClient<HouseApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
         services.AddHttpClient<HouseHistoryApiClient>(client => client.BaseAddress = webApiUri)
@@ -41,7 +43,13 @@ internal static class InfrastructureServiceCollectionExtensions
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
         services.AddHttpClient<Components.WatchNext.WatchNextApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
+        services.AddHttpClient<Components.Sharing.ShareApiClient>(client => client.BaseAddress = webApiUri)
+            .AddHttpMessageHandler<AuthenticationTokenHandler>();
+        services.AddHttpClient<Components.Sharing.SharedWithMeApiClient>(client => client.BaseAddress = webApiUri)
+            .AddHttpMessageHandler<AuthenticationTokenHandler>();
         services.AddHttpClient<Components.Wishlist.WishlistApiClient>(client => client.BaseAddress = webApiUri)
+            .AddHttpMessageHandler<AuthenticationTokenHandler>();
+        services.AddHttpClient<Components.Explore.ExploreApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
         services.AddHttpClient<Components.Import.TvTimeImportApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
@@ -52,6 +60,8 @@ internal static class InfrastructureServiceCollectionExtensions
         services.AddHttpClient<Components.Import.AmazonImportApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
         services.AddHttpClient<Components.Import.GenericVideoGameImportApiClient>(client => client.BaseAddress = webApiUri)
+            .AddHttpMessageHandler<AuthenticationTokenHandler>();
+        services.AddHttpClient<Components.Import.GenericImportApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();
         services.AddHttpClient<Components.ReferenceData.ReferenceDataApiClient>(client => client.BaseAddress = webApiUri)
             .AddHttpMessageHandler<AuthenticationTokenHandler>();

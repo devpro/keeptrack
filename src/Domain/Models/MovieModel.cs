@@ -4,7 +4,7 @@ using Keeptrack.Common.System;
 
 namespace Keeptrack.Domain.Models;
 
-public class MovieModel : IHasIdAndOwnerId, IHasTvTimeId
+public class MovieModel : IHasIdAndOwnerId, IHasTvTimeId, IReferenceLinkedModel
 {
     public string? Id { get; set; }
 
@@ -27,6 +27,26 @@ public class MovieModel : IHasIdAndOwnerId, IHasTvTimeId
     public string? Notes { get; set; }
 
     public string? ReferenceId { get; set; }
+
+    /// <summary>
+    /// Denormalized copy of the linked reference's primary-source rating value (TMDB's, on a 0-10 scale
+    /// given by <see cref="ReferenceRatingScale"/>). Copied down from the shared reference document on
+    /// link/refresh purely so the list page can display and sort by it without a per-page join; the
+    /// authoritative multi-source data lives on <see cref="MovieReferenceModel.Ratings"/>. Null until linked.
+    /// </summary>
+    public double? ReferenceRating { get; set; }
+
+    /// <summary>Scale of <see cref="ReferenceRating"/> (10 for TMDB); null when there is no reference rating.</summary>
+    public double? ReferenceRatingScale { get; set; }
+
+    /// <summary>
+    /// Which rating source <see cref="ReferenceRating"/> was taken from ("tmdb", "imdb", "rawg", ...) - see
+    /// <c>RatingSourceCatalog</c>. Stamped on every link/refresh, and stamped even when that source has no
+    /// value for this reference: it records which source the denormalized copy was computed from, not where a
+    /// number came from, which is what lets the admin "recompute" action tell an item that is already on the
+    /// selected source from one that still needs re-stamping. Null only for items linked before this existed.
+    /// </summary>
+    public string? ReferenceRatingSource { get; set; }
 
     public DateOnly? FirstSeenAt { get; set; }
 

@@ -1,0 +1,44 @@
+@* What a row or card shows when an item has no cover art yet.
+
+   It used to be a faint ◈ on a flat grey block, which reads as a failed image load rather than as "nothing
+   linked here yet" - and in a six-up grid two of them dominate the row. The established answer in media
+   libraries (Plex, Jellyfin, Spotify) is a text fallback derived from the title: it can never look broken,
+   it gives each placeholder a different face so a column of them stays scannable, and it carries a little
+   real information instead of none.
+
+   A title that starts with something other than a letter or digit (punctuation, an emoji) renders nothing
+   at all rather than that character blown up to 2.4rem - an empty tile is better than a loud meaningless
+   one. Same for an item with no title yet. *@
+
+@if (Initial is not null)
+{
+    <span class="kt-cover-initial" aria-hidden="true">@Initial</span>
+}
+
+@code {
+    [Parameter] public string? Title { get; set; }
+
+    private string? Initial
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(Title)) return null;
+
+            // Rune, not char: a surrogate pair (an emoji, a rarer CJK glyph) is two chars, and taking
+            // Title[0] there yields half a code point - which renders as U+FFFD.
+            foreach (var rune in Title.Trim().EnumerateRunes())
+            {
+                if (System.Text.Rune.IsLetterOrDigit(rune))
+                {
+                    return System.Text.Rune.ToUpperInvariant(rune).ToString();
+                }
+
+                // Only the *first* character decides: "…And Justice for All" is deliberately blank rather
+                // than showing the A of its second word, which would misrepresent how it sorts and reads.
+                return null;
+            }
+
+            return null;
+        }
+    }
+}

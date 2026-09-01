@@ -8,7 +8,7 @@ public class AppConfiguration(IConfiguration configuration)
 {
     public static string CorsPolicyName => "CorsPolicyName";
 
-    public static string HealthCheckEndpoint => "/health";
+    public static string HealthCheckEndpoint => "/healthz";
 
     public bool IsHttpsRedirectionEnabled => configuration.TryGetSection<bool>("Features:IsHttpsRedirectionEnabled");
 
@@ -41,20 +41,44 @@ public class AppConfiguration(IConfiguration configuration)
 
     public TmdbSettings TmdbSettings { get; } = configuration.TryGetSection<TmdbSettings>("Tmdb");
 
+    /// <summary>
+    /// OMDb (IMDb ratings) is optional - a missing <c>Omdb</c> section is a supported state (IMDb enrichment
+    /// disabled), so this coalesces to an empty settings object rather than a null the DI container would then
+    /// hand a client. See <see cref="OmdbSettings"/>.
+    /// </summary>
+    public OmdbSettings OmdbSettings { get; } = configuration.TryGetSection<OmdbSettings>("Omdb") ?? new OmdbSettings();
+
     public RawgSettings RawgSettings { get; } = configuration.TryGetSection<RawgSettings>("Rawg");
+
+    /// <summary>
+    /// IGDB (the default video game provider) is optional in the same way OMDb is - a missing <c>Igdb</c>
+    /// section is a supported state, and the client short-circuits rather than failing. See
+    /// <see cref="IgdbSettings"/> for why that matters more here than it does for a secondary provider.
+    /// </summary>
+    public IgdbSettings IgdbSettings { get; } = configuration.TryGetSection<IgdbSettings>("Igdb") ?? new IgdbSettings();
 
     public DiscogsSettings DiscogsSettings { get; } = configuration.TryGetSection<DiscogsSettings>("Discogs");
 
     public GoogleBooksSettings GoogleBooksSettings { get; } = configuration.TryGetSection<GoogleBooksSettings>("GoogleBooks");
 
     /// <summary>
-    /// Which book provider (<see cref="ReferenceData.IBookReferenceClient.ProviderKey"/>) is used for
+    /// Which book provider (<see cref="ReferenceData.IReferenceProviderClient.ProviderKey"/>) is used for
     /// automatic/background resolution when an admin doesn't pick one explicitly - see
-    /// <see cref="ReferenceData.BookReferenceClientRegistry"/>. Every registered provider stays available
+    /// <see cref="ReferenceData.ReferenceClientRegistry{TClient}"/>. Every registered provider stays available
     /// to pick from regardless of this value. Overridable via the <c>ReferenceData__BookProvider</c>
     /// environment variable, same convention as every other setting.
     /// </summary>
     public string BookReferenceProvider => configuration.TryGetSection<string>("ReferenceData:BookProvider");
+
+    /// <summary>
+    /// Which video game provider (<see cref="ReferenceData.IReferenceProviderClient.ProviderKey"/>) is used
+    /// for automatic/background resolution, for adopting an id onto references linked before it, and as
+    /// Explore's discovery provider. Same shape as <see cref="BookReferenceProvider"/>: every registered
+    /// provider stays available for an admin to search/link with regardless of this value. Defaults to IGDB
+    /// when unset, so an existing deployment needs no config change to move off RAWG.
+    /// </summary>
+    public string VideoGameReferenceProvider =>
+        configuration.TryGetSection<string>("ReferenceData:VideoGameProvider") is { Length: > 0 } provider ? provider : ReferenceData.RatingSourceCatalog.Igdb;
 
     public string ConnectionString => configuration.TryGetSection<string>("Infrastructure:MongoDB:ConnectionString");
 

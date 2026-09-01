@@ -8,22 +8,22 @@ using Keeptrack.Domain.Repositories;
 using Keeptrack.Infrastructure.MongoDb.Entities;
 using Keeptrack.WebApi.IntegrationTests.Hosting;
 using Microsoft.Extensions.DependencyInjection;
-using MongoDB.Driver;
 using Xunit;
 
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
 /// Exercises the reference repositories' <c>FindAllAsync</c> (backs the admin zip export) directly against
-/// real MongoDB, and confirms re-upserting an already-exported document (the zip import path) is a true
-/// no-op the second time - the whole point of "idempotent" for POST /api/reference-data/import.
+/// real MongoDB - every document has to be in it, or the export silently ships an incomplete dataset.
+/// The import side is covered end-to-end over HTTP by <see cref="ReferenceDataImportResourceTest"/>, which is
+/// where the matching rules live; what stays here is the repository-level guarantee those rules build on.
 /// </summary>
-public class ReferenceDataExportImportTest(KestrelWebAppFactory<Program> factory) : IClassFixture<KestrelWebAppFactory<Program>>
+public class ReferenceDataExportImportTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)
 {
     [Fact]
     public async Task TvShowReferenceRepository_FindAllAsync_IncludesEveryDocument()
     {
-        using var scope = factory.Services.CreateScope();
+        using var scope = Factory.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<ITvShowReferenceRepository>();
         var title = $"Export Test Show {Guid.NewGuid()}";
 
@@ -32,62 +32,51 @@ public class ReferenceDataExportImportTest(KestrelWebAppFactory<Program> factory
             Title = title,
             TitleNormalized = title.ToLowerInvariant(),
             Year = 2020,
-            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "1" }
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = TestExternalId.New() }
         });
+        TrackDocument("tvshow_reference", created.Id);
 
-        try
-        {
-            var all = await repository.FindAllAsync();
+        var all = await repository.FindAllAsync();
 
-            all.Should().Contain(m => m.Id == created.Id && m.Title == title);
-        }
-        finally
-        {
-            await DeleteAsync<TvShowReference>(scope, "tvshow_reference", created.Id!);
-        }
+        all.Should().Contain(m => m.Id == created.Id && m.Title == title);
     }
 
     [Fact]
     public async Task TvShowReferenceRepository_ReimportingTheSameExportedDocument_IsANoOp()
     {
-        using var scope = factory.Services.CreateScope();
+        using var scope = Factory.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<ITvShowReferenceRepository>();
         var title = $"Reimport Test Show {Guid.NewGuid()}";
+        var externalId = TestExternalId.New();
 
         var created = await repository.UpsertAsync(new TvShowReferenceModel
         {
             Title = title,
             TitleNormalized = title.ToLowerInvariant(),
             Year = 2020,
-            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "1" }
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = externalId }
+        });
+        TrackDocument("tvshow_reference", created.Id);
+
+        // re-upserting a document that already carries an id replaces it rather than inserting a second copy
+        await repository.UpsertAsync(new TvShowReferenceModel
+        {
+            Id = created.Id,
+            Title = title,
+            TitleNormalized = title.ToLowerInvariant(),
+            Year = 2020,
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = externalId }
         });
 
-        try
-        {
-            // simulates re-running an import of a previously exported document: same id, same content
-            await repository.UpsertAsync(new TvShowReferenceModel
-            {
-                Id = created.Id,
-                Title = title,
-                TitleNormalized = title.ToLowerInvariant(),
-                Year = 2020,
-                ExternalIds = new Dictionary<string, string> { ["tmdb"] = "1" }
-            });
+        var all = await repository.FindAllAsync();
 
-            var all = await repository.FindAllAsync();
-
-            all.Count(m => m.Id == created.Id).Should().Be(1);
-        }
-        finally
-        {
-            await DeleteAsync<TvShowReference>(scope, "tvshow_reference", created.Id!);
-        }
+        all.Count(m => m.Id == created.Id).Should().Be(1);
     }
 
     [Fact]
     public async Task MovieReferenceRepository_FindAllAsync_IncludesEveryDocument()
     {
-        using var scope = factory.Services.CreateScope();
+        using var scope = Factory.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IMovieReferenceRepository>();
         var title = $"Export Test Movie {Guid.NewGuid()}";
 
@@ -96,50 +85,37 @@ public class ReferenceDataExportImportTest(KestrelWebAppFactory<Program> factory
             Title = title,
             TitleNormalized = title.ToLowerInvariant(),
             Year = 2020,
-            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "1" }
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = TestExternalId.New() }
         });
+        TrackDocument("movie_reference", created.Id);
 
-        try
-        {
-            var all = await repository.FindAllAsync();
+        var all = await repository.FindAllAsync();
 
-            all.Should().Contain(m => m.Id == created.Id && m.Title == title);
-        }
-        finally
-        {
-            await DeleteAsync<MovieReference>(scope, "movie_reference", created.Id!);
-        }
+        all.Should().Contain(m => m.Id == created.Id && m.Title == title);
     }
 
     [Fact]
     public async Task PersonReferenceRepository_FindAllAsync_IncludesEveryDocument()
     {
-        using var scope = factory.Services.CreateScope();
+        using var scope = Factory.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IPersonReferenceRepository>();
-        var tmdbId = Guid.NewGuid().ToString();
 
         var created = await repository.UpsertAsync(new PersonReferenceModel
         {
             Name = "Export Test Actor",
-            ExternalIds = new Dictionary<string, string> { ["tmdb"] = tmdbId }
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = TestExternalId.New() }
         });
+        TrackDocument("person_reference", created.Id);
 
-        try
-        {
-            var all = await repository.FindAllAsync();
+        var all = await repository.FindAllAsync();
 
-            all.Should().Contain(p => p.Id == created.Id && p.Name == "Export Test Actor");
-        }
-        finally
-        {
-            await DeleteAsync<PersonReference>(scope, "person_reference", created.Id!);
-        }
+        all.Should().Contain(p => p.Id == created.Id && p.Name == "Export Test Actor");
     }
 
     [Fact]
     public async Task BookReferenceRepository_FindAllAsync_IncludesEveryDocument()
     {
-        using var scope = factory.Services.CreateScope();
+        using var scope = Factory.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IBookReferenceRepository>();
         var title = $"Export Test Book {Guid.NewGuid()}";
 
@@ -148,25 +124,19 @@ public class ReferenceDataExportImportTest(KestrelWebAppFactory<Program> factory
             Title = title,
             TitleNormalized = title.ToLowerInvariant(),
             Year = 2020,
-            ExternalIds = new Dictionary<string, string> { ["openlibrary"] = "OL1W" }
+            ExternalIds = new Dictionary<string, string> { ["openlibrary"] = TestExternalId.New() }
         });
+        TrackDocument("book_reference", created.Id);
 
-        try
-        {
-            var all = await repository.FindAllAsync();
+        var all = await repository.FindAllAsync();
 
-            all.Should().Contain(m => m.Id == created.Id && m.Title == title);
-        }
-        finally
-        {
-            await DeleteAsync<BookReference>(scope, "book_reference", created.Id!);
-        }
+        all.Should().Contain(m => m.Id == created.Id && m.Title == title);
     }
 
     [Fact]
     public async Task VideoGameReferenceRepository_FindAllAsync_IncludesEveryDocument()
     {
-        using var scope = factory.Services.CreateScope();
+        using var scope = Factory.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IVideoGameReferenceRepository>();
         var title = $"Export Test Game {Guid.NewGuid()}";
 
@@ -175,25 +145,19 @@ public class ReferenceDataExportImportTest(KestrelWebAppFactory<Program> factory
             Title = title,
             TitleNormalized = title.ToLowerInvariant(),
             Year = 2020,
-            ExternalIds = new Dictionary<string, string> { ["rawg"] = "1" }
+            ExternalIds = new Dictionary<string, string> { ["rawg"] = TestExternalId.New() }
         });
+        TrackDocument("videogame_reference", created.Id);
 
-        try
-        {
-            var all = await repository.FindAllAsync();
+        var all = await repository.FindAllAsync();
 
-            all.Should().Contain(m => m.Id == created.Id && m.Title == title);
-        }
-        finally
-        {
-            await DeleteAsync<VideoGameReference>(scope, "videogame_reference", created.Id!);
-        }
+        all.Should().Contain(m => m.Id == created.Id && m.Title == title);
     }
 
     [Fact]
     public async Task AlbumReferenceRepository_FindAllAsync_IncludesEveryDocument()
     {
-        using var scope = factory.Services.CreateScope();
+        using var scope = Factory.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IAlbumReferenceRepository>();
         var title = $"Export Test Album {Guid.NewGuid()}";
 
@@ -202,24 +166,12 @@ public class ReferenceDataExportImportTest(KestrelWebAppFactory<Program> factory
             Title = title,
             TitleNormalized = title.ToLowerInvariant(),
             Year = 2020,
-            ExternalIds = new Dictionary<string, string> { ["discogs"] = "1" }
+            ExternalIds = new Dictionary<string, string> { ["discogs"] = TestExternalId.New() }
         });
+        TrackDocument("album_reference", created.Id);
 
-        try
-        {
-            var all = await repository.FindAllAsync();
+        var all = await repository.FindAllAsync();
 
-            all.Should().Contain(m => m.Id == created.Id && m.Title == title);
-        }
-        finally
-        {
-            await DeleteAsync<AlbumReference>(scope, "album_reference", created.Id!);
-        }
-    }
-
-    private static async Task DeleteAsync<TEntity>(IServiceScope scope, string collectionName, string id) where TEntity : class
-    {
-        var collection = scope.ServiceProvider.GetRequiredService<IMongoDatabase>().GetCollection<TEntity>(collectionName);
-        await collection.DeleteOneAsync(Builders<TEntity>.Filter.Eq("_id", id), TestContext.Current.CancellationToken);
+        all.Should().Contain(m => m.Id == created.Id && m.Title == title);
     }
 }

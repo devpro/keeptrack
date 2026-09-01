@@ -15,11 +15,11 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// BnF's ordinary catalogue records carry no cover-art field at all (only a digitized Gallica item would,
 /// via a separate API this client doesn't call), unlike Open Library/RAWG/Discogs.
 /// </summary>
-public class BnfClient(HttpClient http) : IBookReferenceClient
+public class BnfClient(HttpClient http) : BookReferenceClientBase
 {
-    public string ProviderKey => "bnf";
+    public override string ProviderKey => "bnf";
 
-    public string DisplayName => "BnF";
+    public override string DisplayName => "BnF";
 
     private static readonly XNamespace s_srw = "http://www.loc.gov/zing/srw/";
     private static readonly XNamespace s_dc = "http://purl.org/dc/elements/1.1/";
@@ -29,33 +29,18 @@ public class BnfClient(HttpClient http) : IBookReferenceClient
     private static readonly TimeSpan s_regexTimeout = TimeSpan.FromSeconds(1);
 
     /// <summary>
-    /// <paramref name="year"/> is deliberately never sent to BnF as a query criterion, same choice
-    /// <see cref="OpenLibraryClient"/> makes (see its own doc comment) though for a different reason here:
-    /// BnF's own "and" combination was confirmed unreliable for narrowing (see <see cref="SearchBooksCoreAsync"/>),
-    /// so stacking a second server-side "and" clause on top of the author one would only compound that risk.
-    /// <c>dc:date</c> is still parsed and returned per candidate (<see cref="BookSearchResult.Year"/>) for
-    /// the admin to use when picking, exactly like every other provider here.
+    /// <c>bib.isbn</c> is an exact-identifier criterion, so unlike the author clause below it needs no
+    /// client-side re-check - confirmed against the real API that it round-trips a known ISBN to the single
+    /// matching record (<c>2841142787</c> to Lee Child's "Du fond de l'abîme"). BnF's catalogue is much
+    /// narrower than Google Books' for an arbitrary edition, so a miss is routine and simply widens to the
+    /// title search - see <see cref="BookReferenceClientBase.SearchBooksAsync"/>.
+    /// <para>
+    /// <c>dc:identifier</c>-parsed ISBNs were already reported by <see cref="GetBookDetailsAsync"/> for
+    /// autofill on link/refresh; this is the other direction, which the class previously did not support.
+    /// </para>
     /// </summary>
-    /// <summary>
-    /// <paramref name="isbn"/> is accepted (interface compliance) but ignored as a search input - only
-    /// <see cref="GoogleBooksClient"/> currently searches by it. BnF's own catalogue records do sometimes
-    /// carry an ISBN (via <c>dc:identifier</c>, confirmed against the real API), which is still parsed and
-    /// returned by <see cref="GetBookDetailsAsync"/> for autofill on link/refresh - searching by it and
-    /// merely reporting one already-known are different things.
-    /// </summary>
-    public async Task<IReadOnlyList<BookSearchResult>> SearchBooksAsync(string title, int? year, string? author = null, string? isbn = null, CancellationToken cancellationToken = default)
-    {
-        var results = await SearchBooksCoreAsync(title, author, cancellationToken);
-        if (results.Count == 0 && !string.IsNullOrEmpty(author))
-        {
-            // Same "an optional narrowing parameter must never silently zero out results" lesson as
-            // OpenLibraryClient/DiscogsClient - a tenant's plain author text can fail to match BnF's own
-            // "LastName, FirstName (dates). Role" creator indexing even when the title alone would find it.
-            results = await SearchBooksCoreAsync(title, null, cancellationToken);
-        }
-
-        return results;
-    }
+    protected override Task<IReadOnlyList<BookSearchResult>> SearchByIsbnAsync(string isbn, CancellationToken cancellationToken) =>
+        SearchCoreAsync($"bib.isbn all \"{EscapeCql(isbn)}\"", null, cancellationToken);
 
     /// <summary>
     /// <paramref name="author"/>, when given, is both sent to BnF as an "and (bib.author ...)" clause AND
@@ -67,14 +52,26 @@ public class BnfClient(HttpClient http) : IBookReferenceClient
     /// matches), but a candidate that slips through without a real author match must be filtered out here
     /// rather than trusted - otherwise search results silently include titles that don't match the
     /// requested author at all, which read as "the author was ignored".
+    /// <para>
+    /// No year clause: that unreliable "and" combination is precisely why stacking a second server-side
+    /// clause on top of the author one would only compound the risk. <c>dc:date</c> is still parsed and
+    /// returned per candidate (<see cref="BookSearchResult.Year"/>) for the admin to pick with.
+    /// </para>
     /// </summary>
-    private async Task<IReadOnlyList<BookSearchResult>> SearchBooksCoreAsync(string title, string? author, CancellationToken cancellationToken)
+    protected override Task<IReadOnlyList<BookSearchResult>> SearchByTitleAsync(string title, string? author, CancellationToken cancellationToken) =>
+        SearchCoreAsync(BuildCqlQuery(title, author), author, cancellationToken);
+
+    /// <summary>
+    /// <paramref name="authorToVerify"/> re-checks the parsed creator client-side; null skips the check,
+    /// for a query whose criterion is already exact.
+    /// </summary>
+    private async Task<IReadOnlyList<BookSearchResult>> SearchCoreAsync(string cqlQuery, string? authorToVerify, CancellationToken cancellationToken)
     {
-        var xml = await FetchAsync(BuildCqlQuery(title, author), cancellationToken);
+        var xml = await FetchAsync(cqlQuery, cancellationToken);
         var records = ParseRecords(xml);
-        if (!string.IsNullOrEmpty(author))
+        if (!string.IsNullOrEmpty(authorToVerify))
         {
-            records = records.Where(r => AuthorMatches(r.Author, author));
+            records = records.Where(r => AuthorMatches(r.Author, authorToVerify));
         }
 
         return records.Select(r => new BookSearchResult(r.ExternalId, r.Title, r.Year, r.Author, null)).ToList();
@@ -98,7 +95,7 @@ public class BnfClient(HttpClient http) : IBookReferenceClient
             .All(word => normalizedCandidate.Contains(TitleNormalizer.Normalize(word)));
     }
 
-    public async Task<BookDetails?> GetBookDetailsAsync(string externalId, CancellationToken cancellationToken = default)
+    public override async Task<BookDetails?> GetBookDetailsAsync(string externalId, CancellationToken cancellationToken = default)
     {
         // externalId is the bare ARK (e.g. "ark:/12148/cb361713613") from srw:recordIdentifier - re-querying
         // by bib.persistentid is the one exact-id search criterion confirmed to round-trip it back to the

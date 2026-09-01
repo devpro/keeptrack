@@ -8,7 +8,7 @@ namespace Keeptrack.Domain.Models;
 /// Shared, tenant-agnostic video game metadata sourced from an external provider (RAWG).
 /// See <see cref="TvShowReferenceModel"/> for why this deliberately has no <c>OwnerId</c>.
 /// </summary>
-public class VideoGameReferenceModel : IHasId
+public class VideoGameReferenceModel : IHasExternalIds
 {
     public string? Id { get; set; }
 
@@ -37,7 +37,27 @@ public class VideoGameReferenceModel : IHasId
 
     public List<string> Genres { get; set; } = [];
 
+    /// <summary>
+    /// Aggregate ratings keyed by source: "rawg" (0-5 user score, the primary) and "metacritic" (0-100
+    /// critic score) when present - see <see cref="ReferenceRatingModel"/>.
+    /// </summary>
+    public Dictionary<string, ReferenceRatingModel> Ratings { get; set; } = [];
+
     public string? ImageUrl { get; set; }
+
+    /// <summary>
+    /// When this document last had a provider id looked up for it, keyed by provider - written whether or not
+    /// one was found (see <c>ReferenceEnrichmentService.TryAdoptDefaultVideoGameProviderAsync</c>).
+    /// <para>
+    /// It exists for the same reason <see cref="TvShowReferenceModel.RatingsCheckedAt"/> does: a reference
+    /// whose title the provider genuinely has no unambiguous match for can never be adopted by searching
+    /// again, so without a record of the attempt every pass re-pays for the same two calls, forever, for
+    /// every such document. It is also what lets the admin reconciliation queue show what has been tried
+    /// rather than only what is missing. An admin acting on that queue ignores the window - someone is
+    /// waiting on the answer - exactly like the interactive rating paths do.
+    /// </para>
+    /// </summary>
+    public Dictionary<string, DateTime> ProviderAdoptionCheckedAt { get; set; } = [];
 
     public DateTime? LastEnrichedAt { get; set; }
 }

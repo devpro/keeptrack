@@ -8,23 +8,29 @@
     <td>@Entry.Practitioner</td>
     @* wider screens have room for more than the mobile essentials (d-md-table-cell = hidden below 768px) *@
     <td class="d-none d-md-table-cell">@Entry.Description</td>
-    <td class="d-none d-md-table-cell text-end">@Entry.Price?.ToString("F2")</td>
+    <td class="d-none d-md-table-cell kt-num">@Entry.Price?.ToString("F2")</td>
     <td class="text-center">
         @if (IsUnbalanced)
         {
             <span style="color:var(--kt-warning)" title="Paid, reimbursements and not-covered don't add up to zero - open the entry to settle it.">⚠</span>
         }
     </td>
-    <td>
-        <div class="d-flex gap-1 justify-content-end">
-            <button class="kt-icon-btn" title="Edit this entry" aria-label="Edit this entry" @onclick="() => OnEdit.InvokeAsync(Entry)">✎</button>
-            <button class="kt-icon-btn" title="Delete this entry" aria-label="Delete this entry" @onclick="() => OnDelete.InvokeAsync(Entry.Id!)">✕</button>
-        </div>
-    </td>
+    @if (!ReadOnly)
+    {
+        <td>
+            <div class="d-flex gap-1 justify-content-end">
+                <button class="kt-icon-btn" title="Edit this entry" aria-label="Edit this entry" @onclick="() => OnEdit.InvokeAsync(Entry)">✎</button>
+                <button class="kt-icon-btn" title="Delete this entry" aria-label="Delete this entry" @onclick="() => OnDelete.InvokeAsync(Entry.Id!)">✕</button>
+            </div>
+        </td>
+    }
 </tr>
 
 @code {
     [Parameter] public required HealthRecordDto Entry { get; set; }
+
+    /// <summary>Read-only mode (a recipient viewing a shared health journal) hides the edit/delete actions column.</summary>
+    [Parameter] public bool ReadOnly { get; set; }
 
     /// <summary>Computed by HealthMetricsService (via the parent's metrics), never re-derived here -
     /// the balance rule lives in exactly one place.</summary>

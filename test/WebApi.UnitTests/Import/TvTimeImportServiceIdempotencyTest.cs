@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using AwesomeAssertions;
 using Keeptrack.Common.System;
@@ -76,7 +77,7 @@ public class TvTimeImportServiceIdempotencyTest
         var episodes = new FakeEpisodeRepository();
 
         // A record created by an import that predated stable-id matching: same title, but no TvTimeId.
-        await shows.CreateAsync(new TvShowModel { OwnerId = OwnerId, Title = ShowTitle, TvTimeId = null });
+        await shows.CreateAsync(new TvShowModel { OwnerId = OwnerId, Title = ShowTitle, TvTimeId = null }, TestContext.Current.CancellationToken);
 
         var service = NewService(shows, movies, episodes);
 
@@ -140,26 +141,26 @@ public class TvTimeImportServiceIdempotencyTest
 
         public TModel Single() => Items.Single();
 
-        public Task<TModel?> FindOneAsync(string id, string ownerId) =>
+        public Task<TModel?> FindOneAsync(string id, string ownerId, CancellationToken cancellationToken = default) =>
             Task.FromResult(Items.FirstOrDefault(x => x.Id == id && x.OwnerId == ownerId));
 
-        public Task<long> CountAsync(string ownerId) =>
+        public Task<long> CountAsync(string ownerId, CancellationToken cancellationToken = default) =>
             Task.FromResult((long)Items.Count(x => x.OwnerId == ownerId));
 
-        public Task<PagedResult<TModel>> FindAllAsync(string ownerId, int page, int pageSize, string? search, TModel input, string? sort = null)
+        public Task<PagedResult<TModel>> FindAllAsync(string ownerId, int page, int pageSize, string? search, TModel input, string? sort = null, CancellationToken cancellationToken = default)
         {
             var items = Items.Where(x => x.OwnerId == ownerId && _matchesInput(x, input)).ToList();
             return Task.FromResult(new PagedResult<TModel>(items, items.Count, page, pageSize));
         }
 
-        public Task<TModel> CreateAsync(TModel model)
+        public Task<TModel> CreateAsync(TModel model, CancellationToken cancellationToken = default)
         {
             model.Id ??= Guid.NewGuid().ToString();
             Items.Add(model);
             return Task.FromResult(model);
         }
 
-        public Task<long> UpdateAsync(string id, TModel model, string ownerId)
+        public Task<long> UpdateAsync(string id, TModel model, string ownerId, CancellationToken cancellationToken = default)
         {
             var index = Items.FindIndex(x => x.Id == id && x.OwnerId == ownerId);
             if (index < 0) return Task.FromResult(0L);
@@ -167,28 +168,69 @@ public class TvTimeImportServiceIdempotencyTest
             return Task.FromResult(1L);
         }
 
-        public Task<long> DeleteAsync(string id, string ownerId) =>
+        public Task<long> DeleteAsync(string id, string ownerId, CancellationToken cancellationToken = default) =>
             Task.FromResult((long)Items.RemoveAll(x => x.Id == id && x.OwnerId == ownerId));
     }
 
     private sealed class FakeTvShowRepository : InMemoryRepository<TvShowModel>, ITvShowRepository
     {
-        public Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null) =>
+        public Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null, double? canonicalRating = null, double? canonicalRatingScale = null, string? canonicalRatingSource = null) =>
             Task.FromResult(0L);
+
+        public Task<long> SetReferenceRatingAsync(string referenceId, double? rating, double? ratingScale, string? source) =>
+            Task.FromResult(0L);
+
+        public Task<long> SetReferenceRatingsAsync(IReadOnlyList<(string ReferenceId, double? Rating, double? RatingScale, string? Source)> updates) =>
+            Task.FromResult(0L);
+
+        public Task<long> CountLinkedOnOtherRatingSourceAsync(string source) => Task.FromResult(0L);
 
         public Task<IReadOnlyList<(string Title, int? Year, string? Creator)>> FindDistinctUnresolvedTitleYearsAsync() =>
             Task.FromResult<IReadOnlyList<(string, int?, string?)>>([]);
+
+        public Task<IReadOnlyList<TvShowModel>> FindFinishedLinkedShowsAsync() =>
+            Task.FromResult<IReadOnlyList<TvShowModel>>([]);
+
+        public Task<IReadOnlyList<string>> FindLinkedReferenceIdsAsync(string ownerId) =>
+            Task.FromResult<IReadOnlyList<string>>([]);
+
+        public Task<IReadOnlyList<string>> FindDistinctTitlesAsync(string ownerId) =>
+            Task.FromResult<IReadOnlyList<string>>([]);
     }
 
     private sealed class FakeMovieRepository : InMemoryRepository<MovieModel>, IMovieRepository
     {
-        public Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null) =>
+        public Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null, double? canonicalRating = null, double? canonicalRatingScale = null, string? canonicalRatingSource = null) =>
             Task.FromResult(0L);
+
+        public Task<long> SetReferenceRatingAsync(string referenceId, double? rating, double? ratingScale, string? source) =>
+            Task.FromResult(0L);
+
+        public Task<long> SetReferenceRatingsAsync(IReadOnlyList<(string ReferenceId, double? Rating, double? RatingScale, string? Source)> updates) =>
+            Task.FromResult(0L);
+
+        public Task<long> CountLinkedOnOtherRatingSourceAsync(string source) => Task.FromResult(0L);
 
         public Task<IReadOnlyList<(string Title, int? Year, string? Creator)>> FindDistinctUnresolvedTitleYearsAsync() =>
             Task.FromResult<IReadOnlyList<(string, int?, string?)>>([]);
+
+        public Task<IReadOnlyList<string>> FindLinkedReferenceIdsAsync(string ownerId) =>
+            Task.FromResult<IReadOnlyList<string>>([]);
+
+        public Task<IReadOnlyList<string>> FindDistinctTitlesAsync(string ownerId) =>
+            Task.FromResult<IReadOnlyList<string>>([]);
     }
 
     private sealed class FakeEpisodeRepository()
-        : InMemoryRepository<EpisodeModel>((episode, input) => episode.TvShowId == input.TvShowId), IEpisodeRepository;
+        : InMemoryRepository<EpisodeModel>((episode, input) => episode.TvShowId == input.TvShowId), IEpisodeRepository
+    {
+        public Task<List<EpisodeModel>> FindByShowIdsAsync(string ownerId, IReadOnlyCollection<string> tvShowIds) =>
+            Task.FromResult(Items.Where(e => e.OwnerId == ownerId && tvShowIds.Contains(e.TvShowId)).ToList());
+
+        public Task<long> DeleteAllForShowAsync(string tvShowId, string ownerId, CancellationToken cancellationToken = default)
+        {
+            var removed = Items.RemoveAll(e => e.OwnerId == ownerId && e.TvShowId == tvShowId);
+            return Task.FromResult((long)removed);
+        }
+    }
 }

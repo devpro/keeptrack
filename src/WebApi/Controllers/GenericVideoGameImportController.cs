@@ -76,17 +76,18 @@ public class GenericVideoGameImportController(
 
         var plan = OwnedItemImportMergeService.ComputeCommitPlan(
             existingVideoGames, requestItems,
-            g => g.Title, g => g.Platforms.Select(p => p.Reference),
-            i => i.Title, i => i.Platform.Reference,
-            item => new VideoGameModel
-            {
-                OwnerId = ownerId,
-                Title = item.Title,
-                Year = item.Year,
-                Notes = GenericVideoGameImportService.BuildProvenanceNotes(item.Platform.Vendor!, item.SourceTitle),
-                Platforms = [item.Platform]
-            },
-            (game, item) => game.Platforms.Add(item.Platform));
+            new OwnedItemImportAdapter<VideoGameModel, GenericVideoGameImportRequestItem>(
+                g => g.Title, g => g.Platforms.Select(p => p.Reference),
+                i => i.Title, i => i.Platform.Reference,
+                item => new VideoGameModel
+                {
+                    OwnerId = ownerId,
+                    Title = item.Title,
+                    Year = item.Year,
+                    Notes = GenericVideoGameImportService.BuildProvenanceNotes(item.Platform.Vendor!, item.SourceTitle),
+                    Platforms = [item.Platform]
+                },
+                (game, item) => game.Platforms.Add(item.Platform)));
 
         foreach (var item in plan.ItemsToCreate)
         {

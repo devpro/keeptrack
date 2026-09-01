@@ -33,18 +33,12 @@ public class AlbumSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 
         var detail = new AlbumDetailPage(Page);
         await detail.WaitForReadyAsync();
-        var id = ExtractIdFromUrl(Page.Url);
+        // registered as soon as the item exists, so an assertion failure below still removes it
+        TrackOpenItem("/api/albums");
 
-        try
-        {
-            await detail.SearchAndLinkFirstResultAsync();
+        await detail.SearchAndLinkFirstResultAsync();
 
-            await Assertions.Expect(detail.CoverImage).ToBeVisibleAsync();
-            await Assertions.Expect(detail.ArtistInput).ToHaveValueAsync(Artist);
-        }
-        finally
-        {
-            await Fixture.DeleteItemAsync($"/api/albums/{id}");
-        }
+        await Assertions.Expect(detail.CoverImage).ToBeVisibleAsync();
+        await Assertions.Expect(detail.ArtistInput).ToHaveValueAsync(Artist);
     }
 }

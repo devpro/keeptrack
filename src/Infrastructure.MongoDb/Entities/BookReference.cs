@@ -9,7 +9,7 @@ namespace Keeptrack.Infrastructure.MongoDb.Entities;
 /// Shared, owner-less book metadata collection (<c>book_reference</c>). See
 /// <see cref="TvShowReference"/> for why this has no <c>owner_id</c>.
 /// </summary>
-public class BookReference
+public class BookReference : IHasMatchedAliases
 {
     [BsonId]
     [BsonRepresentation(BsonType.ObjectId)]
@@ -34,6 +34,9 @@ public class BookReference
     public List<ReferenceMatch> MatchedAliases { get; set; } = [];
 
     public List<string> Genres { get; set; } = [];
+
+    /// <summary>Aggregate ratings keyed by provider key ("googlebooks"/"openlibrary") - see <see cref="ReferenceRating"/>.</summary>
+    public Dictionary<string, ReferenceRating> Ratings { get; set; } = [];
 
     [BsonElement("image_url")]
     public string? ImageUrl { get; set; }

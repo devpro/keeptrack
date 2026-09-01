@@ -28,25 +28,17 @@ public class StatsResourceTest(KestrelWebAppFactory<Program> factory)
     {
         await Authenticate();
 
-        var book = await PostAsync<BookDto>("/api/books", new Faker<BookDto>()
+        await CreateAsync("/api/books", new Faker<BookDto>()
             .Rules((f, o) => { o.Title = f.Random.AlphaNumeric(14); o.Author = f.Random.AlphaNumeric(8); })
             .Generate());
-        var movie = await PostAsync<MovieDto>("/api/movies", new Faker<MovieDto>()
+        await CreateAsync("/api/movies", new Faker<MovieDto>()
             .Rules((f, o) => { o.Title = f.Random.AlphaNumeric(14); })
             .Generate());
 
-        try
-        {
-            var stats = await GetAsync<CollectionStatsDto>($"/{ResourceEndpoint}");
+        var stats = await GetAsync<CollectionStatsDto>($"/{ResourceEndpoint}");
 
-            // the shared test tenant may hold other tests' in-flight items, so lower bounds only
-            stats.Books.Should().BeGreaterThanOrEqualTo(1);
-            stats.Movies.Should().BeGreaterThanOrEqualTo(1);
-        }
-        finally
-        {
-            await DeleteAsync($"/api/books/{book.Id}");
-            await DeleteAsync($"/api/movies/{movie.Id}");
-        }
+        // the shared test tenant may hold other tests' in-flight items, so lower bounds only
+        stats.Books.Should().BeGreaterThanOrEqualTo(1);
+        stats.Movies.Should().BeGreaterThanOrEqualTo(1);
     }
 }

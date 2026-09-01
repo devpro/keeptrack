@@ -5,19 +5,25 @@
 <tr>
     <td>@Entry.HistoryDate.ToString("yyyy-MM-dd")</td>
     <td>@Entry.EventType</td>
-    <td>@Entry.Cost?.ToString("F2")</td>
+    <td class="kt-num">@Entry.Cost?.ToString("F2")</td>
     <td class="d-none d-md-table-cell">@Entry.Provider</td>
     <td class="d-none d-md-table-cell">@Entry.Description</td>
-    <td>
-        <div class="d-flex gap-1 justify-content-end">
-            <button class="kt-icon-btn" title="Edit this entry" aria-label="Edit this entry" @onclick="() => OnEdit.InvokeAsync(Entry)">✎</button>
-            <button class="kt-icon-btn" title="Delete this entry" aria-label="Delete this entry" @onclick="() => OnDelete.InvokeAsync(Entry.Id!)">✕</button>
-        </div>
-    </td>
+    @if (!ReadOnly)
+    {
+        <td>
+            <div class="d-flex gap-1 justify-content-end">
+                <button class="kt-icon-btn" title="Edit this entry" aria-label="Edit this entry" @onclick="() => OnEdit.InvokeAsync(Entry)">✎</button>
+                <button class="kt-icon-btn" title="Delete this entry" aria-label="Delete this entry" @onclick="() => OnDelete.InvokeAsync(Entry.Id!)">✕</button>
+            </div>
+        </td>
+    }
 </tr>
 
 @code {
     [Parameter] public required HouseHistoryDto Entry { get; set; }
+
+    /// <summary>Read-only mode (a recipient viewing a shared house) hides the edit/delete actions column.</summary>
+    [Parameter] public bool ReadOnly { get; set; }
 
     [Parameter] public EventCallback<HouseHistoryDto> OnEdit { get; set; }
 

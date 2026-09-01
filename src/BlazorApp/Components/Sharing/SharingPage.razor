@@ -1,0 +1,261 @@
+@page "/account/manage/sharing"
+@attribute [Authorize(Policy = "MemberOnly")]
+
+<Breadcrumb ListRoute="/account/manage" ListLabel="Profile" Current="Sharing"/>
+
+<div class="kt-page-header">
+    <h1>Shar<span>ing</span></h1>
+</div>
+
+<p style="color:var(--kt-text-muted)">
+    Share whole categories of your collection with someone who has a Keeptrack account. They get a private,
+    read-only view - matched by their account email, so nothing sensitive travels in a link. Revoke any time.
+</p>
+
+<div class="kt-form-card mb-4">
+    <h2 class="kt-section-title mt-0">New share</h2>
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label">Recipient email</label>
+            <input class="form-control form-control-sm" type="email" placeholder="name@example.com"
+                   data-testid="share-recipient-email" @bind="_recipientEmail"/>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Label (optional)</label>
+            <input class="form-control form-control-sm" placeholder="Who is it for? (e.g. Mum)" @bind="_label"/>
+        </div>
+    </div>
+
+    <label class="form-label mt-3 d-block">Media (viewable, addable to their collection)</label>
+    <div class="d-flex gap-2 flex-wrap">
+        @foreach (var (category, text) in s_mediaCategories)
+        {
+            <button type="button" class="btn btn-sm kt-toggle-btn @(_selected.Contains(category) ? "active" : "")"
+                    data-testid="share-category" @onclick="() => ToggleCategory(category)">@text</button>
+        }
+    </div>
+
+    <label class="form-label mt-3 d-block">Collections (view-only)</label>
+    <div class="d-flex gap-2 flex-wrap">
+        @foreach (var (category, text) in s_collectionCategories)
+        {
+            <button type="button" class="btn btn-sm kt-toggle-btn @(_selected.Contains(category) ? "active" : "")"
+                    data-testid="share-category" @onclick="() => ToggleCategory(category)">@text</button>
+        }
+    </div>
+
+    <label class="form-label mt-3 d-block">Personal (view-only, never copied)</label>
+    <div class="d-flex gap-2 flex-wrap">
+        @foreach (var (category, text) in s_personalCategories)
+        {
+            <button type="button" class="btn btn-sm kt-toggle-btn @(_selected.Contains(category) ? "active" : "")"
+                    data-testid="share-category" @onclick="() => TogglePersonalCategory(category)">@text</button>
+        }
+    </div>
+
+    <div class="mt-3">
+        <button class="btn btn-sm btn-primary" data-testid="share-create" @onclick="CreateShareAsync" disabled="@_saving">
+            Create share
+        </button>
+    </div>
+    @if (_error is not null)
+    {
+        <div class="alert alert-danger mt-3 mb-0">@_error</div>
+    }
+</div>
+
+<h2 class="kt-section-title">Active shares</h2>
+@if (_shares.Count == 0)
+{
+    <div class="kt-empty">
+        <div class="kt-empty-icon"><Icon Name="empty" Size="40" StrokeWidth="1.1"/></div>
+        <p>You haven't shared anything yet.</p>
+    </div>
+}
+else
+{
+    <div class="kt-table-wrap">
+        <div class="kt-item-list">
+            @foreach (var share in _shares)
+            {
+                <div class="kt-item-row">
+                    <div class="kt-item-main">
+                        <span class="kt-item-title">
+                            @(string.IsNullOrEmpty(share.Label) ? share.RecipientEmail : $"{share.Label} · {share.RecipientEmail}")
+                        </span>
+                        <div class="kt-item-meta">
+                            <span>@string.Join(", ", SharingLabels.Ordered(share.IncludedCategories).Select(SharingLabels.Category))</span>
+                            <span>@share.CreatedAt.ToString("yyyy-MM-dd")</span>
+                        </div>
+                    </div>
+                    <button class="kt-icon-btn" title="Revoke this share" aria-label="Revoke this share"
+                            @onclick="() => _pendingRevoke = share">
+                        <Icon Name="trash" Size="15"/>
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+<ConfirmModal Show="_pendingRevoke is not null"
+              Title="Revoke this share?"
+              Message="@RevokeMessage"
+              ConfirmLabel="Revoke"
+              OnConfirm="RevokeAsync" OnCancel="() => _pendingRevoke = null"/>
+
+<ConfirmModal Show="_pendingHealthConfirm"
+              Title="Share your health journal?"
+              Message="@HealthConfirmMessage"
+              ConfirmLabel="Share health"
+              OnConfirm="ConfirmHealth" OnCancel="() => _pendingHealthConfirm = false"/>
+
+@code {
+    [Inject] private ShareApiClient ShareApi { get; set; } = null!;
+
+    private static readonly (ShareCategory Category, string Text)[] s_mediaCategories =
+    [
+        (ShareCategory.Movies, "Movies"),
+        (ShareCategory.TvShows, "TV shows"),
+        (ShareCategory.Books, "Books"),
+        (ShareCategory.Albums, "Albums"),
+        (ShareCategory.VideoGames, "Video games")
+    ];
+
+    // Collection categories are view-only for the recipient (never copyable, no shared reference to copy) but
+    // render as an ordinary list, unlike the personal categories' read-only detail views.
+    private static readonly (ShareCategory Category, string Text)[] s_collectionCategories =
+    [
+        (ShareCategory.Collectibles, "Collectibles"),
+        (ShareCategory.Gears, "Gear")
+    ];
+
+    // Personal categories are view-only for the recipient (never copyable) - the classifier enforces that
+    // server-side. Health is the strictest and is never bundled: it only toggles on after an explicit confirm.
+    private static readonly (ShareCategory Category, string Text)[] s_personalCategories =
+    [
+        (ShareCategory.Cars, "Cars"),
+        (ShareCategory.Houses, "Houses"),
+        (ShareCategory.Health, "Health")
+    ];
+
+    private List<ShareDto> _shares = [];
+    private readonly HashSet<ShareCategory> _selected = [];
+    private string? _recipientEmail;
+    private string? _label;
+    private string? _error;
+    private bool _saving;
+    private ShareDto? _pendingRevoke;
+    private bool _pendingHealthConfirm;
+
+    private string RevokeMessage => _pendingRevoke is null
+        ? ""
+        : $"{_pendingRevoke.RecipientEmail} will immediately lose access to everything you shared with them. You can share again later.";
+
+    private string HealthConfirmMessage
+    {
+        get
+        {
+            var who = string.IsNullOrWhiteSpace(_recipientEmail) ? "this person" : _recipientEmail!.Trim();
+            return $"You are about to share your full health journal - appointments, sicknesses and reimbursement amounts - with {who}, read-only. Only do this for someone you trust with that information.";
+        }
+    }
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _shares = await ShareApi.GetSharesAsync();
+            _error = null;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private void ToggleCategory(ShareCategory category)
+    {
+        if (!_selected.Add(category))
+        {
+            _selected.Remove(category);
+        }
+    }
+
+    /// <summary>Health is never enabled without an explicit confirmation; the others toggle like media.</summary>
+    private void TogglePersonalCategory(ShareCategory category)
+    {
+        if (category == ShareCategory.Health && !_selected.Contains(ShareCategory.Health))
+        {
+            _pendingHealthConfirm = true;
+            return;
+        }
+
+        ToggleCategory(category);
+    }
+
+    private void ConfirmHealth()
+    {
+        _pendingHealthConfirm = false;
+        _selected.Add(ShareCategory.Health);
+    }
+
+    private async Task CreateShareAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_recipientEmail))
+        {
+            _error = "Enter the recipient's email.";
+            return;
+        }
+
+        if (_selected.Count == 0)
+        {
+            _error = "Pick at least one category to share.";
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            var created = await ShareApi.CreateShareAsync(new CreateShareRequestDto
+            {
+                RecipientEmail = _recipientEmail.Trim(),
+                IncludedCategories = [.. _selected],
+                Label = string.IsNullOrWhiteSpace(_label) ? null : _label.Trim()
+            });
+            _shares.Add(created);
+            _recipientEmail = null;
+            _label = null;
+            _selected.Clear();
+            _error = null;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task RevokeAsync()
+    {
+        var share = _pendingRevoke;
+        _pendingRevoke = null;
+        if (share is null) return;
+
+        try
+        {
+            await ShareApi.DeleteShareAsync(share.Id);
+            _shares.Remove(share);
+            _error = null;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}

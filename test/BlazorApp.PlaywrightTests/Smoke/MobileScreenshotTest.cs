@@ -14,13 +14,11 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Not a regression test: a visual-review harness that seeds representative items via the API
-/// (including reference-linked movies/shows/albums/games with real cover art),
+/// Not a regression test: a visual-review harness that seeds representative items via the API (including reference-linked movies/shows/albums/games with real cover art),
 /// captures full-page screenshots of every page at a phone viewport (390x844), then deletes everything it created.
-/// Assertion-free by design - its output is the screenshots, reviewed by a human (or an AI assistant) after UI changes.
-/// Doubly gated: besides the usual E2E_ENABLED, it also skips unless E2E_SCREENSHOTS=true,
-/// so a normal full e2e run doesn't pay for the slow walkthrough.
-/// Output directory: E2E_SHOTS_DIR.
+/// Assertion-free by design, its output is the screenshots, reviewed by a human (or an AI assistant) after UI changes.
+/// Doubly gated: besides the usual E2E_ENABLED, it also skips unless E2E_MOBILE_CHECK=true, so a normal full e2e run doesn't pay for the slow walkthrough.
+/// Output directory: E2E_MOBILE_DIR.
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]
@@ -33,6 +31,7 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
         ("/add?type=movie", "quickadd-movie-form"),
         ("/watch-next", "watch-next"),
         ("/wishlist", "wishlist"),
+        ("/explore", "explore"),
         ("/books", "books"),
         ("/movies", "movies"),
         ("/albums", "albums"),
@@ -46,8 +45,13 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
         ("/admin/reference-data", "admin-reference-data")
     ];
 
-    private static string ShotsDirectory =>
-        End2EndConfiguration.ScreenshotsDirectory ?? Path.Combine(AppContext.BaseDirectory, "mobile-shots");
+    private static string MobileDirectory
+    {
+        get
+        {
+            return End2EndConfiguration.MobileDirectory ?? Path.Combine(AppContext.BaseDirectory, "mobile-shots");
+        }
+    }
 
     public override BrowserNewContextOptions ContextOptions()
     {
@@ -62,9 +66,9 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
     [Fact]
     public async Task CaptureAllPagesAtPhoneViewport()
     {
-        Assert.SkipUnless(End2EndConfiguration.Screenshots, "E2E_SCREENSHOTS is not set; the visual-review capture is opt-in.");
+        Assert.SkipUnless(End2EndConfiguration.MobileCheck, "E2E_MOBILE_CHECK is not set; the visual-review capture is opt-in.");
         SkipIfReadOnly();
-        Directory.CreateDirectory(ShotsDirectory);
+        Directory.CreateDirectory(MobileDirectory);
 
         var api = Fixture.ApiHttpClient;
         var created = new List<string>();
@@ -77,12 +81,25 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
                 await CaptureAsync(route, name);
             }
 
+            // Thumbnail/grid view at the phone viewport. Click the real toggle once (exercises SetView and
+            // its localStorage persistence), then the sibling list pages inherit the saved preference across
+            // full reloads - which is the whole point of the feature. Restore list view for the later shots.
+            await Page.GotoAsync("/books");
+            await Page.WaitForTimeoutAsync(1200);
+            await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Thumbnail view" }).ClickAsync();
+            await Page.WaitForTimeoutAsync(800);
+            await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(MobileDirectory, "books-grid.png"), FullPage = true });
+            await CaptureAsync("/albums", "albums-grid");
+            await CaptureAsync("/video-games", "video-games-grid");
+            await CaptureAsync("/movies", "movies-grid");
+            await SetListViewPreferenceAsync(null);
+
             // The collapsed sidebar opened via the hamburger toggle.
             await Page.GotoAsync("/");
             await Page.WaitForTimeoutAsync(500);
             await Page.Locator("label.navbar-toggler-label").ClickAsync();
             await Page.WaitForTimeoutAsync(300);
-            await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(ShotsDirectory, "nav-open.png"), FullPage = false });
+            await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(MobileDirectory, "nav-open.png"), FullPage = false });
 
             await CaptureFirstDetailAsync("/movies", "movie-detail");
             await CaptureFirstDetailAsync("/tv-shows", "tvshow-detail");
@@ -92,6 +109,7 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             // targeted by title (not "first") so these two land on the CustomImageUrl-seeded items specifically,
             // not whichever item happens to sort first in a list that grows over time
             await CaptureDetailByTitleAsync("/video-games", "Hades", "video-game-detail");
+            await CaptureDetailByTitleAsync("/video-games", "Half-Life 2", "video-game-detail-provider-art");
             await CaptureDetailByTitleAsync("/albums", "Nevermind", "album-detail");
 
             // The Add form modal on a list page.
@@ -99,7 +117,7 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             await Page.WaitForTimeoutAsync(1000);
             await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Add" }).First.ClickAsync();
             await Page.WaitForTimeoutAsync(500);
-            await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(ShotsDirectory, "movies-add-form.png"), FullPage = true });
+            await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(MobileDirectory, "movies-add-form.png"), FullPage = true });
 
             // The admin unresolved queue with the first row's inline search panel expanded (no linking).
             await Page.GotoAsync("/admin/reference-data");
@@ -121,7 +139,7 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
                 }
 
                 await Page.WaitForTimeoutAsync(3000);
-                await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(ShotsDirectory, "admin-expanded.png"), FullPage = true });
+                await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(MobileDirectory, "admin-expanded.png"), FullPage = true });
             }
 
             // The Albums queue: the expanded panel must prefill the tenant's saved artist.
@@ -144,11 +162,27 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
                 }
 
                 await Page.WaitForTimeoutAsync(3000);
-                await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(ShotsDirectory, "admin-album-expanded.png"), FullPage = true });
+                await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(MobileDirectory, "admin-album-expanded.png"), FullPage = true });
             }
 
+            // Desktop detail pages, targeted by title for the same reason the phone captures are.
+            // "First in the list" drifts as the seeded set grows, so a desktop shot could silently stop covering the page it was added for.
             await Page.SetViewportSizeAsync(1280, 900);
-            await CaptureFirstDetailAsync("/video-games", "video-game-detail-desktop");
+            await CaptureDetailByTitleAsync("/video-games", "Half-Life 2", "video-game-detail-provider-art-desktop");
+            await CaptureDetailByTitleAsync("/video-games", "Hades", "video-game-detail-desktop");
+            await CaptureDetailByTitleAsync("/albums", "Nevermind", "album-detail-desktop");
+            await CaptureFirstDetailAsync("/movies", "movie-detail-desktop");
+            await CaptureFirstDetailAsync("/tv-shows", "tvshow-detail-desktop");
+            await CaptureFirstDetailAsync("/books", "book-detail-desktop");
+
+            // The same grid + list views at desktop width, to verify the responsive grid columns at both
+            // breakpoints. Drive the view via the persisted preference, then restore list for the list shot.
+            await SetListViewPreferenceAsync("grid");
+            await CaptureAsync("/books", "books-grid-desktop");
+            await CaptureAsync("/albums", "albums-grid-desktop");
+            await CaptureAsync("/video-games", "video-games-grid-desktop");
+            await SetListViewPreferenceAsync(null);
+            await CaptureAsync("/books", "books-list-desktop");
 
             // A dark-theme sample of the densest pages.
             await Page.EmulateMediaAsync(new PageEmulateMediaOptions { ColorScheme = ColorScheme.Dark });
@@ -166,14 +200,6 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
 
     private static async Task SeedAsync(HttpClient api, List<string> created)
     {
-        await CreateAsync(api, created, "api/movies", new MovieDto
-        {
-            Title = "The Shawshank Redemption",
-            Year = 1994,
-            Rating = 4.5f,
-            IsFavorite = true,
-            FirstSeenAt = new DateOnly(2024, 3, 12)
-        });
         await CreateAsync(api, created, "api/movies", new MovieDto
         {
             Title = "Heat",
@@ -255,8 +281,18 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             // taking priority over the linked RAWG cover it's about to be linked to below
             CustomImageUrl = "https://picsum.photos/seed/hades-custom-cover/600/300"
         });
+        // The same, with no CustomImageUrl, so the captures include a game showing the provider's own artwork.
+        // Every other seeded game overrides its cover, which is right for proving the override renders and useless for reviewing the artwork the collection actually holds.
+        await CreateAsync(api, created, "api/video-games", new VideoGameDto
+        {
+            Title = "Half-Life 2",
+            Year = 2004,
+            Rating = 5f,
+            Platforms = [new VideoGamePlatformDto { Platform = "PC", CopyType = CopyType.Digital, State = "Completed" }]
+        });
         await LinkFirstCandidateAsync(api, ReferenceItemType.Album, "Nevermind", 1991, "Nirvana");
         await LinkFirstCandidateAsync(api, ReferenceItemType.VideoGame, "Hades", 2020, null);
+        await LinkFirstCandidateAsync(api, ReferenceItemType.VideoGame, "Half-Life 2", 2004, null);
 
         // a health journal with a settled appointment, an unbalanced one (drives the "to check" panel)
         // and a sickness entry, so the detail shot shows every section
@@ -305,6 +341,11 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             IsWishlisted = true
         });
 
+        // Thumbnail/grid-view showcase: several items per shape carrying a deterministic CustomImageUrl
+        // (portrait book covers, square album art, wide game art) so the grid captures below show a full
+        // wall of cover art without depending on a live provider link winning a race.
+        await SeedGridShowcaseAsync(api, created);
+
         var carId = await CreateAsync(api, created, "api/cars", new CarDto
         {
             Name = "Daily driver",
@@ -331,8 +372,10 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
                     FuelUnitPrice = 1.78,
                     Cost = Math.Round((38.2 + i) * 1.78, 2),
                     IsFullRefill = true,
-                    StationBrandName = "TotalEnergies",
-                    City = "Lyon"
+                    // No station: a refuel's location now lives on the shared car_station document it
+                    // points at, and this harness is a screenshot pass over one tenant's own pages - it has
+                    // no business writing into a catalogue every account sees.
+                    StationId = null
                 });
         }
 
@@ -347,6 +390,77 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
                 Cost = 389.90,
                 Garage = "Renault Lyon Est"
             });
+    }
+
+    /// <summary>
+    /// Seeds a wall of cover-art items (portrait books, square albums, wide games) via CustomImageUrl so the
+    /// thumbnail/grid-view captures show a populated grid deterministically, independent of provider linking.
+    /// </summary>
+    private static async Task SeedGridShowcaseAsync(HttpClient api, List<string> created)
+    {
+        var books = new (string Title, string Author, int Year, float Rating, bool Favorite, bool Read)[]
+        {
+            ("The Hobbit", "J. R. R. Tolkien", 1937, 5f, true, true),
+            ("Dune", "Frank Herbert", 1965, 4.5f, true, true),
+            ("Neuromancer", "William Gibson", 1984, 4f, false, true),
+            ("The Name of the Wind", "Patrick Rothfuss", 2007, 4.5f, false, false),
+            ("Project Hail Mary", "Andy Weir", 2021, 5f, true, false),
+            ("Foundation", "Isaac Asimov", 1951, 4f, false, true)
+        };
+        foreach (var (title, author, year, rating, favorite, read) in books)
+        {
+            await CreateAsync(api, created, "api/books", new BookDto
+            {
+                Title = title,
+                Author = author,
+                Year = year,
+                Rating = rating,
+                IsFavorite = favorite,
+                FirstReadAt = read ? new DateOnly(2024, 1, 1) : null,
+                CustomImageUrl = $"https://picsum.photos/seed/kt-book-{Uri.EscapeDataString(title)}/400/600"
+            });
+        }
+
+        var albums = new (string Title, string Artist, int Year, float Rating, bool Favorite)[]
+        {
+            ("OK Computer", "Radiohead", 1997, 5f, true),
+            ("Rumours", "Fleetwood Mac", 1977, 4.5f, false),
+            ("Random Access Memories", "Daft Punk", 2013, 4.5f, true),
+            ("To Pimp a Butterfly", "Kendrick Lamar", 2015, 5f, true),
+            ("The Dark Side of the Moon", "Pink Floyd", 1973, 5f, false)
+        };
+        foreach (var (title, artist, year, rating, favorite) in albums)
+        {
+            await CreateAsync(api, created, "api/albums", new AlbumDto
+            {
+                Title = title,
+                Artist = artist,
+                Year = year,
+                Rating = rating,
+                IsFavorite = favorite,
+                CustomImageUrl = $"https://picsum.photos/seed/kt-album-{Uri.EscapeDataString(title)}/400/400"
+            });
+        }
+
+        var games = new (string Title, int Year, float Rating, string State)[]
+        {
+            ("Hollow Knight", 2017, 4.5f, "Completed"),
+            ("Celeste", 2018, 5f, "Completed"),
+            ("Stardew Valley", 2016, 4.5f, "Current"),
+            ("Disco Elysium", 2019, 5f, "On-hold"),
+            ("Elden Ring", 2022, 5f, "Current")
+        };
+        foreach (var (title, year, rating, state) in games)
+        {
+            await CreateAsync(api, created, "api/video-games", new VideoGameDto
+            {
+                Title = title,
+                Year = year,
+                Rating = rating,
+                Platforms = [new VideoGamePlatformDto { Platform = "PC", CopyType = CopyType.Digital, State = state }],
+                CustomImageUrl = $"https://picsum.photos/seed/kt-game-{Uri.EscapeDataString(title)}/600/338"
+            });
+        }
     }
 
     /// <summary>Links an item to its provider's first search candidate via the admin API (best-effort).</summary>
@@ -373,13 +487,25 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
         return id;
     }
 
+    /// <summary>
+    /// Sets (or clears, when null) the per-device list-view preference in localStorage. Each subsequent
+    /// full navigation re-seeds a fresh circuit from it, so this deterministically drives grid vs list for
+    /// the captures without depending on the (removed) ?view= URL parameter.
+    /// </summary>
+    private async Task SetListViewPreferenceAsync(string? view)
+    {
+        await Page.EvaluateAsync(view is null
+            ? "() => localStorage.removeItem('kt-list-view')"
+            : $"() => localStorage.setItem('kt-list-view', '{view}')");
+    }
+
     private async Task CaptureAsync(string route, string name)
     {
         await Page.GotoAsync(route);
         await Assertions.Expect(Page.Locator("#blazor-error-ui")).ToBeHiddenAsync();
         // No networkidle with a live SignalR circuit - give data loads a moment to settle instead.
         await Page.WaitForTimeoutAsync(1200);
-        await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(ShotsDirectory, $"{name}.png"), FullPage = true });
+        await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(MobileDirectory, $"{name}.png"), FullPage = true });
     }
 
     private async Task CaptureFirstDetailAsync(string listRoute, string name)
@@ -394,7 +520,7 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
 
         await firstItemLink.ClickAsync();
         await Page.WaitForTimeoutAsync(1500);
-        await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(ShotsDirectory, $"{name}.png"), FullPage = true });
+        await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(MobileDirectory, $"{name}.png"), FullPage = true });
     }
 
     private async Task CaptureDetailByTitleAsync(string listRoute, string title, string name)
@@ -409,6 +535,6 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
 
         await itemLink.ClickAsync();
         await Page.WaitForTimeoutAsync(1500);
-        await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(ShotsDirectory, $"{name}.png"), FullPage = true });
+        await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(MobileDirectory, $"{name}.png"), FullPage = true });
     }
 }

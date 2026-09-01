@@ -1,0 +1,315 @@
+@page "/import/generic"
+@attribute [Authorize]
+@using Keeptrack.BlazorApp.Components.Inventory.Pages
+@using Keeptrack.WebApi.Contracts.Dto
+
+<div class="kt-page-header">
+    <h1>Import from <span>a store (CSV)</span></h1>
+</div>
+
+<div class="kt-form-card">
+    <p style="color:var(--kt-text-muted)">
+        Upload a CSV you've shaped in a spreadsheet (from any retailer's order/purchase history).
+        Only a <strong>Title</strong> column is required; every other column below is optional and matched case-insensitively:
+    </p>
+    <ul style="color:var(--kt-text-muted);font-size:0.85rem">
+        <li><strong>Title</strong> (or <em>Product Name</em>) — the item's name.</li>
+        <li><strong>Type</strong> — Book, Movie, TvShow, VideoGame, Gear or Collectible. Pre-selects each row's type; leave blank to pick it here.</li>
+        <li><strong>Order Date</strong>, <strong>Order ID</strong>, <strong>Product Id</strong> (or <em>ASIN</em>/<em>SKU</em>), <strong>Price</strong> (or <em>Total Amount</em>).</li>
+        <li><strong>Vendor</strong> (the store name → the copy's Vendor field) and <strong>Website</strong> (a product/order URL or seller → the copy's reference).</li>
+        <li><strong>Author</strong> (books), <strong>Platform</strong> (video games), <strong>Year</strong>, <strong>Condition</strong>, <strong>ISBN</strong>, <strong>Copy</strong> (Physical/Digital).</li>
+    </ul>
+    <p style="color:var(--kt-text-muted)">Nothing is imported until you click "Import selected" below.</p>
+
+    <div class="kt-dropzone">
+        <span class="kt-dropzone-icon"><Icon Name="import" Size="34" StrokeWidth="1.2"/></span>
+        <InputFile OnChange="OnFileSelectedAsync" accept=".csv" disabled="@_previewing"/>
+    </div>
+
+    @if (_previewing)
+    {
+        <p class="kt-card-meta mt-2">Reading your file…</p>
+    }
+
+    @if (_error is not null)
+    {
+        <div class="alert alert-danger mt-3">@_error</div>
+    }
+</div>
+
+@if (_rows is not null)
+{
+    <div class="kt-form-card mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">@DisplayedRows.Count() row(s) shown</h5>
+            <button class="btn btn-sm kt-toggle-btn @(_hideAlreadyImported ? "active" : "")" @onclick="() => _hideAlreadyImported = !_hideAlreadyImported">Hide already imported</button>
+        </div>
+
+        <div style="overflow-x:auto">
+            <table class="table kt-sheet-table">
+                <thead>
+                <tr>
+                    <th style="padding-left:0.3rem;padding-right:0.3rem">
+                        <input type="checkbox" title="Select/deselect all shown rows" checked="@AllDisplayedSelected" @onchange="e => SetAllDisplayedSelected((bool)e.Value!)"/>
+                    </th>
+                    <th style="min-width:16rem">Title</th>
+                    <th>Type</th>
+                    <th>Year</th>
+                    <th>Copy</th>
+                    <th>Author / Platform</th>
+                    <th class="kt-card-meta">Order info</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in DisplayedRows)
+                {
+                    <tr>
+                        <td style="padding-left:0.3rem;padding-right:0.3rem">
+                            <input type="checkbox" checked="@row.Selected" @onchange="e => row.Selected = (bool)e.Value!"/>
+                            @if (row.Preview.AlreadyImported)
+                            {
+                                <span title="Already imported">✓</span>
+                            }
+                        </td>
+                        <td><input class="form-control" style="min-width:16rem" @bind="row.Title"/></td>
+                        <td>
+                            <select class="form-select" style="width:7rem" @bind="row.MediaType">
+                                <option value="">—</option>
+                                <option value="@ImportMediaType.Book">Book</option>
+                                <option value="@ImportMediaType.Movie">Movie</option>
+                                <option value="@ImportMediaType.TvShow">TV show</option>
+                                <option value="@ImportMediaType.VideoGame">Video game</option>
+                                <option value="@ImportMediaType.Gear">Gear</option>
+                                <option value="@ImportMediaType.Collectible">Collectible</option>
+                            </select>
+                        </td>
+                        <td><input class="form-control" style="width:4.5rem" type="number" @bind="row.Year"/></td>
+                        <td>
+                            <select class="form-select" style="width:6rem" @bind="row.CopyType">
+                                <option value="@CopyType.Physical">Physical</option>
+                                <option value="@CopyType.Digital">Digital</option>
+                            </select>
+                        </td>
+                        <td>
+                            @if (row.MediaType == ImportMediaType.VideoGame)
+                            {
+                                <select class="form-select" style="width:7rem" @bind="row.Platform">
+                                    <option value="">—</option>
+                                    @foreach (var platform in VideoGames.VideoGamePlatforms)
+                                    {
+                                        <option>@platform</option>
+                                    }
+                                </select>
+                            }
+                            else if (row.MediaType == ImportMediaType.Book)
+                            {
+                                <input class="form-control" style="min-width:9rem" placeholder="Author" @bind="row.Author"/>
+                            }
+                            else
+                            {
+                                <span class="kt-card-meta">—</span>
+                            }
+                        </td>
+                        <td class="kt-card-meta" style="font-size:0.75rem;line-height:1.5">
+                            @if (!string.IsNullOrWhiteSpace(row.Preview.Vendor))
+                            {
+                                <div>@row.Preview.Vendor</div>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(row.Preview.Condition))
+                            {
+                                <div>@row.Preview.Condition</div>
+                            }
+                            @if (row.Preview.OrderDate is not null)
+                            {
+                                <div>@row.Preview.OrderDate.Value.ToString("yyyy-MM-dd")</div>
+                            }
+                            @if (row.Preview.Price is not null)
+                            {
+                                <div>@row.Preview.Price.Value.ToString("0.00") €</div>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        @if (SelectedRows.Any(r => r.MediaType is null))
+        {
+            <p class="text-danger small mb-2">Pick a type for every selected row before importing.</p>
+        }
+
+        @if (SelectedRows.Any(IsMissingPlatform))
+        {
+            <p class="text-danger small mb-2">Pick a platform for every selected video game before importing.</p>
+        }
+
+        <button class="btn btn-sm btn-primary mt-2"
+                disabled="@(_committing || !SelectedRows.Any() || SelectedRows.Any(r => r.MediaType is null) || SelectedRows.Any(IsMissingPlatform))"
+                @onclick="CommitAsync">
+            Import selected (@SelectedRows.Count())
+        </button>
+    </div>
+}
+
+@if (_commitError is not null)
+{
+    <div class="alert alert-danger mt-3">@_commitError</div>
+}
+
+@if (_commitResult is not null)
+{
+    <div class="alert alert-info mt-3">
+        <p class="mb-1"><strong>Books:</strong> @_commitResult.BooksCreated created, @_commitResult.BooksMergedInto merged into existing, @_commitResult.BooksSkipped already imported</p>
+        <p class="mb-1"><strong>Movies:</strong> @_commitResult.MoviesCreated created, @_commitResult.MoviesMergedInto merged into existing, @_commitResult.MoviesSkipped already imported</p>
+        <p class="mb-1"><strong>TV shows:</strong> @_commitResult.TvShowsCreated created, @_commitResult.TvShowsMergedInto merged into existing, @_commitResult.TvShowsSkipped already imported</p>
+        <p class="mb-1"><strong>Video games:</strong> @_commitResult.VideoGamesCreated created, @_commitResult.VideoGamesMergedInto merged into existing, @_commitResult.VideoGamesSkipped already imported</p>
+        <p class="mb-1"><strong>Gear:</strong> @_commitResult.GearCreated created, @_commitResult.GearMergedInto merged into existing, @_commitResult.GearSkipped already imported</p>
+        <p class="mb-1"><strong>Collectibles:</strong> @_commitResult.CollectiblesCreated created, @_commitResult.CollectiblesMergedInto merged into existing, @_commitResult.CollectiblesSkipped already imported</p>
+        <hr/>
+        <p class="mb-1">@_commitResult.RowsImported of @(_commitResult.RowsImported + _commitResult.SkippedRowTitles.Count) selected row(s) imported.</p>
+        @if (_commitResult.SkippedRowTitles.Count > 0)
+        {
+            <p class="mb-1"><strong>Skipped as already imported:</strong></p>
+            <ul class="mb-0">
+                @foreach (var title in _commitResult.SkippedRowTitles)
+                {
+                    <li>@title</li>
+                }
+            </ul>
+        }
+    </div>
+}
+
+@code {
+    private const long MaxFileSize = 20_000_000;
+
+    [Inject] private GenericImportApiClient ImportApi { get; set; } = null!;
+
+    private bool _previewing;
+    private string? _error;
+    private List<EditableRow>? _rows;
+
+    /// <summary>
+    /// Defaults on - a re-uploaded file is mostly already-imported rows, and hiding them by default is what keeps the review list short.
+    /// </summary>
+    private bool _hideAlreadyImported = true;
+
+    private bool _committing;
+    private string? _commitError;
+    private GenericImportCommitResultDto? _commitResult;
+
+    private IEnumerable<EditableRow> DisplayedRows => (_rows ?? [])
+        .Where(r => !_hideAlreadyImported || !r.Preview.AlreadyImported);
+
+    private IEnumerable<EditableRow> SelectedRows => _rows is null ? [] : _rows.Where(r => r.Selected);
+
+    private static bool IsMissingPlatform(EditableRow row) => row.MediaType == ImportMediaType.VideoGame && string.IsNullOrEmpty(row.Platform);
+
+    /// <summary>Drives the header checkbox: checked only once every currently-shown row is selected.</summary>
+    private bool AllDisplayedSelected => DisplayedRows.Any() && DisplayedRows.All(r => r.Selected);
+
+    private void SetAllDisplayedSelected(bool selected)
+    {
+        foreach (var row in DisplayedRows)
+        {
+            row.Selected = selected;
+        }
+    }
+
+    private async Task OnFileSelectedAsync(InputFileChangeEventArgs e)
+    {
+        _previewing = true;
+        _error = null;
+        _rows = null;
+        _commitResult = null;
+        _commitError = null;
+
+        try
+        {
+            await using var stream = e.File.OpenReadStream(MaxFileSize);
+            var preview = await ImportApi.PreviewAsync(stream, e.File.Name);
+            _rows = [.. preview.Select(ToEditableRow)];
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _previewing = false;
+        }
+    }
+
+    private async Task CommitAsync()
+    {
+        _committing = true;
+        _commitError = null;
+        _commitResult = null;
+
+        try
+        {
+            var items = SelectedRows.Select(row => new GenericImportCommitItemDto
+            {
+                RowId = row.Preview.RowId,
+                Title = row.Title,
+                // The original, unedited parsed title - kept separate from the editable row.Title so it can be
+                // recorded verbatim in the created item's notes and used as the reference's product-id fallback.
+                SourceTitle = row.Preview.Title,
+                MediaType = row.MediaType,
+                Year = row.Year,
+                Author = row.MediaType == ImportMediaType.Book ? row.Author : null,
+                Isbn = row.MediaType == ImportMediaType.Book ? row.Preview.Isbn : null,
+                Platform = row.MediaType == ImportMediaType.VideoGame ? row.Platform : null,
+                Condition = row.Preview.Condition,
+                // Echoed back rather than trusting a client-computed Reference string - the server derives the
+                // actual owned-copy Reference (and dedup key) from these itself. Website feeds the Reference,
+                // Vendor feeds the Vendor field.
+                OrderId = row.Preview.OrderId,
+                ProductId = row.Preview.ProductId,
+                Vendor = row.Preview.Vendor,
+                Website = row.Preview.Website,
+                AcquiredAt = row.Preview.OrderDate,
+                Price = row.Preview.Price,
+                CopyType = row.CopyType
+            }).ToList();
+
+            _commitResult = await ImportApi.CommitAsync(items);
+        }
+        catch (Exception ex)
+        {
+            _commitError = ex.Message;
+        }
+        finally
+        {
+            _committing = false;
+        }
+    }
+
+    private static EditableRow ToEditableRow(GenericImportPreviewRowDto preview) => new()
+    {
+        Preview = preview,
+        // Pre-select rows that already know their type (from the "Type" column) and aren't already imported -
+        // a row with no type needs an explicit pick first, so leaving it unselected is the safe default.
+        Selected = preview.SuggestedMediaType is not null && !preview.AlreadyImported,
+        MediaType = preview.SuggestedMediaType,
+        Title = preview.Title,
+        Author = preview.Author,
+        Year = preview.Year,
+        Platform = preview.Platform,
+        CopyType = preview.CopyType
+    };
+
+    private sealed class EditableRow
+    {
+        public required GenericImportPreviewRowDto Preview { get; init; }
+        public bool Selected { get; set; }
+
+        public string Title { get; set; } = "";
+        public int? Year { get; set; }
+        public ImportMediaType? MediaType { get; set; }
+        public string? Author { get; set; }
+        public string? Platform { get; set; }
+        public CopyType CopyType { get; set; }
+    }
+}

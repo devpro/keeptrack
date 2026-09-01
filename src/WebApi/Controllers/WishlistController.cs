@@ -114,8 +114,10 @@ public class WishlistController(
 
         await ReferenceImageHydrator.HydrateAsync(result.Movies, movieReferenceRepository.FindByIdsAsync, x => x.ImageUrl);
         await ReferenceImageHydrator.HydrateAsync(result.TvShows, tvShowReferenceRepository.FindByIdsAsync, x => x.ImageUrl);
-        await ReferenceImageHydrator.HydrateAsync(result.Books, bookReferenceRepository.FindByIdsAsync, x => x.ImageUrl);
-        await ReferenceImageHydrator.HydrateAsync(result.VideoGames, videoGameReferenceRepository.FindByIdsAsync, x => x.ImageUrl);
+        // Book/video game carry a tenant-owned CustomImageUrl that overrides the reference cover, same as their
+        // own list controllers - hydrate-then-override so a custom cover shows here too (movies/TV shows have none).
+        await ReferenceImageHydrator.HydrateWithCustomOverrideAsync(result.Books, bookReferenceRepository.FindByIdsAsync, x => x.ImageUrl, x => x.CustomImageUrl);
+        await ReferenceImageHydrator.HydrateWithCustomOverrideAsync(result.VideoGames, videoGameReferenceRepository.FindByIdsAsync, x => x.ImageUrl, x => x.CustomImageUrl);
 
         return result;
     }

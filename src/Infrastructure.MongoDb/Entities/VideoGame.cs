@@ -5,7 +5,7 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace Keeptrack.Infrastructure.MongoDb.Entities;
 
-public class VideoGame : IHasIdAndOwnerId
+public class VideoGame : IHasIdAndOwnerId, IHasReferenceRating
 {
     [BsonId]
     [BsonRepresentation(BsonType.ObjectId)]
@@ -26,6 +26,15 @@ public class VideoGame : IHasIdAndOwnerId
 
     [BsonElement("reference_id")]
     public string? ReferenceId { get; set; }
+
+    [BsonElement("reference_rating")]
+    public double? ReferenceRating { get; set; }
+
+    [BsonElement("reference_rating_scale")]
+    public double? ReferenceRatingScale { get; set; }
+
+    [BsonElement("reference_rating_source")]
+    public string? ReferenceRatingSource { get; set; }
 
     [BsonElement("custom_image_url")]
     public string? CustomImageUrl { get; set; }

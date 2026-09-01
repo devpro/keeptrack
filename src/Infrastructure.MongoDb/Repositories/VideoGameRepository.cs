@@ -24,6 +24,8 @@ public class VideoGameRepository(IMongoDatabase mongoDatabase, ILogger<VideoGame
 
     protected override Expression<Func<VideoGame, object>> SortRatingField => x => x.Rating!;
 
+    protected override Expression<Func<VideoGame, object>> SortReferenceRatingField => x => x.ReferenceRating!;
+
     /// <summary>
     /// "Last completed" needs the max <c>CompletedAt</c> across a game's <see cref="VideoGame.Platforms"/>
     /// array, not a single scalar field, so it can't use the shared <c>SortSecondaryDateField</c> hook.
@@ -52,18 +54,42 @@ public class VideoGameRepository(IMongoDatabase mongoDatabase, ILogger<VideoGame
         return filter;
     }
 
-    public async Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null)
+    public async Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null, double? canonicalRating = null, double? canonicalRatingScale = null, string? canonicalRatingSource = null)
     {
         var builder = Builders<VideoGame>.Filter;
         var filter = builder.Regex(f => f.Title, new BsonRegularExpression($"^{Regex.Escape(title)}$", "i"))
                      & builder.Eq(f => f.Year, year)
                      & UnresolvedFilter();
 
-        var update = Builders<VideoGame>.Update.Set(f => f.ReferenceId, referenceId).Set(f => f.Title, canonicalTitle);
+        var update = Builders<VideoGame>.Update.Set(f => f.ReferenceId, referenceId).Set(f => f.Title, canonicalTitle)
+            .Set(f => f.ReferenceRating, canonicalRating).Set(f => f.ReferenceRatingScale, canonicalRatingScale)
+            .Set(f => f.ReferenceRatingSource, canonicalRatingSource);
         if (canonicalYear is not null) update = update.Set(f => f.Year, canonicalYear);
         var result = await GetCollection().UpdateManyAsync(filter, update);
         return result.ModifiedCount;
     }
+
+    public Task<long> SetReferenceRatingAsync(string referenceId, double? rating, double? ratingScale, string? source) =>
+        ReferenceRatingQueries.SetRatingAsync(GetCollection(), referenceId, rating, ratingScale, source);
+
+    public Task<long> SetReferenceRatingsAsync(IReadOnlyList<(string ReferenceId, double? Rating, double? RatingScale, string? Source)> updates) =>
+        ReferenceRatingQueries.SetRatingsAsync(GetCollection(), updates);
+
+    public async Task<long> RepointReferenceAsync(string fromReferenceId, string toReferenceId)
+    {
+        var filter = Builders<VideoGame>.Filter.Eq(f => f.ReferenceId, fromReferenceId);
+        var result = await GetCollection().UpdateManyAsync(filter, Builders<VideoGame>.Update.Set(f => f.ReferenceId, toReferenceId));
+        return result.ModifiedCount;
+    }
+
+    public Task<long> CountLinkedOnOtherRatingSourceAsync(string source) =>
+        ReferenceRatingQueries.CountLinkedOnOtherSourceAsync(GetCollection(), source);
+
+    public Task<IReadOnlyList<string>> FindLinkedReferenceIdsAsync(string ownerId) =>
+        ExploreExclusionQueries.FindLinkedReferenceIdsAsync(GetCollection(), ownerId, f => f.ReferenceId);
+
+    public Task<IReadOnlyList<string>> FindDistinctTitlesAsync(string ownerId) =>
+        ExploreExclusionQueries.FindDistinctTitlesAsync(GetCollection(), ownerId, f => f.Title);
 
     public async Task<IReadOnlyList<(string Title, int? Year, string? Creator)>> FindDistinctUnresolvedTitleYearsAsync()
     {

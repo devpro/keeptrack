@@ -1,3 +1,4 @@
+using System.Threading;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.WebApi.Mappers;
@@ -25,14 +26,8 @@ public class VideoGameController(
     /// its own <see cref="VideoGameDto.CustomImageUrl"/> set overrides that afterward - see
     /// <see cref="BookController.OnListMappedAsync"/>.
     /// </summary>
-    protected override async Task OnListMappedAsync(List<VideoGameDto> dtos)
-    {
-        await ReferenceImageHydrator.HydrateAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl);
-        foreach (var dto in dtos.Where(d => !string.IsNullOrEmpty(d.CustomImageUrl)))
-        {
-            dto.ImageUrl = dto.CustomImageUrl;
-        }
-    }
+    protected override Task OnListMappedAsync(List<VideoGameDto> dtos, CancellationToken cancellationToken) =>
+        ReferenceImageHydrator.HydrateWithCustomOverrideAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl, x => x.CustomImageUrl);
 
     /// <summary>
     /// Fires a best-effort background RAWG match for the new game - see <see cref="TvShowController.OnCreatedAsync"/>.
@@ -58,18 +53,21 @@ public class VideoGameController(
     }
 
     /// <summary>
-    /// User-triggered, exact-match-only re-check against the local reference collection - see
-    /// <see cref="TvShowController.RefreshReference"/>.
+    /// User-triggered re-check for this game's reference - see <see cref="TvShowController.RefreshReference"/>
+    /// for the shared shape. Unlike the other four domains this one falls back to the provider when nothing
+    /// local matches, so a game that was created before its year was known can still be linked once the year
+    /// is filled in - see <see cref="ReferenceEnrichmentService.LinkVideoGameReferenceAsync"/> for why the
+    /// local-only version could not keep the button's own promise.
     /// </summary>
     [HttpPost("{id}/refresh-reference")]
     [ProducesResponseType(200)]
     [ProducesResponseType(404)]
-    public async Task<ActionResult<VideoGameDto>> RefreshReference(string id)
+    public async Task<ActionResult<VideoGameDto>> RefreshReference(string id, CancellationToken cancellationToken)
     {
-        var model = await dataRepository.FindOneAsync(id, this.GetUserId());
+        var model = await dataRepository.FindOneAsync(id, this.GetUserId(), cancellationToken);
         if (model is null) return NotFound();
 
-        model = await enrichmentService.TryLinkExistingVideoGameReferenceAsync(model);
+        model = await enrichmentService.LinkVideoGameReferenceAsync(model);
         return Ok(Mapper.ToDto(model));
     }
 
@@ -81,9 +79,9 @@ public class VideoGameController(
     [Authorize(Policy = "AdminOnly")]
     [ProducesResponseType(200)]
     [ProducesResponseType(404)]
-    public async Task<ActionResult<VideoGameDto>> UnlinkReference(string id)
+    public async Task<ActionResult<VideoGameDto>> UnlinkReference(string id, CancellationToken cancellationToken)
     {
-        var model = await dataRepository.FindOneAsync(id, this.GetUserId());
+        var model = await dataRepository.FindOneAsync(id, this.GetUserId(), cancellationToken);
         if (model is null) return NotFound();
 
         model = await enrichmentService.UnlinkVideoGameReferenceAsync(model);

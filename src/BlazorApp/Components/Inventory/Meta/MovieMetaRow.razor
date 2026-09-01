@@ -1,0 +1,39 @@
+@* The movie list row's second line (year / rating / flag pills). Extracted so the owner list page and the
+   read-only shared-collection view render the identical meta from one definition. *@
+
+@if (Item.Year > 0)
+{
+    <span>@Item.Year</span>
+}
+@if (Item.ReferenceRating is not null)
+{
+    <span class="kt-ref-rating" title="Rating from the linked reference"><span class="kt-ref-rating-star">★</span> @Item.ReferenceRating.Value.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)</span>
+}
+@if (Item.Rating is not null)
+{
+    <span class="kt-stars"><StarRating Rating="Item.Rating"/></span>
+}
+@if (Item.IsFavorite)
+{
+    <span class="kt-flag-badge favorite">Favorite</span>
+}
+@if (Item.FirstSeenAt is not null)
+{
+    <span class="kt-flag-badge done">Seen</span>
+}
+@if (Item.WantToWatch)
+{
+    <span class="kt-flag-badge wishlist">To watch</span>
+}
+@if (Item.OwnedVersions.Count > 0)
+{
+    <span class="kt-flag-badge">Owned</span>
+}
+@if (Item.IsWishlisted)
+{
+    <span class="kt-flag-badge wishlist">Wishlist</span>
+}
+
+@code {
+    [Parameter] public required MovieDto Item { get; set; }
+}

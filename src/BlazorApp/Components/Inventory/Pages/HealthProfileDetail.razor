@@ -1,4 +1,4 @@
-@page "/health/{Id}"
+﻿@page "/health/{Id}"
 @attribute [Authorize]
 
 @if (!_loaded)
@@ -14,17 +14,25 @@
 else if (Profile is null)
 {
     <div class="kt-empty">
-        <div class="kt-empty-icon">◈</div>
+        <div class="kt-empty-icon"><Icon Name="empty" Size="40" StrokeWidth="1.1"/></div>
         <p>Health profile not found.</p>
     </div>
 }
 else
 {
-    <Breadcrumb ListRoute="/health" ListLabel="Health" Current="@Profile.Name"/>
+    @if (CanEdit)
+    {
+        <Breadcrumb ListRoute="/health" ListLabel="Health" Current="@Profile.Name"/>
+    }
+    else
+    {
+        <Breadcrumb ParentRoute="/account/manage/shared-with-me" ParentLabel="Shared with me"
+                    ListRoute="@($"/account/manage/shared/{ShareId}")" ListLabel="@(_ownerName ?? "Shared collection")" Current="@Profile.Name"/>
+    }
 
     <div class="kt-page-header">
         <div class="kt-title-row">
-            <input class="kt-title-input" value="@Profile.Name" @onchange="SaveNameAsync"/>
+            <input class="kt-title-input" value="@Profile.Name" @onchange="SaveNameAsync" disabled="@(!CanEdit)"/>
         </div>
     </div>
 
@@ -39,12 +47,15 @@ else
         <div class="row g-3">
             <div class="col-12">
                 <label class="form-label">Notes</label>
-                <textarea class="form-control form-control-sm" rows="2" @onchange="SaveNotesAsync">@Profile.Notes</textarea>
+                <textarea class="form-control form-control-sm" rows="2" @onchange="SaveNotesAsync" disabled="@(!CanEdit)">@Profile.Notes</textarea>
             </div>
-            <div class="col-12">
-                <label class="form-label">Cover image URL</label>
-                <input class="form-control form-control-sm" data-testid="image-url-input" value="@Profile.ImageUrl" @onchange="SaveImageUrlAsync"/>
-            </div>
+            @if (CanEdit)
+            {
+                <div class="col-12">
+                    <label class="form-label">Cover image URL</label>
+                    <input class="form-control form-control-sm" data-testid="image-url-input" value="@Profile.ImageUrl" @onchange="SaveImageUrlAsync"/>
+                </div>
+            }
         </div>
     </div>
 
@@ -67,7 +78,10 @@ else
 
     <div class="d-flex justify-content-between align-items-center">
         <h2 class="kt-section-title">Journal</h2>
-        <button class="btn btn-sm btn-primary" @onclick="ShowAddModal">+ Add entry</button>
+        @if (CanEdit)
+        {
+            <button class="btn btn-sm btn-primary" @onclick="ShowAddModal">+ Add entry</button>
+        }
     </div>
     @* Excel-like on purpose: no header row, no per-field labels, aligned columns at every width
        (kt-table-grid opts out of the mobile stacked-cards treatment) - date, specialty, name, a warning
@@ -80,7 +94,7 @@ else
             <div class="table-responsive">
                 <table class="table kt-sheet-table kt-table-grid mb-0">
                     <tbody>
-                    <tr><td class="text-center kt-card-meta">No entries yet - add the first one above.</td></tr>
+                    <tr><td class="text-center kt-card-meta">@(CanEdit ? "No entries yet - add the first one above." : "No entries recorded.")</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -97,10 +111,27 @@ else
         <div class="kt-table-wrap">
             <div class="table-responsive">
                 <table class="table kt-sheet-table kt-table-grid mb-0">
+                    @* The journal is the one table here that had no header row, while the yearly review
+                       directly below it does - so its columns had to be inferred from their contents.
+                       Column set and the d-none d-md-table-cell breakpoints mirror HealthRecordRow. *@
+                    <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Specialty</th>
+                        <th>Practitioner</th>
+                        <th class="d-none d-md-table-cell">Description</th>
+                        <th class="d-none d-md-table-cell kt-num">Price</th>
+                        <th><span class="visually-hidden">To check</span></th>
+                        @if (CanEdit)
+                        {
+                            <th><span class="visually-hidden">Actions</span></th>
+                        }
+                    </tr>
+                    </thead>
                     <tbody>
                     @foreach (var entry in _recordsByYear.GetValueOrDefault(_selectedYear, []))
                     {
-                        <HealthRecordRow Entry="entry" IsUnbalanced="@UnbalancedRecordIds.Contains(entry.Id!)" OnEdit="ShowEditModal" OnDelete="DeleteEntryAsync"/>
+                        <HealthRecordRow Entry="entry" IsUnbalanced="@UnbalancedRecordIds.Contains(entry.Id!)" ReadOnly="@(!CanEdit)" OnEdit="ShowEditModal" OnDelete="DeleteEntryAsync"/>
                     }
                     </tbody>
                 </table>
@@ -138,10 +169,10 @@ else
         </div>
     }
 
-    @if (_showModal)
+    @if (CanEdit && _showModal)
     {
         <div class="kt-modal-backdrop">
-            <div class="kt-modal">
+            <div class="kt-modal kt-modal-wide">
                 <div class="kt-modal-header">
                     <h5>@(IsEditMode ? "Edit" : "Add") journal entry</h5>
                     <button class="kt-modal-close" @onclick="RequestCancelModal">✕</button>
@@ -167,9 +198,19 @@ else
 @code {
     [Parameter] public required string Id { get; set; }
 
+    /// <summary>Set when a recipient is viewing this health profile as shared with them (read-only). When null
+    /// this is the owner's own editable page - see CarDetail.ShareId for the shared/owner data-source split.</summary>
+    [Parameter] public string? ShareId { get; set; }
+
+    private bool CanEdit => ShareId is null;
+
+    private string? _ownerName;
+
     [Inject] private HealthProfileApiClient HealthProfileApi { get; set; } = null!;
 
     [Inject] private HealthRecordApiClient HealthRecordApi { get; set; } = null!;
+
+    [Inject] private SharedWithMeApiClient SharedApi { get; set; } = null!;
 
     // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
     // _loaded tracks whether a load attempt has finished at all, fresh or restored from persisted
@@ -229,13 +270,29 @@ else
 
     private async Task FetchAsync()
     {
-        Profile = await HealthProfileApi.GetOneAsync(Id);
-        if (Profile is not null)
+        if (CanEdit)
         {
-            var result = await HealthRecordApi.GetAsync("", 1, int.MaxValue, new Dictionary<string, string> { ["HealthProfileId"] = Id });
-            // most recent first - a journal reads with the newest entry on top, same call as HouseDetail
-            Records = result.Items.OrderByDescending(r => r.HistoryDate).ToList();
-            Metrics = await HealthProfileApi.GetMetricsAsync(Id);
+            Profile = await HealthProfileApi.GetOneAsync(Id);
+            if (Profile is not null)
+            {
+                var result = await HealthRecordApi.GetAsync("", 1, int.MaxValue, new Dictionary<string, string> { ["HealthProfileId"] = Id });
+                // most recent first - a journal reads with the newest entry on top, same call as HouseDetail
+                Records = result.Items.OrderByDescending(r => r.HistoryDate).ToList();
+                Metrics = await HealthProfileApi.GetMetricsAsync(Id);
+                BuildDerivedState();
+            }
+            return;
+        }
+
+        // Recipient (read-only): one composite call returns the profile, its full journal and metrics, scoped to
+        // the sharer server-side after the grant is verified.
+        var detail = await SharedApi.GetHealthProfileAsync(ShareId!, Id);
+        if (detail is not null)
+        {
+            Profile = detail.Parent;
+            _ownerName = detail.OwnerDisplayName;
+            Records = detail.Children.OrderByDescending(r => r.HistoryDate).ToList();
+            Metrics = detail.Metrics;
             BuildDerivedState();
         }
     }

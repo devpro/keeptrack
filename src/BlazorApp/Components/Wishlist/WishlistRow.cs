@@ -21,4 +21,7 @@ public sealed record WishlistRow(string Href, string? ImageUrl, string? Shape, s
 
     public static List<WishlistRow> FromVideoGames(List<VideoGameDto> videoGames) =>
         videoGames.ConvertAll(x => new WishlistRow($"/video-games/{x.Id}", x.ImageUrl, "wide", x.Title, x.Year));
+
+    public static List<WishlistRow> FromAlbums(List<AlbumDto> albums) =>
+        albums.ConvertAll(x => new WishlistRow($"/albums/{x.Id}", x.ImageUrl, "square", x.Title, x.Year, x.Artist));
 }

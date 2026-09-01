@@ -7,9 +7,9 @@ namespace Keeptrack.Infrastructure.MongoDb.Mappers;
 
 /// <summary>
 /// Hand-written rather than a Mapperly <c>[Mapper]</c> class: <see cref="CarHistoryModel"/>'s flat
-/// City/PostalCode/Country/Longitude/Latitude/Fuel*/StationBrandName fields fan out into
-/// <see cref="CarHistory"/>'s Location/Fuel/Station sub-documents on write and back on read, which is
-/// bespoke enough that explicit C# is more readable than attribute configuration.
+/// City/PostalCode/Country/Longitude/Latitude/Fuel* fields fan out into <see cref="CarHistory"/>'s
+/// Location/Fuel sub-documents on write and back on read, which is bespoke enough that explicit C# is
+/// more readable than attribute configuration.
 /// </summary>
 public class CarHistoryStorageMapper : IStorageMapper<CarHistoryModel, CarHistory>
 {
@@ -30,7 +30,7 @@ public class CarHistoryStorageMapper : IStorageMapper<CarHistoryModel, CarHistor
             Cost = model.Cost,
             Location = BuildLocation(model),
             Fuel = BuildFuel(model),
-            Station = BuildStation(model),
+            StationId = string.IsNullOrWhiteSpace(model.StationId) ? null : model.StationId,
             Garage = model.Garage,
         };
     }
@@ -59,7 +59,7 @@ public class CarHistoryStorageMapper : IStorageMapper<CarHistoryModel, CarHistor
             ElectricUnitPrice = entity.Fuel?.ElectricUnitPrice,
             IsFullRefill = entity.Fuel?.IsFullRefill,
             DeltaMileage = entity.Fuel?.DeltaMileage,
-            StationBrandName = entity.Station?.BrandName,
+            StationId = entity.StationId,
             Garage = entity.Garage,
         };
     }
@@ -101,15 +101,6 @@ public class CarHistoryStorageMapper : IStorageMapper<CarHistoryModel, CarHistor
             ElectricUnitPrice = model.ElectricUnitPrice,
             IsFullRefill = model.IsFullRefill,
             DeltaMileage = model.DeltaMileage,
-        };
-    }
-
-    private static CarHistoryStation BuildStation(CarHistoryModel model)
-    {
-        return new CarHistoryStation
-        {
-            // BrandName is `required` on the entity for the same reason City is above - preserved as-is.
-            BrandName = model.StationBrandName!,
         };
     }
 }

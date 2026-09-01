@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
@@ -31,31 +32,24 @@ public class HouseResourceTest(KestrelWebAppFactory<Program> factory)
                 o.Name = f.Random.AlphaNumeric(14);
                 o.City = f.Address.City();
                 o.PropertyType = f.PickRandom<PropertyType>();
-                o.MovedInAt = System.DateOnly.FromDateTime(f.Date.Past());
-                o.MovedOutAt = System.DateOnly.FromDateTime(f.Date.Recent());
+                o.MovedInAt = DateOnly.FromDateTime(f.Date.Past());
+                o.MovedOutAt = DateOnly.FromDateTime(f.Date.Recent());
                 o.ImageUrl = f.Internet.Url();
             })
             .Generate();
-        var created = await PostAsync($"/{ResourceEndpoint}", input);
+        var created = await CreateAsync($"/{ResourceEndpoint}", input);
         created.Id.Should().NotBeNullOrEmpty();
 
-        try
-        {
-            created.Name = "New shiny name";
-            await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
+        created.Name = "New shiny name";
+        await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
 
-            var updated = await GetAsync<HouseDto>($"/{ResourceEndpoint}/{created.Id}");
-            updated.Should().BeEquivalentTo(created);
+        var updated = await GetAsync<HouseDto>($"/{ResourceEndpoint}/{created.Id}");
+        updated.Should().BeEquivalentTo(created);
 
-            var finalItems = await GetAsync<PagedResult<HouseDto>>($"/{ResourceEndpoint}");
-            var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
-            firstItem.Should().NotBeNull();
-            firstItem.Name.Should().Be(updated.Name);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        var finalItems = await GetAsync<PagedResult<HouseDto>>($"/{ResourceEndpoint}");
+        var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
+        firstItem.Should().NotBeNull();
+        firstItem.Name.Should().Be(updated.Name);
     }
 
     [Fact]
@@ -63,18 +57,11 @@ public class HouseResourceTest(KestrelWebAppFactory<Program> factory)
     {
         await Authenticate();
 
-        var name = System.Guid.NewGuid().ToString();
-        var created = await PostAsync($"/{ResourceEndpoint}", new HouseDto { Name = name });
+        var name = Guid.NewGuid().ToString();
+        var created = await CreateAsync($"/{ResourceEndpoint}", new HouseDto { Name = name });
 
-        try
-        {
-            var results = await GetAsync<PagedResult<HouseDto>>($"/{ResourceEndpoint}?search={name}");
-            results.Items.Should().ContainSingle(x => x.Id == created.Id);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        var results = await GetAsync<PagedResult<HouseDto>>($"/{ResourceEndpoint}?search={name}");
+        results.Items.Should().ContainSingle(x => x.Id == created.Id);
     }
 
     [Fact]
@@ -90,17 +77,10 @@ public class HouseResourceTest(KestrelWebAppFactory<Program> factory)
     {
         await Authenticate();
 
-        var created = await PostAsync($"/{ResourceEndpoint}", new HouseDto { Name = System.Guid.NewGuid().ToString() });
+        var created = await CreateAsync($"/{ResourceEndpoint}", new HouseDto { Name = Guid.NewGuid().ToString() });
 
-        try
-        {
-            var metrics = await GetAsync<HouseMetricsDto>($"/{ResourceEndpoint}/{created.Id}/metrics");
-            metrics.CostHistory.Should().BeEmpty();
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        var metrics = await GetAsync<HouseMetricsDto>($"/{ResourceEndpoint}/{created.Id}/metrics");
+        metrics.CostHistory.Should().BeEmpty();
     }
 
     /// <summary>
@@ -113,11 +93,13 @@ public class HouseResourceTest(KestrelWebAppFactory<Program> factory)
     {
         await Authenticate();
 
-        var house = await PostAsync($"/{ResourceEndpoint}", new HouseDto { Name = System.Guid.NewGuid().ToString() });
-        var entry = await PostAsync("/api/house-history", new HouseHistoryDto
+        // both are registered even though the delete below is the point of the test: if the cascade is ever
+        // broken, the orphaned history entry is exactly what would otherwise be left behind.
+        var house = await CreateAsync($"/{ResourceEndpoint}", new HouseDto { Name = Guid.NewGuid().ToString() });
+        var entry = await CreateAsync("/api/house-history", new HouseHistoryDto
         {
             HouseId = house.Id!,
-            HistoryDate = System.DateOnly.FromDateTime(System.DateTime.Today),
+            HistoryDate = DateOnly.FromDateTime(DateTime.Today),
             EventType = HouseEventType.Maintenance
         });
 

@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Text.Json;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
+using Keeptrack.Domain.Services;
 using Keeptrack.WebApi.Controllers;
 using Keeptrack.WebApi.Jobs;
 using Microsoft.AspNetCore.Authorization;
@@ -25,18 +26,23 @@ public class ReferenceDataAdminController(
     IVideoGameRepository videoGameRepository,
     IAlbumRepository albumRepository,
     ITmdbClient tmdbClient,
-    BookReferenceClientRegistry bookReferenceClientRegistry,
-    IRawgClient rawgClient,
+    ReferenceClientRegistry<IBookReferenceClient> bookReferenceClientRegistry,
+    ReferenceClientRegistry<IVideoGameReferenceClient> videoGameReferenceClientRegistry,
     IDiscogsClient discogsClient,
     ReferenceEnrichmentService enrichmentService,
     JobStore<ReferenceSyncStage, ReferenceSyncResultDto> syncJobStore,
+    JobStore<ReferenceDataImportStage, ReferenceDataImportResultDto> importJobStore,
     IServiceScopeFactory scopeFactory,
     ITvShowReferenceRepository tvShowReferenceRepository,
     IMovieReferenceRepository movieReferenceRepository,
     IPersonReferenceRepository personReferenceRepository,
     IBookReferenceRepository bookReferenceRepository,
     IVideoGameReferenceRepository videoGameReferenceRepository,
-    IAlbumReferenceRepository albumReferenceRepository) : ControllerBase
+    IAlbumReferenceRepository albumReferenceRepository,
+    IAppSettingRepository appSettingRepository,
+    RatingSourceOptions ratingSourceOptions,
+    IHostApplicationLifetime lifetime,
+    ILogger<ReferenceDataAdminController> logger) : ControllerBase
 {
     private const string TvShowEntryName = "tvshow_reference.json";
     private const string MovieEntryName = "movie_reference.json";
@@ -75,77 +81,175 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// Idempotent (upsert-by-id) re-import of a previously exported zip -
-    /// re-running the same import twice is a no-op the second time, since every document already carries the id it was exported with.
+    /// Re-import of a previously exported zip, into whatever the target database already holds.
+    /// Every document is matched by its <b>provider id</b> (TMDB, IGDB, Google Books, Discogs...), never by the <c>_id</c> it was exported with -
+    /// see <see cref="ReferenceDataImportService"/> for why that distinction is the whole feature, and for what a match merges rather than replaces.
+    /// Idempotent either way: re-running the same import updates the same documents in place a second time.
+    /// <para>
+    /// Runs in the background; poll <see cref="GetImportStatus"/> with the returned job id for progress. A real
+    /// export is tens of thousands of documents (people alone run to five figures), each one a write, so this
+    /// comfortably outlives a single request/response - as a blocking call it died on the *client's* default
+    /// 100s <c>HttpClient.Timeout</c> while the server kept importing, reporting a failure for work that was
+    /// still running and would go on to succeed.
+    /// </para>
     /// </summary>
     [HttpPost("import")]
     [RequestSizeLimit(50_000_000)]
     [Consumes("multipart/form-data")]
-    [ProducesResponseType(200)]
+    [ProducesResponseType(202)]
     [ProducesResponseType(400)]
     [SuppressMessage("Security", "S5693:Make sure the content length limit is safe here",
         Justification = "The limit IS set (50 MB), deliberately above Sonar's 8 MB default: " +
                         "a full reference-data export (six collections of episode guides, cast, aliases) grows past 8 MB, and the endpoint is admin-only.")]
-    public async Task<ActionResult<ReferenceDataImportResultDto>> Import(IFormFile file)
+    public async Task<ActionResult<ReferenceDataImportJobDto>> Import(IFormFile file)
     {
         if (file.Length == 0) return BadRequest();
 
-        await using var uploadStream = file.OpenReadStream();
-        await using var archive = new ZipArchive(uploadStream, ZipArchiveMode.Read);
-
-        var tvShowCount = 0;
-        var movieCount = 0;
-        var personCount = 0;
-        var bookCount = 0;
-        var videoGameCount = 0;
-        var albumCount = 0;
-
-        foreach (var show in await ReadJsonEntryAsync<TvShowReferenceModel>(archive, TvShowEntryName))
+        // buffered up front: IFormFile's stream isn't valid once this request finishes, but the import itself
+        // runs in the background after we respond
+        var buffer = new MemoryStream();
+        await using (var uploadStream = file.OpenReadStream())
         {
-            await tvShowReferenceRepository.UpsertAsync(show);
-            tvShowCount++;
+            await uploadStream.CopyToAsync(buffer);
         }
 
-        foreach (var movie in await ReadJsonEntryAsync<MovieReferenceModel>(archive, MovieEntryName))
-        {
-            await movieReferenceRepository.UpsertAsync(movie);
-            movieCount++;
-        }
+        buffer.Position = 0;
+        var jobId = await importJobStore.CreateAsync(this.GetUserId(), ReferenceDataImportStage.Parsing);
 
-        foreach (var person in await ReadJsonEntryAsync<PersonReferenceModel>(archive, PersonEntryName))
-        {
-            await personReferenceRepository.UpsertAsync(person);
-            personCount++;
-        }
+        _ = RunImportJobAsync(jobId, buffer);
 
-        foreach (var book in await ReadJsonEntryAsync<BookReferenceModel>(archive, BookEntryName))
-        {
-            await bookReferenceRepository.UpsertAsync(book);
-            bookCount++;
-        }
-
-        foreach (var videoGame in await ReadJsonEntryAsync<VideoGameReferenceModel>(archive, VideoGameEntryName))
-        {
-            await videoGameReferenceRepository.UpsertAsync(videoGame);
-            videoGameCount++;
-        }
-
-        foreach (var album in await ReadJsonEntryAsync<AlbumReferenceModel>(archive, AlbumEntryName))
-        {
-            await albumReferenceRepository.UpsertAsync(album);
-            albumCount++;
-        }
-
-        return Ok(new ReferenceDataImportResultDto
-        {
-            TvShowCount = tvShowCount,
-            MovieCount = movieCount,
-            PersonCount = personCount,
-            BookCount = bookCount,
-            VideoGameCount = videoGameCount,
-            AlbumCount = albumCount
-        });
+        return Accepted(new ReferenceDataImportJobDto { JobId = jobId });
     }
+
+    /// <summary>
+    /// Current status of a previously started import job.
+    /// </summary>
+    [HttpGet("import/{jobId:guid}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(404)]
+    public async Task<ActionResult<ReferenceDataImportJobStatusDto>> GetImportStatus(Guid jobId)
+    {
+        var status = await importJobStore.GetStatusAsync(jobId, this.GetUserId());
+        if (status is null) return NotFound();
+
+        return Ok(new ReferenceDataImportJobStatusDto { Stage = status.Value.Stage, Result = status.Value.Result, ErrorMessage = status.Value.ErrorMessage });
+    }
+
+    /// <summary>
+    /// Runs the import on a background task using its own DI scope - the request that started it has already
+    /// completed by the time this runs, so none of the request's scoped services (the six repositories, its own
+    /// JobStore) are still usable.
+    /// <para>
+    /// It runs on <see cref="IHostApplicationLifetime.ApplicationStopping"/> for the same reason
+    /// <see cref="RunSyncJobAsync"/> does: a shutdown mid-import would otherwise leave it writing against a
+    /// disposed Mongo client, including the final job-store write that would leave the job reading "Running"
+    /// forever. Stopping partway is safe here - the import is idempotent, so re-running the same zip picks up
+    /// what didn't land and updates what did.
+    /// </para>
+    /// </summary>
+    private async Task RunImportJobAsync(Guid jobId, MemoryStream buffer)
+    {
+        var cancellationToken = lifetime.ApplicationStopping;
+        await using (buffer)
+        {
+            using var scope = scopeFactory.CreateScope();
+            var scopedJobStore = scope.ServiceProvider.GetRequiredService<JobStore<ReferenceDataImportStage, ReferenceDataImportResultDto>>();
+
+            try
+            {
+                var payload = await ReadPayloadAsync(buffer);
+                var summary = await ReferenceDataImportService.ImportAsync(
+                    payload,
+                    new ReferenceRepositorySet(
+                        scope.ServiceProvider.GetRequiredService<ITvShowReferenceRepository>(),
+                        scope.ServiceProvider.GetRequiredService<IMovieReferenceRepository>(),
+                        scope.ServiceProvider.GetRequiredService<IPersonReferenceRepository>(),
+                        scope.ServiceProvider.GetRequiredService<IBookReferenceRepository>(),
+                        scope.ServiceProvider.GetRequiredService<IVideoGameReferenceRepository>(),
+                        scope.ServiceProvider.GetRequiredService<IAlbumReferenceRepository>()),
+                    collection => scopedJobStore.UpdateStageAsync(jobId, StageOf(collection)),
+                    cancellationToken);
+
+                foreach (var skipped in summary.SkippedExternalIds)
+                {
+                    // reported in the result too, but logged so the collision leaves a server-side trail: it means the
+                    // target holds two reference documents for one work, which the import deliberately won't merge on its own.
+                    logger.LogWarning("Reference-data import skipped external id {ExternalId}: another document in this database already claims it.", skipped);
+                }
+
+                foreach (var duplicate in summary.PossibleDuplicates)
+                {
+                    // same reason as above: this leaves the database holding two reference documents for one
+                    // work, which nothing but the admin reconciliation action can put back together.
+                    logger.LogWarning("Reference-data import created a second document for {Work}: the target already had it under a different provider's id.", duplicate);
+                }
+
+                await scopedJobStore.CompleteAsync(jobId, ReferenceDataImportStage.Completed, new ReferenceDataImportResultDto
+                {
+                    TvShows = ToDto(summary.TvShows),
+                    Movies = ToDto(summary.Movies),
+                    People = ToDto(summary.People),
+                    Books = ToDto(summary.Books),
+                    VideoGames = ToDto(summary.VideoGames),
+                    Albums = ToDto(summary.Albums),
+                    SkippedExternalIds = summary.SkippedExternalIds,
+                    PossibleDuplicates = summary.PossibleDuplicates
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                // the API is going down, so this is neither a success nor a fault to investigate - just say so
+                // plainly and stop. Best-effort: the job store may already be unusable at this point.
+                try
+                {
+                    await scopedJobStore.FailAsync(jobId, ReferenceDataImportStage.Failed,
+                        "The API shut down before the import finished. Import the same file again once it is back up - it will pick up where this one stopped.");
+                }
+                catch (Exception writeFailure)
+                {
+                    logger.LogWarning(writeFailure, "Could not record that import job {JobId} was interrupted by shutdown.", jobId);
+                }
+            }
+            catch (Exception ex)
+            {
+                await scopedJobStore.FailAsync(jobId, ReferenceDataImportStage.Failed, ex.Message);
+            }
+        }
+    }
+
+    private static async Task<ReferenceDataImportPayload> ReadPayloadAsync(Stream zipStream)
+    {
+        using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
+
+        return new ReferenceDataImportPayload
+        {
+            TvShows = await ReadJsonEntryAsync<TvShowReferenceModel>(archive, TvShowEntryName),
+            Movies = await ReadJsonEntryAsync<MovieReferenceModel>(archive, MovieEntryName),
+            People = await ReadJsonEntryAsync<PersonReferenceModel>(archive, PersonEntryName),
+            Books = await ReadJsonEntryAsync<BookReferenceModel>(archive, BookEntryName),
+            VideoGames = await ReadJsonEntryAsync<VideoGameReferenceModel>(archive, VideoGameEntryName),
+            Albums = await ReadJsonEntryAsync<AlbumReferenceModel>(archive, AlbumEntryName)
+        };
+    }
+
+    /// <summary>
+    /// The client-facing stage for the collection the import just started. Domain reports which collection it
+    /// is writing; naming that as a job stage (alongside the parse/complete/fail states it knows nothing about)
+    /// is the web layer's job.
+    /// </summary>
+    private static ReferenceDataImportStage StageOf(ReferenceDataImportCollection collection) => collection switch
+    {
+        ReferenceDataImportCollection.People => ReferenceDataImportStage.ImportingPeople,
+        ReferenceDataImportCollection.TvShows => ReferenceDataImportStage.ImportingTvShows,
+        ReferenceDataImportCollection.Movies => ReferenceDataImportStage.ImportingMovies,
+        ReferenceDataImportCollection.Books => ReferenceDataImportStage.ImportingBooks,
+        ReferenceDataImportCollection.VideoGames => ReferenceDataImportStage.ImportingVideoGames,
+        ReferenceDataImportCollection.Albums => ReferenceDataImportStage.ImportingAlbums,
+        _ => throw new ArgumentOutOfRangeException(nameof(collection), collection, null)
+    };
+
+    private static ReferenceDataImportCountsDto ToDto(ReferenceDataImportCounts counts) =>
+        new() { Created = counts.Created, Updated = counts.Updated };
 
     private static async Task WriteJsonEntryAsync<T>(ZipArchive archive, string entryName, T value)
     {
@@ -164,19 +268,38 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// Starts an immediate re-check of every reference document, regardless of how recently it was last
-    /// enriched - the same logic the periodic background sync runs on a schedule (see
-    /// <see cref="ReferenceSyncBackgroundService"/>), just triggered on demand instead of waiting. Runs in
-    /// the background; poll <see cref="GetSyncStatus"/> with the returned job id for progress - a full
+    /// Runs the periodic background sync (see <see cref="ReferenceSyncBackgroundService"/>) right now instead
+    /// of waiting for its next tick - the same logic either way, only the staleness windows differ.
+    /// Runs in the background; poll <see cref="GetSyncStatus"/> with the returned job id for progress, since a
     /// re-check across five domains can easily exceed a single request/response's own timeout.
     /// </summary>
+    /// <param name="force">
+    /// <c>true</c> re-checks every reference document and rebuilds every Explore ranking, however recently
+    /// they were last enriched. The default runs exactly what the background tick would have taken (see
+    /// <see cref="ReferenceSyncWindows.Periodic"/>), so a collection already synced within the window
+    /// legitimately reports zero checked - it is the cheap option, and it spends no provider calls on
+    /// documents that are already fresh.
+    /// </param>
+    /// <param name="exploreOnly">
+    /// <c>true</c> runs only the Explore ranking rebuild, skipping the five reference domains and the
+    /// finished-show reconciliation. Still the same endpoint and the same job rather than one of its own: the
+    /// two passes were always separate calls inside the job, so this is a flag rather than a second code path,
+    /// and Explore has deliberately never had an admin endpoint to itself.
+    /// <para>
+    /// Worth having because the two halves cost wildly different things. The reference sync walks up to 500
+    /// documents per domain, each a provider call or several; a ranking rebuild is a handful of listing pages.
+    /// So "I changed something about Explore and want to see it" no longer means paying for a full reference
+    /// pass - which, combined with <paramref name="force"/>, is the expensive option in the app.
+    /// </para>
+    /// </param>
     [HttpPost("sync-now")]
     [ProducesResponseType(202)]
-    public async Task<ActionResult<ReferenceSyncJobDto>> SyncNow()
+    public async Task<ActionResult<ReferenceSyncJobDto>> SyncNow([FromQuery] bool force = false, [FromQuery] bool exploreOnly = false)
     {
-        var jobId = await syncJobStore.CreateAsync(this.GetUserId(), ReferenceSyncStage.SyncingTvShows);
+        var jobId = await syncJobStore.CreateAsync(
+            this.GetUserId(), exploreOnly ? ReferenceSyncStage.RefreshingExplore : ReferenceSyncStage.SyncingTvShows);
 
-        _ = RunSyncJobAsync(jobId);
+        _ = RunSyncJobAsync(jobId, ReferenceSyncWindows.For(force), exploreOnly);
 
         return Accepted(new ReferenceSyncJobDto { JobId = jobId });
     }
@@ -199,17 +322,56 @@ public class ReferenceDataAdminController(
     /// Runs the sync on a background task using its own DI scope - the request that started it has
     /// already completed by the time this runs, so it can't reuse the request's scoped services
     /// (neither <see cref="ReferenceSyncService"/> nor the request's own JobStore instance).
+    /// <para>
+    /// It runs on <see cref="IHostApplicationLifetime.ApplicationStopping"/>, not an unbounded token. A pass
+    /// takes minutes, so without that a shutdown leaves it working against a container being torn down: the
+    /// singletons it depends on (the Mongo client, the HTTP clients, IGDB's rate limiter) are disposed out from
+    /// under it, and every remaining step fails with <see cref="ObjectDisposedException"/> - including the
+    /// final job-store write, which would leave the job reading "Running" forever. Confirmed in the running
+    /// app: a shutdown mid-pass surfaced as a disposed <c>TokenBucketRateLimiter</c> deep inside an IGDB call.
+    /// </para>
     /// </summary>
-    private async Task RunSyncJobAsync(Guid jobId)
+    private async Task RunSyncJobAsync(Guid jobId, ReferenceSyncWindows windows, bool exploreOnly)
     {
+        var cancellationToken = lifetime.ApplicationStopping;
         using var scope = scopeFactory.CreateScope();
-        var scopedSyncService = scope.ServiceProvider.GetRequiredService<ReferenceSyncService>();
+        var scopedExploreRefreshService = scope.ServiceProvider.GetRequiredService<ExploreCatalogueRefreshService>();
         var scopedJobStore = scope.ServiceProvider.GetRequiredService<JobStore<ReferenceSyncStage, ReferenceSyncResultDto>>();
 
         try
         {
-            var result = await scopedSyncService.SyncStaleReferencesAsync(TimeSpan.Zero, stage => scopedJobStore.UpdateStageAsync(jobId, stage));
+            // an Explore-only run leaves every reference count at zero, which is the truth about what it did -
+            // the admin page hides them rather than reporting "0 checked" as if the pass had found nothing.
+            var result = new ReferenceSyncResultDto();
+            if (!exploreOnly)
+            {
+                var scopedSyncService = scope.ServiceProvider.GetRequiredService<ReferenceSyncService>();
+                var scopedReconciliationService = scope.ServiceProvider.GetRequiredService<TvShowStatusReconciliationService>();
+
+                result = await scopedSyncService.SyncStaleReferencesAsync(
+                    windows.References, stage => scopedJobStore.UpdateStageAsync(jobId, stage), cancellationToken);
+                // an on-demand "sync now" reconciles finished-show status too, so its result matches the periodic pass's.
+                result.FinishedShowsReopened = await scopedReconciliationService.ReconcileFinishedShowsAsync();
+                await scopedJobStore.UpdateStageAsync(jobId, ReferenceSyncStage.RefreshingExplore);
+            }
+
+            // ...and covers the Explore discovery rankings on the same window, which is what makes this the
+            // "run it now" control for those too - no separate admin endpoint needed.
+            result.ApplyExploreRefresh(await scopedExploreRefreshService.RefreshAsync(windows.Explore, cancellationToken));
             await scopedJobStore.CompleteAsync(jobId, ReferenceSyncStage.Completed, result);
+        }
+        catch (OperationCanceledException)
+        {
+            // the API is going down, so this is neither a success nor a fault to investigate - just say so
+            // plainly and stop. Best-effort: the job store may already be unusable at this point.
+            try
+            {
+                await scopedJobStore.FailAsync(jobId, ReferenceSyncStage.Failed, "The API shut down before the sync finished. Start it again once the API is back up.");
+            }
+            catch (Exception writeFailure)
+            {
+                logger.LogWarning(writeFailure, "Could not record that sync job {JobId} was interrupted by shutdown.", jobId);
+            }
         }
         catch (Exception ex)
         {
@@ -218,13 +380,103 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// Every registered book provider an admin can search/link with - Book is the one reference domain with
-    /// more than one (TMDB/RAWG/Discogs each have exactly one, so no equivalent listing endpoint exists for them).
+    /// Every registered provider an admin can search/link <paramref name="type"/> with, in priority order.
+    /// Books and video games are the domains with more than one; TMDB/Discogs have exactly one each, so those
+    /// types return an empty list and the caller shows no picker.
     /// </summary>
-    [HttpGet("book-providers")]
+    [HttpGet("providers")]
     [ProducesResponseType(200)]
-    public ActionResult<List<BookProviderDto>> GetBookProviders() =>
-        Ok(bookReferenceClientRegistry.All.Select(c => new BookProviderDto { Key = c.ProviderKey, DisplayName = c.DisplayName }).ToList());
+    public ActionResult<List<ReferenceProviderDto>> GetProviders([FromQuery] ReferenceItemType type)
+    {
+        (IEnumerable<IReferenceProviderClient> Clients, string DefaultProviderKey) providers = type switch
+        {
+            ReferenceItemType.Book => (bookReferenceClientRegistry.All, bookReferenceClientRegistry.DefaultProviderKey),
+            ReferenceItemType.VideoGame => (videoGameReferenceClientRegistry.All, videoGameReferenceClientRegistry.DefaultProviderKey),
+            _ => ([], string.Empty)
+        };
+
+        return Ok(providers.Clients
+            .Select(c => new ReferenceProviderDto
+            {
+                Key = c.ProviderKey,
+                DisplayName = c.DisplayName,
+                IsDefault = string.Equals(c.ProviderKey, providers.DefaultProviderKey, StringComparison.OrdinalIgnoreCase)
+            })
+            .ToList());
+    }
+
+    /// <summary>
+    /// Every domain whose primary rating source (the score shown as the pill / used for the "Ref ★" sort) is
+    /// admin-selectable, with its available sources and the one currently selected. The video game entry
+    /// follows whichever provider that deployment registered as its default, so it lists IGDB's two scores
+    /// today and would list RAWG's own plus Metacritic on a deployment configured back to RAWG.
+    /// </summary>
+    [HttpGet("rating-sources")]
+    [ProducesResponseType(200)]
+    public async Task<ActionResult<List<RatingSourceOptionDto>>> GetRatingSources()
+    {
+        var options = new List<RatingSourceOptionDto>();
+        foreach (var domain in ratingSourceOptions.SelectableDomains)
+        {
+            options.Add(new RatingSourceOptionDto
+            {
+                Domain = domain,
+                AvailableSources = ratingSourceOptions.AvailableSources(domain).ToList(),
+                SelectedSource = await enrichmentService.GetPrimaryRatingSourceAsync(domain)
+            });
+        }
+
+        return Ok(options);
+    }
+
+    /// <summary>
+    /// Sets a domain's primary rating source. Only stores the choice - existing linked items keep their old
+    /// denormalized rating until <see cref="RecomputeRatingSource"/> re-applies it, so a switch is visible
+    /// and deliberate rather than silently reshuffling every list.
+    /// </summary>
+    [HttpPut("rating-sources/{domain}")]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(400)]
+    public async Task<IActionResult> SetRatingSource(ReferenceItemType domain, [FromBody] SetRatingSourceRequestDto request)
+    {
+        // ArgumentException maps to a 400 via ApiExceptionFilterAttribute
+        if (!ratingSourceOptions.AvailableSources(domain).Contains(request.Source))
+        {
+            throw new ArgumentException($"'{request.Source}' is not a selectable rating source for {domain}.", nameof(request));
+        }
+
+        await appSettingRepository.SetReferenceRatingSourceAsync(domain.ToString(), request.Source);
+        return NoContent();
+    }
+
+    /// <summary>The global Explore-feature settings (see <see cref="ExploreSettingsDto"/>).</summary>
+    [HttpGet("explore-settings")]
+    [ProducesResponseType(200)]
+    public async Task<ActionResult<ExploreSettingsDto>> GetExploreSettings() =>
+        Ok(new ExploreSettingsDto { UseTmdbRanking = await appSettingRepository.GetExploreUseTmdbAsync() });
+
+    /// <summary>Updates the global Explore-feature settings.</summary>
+    [HttpPut("explore-settings")]
+    [ProducesResponseType(204)]
+    public async Task<IActionResult> SetExploreSettings([FromBody] ExploreSettingsDto request)
+    {
+        await appSettingRepository.SetExploreUseTmdbAsync(request.UseTmdbRanking);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Re-applies a domain's current primary rating source to every already-linked tenant item - a single
+    /// bulk pass over the (small, shared) reference collection, no provider calls. Run after switching the
+    /// source via <see cref="SetRatingSource"/> so the list pills and sort reflect the new choice.
+    /// </summary>
+    [HttpPost("rating-sources/{domain}/recompute")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    public async Task<ActionResult<RecomputeRatingsResultDto>> RecomputeRatingSource(ReferenceItemType domain)
+    {
+        var (referencesChecked, itemsUpdated) = await enrichmentService.RecomputeReferenceRatingsAsync(domain);
+        return Ok(new RecomputeRatingsResultDto { ReferencesChecked = referencesChecked, ItemsUpdated = itemsUpdated });
+    }
 
     /// <summary>
     /// Distinct (title, year) pairs, across every tenant, still missing a reference-data link. Book is
@@ -274,10 +526,12 @@ public class ReferenceDataAdminController(
     /// (see <see cref="IBookReferenceClient.SearchBooksAsync"/>/<see cref="IDiscogsClient.SearchAlbumsAsync"/>),
     /// since a common title alone often returns many unrelated candidates.
     /// Ignored for TV shows/movies/video games, which have no equivalent single-name creator field on this endpoint.
-    /// <paramref name="provider"/> selects which registered book provider to search with (see
-    /// <see cref="GetBookProviders"/>); ignored for every other type. Null falls back to the deployment default.
-    /// <paramref name="isbn"/> is Book-only - an exact identifier, only actually used by
-    /// <see cref="GoogleBooksClient"/> (see its own doc comment on <see cref="IBookReferenceClient.SearchBooksAsync"/>).
+    /// <paramref name="provider"/> selects which registered provider to search with, for the domains that have
+    /// more than one (see <see cref="GetProviders"/>); ignored for the rest. Null falls back to the
+    /// deployment default.
+    /// <paramref name="isbn"/> is Book-only - an exact identifier, tried first by every book provider and
+    /// widening to the title search when that provider's catalogue doesn't index the edition (see
+    /// <see cref="BookReferenceClientBase"/>).
     /// </summary>
     [HttpGet("search")]
     [ProducesResponseType(200)]
@@ -306,7 +560,7 @@ public class ReferenceDataAdminController(
                     })
                     .ToList());
             case ReferenceItemType.VideoGame:
-                var games = await rawgClient.SearchGamesAsync(title, year);
+                var games = await videoGameReferenceClientRegistry.Resolve(provider).SearchGamesAsync(title, year);
                 return Ok(games.Take(MaxEnrichedCandidates)
                     .Select(r => new ReferenceSearchResultDto { ExternalId = r.ExternalId, Title = r.Title, Year = r.Year, ImageUrl = r.ImageUrl })
                     .ToList());
@@ -355,6 +609,115 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
+    /// Provider reconciliation for video games: which reference documents have not caught up with the domain's
+    /// current default provider, and which look like duplicates of one another.
+    /// <para>
+    /// Video games only, and that is not an oversight. This is the one domain where a reference is refreshed
+    /// exclusively through the *default* provider (see
+    /// <c>ReferenceEnrichmentService.RefreshVideoGameReferenceAsync</c> for why - the second provider was added
+    /// because the first went down, so falling back to it means talking to a dead host), which makes "carries
+    /// no id in the default provider's number space" a real, self-inflicting gap rather than a detail. Books,
+    /// the other multi-provider domain, refresh through whichever provider linked them and have no such gap.
+    /// </para>
+    /// </summary>
+    [HttpGet("provider-reconciliation")]
+    [ProducesResponseType(200)]
+    public async Task<ActionResult<ProviderReconciliationDto>> GetProviderReconciliation()
+    {
+        var (provider, displayName, total, missing) = await enrichmentService.FindVideoGameProviderGapsAsync();
+        var duplicates = await enrichmentService.FindDuplicateVideoGameReferencesAsync();
+
+        return Ok(new ProviderReconciliationDto
+        {
+            Provider = provider,
+            ProviderDisplayName = displayName,
+            TotalReferences = total,
+            Gaps = missing.Select(reference => new ProviderGapDto
+            {
+                ReferenceId = reference.Id!,
+                Title = reference.Title,
+                Year = reference.Year,
+                Providers = reference.ExternalIds.Keys.OrderBy(key => key, StringComparer.Ordinal).ToList(),
+                LastAttemptedAt = reference.ProviderAdoptionCheckedAt.TryGetValue(provider, out var attemptedAt) ? attemptedAt : null
+            }).ToList(),
+            Duplicates = duplicates.Select(group => new DuplicateReferenceGroupDto
+            {
+                Title = group[0].Title,
+                References = group.Select(reference => new DuplicateReferenceDto
+                {
+                    ReferenceId = reference.Id!,
+                    Title = reference.Title,
+                    Year = reference.Year,
+                    ExternalIds = reference.ExternalIds,
+                    RatingSources = reference.Ratings.Keys.OrderBy(key => key, StringComparer.Ordinal).ToList(),
+                    ImageUrl = reference.ImageUrl,
+                    LastEnrichedAt = reference.LastEnrichedAt
+                }).ToList()
+            }).ToList()
+        });
+    }
+
+    /// <summary>
+    /// What the default video game provider offers for one stuck reference, with the candidates the automatic
+    /// rule would have accepted flagged. Fetched per row rather than for the whole queue, since each row costs
+    /// a provider call or two.
+    /// </summary>
+    /// <param name="query">
+    /// Optional replacement for the reference's stored title - what an admin types when the provider does not
+    /// spell the work the way this document does, or a pasted provider page URL for the rows no query reaches
+    /// at all. Candidates are still confirmed against the reference itself, so this widens what is *found*,
+    /// never what counts as a match.
+    /// </param>
+    /// <param name="referenceId"></param>
+    /// <param name="cancellationToken"></param>
+    [HttpGet("provider-reconciliation/{referenceId}/candidates")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    public async Task<ActionResult<List<ReferenceSearchResultDto>>> GetAdoptionCandidates(
+        string referenceId, CancellationToken cancellationToken, [FromQuery] string? query = null)
+    {
+        var (candidates, matchingIds) = await enrichmentService.FindVideoGameAdoptionCandidatesAsync(referenceId, query, cancellationToken);
+        return Ok(candidates.Select(candidate => new ReferenceSearchResultDto
+        {
+            ExternalId = candidate.ExternalId,
+            Title = candidate.Title,
+            Year = candidate.Year,
+            ImageUrl = candidate.ImageUrl,
+            // reuses the candidate's synopsis slot to say why it is (or isn't) the automatic pick - the admin's
+            // question here is "would this have linked itself?", and a listing carries no synopsis anyway
+            Synopsis = matchingIds.Contains(candidate.ExternalId) ? "Title and year match this reference." : null
+        }).ToList());
+    }
+
+    /// <summary>
+    /// Attaches an admin-chosen provider id to an existing video game reference and refreshes it through that
+    /// provider. Adds the id to the document that is already there - it never creates a second one, which is
+    /// the state this whole screen exists to repair.
+    /// </summary>
+    [HttpPost("provider-reconciliation/{referenceId}/adopt")]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(400)]
+    public async Task<IActionResult> AdoptProviderId(string referenceId, [FromBody] AdoptProviderIdRequestDto request, CancellationToken cancellationToken)
+    {
+        await enrichmentService.AdoptVideoGameProviderIdAsync(referenceId, request.ExternalId, cancellationToken);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Folds one duplicate video game reference into another: the surviving document gains every provider id,
+    /// rating and alias the other held, every tenant item linked to the absorbed one is re-pointed, and the
+    /// absorbed document is deleted.
+    /// </summary>
+    [HttpPost("provider-reconciliation/merge")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    public async Task<ActionResult<MergeReferencesResultDto>> MergeReferences([FromBody] MergeReferencesRequestDto request)
+    {
+        var (kept, itemsRepointed) = await enrichmentService.MergeVideoGameReferencesAsync(request.KeepReferenceId, request.MergeReferenceId);
+        return Ok(new MergeReferencesResultDto { KeptReferenceId = kept.Id!, ItemsRepointed = itemsRepointed });
+    }
+
+    /// <summary>
     /// Links every tenant's (Title, Year) match to the chosen external provider id and fetches its full details.
     /// </summary>
     [HttpPost("link")]
@@ -373,7 +736,7 @@ public class ReferenceDataAdminController(
                 await enrichmentService.ResolveBookAsync(request.Title, request.Year, request.ExternalId, request.Provider, request.Isbn);
                 break;
             case ReferenceItemType.VideoGame:
-                await enrichmentService.ResolveVideoGameAsync(request.Title, request.Year, request.ExternalId);
+                await enrichmentService.ResolveVideoGameAsync(request.Title, request.Year, request.ExternalId, request.Provider);
                 break;
             case ReferenceItemType.Album:
                 await enrichmentService.ResolveAlbumAsync(request.Title, request.Year, request.ExternalId);

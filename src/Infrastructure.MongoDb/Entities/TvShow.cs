@@ -6,7 +6,7 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace Keeptrack.Infrastructure.MongoDb.Entities;
 
-public class TvShow : IHasIdAndOwnerId
+public class TvShow : IHasIdAndOwnerId, IHasReferenceRating
 {
     [BsonId]
     [BsonRepresentation(BsonType.ObjectId)]
@@ -32,6 +32,15 @@ public class TvShow : IHasIdAndOwnerId
     [BsonElement("reference_id")]
     public string? ReferenceId { get; set; }
 
+    [BsonElement("reference_rating")]
+    public double? ReferenceRating { get; set; }
+
+    [BsonElement("reference_rating_scale")]
+    public double? ReferenceRatingScale { get; set; }
+
+    [BsonElement("reference_rating_source")]
+    public string? ReferenceRatingSource { get; set; }
+
     // storage name kept as "status" deliberately - only the C# property was renamed to State (for parity
     // with VideoGame.State), so existing documents need no migration.
     [BsonElement("status")]
@@ -39,9 +48,6 @@ public class TvShow : IHasIdAndOwnerId
 
     [BsonElement("is_favorite")]
     public bool IsFavorite { get; set; }
-
-    [BsonElement("want_to_watch")]
-    public bool WantToWatch { get; set; }
 
     [BsonElement("owned_versions")]
     public List<OwnedVersion> OwnedVersions { get; set; } = [];

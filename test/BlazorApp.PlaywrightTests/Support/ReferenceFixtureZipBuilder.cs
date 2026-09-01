@@ -20,6 +20,14 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Support;
 /// </summary>
 public static class ReferenceFixtureZipBuilder
 {
+    /// <summary>
+    /// A fixed, valid ObjectId for the seeded document, so <c>End2EndFixture</c> can remove exactly this document afterwards.
+    /// Re-seeding replaces rather than duplicates because of the fixture's Open Library id, not this one - the import matches on provider ids (see <c>ReferenceDataImportService</c>);
+    /// a fixed <c>_id</c> is simply what the first insert lands under.
+    /// The value is arbitrary but deliberately recognizable rather than random.
+    /// </summary>
+    public const string ReferenceId = "e2e0e2e0e2e0e2e0e2e0e2e0";
+
     public const string BookTitle = "The Playwright Chronicles";
 
     public const string BookAuthor = "Keeptrack E2E Author";
@@ -30,6 +38,7 @@ public static class ReferenceFixtureZipBuilder
     {
         var reference = new BookReferenceModel
         {
+            Id = ReferenceId,
             Title = BookTitle,
             TitleNormalized = TitleNormalizer.Normalize(BookTitle),
             Year = 2024,

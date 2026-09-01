@@ -27,38 +27,26 @@ public class SharedWishlistSmokeTest(End2EndFixture fixture) : SmokeTestBase(fix
         var title = $"E2e Shared Wishlist Movie {Guid.NewGuid():N}";
         var api = Fixture.ApiHttpClient;
 
-        var createResponse = await api.PostAsJsonAsync("api/movies", new MovieDto { Title = title, IsWishlisted = true }, TestContext.Current.CancellationToken);
-        createResponse.EnsureSuccessStatusCode();
-        var movie = (await createResponse.Content.ReadFromJsonAsync<MovieDto>(TestContext.Current.CancellationToken))!;
+        await CreateItemAsync("api/movies", new MovieDto { Title = title, IsWishlisted = true });
 
         var shareResponse = await api.PostAsJsonAsync("api/wishlist/shares", new CreateWishlistShareRequestDto { Label = "E2e recipient" }, TestContext.Current.CancellationToken);
         shareResponse.EnsureSuccessStatusCode();
         var share = (await shareResponse.Content.ReadFromJsonAsync<WishlistShareDto>(TestContext.Current.CancellationToken))!;
+        // the revoke below is part of what this test asserts; registering the share as well covers the run
+        // where an assertion before it fails (deleting an already-revoked share is a no-op)
+        TrackCleanup(() => Fixture.DeleteItemAsync($"api/wishlist/shares/{share.Id}"));
 
-        try
-        {
-            // a brand-new context: no cookies, no storage state - a share recipient's browser
-            await using var anonymousContext = await Browser.NewContextAsync(new BrowserNewContextOptions
-            {
-                BaseURL = Fixture.BlazorBaseUrl,
-                IgnoreHTTPSErrors = true
-            });
-            var page = await anonymousContext.NewPageAsync();
+        // a brand-new context: no cookies, no storage state - a share recipient's browser
+        var page = await NewAnonymousPageAsync("recipient");
 
-            await page.GotoAsync($"/shared/wishlist/{share.Token}");
-            await Assertions.Expect(page.GetByText(title)).ToBeVisibleAsync();
-            // the sign-up invitation for recipients who want their own collection
-            await Assertions.Expect(page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Get started" })).ToBeVisibleAsync();
+        await page.GotoAsync($"/shared/wishlist/{share.Token}");
+        await Assertions.Expect(page.GetByText(title)).ToBeVisibleAsync();
+        // the sign-up invitation for recipients who want their own collection
+        await Assertions.Expect(page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Get started" })).ToBeVisibleAsync();
 
-            // a revoked link dies immediately
-            (await api.DeleteAsync($"api/wishlist/shares/{share.Id}", TestContext.Current.CancellationToken)).EnsureSuccessStatusCode();
-            await page.ReloadAsync();
-            await Assertions.Expect(page.GetByText("no longer valid")).ToBeVisibleAsync();
-        }
-        finally
-        {
-            await Fixture.DeleteItemAsync($"api/movies/{movie.Id}");
-            await Fixture.DeleteItemAsync($"api/wishlist/shares/{share.Id}");
-        }
+        // a revoked link dies immediately
+        (await api.DeleteAsync($"api/wishlist/shares/{share.Id}", TestContext.Current.CancellationToken)).EnsureSuccessStatusCode();
+        await page.ReloadAsync();
+        await Assertions.Expect(page.GetByText("no longer valid")).ToBeVisibleAsync();
     }
 }

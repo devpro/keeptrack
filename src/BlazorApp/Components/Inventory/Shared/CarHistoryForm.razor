@@ -2,7 +2,10 @@
    CarDetail's own history modal and Quick Add's car-record form. Modal chrome, edit-mode detection and
    save/cancel behavior stay with each caller; this is only the fields. *@
 
-<div class="row g-3">
+@* align-items-end so a label that wraps to two lines at a narrow width ("Fuel unit price (€/L)") pushes
+   only itself up, never its own input out of line with the ones beside it - the inputs are each column's
+   last element, so bottom-aligning the columns lines them up whatever the labels do. *@
+<div class="row g-3 align-items-end">
     <DateTimeFields @bind-Value="Entry.HistoryDate"/>
     <div class="col-md-3">
         <label class="form-label">Mileage</label>
@@ -26,38 +29,68 @@
     </div>
     @if (Entry.EventType == CarHistoryType.Refuel)
     {
+        @* Station first, and deliberately so: its suggestion dropdown opens downward and kt-modal-body is a
+           scroll container, which clips an absolutely-positioned menu at its own edge - and since the menu
+           adds no layout height, scrolling can't bring the clipped part back. Above the rest of the form
+           there is always room for it. It also happens to be the order the entry is made in: where you
+           stopped, then what went in the tank, then what it cost. *@
+        <div class="col-md-6">
+            <label class="form-label">Station</label>
+            <StationPicker StationId="@Entry.StationId" StationIdChanged="v => Entry.StationId = v"
+                           Stations="@_stations" OnStationCreated="AddStation"/>
+        </div>
+        @* Bootstrap's column-break utility: keeps the fuel row starting on a fresh line instead of its first
+           field sliding up beside the station and sitting under the open dropdown. *@
+        <div class="w-100"></div>
+        @* Fuel type, the two numbers it was priced on, and the total they should add up to all sit in one
+           row: the cost is the product of the two fields beside it, so checking it means reading them
+           together rather than hunting for it further down the form. *@
         @if (ShowFuel)
         {
-            <div class="col-md-6">
+            <div class="col-md-3">
+                <label class="form-label">Fuel type</label>
+                @* full-size control: this field sits in a row of plain form-control inputs, and SuggestInput
+                   defaults to the smaller one the detail pages use *@
+                <SuggestInput Value="@Entry.FuelCategory" ValueChanged="v => Entry.FuelCategory = v"
+                              Suggestions="@_fuelCategories" InputCssClass="form-control" Placeholder="e.g. SP95-E10"/>
+            </div>
+            <div class="col-md-3">
                 <label class="form-label">Fuel volume (L)</label>
                 <input class="form-control" type="number" step="0.01" @bind="Entry.FuelVolume"/>
             </div>
-            <div class="col-md-6">
+            <div class="col-md-3">
                 <label class="form-label">Fuel unit price (€/L)</label>
                 <input class="form-control" type="number" step="0.001" @bind="Entry.FuelUnitPrice"/>
             </div>
         }
         @if (ShowElectric)
         {
-            <div class="col-md-6">
+            <div class="col-md-3">
                 <label class="form-label">Electric energy (kWh)</label>
                 <input class="form-control" type="number" step="0.01" @bind="Entry.ElectricVolume"/>
             </div>
-            <div class="col-md-6">
+            <div class="col-md-3">
                 <label class="form-label">Electric unit price (€/kWh)</label>
                 <input class="form-control" type="number" step="0.001" @bind="Entry.ElectricUnitPrice"/>
             </div>
         }
-        <div class="col-md-6">
-            <label class="form-label">Station</label>
-            <input class="form-control" @bind="Entry.StationBrandName"/>
-        </div>
+        @CostField
+        @if (CostMismatch)
+        {
+            @* Warns, never corrects: a receipt legitimately differs from the pump (a car wash on the same
+               ticket, a loyalty discount), so the entry still saves exactly as typed. *@
+            <div class="col-12">
+                <p class="kt-callout kt-callout-warning mb-0">⚠ @CostMismatchMessage</p>
+            </div>
+        }
         <div class="col-12">
             <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="modal-entry-full-refill" @bind="Entry.IsFullRefill"/>
                 <label class="form-check-label" for="modal-entry-full-refill">Full tank / full charge</label>
             </div>
         </div>
+        @* No city/postal/country/coordinates here: a refuel's location is the station's, held once in the
+           shared catalogue and hydrated for display. Only the non-refuel branch below still asks for one. *@
     }
     else
     {
@@ -65,32 +98,28 @@
             <label class="form-label">Garage / auto shop</label>
             <input class="form-control" @bind="Entry.Garage"/>
         </div>
-    }
-    <!-- Every history entry happens somewhere, not just refuels - location isn't gated by event type. -->
-    <div class="col-md-4">
-        <label class="form-label">City</label>
-        <input class="form-control" @bind="Entry.City"/>
-    </div>
-    <div class="col-md-4">
-        <label class="form-label">Postal code</label>
-        <input class="form-control" @bind="Entry.PostalCode"/>
-    </div>
-    <div class="col-md-4">
-        <label class="form-label">Country</label>
-        <input class="form-control" @bind="Entry.Country"/>
-    </div>
-    <div class="col-12">
-        <label class="form-label d-block">Coordinates</label>
-        <div class="d-flex gap-2">
-            <input class="form-control" type="number" step="0.000001" placeholder="Longitude" @bind="Entry.Longitude"/>
-            <input class="form-control" type="number" step="0.000001" placeholder="Latitude" @bind="Entry.Latitude"/>
+        @CostField
+        <!-- A maintenance/other event has no station to inherit a location from, so it carries its own. -->
+        <div class="col-md-4">
+            <label class="form-label">City</label>
+            <input class="form-control" @bind="Entry.City"/>
         </div>
-    </div>
-    <div class="col-md-6">
-        <label class="form-label">Cost (€)</label>
-        @* data-testid: same for/id gotcha as Mileage above *@
-        <input class="form-control" type="number" step="0.01" data-testid="cost-input" @bind="Entry.Cost"/>
-    </div>
+        <div class="col-md-4">
+            <label class="form-label">Postal code</label>
+            <input class="form-control" @bind="Entry.PostalCode"/>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Country</label>
+            <input class="form-control" @bind="Entry.Country"/>
+        </div>
+        <div class="col-12">
+            <label class="form-label d-block">Coordinates</label>
+            <div class="d-flex gap-2">
+                <input class="form-control" type="number" step="0.000001" placeholder="Longitude" @bind="Entry.Longitude"/>
+                <input class="form-control" type="number" step="0.000001" placeholder="Latitude" @bind="Entry.Latitude"/>
+            </div>
+        </div>
+    }
     <div class="col-12">
         <label class="form-label">Description</label>
         <textarea class="form-control" rows="3" @bind="Entry.Description"></textarea>
@@ -105,6 +134,63 @@
 
     /// <summary>Whether the car's energy type has an electric side - computed by the caller from CarDto.EnergyType.</summary>
     [Parameter] public bool ShowElectric { get; set; }
+
+    [Inject] private CarHistoryApiClient CarHistoryApi { get; set; } = null!;
+
+    [Inject] private CarStationApiClient StationApi { get; set; } = null!;
+
+    private List<string> _fuelCategories = [];
+    private List<CarStationDto> _stations = [];
+
+    /// <summary>
+    /// One declaration rendered in both event-type branches rather than two copies of the same input -
+    /// the field is identical, only its neighbours differ (the fuel numbers it should agree with for a
+    /// refuel, the garage for everything else).
+    /// </summary>
+    private RenderFragment CostField => @<div class="col-md-3">
+                                             <label class="form-label">Cost (€)</label>
+                                             @* data-testid: same for/id gotcha as Mileage above *@
+                                             <input class="form-control" type="number" step="0.01" data-testid="cost-input" @bind="Entry.Cost"/>
+                                         </div>;
+
+    private bool CostMismatch => !RefuelCostCheck.IsConsistent(
+        Entry.Cost, Entry.FuelVolume, Entry.FuelUnitPrice, Entry.ElectricVolume, Entry.ElectricUnitPrice);
+
+    private string CostMismatchMessage
+    {
+        get
+        {
+            var expected = RefuelCostCheck.ComputeExpectedCost(
+                Entry.FuelVolume, Entry.FuelUnitPrice, Entry.ElectricVolume, Entry.ElectricUnitPrice);
+            var breakdown = string.Join(" + ", new[]
+            {
+                Describe(Entry.FuelVolume, Entry.FuelUnitPrice),
+                Describe(Entry.ElectricVolume, Entry.ElectricUnitPrice)
+            }.Where(x => x is not null));
+            var detail = $"{breakdown} = {expected:F2} €";
+            return Entry.Cost is null
+                ? $"No cost recorded - {detail}."
+                : $"Cost doesn't match what was pumped: {detail}.";
+        }
+    }
+
+    private static string? Describe(double? volume, double? unitPrice) =>
+        volume.HasValue && unitPrice.HasValue ? $"{volume:0.##} × {unitPrice:0.###}" : null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Both lists are small and shared by every entry on the page; fetching them once when the form
+        // opens keeps the picker and the fuel-type suggestions from costing a request each.
+        _fuelCategories = await CarHistoryApi.GetFuelCategoriesAsync();
+        _stations = await StationApi.GetAllAsync();
+    }
+
+    /// <summary>Keeps a station created through the picker in this form's own list, so it renders as a
+    /// suggestion (and resolves by name) without re-fetching the whole catalogue.</summary>
+    private void AddStation(CarStationDto station)
+    {
+        if (_stations.All(s => s.Id != station.Id)) _stations.Add(station);
+    }
 
     public static CarHistoryDto NewEntry(string carId) => new()
     {

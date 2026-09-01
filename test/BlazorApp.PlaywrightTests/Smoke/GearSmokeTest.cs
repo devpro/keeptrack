@@ -31,6 +31,8 @@ public class GearSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 
         var detail = new GearDetailPage(Page);
         await detail.WaitForReadyAsync();
+        // registered as soon as the item exists, so an assertion failure below still removes it
+        TrackOpenItem("/api/gear");
         await Assertions.Expect(detail.TitleInput).ToHaveValueAsync(title);
 
         await DetailPageBase.SetFieldAsync(detail.ImageUrlInput, imageUrl);
@@ -39,7 +41,7 @@ public class GearSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
         list = await detail.OpenGearAsync();
         // ItemImageShape="wide" (same as VideoGames.razor) - a plain default-portrait thumb was the
         // reported regression, so this pins the actual rendered shape, not just that an image exists.
-        await Assertions.Expect(list.Row(title).Locator(".kt-item-thumb.wide img")).ToHaveAttributeAsync("src", imageUrl);
+        await list.ExpectRowThumbnailAsync(title, imageUrl);
 
         await list.DeleteAsync(title);
         await Assertions.Expect(list.Row(title)).Not.ToBeVisibleAsync();

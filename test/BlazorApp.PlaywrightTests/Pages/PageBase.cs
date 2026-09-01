@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using Microsoft.Playwright;
 
@@ -20,13 +21,66 @@ public abstract class PageBase(IPage page)
 
     protected virtual string? PageTitle => null;
 
-    public virtual async Task WaitForReadyAsync()
+    /// <summary>
+    /// The page's own route, for a page whose content alone can't prove the browser got there.
+    /// <para>
+    /// The import sub-pages are why this exists. <c>/import</c> is a hub that renders a section per importer,
+    /// each with its own level-1 heading and a link to the sub-page - so "the Amazon heading is visible" is true
+    /// on the hub too, and a sub-page object waiting only for that considered itself ready while the browser was
+    /// still on the hub. What followed then ran against the hub's DOM: <c>AmazonImportSmokeTest</c> failed
+    /// uploading its CSV to a file input the hub has three of. Waiting for the URL is what actually asserts the
+    /// navigation happened, and it costs nothing on a page that was already there.
+    /// </para>
+    /// </summary>
+    protected virtual string? Route => null;
+
+    /// <summary>
+    /// Waits for this page to be up, <b>re-issuing the navigation once</b> if it never rendered.
+    /// <para>
+    /// A click that changes the URL without ever swapping the content is a real thing this app does, and it is not slowness: measured from a failing run's trace, <c>GET /cars</c> answered <b>200 in 223ms</b>, the URL became <c>/cars</c>, and the DOM still showed Home when the screenshot was taken seconds later.
+    /// The circuit's WebSocket had connected 100ms before the click - the same prerender-to-interactive gap <see cref="ClickUntilAsync(ILocator, ILocator, int)"/> exists for, reached here through enhanced navigation rather than an <c>@onclick</c>.
+    /// Two sidebar navigations and one row click were lost that way in a single run.
+    /// </para>
+    /// <para>
+    /// A reload is the honest retry for it: the browser is already on the right URL, so this re-fetches the page the click asked for rather than clicking something again and hoping.
+    /// It only ever runs after the page has already failed to appear, so it cannot turn a passing test green - it can only stop a lost navigation from being reported as a broken page.
+    /// </para>
+    /// </summary>
+    public async Task WaitForReadyAsync() => await ExpectWithReloadAsync(AssertReadyAsync);
+
+    /// <summary>What "ready" means for this page - overridden per page, never called directly by a test.</summary>
+    protected virtual async Task AssertReadyAsync()
     {
+        if (Route is not null)
+        {
+            await Page.WaitForURLAsync($"**{Route}");
+        }
         if (PageTitle is not null)
         {
             await Assertions.Expect(Page).ToHaveTitleAsync(PageTitle);
         }
         await Assertions.Expect(Page.Locator("#blazor-error-ui")).ToBeHiddenAsync();
+    }
+
+    /// <summary>
+    /// Runs <paramref name="assertion"/> and, if it fails, reloads the page and runs it once more.
+    /// <para>
+    /// For the two things a browser genuinely cannot wait for.
+    /// A navigation the client lost renders nothing however long the assertion waits (see <see cref="WaitForReadyAsync"/>).
+    /// And a detail page's save is a PUT the <i>server</i> issues over its circuit, invisible to the browser, so a list rendered while one is still in flight shows the pre-save item and never updates itself - re-reading is the only way to see it land, and a longer timeout would just wait longer on a page that will never change.
+    /// </para>
+    /// </summary>
+    protected async Task ExpectWithReloadAsync(Func<Task> assertion)
+    {
+        try
+        {
+            await assertion();
+        }
+        catch (PlaywrightException)
+        {
+            await Page.ReloadAsync();
+            await assertion();
+        }
     }
 
     /// <summary>
@@ -38,14 +92,28 @@ public abstract class PageBase(IPage page)
     /// This is a bounded, no-blind-sleep mitigation for exactly that - plain link-based navigation (<see cref="NavigateAsync{TPage}"/>) doesn't need it,
     /// since Blazor's enhanced navigation intercepts anchor clicks independently of the interactive circuit.
     /// </summary>
-    protected static async Task ClickUntilAsync(ILocator trigger, ILocator expectedResult, int maxAttempts = 5)
+    protected static Task ClickUntilAsync(ILocator trigger, ILocator expectedResult, int maxAttempts = 5)
+        => ClickUntilAsync(trigger, () => Assertions.Expect(expectedResult).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 2000 }), maxAttempts);
+
+    /// <summary>
+    /// The same mitigation for an effect a "wait until this locator is visible" check can't express - a card
+    /// *disappearing*, a query-string navigation - supplied as the assertion itself.
+    /// <para>
+    /// Two things the caller owns, and both matter. The trigger must be safe to click twice, since it may be.
+    /// And <paramref name="expected"/>'s own timeout must comfortably exceed how long the action really takes:
+    /// a re-click issued while a *successful* click is still in flight lands on a control the page has since
+    /// disabled (Explore's busy guard) or removed (the "Load more" button once the ranking is exhausted), and
+    /// then fails on the click rather than on anything under test. Wait longer, retry fewer times.
+    /// </para>
+    /// </summary>
+    protected static async Task ClickUntilAsync(ILocator trigger, Func<Task> expected, int maxAttempts = 5)
     {
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
             await trigger.ClickAsync();
             try
             {
-                await Assertions.Expect(expectedResult).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 2000 });
+                await expected();
                 return;
             }
             catch (PlaywrightException) when (attempt < maxAttempts)
@@ -71,9 +139,15 @@ public abstract class PageBase(IPage page)
 
     public Task<QuickAddPage> OpenQuickAddAsync() => NavigateAsync("Quick add", new QuickAddPage(Page));
 
+    public Task<ImportPage> OpenImportAsync() => NavigateAsync("Import", new ImportPage(Page));
+
+    public Task<ReferenceDataAdminPage> OpenAdminAsync() => NavigateAsync("Admin", new ReferenceDataAdminPage(Page));
+
     public Task<WatchNextPage> OpenWatchNextAsync() => NavigateAsync("Watch next", new WatchNextPage(Page));
 
     public Task<WishlistPage> OpenWishlistAsync() => NavigateAsync("Wishlist", new WishlistPage(Page));
+
+    public Task<ExplorePage> OpenExploreAsync() => NavigateAsync("Explore", new ExplorePage(Page));
 
     public Task<ListPage> OpenBooksAsync() => NavigateAsync("Books", new ListPage(Page, "/books", "Books"));
 

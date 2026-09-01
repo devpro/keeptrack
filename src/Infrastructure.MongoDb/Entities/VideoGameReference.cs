@@ -9,7 +9,7 @@ namespace Keeptrack.Infrastructure.MongoDb.Entities;
 /// Shared, owner-less video game metadata collection (<c>videogame_reference</c>). See
 /// <see cref="TvShowReference"/> for why this has no <c>owner_id</c>.
 /// </summary>
-public class VideoGameReference
+public class VideoGameReference : IHasMatchedAliases
 {
     [BsonId]
     [BsonRepresentation(BsonType.ObjectId)]
@@ -34,8 +34,15 @@ public class VideoGameReference
 
     public List<string> Genres { get; set; } = [];
 
+    /// <summary>Aggregate ratings keyed by source name ("rawg", "metacritic") - see <see cref="ReferenceRating"/>.</summary>
+    public Dictionary<string, ReferenceRating> Ratings { get; set; } = [];
+
     [BsonElement("image_url")]
     public string? ImageUrl { get; set; }
+
+    /// <summary>Last provider-id adoption attempt per provider - see <see cref="Keeptrack.Domain.Models.VideoGameReferenceModel.ProviderAdoptionCheckedAt"/>.</summary>
+    [BsonElement("provider_adoption_checked_at")]
+    public Dictionary<string, DateTime> ProviderAdoptionCheckedAt { get; set; } = [];
 
     [BsonElement("last_enriched_at")]
     public DateTime? LastEnrichedAt { get; set; }

@@ -25,6 +25,8 @@ public class BookRepository(IMongoDatabase mongoDatabase, ILogger<BookRepository
 
     protected override Expression<Func<Book, object>> SortSecondaryDateField => x => x.FirstReadAt!;
 
+    protected override Expression<Func<Book, object>> SortReferenceRatingField => x => x.ReferenceRating!;
+
     protected override FilterDefinition<Book> GetFilter(string ownerId, string? search, BookModel input)
     {
         var builder = Builders<Book>.Filter;
@@ -43,14 +45,16 @@ public class BookRepository(IMongoDatabase mongoDatabase, ILogger<BookRepository
     }
 
     public async Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null, string? canonicalAuthor = null, string? canonicalGenre = null,
-        string? canonicalLanguage = null, string? canonicalIsbn = null)
+        string? canonicalLanguage = null, string? canonicalIsbn = null, double? canonicalRating = null, double? canonicalRatingScale = null, string? canonicalRatingSource = null)
     {
         var builder = Builders<Book>.Filter;
         var filter = builder.Regex(f => f.Title, new BsonRegularExpression($"^{Regex.Escape(title)}$", "i"))
                      & builder.Eq(f => f.Year, year)
                      & UnresolvedFilter();
 
-        var update = Builders<Book>.Update.Set(f => f.ReferenceId, referenceId).Set(f => f.Title, canonicalTitle);
+        var update = Builders<Book>.Update.Set(f => f.ReferenceId, referenceId).Set(f => f.Title, canonicalTitle)
+            .Set(f => f.ReferenceRating, canonicalRating).Set(f => f.ReferenceRatingScale, canonicalRatingScale)
+            .Set(f => f.ReferenceRatingSource, canonicalRatingSource);
         if (canonicalYear is not null) update = update.Set(f => f.Year, canonicalYear);
         if (canonicalAuthor is not null) update = update.Set(f => f.Author, canonicalAuthor);
         if (canonicalGenre is not null) update = update.Set(f => f.Genre, canonicalGenre);
@@ -59,6 +63,12 @@ public class BookRepository(IMongoDatabase mongoDatabase, ILogger<BookRepository
         var result = await GetCollection().UpdateManyAsync(filter, update);
         return result.ModifiedCount;
     }
+
+    public Task<long> SetReferenceRatingAsync(string referenceId, double? rating, double? ratingScale, string? source) =>
+        ReferenceRatingQueries.SetRatingAsync(GetCollection(), referenceId, rating, ratingScale, source);
+
+    public Task<long> CountLinkedOnOtherRatingSourceAsync(string source) =>
+        ReferenceRatingQueries.CountLinkedOnOtherSourceAsync(GetCollection(), source);
 
     public async Task<IReadOnlyList<(string Title, int? Year, string? Creator, string? Isbn)>> FindDistinctUnresolvedTitleYearsAsync()
     {

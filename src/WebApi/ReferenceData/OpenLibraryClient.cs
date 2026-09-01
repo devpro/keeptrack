@@ -11,56 +11,62 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// No API key required;
 /// registered as a typed <see cref="HttpClient"/> with a descriptive User-Agent header (Open Library's stated best practice for API consumers) - see Program.cs.
 /// </summary>
-public class OpenLibraryClient(HttpClient http) : IBookReferenceClient
+public class OpenLibraryClient(HttpClient http) : BookReferenceClientBase, IBookRatingByIsbnLookup
 {
-    public string ProviderKey => "openlibrary";
+    public override string ProviderKey => "openlibrary";
 
-    public string DisplayName => "Open Library";
+    public override string DisplayName => "Open Library";
 
     private static readonly TimeSpan s_regexTimeout = TimeSpan.FromSeconds(1);
 
     /// <summary>
-    /// Deliberately does NOT filter server-side by <paramref name="year"/>:
-    /// Open Library's <c>first_publish_year</c> is the work's ORIGINAL publication year,
-    /// which routinely differs from whatever edition/printing year a tenant recorded (e.g. a 1997 first edition vs. a 2016 reprint) -
-    /// filtering on it would silently drop the real match instead of just ranking it lower.
-    /// This is an Open-Library-specific workaround, not a rule every <see cref="IBookReferenceClient"/> must follow.
-    /// <paramref name="isbn"/> is accepted (interface compliance) but ignored - only <see cref="GoogleBooksClient"/>
-    /// currently uses it as a search input.
+    /// The search index answers an <c>isbn:</c> query directly, returning the work the edition belongs to -
+    /// the same index and the same one-call shape <see cref="GetRatingByIsbnAsync"/> already relies on,
+    /// just projecting the display fields instead of the rating ones. Confirmed against the real API:
+    /// <c>q=isbn:9782265002104</c> returns exactly one work (title, year, authors and a cover id), the same
+    /// French edition Google Books was the only provider able to find until this existed.
     /// </summary>
-    public async Task<IReadOnlyList<BookSearchResult>> SearchBooksAsync(string title, int? year, string? author = null, string? isbn = null, CancellationToken cancellationToken = default)
-    {
-        var results = await SearchBooksCoreAsync(title, author, cancellationToken);
-        if (results.Count == 0 && !string.IsNullOrEmpty(author))
-        {
-            // same "an optional narrowing parameter must not silently produce zero results" lesson as the year filter above:
-            // an author string that doesn't exactly match Open Library's own indexing (a middle name, a diacritic, "and" vs "&") can zero out results the title alone would find -
-            // see DiscogsClient.SearchAlbumsAsync for the equivalent fallback with the same rationale.
-            results = await SearchBooksCoreAsync(title, null, cancellationToken);
-        }
+    protected override Task<IReadOnlyList<BookSearchResult>> SearchByIsbnAsync(string isbn, CancellationToken cancellationToken) =>
+        RunSearchAsync($"search.json?q={Encode($"isbn:{isbn}")}", null, cancellationToken);
 
-        return results;
-    }
+    /// <summary>
+    /// General relevance query (<c>q=</c>), not the <c>title=</c> field-scoped match: <c>title=</c> only
+    /// matches a work's own canonical title text, which misses regional title variants entirely - confirmed
+    /// against the real API for "Harry Potter and the Sorcerer's Stone" (the US title): <c>title=</c> only
+    /// finds a handful of near-empty 1-edition work stubs, because Open Library's canonical work for this book
+    /// is titled "Harry Potter and the Philosopher's Stone" (the UK title) with 398 editions - <c>q=</c>
+    /// surfaces that well-populated canonical work first instead, since it ranks by relevance across alternate
+    /// titles too, not just an exact field match.
+    /// <para>
+    /// No year is sent as a query filter, and that is this provider's own reason rather than the shared one:
+    /// Open Library's <c>first_publish_year</c> is the work's ORIGINAL publication year, which routinely
+    /// differs from whatever edition/printing year a tenant recorded (e.g. a 1997 first edition vs. a 2016
+    /// reprint), so filtering on it would silently drop the real match instead of just ranking it lower.
+    /// </para>
+    /// </summary>
+    protected override Task<IReadOnlyList<BookSearchResult>> SearchByTitleAsync(string title, string? author, CancellationToken cancellationToken) =>
+        RunSearchAsync(
+            $"search.json?q={Encode(title)}" + (string.IsNullOrEmpty(author) ? "" : $"&author={Encode(author)}"),
+            title,
+            cancellationToken);
 
-    private async Task<IReadOnlyList<BookSearchResult>> SearchBooksCoreAsync(string title, string? author, CancellationToken cancellationToken)
+    /// <summary>
+    /// <paramref name="titleFallback"/> is the text that was searched for, used when a matched doc carries no
+    /// title of its own - available only on the title path, so an identifier search that turns up a titleless
+    /// stub drops it rather than labelling it with an ISBN.
+    /// </summary>
+    private async Task<IReadOnlyList<BookSearchResult>> RunSearchAsync(string query, string? titleFallback, CancellationToken cancellationToken)
     {
-        // General relevance query (q=), not the title= field-scoped match: title= only matches a work's own
-        // canonical title text, which misses regional title variants entirely - confirmed against the real
-        // API for "Harry Potter and the Sorcerer's Stone" (the US title): title= only finds a handful of
-        // near-empty 1-edition work stubs, because Open Library's canonical work for this book is titled
-        // "Harry Potter and the Philosopher's Stone" (the UK title) with 398 editions - q= surfaces that
-        // well-populated canonical work first instead, since it ranks by relevance across alternate titles
-        // too, not just an exact field match. year is intentionally never sent as a query filter here - see
-        // this class's own SearchBooksAsync doc comment above.
-        var query = $"search.json?q={Encode(title)}" + (string.IsNullOrEmpty(author) ? "" : $"&author={Encode(author)}");
         var response = await http.GetFromJsonAsync<OpenLibrarySearchResponse>(query, cancellationToken);
         return response?.Docs
             .Where(d => !string.IsNullOrEmpty(d.Key))
-            .Select(d => new BookSearchResult(d.Key!, d.Title ?? title, d.FirstPublishYear, d.AuthorName.FirstOrDefault(), BuildCoverUrl(d.CoverId)))
+            .Select(d => new BookSearchResult(d.Key!, d.Title ?? titleFallback ?? string.Empty, d.FirstPublishYear, d.AuthorName.FirstOrDefault(),
+                BuildCoverUrl(d.CoverId)))
+            .Where(r => !string.IsNullOrEmpty(r.Title))
             .ToList() ?? [];
     }
 
-    public async Task<BookDetails?> GetBookDetailsAsync(string externalId, CancellationToken cancellationToken = default)
+    public override async Task<BookDetails?> GetBookDetailsAsync(string externalId, CancellationToken cancellationToken = default)
     {
         var work = await http.GetFromJsonAsync<OpenLibraryWorkResponse>($"{externalId}.json", cancellationToken);
         if (work is null) return null;
@@ -76,6 +82,7 @@ public class OpenLibraryClient(HttpClient http) : IBookReferenceClient
         }
 
         var year = ParseYear(work.FirstPublishDate) ?? await FindPublishYearViaSearchAsync(externalId, cancellationToken);
+        var (rating, ratingCount) = await GetRatingAsync(externalId, cancellationToken);
 
         return new BookDetails(
             externalId,
@@ -85,7 +92,35 @@ public class OpenLibraryClient(HttpClient http) : IBookReferenceClient
             authorName,
             authorExternalId,
             work.Subjects.Take(MaxGenres).ToList(),
-            BuildCoverUrl(work.Covers.FirstOrDefault()));
+            BuildCoverUrl(work.Covers.FirstOrDefault()),
+            Rating: rating,
+            RatingCount: ratingCount);
+    }
+
+    /// <summary>
+    /// Cross-provider rating fallback (see <see cref="IBookRatingByIsbnLookup"/>): the search index carries
+    /// <c>ratings_average</c>/<c>ratings_count</c> directly, so an <c>isbn:</c> query returns the work's
+    /// rating in a single call. First hit only, as agreed - a clean resolved ISBN maps to one work. A
+    /// 0/absent average is treated as "no rating", not a real zero.
+    /// </summary>
+    public async Task<(double? Average, int? Count)> GetRatingByIsbnAsync(string isbn, CancellationToken cancellationToken = default)
+    {
+        var response = await http.GetFromJsonAsync<OpenLibrarySearchResponse>(
+            $"search.json?q={Encode($"isbn:{isbn}")}&fields=ratings_average,ratings_count&limit=1", cancellationToken);
+        var doc = response?.Docs.FirstOrDefault();
+        return doc is { RatingsAverage: > 0 } ? (doc.RatingsAverage, doc.RatingsCount) : (null, null);
+    }
+
+    /// <summary>
+    /// Open Library exposes a work's aggregate rating on a dedicated <c>/works/{id}/ratings.json</c> endpoint
+    /// (not on the work document itself) - one extra call, best-effort: a missing summary just leaves the
+    /// book without a reference rating. A 0/absent average is treated as "no rating", not a real zero.
+    /// </summary>
+    private async Task<(double? Rating, int? Count)> GetRatingAsync(string workKey, CancellationToken cancellationToken)
+    {
+        var response = await http.GetFromJsonAsync<OpenLibraryRatingsResponse>($"{workKey}/ratings.json", cancellationToken);
+        var summary = response?.Summary;
+        return summary is { Average: > 0, Count: > 0 } ? (summary.Average, summary.Count) : (null, null);
     }
 
     /// <summary>
@@ -164,6 +199,12 @@ public class OpenLibraryClient(HttpClient http) : IBookReferenceClient
 
         [JsonPropertyName("cover_i")]
         public int? CoverId { get; set; }
+
+        [JsonPropertyName("ratings_average")]
+        public double? RatingsAverage { get; set; }
+
+        [JsonPropertyName("ratings_count")]
+        public int? RatingsCount { get; set; }
     }
 
     private sealed class OpenLibraryWorkResponse
@@ -203,5 +244,20 @@ public class OpenLibraryClient(HttpClient http) : IBookReferenceClient
     {
         [JsonPropertyName("name")]
         public string? Name { get; set; }
+    }
+
+    private sealed class OpenLibraryRatingsResponse
+    {
+        [JsonPropertyName("summary")]
+        public OpenLibraryRatingsSummary? Summary { get; set; }
+    }
+
+    private sealed class OpenLibraryRatingsSummary
+    {
+        [JsonPropertyName("average")]
+        public double? Average { get; set; }
+
+        [JsonPropertyName("count")]
+        public int Count { get; set; }
     }
 }

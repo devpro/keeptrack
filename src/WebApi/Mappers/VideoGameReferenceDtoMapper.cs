@@ -13,5 +13,7 @@ public partial class VideoGameReferenceDtoMapper
     [MapperIgnoreSource(nameof(VideoGameReferenceModel.ExternalIds))]
     [MapperIgnoreSource(nameof(VideoGameReferenceModel.MatchedAliases))]
     [MapperIgnoreSource(nameof(VideoGameReferenceModel.LastEnrichedAt))]
+    // bookkeeping for the admin reconciliation queue, of no interest to a detail page
+    [MapperIgnoreSource(nameof(VideoGameReferenceModel.ProviderAdoptionCheckedAt))]
     public partial VideoGameReferenceDto ToDto(VideoGameReferenceModel model);
 }

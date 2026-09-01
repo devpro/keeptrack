@@ -6,6 +6,8 @@
                Title="Movies"
                ItemName="Movie"
                Route="@ListRoute"
+               View="@_view"
+               OnViewChanged="@SetView"
                Items="@(Items ?? [])"
                Loading="@_loading"
                Loaded="@_loaded"
@@ -24,47 +26,22 @@
                OnShowAddForm="@ShowAddForm"
                OnCancelForm="@CancelForm"
                OnSave="@SaveAsync"
+               Matching="@MatchingNewItem"
                OnDelete="@DeleteAsync"
                OnSearchChanged="@OnSearchChanged"
                Sort="@_sort"
                OnSortChanged="@SetSort"
                HasRatingSort="true"
+               HasReferenceRatingSort="true"
                ExtraSortValue="@ListSort.LastSeen"
                ExtraSortLabel="Seen">
     <Filters>
-        <button class="btn btn-sm kt-toggle-btn @(FavoriteFilter ? "active" : "")" @onclick='() => ToggleFilter("favorite", FavoriteFilter)'>★ Favorites</button>
-        <button class="btn btn-sm kt-toggle-btn @(OwnedFilter ? "active" : "")" @onclick='() => ToggleFilter("owned", OwnedFilter)'>● Owned</button>
-        <button class="btn btn-sm kt-toggle-btn @(UnseenFilter ? "active" : "")" @onclick='() => ToggleFilter("unseen", UnseenFilter)'>◻ Unseen</button>
+        <button class="btn btn-sm kt-toggle-btn @(FavoriteFilter ? "active" : "")" @onclick='() => ToggleFilter("favorite", FavoriteFilter)'><Icon Name="favorite" Size="13"/> Favorites</button>
+        <button class="btn btn-sm kt-toggle-btn @(OwnedFilter ? "active" : "")" @onclick='() => ToggleFilter("owned", OwnedFilter)'><Icon Name="owned" Size="13"/> Owned</button>
+        <button class="btn btn-sm kt-toggle-btn @(UnseenFilter ? "active" : "")" @onclick='() => ToggleFilter("unseen", UnseenFilter)'><Icon Name="unseen" Size="13"/> Unseen</button>
     </Filters>
     <MetaTemplate Context="movie">
-        @if (movie.Year > 0)
-        {
-            <span>@movie.Year</span>
-        }
-        @if (movie.Rating is not null)
-        {
-            <span class="kt-stars"><StarRating Rating="movie.Rating"/></span>
-        }
-        @if (movie.IsFavorite)
-        {
-            <span class="kt-flag-badge favorite">Favorite</span>
-        }
-        @if (movie.FirstSeenAt is not null)
-        {
-            <span class="kt-flag-badge done">Seen</span>
-        }
-        @if (movie.WantToWatch)
-        {
-            <span class="kt-flag-badge wishlist">To watch</span>
-        }
-        @if (movie.OwnedVersions.Count > 0)
-        {
-            <span class="kt-flag-badge">Owned</span>
-        }
-        @if (movie.IsWishlisted)
-        {
-            <span class="kt-flag-badge wishlist">Wishlist</span>
-        }
+        <MovieMetaRow Item="movie"/>
     </MetaTemplate>
     <FormTemplate Context="movie">
         <div class="col-12">

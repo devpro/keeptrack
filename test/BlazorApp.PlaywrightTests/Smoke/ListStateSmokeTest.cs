@@ -37,6 +37,8 @@ public partial class ListStateSmokeTest(End2EndFixture fixture) : SmokeTestBase(
 
         var detail = new BookDetailPage(Page);
         await detail.WaitForReadyAsync();
+        // registered as soon as the item exists, so an assertion failure below still removes it
+        TrackOpenItem("/api/books");
 
         list = await detail.OpenBooksAsync();
         await list.SearchAsync(title);
@@ -61,7 +63,7 @@ public partial class ListStateSmokeTest(End2EndFixture fixture) : SmokeTestBase(
     {
         var list = await (await new HomePage(Page).OpenAsync()).OpenMoviesAsync();
         var favoritesUrl = FavoriteRegex();
-        var favoritesButton = Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "★ Favorites" });
+        var favoritesButton = Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Favorites" });
 
         // The toggle-on click is this page load's first @onclick - see ClickUntilAsync's prerender-gap remarks.
         await list.ClickFilterUntilActiveAsync(favoritesButton);

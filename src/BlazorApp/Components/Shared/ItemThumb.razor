@@ -9,12 +9,15 @@
     }
     else
     {
-        <span>◈</span>
+        <CoverPlaceholder Title="@Title"/>
     }
 </div>
 
 @code {
     [Parameter] public string? ImageUrl { get; set; }
+
+    /// <summary>The item's title - only used to derive the no-cover placeholder's initial.</summary>
+    [Parameter] public string? Title { get; set; }
 
     /// <summary>null/empty = portrait (default), "square" (albums), "wide" (video games).</summary>
     [Parameter] public string? Shape { get; set; }

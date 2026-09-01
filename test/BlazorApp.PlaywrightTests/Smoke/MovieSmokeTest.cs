@@ -30,17 +30,11 @@ public class MovieSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 
         var detail = new MovieDetailPage(Page);
         await detail.WaitForReadyAsync();
-        var id = ExtractIdFromUrl(Page.Url);
+        // registered as soon as the item exists, so an assertion failure below still removes it
+        TrackOpenItem("/api/movies");
 
-        try
-        {
-            await detail.SearchAndLinkFirstResultAsync();
+        await detail.SearchAndLinkFirstResultAsync();
 
-            await Assertions.Expect(detail.CoverImage).ToBeVisibleAsync();
-        }
-        finally
-        {
-            await Fixture.DeleteItemAsync($"/api/movies/{id}");
-        }
+        await Assertions.Expect(detail.CoverImage).ToBeVisibleAsync();
     }
 }

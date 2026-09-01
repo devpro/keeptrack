@@ -1,0 +1,92 @@
+@* Picks the shared car_station a refuel happened at, by id. Deliberately a thin wrapper over
+   SuggestInput rather than its own dropdown: the free-text-with-suggestions behaviour (filtering, blur
+   handling, the touch-tap race) is already solved there, and only the "resolve the typed text to a
+   station" step is new here.
+   Typing something the catalogue doesn't hold creates it on the spot - a member refuelling somewhere new
+   must never be blocked waiting on an admin, and the API's create is find-or-create so a name already on
+   file resolves to that document instead of a duplicate. *@
+
+@* MaxSuggestions well above the default: the catalogue runs to hundreds of stations, and eight matches
+   for "carrefour" reads as "it doesn't have mine" rather than "keep typing". *@
+@* InputCssClass: full-size, to match the rest of the car history form it lives in. *@
+<SuggestInput Value="@_displayName" ValueChanged="ResolveAsync" Suggestions="@_suggestions"
+              MaxSuggestions="20" InputCssClass="form-control" Placeholder="e.g. TotalEnergies - Rennes"/>
+@if (_stationCity is not null)
+{
+    <span class="kt-card-meta">@_stationCity</span>
+}
+
+@code {
+    /// <summary>Selected station id - null when the field is empty.</summary>
+    [Parameter] public string? StationId { get; set; }
+
+    [Parameter] public EventCallback<string?> StationIdChanged { get; set; }
+
+    /// <summary>
+    /// The catalogue, fetched once by the parent form rather than per picker - the form already needs the
+    /// list to show the current entry's station name, and refetching it here would double the request.
+    /// </summary>
+    [Parameter] public IReadOnlyList<CarStationDto> Stations { get; set; } = [];
+
+    /// <summary>Raised when a station is created inline, so the parent can add it to its own list.</summary>
+    [Parameter] public EventCallback<CarStationDto> OnStationCreated { get; set; }
+
+    [Inject] private CarStationApiClient StationApi { get; set; } = null!;
+
+    private string? _displayName;
+    private string? _stationCity;
+    private string? _lastStationIdParam;
+    private List<string> _suggestions = [];
+
+    protected override void OnParametersSet()
+    {
+        _suggestions = Stations.Select(s => s.DisplayName).Where(s => s.Length > 0).Distinct().ToList();
+
+        // adopt an externally-changed selection only - the same "sent vs received" guard SuggestInput
+        // itself uses, so re-rendering while the user types can't revert the field
+        if (StationId == _lastStationIdParam) return;
+        _lastStationIdParam = StationId;
+        var station = Stations.FirstOrDefault(s => s.Id == StationId);
+        _displayName = station?.DisplayName;
+        _stationCity = station?.City;
+    }
+
+    private async Task ResolveAsync(string? text)
+    {
+        _displayName = text;
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            _stationCity = null;
+            await CommitAsync(null);
+            return;
+        }
+
+        // An exact display-name match is the station the user picked from the list. Comparing on the
+        // rendered "Brand - City" rather than the brand alone is what keeps two towns' Total apart.
+        var existing = Stations.FirstOrDefault(s => string.Equals(s.DisplayName, text, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            _stationCity = existing.City;
+            await CommitAsync(existing.Id);
+            return;
+        }
+
+        // Nothing matched: create it with the typed text as the brand name and no location. Splitting that
+        // text into a brand and a city is guesswork ("Total Access A11" is one brand, "Avia Rennes" is
+        // two things) - the admin screen is where a station gains its real city and coordinates.
+        var created = await StationApi.FindOrCreateAsync(new CarStationDto { BrandName = text.Trim() });
+        if (created is null) return;
+        _displayName = created.DisplayName;
+        _stationCity = created.City;
+        await OnStationCreated.InvokeAsync(created);
+        await CommitAsync(created.Id);
+    }
+
+    private async Task CommitAsync(string? stationId)
+    {
+        _lastStationIdParam = stationId;
+        StationId = stationId;
+        await StationIdChanged.InvokeAsync(stationId);
+    }
+}

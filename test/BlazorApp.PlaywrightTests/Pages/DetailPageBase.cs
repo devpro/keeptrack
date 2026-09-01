@@ -33,9 +33,9 @@ public abstract partial class DetailPageBase(IPage page) : PageBase(page)
     /// </summary>
     public ILocator ImageUrlInput => Page.GetByTestId("image-url-input");
 
-    public override async Task WaitForReadyAsync()
+    protected override async Task AssertReadyAsync()
     {
-        await base.WaitForReadyAsync();
+        await base.AssertReadyAsync();
         await Assertions.Expect(Page.Locator(".kt-spinner")).ToBeHiddenAsync();
         await Assertions.Expect(TitleInput).ToBeVisibleAsync();
     }

@@ -43,11 +43,25 @@ public class TvShowDto : IHasId, IReferenceLinkedDto
     /// </summary>
     public string? ImageUrl { get; set; }
 
+    /// <summary>
+    /// Denormalized primary-source (TMDB) rating from the linked reference, on <see cref="ReferenceRatingScale"/>.
+    /// Server-managed on link/refresh, round-tripped on edits; null until linked. Full breakdown on
+    /// <see cref="TvShowReferenceDto.Ratings"/>.
+    /// </summary>
+    public double? ReferenceRating { get; set; }
+
+    /// <summary>Scale of <see cref="ReferenceRating"/> (10 for TMDB); null when there is no reference rating.</summary>
+    public double? ReferenceRatingScale { get; set; }
+
+    /// <summary>
+    /// Which rating source <see cref="ReferenceRating"/> came from ("tmdb", "imdb", ...), so the value can be
+    /// labelled rather than shown as a bare number. Server-managed on link/refresh, round-tripped on edits.
+    /// </summary>
+    public string? ReferenceRatingSource { get; set; }
+
     public TvShowStatus? State { get; set; }
 
     public bool IsFavorite { get; set; }
-
-    public bool WantToWatch { get; set; }
 
     /// <summary>
     /// Every owned copy of this show - the show counts as owned when this list is non-empty.

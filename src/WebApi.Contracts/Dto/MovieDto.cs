@@ -33,6 +33,22 @@ public class MovieDto : IHasId, IReferenceLinkedDto
     /// </summary>
     public string? ImageUrl { get; set; }
 
+    /// <summary>
+    /// Denormalized primary-source rating from the linked reference (TMDB's, on <see cref="ReferenceRatingScale"/>),
+    /// server-managed on link/refresh. Round-tripped on edits so a normal save doesn't drop it; not meant to
+    /// be set by clients. Null until linked. The full multi-source breakdown is on <see cref="MovieReferenceDto.Ratings"/>.
+    /// </summary>
+    public double? ReferenceRating { get; set; }
+
+    /// <summary>Scale of <see cref="ReferenceRating"/> (10 for TMDB); null when there is no reference rating.</summary>
+    public double? ReferenceRatingScale { get; set; }
+
+    /// <summary>
+    /// Which rating source <see cref="ReferenceRating"/> came from ("tmdb", "imdb", ...), so the value can be
+    /// labelled rather than shown as a bare number. Server-managed on link/refresh, round-tripped on edits.
+    /// </summary>
+    public string? ReferenceRatingSource { get; set; }
+
     public DateOnly? FirstSeenAt { get; set; }
 
     public bool IsFavorite { get; set; }

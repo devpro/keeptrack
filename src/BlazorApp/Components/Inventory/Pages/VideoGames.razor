@@ -6,6 +6,8 @@
                Title="Video Games"
                ItemName="Video game"
                Route="@ListRoute"
+               View="@_view"
+               OnViewChanged="@SetView"
                Items="@(Items ?? [])"
                Loading="@_loading"
                Loaded="@_loaded"
@@ -25,11 +27,13 @@
                OnShowAddForm="@ShowAddForm"
                OnCancelForm="@CancelForm"
                OnSave="@SaveAsync"
+               Matching="@MatchingNewItem"
                OnDelete="@DeleteAsync"
                OnSearchChanged="@OnSearchChanged"
                Sort="@_sort"
                OnSortChanged="@SetSort"
                HasRatingSort="true"
+               HasReferenceRatingSort="true"
                ExtraSortValue="@ListSort.LastCompleted"
                ExtraSortLabel="Ended">
     <Filters>
@@ -38,28 +42,10 @@
         {
             <button class="btn btn-sm @(StateFilter == state ? "btn-primary" : "btn-secondary")" @onclick='() => SetFilter("state", state)'>@state</button>
         }
-        <button class="btn btn-sm kt-toggle-btn @(OwnedFilter ? "active" : "")" @onclick='() => ToggleFilter("owned", OwnedFilter)'>● Owned</button>
+        <button class="btn btn-sm kt-toggle-btn @(OwnedFilter ? "active" : "")" @onclick='() => ToggleFilter("owned", OwnedFilter)'><Icon Name="owned" Size="13"/> Owned</button>
     </Filters>
     <MetaTemplate Context="game">
-        @if (game.Year > 0)
-        {
-            <span>@game.Year</span>
-        }
-        @foreach (var entry in game.Platforms)
-        {
-            <span class="kt-status-badge @StateBadgeClass(entry.State ?? "")">
-                @entry.Platform@(string.IsNullOrEmpty(entry.State) ? "" : $" ({entry.State})")
-            </span>
-        }
-        @if (game.Rating is not null)
-        {
-            <span class="kt-stars"><StarRating Rating="game.Rating"/></span>
-        }
-        @* no Owned badge here - the per-platform badges above already are the game's copies *@
-        @if (game.IsWishlisted)
-        {
-            <span class="kt-flag-badge wishlist">Wishlist</span>
-        }
+        <VideoGameMetaRow Item="game"/>
     </MetaTemplate>
     <FormTemplate Context="game">
         <div class="col-12">

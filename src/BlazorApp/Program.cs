@@ -12,14 +12,12 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
         options.SlidingExpiration = true;
     });
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("AdminOnly", policy => policy.RequireClaim("role", "admin"));
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy("AdminOnly", policy => policy.RequireClaim("role", "admin"))
     // mirrors WebApi's policy (the cookie principal carries the same Firebase "role" claim): members and
     // admins see the whole app; everyone else is the free preview tier (movies + TV shows). This only
     // drives what the UI shows - the API enforces the same rule on every request.
-    options.AddPolicy("MemberOnly", policy => policy.RequireClaim("role", "member", "admin"));
-});
+    .AddPolicy("MemberOnly", policy => policy.RequireClaim("role", "member", "admin"));
 // opt-in shared Data Protection key ring (see MongoDbXmlRepository) - required before running more than
 // one replica of this app, since the auth cookie and antiforgery tokens must decrypt on every replica.
 // Left unset (the default), the framework keeps its usual per-instance ephemeral keys.
@@ -44,6 +42,7 @@ if (FirebaseApp.DefaultInstance is null)
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<Keeptrack.BlazorApp.Components.Account.AuthenticationTokenHandler>();
 builder.Services.AddScoped<Keeptrack.BlazorApp.Components.Account.UserPreferencesState>();
+builder.Services.AddScoped<Keeptrack.BlazorApp.Components.Inventory.ListViewPreference>();
 builder.Services.AddWebApiHttpClient(builder.Configuration.TryGetSection<string>("WebApi:BaseUrl"));
 builder.Services.AddHealthChecks();
 
@@ -69,7 +68,7 @@ app.MapRazorComponents<App>()
 app.MapGet("/shared/wishlist/{token}", (string token) =>
     new RazorComponentResult<Keeptrack.BlazorApp.Components.Wishlist.SharedWishlistApp>(new { Token = token }));
 app.MapControllers();
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/healthz");
 
 await app.RunAsync();
 

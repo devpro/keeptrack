@@ -6,6 +6,8 @@
                Title="Houses"
                ItemName="House"
                Route="@ListRoute"
+               View="@_view"
+               OnViewChanged="@SetView"
                Items="@(Items ?? [])"
                Loading="@_loading"
                Loaded="@_loaded"
@@ -30,14 +32,7 @@
                Sort="@_sort"
                OnSortChanged="@SetSort">
     <MetaTemplate Context="house">
-        @if (!string.IsNullOrEmpty(house.City))
-        {
-            <span>@house.City</span>
-        }
-        @if (house.PropertyType is not null)
-        {
-            <span>@house.PropertyType</span>
-        }
+        <HouseMetaRow Item="house"/>
     </MetaTemplate>
     <FormTemplate Context="house">
         <div class="col-12">

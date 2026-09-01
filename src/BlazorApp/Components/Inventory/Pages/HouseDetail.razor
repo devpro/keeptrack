@@ -1,4 +1,4 @@
-@page "/houses/{Id}"
+﻿@page "/houses/{Id}"
 @attribute [Authorize]
 
 @if (!_loaded)
@@ -14,24 +14,32 @@
 else if (House is null)
 {
     <div class="kt-empty">
-        <div class="kt-empty-icon">◈</div>
+        <div class="kt-empty-icon"><Icon Name="empty" Size="40" StrokeWidth="1.1"/></div>
         <p>House not found.</p>
     </div>
 }
 else
 {
-    <Breadcrumb ListRoute="/houses" ListLabel="Houses" Current="@House.Name"/>
+    @if (CanEdit)
+    {
+        <Breadcrumb ListRoute="/houses" ListLabel="Houses" Current="@House.Name"/>
+    }
+    else
+    {
+        <Breadcrumb ParentRoute="/account/manage/shared-with-me" ParentLabel="Shared with me"
+                    ListRoute="@($"/account/manage/shared/{ShareId}")" ListLabel="@(_ownerName ?? "Shared collection")" Current="@House.Name"/>
+    }
 
     <div class="kt-page-header">
         <div class="kt-title-row">
-            <input class="kt-title-input" value="@House.Name" @onchange="SaveNameAsync"/>
+            <input class="kt-title-input" value="@House.Name" @onchange="SaveNameAsync" disabled="@(!CanEdit)"/>
         </div>
     </div>
 
     <div class="d-flex gap-2 mb-3">
         @foreach (var propertyType in Enum.GetValues<PropertyType>())
         {
-            <button class="btn btn-sm @(House.PropertyType == propertyType ? "btn-primary" : "btn-secondary")" @onclick="() => SetPropertyTypeAsync(propertyType)">@propertyType</button>
+            <button class="btn btn-sm @(House.PropertyType == propertyType ? "btn-primary" : "btn-secondary")" @onclick="() => SetPropertyTypeAsync(propertyType)" disabled="@(!CanEdit)">@propertyType</button>
         }
     </div>
 
@@ -46,24 +54,27 @@ else
         <div class="row g-3">
             <div class="col-md-6">
                 <label class="form-label">City</label>
-                <input class="form-control form-control-sm" value="@House.City" @onchange="SaveCityAsync"/>
+                <input class="form-control form-control-sm" value="@House.City" @onchange="SaveCityAsync" disabled="@(!CanEdit)"/>
             </div>
             <div class="col-md-3">
                 <label class="form-label">Moved in</label>
-                <input class="form-control form-control-sm" type="date" value="@House.MovedInAt?.ToString("yyyy-MM-dd")" @onchange="SaveMovedInAtAsync"/>
+                <input class="form-control form-control-sm" type="date" value="@House.MovedInAt?.ToString("yyyy-MM-dd")" @onchange="SaveMovedInAtAsync" disabled="@(!CanEdit)"/>
             </div>
             <div class="col-md-3">
                 <label class="form-label">Moved out</label>
-                <input class="form-control form-control-sm" type="date" value="@House.MovedOutAt?.ToString("yyyy-MM-dd")" @onchange="SaveMovedOutAtAsync"/>
+                <input class="form-control form-control-sm" type="date" value="@House.MovedOutAt?.ToString("yyyy-MM-dd")" @onchange="SaveMovedOutAtAsync" disabled="@(!CanEdit)"/>
             </div>
             <div class="col-12">
                 <label class="form-label">Notes</label>
-                <textarea class="form-control form-control-sm" rows="2" @onchange="SaveNotesAsync">@House.Notes</textarea>
+                <textarea class="form-control form-control-sm" rows="2" @onchange="SaveNotesAsync" disabled="@(!CanEdit)">@House.Notes</textarea>
             </div>
-            <div class="col-12">
-                <label class="form-label">Cover image URL</label>
-                <input class="form-control form-control-sm" data-testid="image-url-input" value="@House.ImageUrl" @onchange="SaveImageUrlAsync"/>
-            </div>
+            @if (CanEdit)
+            {
+                <div class="col-12">
+                    <label class="form-label">Cover image URL</label>
+                    <input class="form-control form-control-sm" data-testid="image-url-input" value="@House.ImageUrl" @onchange="SaveImageUrlAsync"/>
+                </div>
+            }
         </div>
     </div>
 
@@ -121,7 +132,10 @@ else
 
     <div class="d-flex justify-content-between align-items-center">
         <h2 class="kt-section-title">History</h2>
-        <button class="btn btn-sm btn-primary" @onclick="ShowAddModal">+ Add entry</button>
+        @if (CanEdit)
+        {
+            <button class="btn btn-sm btn-primary" @onclick="ShowAddModal">+ Add entry</button>
+        }
     </div>
     @* kt-table-grid opts this table out of the mobile stacked-cards treatment (see HealthProfileDetail.razor's
        journal for the same pattern) - a real spreadsheet-like grid with only the most important columns
@@ -134,7 +148,7 @@ else
             <div class="table-responsive">
                 <table class="table kt-sheet-table kt-table-grid">
                     <tbody>
-                    <tr><td class="text-center kt-card-meta">No history yet - add the first entry above.</td></tr>
+                    <tr><td class="text-center kt-card-meta">@(CanEdit ? "No history yet - add the first entry above." : "No history recorded.")</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -158,13 +172,16 @@ else
                         <th>Cost</th>
                         <th class="d-none d-md-table-cell">Provider</th>
                         <th class="d-none d-md-table-cell">Description</th>
-                        <th></th>
+                        @if (CanEdit)
+                        {
+                            <th></th>
+                        }
                     </tr>
                     </thead>
                     <tbody>
                     @foreach (var entry in _historyByYear.GetValueOrDefault(_selectedYear, []))
                     {
-                        <HouseHistoryRow Entry="entry" OnEdit="ShowEditModal" OnDelete="DeleteEntryAsync"/>
+                        <HouseHistoryRow Entry="entry" ReadOnly="@(!CanEdit)" OnEdit="ShowEditModal" OnDelete="DeleteEntryAsync"/>
                     }
                     </tbody>
                 </table>
@@ -172,10 +189,10 @@ else
         </div>
     }
 
-    @if (_showModal)
+    @if (CanEdit && _showModal)
     {
         <div class="kt-modal-backdrop">
-            <div class="kt-modal">
+            <div class="kt-modal kt-modal-wide">
                 <div class="kt-modal-header">
                     <h5>@(IsEditMode ? "Edit" : "Add") history entry</h5>
                     <button class="kt-modal-close" @onclick="RequestCancelModal">✕</button>
@@ -201,9 +218,19 @@ else
 @code {
     [Parameter] public required string Id { get; set; }
 
+    /// <summary>Set when a recipient is viewing this house as shared with them (read-only). When null this is the
+    /// owner's own editable page - see CarDetail.ShareId for the shared/owner data-source split.</summary>
+    [Parameter] public string? ShareId { get; set; }
+
+    private bool CanEdit => ShareId is null;
+
+    private string? _ownerName;
+
     [Inject] private HouseApiClient HouseApi { get; set; } = null!;
 
     [Inject] private HouseHistoryApiClient HouseHistoryApi { get; set; } = null!;
+
+    [Inject] private SharedWithMeApiClient SharedApi { get; set; } = null!;
 
     // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
     // _loaded tracks whether a load attempt has finished at all, fresh or restored from persisted
@@ -263,13 +290,29 @@ else
 
     private async Task FetchAsync()
     {
-        House = await HouseApi.GetOneAsync(Id);
-        if (House is not null)
+        if (CanEdit)
         {
-            var result = await HouseHistoryApi.GetAsync("", 1, int.MaxValue, new Dictionary<string, string> { ["HouseId"] = Id });
-            // most recent first - same journal convention as HealthProfileDetail/CarDetail
-            History = result.Items.OrderByDescending(h => h.HistoryDate).ToList();
-            Metrics = await HouseApi.GetMetricsAsync(Id);
+            House = await HouseApi.GetOneAsync(Id);
+            if (House is not null)
+            {
+                var result = await HouseHistoryApi.GetAsync("", 1, int.MaxValue, new Dictionary<string, string> { ["HouseId"] = Id });
+                // most recent first - same journal convention as HealthProfileDetail/CarDetail
+                History = result.Items.OrderByDescending(h => h.HistoryDate).ToList();
+                Metrics = await HouseApi.GetMetricsAsync(Id);
+                BuildDerivedState();
+            }
+            return;
+        }
+
+        // Recipient (read-only): one composite call returns the house, its full history and metrics, scoped to
+        // the sharer server-side after the grant is verified.
+        var detail = await SharedApi.GetHouseAsync(ShareId!, Id);
+        if (detail is not null)
+        {
+            House = detail.Parent;
+            _ownerName = detail.OwnerDisplayName;
+            History = detail.Children.OrderByDescending(h => h.HistoryDate).ToList();
+            Metrics = detail.Metrics;
             BuildDerivedState();
         }
     }

@@ -31,7 +31,7 @@
     @if (_unresolved.Count == 0)
     {
         <div class="kt-empty">
-            <div class="kt-empty-icon">◈</div>
+            <div class="kt-empty-icon"><Icon Name="empty" Size="40" StrokeWidth="1.1"/></div>
             <p>Nothing waiting on a manual match.</p>
         </div>
     }
@@ -63,11 +63,13 @@
                                 @if (_type == ReferenceItemType.Book)
                                 {
                                     <input class="form-control form-control-sm" style="max-width:160px" placeholder="ISBN" @bind="_isbn"/>
-                                    @foreach (var bookProvider in _bookProviders)
-                                    {
-                                        <button type="button" class="btn btn-sm @(bookProvider.Key == _selectedProvider ? "btn-primary" : "btn-secondary")"
-                                                @onclick="() => _selectedProvider = bookProvider.Key">@bookProvider.DisplayName</button>
-                                    }
+                                }
+                                @* selection only, never a search trigger - one control starts a search. Rendered
+                                   for any domain with more than one registered provider (books, video games). *@
+                                @foreach (var provider in _providers)
+                                {
+                                    <button type="button" class="btn btn-sm @(provider.Key == _selectedProvider ? "btn-primary" : "btn-secondary")"
+                                            @onclick="() => _selectedProvider = provider.Key">@provider.DisplayName</button>
                                 }
                                 <button class="btn btn-sm btn-secondary" @onclick="SearchAsync" disabled="@(_searching || string.IsNullOrWhiteSpace(_queryTitle))">Search</button>
                             </div>
@@ -133,11 +135,25 @@
 <div class="kt-form-card">
     <p style="color:var(--kt-text-muted)">
         Reference data (episode guides, genres, posters, cast) drifts out of date after TMDB updates a show
-        or movie - a background sync re-checks documents older than 3 days every 24h. Use this to force an
-        immediate re-check of everything instead of waiting.
+        or movie - a background sync runs every 24h, re-checking documents older than 3 days and rebuilding
+        Explore rankings older than 7 days. Use this to run that same pass now instead of waiting: it only
+        touches what is past those windows, so it reports nothing checked when everything is already fresh.
+        Tick <strong>Force</strong> to ignore the windows and re-check every document and ranking - the
+        thorough option, and the expensive one in provider calls.
+        Tick <strong>Explore only</strong> to rebuild the discovery rankings without touching reference data:
+        a few listing pages instead of up to 500 documents per domain, so it is the cheap way to pick up an
+        Explore change - and the one to combine with Force.
     </p>
-    <div class="d-flex align-items-center gap-3">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
         <button class="btn btn-sm btn-secondary" @onclick="SyncNowAsync" disabled="@_syncing">Sync now</button>
+        <div class="form-check mb-0">
+            <input class="form-check-input" type="checkbox" id="force-sync" @bind="_forceSync" disabled="@_syncing">
+            <label class="form-check-label" for="force-sync">Force: re-check everything, ignoring the freshness windows</label>
+        </div>
+        <div class="form-check mb-0">
+            <input class="form-check-input" type="checkbox" id="explore-only-sync" @bind="_exploreOnlySync" disabled="@_syncing">
+            <label class="form-check-label" for="explore-only-sync">Explore only: rebuild the discovery rankings, skip reference data</label>
+        </div>
     </div>
     @if (_syncing)
     {
@@ -149,11 +165,27 @@
     @if (_syncResult is not null)
     {
         <div class="alert alert-info mt-3 mb-0">
-            TV shows: @_syncResult.TvShowsChecked checked, @_syncResult.TvShowsUpdated updated.
-            Movies: @_syncResult.MoviesChecked checked, @_syncResult.MoviesUpdated updated.
-            Books: @_syncResult.BooksChecked checked, @_syncResult.BooksUpdated updated.
-            Video games: @_syncResult.VideoGamesChecked checked, @_syncResult.VideoGamesUpdated updated.
-            Albums: @_syncResult.AlbumsChecked checked, @_syncResult.AlbumsUpdated updated.
+            @(_syncResultForced
+                ? "Full re-check, ignoring every freshness window."
+                : "Incremental pass: only what is past its freshness window, exactly like the background sync.")
+            <br/>
+            @* An Explore-only run left every reference count at zero. Printing them anyway would read as
+               "the pass looked and found nothing", which is the opposite of "the pass never looked". *@
+            @if (!_syncResultExploreOnly)
+            {
+                <text>
+                    TV shows: @_syncResult.TvShowsChecked checked, @_syncResult.TvShowsUpdated updated.
+                    Movies: @_syncResult.MoviesChecked checked, @_syncResult.MoviesUpdated updated.
+                    Books: @_syncResult.BooksChecked checked, @_syncResult.BooksUpdated updated.
+                    Video games: @_syncResult.VideoGamesChecked checked, @_syncResult.VideoGamesUpdated updated.
+                    Albums: @_syncResult.AlbumsChecked checked, @_syncResult.AlbumsUpdated updated.
+                    Finished shows reopened as current: @_syncResult.FinishedShowsReopened.
+                    <br/>
+                </text>
+            }
+            Explore: @_syncResult.ExploreRankingsRefreshed ranking(s) rebuilt,
+            @_syncResult.ExploreEntriesRefreshed entries written,
+            @_syncResult.ExploreImdbRatingsBackfilled IMDb rating(s) backfilled.
         </div>
     }
     @if (_syncError is not null)
@@ -162,25 +194,221 @@
     }
 </div>
 
+@* Provider reconciliation. Sits right under the sync card because it is where a sync's "couldn't adopt"
+   outcomes land: everything here is a reference document the automatic rule refused to guess about. *@
+@if (_reconciliation is not null && (_reconciliation.Gaps.Count > 0 || _reconciliation.Duplicates.Count > 0))
+{
+    <div class="kt-form-card">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h2 class="kt-section-title mt-0 mb-0" style="border:none;padding:0">Provider reconciliation</h2>
+            <button class="btn btn-sm btn-secondary" @onclick="LoadReconciliationAsync" disabled="@_loadingReconciliation"><Icon Name="refresh" Size="13"/> Refresh</button>
+        </div>
+        <p style="color:var(--kt-text-muted)">
+            Video game references are refreshed through the current default provider only, so one still living
+            in a previous provider's id space is stuck: it stops being refreshed, and <strong>Explore keeps
+            suggesting it even though you already have it</strong> - discovery recognises what you own by
+            @(_reconciliation.ProviderDisplayName)'s id. The nightly sync adopts an id automatically whenever
+            there is exactly one match; what is left below is what it refused to guess about.
+        </p>
+
+        @if (_reconciliation.Gaps.Count > 0)
+        {
+            <p class="kt-card-meta">
+                @_reconciliation.Gaps.Count of @_reconciliation.TotalReferences video game references carry no
+                @_reconciliation.ProviderDisplayName id.
+            </p>
+            <table class="table">
+                <tbody>
+                @foreach (var gap in _reconciliation.Gaps)
+                {
+                    <tr class="@(gap.ReferenceId == _selectedGapId ? "table-active" : "")" @onclick="() => SelectGapAsync(gap)" style="cursor:pointer">
+                        <td style="font-weight:500">@gap.Title</td>
+                        <td>@gap.Year</td>
+                        <td class="kt-card-meta">@(gap.Providers.Count == 0 ? "no provider id" : string.Join(", ", gap.Providers))</td>
+                        <td class="kt-card-meta">@(gap.LastAttemptedAt is null ? "never searched" : $"last tried {gap.LastAttemptedAt:yyyy-MM-dd}")</td>
+                    </tr>
+                    @if (gap.ReferenceId == _selectedGapId)
+                    {
+                        <tr>
+                            <td colspan="4">
+                                @* The provider's search has real dead ends - it can answer a title with
+                                   nothing, or with unrelated games and never the one asked for - so the row
+                                   always offers a way to ask differently, rather than only when it failed. *@
+                                <div class="d-flex gap-2 align-items-center mb-2" style="max-width:640px">
+                                    <input class="form-control form-control-sm" placeholder="@($"Search {_reconciliation.ProviderDisplayName} with different text, or paste the game's page URL")"
+                                           @bind="_candidateQuery" @bind:event="oninput" @onkeydown="@(e => { if (e.Key == "Enter") return SearchCandidatesAsync(gap); return Task.CompletedTask; })"/>
+                                    <button class="btn btn-sm btn-secondary" @onclick="() => SearchCandidatesAsync(gap)" disabled="@(_loadingCandidates || string.IsNullOrWhiteSpace(_candidateQuery))">Search</button>
+                                </div>
+                                @if (_loadingCandidates)
+                                {
+                                    <span class="kt-card-meta"><span class="kt-icon-spin"><Icon Name="refresh" Size="15"/></span> Asking @_reconciliation.ProviderDisplayName…</span>
+                                }
+                                else if (_candidates.Count == 0)
+                                {
+                                    <span class="kt-card-meta">
+                                        @_reconciliation.ProviderDisplayName has nothing under this title. Search above with its own spelling of
+                                        the name - or open its page and paste the address, which names the game exactly when no wording finds it.
+                                    </span>
+                                }
+                                else
+                                {
+                                    <div class="d-flex gap-3 flex-wrap">
+                                        @foreach (var candidate in _candidates)
+                                        {
+                                            <div class="kt-card" style="max-width:200px">
+                                                @if (!string.IsNullOrEmpty(candidate.ImageUrl))
+                                                {
+                                                    <img src="@candidate.ImageUrl" alt="@candidate.Title" style="width:100%;border-radius:4px"/>
+                                                }
+                                                <p class="mb-1" style="font-weight:500">@candidate.Title</p>
+                                                <p class="kt-card-meta mb-1">@candidate.Year</p>
+                                                @if (candidate.Synopsis is not null)
+                                                {
+                                                    <p class="kt-card-meta mb-1">✓ @candidate.Synopsis</p>
+                                                }
+                                                <button class="btn btn-sm btn-primary" @onclick="() => AdoptAsync(gap, candidate)" disabled="@_adopting">Link</button>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+                </tbody>
+            </table>
+        }
+
+        @if (_reconciliation.Duplicates.Count > 0)
+        {
+            <h3 class="kt-section-title" style="font-size:1rem">Duplicate references (@_reconciliation.Duplicates.Count)</h3>
+            <p style="color:var(--kt-text-muted)">
+                Two documents describing one work - what a provider change, or a reference-data import from an
+                environment on a different provider, leaves behind. Each account's items point at whichever one
+                existed when they linked, so the work's provider ids, ratings and cover are split between them.
+                Keep the one you want to survive; the other's data is merged into it and every item pointing at
+                it is moved over. A RAWG cover always wins the merge whichever one you keep - its key art can't
+                be fetched again without RAWG's API, so losing it would be permanent.
+            </p>
+            @foreach (var group in _reconciliation.Duplicates)
+            {
+                <div class="d-flex gap-3 align-items-start flex-wrap mb-3">
+                    <strong style="min-width:180px">@group.Title</strong>
+                    @foreach (var reference in group.References)
+                    {
+                        <div class="kt-card" style="max-width:260px">
+                            <p class="mb-1" style="font-weight:500">@reference.Title @(reference.Year is null ? "" : $"({reference.Year})")</p>
+                            <p class="kt-card-meta mb-1">ids: @(reference.ExternalIds.Count == 0 ? "none" : string.Join(", ", reference.ExternalIds.Select(pair => $"{pair.Key} {pair.Value}")))</p>
+                            <p class="kt-card-meta mb-1">ratings: @(reference.RatingSources.Count == 0 ? "none" : string.Join(", ", reference.RatingSources))</p>
+                            <button class="btn btn-sm btn-secondary" @onclick="() => MergeAsync(group, reference)" disabled="@_merging">Keep this one</button>
+                        </div>
+                    }
+                </div>
+            }
+        }
+
+        @if (_reconciliationMessage is not null)
+        {
+            <div class="alert alert-info mt-2 mb-0">@_reconciliationMessage</div>
+        }
+        @if (_reconciliationError is not null)
+        {
+            <div class="alert alert-danger mt-2 mb-0">@_reconciliationError</div>
+        }
+    </div>
+}
+
+@if (_ratingSources.Count > 0)
+{
+    <div class="kt-form-card">
+        <p style="color:var(--kt-text-muted)">
+            Which provider score is shown as the rating pill and drives the "Ref ★" sort. Changing the source
+            only affects new links and syncs until you recompute - use Recompute to re-apply the selected
+            source to every already-linked item at once. IMDb (movies/TV) is out of 10 like TMDB, so switching
+            rarely changes the pill, but a few titles have no IMDb rating and will blank/sort last.
+            <br/>
+            The video game list follows whichever provider is configured as that domain's default, so it shows
+            IGDB's two scores today and would show RAWG's own plus Metacritic again if the deployment went back
+            to RAWG. A choice you made under another provider is kept, not erased - it simply falls back to the
+            default while that provider isn't in charge, and is honoured again as soon as it is. Values already
+            stored (a RAWG-era Metacritic score, say) keep showing on detail pages either way.
+        </p>
+        @foreach (var option in _ratingSources)
+        {
+            <div class="d-flex align-items-center gap-3 flex-wrap mb-2">
+                <strong style="min-width:110px">@DomainLabel(option.Domain)</strong>
+                <select class="form-select form-select-sm" style="max-width:170px" value="@option.SelectedSource"
+                        @onchange="e => SelectRatingSourceAsync(option, e.Value?.ToString() ?? option.SelectedSource)">
+                    @foreach (var source in option.AvailableSources)
+                    {
+                        <option value="@source">@SourceLabel(source)</option>
+                    }
+                </select>
+                <button class="btn btn-sm btn-secondary" @onclick="() => RecomputeRatingsAsync(option.Domain)" disabled="@_recomputing">Recompute</button>
+                @if (_recomputedDomain == option.Domain && _recomputeResult is not null)
+                {
+                    <span class="kt-card-meta">@_recomputeResult.ReferencesChecked references checked, @_recomputeResult.ItemsUpdated items updated.</span>
+                }
+            </div>
+        }
+        <hr class="my-3"/>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="explore-use-tmdb" checked="@_exploreUseTmdb" @onchange="OnExploreUseTmdbChangedAsync"/>
+            <label class="form-check-label" for="explore-use-tmdb" style="color:var(--kt-text-muted)">
+                <strong>Explore:</strong> always rank and show TMDB ratings for movies &amp; TV shows, even when IMDb is the
+                default source above. Keeps discovery fast by avoiding a per-title OMDb lookup on every page load.
+            </label>
+        </div>
+        @if (_ratingSourceError is not null)
+        {
+            <div class="alert alert-danger mt-2 mb-0">@_ratingSourceError</div>
+        }
+    </div>
+}
+
 <div class="kt-form-card">
     <p style="color:var(--kt-text-muted)">
-        Export the whole reference dataset (TV shows, movies, cast) as a zip, or re-import a previously
-        exported one - re-importing is safe to run more than once, since every document is upserted by id.
+        Export the whole reference dataset (TV shows, movies, books, video games, albums, cast) as a zip, or
+        re-import a previously exported one. Documents are matched by their provider id (TMDB, IGDB, Google
+        Books...), so re-importing into a database that already knows a title updates that title in place
+        rather than adding a second copy of it - safe to run as often as you like, and safe against a
+        database that earned some of its reference data on its own.
     </p>
     <div class="d-flex align-items-center gap-3 flex-wrap">
         <button class="btn btn-sm btn-secondary" @onclick="ExportAsync" disabled="@_exporting">Download export</button>
         <InputFile OnChange="OnImportFileSelectedAsync" accept=".zip" disabled="@_importing"/>
-        @if (_importing)
-        {
-            <div class="kt-spinner" style="width:1rem;height:1rem"></div>
-        }
     </div>
+    @if (_importing)
+    {
+        <div class="progress mt-3" style="height:8px;">
+            <div class="progress-bar" role="progressbar" style="width:@(ImportProgressPercent(_importStage))%"></div>
+        </div>
+        <p class="kt-card-meta mt-2">@ImportStageLabel(_importStage)</p>
+    }
     @if (_importResult is not null)
     {
         <div class="alert alert-info mt-3 mb-0">
-            Imported @_importResult.TvShowCount TV show(s), @_importResult.MovieCount movie(s), @_importResult.PersonCount person(s),
-            @_importResult.BookCount book(s), @_importResult.VideoGameCount video game(s), @_importResult.AlbumCount album(s).
+            Imported @Summarize("TV show", _importResult.TvShows), @Summarize("movie", _importResult.Movies),
+            @Summarize("person", _importResult.People), @Summarize("book", _importResult.Books),
+            @Summarize("video game", _importResult.VideoGames), @Summarize("album", _importResult.Albums).
         </div>
+        @if (_importResult.SkippedExternalIds.Count > 0)
+        {
+            <div class="alert alert-warning mt-3 mb-0">
+                @_importResult.SkippedExternalIds.Count provider id(s) were left out because another document here
+                already claims them - this database holds two reference documents for the same work, which only you
+                can merge: @string.Join(", ", _importResult.SkippedExternalIds)
+            </div>
+        }
+        @if (_importResult.PossibleDuplicates.Count > 0)
+        {
+            <div class="alert alert-warning mt-3 mb-0">
+                @_importResult.PossibleDuplicates.Count work(s) were imported as a second document because this
+                database already had them under a different provider's id - matching is by provider id, and an
+                import never fuses two records on title alone. Merge them in Provider reconciliation above:
+                @string.Join(", ", _importResult.PossibleDuplicates)
+            </div>
+        }
     }
     @if (_importExportError is not null)
     {
@@ -191,7 +419,7 @@
 <div class="kt-form-card">
     <div class="d-flex justify-content-between align-items-center mb-2">
         <h2 class="kt-section-title mt-0 mb-0" style="border:none;padding:0">System</h2>
-        <button class="btn btn-sm btn-secondary" @onclick="LoadSystemStatusAsync" disabled="@_loadingSystemStatus">↻ Refresh</button>
+        <button class="btn btn-sm btn-secondary" @onclick="LoadSystemStatusAsync" disabled="@_loadingSystemStatus"><Icon Name="refresh" Size="13"/> Refresh</button>
     </div>
     <p style="color:var(--kt-text-muted)">
         Configuration is reported by whichever instance answered this request - with several replicas,
@@ -228,6 +456,10 @@
             <tr>
                 <td>Book provider</td>
                 <td>@_systemStatus.BookProvider</td>
+            </tr>
+            <tr>
+                <td>Video game provider</td>
+                <td>@_systemStatus.VideoGameProvider</td>
             </tr>
             <tr>
                 <td>Sync lease</td>
@@ -304,14 +536,14 @@
     private int? _queryYear;
     private string? _creator;
     private string? _isbn;
-    private List<BookProviderDto> _bookProviders = [];
+    @* the registered providers for the selected domain, reloaded on every domain switch: empty for the
+       single-provider ones, which is what hides the picker without a per-type condition in the markup. *@
+    private List<ReferenceProviderDto> _providers = [];
     private string? _selectedProvider;
 
-    private string ProviderName => _type switch
+    private string ProviderName => _providers.FirstOrDefault(p => p.Key == _selectedProvider)?.DisplayName ?? _type switch
     {
         ReferenceItemType.TvShow or ReferenceItemType.Movie => "TMDB",
-        ReferenceItemType.Book => _bookProviders.FirstOrDefault(p => p.Key == _selectedProvider)?.DisplayName ?? "Google Books",
-        ReferenceItemType.VideoGame => "RAWG",
         ReferenceItemType.Album => "Discogs",
         _ => "reference"
     };
@@ -320,24 +552,40 @@
     private bool _importing;
     private ReferenceDataImportResultDto? _importResult;
     private string? _importExportError;
+    private ReferenceDataImportStage _importStage;
 
     private static readonly TimeSpan SyncPollInterval = TimeSpan.FromMilliseconds(600);
+    private static readonly TimeSpan ImportPollInterval = TimeSpan.FromMilliseconds(600);
 
     private bool _syncing;
+    private bool _forceSync;
+    private bool _exploreOnlySync;
     private ReferenceSyncResultDto? _syncResult;
     private string? _syncError;
     private ReferenceSyncStage _syncStage;
 
+    /// <summary>
+    /// Which mode the *finished* run was started in - read while the checkboxes are free to be toggled again,
+    /// so the result alert always describes the run it belongs to rather than the current checkbox state.
+    /// </summary>
+    private bool _syncResultForced;
+
+    private bool _syncResultExploreOnly;
+
     private async Task SyncNowAsync()
     {
+        var force = _forceSync;
+        var exploreOnly = _exploreOnlySync;
         _syncing = true;
         _syncError = null;
         _syncResult = null;
-        _syncStage = ReferenceSyncStage.SyncingTvShows;
+        // an Explore-only run never enters the reference stages, so starting the bar on "TV shows" would show
+        // a phase it will never reach
+        _syncStage = exploreOnly ? ReferenceSyncStage.RefreshingExplore : ReferenceSyncStage.SyncingTvShows;
 
         try
         {
-            var jobId = await Api.StartSyncAsync();
+            var jobId = await Api.StartSyncAsync(force, exploreOnly);
 
             while (true)
             {
@@ -347,6 +595,8 @@
                 if (status.Stage == ReferenceSyncStage.Completed)
                 {
                     _syncResult = status.Result;
+                    _syncResultForced = force;
+                    _syncResultExploreOnly = exploreOnly;
                     break;
                 }
 
@@ -376,7 +626,8 @@
         ReferenceSyncStage.SyncingMovies => 35,
         ReferenceSyncStage.SyncingBooks => 55,
         ReferenceSyncStage.SyncingVideoGames => 75,
-        ReferenceSyncStage.SyncingAlbums => 90,
+        ReferenceSyncStage.SyncingAlbums => 85,
+        ReferenceSyncStage.RefreshingExplore => 95,
         ReferenceSyncStage.Completed => 100,
         _ => 0
     };
@@ -388,9 +639,13 @@
         ReferenceSyncStage.SyncingBooks => "Checking books…",
         ReferenceSyncStage.SyncingVideoGames => "Checking video games…",
         ReferenceSyncStage.SyncingAlbums => "Checking albums…",
+        ReferenceSyncStage.RefreshingExplore => "Rebuilding Explore rankings…",
         ReferenceSyncStage.Completed => "Done",
         _ => ""
     };
+
+    private static string Summarize(string noun, ReferenceDataImportCountsDto counts) =>
+        $"{counts.Created} new + {counts.Updated} updated {noun}(s)";
 
     private async Task ExportAsync()
     {
@@ -419,10 +674,41 @@
         _importing = true;
         _importExportError = null;
         _importResult = null;
+        _importStage = ReferenceDataImportStage.Parsing;
         try
         {
-            await using var stream = e.File.OpenReadStream(MaxImportFileSize);
-            _importResult = await Api.ImportAsync(stream, e.File.Name);
+            // buffered here rather than handed to the API client as a live stream: an IBrowserFile stream is
+            // pulled down the SignalR circuit in small chunks, and doing that *during* the POST would count the
+            // whole upload against the request's own timeout.
+            using var buffer = new MemoryStream();
+            await using (var stream = e.File.OpenReadStream(MaxImportFileSize))
+            {
+                await stream.CopyToAsync(buffer);
+            }
+
+            buffer.Position = 0;
+            var jobId = await Api.StartImportAsync(buffer, e.File.Name);
+
+            while (true)
+            {
+                var status = await Api.GetImportStatusAsync(jobId);
+                _importStage = status.Stage;
+
+                if (status.Stage == ReferenceDataImportStage.Completed)
+                {
+                    _importResult = status.Result;
+                    break;
+                }
+
+                if (status.Stage == ReferenceDataImportStage.Failed)
+                {
+                    _importExportError = status.ErrorMessage ?? "The import failed.";
+                    break;
+                }
+
+                StateHasChanged();
+                await Task.Delay(ImportPollInterval);
+            }
         }
         catch (Exception ex)
         {
@@ -434,16 +720,240 @@
         }
     }
 
+    private static int ImportProgressPercent(ReferenceDataImportStage stage) => stage switch
+    {
+        ReferenceDataImportStage.ImportingPeople => 15,
+        ReferenceDataImportStage.ImportingTvShows => 55,
+        ReferenceDataImportStage.ImportingMovies => 70,
+        ReferenceDataImportStage.ImportingBooks => 80,
+        ReferenceDataImportStage.ImportingVideoGames => 88,
+        ReferenceDataImportStage.ImportingAlbums => 95,
+        ReferenceDataImportStage.Completed => 100,
+        _ => 5
+    };
+
+    private static string ImportStageLabel(ReferenceDataImportStage stage) => stage switch
+    {
+        ReferenceDataImportStage.Parsing => "Reading the export…",
+        // people are the bulk of a real export, so this stage holds for most of the run - say so rather than
+        // leaving a bar that looks stuck
+        ReferenceDataImportStage.ImportingPeople => "Importing people (the biggest collection - this is most of the wait)…",
+        ReferenceDataImportStage.ImportingTvShows => "Importing TV shows…",
+        ReferenceDataImportStage.ImportingMovies => "Importing movies…",
+        ReferenceDataImportStage.ImportingBooks => "Importing books…",
+        ReferenceDataImportStage.ImportingVideoGames => "Importing video games…",
+        ReferenceDataImportStage.ImportingAlbums => "Importing albums…",
+        ReferenceDataImportStage.Completed => "Done",
+        _ => ""
+    };
+
     private bool _loadingSystemStatus;
     private SystemStatusDto? _systemStatus;
     private string? _systemStatusError;
 
+    private List<RatingSourceOptionDto> _ratingSources = [];
+    private bool _recomputing;
+    private RecomputeRatingsResultDto? _recomputeResult;
+    private ReferenceItemType? _recomputedDomain;
+    private string? _ratingSourceError;
+    private bool _exploreUseTmdb;
+
     protected override async Task OnInitializedAsync()
     {
-        _bookProviders = await Api.GetBookProvidersAsync();
-        _selectedProvider = _bookProviders.FirstOrDefault()?.Key;
+        await LoadProvidersAsync();
+        _ratingSources = await Api.GetRatingSourcesAsync();
+        _exploreUseTmdb = (await Api.GetExploreSettingsAsync()).UseTmdbRanking;
         await LoadUnresolvedAsync();
+        await LoadReconciliationAsync();
         await LoadSystemStatusAsync();
+    }
+
+    private ProviderReconciliationDto? _reconciliation;
+    private bool _loadingReconciliation;
+    private string? _selectedGapId;
+    private List<ReferenceSearchResultDto> _candidates = [];
+    private string _candidateQuery = string.Empty;
+    private bool _loadingCandidates;
+    private bool _adopting;
+    private bool _merging;
+    private string? _reconciliationMessage;
+    private string? _reconciliationError;
+
+    private async Task LoadReconciliationAsync()
+    {
+        _loadingReconciliation = true;
+        try
+        {
+            _reconciliation = await Api.GetProviderReconciliationAsync();
+            _reconciliationError = null;
+        }
+        catch (Exception ex)
+        {
+            _reconciliationError = ex.Message;
+        }
+        finally
+        {
+            _loadingReconciliation = false;
+        }
+    }
+
+    @* Candidates cost a live provider call, so they are fetched when a row is opened - never for the whole
+       queue, which routinely runs to three figures. *@
+    private async Task SelectGapAsync(ProviderGapDto gap)
+    {
+        if (_selectedGapId == gap.ReferenceId)
+        {
+            _selectedGapId = null;
+            return;
+        }
+
+        _selectedGapId = gap.ReferenceId;
+        _candidateQuery = string.Empty;
+        await LoadCandidatesAsync(gap, null);
+    }
+
+    @* The manual half: a provider's search has genuine dead ends - IGDB returns three LEGO expansion packs
+       for every spelling of "Marvel's Avengers" and never the game - so an admin can ask with their own text,
+       or paste the game's page URL when no text works at all. *@
+    private async Task SearchCandidatesAsync(ProviderGapDto gap) => await LoadCandidatesAsync(gap, _candidateQuery);
+
+    private async Task LoadCandidatesAsync(ProviderGapDto gap, string? query)
+    {
+        _candidates = [];
+        _loadingCandidates = true;
+        _reconciliationError = null;
+        try
+        {
+            _candidates = await Api.GetAdoptionCandidatesAsync(gap.ReferenceId, query);
+        }
+        catch (Exception ex)
+        {
+            _reconciliationError = ex.Message;
+        }
+        finally
+        {
+            _loadingCandidates = false;
+        }
+    }
+
+    private async Task AdoptAsync(ProviderGapDto gap, ReferenceSearchResultDto candidate)
+    {
+        _adopting = true;
+        _reconciliationError = null;
+        try
+        {
+            await Api.AdoptProviderIdAsync(gap.ReferenceId, candidate.ExternalId);
+            _reconciliationMessage = $"\"{gap.Title}\" now carries {_reconciliation?.ProviderDisplayName} id {candidate.ExternalId}.";
+            _selectedGapId = null;
+            await LoadReconciliationAsync();
+        }
+        catch (Exception ex)
+        {
+            _reconciliationError = ex.Message;
+        }
+        finally
+        {
+            _adopting = false;
+        }
+    }
+
+    private async Task MergeAsync(DuplicateReferenceGroupDto group, DuplicateReferenceDto keep)
+    {
+        _merging = true;
+        _reconciliationError = null;
+        try
+        {
+            var repointed = 0L;
+            // a group can hold more than two documents; every one that isn't the keeper is folded in, in turn,
+            // so the admin's one click means "this is the work's document" rather than "merge this pair"
+            foreach (var absorbed in group.References.Where(r => r.ReferenceId != keep.ReferenceId))
+            {
+                repointed += (await Api.MergeReferencesAsync(keep.ReferenceId, absorbed.ReferenceId)).ItemsRepointed;
+            }
+
+            _reconciliationMessage = $"Merged into \"{keep.Title}\"; {repointed} item(s) re-pointed.";
+            await LoadReconciliationAsync();
+        }
+        catch (Exception ex)
+        {
+            _reconciliationError = ex.Message;
+        }
+        finally
+        {
+            _merging = false;
+        }
+    }
+
+    private async Task OnExploreUseTmdbChangedAsync(ChangeEventArgs e)
+    {
+        _exploreUseTmdb = e.Value as bool? ?? false;
+        try
+        {
+            await Api.SetExploreSettingsAsync(_exploreUseTmdb);
+            _ratingSourceError = null;
+        }
+        catch (Exception ex)
+        {
+            _ratingSourceError = ex.Message;
+        }
+    }
+
+    private static string SourceLabel(string source) => source switch
+    {
+        "tmdb" => "TMDB",
+        "imdb" => "IMDb",
+        "rawg" => "RAWG",
+        "metacritic" => "Metacritic",
+        "igdb" => "IGDB",
+        "igdbcritic" => "IGDB Critics",
+        _ => source
+    };
+
+    private static string DomainLabel(ReferenceItemType domain) => domain switch
+    {
+        ReferenceItemType.TvShow => "TV shows",
+        ReferenceItemType.Movie => "Movies",
+        ReferenceItemType.Book => "Books",
+        ReferenceItemType.VideoGame => "Video games",
+        ReferenceItemType.Album => "Albums",
+        _ => domain.ToString()
+    };
+
+    private async Task SelectRatingSourceAsync(RatingSourceOptionDto option, string source)
+    {
+        if (option.SelectedSource == source) return;
+
+        _ratingSourceError = null;
+        _recomputeResult = null;
+        try
+        {
+            await Api.SetRatingSourceAsync(option.Domain, source);
+            option.SelectedSource = source;
+        }
+        catch (Exception ex)
+        {
+            _ratingSourceError = ex.Message;
+        }
+    }
+
+    private async Task RecomputeRatingsAsync(ReferenceItemType domain)
+    {
+        _recomputing = true;
+        _ratingSourceError = null;
+        _recomputeResult = null;
+        _recomputedDomain = domain;
+        try
+        {
+            _recomputeResult = await Api.RecomputeRatingsAsync(domain);
+        }
+        catch (Exception ex)
+        {
+            _ratingSourceError = ex.Message;
+        }
+        finally
+        {
+            _recomputing = false;
+        }
     }
 
     private async Task LoadSystemStatusAsync()
@@ -478,7 +988,18 @@
     private async Task SelectTypeAsync(ReferenceItemType type)
     {
         _type = type;
+        await LoadProvidersAsync();
         await LoadUnresolvedAsync();
+    }
+
+    /// <summary>
+    /// Reloads the provider list for the selected domain, defaulting the selection to the deployment default
+    /// (registration order is display order, not necessarily the configured default).
+    /// </summary>
+    private async Task LoadProvidersAsync()
+    {
+        _providers = await Api.GetProvidersAsync(_type);
+        _selectedProvider = _providers.FirstOrDefault(p => p.IsDefault)?.Key ?? _providers.FirstOrDefault()?.Key;
     }
 
     private async Task SelectItemAsync(UnresolvedReferenceDto item)
@@ -511,7 +1032,7 @@
         _error = null;
         try
         {
-            _searchResults = await Api.SearchAsync(_type, _queryTitle ?? _selected.Title, _queryYear, _creator, _type == ReferenceItemType.Book ? _selectedProvider : null,
+            _searchResults = await Api.SearchAsync(_type, _queryTitle ?? _selected.Title, _queryYear, _creator, _selectedProvider,
                 _type == ReferenceItemType.Book ? _isbn : null);
         }
         catch (Exception ex)
@@ -546,7 +1067,7 @@
                 Title = _selected.Title,
                 Year = _selected.Year,
                 ExternalId = candidate.ExternalId,
-                Provider = _type == ReferenceItemType.Book ? _selectedProvider : null,
+                Provider = _selectedProvider,
                 Isbn = _type == ReferenceItemType.Book ? _isbn : null
             });
             await LoadUnresolvedAsync();

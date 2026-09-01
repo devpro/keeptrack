@@ -19,9 +19,9 @@ public class ListPage(IPage page, string route, string title) : PageBase(page)
         return this;
     }
 
-    public override async Task WaitForReadyAsync()
+    protected override async Task AssertReadyAsync()
     {
-        await base.WaitForReadyAsync();
+        await base.AssertReadyAsync();
         await Assertions.Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = title, Level = 1 })).ToBeVisibleAsync();
         await Assertions.Expect(Page.Locator(".kt-spinner")).ToBeHiddenAsync();
     }
@@ -30,6 +30,16 @@ public class ListPage(IPage page, string route, string title) : PageBase(page)
     /// The item row containing <paramref name="itemTitle"/> - scoping the delete action to a specific row, since every row repeats the same "Delete" button label.
     /// </summary>
     public ILocator Row(string itemTitle) => Page.Locator(".kt-item-row", new PageLocatorOptions { HasText = itemTitle });
+
+    /// <summary>
+    /// Asserts a row's wide thumbnail carries <paramref name="src"/> - the cover a detail page has just been given, seen from the list.
+    /// <para>
+    /// Re-read rather than merely waited for (see <see cref="PageBase.ExpectWithReloadAsync"/>): the detail page saves by having the <i>server</i> PUT the item over its own circuit, which the browser never sees, so a list rendered while that save is still in flight shows the item as it was and will never update itself.
+    /// Waiting longer on a page that cannot change is not a wait, it is a timeout - observed as a row stuck on its letter placeholder.
+    /// </para>
+    /// </summary>
+    public Task ExpectRowThumbnailAsync(string itemTitle, string src) =>
+        ExpectWithReloadAsync(() => Assertions.Expect(Row(itemTitle).Locator(".kt-item-thumb.wide img")).ToHaveAttributeAsync("src", src));
 
     /// <summary>
     /// The first state-changing click after a fresh page load -

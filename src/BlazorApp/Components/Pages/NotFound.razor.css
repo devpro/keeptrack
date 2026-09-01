@@ -1,0 +1,21 @@
+/* Scoped rather than added to app.css: these rules exist for this one page only and would just add noise
+   to the shared kt-* vocabulary. The surrounding .kt-empty / .kt-empty-icon / .kt-empty p rules are the
+   global ones - only the pieces this page adds live here. */
+
+.kt-not-found-code {
+    font-size: 0.78rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--kt-text-subtle);
+    margin-bottom: 0.5rem;
+}
+
+.kt-not-found h1 {
+    font-size: 1.6rem;
+    color: var(--kt-text);
+    margin: 0 0 0.75rem;
+}
+
+.kt-not-found .btn {
+    margin-top: 1.75rem;
+}

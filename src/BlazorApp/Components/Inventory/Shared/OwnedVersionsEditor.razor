@@ -24,13 +24,15 @@
 @foreach (var version in DisplayedVersions)
 {
     var isDraft = ReferenceEquals(version, _draft);
-    <div class="kt-form-card mb-3">
+    @* kt-copy-card: OwnedVersionFields' columns are equal-width col-md, sized to re-share whatever room
+       they get, so this card opts out of .kt-form-card's field-grid width cap. *@
+    <div class="kt-form-card kt-copy-card mb-3">
         <OwnedVersionFields Copy="version" OnChanged="() => NotifyChangedAsync(version)">
             <ButtonRowSuffix>
                 @if (!isDraft)
                 {
                     <button class="kt-icon-btn" title="Remove this copy" aria-label="Remove this copy" @onclick="() => RequestRemoveAsync(version)">
-                        <TrashIcon/>
+                        <Icon Name="trash" Size="15"/>
                     </button>
                 }
             </ButtonRowSuffix>
