@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Threading;
+using Keeptrack.BlazorApp.Components.Shared;
 using Keeptrack.Common.System;
 
 namespace Keeptrack.BlazorApp.Components.Inventory.Clients;
@@ -85,8 +86,8 @@ public abstract class InventoryApiClientBase<TDto>(HttpClient http, bool hasRefe
     }
 
     /// <summary>
-    /// User-triggered, exact-match-only re-check against the local reference collection (POST api/{type}/{id}/refresh-reference on WebApi).
-    /// Returns the (possibly now-linked) item so the caller can tell whether a match was actually found.
+    /// User-triggered re-check of the item's reference match (POST api/{type}/{id}/refresh-reference on WebApi), escalating to the provider when nothing local matches.
+    /// Returns the (possibly now-linked) item so the caller can tell whether a match was actually found, and throws <see cref="ApiRequestException"/> with the API's own message, which the page shows.
     /// </summary>
     public async Task<TDto> RefreshReferenceAsync(string id, CancellationToken cancellationToken = default)
     {
@@ -96,8 +97,7 @@ public abstract class InventoryApiClientBase<TDto>(HttpClient http, bool hasRefe
         }
 
         var response = await Http.PostAsync($"{ApiResourceName}/{id}/refresh-reference", null, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<TDto>(cancellationToken))!;
+        return (await response.ReadJsonOrThrowAsync<TDto>(cancellationToken))!;
     }
 
     /// <summary>
@@ -111,7 +111,6 @@ public abstract class InventoryApiClientBase<TDto>(HttpClient http, bool hasRefe
         }
 
         var response = await Http.PostAsync($"{ApiResourceName}/{id}/unlink-reference", null, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<TDto>(cancellationToken))!;
+        return (await response.ReadJsonOrThrowAsync<TDto>(cancellationToken))!;
     }
 }

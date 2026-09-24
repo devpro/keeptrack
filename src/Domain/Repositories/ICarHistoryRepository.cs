@@ -16,7 +16,7 @@ public interface ICarHistoryRepository : IDataRepository<CarHistoryModel>
 
     /// <summary>
     /// Fuel grades this owner has already recorded (SP95-E10, Gazole, ...), feeding the history form's
-    /// suggestion list - the same "suggest what you've already typed" shape as
+    /// suggestion list - the same "suggest what has already been typed" shape as
     /// <see cref="IGearRepository.FindDistinctCategoriesAsync"/>.
     /// </summary>
     Task<IReadOnlyList<string>> FindDistinctFuelCategoriesAsync(string ownerId, CancellationToken cancellationToken = default);

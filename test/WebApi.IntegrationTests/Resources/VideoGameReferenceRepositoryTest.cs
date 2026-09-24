@@ -185,8 +185,8 @@ public class VideoGameReferenceRepositoryTest(KestrelWebAppFactory<Program> fact
 
     /// <summary>
     /// The other half of what the owner reported: a tenant who <i>did</i> supply the year must get the game
-    /// from that year, not whichever same-titled document sorts first. This is what makes "supply a year and
-    /// you get an immediate match" a real contract rather than luck.
+    /// from that year, not whichever same-titled document sorts first. This is what makes "a supplied year gets
+    /// an immediate match" a real contract rather than luck.
     /// </summary>
     [Fact]
     public async Task FindByTitleYearAsync_PicksTheReferenceFromTheRequestedYear_WhenSeveralShareTheTitle()

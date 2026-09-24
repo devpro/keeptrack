@@ -1,7 +1,7 @@
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// How many items the caller has in each collection - backs the Home page's "your collection" overview.
+/// How many items the caller has in each collection - backs the Home page's collection overview.
 /// </summary>
 public class CollectionStatsDto
 {

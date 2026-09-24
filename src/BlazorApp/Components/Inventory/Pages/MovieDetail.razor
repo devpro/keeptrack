@@ -1,11 +1,12 @@
 @page "/movies/{Id}"
 @attribute [Authorize]
+@inherits ReferenceLinkedDetailPageBase<MovieDto, MovieReferenceDto>
 @using Keeptrack.BlazorApp.Components.ReferenceData
 @using Keeptrack.BlazorApp.Components.ReferenceDataAdmin
 
-@if (!_loaded)
+@if (!IsLoaded)
 {
-    @if (_loading)
+    @if (IsLoading)
     {
         <div class="kt-loading">
             <div class="kt-spinner"></div>
@@ -27,27 +28,9 @@ else
     <div class="kt-page-header">
         <div class="kt-title-row">
             <input class="kt-title-input" value="@Movie.Title" @onchange="SaveTitleAsync"/>
-            <span class="kt-title-toast-slot">
-                @if (_refreshMessage is not null)
-                {
-                    <span class="kt-inline-toast @_refreshMessageStyle">@_refreshMessage</span>
-                }
-            </span>
-            <button class="kt-icon-btn" aria-label="Check for reference match" @onclick="RefreshReferenceAsync" disabled="@_refreshingReference"
-                    title="@(string.IsNullOrEmpty(Movie.ReferenceId) ? "Check for reference match using the title and year below." : $"Linked to \"{Reference?.Title}\". Not right? Edit the title or year below, then check again.")">
-                <span class="@(_refreshingReference ? "kt-icon-spin" : "")"><Icon Name="refresh" Size="17"/></span>
-            </button>
-            @if (!string.IsNullOrEmpty(Movie.ReferenceId))
-            {
-                <AuthorizeView Policy="AdminOnly">
-                    <Authorized>
-                        <button class="kt-icon-btn" title="Unlink and remove this reference" aria-label="Unlink reference"
-                                @onclick="() => _pendingUnlink = true">
-                            <Icon Name="trash" Size="15"/>
-                        </button>
-                    </Authorized>
-                </AuthorizeView>
-            }
+            <ReferenceMatchControls TDto="MovieDto" Api="Api" ItemId="@(Movie.Id!)" ReferenceId="@Movie.ReferenceId" ReferenceTitle="@Reference?.Title"
+                                    ReferenceDataDescription="cover, synopsis, cast/genres"
+                                    OnChecked="OnReferenceCheckedAsync" OnUnlinked="LoadAsync"/>
         </div>
         @* "Watched" is deliberately NOT here: it lives on the card below as a .kt-corner-flag, because
            "have I seen this" outranks these three flags and the success green says "finished" where their
@@ -58,7 +41,7 @@ else
             <button class="btn btn-sm kt-toggle-btn @(Movie.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync"><Icon Name="wishlist" Size="13"/> Wishlist</button>
         </div>
     </div>
-    @if (_showLinker)
+    @if (ShowLinker)
     {
         <AuthorizeView Policy="AdminOnly">
             <Authorized>
@@ -66,12 +49,6 @@ else
             </Authorized>
         </AuthorizeView>
     }
-
-    <ConfirmModal Show="_pendingUnlink"
-                  Title="Unlink this reference?"
-                  Message="This clears the link on this item and permanently deletes the matched reference data (cover, synopsis, cast/genres). This can't be undone."
-                  ConfirmLabel="Unlink"
-                  OnConfirm="UnlinkReferenceAsync" OnCancel="() => _pendingUnlink = false"/>
 
     <div class="kt-form-card">
         <button type="button" class="kt-corner-flag @(Movie.FirstSeenAt is not null ? "active" : "")"
@@ -129,7 +106,7 @@ else
         }
     </div>
 
-    <OwnedVersionsEditor Versions="Movie.OwnedVersions" OnChanged="SaveMovieAsync"/>
+    <OwnedVersionsEditor Versions="Movie.OwnedVersions" OnChanged="SaveAsync"/>
 
     @if (Reference?.Cast.Count > 0)
     {
@@ -139,117 +116,65 @@ else
 }
 
 @code {
-    [Parameter] public required string Id { get; set; }
-
     [Inject] private MovieApiClient MovieApi { get; set; } = null!;
 
     [Inject] private ReferenceDataApiClient ReferenceDataApi { get; set; } = null!;
 
-    private static readonly TimeSpan RefreshMessageDuration = TimeSpan.FromSeconds(4);
+    protected override InventoryApiClientBase<MovieDto> Api => MovieApi;
 
-    // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
-    // _loaded tracks whether a load attempt has finished at all, fresh or restored from persisted
-    // prerender state - both default false so the forced render Blazor triggers right after the
-    // synchronous prefix of OnParametersSetAsync (before any awaited fetch resolves) shows blank instead
-    // of a spinner flash on every navigation to this page.
-    private bool _loading;
-    private bool _loaded;
+    protected override MovieDto? Item { get => Movie; set => Movie = value; }
 
-    // Public properties (a framework requirement for [PersistentState]): the data loaded during the
-    // prerender pass is carried over to the interactive circuit, so the first interactive render reuses
-    // it instead of resetting to the spinner and re-fetching - the cause of the visible
-    // content -> spinner -> content flash on every detail-page open.
+    protected override MovieReferenceDto? ItemReference { get => Reference; set => Reference = value; }
+
+    protected override Task<MovieReferenceDto?> GetReferenceAsync(string referenceId) => ReferenceDataApi.GetMovieAsync(referenceId);
+
+    // Public, as [PersistentState] requires: the prerendered item carries over to the interactive circuit instead of being fetched again.
     [PersistentState]
     public MovieDto? Movie { get; set; }
 
     [PersistentState]
     public MovieReferenceDto? Reference { get; set; }
-    // The admin search panel is revealed by the title row's check-for-match button coming back
-    // empty, not by the item merely being unlinked - otherwise it sits above the item's own data
-    // on every unlinked item, permanently, for the one role that sees most of them.
-    private bool _showLinker;
-    private bool _refreshingReference;
-    private string? _refreshMessage;
-    private string _refreshMessageStyle = "neutral";
-    private object? _refreshMessageToken;
-    private bool _pendingUnlink;
-
-    protected override async Task OnParametersSetAsync()
-    {
-        // Movie already holds this route's item when PersistentState restored the prerendered data
-        // the id check keeps an in-circuit navigation to a *different* movie reloading as before.
-        if (Movie?.Id == Id)
-        {
-            _loading = false;
-            _loaded = true;
-            return;
-        }
-        await LoadAsync();
-    }
-
-    private async Task LoadAsync()
-    {
-        // Closes the admin search panel on every (re)load, which covers linking from it (OnLinked calls
-        // this) as well as navigating to another item. RefreshReferenceAsync re-opens it afterwards when
-        // its own check came back without a link - it sets the flag *after* awaiting this.
-        _showLinker = false;
-        await LoadingIndicator.RunAsync(FetchAsync(), v => _loading = v, StateHasChanged);
-        _loading = false;
-        _loaded = true;
-    }
-
-    private async Task FetchAsync()
-    {
-        Movie = await MovieApi.GetOneAsync(Id);
-        Reference = string.IsNullOrEmpty(Movie?.ReferenceId) ? null : await ReferenceDataApi.GetMovieAsync(Movie.ReferenceId);
-    }
 
     private async Task ToggleFavoriteAsync()
     {
         if (Movie is null) return;
         Movie.IsFavorite = !Movie.IsFavorite;
-        await MovieApi.UpdateAsync(Movie);
+        await SaveAsync();
     }
 
     private async Task ToggleWantToWatchAsync()
     {
         if (Movie is null) return;
         Movie.WantToWatch = !Movie.WantToWatch;
-        await MovieApi.UpdateAsync(Movie);
-    }
-
-    private async Task SaveMovieAsync()
-    {
-        if (Movie is null) return;
-        await MovieApi.UpdateAsync(Movie);
+        await SaveAsync();
     }
 
     private async Task ToggleWishlistedAsync()
     {
         if (Movie is null) return;
         Movie.IsWishlisted = !Movie.IsWishlisted;
-        await MovieApi.UpdateAsync(Movie);
+        await SaveAsync();
     }
 
     private async Task SetRatingAsync(float rating)
     {
         if (Movie is null) return;
         Movie.Rating = rating;
-        await MovieApi.UpdateAsync(Movie);
+        await SaveAsync();
     }
 
     private async Task ToggleWatchedAsync()
     {
         if (Movie is null) return;
         Movie.FirstSeenAt = Movie.FirstSeenAt is null ? DateOnly.FromDateTime(DateTime.Today) : null;
-        await MovieApi.UpdateAsync(Movie);
+        await SaveAsync();
     }
 
     private async Task SetWatchedDateAsync(ChangeEventArgs e)
     {
         if (Movie is null) return;
         Movie.FirstSeenAt = DateOnlyInput.Parse(e.Value);
-        await MovieApi.UpdateAsync(Movie);
+        await SaveAsync();
     }
 
     private async Task SaveTitleAsync(ChangeEventArgs e)
@@ -258,87 +183,20 @@ else
         var title = e.Value?.ToString();
         if (string.IsNullOrWhiteSpace(title)) return;
         Movie.Title = title;
-        await MovieApi.UpdateAsync(Movie);
-    }
-
-    private async Task RefreshReferenceAsync()
-    {
-        if (Movie?.Id is null) return;
-
-        var previousReferenceId = Movie.ReferenceId;
-        _refreshingReference = true;
-        _refreshMessage = null;
-        try
-        {
-            var refreshed = await MovieApi.RefreshReferenceAsync(Movie.Id);
-            await LoadAsync();
-
-            (_refreshMessage, _refreshMessageStyle) = ReferenceRefreshMessage.Compute(previousReferenceId, refreshed.ReferenceId);
-            _showLinker = string.IsNullOrEmpty(Movie.ReferenceId);
-        }
-        catch (Exception ex)
-        {
-            _refreshMessage = $"Error: {ex.Message}";
-            _refreshMessageStyle = "danger";
-        }
-        finally
-        {
-            _refreshingReference = false;
-        }
-
-        ScheduleRefreshMessageClear();
-    }
-
-    private async Task UnlinkReferenceAsync()
-    {
-        _pendingUnlink = false;
-        if (Movie?.Id is null) return;
-
-        try
-        {
-            await MovieApi.UnlinkReferenceAsync(Movie.Id);
-            await LoadAsync();
-            (_refreshMessage, _refreshMessageStyle) = ("Unlinked and reference removed.", "success");
-        }
-        catch (Exception ex)
-        {
-            _refreshMessage = $"Error: {ex.Message}";
-            _refreshMessageStyle = "danger";
-        }
-
-        ScheduleRefreshMessageClear();
-    }
-
-    /// <summary>
-    /// The toast is a small, auto-dismissing pill next to the refresh icon, not a permanent line of text -
-    /// a token guards against an in-flight delay from a previous click clearing a newer message.
-    /// </summary>
-    private void ScheduleRefreshMessageClear()
-    {
-        var token = new object();
-        _refreshMessageToken = token;
-        _ = ClearRefreshMessageAfterDelayAsync(token);
-    }
-
-    private async Task ClearRefreshMessageAfterDelayAsync(object token)
-    {
-        await Task.Delay(RefreshMessageDuration);
-        if (!ReferenceEquals(_refreshMessageToken, token)) return;
-        _refreshMessage = null;
-        await InvokeAsync(StateHasChanged);
+        await SaveAsync();
     }
 
     private async Task SaveYearAsync(ChangeEventArgs e)
     {
         if (Movie is null) return;
         Movie.Year = int.TryParse(e.Value?.ToString(), out var year) ? year : null;
-        await MovieApi.UpdateAsync(Movie);
+        await SaveAsync();
     }
 
     private async Task SaveNotesAsync(ChangeEventArgs e)
     {
         if (Movie is null) return;
         Movie.Notes = e.Value?.ToString();
-        await MovieApi.UpdateAsync(Movie);
+        await SaveAsync();
     }
 }

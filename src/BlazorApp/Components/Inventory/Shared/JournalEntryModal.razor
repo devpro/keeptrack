@@ -1,0 +1,47 @@
+@*
+    The add/edit modal of a journal page, with its unsaved-changes confirmation.
+    Only Cancel and the close button dismiss it, never a click outside, and both ask before discarding changes.
+*@
+
+@if (Show)
+{
+    <div class="kt-modal-backdrop">
+        <div class="kt-modal kt-modal-wide">
+            <div class="kt-modal-header">
+                <h5>@Title</h5>
+                <button class="kt-modal-close" @onclick="OnCancel">✕</button>
+            </div>
+            <div class="kt-modal-body">
+                @ChildContent
+            </div>
+            <div class="kt-modal-footer">
+                <button class="btn btn-secondary" @onclick="OnCancel">Cancel</button>
+                <button class="btn btn-success" @onclick="OnSave">Save</button>
+            </div>
+        </div>
+    </div>
+}
+
+<ConfirmModal Show="ShowDiscardConfirm"
+              Title="Discard unsaved changes?"
+              Message="This entry has unsaved changes that will be lost."
+              ConfirmLabel="Discard"
+              OnConfirm="OnConfirmDiscard" OnCancel="OnCancelDiscard"/>
+
+@code {
+    [Parameter, EditorRequired] public required bool Show { get; set; }
+
+    [Parameter, EditorRequired] public required string Title { get; set; }
+
+    [Parameter, EditorRequired] public required RenderFragment ChildContent { get; set; }
+
+    [Parameter, EditorRequired] public required EventCallback OnCancel { get; set; }
+
+    [Parameter, EditorRequired] public required EventCallback OnSave { get; set; }
+
+    [Parameter, EditorRequired] public required bool ShowDiscardConfirm { get; set; }
+
+    [Parameter, EditorRequired] public required EventCallback OnConfirmDiscard { get; set; }
+
+    [Parameter, EditorRequired] public required EventCallback OnCancelDiscard { get; set; }
+}

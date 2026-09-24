@@ -179,7 +179,7 @@ public abstract partial class SmokeTestBase : PageTest
     /// <para>
     /// Deleting something the test didn't create is normally forbidden here, and this is the one narrow
     /// exception: a scenario whose precondition is "the tenant does not already hold this item" cannot be set
-    /// up any other way (Explore's add, where the feature's whole contract is to hide what you already track).
+    /// up any other way (Explore's add, where the feature's whole contract is to hide what the tenant already tracks).
     /// It is safe only because <see cref="TestDatabaseGuard"/> refuses to let the suite run against anything
     /// but a dedicated test database - never <c>keeptrack_dev</c> or a real one. Match as narrowly as the list
     /// query allows, and never reach for this to paper over a missing cleanup.

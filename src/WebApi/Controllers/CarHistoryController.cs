@@ -18,7 +18,7 @@ public class CarHistoryController(
 {
     /// <summary>
     /// Fuel grades this account has already recorded, feeding the history form's suggestion list - the same
-    /// "suggest what you've already typed" shape as <c>GearController.GetCategories</c>.
+    /// "suggest what has already been typed" shape as <c>GearController.GetCategories</c>.
     /// </summary>
     [HttpGet("fuel-categories")]
     [ProducesResponseType(200)]

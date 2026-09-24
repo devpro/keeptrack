@@ -1,0 +1,56 @@
+@using static Keeptrack.BlazorApp.Components.Shared.SvgChartHelpers
+@*
+    A graduated X/Y axis pair drawn inside a chart's <svg>: arrowheads, tick marks, tick labels and axis titles.
+    The ticks come from the chart, since an evenly spaced value differs between a continuous line chart and a categorical bar chart.
+    The Y-axis title is a horizontal caption above the axis rather than rotated along it, because a rotated single glyph such as "€" reads as a different character.
+*@
+
+<defs>
+    <marker id="@MarkerId" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M0,0 L8,4 L0,8 Z" fill="@AxisColor"></path>
+    </marker>
+</defs>
+@* Drawn from the origin outward, so each arrowhead (marker-end) points away from it. *@
+<line x1="@ToSvg(Geometry.PlotLeft)" y1="@ToSvg(Geometry.PlotBottom)" x2="@ToSvg(Geometry.PlotLeft)" y2="@ToSvg(Geometry.PlotTop)"
+      stroke="@AxisColor" stroke-width="1" vector-effect="non-scaling-stroke" marker-end="@MarkerUrl"></line>
+<line x1="@ToSvg(Geometry.PlotLeft)" y1="@ToSvg(Geometry.PlotBottom)" x2="@ToSvg(Geometry.PlotRight)" y2="@ToSvg(Geometry.PlotBottom)"
+      stroke="@AxisColor" stroke-width="1" vector-effect="non-scaling-stroke" marker-end="@MarkerUrl"></line>
+@foreach (var (y, label) in YTicks)
+{
+    <g>
+        <line x1="@ToSvg(Geometry.PlotLeft - 3)" y1="@ToSvg(y)" x2="@ToSvg(Geometry.PlotLeft)" y2="@ToSvg(y)"
+              stroke="@AxisColor" stroke-width="1" vector-effect="non-scaling-stroke"></line>
+        <text x="@ToSvg(Geometry.PlotLeft - 5)" y="@ToSvg(y + 2.5)" text-anchor="end" class="kt-chart-axis-text">@label</text>
+    </g>
+}
+@foreach (var (x, label) in XTicks)
+{
+    <g>
+        <line x1="@ToSvg(x)" y1="@ToSvg(Geometry.PlotBottom)" x2="@ToSvg(x)" y2="@ToSvg(Geometry.PlotBottom + 3)"
+              stroke="@AxisColor" stroke-width="1" vector-effect="non-scaling-stroke"></line>
+        <text x="@ToSvg(x)" y="@ToSvg(Geometry.PlotBottom + 12)" text-anchor="middle" class="kt-chart-axis-text">@label</text>
+    </g>
+}
+<g>
+    <text x="2" y="@ToSvg(Geometry.PlotTop - 4)" text-anchor="start" class="kt-chart-axis-title">@YAxisLabel</text>
+    <text x="@ToSvg((Geometry.PlotLeft + Geometry.PlotRight) / 2)" y="@ToSvg(Geometry.ViewHeight - 4)" text-anchor="middle" class="kt-chart-axis-title">@XAxisLabel</text>
+</g>
+
+@code {
+    private const string AxisColor = "var(--kt-text-muted)";
+
+    [Parameter, EditorRequired] public ChartGeometry Geometry { get; set; }
+
+    /// <summary>The arrowhead marker's element id, unique per chart on a page since SVG ids are document-wide.</summary>
+    [Parameter, EditorRequired] public string MarkerId { get; set; } = "";
+
+    [Parameter, EditorRequired] public string XAxisLabel { get; set; } = "";
+
+    [Parameter, EditorRequired] public string YAxisLabel { get; set; } = "";
+
+    [Parameter, EditorRequired] public IReadOnlyList<(double Y, string Label)> YTicks { get; set; } = [];
+
+    [Parameter, EditorRequired] public IReadOnlyList<(double X, string Label)> XTicks { get; set; } = [];
+
+    private string MarkerUrl => $"url(#{MarkerId})";
+}

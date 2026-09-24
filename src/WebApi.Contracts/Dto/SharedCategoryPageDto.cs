@@ -5,7 +5,7 @@ namespace Keeptrack.WebApi.Contracts.Dto;
 /// <summary>
 /// One page of items from a shared category, plus which of them the recipient already has in their own
 /// collection (<see cref="AlreadyInCollectionIds"/> holds the sharer-side item ids that matched something
-/// the recipient owns) - so the list can show "already in your collection" without a per-row round trip.
+/// the recipient owns) - so the list can show which items are already in the recipient's collection without a per-row round trip.
 /// </summary>
 /// <typeparam name="TDto">The media item DTO for this category (e.g. <see cref="MovieDto"/>).</typeparam>
 public class SharedCategoryPageDto<TDto>

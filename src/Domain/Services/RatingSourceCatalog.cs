@@ -1,4 +1,7 @@
-namespace Keeptrack.WebApi.ReferenceData;
+using System;
+using System.Collections.Generic;
+
+namespace Keeptrack.Domain.Services;
 
 /// <summary>
 /// The declaration table for rating sources: every key any stored value can carry, the scale each is

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using AwesomeAssertions;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
+using Keeptrack.Domain.Services;
 using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.ReferenceData;
 using Microsoft.Extensions.Logging.Abstractions;

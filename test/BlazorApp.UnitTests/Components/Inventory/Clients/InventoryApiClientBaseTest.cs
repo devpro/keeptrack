@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AwesomeAssertions;
 using Keeptrack.BlazorApp.Components.Inventory.Clients;
+using Keeptrack.BlazorApp.Components.Shared;
 using Keeptrack.WebApi.Contracts.Dto;
 using Xunit;
 
@@ -59,5 +60,27 @@ public class InventoryApiClientBaseTest
         var get = async () => await ClientReturning(statusCode).GetOneAsync("abc");
 
         await get.Should().ThrowAsync<HttpRequestException>();
+    }
+
+    [Fact]
+    public async Task RefreshReferenceAsync_ReportsTheApisOwnMessage_WhenTheProviderFailed()
+    {
+        var client = ClientReturning(HttpStatusCode.BadGateway, JsonContent.Create(new { error = "The external provider returned 503 (ServiceUnavailable)." }));
+
+        var refresh = async () => await client.RefreshReferenceAsync("abc", TestContext.Current.CancellationToken);
+
+        var thrown = await refresh.Should().ThrowAsync<ApiRequestException>();
+        thrown.Which.Message.Should().Be("The external provider returned 503 (ServiceUnavailable).");
+        thrown.Which.IsUpstreamProviderFailure.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UnlinkReferenceAsync_ReportsTheApisOwnMessage_WhenItFails()
+    {
+        var client = ClientReturning(HttpStatusCode.Forbidden, JsonContent.Create(new { error = "Admins only." }));
+
+        var unlink = async () => await client.UnlinkReferenceAsync("abc", TestContext.Current.CancellationToken);
+
+        (await unlink.Should().ThrowAsync<ApiRequestException>()).Which.Message.Should().Be("Admins only.");
     }
 }

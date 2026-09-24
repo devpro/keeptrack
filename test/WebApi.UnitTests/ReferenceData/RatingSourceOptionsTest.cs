@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using AwesomeAssertions;
+using Keeptrack.Domain.Services;
 using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.ReferenceData;
 using Xunit;

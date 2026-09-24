@@ -1,10 +1,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using AwesomeAssertions;
+using Keeptrack.Domain.Services;
 using Keeptrack.WebApi.ReferenceData;
 using Xunit;
 
-namespace Keeptrack.WebApi.UnitTests.ReferenceData;
+namespace Keeptrack.WebApi.UnitTests.Services;
 
 /// <summary>
 /// The one rule saying when a provider's candidate is the work being looked for - read by every domain's

@@ -1,11 +1,12 @@
 @page "/tv-shows/{Id}"
 @attribute [Authorize]
+@inherits ReferenceLinkedDetailPageBase<TvShowDto, TvShowReferenceDto>
 @using Keeptrack.BlazorApp.Components.ReferenceData
 @using Keeptrack.BlazorApp.Components.ReferenceDataAdmin
 
-@if (!_loaded)
+@if (!IsLoaded)
 {
-    @if (_loading)
+    @if (IsLoading)
     {
         <div class="kt-loading">
             <div class="kt-spinner"></div>
@@ -27,27 +28,9 @@ else
     <div class="kt-page-header">
         <div class="kt-title-row">
             <input class="kt-title-input" value="@_show.Title" @onchange="SaveTitleAsync"/>
-            <span class="kt-title-toast-slot">
-                @if (_refreshMessage is not null)
-                {
-                    <span class="kt-inline-toast @_refreshMessageStyle">@_refreshMessage</span>
-                }
-            </span>
-            <button class="kt-icon-btn" aria-label="Check for reference match" @onclick="RefreshReferenceAsync" disabled="@_refreshingReference"
-                    title="@(string.IsNullOrEmpty(_show.ReferenceId) ? "Check for reference match using the title and year below." : $"Linked to \"{_reference?.Title}\". Not right? Edit the title or year below, then check again.")">
-                <span class="@(_refreshingReference ? "kt-icon-spin" : "")"><Icon Name="refresh" Size="17"/></span>
-            </button>
-            @if (!string.IsNullOrEmpty(_show.ReferenceId))
-            {
-                <AuthorizeView Policy="AdminOnly">
-                    <Authorized>
-                        <button class="kt-icon-btn" title="Unlink and remove this reference" aria-label="Unlink reference"
-                                @onclick="() => _pendingUnlink = true">
-                            <Icon Name="trash" Size="15"/>
-                        </button>
-                    </Authorized>
-                </AuthorizeView>
-            }
+            <ReferenceMatchControls TDto="TvShowDto" Api="Api" ItemId="@(_show.Id!)" ReferenceId="@_show.ReferenceId" ReferenceTitle="@_reference?.Title"
+                                    ReferenceDataDescription="cover, synopsis, cast/genres, episode guide"
+                                    OnChecked="OnReferenceCheckedAsync" OnUnlinked="LoadAsync"/>
         </div>
         <div class="d-flex gap-2">
             <button class="btn btn-sm kt-toggle-btn @(_show.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>
@@ -61,7 +44,7 @@ else
         <button class="btn btn-sm @(_show.State == TvShowStatus.Stopped ? "btn-danger" : "btn-secondary")" @onclick='() => SetStateAsync(TvShowStatus.Stopped)'>Stopped</button>
     </div>
 
-    @if (_showLinker)
+    @if (ShowLinker)
     {
         <AuthorizeView Policy="AdminOnly">
             <Authorized>
@@ -69,12 +52,6 @@ else
             </Authorized>
         </AuthorizeView>
     }
-
-    <ConfirmModal Show="_pendingUnlink"
-                  Title="Unlink this reference?"
-                  Message="This clears the link on this item and permanently deletes the matched reference data (cover, synopsis, cast/genres, episode guide). This can't be undone."
-                  ConfirmLabel="Unlink"
-                  OnConfirm="UnlinkReferenceAsync" OnCancel="() => _pendingUnlink = false"/>
 
     <div class="kt-form-card">
         <DetailHero ImageUrl="@_reference?.ImageUrl" Alt="@($"{_show.Title} poster")">
@@ -118,7 +95,7 @@ else
         <CastGrid Cast="_reference.Cast"/>
     }
 
-    <OwnedVersionsEditor Versions="_show.OwnedVersions" OnChanged="SaveShowAsync"/>
+    <OwnedVersionsEditor Versions="_show.OwnedVersions" OnChanged="SaveAsync"/>
 
     @if (_reference is not null)
     {
@@ -225,87 +202,36 @@ else
 }
 
 @code {
-    [Parameter] public required string Id { get; set; }
-
     [Inject] private TvShowApiClient TvShowApi { get; set; } = null!;
 
     [Inject] private EpisodeApiClient EpisodeApi { get; set; } = null!;
 
     [Inject] private ReferenceDataApiClient ReferenceDataApi { get; set; } = null!;
 
-    // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
-    // _loaded tracks whether a load attempt has finished at all, fresh or restored from persisted
-    // prerender state - both default false so the forced render Blazor triggers right after the
-    // synchronous prefix of OnParametersSetAsync (before any awaited fetch resolves) shows blank instead
-    // of a spinner flash on every navigation to this page.
-    private bool _loading;
-    private bool _loaded;
-    private TvShowDto? _show;
-    private TvShowReferenceDto? _reference;
-    private List<EpisodeDto>? _episodes;
-    private Dictionary<(int Season, int Episode), EpisodeDto> _watchedByKey = new();
-    private Dictionary<int, List<ReferenceEpisodeDto>> _referenceEpisodesBySeason = new();
-    private List<int> _seasons = [];
-    private Dictionary<int, List<EpisodeDto>> _unresolvedEpisodesBySeason = new();
-    private List<int> _unresolvedSeasons = [];
-    private int _selectedSeason;
-    private string? _error;
-    private static readonly TimeSpan RefreshMessageDuration = TimeSpan.FromSeconds(4);
-    // The admin search panel is revealed by the title row's check-for-match button coming back
-    // empty, not by the item merely being unlinked - otherwise it sits above the item's own data
-    // on every unlinked item, permanently, for the one role that sees most of them.
-    private bool _showLinker;
-    private bool _refreshingReference;
-    private string? _refreshMessage;
-    private string _refreshMessageStyle = "neutral";
-    private object? _refreshMessageToken;
-    private bool _pendingUnlink;
+    protected override InventoryApiClientBase<TvShowDto> Api => TvShowApi;
 
-    private int _newSeason = 1;
-    private int _newEpisode = 1;
-    private DateOnly? _newWatchedAt = DateOnly.FromDateTime(DateTime.Today);
+    protected override TvShowDto? Item { get => _show; set => _show = value; }
 
-    protected override async Task OnParametersSetAsync() => await LoadAsync();
+    protected override TvShowReferenceDto? ItemReference { get => _reference; set => _reference = value; }
 
-    private async Task LoadAsync()
+    protected override Task<TvShowReferenceDto?> GetReferenceAsync(string referenceId) => ReferenceDataApi.GetTvShowAsync(referenceId);
+
+    protected override async Task LoadExtrasAsync()
     {
-        // Closes the admin search panel on every (re)load, which covers linking from it (OnLinked calls
-        // this) as well as navigating to another item. RefreshReferenceAsync re-opens it afterwards when
-        // its own check came back without a link - it sets the flag *after* awaiting this.
-        _showLinker = false;
-        await LoadingIndicator.RunAsync(FetchAsync(), v => _loading = v, StateHasChanged);
-        _loading = false;
-        _loaded = true;
+        // The episode query filters on this same id, so an id that names no show would fail the whole page instead of letting it render "Show not found.".
+        _episodes = _show is null ? null : (await EpisodeApi.GetAsync(string.Empty, 1, 5000, new Dictionary<string, string> { ["TvShowId"] = Id })).Items;
     }
 
-    private async Task FetchAsync()
+    protected override void OnItemLoaded()
     {
-        _show = await TvShowApi.GetOneAsync(Id);
-        if (_show is null)
-        {
-            // Nothing below means anything without the show, and the episode query is actively harmful here:
-            // it filters on this same id, so an id that names no show - a hand-edited or truncated URL - would
-            // fail the whole page instead of letting it render its "Show not found." state.
-            // Same parent-then-children order CarDetail/HouseDetail/HealthProfileDetail already use.
-            _episodes = null;
-            _reference = null;
-            return;
-        }
+        if (_episodes is null) return;
 
-        var episodes = await EpisodeApi.GetAsync(string.Empty, 1, 5000, new Dictionary<string, string> { ["TvShowId"] = Id });
-        _episodes = episodes.Items;
-
-        // reference data (synopsis, real episode titles, cast, poster) is a progressive enhancement: it
-        // may not exist yet (background match still pending, or genuinely unresolved), so the page never
-        // blocks on it - see the two very different rendering branches below.
-        _reference = string.IsNullOrEmpty(_show?.ReferenceId) ? null : await ReferenceDataApi.GetTvShowAsync(_show.ReferenceId);
         _watchedByKey = _episodes.ToDictionary(e => (e.SeasonNumber, e.EpisodeNumber));
 
         if (_reference is not null)
         {
-            // full checklist, in natural watch-through order - an episode TMDB lists with a future air date
-            // hasn't aired yet, so it isn't "unseen and ready to watch", it doesn't exist yet from the
-            // viewer's perspective (same air-date filter WatchNextService applies for the "next episode" calc)
+            // The full checklist, in watch-through order.
+            // An episode with a future air date doesn't exist yet from the viewer's side, the same filter WatchNextService applies.
             var today = DateOnly.FromDateTime(DateTime.Today);
             _referenceEpisodesBySeason = _reference.Episodes
                 .Where(e => e.AirDate is null || e.AirDate <= today)
@@ -316,7 +242,7 @@ else
         }
         else
         {
-            // unresolved: only what's actually been recorded, most recently aired first
+            // Unlinked: only what has been recorded, most recently aired first.
             _unresolvedEpisodesBySeason = _episodes
                 .GroupBy(e => e.SeasonNumber)
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(e => e.EpisodeNumber).ToList());
@@ -325,33 +251,43 @@ else
         }
     }
 
+    // Reference data (synopsis, real episode titles, cast, poster) is a progressive enhancement: it may not exist yet, so the page never blocks on it.
+    private TvShowDto? _show;
+    private TvShowReferenceDto? _reference;
+    private List<EpisodeDto>? _episodes;
+    private Dictionary<(int Season, int Episode), EpisodeDto> _watchedByKey = new();
+    private Dictionary<int, List<ReferenceEpisodeDto>> _referenceEpisodesBySeason = new();
+    private List<int> _seasons = [];
+    private Dictionary<int, List<EpisodeDto>> _unresolvedEpisodesBySeason = new();
+    private List<int> _unresolvedSeasons = [];
+    private int _selectedSeason;
+    private string? _error;
+
+    private int _newSeason = 1;
+    private int _newEpisode = 1;
+    private DateOnly? _newWatchedAt = DateOnly.FromDateTime(DateTime.Today);
+
     private void SelectSeason(int season) => _selectedSeason = season;
 
     private async Task ToggleFavoriteAsync()
     {
         if (_show is null) return;
         _show.IsFavorite = !_show.IsFavorite;
-        await TvShowApi.UpdateAsync(_show);
-    }
-
-    private async Task SaveShowAsync()
-    {
-        if (_show is null) return;
-        await TvShowApi.UpdateAsync(_show);
+        await SaveAsync();
     }
 
     private async Task ToggleWishlistedAsync()
     {
         if (_show is null) return;
         _show.IsWishlisted = !_show.IsWishlisted;
-        await TvShowApi.UpdateAsync(_show);
+        await SaveAsync();
     }
 
     private async Task SetRatingAsync(float rating)
     {
         if (_show is null) return;
         _show.Rating = rating;
-        await TvShowApi.UpdateAsync(_show);
+        await SaveAsync();
     }
 
     /// <summary>
@@ -363,7 +299,7 @@ else
     {
         if (_show is null) return;
         _show.State = _show.State == state ? null : state;
-        await TvShowApi.UpdateAsync(_show);
+        await SaveAsync();
     }
 
     private async Task SaveTitleAsync(ChangeEventArgs e)
@@ -372,88 +308,21 @@ else
         var title = e.Value?.ToString();
         if (string.IsNullOrWhiteSpace(title)) return;
         _show.Title = title;
-        await TvShowApi.UpdateAsync(_show);
-    }
-
-    private async Task RefreshReferenceAsync()
-    {
-        if (_show?.Id is null) return;
-
-        var previousReferenceId = _show.ReferenceId;
-        _refreshingReference = true;
-        _refreshMessage = null;
-        try
-        {
-            var refreshed = await TvShowApi.RefreshReferenceAsync(_show.Id);
-            await LoadAsync();
-
-            (_refreshMessage, _refreshMessageStyle) = ReferenceRefreshMessage.Compute(previousReferenceId, refreshed.ReferenceId);
-            _showLinker = string.IsNullOrEmpty(_show.ReferenceId);
-        }
-        catch (Exception ex)
-        {
-            _refreshMessage = $"Error: {ex.Message}";
-            _refreshMessageStyle = "danger";
-        }
-        finally
-        {
-            _refreshingReference = false;
-        }
-
-        ScheduleRefreshMessageClear();
-    }
-
-    private async Task UnlinkReferenceAsync()
-    {
-        _pendingUnlink = false;
-        if (_show?.Id is null) return;
-
-        try
-        {
-            await TvShowApi.UnlinkReferenceAsync(_show.Id);
-            await LoadAsync();
-            (_refreshMessage, _refreshMessageStyle) = ("Unlinked and reference removed.", "success");
-        }
-        catch (Exception ex)
-        {
-            _refreshMessage = $"Error: {ex.Message}";
-            _refreshMessageStyle = "danger";
-        }
-
-        ScheduleRefreshMessageClear();
-    }
-
-    /// <summary>
-    /// The toast is a small, auto-dismissing pill next to the refresh icon, not a permanent line of text -
-    /// a token guards against an in-flight delay from a previous click clearing a newer message.
-    /// </summary>
-    private void ScheduleRefreshMessageClear()
-    {
-        var token = new object();
-        _refreshMessageToken = token;
-        _ = ClearRefreshMessageAfterDelayAsync(token);
-    }
-
-    private async Task ClearRefreshMessageAfterDelayAsync(object token)
-    {
-        await Task.Delay(RefreshMessageDuration);
-        if (!ReferenceEquals(_refreshMessageToken, token)) return;
-        _refreshMessage = null;
-        await InvokeAsync(StateHasChanged);
+        await SaveAsync();
     }
 
     private async Task SaveYearAsync(ChangeEventArgs e)
     {
         if (_show is null) return;
         _show.Year = int.TryParse(e.Value?.ToString(), out var year) ? year : null;
-        await TvShowApi.UpdateAsync(_show);
+        await SaveAsync();
     }
 
     private async Task SaveNotesAsync(ChangeEventArgs e)
     {
         if (_show is null) return;
         _show.Notes = e.Value?.ToString();
-        await TvShowApi.UpdateAsync(_show);
+        await SaveAsync();
     }
 
     private bool IsSelectedSeasonFullyWatched() =>

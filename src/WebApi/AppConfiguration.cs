@@ -78,7 +78,7 @@ public class AppConfiguration(IConfiguration configuration)
     /// when unset, so an existing deployment needs no config change to move off RAWG.
     /// </summary>
     public string VideoGameReferenceProvider =>
-        configuration.TryGetSection<string>("ReferenceData:VideoGameProvider") is { Length: > 0 } provider ? provider : ReferenceData.RatingSourceCatalog.Igdb;
+        configuration.TryGetSection<string>("ReferenceData:VideoGameProvider") is { Length: > 0 } provider ? provider : Domain.Services.RatingSourceCatalog.Igdb;
 
     public string ConnectionString => configuration.TryGetSection<string>("Infrastructure:MongoDB:ConnectionString");
 

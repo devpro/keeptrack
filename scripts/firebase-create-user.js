@@ -10,7 +10,7 @@
  * Deliberately needs only the Web API key (FIREBASE_APIKEY), never a service account.
  * accounts:signUp is the same public endpoint a real "create account" form calls, so creating a user needs
  * no elevated privilege - only granting a role afterward does, which is why that stays a separate script
- * over the Admin SDK (scripts/firebase-user-role.js).
+ * over a service account (scripts/firebase-user-role.js).
  *
  * Usage:
  *   FIREBASE_APIKEY=<web-api-key> node scripts/firebase-create-user.js
@@ -57,9 +57,9 @@ async function main() {
     process.stdout.write(`  password: ${password}\n`);
     process.stdout.write('\n');
     process.stdout.write('No role claim is set - a brand new user is a free-preview account by default.\n');
-    process.stdout.write('To grant one (needs the project\'s service account JSON, see CONTRIBUTING.md\'s "Admin role" section):\n');
-    process.stdout.write(`  deno run -A scripts/firebase-user-role.js <path-to-service-account.json> ${email} member\n`);
-    process.stdout.write(`  deno run -A scripts/firebase-user-role.js <path-to-service-account.json> ${email} admin\n`);
+    process.stdout.write('To grant one (needs the project\'s service account JSON, see CONTRIBUTING.md\'s "Roles" section):\n');
+    process.stdout.write(`  node scripts/firebase-user-role.js <path-to-service-account.json> ${email} member\n`);
+    process.stdout.write(`  node scripts/firebase-user-role.js <path-to-service-account.json> ${email} admin\n`);
 }
 
 main().catch((error) => {

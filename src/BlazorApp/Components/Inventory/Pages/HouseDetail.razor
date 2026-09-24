@@ -1,9 +1,10 @@
 ﻿@page "/houses/{Id}"
 @attribute [Authorize]
+@inherits JournalDetailPageBase<HouseDto, HouseHistoryDto, HouseMetricsDto>
 
-@if (!_loaded)
+@if (!IsLoaded)
 {
-    @if (_loading)
+    @if (IsLoading)
     {
         <div class="kt-loading">
             <div class="kt-spinner"></div>
@@ -27,7 +28,7 @@ else
     else
     {
         <Breadcrumb ParentRoute="/account/manage/shared-with-me" ParentLabel="Shared with me"
-                    ListRoute="@($"/account/manage/shared/{ShareId}")" ListLabel="@(_ownerName ?? "Shared collection")" Current="@House.Name"/>
+                    ListRoute="@($"/account/manage/shared/{ShareId}")" ListLabel="@(OwnerName ?? "Shared collection")" Current="@House.Name"/>
     }
 
     <div class="kt-page-header">
@@ -84,7 +85,7 @@ else
         <h2 class="kt-section-title">Yearly cost review</h2>
         <div class="kt-form-card">
             <p class="kt-card-meta mb-1">Total cost by year - @metrics.CostHistory.Sum(p => p.TotalCost).ToString("F2") across the whole history</p>
-            @RenderYearlyCostChart(metrics.CostHistory)
+            <HouseCostHistoryChart Points="metrics.CostHistory"/>
 
             <div class="table-responsive mt-3">
                 <table class="table kt-sheet-table">
@@ -157,9 +158,9 @@ else
     else
     {
         <div class="kt-season-picker">
-            @foreach (var year in _years)
+            @foreach (var year in Years)
             {
-                <button class="kt-page-btn @(year == _selectedYear ? "active" : "")" @onclick="() => SelectYear(year)">@year</button>
+                <button class="kt-page-btn @(year == SelectedYear ? "active" : "")" @onclick="() => SelectYear(year)">@year</button>
             }
         </div>
         <div class="kt-table-wrap">
@@ -179,7 +180,7 @@ else
                     </tr>
                     </thead>
                     <tbody>
-                    @foreach (var entry in _historyByYear.GetValueOrDefault(_selectedYear, []))
+                    @foreach (var entry in SelectedYearEntries)
                     {
                         <HouseHistoryRow Entry="entry" ReadOnly="@(!CanEdit)" OnEdit="ShowEditModal" OnDelete="DeleteEntryAsync"/>
                     }
@@ -189,61 +190,42 @@ else
         </div>
     }
 
-    @if (CanEdit && _showModal)
+    @if (CanEdit)
     {
-        <div class="kt-modal-backdrop">
-            <div class="kt-modal kt-modal-wide">
-                <div class="kt-modal-header">
-                    <h5>@(IsEditMode ? "Edit" : "Add") history entry</h5>
-                    <button class="kt-modal-close" @onclick="RequestCancelModal">✕</button>
-                </div>
-                <div class="kt-modal-body">
-                    <HouseHistoryForm Entry="_modalEntry"/>
-                </div>
-                <div class="kt-modal-footer">
-                    <button class="btn btn-secondary" @onclick="RequestCancelModal">Cancel</button>
-                    <button class="btn btn-success" @onclick="SaveModalEntryAsync">Save</button>
-                </div>
-            </div>
-        </div>
+        <JournalEntryModal Show="ShowModal" Title="@($"{(IsEditMode ? "Edit" : "Add")} history entry")"
+                           OnCancel="RequestCancelModal" OnSave="SaveModalEntryAsync"
+                           ShowDiscardConfirm="ShowDiscardConfirm" OnConfirmDiscard="ConfirmDiscard" OnCancelDiscard="CancelDiscard">
+            <HouseHistoryForm Entry="ModalEntry!"/>
+        </JournalEntryModal>
     }
-
-    <ConfirmModal Show="_showDiscardConfirm"
-                  Title="Discard unsaved changes?"
-                  Message="This entry has unsaved changes that will be lost."
-                  ConfirmLabel="Discard"
-                  OnConfirm="ConfirmDiscard" OnCancel="CancelDiscard"/>
 }
 
 @code {
-    [Parameter] public required string Id { get; set; }
-
-    /// <summary>Set when a recipient is viewing this house as shared with them (read-only). When null this is the
-    /// owner's own editable page - see CarDetail.ShareId for the shared/owner data-source split.</summary>
-    [Parameter] public string? ShareId { get; set; }
-
-    private bool CanEdit => ShareId is null;
-
-    private string? _ownerName;
-
     [Inject] private HouseApiClient HouseApi { get; set; } = null!;
 
     [Inject] private HouseHistoryApiClient HouseHistoryApi { get; set; } = null!;
 
-    [Inject] private SharedWithMeApiClient SharedApi { get; set; } = null!;
+    protected override HouseDto? JournalParent { get => House; set => House = value; }
 
-    // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
-    // _loaded tracks whether a load attempt has finished at all, fresh or restored from persisted
-    // prerender state - both default false so the forced render Blazor triggers right after the
-    // synchronous prefix of OnParametersSetAsync (before any awaited fetch resolves) shows blank instead
-    // of a spinner flash on every navigation to this page.
-    private bool _loading;
-    private bool _loaded;
+    protected override List<HouseHistoryDto>? JournalEntries { get => History; set => History = value; }
 
-    // Public properties (a framework requirement for [PersistentState]): the data loaded during the
-    // prerender pass is carried over to the interactive circuit, so the first interactive render reuses
-    // it instead of resetting to the spinner and re-fetching - same pattern as MovieDetail. The derived
-    // by-year grouping is rebuilt locally from these in BuildDerivedState, same as CarDetail.
+    protected override HouseMetricsDto? JournalMetrics { get => Metrics; set => Metrics = value; }
+
+    protected override InventoryApiClientBase<HouseDto> ParentApi => HouseApi;
+
+    protected override InventoryApiClientBase<HouseHistoryDto> EntryApi => HouseHistoryApi;
+
+    protected override string ParentIdQueryKey => "HouseId";
+
+    protected override Task<HouseMetricsDto> GetMetricsAsync() => HouseApi.GetMetricsAsync(Id);
+
+    protected override Task<SharedDetailDto<HouseDto, HouseHistoryDto, HouseMetricsDto>?> GetSharedAsync(SharedWithMeApiClient sharedApi, string shareId) => sharedApi.GetHouseAsync(shareId, Id);
+
+    protected override DateTime EntryDate(HouseHistoryDto entry) => entry.HistoryDate.ToDateTime(TimeOnly.MinValue);
+
+    protected override HouseHistoryDto NewEntry() => HouseHistoryForm.NewEntry(Id);
+
+    // Public, as [PersistentState] requires: the prerendered journal carries over to the interactive circuit instead of being fetched again.
     [PersistentState]
     public HouseDto? House { get; set; }
 
@@ -252,87 +234,11 @@ else
 
     [PersistentState]
     public HouseMetricsDto? Metrics { get; set; }
-    private Dictionary<int, List<HouseHistoryDto>> _historyByYear = new();
-    private List<int> _years = [];
-    private int _selectedYear;
-    private HouseHistoryDto _modalEntry = HouseHistoryForm.NewEntry("");
-    private HouseHistoryDto _pristineModalEntry = HouseHistoryForm.NewEntry("");
-    private bool _showModal;
-    private bool _showDiscardConfirm;
-
-    private bool IsEditMode => !string.IsNullOrEmpty(_modalEntry.Id);
 
     /// <summary>`ComputeMetrics` always returns a non-null result, even for a brand-new house with no history
     /// at all (an empty list) - the metrics panel should only render once there's actually something in it
     /// to show, not just because the object itself isn't null.</summary>
     private bool HasMetricsToShow => Metrics is { CostHistory.Count: > 0 };
-
-    protected override async Task OnParametersSetAsync()
-    {
-        // House already holds this route's item when PersistentState restored the prerendered data
-        // the id check keeps an in-circuit navigation to a different house reloading as before
-        if (House?.Id == Id && History is not null && Metrics is not null)
-        {
-            BuildDerivedState();
-            _loading = false;
-            _loaded = true;
-            return;
-        }
-        await LoadAsync();
-    }
-
-    private async Task LoadAsync()
-    {
-        await LoadingIndicator.RunAsync(FetchAsync(), v => _loading = v, StateHasChanged);
-        _loading = false;
-        _loaded = true;
-    }
-
-    private async Task FetchAsync()
-    {
-        if (CanEdit)
-        {
-            House = await HouseApi.GetOneAsync(Id);
-            if (House is not null)
-            {
-                var result = await HouseHistoryApi.GetAsync("", 1, int.MaxValue, new Dictionary<string, string> { ["HouseId"] = Id });
-                // most recent first - same journal convention as HealthProfileDetail/CarDetail
-                History = result.Items.OrderByDescending(h => h.HistoryDate).ToList();
-                Metrics = await HouseApi.GetMetricsAsync(Id);
-                BuildDerivedState();
-            }
-            return;
-        }
-
-        // Recipient (read-only): one composite call returns the house, its full history and metrics, scoped to
-        // the sharer server-side after the grant is verified.
-        var detail = await SharedApi.GetHouseAsync(ShareId!, Id);
-        if (detail is not null)
-        {
-            House = detail.Parent;
-            _ownerName = detail.OwnerDisplayName;
-            History = detail.Children.OrderByDescending(h => h.HistoryDate).ToList();
-            Metrics = detail.Metrics;
-            BuildDerivedState();
-        }
-    }
-
-    private void BuildDerivedState()
-    {
-        _historyByYear = History!.GroupBy(h => h.HistoryDate.Year).ToDictionary(g => g.Key, g => g.ToList());
-        _years = _historyByYear.Keys.OrderByDescending(y => y).ToList();
-        // same "keep the current tab if it still exists, else default to the newest" rule as
-        // TvShowDetail.razor's own season selection
-        if (!_years.Contains(_selectedYear)) _selectedYear = _years.Count > 0 ? _years[0] : 0;
-    }
-
-    private void SelectYear(int year) => _selectedYear = year;
-
-    private async Task SaveHouseAsync()
-    {
-        if (House is null) return;
-        await HouseApi.UpdateAsync(House);
-    }
 
     private async Task SaveNameAsync(ChangeEventArgs e)
     {
@@ -340,98 +246,52 @@ else
         var name = e.Value?.ToString();
         if (string.IsNullOrWhiteSpace(name)) return;
         House.Name = name;
-        await SaveHouseAsync();
+        await SaveParentAsync();
     }
 
     private async Task SetPropertyTypeAsync(PropertyType propertyType)
     {
         if (House is null) return;
         House.PropertyType = propertyType;
-        await SaveHouseAsync();
+        await SaveParentAsync();
     }
 
     private async Task SaveCityAsync(ChangeEventArgs e)
     {
         if (House is null) return;
         House.City = e.Value?.ToString();
-        await SaveHouseAsync();
+        await SaveParentAsync();
     }
 
     private async Task SaveMovedInAtAsync(ChangeEventArgs e)
     {
         if (House is null) return;
         House.MovedInAt = DateOnlyInput.Parse(e.Value);
-        await SaveHouseAsync();
+        await SaveParentAsync();
     }
 
     private async Task SaveMovedOutAtAsync(ChangeEventArgs e)
     {
         if (House is null) return;
         House.MovedOutAt = DateOnlyInput.Parse(e.Value);
-        await SaveHouseAsync();
+        await SaveParentAsync();
     }
 
     private async Task SaveNotesAsync(ChangeEventArgs e)
     {
         if (House is null) return;
         House.Notes = e.Value?.ToString();
-        await SaveHouseAsync();
+        await SaveParentAsync();
     }
 
     private async Task SaveImageUrlAsync(ChangeEventArgs e)
     {
         if (House is null) return;
         House.ImageUrl = e.Value?.ToString();
-        await SaveHouseAsync();
+        await SaveParentAsync();
     }
 
-    private void ShowAddModal()
-    {
-        _modalEntry = HouseHistoryForm.NewEntry(Id);
-        _pristineModalEntry = CloneEntry(_modalEntry);
-        _showModal = true;
-    }
-
-    /// <summary>Edits a copy, not the row's own object, so Cancel discards changes instead of leaving the
-    /// table showing edits that were never saved.</summary>
-    private void ShowEditModal(HouseHistoryDto entry)
-    {
-        _modalEntry = CloneEntry(entry);
-        _pristineModalEntry = CloneEntry(entry);
-        _showModal = true;
-    }
-
-    /// <summary>
-    /// A click/drag outside the modal no longer closes it (see the backdrop markup above) - only these
-    /// explicit Cancel/✕ buttons can, and they route through this unsaved-data check first.
-    /// </summary>
-    private void RequestCancelModal()
-    {
-        if (DirtyTracking.IsDirty(_pristineModalEntry, _modalEntry)) _showDiscardConfirm = true;
-        else _showModal = false;
-    }
-
-    private void ConfirmDiscard()
-    {
-        _showDiscardConfirm = false;
-        _showModal = false;
-    }
-
-    private void CancelDiscard() => _showDiscardConfirm = false;
-
-    /// <summary>Every history mutation reloads the whole house (history + metrics) rather than patching local
-    /// state - an edit can change the yearly cost breakdown, so recomputing from the server is simpler and
-    /// safer than trying to keep local derived state in sync by hand.</summary>
-    private async Task SaveModalEntryAsync()
-    {
-        if (IsEditMode) await HouseHistoryApi.UpdateAsync(_modalEntry);
-        else await HouseHistoryApi.AddAsync(_modalEntry);
-
-        _showModal = false;
-        await LoadAsync();
-    }
-
-    private static HouseHistoryDto CloneEntry(HouseHistoryDto entry) => new()
+    protected override HouseHistoryDto CloneEntry(HouseHistoryDto entry) => new()
     {
         Id = entry.Id,
         HouseId = entry.HouseId,
@@ -440,65 +300,5 @@ else
         Description = entry.Description,
         Cost = entry.Cost,
         Provider = entry.Provider
-    };
-
-    private async Task DeleteEntryAsync(string id)
-    {
-        await HouseHistoryApi.DeleteAsync(id);
-        await LoadAsync();
-    }
-
-    /// <summary>Hand-rolled SVG bar chart - total cost per year, one bar each. Simpler than a stacked chart
-    /// (which would need 6 colors for House's event categories): the breakdown table right below already
-    /// carries the per-category precision an insurance review actually needs, so the chart only needs to
-    /// answer "what did this cost, year by year" at a glance. Axis drawing lives in <see cref="SvgChartHelpers"/>,
-    /// shared with CarDetail.razor's own charts.</summary>
-    private static RenderFragment RenderYearlyCostChart(List<HouseCostHistoryPointDto> points) => builder =>
-    {
-        var geometry = SvgChartHelpers.FullWidthGeometry;
-        var (viewWidth, viewHeight, plotLeft, plotRight, plotTop, plotBottom) = geometry;
-
-        var maxTotal = points.Max(p => p.TotalCost);
-        if (maxTotal <= 0) maxTotal = 1;
-
-        var plotWidth = plotRight - plotLeft;
-        var barWidth = plotWidth / points.Count * 0.6;
-        var gap = plotWidth / points.Count * 0.4;
-
-        double ScaleHeight(double value) => value / maxTotal * (plotBottom - plotTop);
-
-        var yTicks = Enumerable.Range(0, 4)
-            .Select(i => maxTotal * i / 3.0)
-            .Select(v => (plotBottom - ScaleHeight(v), v.ToString("F0")))
-            .ToList();
-        var xTicks = points.Select((p, i) => (plotLeft + i * (barWidth + gap) + barWidth / 2, p.Year.ToString())).ToList();
-
-        var seq = 0;
-        builder.OpenElement(seq++, "svg");
-        builder.AddAttribute(seq++, "viewBox", $"0 0 {viewWidth} {viewHeight}");
-        builder.AddAttribute(seq++, "class", "kt-chart-svg");
-
-        SvgChartHelpers.RenderAxes(builder, ref seq, geometry, "kt-chart-arrow-house-cost", "Year", "€", yTicks, xTicks);
-
-        for (var i = 0; i < points.Count; i++)
-        {
-            var point = points[i];
-            var x = plotLeft + i * (barWidth + gap);
-            var height = ScaleHeight(point.TotalCost);
-            var y = plotBottom - height;
-
-            builder.OpenElement(seq++, "rect");
-            builder.AddAttribute(seq++, "x", x.ToString("F1"));
-            builder.AddAttribute(seq++, "y", y.ToString("F1"));
-            builder.AddAttribute(seq++, "width", barWidth.ToString("F1"));
-            builder.AddAttribute(seq++, "height", height.ToString("F1"));
-            builder.AddAttribute(seq++, "fill", "var(--kt-accent)");
-            builder.OpenElement(seq++, "title");
-            builder.AddContent(seq++, $"{point.Year}: {point.TotalCost:F2}");
-            builder.CloseElement();
-            builder.CloseElement();
-        }
-
-        builder.CloseElement();
     };
 }

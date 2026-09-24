@@ -193,7 +193,7 @@ public class ExploreServiceTest
         var page = await CreateService().GetSuggestionsAsync(ExploreItemType.Movie, "owner", 24, null, TestContext.Current.CancellationToken);
 
         // "not built yet" (a fresh deployment before the first refresh pass) is an empty list too, but it
-        // means the opposite of "you've seen everything" to a user.
+        // means the opposite of "everything seen" to a user.
         page.Items.Should().BeEmpty();
         page.CataloguePending.Should().BeTrue();
     }

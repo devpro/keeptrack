@@ -1,6 +1,7 @@
 using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
+using Keeptrack.Domain.Services;
 
 namespace Keeptrack.WebApi.ReferenceData;
 
@@ -96,7 +97,7 @@ public class ExploreService(
         {
             Items = items,
             NextCursor = exhausted ? null : cursor,
-            // "we haven't built this ranking yet" and "you already track all of it" are the same empty list to
+            // "this ranking is not built yet" and "every entry is already tracked" are the same empty list to
             // a client but opposite messages to a user, and the first is a real state right after a fresh
             // deployment, before the first refresh pass runs. Only worth a count when the first page came back
             // with nothing at all.

@@ -16,7 +16,7 @@ public class HealthRecordController(IDtoMapper<HealthRecordDto, HealthRecordMode
 {
     /// <summary>
     /// Specialties and practitioners this account has already recorded, feeding the journal form's
-    /// suggestion dropdowns - the same "suggest what you've already typed" shape as
+    /// suggestion dropdowns - the same "suggest what has already been typed" shape as
     /// <c>GearController.GetCategories</c> and <c>CarHistoryController.GetFuelCategories</c>, scoped to the
     /// caller so nothing about one account's health is ever offered to another.
     /// </summary>

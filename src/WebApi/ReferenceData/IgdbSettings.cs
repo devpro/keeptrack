@@ -2,7 +2,7 @@ namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
 /// The Twitch application credentials IGDB authenticates with (IGDB is part of Twitch, and its API has no key
-/// of its own - you register an application at dev.twitch.tv and exchange the pair for an app access token,
+/// of its own: an application is registered at dev.twitch.tv and the pair is exchanged for an app access token,
 /// see <see cref="IgdbTokenProvider"/>).
 /// <para>
 /// Both are nullable and a missing <c>Igdb</c> section is a supported state, the same shape as

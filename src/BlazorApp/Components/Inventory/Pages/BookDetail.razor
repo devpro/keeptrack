@@ -1,11 +1,12 @@
 @page "/books/{Id}"
 @attribute [Authorize]
+@inherits ReferenceLinkedDetailPageBase<BookDto, BookReferenceDto>
 @using Keeptrack.BlazorApp.Components.ReferenceData
 @using Keeptrack.BlazorApp.Components.ReferenceDataAdmin
 
-@if (!_loaded)
+@if (!IsLoaded)
 {
-    @if (_loading)
+    @if (IsLoading)
     {
         <div class="kt-loading">
             <div class="kt-spinner"></div>
@@ -27,27 +28,9 @@ else
     <div class="kt-page-header">
         <div class="kt-title-row">
             <input class="kt-title-input" data-testid="title-input" value="@Book.Title" @onchange="SaveTitleAsync"/>
-            <span class="kt-title-toast-slot">
-                @if (_refreshMessage is not null)
-                {
-                    <span class="kt-inline-toast @_refreshMessageStyle">@_refreshMessage</span>
-                }
-            </span>
-            <button class="kt-icon-btn" aria-label="Check for reference match" @onclick="RefreshReferenceAsync" disabled="@_refreshingReference"
-                    title="@(string.IsNullOrEmpty(Book.ReferenceId) ? "Check for reference match using the title and year below." : $"Linked to \"{Reference?.Title}\". Not right? Edit the title or year below, then check again.")">
-                <span class="@(_refreshingReference ? "kt-icon-spin" : "")"><Icon Name="refresh" Size="17"/></span>
-            </button>
-            @if (!string.IsNullOrEmpty(Book.ReferenceId))
-            {
-                <AuthorizeView Policy="AdminOnly">
-                    <Authorized>
-                        <button class="kt-icon-btn" title="Unlink and remove this reference" aria-label="Unlink reference"
-                                @onclick="() => _pendingUnlink = true">
-                            <Icon Name="trash" Size="15"/>
-                        </button>
-                    </Authorized>
-                </AuthorizeView>
-            }
+            <ReferenceMatchControls TDto="BookDto" Api="Api" ItemId="@(Book.Id!)" ReferenceId="@Book.ReferenceId" ReferenceTitle="@Reference?.Title"
+                                    ReferenceDataDescription="cover, synopsis, genre/language/ISBN autofill"
+                                    OnChecked="OnReferenceCheckedAsync" OnUnlinked="LoadAsync"/>
         </div>
         @* "Read" is deliberately NOT here - it lives on the card below as a .kt-corner-flag, see MovieDetail. *@
         <div class="d-flex gap-2 flex-wrap">
@@ -55,7 +38,7 @@ else
             <button class="btn btn-sm kt-toggle-btn @(Book.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync"><Icon Name="wishlist" Size="13"/> Wishlist</button>
         </div>
     </div>
-    @if (_showLinker)
+    @if (ShowLinker)
     {
         <AuthorizeView Policy="AdminOnly">
             <Authorized>
@@ -63,12 +46,6 @@ else
             </Authorized>
         </AuthorizeView>
     }
-
-    <ConfirmModal Show="_pendingUnlink"
-                  Title="Unlink this reference?"
-                  Message="This clears the link on this item and permanently deletes the matched reference data (cover, synopsis, genre/language/ISBN autofill). This can't be undone."
-                  ConfirmLabel="Unlink"
-                  OnConfirm="UnlinkReferenceAsync" OnCancel="() => _pendingUnlink = false"/>
 
     <div class="kt-form-card">
         <button type="button" class="kt-corner-flag @(Book.FirstReadAt is not null ? "active" : "")"
@@ -158,29 +135,30 @@ else
         }
     </div>
 
-    <OwnedVersionsEditor Versions="Book.OwnedVersions" OnChanged="SaveBookAsync"/>
+    <OwnedVersionsEditor Versions="Book.OwnedVersions" OnChanged="SaveAsync"/>
 }
 
 @code {
-    [Parameter] public required string Id { get; set; }
-
     [Inject] private BookApiClient BookApi { get; set; } = null!;
 
     [Inject] private ReferenceDataApiClient ReferenceDataApi { get; set; } = null!;
 
     [Inject] private UserPreferencesState PreferencesState { get; set; } = null!;
 
-    private static readonly TimeSpan RefreshMessageDuration = TimeSpan.FromSeconds(4);
+    protected override InventoryApiClientBase<BookDto> Api => BookApi;
 
-    // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
-    // _loaded tracks whether a load attempt has finished at all, fresh or restored from persisted prerender state -
-    // both default false so the forced render Blazor triggers right after the synchronous prefix of OnParametersSetAsync (before any awaited fetch resolves)
-    // shows blank instead of a spinner flash on every navigation to this page.
-    private bool _loading;
-    private bool _loaded;
+    protected override BookDto? Item { get => Book; set => Book = value; }
 
-    // Public properties (a framework requirement for [PersistentState]): the data loaded during the prerender pass is carried over to the interactive circuit,
-    // so the first interactive render reuses it instead of resetting to the spinner and re-fetching - same pattern as MovieDetail.
+    protected override BookReferenceDto? ItemReference { get => Reference; set => Reference = value; }
+
+    protected override Task<BookReferenceDto?> GetReferenceAsync(string referenceId) => ReferenceDataApi.GetBookAsync(referenceId);
+
+    protected override async Task LoadExtrasAsync()
+    {
+        ShowChasseAuxLivresLink = (await PreferencesState.GetAsync()).Features.ShowChasseAuxLivresLink;
+    }
+
+    // Public, as [PersistentState] requires: the prerendered item carries over to the interactive circuit instead of being fetched again.
     [PersistentState]
     public BookDto? Book { get; set; }
 
@@ -189,86 +167,40 @@ else
 
     [PersistentState]
     public bool ShowChasseAuxLivresLink { get; set; }
-    // The admin search panel is revealed by the title row's check-for-match button coming back
-    // empty, not by the item merely being unlinked - otherwise it sits above the item's own data
-    // on every unlinked item, permanently, for the one role that sees most of them.
-    private bool _showLinker;
-    private bool _refreshingReference;
-    private string? _refreshMessage;
-    private string _refreshMessageStyle = "neutral";
-    private object? _refreshMessageToken;
-    private bool _pendingUnlink;
-
-    protected override async Task OnParametersSetAsync()
-    {
-        // Book already holds this route's item when PersistentState restored the prerendered data
-        // the id check keeps an in-circuit navigation to a *different* book reloading as before
-        if (Book?.Id == Id)
-        {
-            _loading = false;
-            _loaded = true;
-            return;
-        }
-        await LoadAsync();
-    }
-
-    private async Task LoadAsync()
-    {
-        // Closes the admin search panel on every (re)load, which covers linking from it (OnLinked calls
-        // this) as well as navigating to another item. RefreshReferenceAsync re-opens it afterwards when
-        // its own check came back without a link - it sets the flag *after* awaiting this.
-        _showLinker = false;
-        await LoadingIndicator.RunAsync(FetchAsync(), v => _loading = v, StateHasChanged);
-        _loading = false;
-        _loaded = true;
-    }
-
-    private async Task FetchAsync()
-    {
-        Book = await BookApi.GetOneAsync(Id);
-        Reference = string.IsNullOrEmpty(Book?.ReferenceId) ? null : await ReferenceDataApi.GetBookAsync(Book.ReferenceId);
-        ShowChasseAuxLivresLink = (await PreferencesState.GetAsync()).Features.ShowChasseAuxLivresLink;
-    }
 
     private async Task SetRatingAsync(float rating)
     {
         if (Book is null) return;
         Book.Rating = rating;
-        await BookApi.UpdateAsync(Book);
+        await SaveAsync();
     }
 
     private async Task ToggleFavoriteAsync()
     {
         if (Book is null) return;
         Book.IsFavorite = !Book.IsFavorite;
-        await BookApi.UpdateAsync(Book);
-    }
-
-    private async Task SaveBookAsync()
-    {
-        if (Book is null) return;
-        await BookApi.UpdateAsync(Book);
+        await SaveAsync();
     }
 
     private async Task ToggleWishlistedAsync()
     {
         if (Book is null) return;
         Book.IsWishlisted = !Book.IsWishlisted;
-        await BookApi.UpdateAsync(Book);
+        await SaveAsync();
     }
 
     private async Task ToggleReadAsync()
     {
         if (Book is null) return;
         Book.FirstReadAt = Book.FirstReadAt is null ? DateOnly.FromDateTime(DateTime.Today) : null;
-        await BookApi.UpdateAsync(Book);
+        await SaveAsync();
     }
 
     private async Task SetReadDateAsync(ChangeEventArgs e)
     {
         if (Book is null) return;
         Book.FirstReadAt = DateOnlyInput.Parse(e.Value);
-        await BookApi.UpdateAsync(Book);
+        await SaveAsync();
     }
 
     private async Task SaveTitleAsync(ChangeEventArgs e)
@@ -277,129 +209,62 @@ else
         var title = e.Value?.ToString();
         if (string.IsNullOrWhiteSpace(title)) return;
         Book.Title = title;
-        await BookApi.UpdateAsync(Book);
+        await SaveAsync();
     }
 
     private async Task SaveAuthorAsync(ChangeEventArgs e)
     {
         if (Book is null) return;
         Book.Author = e.Value?.ToString();
-        await BookApi.UpdateAsync(Book);
+        await SaveAsync();
     }
 
     private async Task SaveSeriesAsync(ChangeEventArgs e)
     {
         if (Book is null) return;
         Book.Series = e.Value?.ToString();
-        await BookApi.UpdateAsync(Book);
+        await SaveAsync();
     }
 
     private async Task SaveGenreAsync(ChangeEventArgs e)
     {
         if (Book is null) return;
         Book.Genre = e.Value?.ToString();
-        await BookApi.UpdateAsync(Book);
+        await SaveAsync();
     }
 
     private async Task SaveLanguageAsync(ChangeEventArgs e)
     {
         if (Book is null) return;
         Book.Language = e.Value?.ToString();
-        await BookApi.UpdateAsync(Book);
+        await SaveAsync();
     }
 
     private async Task SaveIsbnAsync(ChangeEventArgs e)
     {
         if (Book is null) return;
         Book.Isbn = e.Value?.ToString();
-        await BookApi.UpdateAsync(Book);
+        await SaveAsync();
     }
 
     private async Task SaveCustomImageUrlAsync(ChangeEventArgs e)
     {
         if (Book is null) return;
         Book.CustomImageUrl = e.Value?.ToString();
-        await BookApi.UpdateAsync(Book);
-    }
-
-    private async Task RefreshReferenceAsync()
-    {
-        if (Book?.Id is null) return;
-
-        var previousReferenceId = Book.ReferenceId;
-        _refreshingReference = true;
-        _refreshMessage = null;
-        try
-        {
-            var refreshed = await BookApi.RefreshReferenceAsync(Book.Id);
-            await LoadAsync();
-
-            (_refreshMessage, _refreshMessageStyle) = ReferenceRefreshMessage.Compute(previousReferenceId, refreshed.ReferenceId);
-            _showLinker = string.IsNullOrEmpty(Book.ReferenceId);
-        }
-        catch (Exception ex)
-        {
-            _refreshMessage = $"Error: {ex.Message}";
-            _refreshMessageStyle = "danger";
-        }
-        finally
-        {
-            _refreshingReference = false;
-        }
-
-        ScheduleRefreshMessageClear();
-    }
-
-    private async Task UnlinkReferenceAsync()
-    {
-        _pendingUnlink = false;
-        if (Book?.Id is null) return;
-
-        try
-        {
-            await BookApi.UnlinkReferenceAsync(Book.Id);
-            await LoadAsync();
-            (_refreshMessage, _refreshMessageStyle) = ("Unlinked and reference removed.", "success");
-        }
-        catch (Exception ex)
-        {
-            _refreshMessage = $"Error: {ex.Message}";
-            _refreshMessageStyle = "danger";
-        }
-
-        ScheduleRefreshMessageClear();
-    }
-
-    /// <summary>
-    /// The toast is a small, auto-dismissing pill next to the refresh icon, not a permanent line of text -
-    /// a token guards against an in-flight delay from a previous click clearing a newer message.
-    /// </summary>
-    private void ScheduleRefreshMessageClear()
-    {
-        var token = new object();
-        _refreshMessageToken = token;
-        _ = ClearRefreshMessageAfterDelayAsync(token);
-    }
-
-    private async Task ClearRefreshMessageAfterDelayAsync(object token)
-    {
-        await Task.Delay(RefreshMessageDuration);
-        if (!ReferenceEquals(_refreshMessageToken, token)) return;
-        _refreshMessage = null;
-        await InvokeAsync(StateHasChanged);
+        await SaveAsync();
     }
 
     private async Task SaveYearAsync(ChangeEventArgs e)
     {
         if (Book is null) return;
         Book.Year = int.TryParse(e.Value?.ToString(), out var year) ? year : null;
-        await BookApi.UpdateAsync(Book);
+        await SaveAsync();
     }
 
     private async Task SaveNotesAsync(ChangeEventArgs e)
     {
         if (Book is null) return;
         Book.Notes = e.Value?.ToString();
-        await BookApi.UpdateAsync(Book);
+        await SaveAsync();
     }
 }

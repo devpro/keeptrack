@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
+using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
-using Keeptrack.Domain.Services;
 using Keeptrack.WebApi.Mappers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -96,20 +96,20 @@ public class WishlistController(
     private async Task<WishlistDto> BuildWishlistAsync(string ownerId)
     {
         var movies = await movieRepository.FindAllAsync(ownerId, 1, int.MaxValue, null,
-            new MovieModel { OwnerId = ownerId, Title = string.Empty, IsWishlisted = true });
+            new MovieModel { OwnerId = ownerId, Title = string.Empty, IsWishlisted = true }, ListSort.Title);
         var tvShows = await tvShowRepository.FindAllAsync(ownerId, 1, int.MaxValue, null,
-            new TvShowModel { OwnerId = ownerId, Title = string.Empty, IsWishlisted = true });
+            new TvShowModel { OwnerId = ownerId, Title = string.Empty, IsWishlisted = true }, ListSort.Title);
         var books = await bookRepository.FindAllAsync(ownerId, 1, int.MaxValue, null,
-            new BookModel { OwnerId = ownerId, Title = string.Empty, Author = string.Empty, IsWishlisted = true });
+            new BookModel { OwnerId = ownerId, Title = string.Empty, Author = string.Empty, IsWishlisted = true }, ListSort.Title);
         var videoGames = await videoGameRepository.FindAllAsync(ownerId, 1, int.MaxValue, null,
-            new VideoGameModel { OwnerId = ownerId, Title = string.Empty, IsWishlisted = true });
+            new VideoGameModel { OwnerId = ownerId, Title = string.Empty, IsWishlisted = true }, ListSort.Title);
 
         var result = new WishlistDto
         {
-            Movies = WishlistService.SortMovies(movies.Items).Select(movieMapper.ToDto).ToList(),
-            TvShows = WishlistService.SortTvShows(tvShows.Items).Select(tvShowMapper.ToDto).ToList(),
-            Books = WishlistService.SortBooks(books.Items).Select(bookMapper.ToDto).ToList(),
-            VideoGames = WishlistService.SortVideoGames(videoGames.Items).Select(videoGameMapper.ToDto).ToList()
+            Movies = movies.Items.Select(movieMapper.ToDto).ToList(),
+            TvShows = tvShows.Items.Select(tvShowMapper.ToDto).ToList(),
+            Books = books.Items.Select(bookMapper.ToDto).ToList(),
+            VideoGames = videoGames.Items.Select(videoGameMapper.ToDto).ToList()
         };
 
         await ReferenceImageHydrator.HydrateAsync(result.Movies, movieReferenceRepository.FindByIdsAsync, x => x.ImageUrl);

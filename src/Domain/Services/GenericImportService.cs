@@ -167,7 +167,7 @@ public static class GenericImportService
     /// Maps a free-text "Type" column value onto <see cref="ImportMediaType"/>, tolerating the natural
     /// spellings a user would type in a spreadsheet ("TV Show", "Video Game", "Film", "Jeu"...). Returns null
     /// for a blank or unrecognized value, which the review UI turns into a required per-row pick rather than
-    /// guessing - the same "don't guess when you don't have the info" principle used across the app.
+    /// guessing - the same "don't guess when the information isn't there" principle used across the app.
     /// </summary>
     public static ImportMediaType? ParseMediaType(string? raw)
     {

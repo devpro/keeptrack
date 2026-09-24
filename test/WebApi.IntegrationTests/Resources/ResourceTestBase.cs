@@ -41,7 +41,7 @@ public abstract class ResourceTestBase(KestrelWebAppFactory<Program> factory)
 
     /// <summary>
     /// Registers a resource created over the API for deletion when the test ends. Prefer
-    /// <see cref="CreateAsync{T}"/>, which does this for you; use this directly for the endpoints whose
+    /// <see cref="CreateAsync{T}"/>, which does this itself, and use this directly for the endpoints whose
     /// create response isn't the resource itself (an import commit, a share grant read back from a list).
     /// <para>
     /// The delete is status-agnostic on purpose: plenty of tests delete their own subject as part of what

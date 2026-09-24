@@ -8,6 +8,7 @@ using Keeptrack.BlazorApp.PlaywrightTests.Hosting;
 using Keeptrack.BlazorApp.PlaywrightTests.Pages;
 using Keeptrack.BlazorApp.PlaywrightTests.Support;
 using Keeptrack.Domain.Models;
+using Keeptrack.Domain.Services;
 using Keeptrack.WebApi.ReferenceData;
 using Microsoft.Playwright;
 using Xunit;

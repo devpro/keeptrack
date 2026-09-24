@@ -1,0 +1,57 @@
+@using static Keeptrack.BlazorApp.Components.Shared.SvgChartHelpers
+@*
+    A single-series line chart of consumption per 100 km.
+    It needs no legend, since the caption above it names the series, and each point carries a native tooltip.
+*@
+
+<svg viewBox="0 0 @ToSvgDimension(Geometry.ViewWidth) @ToSvgDimension(Geometry.ViewHeight)" class="kt-chart-svg">
+    <ChartAxes Geometry="Geometry" MarkerId="@($"kt-chart-arrow-{ChartId}")" XAxisLabel="Date" YAxisLabel="@YAxisLabel" YTicks="YTicks" XTicks="XTicks"/>
+    <polyline points="@LinePoints" fill="none" stroke="@Color" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
+    @for (var i = 0; i < Points.Count; i++)
+    {
+        var point = Points[i];
+        <circle cx="@ToSvg(X(i))" cy="@ToSvg(Y(point.ValuePer100Km))" r="1.6" fill="@Color">
+            <title>@($"{point.Date:yyyy-MM-dd}: {point.ValuePer100Km:F1}")</title>
+        </circle>
+    }
+</svg>
+
+@code {
+    [Parameter, EditorRequired] public List<ConsumptionPointDto> Points { get; set; } = [];
+
+    [Parameter, EditorRequired] public string Color { get; set; } = "";
+
+    [Parameter, EditorRequired] public string YAxisLabel { get; set; } = "";
+
+    /// <summary>Distinguishes this chart's arrowhead marker from another chart's on the same page.</summary>
+    [Parameter, EditorRequired] public string ChartId { get; set; } = "";
+
+    [Parameter, EditorRequired] public ChartGeometry Geometry { get; set; }
+
+    private double _min;
+    private double _range;
+    private double _stepX;
+
+    private List<(double, string)> YTicks { get; set; } = [];
+
+    private List<(double, string)> XTicks { get; set; } = [];
+
+    private string LinePoints { get; set; } = "";
+
+    protected override void OnParametersSet()
+    {
+        var values = Points.Select(p => p.ValuePer100Km).ToList();
+        _min = values.Min();
+        var max = values.Max();
+        _range = max - _min == 0 ? 1 : max - _min;
+        _stepX = Points.Count > 1 ? (Geometry.PlotRight - Geometry.PlotLeft) / (Points.Count - 1) : 0;
+
+        LinePoints = string.Join(" ", Points.Select((p, i) => $"{ToSvg(X(i))},{ToSvg(Y(p.ValuePer100Km))}"));
+        YTicks = Enumerable.Range(0, 4).Select(i => _min + _range * i / 3.0).Select(v => (Y(v), v.ToString("F1"))).ToList();
+        XTicks = EvenlySpacedIndices(Points.Count, 4).Select(i => (X(i), Points[i].Date.ToString("MMM yy"))).ToList();
+    }
+
+    private double X(int index) => Geometry.PlotLeft + index * _stepX;
+
+    private double Y(double value) => Geometry.PlotBottom - (value - _min) / _range * (Geometry.PlotBottom - Geometry.PlotTop);
+}

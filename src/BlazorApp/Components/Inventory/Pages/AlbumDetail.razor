@@ -1,11 +1,12 @@
 @page "/albums/{Id}"
 @attribute [Authorize]
+@inherits ReferenceLinkedDetailPageBase<AlbumDto, AlbumReferenceDto>
 @using Keeptrack.BlazorApp.Components.ReferenceData
 @using Keeptrack.BlazorApp.Components.ReferenceDataAdmin
 
-@if (!_loaded)
+@if (!IsLoaded)
 {
-    @if (_loading)
+    @if (IsLoading)
     {
         <div class="kt-loading">
             <div class="kt-spinner"></div>
@@ -27,33 +28,15 @@ else
     <div class="kt-page-header">
         <div class="kt-title-row">
             <input class="kt-title-input" value="@Album.Title" @onchange="SaveTitleAsync"/>
-            <span class="kt-title-toast-slot">
-                @if (_refreshMessage is not null)
-                {
-                    <span class="kt-inline-toast @_refreshMessageStyle">@_refreshMessage</span>
-                }
-            </span>
-            <button class="kt-icon-btn" aria-label="Check for reference match" @onclick="RefreshReferenceAsync" disabled="@_refreshingReference"
-                    title="@(string.IsNullOrEmpty(Album.ReferenceId) ? "Check for reference match using the title and year below." : $"Linked to \"{Reference?.Title}\". Not right? Edit the title or year below, then check again.")">
-                <span class="@(_refreshingReference ? "kt-icon-spin" : "")"><Icon Name="refresh" Size="17"/></span>
-            </button>
-            @if (!string.IsNullOrEmpty(Album.ReferenceId))
-            {
-                <AuthorizeView Policy="AdminOnly">
-                    <Authorized>
-                        <button class="kt-icon-btn" title="Unlink and remove this reference" aria-label="Unlink reference"
-                                @onclick="() => _pendingUnlink = true">
-                            <Icon Name="trash" Size="15"/>
-                        </button>
-                    </Authorized>
-                </AuthorizeView>
-            }
+            <ReferenceMatchControls TDto="AlbumDto" Api="Api" ItemId="@(Album.Id!)" ReferenceId="@Album.ReferenceId" ReferenceTitle="@Reference?.Title"
+                                    ReferenceDataDescription="cover, tracklist, artist"
+                                    OnChecked="OnReferenceCheckedAsync" OnUnlinked="LoadAsync"/>
         </div>
         <div class="d-flex gap-2">
             <button class="btn btn-sm kt-toggle-btn @(Album.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>
         </div>
     </div>
-    @if (_showLinker)
+    @if (ShowLinker)
     {
         <AuthorizeView Policy="AdminOnly">
             <Authorized>
@@ -61,12 +44,6 @@ else
             </Authorized>
         </AuthorizeView>
     }
-
-    <ConfirmModal Show="_pendingUnlink"
-                  Title="Unlink this reference?"
-                  Message="This clears the link on this item and permanently deletes the matched reference data (cover, tracklist, artist). This can't be undone."
-                  ConfirmLabel="Unlink"
-                  OnConfirm="UnlinkReferenceAsync" OnCancel="() => _pendingUnlink = false"/>
 
     <div class="kt-form-card">
         @{ var coverUrl = !string.IsNullOrEmpty(Album.CustomImageUrl) ? Album.CustomImageUrl : Reference?.ImageUrl; }
@@ -137,7 +114,7 @@ else
         </div>
     }
 
-    <OwnedVersionsEditor Versions="Album.OwnedVersions" OnChanged="SaveAlbumAsync"/>
+    <OwnedVersionsEditor Versions="Album.OwnedVersions" OnChanged="SaveAsync"/>
 
     @if (!string.IsNullOrEmpty(Reference?.ArtistImageUrl))
     {
@@ -147,8 +124,6 @@ else
 }
 
 @code {
-    [Parameter] public required string Id { get; set; }
-
     [Inject] private AlbumApiClient AlbumApi { get; set; } = null!;
 
     [Inject] private ReferenceDataApiClient ReferenceDataApi { get; set; } = null!;
@@ -157,77 +132,37 @@ else
 
     [Inject] private SongApiClient SongApi { get; set; } = null!;
 
-    private static readonly TimeSpan RefreshMessageDuration = TimeSpan.FromSeconds(4);
+    protected override InventoryApiClientBase<AlbumDto> Api => AlbumApi;
 
-    // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
-    // _loaded tracks whether a load attempt has finished at all, fresh or restored from persisted
-    // prerender state - both default false so the forced render Blazor triggers right after the
-    // synchronous prefix of OnParametersSetAsync (before any awaited fetch resolves) shows blank instead
-    // of a spinner flash on every navigation to this page.
-    private bool _loading;
-    private bool _loaded;
+    protected override AlbumDto? Item { get => Album; set => Album = value; }
 
-    // Public properties (a framework requirement for [PersistentState]): the data loaded during the
-    // prerender pass is carried over to the interactive circuit, so the first interactive render reuses
-    // it instead of resetting to the spinner and re-fetching - same pattern as MovieDetail. Playlists is
-    // a co-fetched list (like TvShowDetail's Episodes), so it's nullable to distinguish "not loaded yet"
-    // from "loaded, no playlists".
+    protected override AlbumReferenceDto? ItemReference { get => Reference; set => Reference = value; }
+
+    protected override Task<AlbumReferenceDto?> GetReferenceAsync(string referenceId) => ReferenceDataApi.GetAlbumAsync(referenceId);
+
+    protected override async Task LoadExtrasAsync()
+    {
+        var playlists = await PlaylistApi.GetAsync("", 1, 5000);
+        Playlists = playlists.Items;
+    }
+
+    // Public, as [PersistentState] requires: the prerendered item carries over to the interactive circuit instead of being fetched again.
     [PersistentState]
     public AlbumDto? Album { get; set; }
 
     [PersistentState]
     public AlbumReferenceDto? Reference { get; set; }
 
+    // Nullable, to tell "not loaded yet" from "loaded, no playlists".
     [PersistentState]
     public List<PlaylistDto>? Playlists { get; set; }
-    private string? _openTrackMenu;
-    // The admin search panel is revealed by the title row's check-for-match button coming back
-    // empty, not by the item merely being unlinked - otherwise it sits above the item's own data
-    // on every unlinked item, permanently, for the one role that sees most of them.
-    private bool _showLinker;
-    private bool _refreshingReference;
-    private string? _refreshMessage;
-    private string _refreshMessageStyle = "neutral";
-    private object? _refreshMessageToken;
-    private bool _pendingUnlink;
 
-    /// <summary>Reuses <c>CastGrid</c>'s "photo + name" card for the single credited artist, instead of
-    /// introducing a one-off component for what's visually the same layout as a TV/movie cast member.</summary>
+    private string? _openTrackMenu;
+
+    /// <summary>Reuses <c>CastGrid</c>'s photo and name card for the single credited artist, which looks the same as a cast member.</summary>
     private List<CastMemberDto> _artistCard => Reference is null
         ? []
         : [new CastMemberDto { Name = Reference.ArtistName ?? Album?.Artist ?? "", CharacterName = "", ProfileImageUrl = Reference.ArtistImageUrl }];
-
-    protected override async Task OnParametersSetAsync()
-    {
-        // Album already holds this route's item when PersistentState restored the prerendered data
-        // the id check keeps an in-circuit navigation to a different album reloading as before
-        if (Album?.Id == Id && Playlists is not null)
-        {
-            _loading = false;
-            _loaded = true;
-            return;
-        }
-        await LoadAsync();
-    }
-
-    private async Task LoadAsync()
-    {
-        // Closes the admin search panel on every (re)load, which covers linking from it (OnLinked calls
-        // this) as well as navigating to another item. RefreshReferenceAsync re-opens it afterwards when
-        // its own check came back without a link - it sets the flag *after* awaiting this.
-        _showLinker = false;
-        await LoadingIndicator.RunAsync(FetchAsync(), v => _loading = v, StateHasChanged);
-        _loading = false;
-        _loaded = true;
-    }
-
-    private async Task FetchAsync()
-    {
-        Album = await AlbumApi.GetOneAsync(Id);
-        Reference = string.IsNullOrEmpty(Album?.ReferenceId) ? null : await ReferenceDataApi.GetAlbumAsync(Album.ReferenceId);
-        var playlists = await PlaylistApi.GetAsync("", 1, 5000);
-        Playlists = playlists.Items;
-    }
 
     private void ToggleTrackMenu(string position)
     {
@@ -256,20 +191,14 @@ else
     {
         if (Album is null) return;
         Album.Rating = rating;
-        await AlbumApi.UpdateAsync(Album);
+        await SaveAsync();
     }
 
     private async Task ToggleFavoriteAsync()
     {
         if (Album is null) return;
         Album.IsFavorite = !Album.IsFavorite;
-        await AlbumApi.UpdateAsync(Album);
-    }
-
-    private async Task SaveAlbumAsync()
-    {
-        if (Album is null) return;
-        await AlbumApi.UpdateAsync(Album);
+        await SaveAsync();
     }
 
     private async Task SaveTitleAsync(ChangeEventArgs e)
@@ -278,101 +207,34 @@ else
         var title = e.Value?.ToString();
         if (string.IsNullOrWhiteSpace(title)) return;
         Album.Title = title;
-        await AlbumApi.UpdateAsync(Album);
+        await SaveAsync();
     }
 
     private async Task SaveArtistAsync(ChangeEventArgs e)
     {
         if (Album is null) return;
         Album.Artist = e.Value?.ToString();
-        await AlbumApi.UpdateAsync(Album);
+        await SaveAsync();
     }
 
     private async Task SaveGenreAsync(ChangeEventArgs e)
     {
         if (Album is null) return;
         Album.Genre = e.Value?.ToString();
-        await AlbumApi.UpdateAsync(Album);
+        await SaveAsync();
     }
 
     private async Task SaveCustomImageUrlAsync(ChangeEventArgs e)
     {
         if (Album is null) return;
         Album.CustomImageUrl = e.Value?.ToString();
-        await AlbumApi.UpdateAsync(Album);
-    }
-
-    private async Task RefreshReferenceAsync()
-    {
-        if (Album?.Id is null) return;
-
-        var previousReferenceId = Album.ReferenceId;
-        _refreshingReference = true;
-        _refreshMessage = null;
-        try
-        {
-            var refreshed = await AlbumApi.RefreshReferenceAsync(Album.Id);
-            await LoadAsync();
-
-            (_refreshMessage, _refreshMessageStyle) = ReferenceRefreshMessage.Compute(previousReferenceId, refreshed.ReferenceId);
-            _showLinker = string.IsNullOrEmpty(Album.ReferenceId);
-        }
-        catch (Exception ex)
-        {
-            _refreshMessage = $"Error: {ex.Message}";
-            _refreshMessageStyle = "danger";
-        }
-        finally
-        {
-            _refreshingReference = false;
-        }
-
-        ScheduleRefreshMessageClear();
-    }
-
-    private async Task UnlinkReferenceAsync()
-    {
-        _pendingUnlink = false;
-        if (Album?.Id is null) return;
-
-        try
-        {
-            await AlbumApi.UnlinkReferenceAsync(Album.Id);
-            await LoadAsync();
-            (_refreshMessage, _refreshMessageStyle) = ("Unlinked and reference removed.", "success");
-        }
-        catch (Exception ex)
-        {
-            _refreshMessage = $"Error: {ex.Message}";
-            _refreshMessageStyle = "danger";
-        }
-
-        ScheduleRefreshMessageClear();
-    }
-
-    /// <summary>
-    /// The toast is a small, auto-dismissing pill next to the refresh icon, not a permanent line of text -
-    /// a token guards against an in-flight delay from a previous click clearing a newer message.
-    /// </summary>
-    private void ScheduleRefreshMessageClear()
-    {
-        var token = new object();
-        _refreshMessageToken = token;
-        _ = ClearRefreshMessageAfterDelayAsync(token);
-    }
-
-    private async Task ClearRefreshMessageAfterDelayAsync(object token)
-    {
-        await Task.Delay(RefreshMessageDuration);
-        if (!ReferenceEquals(_refreshMessageToken, token)) return;
-        _refreshMessage = null;
-        await InvokeAsync(StateHasChanged);
+        await SaveAsync();
     }
 
     private async Task SaveYearAsync(ChangeEventArgs e)
     {
         if (Album is null) return;
         Album.Year = int.TryParse(e.Value?.ToString(), out var year) ? year : null;
-        await AlbumApi.UpdateAsync(Album);
+        await SaveAsync();
     }
 }

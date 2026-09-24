@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════
-   KEEPTRACK — theme layer (dark only)
+   KEEPTRACK: theme layer (dark only)
    Bootstrap 5.3 override layer. data-bs-theme="dark" is set statically
    on <html> in App.razor - the app has no light theme and no toggle.
    ═══════════════════════════════════════════════════════════════════ */
@@ -1240,7 +1240,7 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 .kt-login-logo::before { content: '◈'; color: var(--kt-accent); font-size: 1rem; }
 .kt-login-tagline { font-size: 0.82rem; color: var(--kt-text-muted); margin-bottom: 1.75rem; }
 
-/* OAuth buttons — flex, icon left, text centered in remaining space */
+/* OAuth buttons: flex, icon left, text centered in remaining space */
 .btn-oauth {
   display: flex;
   align-items: center;

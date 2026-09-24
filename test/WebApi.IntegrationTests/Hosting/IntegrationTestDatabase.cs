@@ -11,7 +11,7 @@ namespace Keeptrack.WebApi.IntegrationTests.Hosting;
 /// solution, so a variable both suites read can only ever give them the same database - and a developer who
 /// removes it to stop them sharing one gets 198 failures instead, because the guard's fallback was to refuse
 /// the run rather than to pick something safe. The two are now isolated by construction and neither needs the
-/// variable at all; setting it still points this suite wherever you want.
+/// variable at all; setting it still points this suite at any other database.
 /// </para>
 /// <para>
 /// This does not weaken <see cref="Keeptrack.Testing.Shared.Hosting.TestDatabaseGuard"/>: what it exists to

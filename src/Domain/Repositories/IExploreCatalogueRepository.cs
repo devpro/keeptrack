@@ -74,7 +74,7 @@ public interface IExploreCatalogueRepository
     /// </summary>
     Task<DateTime?> FindOldestRefreshedAtAsync(ExploreItemType type, string ranking);
 
-    /// <summary>How many entries a ranking holds - used only to tell "nothing new for you" apart from "not built yet".</summary>
+    /// <summary>How many entries a ranking holds - used only to tell "nothing new for this caller" apart from "not built yet".</summary>
     Task<long> CountAsync(ExploreItemType type, string ranking);
 
     /// <summary>

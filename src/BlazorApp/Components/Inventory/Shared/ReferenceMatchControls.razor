@@ -1,0 +1,113 @@
+@typeparam TDto where TDto : Keeptrack.Common.System.IHasId, IReferenceLinkedDto
+@*
+    The title row's reference controls: the result toast, "check for reference match" for everyone, and unlink for an admin.
+    The toast is a small auto-dismissing pill, and a token keeps a delay left over from an earlier click from clearing a newer message.
+*@
+
+<span class="kt-title-toast-slot">
+    @if (_message is not null)
+    {
+        <span class="kt-inline-toast @_messageStyle">@_message</span>
+    }
+</span>
+<button class="kt-icon-btn" aria-label="Check for reference match" @onclick="CheckAsync" disabled="@_checking"
+        title="@(string.IsNullOrEmpty(ReferenceId) ? "Check for reference match using the title and year below." : $"Linked to \"{ReferenceTitle}\". Not right? Edit the title or year below, then check again.")">
+    <span class="@(_checking ? "kt-icon-spin" : "")"><Icon Name="refresh" Size="17"/></span>
+</button>
+@if (!string.IsNullOrEmpty(ReferenceId))
+{
+    <AuthorizeView Policy="AdminOnly">
+        <Authorized>
+            <button class="kt-icon-btn" title="Unlink and remove this reference" aria-label="Unlink reference"
+                    @onclick="() => _pendingUnlink = true">
+                <Icon Name="trash" Size="15"/>
+            </button>
+        </Authorized>
+    </AuthorizeView>
+}
+<ConfirmModal Show="_pendingUnlink"
+              Title="Unlink this reference?"
+              Message="@($"This clears the link on this item and permanently deletes the matched reference data ({ReferenceDataDescription}). This can't be undone.")"
+              ConfirmLabel="Unlink"
+              OnConfirm="UnlinkAsync" OnCancel="() => _pendingUnlink = false"/>
+
+@code {
+    private static readonly TimeSpan MessageDuration = TimeSpan.FromSeconds(4);
+
+    [Parameter, EditorRequired] public required InventoryApiClientBase<TDto> Api { get; set; }
+
+    [Parameter, EditorRequired] public required string ItemId { get; set; }
+
+    [Parameter] public string? ReferenceId { get; set; }
+
+    [Parameter] public string? ReferenceTitle { get; set; }
+
+    /// <summary>What unlinking deletes, named in the confirmation, for example "cover, synopsis, cast/genres".</summary>
+    [Parameter, EditorRequired] public required string ReferenceDataDescription { get; set; }
+
+    /// <summary>Raised once a check has been answered, with whether the item is now linked, so the page reloads it.</summary>
+    [Parameter] public EventCallback<bool> OnChecked { get; set; }
+
+    [Parameter] public EventCallback OnUnlinked { get; set; }
+
+    private bool _checking;
+    private bool _pendingUnlink;
+    private string? _message;
+    private string _messageStyle = "neutral";
+    private object? _messageToken;
+
+    private async Task CheckAsync()
+    {
+        var previousReferenceId = ReferenceId;
+        _checking = true;
+        _message = null;
+        try
+        {
+            var refreshed = await Api.RefreshReferenceAsync(ItemId);
+            await OnChecked.InvokeAsync(!string.IsNullOrEmpty(refreshed.ReferenceId));
+            (_message, _messageStyle) = ReferenceRefreshMessage.Compute(previousReferenceId, refreshed.ReferenceId);
+        }
+        catch (Exception ex)
+        {
+            (_message, _messageStyle) = ($"Error: {ex.Message}", "danger");
+        }
+        finally
+        {
+            _checking = false;
+        }
+
+        ScheduleMessageClear();
+    }
+
+    private async Task UnlinkAsync()
+    {
+        _pendingUnlink = false;
+        try
+        {
+            await Api.UnlinkReferenceAsync(ItemId);
+            await OnUnlinked.InvokeAsync();
+            (_message, _messageStyle) = ("Unlinked and reference removed.", "success");
+        }
+        catch (Exception ex)
+        {
+            (_message, _messageStyle) = ($"Error: {ex.Message}", "danger");
+        }
+
+        ScheduleMessageClear();
+    }
+
+    private void ScheduleMessageClear()
+    {
+        var token = new object();
+        _messageToken = token;
+        _ = ClearMessageAfterDelayAsync(token);
+    }
+
+    private async Task ClearMessageAfterDelayAsync(object token)
+    {
+        await Task.Delay(MessageDuration);
+        if (!ReferenceEquals(_messageToken, token)) return;
+        _message = null;
+        await InvokeAsync(StateHasChanged);
+    }
+}

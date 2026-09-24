@@ -1,11 +1,12 @@
 @page "/video-games/{Id}"
 @attribute [Authorize]
+@inherits ReferenceLinkedDetailPageBase<VideoGameDto, VideoGameReferenceDto>
 @using Keeptrack.BlazorApp.Components.ReferenceData
 @using Keeptrack.BlazorApp.Components.ReferenceDataAdmin
 
-@if (!_loaded)
+@if (!IsLoaded)
 {
-    @if (_loading)
+    @if (IsLoading)
     {
         <div class="kt-loading">
             <div class="kt-spinner"></div>
@@ -30,34 +31,16 @@ else
     <div class="kt-page-header">
         <div class="kt-title-row">
             <input class="kt-title-input" value="@Game.Title" @onchange="SaveTitleAsync"/>
-            <span class="kt-title-toast-slot">
-                @if (_refreshMessage is not null)
-                {
-                    <span class="kt-inline-toast @_refreshMessageStyle">@_refreshMessage</span>
-                }
-            </span>
-            <button class="kt-icon-btn" aria-label="Check for reference match" @onclick="RefreshReferenceAsync" disabled="@_refreshingReference"
-                    title="@(string.IsNullOrEmpty(Game.ReferenceId) ? "Check for reference match using the title and year below." : $"Linked to \"{Reference?.Title}\". Not right? Edit the title or year below, then check again.")">
-                <span class="@(_refreshingReference ? "kt-icon-spin" : "")"><Icon Name="refresh" Size="17"/></span>
-            </button>
-            @if (!string.IsNullOrEmpty(Game.ReferenceId))
-            {
-                <AuthorizeView Policy="AdminOnly">
-                    <Authorized>
-                        <button class="kt-icon-btn" title="Unlink and remove this reference" aria-label="Unlink reference"
-                                @onclick="() => _pendingUnlink = true">
-                            <Icon Name="trash" Size="15"/>
-                        </button>
-                    </Authorized>
-                </AuthorizeView>
-            }
+            <ReferenceMatchControls TDto="VideoGameDto" Api="Api" ItemId="@(Game.Id!)" ReferenceId="@Game.ReferenceId" ReferenceTitle="@Reference?.Title"
+                                    ReferenceDataDescription="cover, synopsis, genres/platforms"
+                                    OnChecked="OnReferenceCheckedAsync" OnUnlinked="LoadAsync"/>
         </div>
         <div class="d-flex gap-2">
             <button class="btn btn-sm kt-toggle-btn @(Game.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync"><Icon Name="wishlist" Size="13"/> Wishlist</button>
         </div>
     </div>
 
-    @if (_showLinker)
+    @if (ShowLinker)
     {
         <AuthorizeView Policy="AdminOnly">
             <Authorized>
@@ -65,12 +48,6 @@ else
             </Authorized>
         </AuthorizeView>
     }
-
-    <ConfirmModal Show="_pendingUnlink"
-                  Title="Unlink this reference?"
-                  Message="This clears the link on this item and permanently deletes the matched reference data (cover, synopsis, genres/platforms). This can't be undone."
-                  ConfirmLabel="Unlink"
-                  OnConfirm="UnlinkReferenceAsync" OnCancel="() => _pendingUnlink = false"/>
 
     @* A 16:9 banner, because that is what the artwork actually is: nearly every stored cover here is RAWG key art at exactly that ratio.
        It fills the banner's whole width, so there is never empty space beside it.
@@ -193,7 +170,7 @@ else
                     <span class="kt-card-meta">@entry.Playthroughs.Count playthrough@(entry.Playthroughs.Count > 1 ? "s" : "")</span>
                 }
             </div>
-            <OwnedVersionFields Copy="entry" OnChanged="SaveGameAsync">
+            <OwnedVersionFields Copy="entry" OnChanged="SaveAsync">
                 <ButtonRowSuffix>
                     <button class="kt-icon-btn" title="Remove this platform" aria-label="Remove this platform" @onclick="() => RequestRemovePlatformAsync(entry)">
                         <Icon Name="trash" Size="15"/>
@@ -299,125 +276,43 @@ else
 }
 
 @code {
-    [Parameter] public required string Id { get; set; }
-
     [Inject] private VideoGameApiClient VideoGameApi { get; set; } = null!;
 
     [Inject] private ReferenceDataApiClient ReferenceDataApi { get; set; } = null!;
 
-    private static readonly TimeSpan RefreshMessageDuration = TimeSpan.FromSeconds(4);
+    protected override InventoryApiClientBase<VideoGameDto> Api => VideoGameApi;
 
-    // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
-    // _loaded tracks whether a load attempt has finished at all, fresh or restored from persisted
-    // prerender state - both default false so the forced render Blazor triggers right after the
-    // synchronous prefix of OnParametersSetAsync (before any awaited fetch resolves) shows blank instead
-    // of a spinner flash on every navigation to this page.
-    private bool _loading;
-    private bool _loaded;
+    protected override VideoGameDto? Item { get => Game; set => Game = value; }
 
-    // Public properties (a framework requirement for [PersistentState]): the data loaded during the
-    // prerender pass is carried over to the interactive circuit, so the first interactive render reuses
-    // it instead of resetting to the spinner and re-fetching - same pattern as MovieDetail.
+    protected override VideoGameReferenceDto? ItemReference { get => Reference; set => Reference = value; }
+
+    protected override Task<VideoGameReferenceDto?> GetReferenceAsync(string referenceId) => ReferenceDataApi.GetVideoGameAsync(referenceId);
+
+    // Public, as [PersistentState] requires: the prerendered item carries over to the interactive circuit instead of being fetched again.
     [PersistentState]
     public VideoGameDto? Game { get; set; }
 
     [PersistentState]
     public VideoGameReferenceDto? Reference { get; set; }
-    // The admin search panel is revealed by the title row's check-for-match button coming back
-    // empty, not by the item merely being unlinked - otherwise it sits above the item's own data
-    // on every unlinked item, permanently, for the one role that sees most of them.
-    private bool _showLinker;
-    private bool _refreshingReference;
-    private string? _refreshMessage;
-    private string _refreshMessageStyle = "neutral";
-    private object? _refreshMessageToken;
+
     // Reveals the cover-URL box.
     // An item that already carries a CustomImageUrl shows that box without this flag, so a stored value is never hidden behind a button.
     private bool _editingCover;
     private VideoGamePlatformDto? _draftPlatform;
     private VideoGamePlatformDto? _pendingRemovePlatform;
-    private bool _pendingUnlink;
-
-    // Whether this page still holds exactly what it loaded.
-    // Only the pending-link poll reads it, to stop re-reading (and so overwriting) an item the user has since changed - see FetchPendingLinkAsync.
-    private bool _edited;
-
-    protected override async Task OnParametersSetAsync()
-    {
-        // Game already holds this route's item when PersistentState restored the prerendered data
-        // the id check keeps an in-circuit navigation to a different game reloading as before
-        if (Game?.Id == Id)
-        {
-            _loading = false;
-            _loaded = true;
-            return;
-        }
-        await LoadAsync();
-    }
-
-    private async Task LoadAsync()
-    {
-        // Closes the admin search panel on every (re)load, which covers linking from it (OnLinked calls
-        // this) as well as navigating to another item. RefreshReferenceAsync re-opens it afterwards when
-        // its own check came back without a link - it sets the flag *after* awaiting this.
-        _showLinker = false;
-        _edited = false;
-        await LoadingIndicator.RunAsync(FetchAsync(), v => _loading = v, StateHasChanged);
-        _loading = false;
-        _loaded = true;
-
-        // Not awaited: a just-created game is still being resolved on the server, and the page must render now rather than sit blank until that lands.
-        // See PendingReferenceLink for why this is needed at all, and for why it stops the moment this page has changes of its own.
-        _ = PendingReferenceLink.WatchAsync(
-            () => !string.IsNullOrEmpty(Game?.ReferenceId),
-            FetchPendingLinkAsync,
-            () => InvokeAsync(StateHasChanged),
-            () => !_edited);
-    }
-
-    private async Task FetchAsync()
-    {
-        Game = await VideoGameApi.GetOneAsync(Id);
-        Reference = string.IsNullOrEmpty(Game?.ReferenceId) ? null : await ReferenceDataApi.GetVideoGameAsync(Game.ReferenceId);
-    }
-
-    /// <summary>
-    /// The poll's own read - identical to <see cref="FetchAsync"/> except that it throws its answer away when a save landed while it was in flight.
-    /// That window is the one the loop's own guard cannot cover: what it fetched describes the item as it was <em>before</em> the edit, so assigning it would put the removed platform (and everything set on it) back on screen and back into the model, from where the next save would write it to the server.
-    /// </summary>
-    private async Task FetchPendingLinkAsync()
-    {
-        var game = await VideoGameApi.GetOneAsync(Id);
-        var reference = string.IsNullOrEmpty(game?.ReferenceId) ? null : await ReferenceDataApi.GetVideoGameAsync(game.ReferenceId);
-        if (_edited) return;
-
-        Game = game;
-        Reference = reference;
-    }
-
-    /// <summary>Every mutation on this page follows the same shape: mutate <c>Game</c> locally, then PUT
-    /// the whole DTO - shared here since the per-platform/per-playthrough editors below call it often.</summary>
-    private async Task SaveGameAsync()
-    {
-        if (Game is null) return;
-        // records that the page now holds something the server's copy may not - see FetchPendingLinkAsync.
-        // Set before the PUT, not after: the read this has to beat can be in flight already.
-        _edited = true;
-        await VideoGameApi.UpdateAsync(Game);
-    }
 
     private async Task SetRatingAsync(float rating)
     {
         if (Game is null) return;
         Game.Rating = rating;
-        await SaveGameAsync();
+        await SaveAsync();
     }
 
     private async Task ToggleWishlistedAsync()
     {
         if (Game is null) return;
         Game.IsWishlisted = !Game.IsWishlisted;
-        await SaveGameAsync();
+        await SaveAsync();
     }
 
     private async Task SaveTitleAsync(ChangeEventArgs e)
@@ -426,28 +321,28 @@ else
         var title = e.Value?.ToString();
         if (string.IsNullOrWhiteSpace(title)) return;
         Game.Title = title;
-        await SaveGameAsync();
+        await SaveAsync();
     }
 
     private async Task SaveYearAsync(ChangeEventArgs e)
     {
         if (Game is null) return;
         Game.Year = int.TryParse(e.Value?.ToString(), out var year) ? year : null;
-        await SaveGameAsync();
+        await SaveAsync();
     }
 
     private async Task SaveNotesAsync(ChangeEventArgs e)
     {
         if (Game is null) return;
         Game.Notes = e.Value?.ToString();
-        await SaveGameAsync();
+        await SaveAsync();
     }
 
     private async Task SaveCustomImageUrlAsync(ChangeEventArgs e)
     {
         if (Game is null) return;
         Game.CustomImageUrl = e.Value?.ToString();
-        await SaveGameAsync();
+        await SaveAsync();
     }
 
     private void StartDraftPlatform() => _draftPlatform = new VideoGamePlatformDto();
@@ -459,7 +354,7 @@ else
         if (Game is null || _draftPlatform is null || string.IsNullOrEmpty(_draftPlatform.Platform)) return;
         Game.Platforms.Add(_draftPlatform);
         _draftPlatform = null;
-        await SaveGameAsync();
+        await SaveAsync();
     }
 
     private async Task RequestRemovePlatformAsync(VideoGamePlatformDto entry)
@@ -489,7 +384,7 @@ else
     {
         if (Game is null) return;
         Game.Platforms.Remove(entry);
-        await SaveGameAsync();
+        await SaveAsync();
     }
 
     private static bool IsEmpty(VideoGamePlatformDto entry) =>
@@ -511,122 +406,56 @@ else
     {
         entry.State = entry.State == state ? "" : state;
         if (entry.State == "Completed") entry.CompletedAt ??= DateOnly.FromDateTime(DateTime.Today);
-        await SaveGameAsync();
+        await SaveAsync();
     }
 
     private async Task SetPlatformCompletedDateAsync(VideoGamePlatformDto entry, ChangeEventArgs e)
     {
         entry.CompletedAt = DateOnlyInput.Parse(e.Value);
-        await SaveGameAsync();
+        await SaveAsync();
     }
 
     private async Task SetPlatformProductNameAsync(VideoGamePlatformDto entry, ChangeEventArgs e)
     {
         entry.ProductName = e.Value?.ToString();
-        await SaveGameAsync();
+        await SaveAsync();
     }
 
     private async Task ToggleFullyCompletedAsync(VideoGamePlatformDto entry)
     {
         entry.IsFullyCompleted = !entry.IsFullyCompleted;
         entry.FullyCompletedAt = entry.IsFullyCompleted ? entry.FullyCompletedAt ?? DateOnly.FromDateTime(DateTime.Today) : null;
-        await SaveGameAsync();
+        await SaveAsync();
     }
 
     private async Task SetFullyCompletedDateAsync(VideoGamePlatformDto entry, ChangeEventArgs e)
     {
         entry.FullyCompletedAt = DateOnlyInput.Parse(e.Value);
-        await SaveGameAsync();
+        await SaveAsync();
     }
 
     private async Task AddPlaythroughAsync(VideoGamePlatformDto entry)
     {
         entry.Playthroughs.Add(new PlaythroughDto { Label = "" });
-        await SaveGameAsync();
+        await SaveAsync();
     }
 
     private async Task RemovePlaythroughAsync(VideoGamePlatformDto entry, PlaythroughDto playthrough)
     {
         entry.Playthroughs.Remove(playthrough);
-        await SaveGameAsync();
+        await SaveAsync();
     }
 
     private async Task UpdatePlaythroughLabelAsync(PlaythroughDto playthrough, ChangeEventArgs e)
     {
         playthrough.Label = e.Value?.ToString() ?? "";
-        await SaveGameAsync();
+        await SaveAsync();
     }
 
     private async Task UpdatePlaythroughDateAsync(PlaythroughDto playthrough, ChangeEventArgs e)
     {
         playthrough.CompletedAt = DateOnlyInput.Parse(e.Value);
-        await SaveGameAsync();
+        await SaveAsync();
     }
 
-    private async Task RefreshReferenceAsync()
-    {
-        if (Game?.Id is null) return;
-
-        var previousReferenceId = Game.ReferenceId;
-        _refreshingReference = true;
-        _refreshMessage = null;
-        try
-        {
-            var refreshed = await VideoGameApi.RefreshReferenceAsync(Game.Id);
-            await LoadAsync();
-
-            (_refreshMessage, _refreshMessageStyle) = ReferenceRefreshMessage.Compute(previousReferenceId, refreshed.ReferenceId);
-            _showLinker = string.IsNullOrEmpty(Game.ReferenceId);
-        }
-        catch (Exception ex)
-        {
-            _refreshMessage = $"Error: {ex.Message}";
-            _refreshMessageStyle = "danger";
-        }
-        finally
-        {
-            _refreshingReference = false;
-        }
-
-        ScheduleRefreshMessageClear();
-    }
-
-    private async Task UnlinkReferenceAsync()
-    {
-        _pendingUnlink = false;
-        if (Game?.Id is null) return;
-
-        try
-        {
-            await VideoGameApi.UnlinkReferenceAsync(Game.Id);
-            await LoadAsync();
-            (_refreshMessage, _refreshMessageStyle) = ("Unlinked and reference removed.", "success");
-        }
-        catch (Exception ex)
-        {
-            _refreshMessage = $"Error: {ex.Message}";
-            _refreshMessageStyle = "danger";
-        }
-
-        ScheduleRefreshMessageClear();
-    }
-
-    /// <summary>
-    /// The toast is a small, auto-dismissing pill next to the refresh icon, not a permanent line of text -
-    /// a token guards against an in-flight delay from a previous click clearing a newer message.
-    /// </summary>
-    private void ScheduleRefreshMessageClear()
-    {
-        var token = new object();
-        _refreshMessageToken = token;
-        _ = ClearRefreshMessageAfterDelayAsync(token);
-    }
-
-    private async Task ClearRefreshMessageAfterDelayAsync(object token)
-    {
-        await Task.Delay(RefreshMessageDuration);
-        if (!ReferenceEquals(_refreshMessageToken, token)) return;
-        _refreshMessage = null;
-        await InvokeAsync(StateHasChanged);
-    }
 }

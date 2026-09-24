@@ -1,6 +1,9 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Keeptrack.Common.System;
 
-namespace Keeptrack.WebApi.ReferenceData;
+namespace Keeptrack.Domain.Services;
 
 /// <summary>
 /// A provider's search result reduced to what identity is decided on. Implemented by every domain's own

@@ -199,7 +199,7 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
 
     /// <summary>
     /// Every distinct non-empty value this owner has used in one string field, sorted case-insensitively -
-    /// the single implementation behind each "suggest what you've already typed" endpoint
+    /// the single implementation behind each "suggest what has already been typed" endpoint
     /// (<c>GearController.GetCategories</c>, <c>CarHistoryController.GetFuelCategories</c>).
     /// The field is an expression rather than an element-name string, so the BSON name mapping stays with
     /// the entity class - same contract as <see cref="SortTitleField"/> and

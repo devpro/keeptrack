@@ -25,7 +25,7 @@ public class ExploreSuggestionPageDto
     /// <summary>
     /// True when this domain's ranking hasn't been built yet (a fresh deployment, before the first periodic
     /// refresh pass) rather than the caller having run out of suggestions. Both are an empty list, but they
-    /// mean opposite things to a user - "check back shortly" versus "you already track them all".
+    /// mean opposite things to a user - "check back shortly" versus "every one is already tracked".
     /// </summary>
     public bool CataloguePending { get; set; }
 }

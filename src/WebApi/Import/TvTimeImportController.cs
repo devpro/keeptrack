@@ -12,7 +12,7 @@ namespace Keeptrack.WebApi.Import;
 public class TvTimeImportController(JobStore<ImportStage, ImportResultDto> jobStore, IServiceScopeFactory scopeFactory) : ControllerBase
 {
     /// <summary>
-    /// Starts importing a TV Time GDPR export (the zip you get from TV Time's "Download my data" request)
+    /// Starts importing a TV Time GDPR export (the zip TV Time sends in answer to a "Download my data" request)
     /// as an upsert. Runs in the background; poll <see cref="GetStatus"/> with the returned job id for progress.
     /// </summary>
     [HttpPost("tv-time")]
