@@ -55,13 +55,13 @@ Rendering, polling, and what a missing item looks like.
 
 - [A page rendered itself back over the page it had navigated to](blazor-ui.md#the-home-page-painted-itself-back-over-the-page-it-was-navigated-away-from-seconds-later---the-app-bug-behind-the-playwright-suites-element-not-visible-flake)
 - [A detail page's link poll overwrote what the user had just done](blazor-ui.md#the-poll-that-reveals-a-freshly-created-items-reference-link-overwrote-whatever-the-user-did-while-it-ran-and-resurrected-a-platform-that-had-just-been-removed)
+- [The pending-link watch replaced the model while the item was unlinked](blazor-ui.md#the-pending-link-watch-replaced-the-pages-model-while-the-item-was-still-unlinked-so-removing-a-copy-during-it-removed-nothing)
 - [A missing item, and a malformed id, reached the error page instead of a 404](blazor-ui.md#an-id-that-names-nothing-reached-the-user-as-the-generic-error-page-instead-of-a-404-and-an-id-that-wasnt-a-valid-objectid-reached-it-as-a-500)
 
 ## [Persistence and mapping](persistence-and-mapping.md)
 
 MongoDB filters, indexes, and the AutoMapper null behaviour that predated Mapperly.
 
-- [`mapper.Map<T>(null)` returned a fake empty object, base repository included](persistence-and-mapping.md#mappermaptnull-returned-a-fake-empty-object-instead-of-null---also-affected-the-shared-base-repository-not-just-the-reference-data-ones)
 - [A null collection member was mapped to an empty collection](persistence-and-mapping.md#allownulldestinationvalues--false-also-substitutes-an-empty-collection-for-a-null-reference-type-member-not-just-an-empty-string)
 - [`mapper.Map<T>(null)` returned a fake empty object instead of null](persistence-and-mapping.md#mappermaptnull-returned-a-fake-empty-object-instead-of-null)
 - [`Eq(ReferenceId, null)` never matched, because it was never null](persistence-and-mapping.md#eqx--xreferenceid-null-never-matched-a-document-because-it-was-never-actually-null)
@@ -83,6 +83,6 @@ Read it before re-reporting any of it.
 
 - [Each entity searches its own fields](by-design-and-gaps.md#each-entity-searches-its-own-fields)
 - [Open Library's search noise is left alone, on purpose](by-design-and-gaps.md#open-librarys-book-search-has-the-same-free-text-noise-as-discogs-had-and-is-deliberately-left-alone-decided-2026-08-05---read-this-before-fixing-it)
-- [No `CancellationToken` propagation](by-design-and-gaps.md#no-cancellationtoken-propagation)
-- [No pagination bounds](by-design-and-gaps.md#no-pagination-bounds)
-- [Thin test coverage](by-design-and-gaps.md#thin-test-coverage)
+- [`CancellationToken` propagation is partial](by-design-and-gaps.md#cancellationtoken-propagation-is-partial)
+- [`PageSize` has no upper bound](by-design-and-gaps.md#pagesize-has-no-upper-bound)
+- [Test coverage gaps](by-design-and-gaps.md#test-coverage-gaps)

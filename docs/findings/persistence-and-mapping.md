@@ -4,47 +4,29 @@ Bugs found in MongoDB filters, indexes and object mapping, including the AutoMap
 Every finding below is fixed.
 These are the findings a mocked-repository unit test could never have caught.
 
-## `mapper.Map<T>(null)` returned a fake empty object instead of null - also affected the shared base repository, not just the reference-data ones
+## `mapper.Map<T>(null)` returned a fake empty object instead of null
 
-Found again on 2026-07-09 while building the Car/CarHistory feature and its `CarResourceTest` integration coverage.
-`MongoDbRepositoryBase.FindOneAsync` (the base class every entity's repository extends) had the exact same shape as the bug described just below - `Mapper.Map<TModel>(await entities.FirstOrDefaultAsync())`.
-It hit the exact same `AllowNullDestinationValues = false` gotcha, silently returning a blank default model instead of `null` for a nonexistent id.
-This meant `DataCrudControllerBase.GetById`'s `model == null` 404 check was broken for **every** entity type in the app (Book, Movie, TvShow, VideoGame, Album, Song, Playlist, Episode - not just the newly-added Car).
-It returned 200 with an empty object instead of 404.
-A mocked-repository unit test can't catch this (a mock never exercises real AutoMapper config).
-Confirmed via a real MongoDB integration test (`CarResourceTest.CarResourceMetrics_ReturnsNotFound_ForACarThatDoesNotExist`) and cross-checked against `Book` directly.
-Fixed the same way as the reference repositories below: check `entity is null` before calling `mapper.Map`, in the one shared base method rather than per-repository.
+Found on 2026-07-06 in the reference repositories, and again on 2026-07-09 in `MongoDbRepositoryBase.FindOneAsync`.
+Each `Find*Async` did `mapper.Map<TModel>(await ...FirstOrDefaultAsync())`, and AutoMapper's `AllowNullDestinationValues = false` turned a null source into a new all-default model.
+Every "not found" check downstream was defeated: `DataCrudControllerBase.GetById` answered 200 with an empty object instead of 404 for every entity type, and `ReferenceDataController` never answered 404.
+Caught only by real-MongoDB tests (`PersonReferenceRepositoryTest`, `CarResourceTest.CarResourceMetrics_ReturnsNotFound_ForACarThatDoesNotExist`), never by a mocked repository.
+Fixed by checking `entity is null` before mapping, once in the base class and in each reference repository.
+The rule outlived AutoMapper, since Mapperly throws on a null source instead.
 
-File: `src/Infrastructure.MongoDb/Repositories/MongoDbRepositoryBase.cs`
+Files: `src/Infrastructure.MongoDb/Repositories/MongoDbRepositoryBase.cs`, `TvShowReferenceRepository.cs`, `MovieReferenceRepository.cs`, `PersonReferenceRepository.cs`
 
 ## `AllowNullDestinationValues = false` also substitutes an empty collection for a null reference-type member, not just an empty string
 
 Found on 2026-07-09 while adding `CarHistoryResourceTest`: `CarHistoryModel -> CarHistory`'s `Coordinates` (`List<double>`) `ForMember` mapped to `null` when `Longitude`/`Latitude` were unset.
 But `AllowNullDestinationValues = false` substituted a new **empty list** instead.
-This was the same class of bug as the `Creator`/empty-string gotchas already documented here and in CLAUDE.md, just for a `List<T>` member instead of `string`.
+This was the same class of bug as the `Creator`/empty-string gotchas already documented here, just for a `List<T>` member instead of `string`.
 The reverse mapping (`CarHistory -> CarHistoryModel`) read it back with `x.Coordinates != null ? x.Coordinates[0] : null`, which an empty-but-non-null list defeats.
 `x.Coordinates[0]` threw `IndexOutOfRangeException` on every `POST`/`PUT` of a `CarHistory` entry with no location set.
-Fixed with `.AllowNull()` on that `ForMember`, same fix shape as the `Creator` case in CLAUDE.md.
+Fixed with `.AllowNull()` on that `ForMember`, the same fix shape as the `Creator` case.
 The `AllowNull()` opt-out itself no longer exists - the AutoMapper -> Mapperly migration deleted `CarDataStorageMappingProfile` entirely;
 the same null-vs-empty-list handling now lives, hand-written, in `CarHistoryStorageMapper.BuildLocation`.
 
 File (at the time of the fix): `src/WebApi/MappingProfiles/CarDataStorageMappingProfile.cs`, now `src/Infrastructure.MongoDb/Mappers/CarHistoryStorageMapper.cs`
-
-## `mapper.Map<T>(null)` returned a fake empty object instead of null
-
-Found on 2026-07-06 while adding the cast/actors integration test (`PersonReferenceRepositoryTest`), in `TvShowReferenceRepository`/`MovieReferenceRepository`/`PersonReferenceRepository`'s `Find*Async` methods.
-Each did `var entity = await Collection.Find(...).FirstOrDefaultAsync(); return mapper.Map<TModel>(entity);`.
-When nothing matched, `entity` is `null`, and the same `AllowNullDestinationValues = false` AutoMapper setting behind the previous finding also changes `Map<TDestination>(null)`.
-Instead of returning `null`, it returns a new, all-default `TDestination` instance.
-The integration test's `found.Should().BeNull()` assertion caught it directly (`found` was a non-null `PersonReferenceModel` with every property null).
-This silently broke "not found" handling anywhere these methods were used with an `is null` check, including `ReferenceDataController`'s 404 responses.
-Fixed by checking `entity is null` before calling `mapper.Map` in all three repositories, returning `null` directly instead.
-
-Files:
-
-- `src/Infrastructure.MongoDb/Repositories/TvShowReferenceRepository.cs`
-- `src/Infrastructure.MongoDb/Repositories/MovieReferenceRepository.cs`
-- `src/Infrastructure.MongoDb/Repositories/PersonReferenceRepository.cs`
 
 ## `Eq(x => x.ReferenceId, null)` never matched a document, because it was never actually null
 

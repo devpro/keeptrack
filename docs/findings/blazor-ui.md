@@ -41,6 +41,16 @@ Two guards, because they cover different halves of the window (`VideoGameDetail`
 
 Covered by `PendingReferenceLinkTest` (deterministic, no browser), since whether the e2e test hits the window at all depends on timing.
 
+## The pending-link watch replaced the page's model while the item was still unlinked, so removing a copy during it removed nothing
+
+Found on 2026-09-24 when every reference-linked detail page moved onto `ReferenceLinkedDetailPageBase` and so gained the watch that only `VideoGameDetail` had.
+`OwnershipSmokeTest` failed once in a full parallel run and passed alone: it removes a book's only copy, and the book still showed as Owned.
+The watch re-read the item every 1.5s for about nine seconds after the page opened, and replaced the whole model on every read, linked or not.
+A read landing while the removal confirmation was open swapped `Book.OwnedVersions` for a new list, so `Versions.Remove(version)` removed nothing from it and the next save wrote the copy back.
+`VideoGameDetail` had the same exposure through its pending platform removal.
+Fixed by replacing the model only when the fresh read is linked, since an unlinked read has nothing to reveal.
+`ReferenceLinkedDetailPageBaseTest.TheWatch_LeavesTheModelAlone_WhileTheItemIsStillUnlinked` failed before the fix.
+
 ## An id that names nothing reached the user as the generic error page instead of a 404, and an id that wasn't a valid ObjectId reached it as a 500
 
 Found on 2026-08-04 while adding a real 404 page to the Blazor app.

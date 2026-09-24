@@ -2,38 +2,28 @@
 
 ## Deployment
 
-- Add the web api outbound IP addresses to the MongoDB Atlas cluster
-- Create web project in Firebase and grab ids to be set to environment.ts file
-- Add the web api and blazor app to Firebase domains
-- Create a GitHub OAuth application ([firebase.google.com](https://firebase.google.com/docs/auth/web/github-auth),
-  [github.com](https://github.com/settings/applications/new))
+- Add the WebApi outbound IP addresses to the MongoDB Atlas network access list.
+- Create a web app in the Firebase project and set its ids in the BlazorApp `Firebase:WebAppConfiguration:*` settings (see [CONTRIBUTING.md](../CONTRIBUTING.md#blazor-app)).
+- Add the WebApi and BlazorApp domains to **Firebase > Authentication > Settings > Authorized domains**.
+- Create a [GitHub OAuth application](https://github.com/settings/applications/new) for the [Firebase GitHub provider](https://firebase.google.com/docs/auth/web/github-auth).
 
-## Database optimization
+## Database indexes
 
-- Create database indexes
+`scripts/mongodb-create-index.js` is idempotent, and is re-run after every change to it and after every migration script:
 
-  ```bash
-  docker run --rm --link mongodb -v "$(pwd)/scripts":/home/scripts mongo:8.2 bash -c "mongo mongodb://mongodb:27017/keeptrack /home/scripts/mongo-create-index.js"
-  ```
+```bash
+mongosh "mongodb+srv://<user>:<password>@<cluster>.<project>.mongodb.net/<database>" scripts/mongodb-create-index.js
+```
 
 ## Database backups
 
-- Dump MongoDB database
-
 ```bash
-docker run --rm -it --workdir=/data --volume $(pwd):/data mongo:8.2 /bin/sh -c "mongodump --uri mongodb+srv://<USER>:<PASSWORD>@<CLUSTER>.<PROJECT>.mongodb.net/test"
-```
-
-- Restore MongoDB database
-
-```bash
-docker run --rm -it --workdir=/data --volume $(pwd):/data mongo:8.2 /bin/sh -c "mongorestore --uri mongodb+srv://<USER>:<PASSWORD>@<CLUSTER>.<PROJECT>.mongodb.net"
+docker run --rm -it --workdir=/data --volume "$(pwd)":/data mongo:8.2 mongodump --uri "mongodb+srv://<user>:<password>@<cluster>.<project>.mongodb.net/<database>"
+docker run --rm -it --workdir=/data --volume "$(pwd)":/data mongo:8.2 mongorestore --uri "mongodb+srv://<user>:<password>@<cluster>.<project>.mongodb.net"
 ```
 
 ## Container image review
 
-- Open a shell on an image:
-
 ```bash
-docker run --rm -it --entrypoint /bin/bash <REPO>/<IMAGE>:<TAG>
+docker run --rm -it --entrypoint /bin/bash <repository>/<image>:<tag>
 ```
