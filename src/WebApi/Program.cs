@@ -1,4 +1,4 @@
-﻿// creates the web application builder
+// creates the web application builder
 var builder = WebApplication.CreateBuilder(args);
 
 // reads the application configuration and configures additional services

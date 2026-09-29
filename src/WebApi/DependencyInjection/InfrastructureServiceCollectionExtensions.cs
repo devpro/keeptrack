@@ -1,4 +1,4 @@
-﻿using Keeptrack.Infrastructure.MongoDb.Entities;
+using Keeptrack.Infrastructure.MongoDb.Entities;
 using Keeptrack.Infrastructure.MongoDb.Mappers;
 using Keeptrack.Infrastructure.MongoDb.Repositories;
 using Microsoft.Extensions.DependencyInjection.Extensions;

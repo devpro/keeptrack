@@ -1,4 +1,4 @@
-﻿extends: default
+extends: default
 # ref. https://yamllint.readthedocs.io/en/stable/configuration.html
 ignore-from-file:
   - .gitignore

@@ -93,12 +93,7 @@ It is now the twenty one steps that restore, lint, build, test, report and produ
 
 `actions/setup-dotnet` and `actions/setup-java` are skipped, because a setup action assumes a runner image with toolchains preinstalled, which a plain container is not.
 The .NET version is already fixed by the image, so `setup-dotnet` costs nothing.
-Java is different: the Sonar scanner needs it, so the Sonar steps need an image carrying both, for example one built from `mcr.microsoft.com/dotnet/sdk:10.0` with a JRE added.
-
-```dockerfile
-FROM mcr.microsoft.com/dotnet/sdk:10.0
-RUN apt-get update && apt-get install -y --no-install-recommends default-jre && rm -rf /var/lib/apt/lists/*
-```
+Java is different: the Sonar scanner needs it, and `ghcr.io/devpro/ubuntu-dotnet` carries the .NET SDK with a JRE.
 
 `SONAR_TOKEN` resolves to the placeholder `istarci-secret-SONAR_TOKEN`, which is deliberate: a local run holds no credentials, so the Sonar step fails where it uses it rather than silently analysing nothing.
 Disabling Sonar locally is the cleaner answer, and the reusable workflow already takes `sonar-enabled` as an input.
@@ -108,14 +103,9 @@ Disabling Sonar locally is the cleaner answer, and the reusable workflow already
 `docker build . --tag ${{ env.IMAGE_REF }}` needs a Docker client inside the job container, which no job gets today, and the expression reaches the shell unresolved because IstarCI resolves `inputs`, `github`, `matrix`, `secrets` and `vars` and not `env`.
 Both are IstarCI gaps, items 1 and 3 of its backlog, and neither needs a change here.
 
-### Eight files start with a byte order mark
+### The code has lint findings
 
-`.fossa.yml`, `.yamllint.yaml`, `Directory.Build.props`, the three workflow files, and two files under `src/WebApi`.
-IstarCI reads past a mark and says so once per file, so nothing is blocked by it here, but `yamllint` and `markdownlint` are stricter than that, and the marks are worth removing:
-
-```bash
-sed -i '1s/^\xEF\xBB\xBF//' .fossa.yml .yamllint.yaml Directory.Build.props .github/workflows/*.yaml .github/workflows/*.yml
-```
+On these images, `markup-lint` and `code-quality` run to the end of their tooling and fail on the code itself: 148 markdownlint issues, mostly `MD013` line length under `docs/findings`, and `dotnet format` whitespace and import ordering in `test/BlazorApp.PlaywrightTests` and `src/WebApi/ReferenceData`.
 
 ### The GitLab pipeline is not reachable by default
 
@@ -127,11 +117,10 @@ Its `workflow:` rules admit only the default branch, so a commit on any other br
 
 ```yaml
 runner:
-  image: mcr.microsoft.com/dotnet/sdk:10.0
+  image: ghcr.io/devpro/ubuntu-dotnet:latest
   images:
-    "markup-lint*": ghcr.io/devpro/istarci-node-lint:latest    # once built, see above
-    "code-quality*": ghcr.io/devpro/istarci-dotnet-sonar:latest # once built, see above
-    "git-check*": alpine/git:latest
+    "markup-lint*": ghcr.io/devpro/debian-node:latest
+    "git-check*": ghcr.io/devpro/debian-node:latest
 
 workflow:
   exclude:

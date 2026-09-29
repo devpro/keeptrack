@@ -1,4 +1,4 @@
-﻿namespace Keeptrack.Common.System;
+namespace Keeptrack.Common.System;
 
 public interface IHasIdAndOwnerId
 {

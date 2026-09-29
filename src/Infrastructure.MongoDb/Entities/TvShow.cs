@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
 using MongoDB.Bson;

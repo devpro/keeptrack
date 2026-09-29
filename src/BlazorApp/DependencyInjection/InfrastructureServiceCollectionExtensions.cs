@@ -1,4 +1,4 @@
-﻿using Keeptrack.BlazorApp.Components.Account;
+using Keeptrack.BlazorApp.Components.Account;
 
 namespace Keeptrack.BlazorApp.DependencyInjection;
 

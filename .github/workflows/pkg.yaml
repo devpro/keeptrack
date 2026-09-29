@@ -1,4 +1,4 @@
-﻿name: PKG
+name: PKG
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 # purpose: Continuous Delivery (aka Packaging & Shipping)
 

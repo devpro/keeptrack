@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq.Expressions;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;

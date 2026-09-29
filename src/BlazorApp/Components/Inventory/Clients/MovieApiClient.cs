@@ -1,4 +1,4 @@
-﻿using Keeptrack.WebApi.Contracts.Dto;
+using Keeptrack.WebApi.Contracts.Dto;
 
 namespace Keeptrack.BlazorApp.Components.Inventory.Clients;
 

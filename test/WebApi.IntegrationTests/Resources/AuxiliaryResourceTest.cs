@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Threading.Tasks;
 using AwesomeAssertions;
 using Keeptrack.WebApi.IntegrationTests.Hosting;

@@ -1,4 +1,4 @@
-﻿FROM registry.suse.com/bci/dotnet-aspnet:10.0.10 AS base
+FROM registry.suse.com/bci/dotnet-aspnet:10.0.10 AS base
 USER $APP_UID
 WORKDIR /app
 EXPOSE 8080

@@ -1,4 +1,4 @@
-﻿namespace Keeptrack.WebApi.Authentication;
+namespace Keeptrack.WebApi.Authentication;
 
 public class JwtBearerSettings
 {

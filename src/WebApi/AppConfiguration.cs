@@ -1,4 +1,4 @@
-﻿using Keeptrack.WebApi.Authentication;
+using Keeptrack.WebApi.Authentication;
 using Keeptrack.WebApi.ReferenceData;
 using Withywoods.Configuration;
 

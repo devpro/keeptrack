@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Keeptrack.Common.System;
 
 namespace Keeptrack.WebApi.Contracts.Dto;

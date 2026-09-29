@@ -1,4 +1,4 @@
-﻿using System.Threading;
+using System.Threading;
 using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
