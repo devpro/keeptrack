@@ -13,3 +13,7 @@ workflow:
   # Delivery and deployment publish or hold credentials, which a local run must never reach.
   exclude:
     - pkg.yaml
+
+# Repository variables the pipeline reads, which a local run otherwise gets as placeholders, and an image tag refuses the uppercase in one.
+vars:
+  CONTAINER_REGISTRY_PATH: devprofr
