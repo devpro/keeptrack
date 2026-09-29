@@ -10,6 +10,11 @@ runner:
   docker: true
 
 workflow:
+  # GitHub's own actions, and the composite replacements for every other one kept in github-workflow-parts.
+  allowedActions:
+    - actions/*
+    - github/*
+    - devpro/github-workflow-parts/*
   # Delivery and deployment publish or hold credentials, which a local run must never reach.
   exclude:
     - pkg.yaml
