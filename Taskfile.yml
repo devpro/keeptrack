@@ -1,0 +1,12 @@
+version: '3'
+
+tasks:
+
+  default:
+    cmds:
+      - task --list
+
+  ci:
+    desc: Run the CI pipeline of the last commit in containers with IstarCI (clone in ISTARCI_DIR, default ~/repos/istarci)
+    cmds:
+      - '"${ISTARCI_DIR:-$HOME/repos/istarci}/scripts/check_repo.sh" "{{.ROOT_DIR}}" --timeout 1800 {{.CLI_ARGS}}'
