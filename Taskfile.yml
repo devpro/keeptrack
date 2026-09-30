@@ -6,7 +6,24 @@ tasks:
     cmds:
       - task --list
 
+  ci:setup:
+    desc: Register the repository with the IstarCI daemon and gate git push on its runs
+    cmds:
+      - istarci add "{{.ROOT_DIR}}"
+      - istarci install-hook "{{.ROOT_DIR}}"
+
   ci:
-    desc: Run the CI pipeline of the last commit in containers with IstarCI (clone in ISTARCI_DIR, default ~/repos/istarci)
+    desc: Show the IstarCI runs of the recent commits
+    cmds:
+      - istarci status "{{.ROOT_DIR}}"
+
+  ci:logs:
+    desc: Show the output of the last IstarCI run
+    cmds:
+      - istarci logs "{{.ROOT_DIR}}" {{.CLI_ARGS}}
+
+  # Fallback for IstarCI development only: runs the daemon from a clone (ISTARCI_DIR, default ~/repos/istarci), without installing the package.
+  ci:from-clone:
+    desc: Run the CI pipeline of the last commit once, from an IstarCI clone
     cmds:
       - '"${ISTARCI_DIR:-$HOME/repos/istarci}/scripts/check_repo.sh" "{{.ROOT_DIR}}" --timeout 1800 {{.CLI_ARGS}}'
