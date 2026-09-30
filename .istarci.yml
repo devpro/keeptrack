@@ -16,7 +16,7 @@ workflow:
     - github/*
     - docker/*
     - devpro/github-workflow-parts/*
-  # Delivery and deployment publish or hold credentials, which a local run must never reach.
+  # Delivery publishes on a push to the default branch, which a local run must never reach.
   exclude:
     - pkg.yaml
 
