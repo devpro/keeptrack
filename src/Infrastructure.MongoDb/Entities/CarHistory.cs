@@ -34,7 +34,14 @@ public class CarHistory : IHasIdAndOwnerId
 
     public CarHistoryFuel? Fuel { get; set; }
 
-    public CarHistoryStation? Station { get; set; }
+    /// <summary>
+    /// Reference into the shared <c>car_station</c> collection - replaces the old embedded
+    /// <c>station.brand_name</c> sub-document, which duplicated the station's identity (and, alongside it,
+    /// its whole location) on every single refuel.
+    /// </summary>
+    [BsonElement("station_id")]
+    [BsonRepresentation(BsonType.ObjectId)]
+    public string? StationId { get; set; }
 
     public string? Garage { get; set; }
 }

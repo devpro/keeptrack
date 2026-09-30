@@ -1,4 +1,4 @@
-﻿name: CI
+name: CI
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 # purpose: Continuous Integration pipeline
 
@@ -39,13 +39,13 @@ jobs:
 
   markup-lint:
     name: Markup
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-markup-lint.yml@58dbfe0e9927f2191796ac616a4bb43126e59d98
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-markup-lint.yml@00907950b2c345e8ad6934b07268cef056d50d86
 
   code-quality:
     name: Code
     needs: git-check
     if: needs.git-check.outputs.app_changed == 'true' || (github.event_name == 'workflow_dispatch' && inputs.run-code-quality)
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-dotnet-quality.yml@58dbfe0e9927f2191796ac616a4bb43126e59d98
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-dotnet-quality.yml@00907950b2c345e8ad6934b07268cef056d50d86
     with:
       # TODO: need a safe solution for service account json content
       #
@@ -67,10 +67,12 @@ jobs:
       dotnet-test-args: "--report-xunit-trx --coverage --coverage-output-format cobertura"
       extra-vars: |
         AllowedOrigins__0=5207
+        AllowedOrigins__1=7042
         Features__IsScalarEnabled=true
         Features__IsHttpsRedirectionEnabled=false
         Infrastructure__MongoDB__ConnectionString=mongodb://localhost:27017
         Infrastructure__MongoDB__DatabaseName=keeptrack_ci
+        Logging__LogLevel__Keeptrack=Debug
       fossa-enabled: true
       sonar-enabled: true
       sonar-cpd-exclusions: "**/*.g.cs,**/*.generated.cs,**/src/WebApi.Contracts/Dto/*.cs,**/src/Domain/Models/*.cs,**/src/Infrastructure.MongoDb/Entities/*.cs"
@@ -78,7 +80,7 @@ jobs:
       sonar-organization: ${{ vars.SONAR_ORG }}
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
       sonar-project-name: Keeptrack
-      workflow-parts-version: 58dbfe0e9927f2191796ac616a4bb43126e59d98
+      workflow-parts-version: 00907950b2c345e8ad6934b07268cef056d50d86
     secrets:
       fossa-api-key: ${{ secrets.FOSSA_API_KEY }}
       sonar-token: ${{ secrets.SONAR_TOKEN }}
@@ -89,6 +91,10 @@ jobs:
         Tmdb__ApiKey=${{ secrets.TMDB_APIKEY }}
         Rawg__ApiKey=${{ secrets.RAWG_APIKEY }}
         Discogs__Token=${{ secrets.DISCOGS_TOKEN }}
+        GoogleBooks__ApiKey=${{ secrets.GOOGLEBOOKS_APIKEY }}
+        Omdb__ApiKey=${{ secrets.OMDB_APIKEY }}
+        Igdb__ClientId=${{ secrets.IGDB_CLIENTID }}
+        Igdb__ClientSecret=${{ secrets.IGDB_CLIENTSECRET }}
         FIREBASE_APIKEY=${{ secrets.FIREBASE_APIKEY }}
         FIREBASE_USERNAME=${{ secrets.FIREBASE_TESTUSERNAME }}
         FIREBASE_PASSWORD=${{ secrets.FIREBASE_TESTPASSWORD }}
@@ -109,7 +115,7 @@ jobs:
           - name: "Web Api"
             image-name: "keeptrack-webapi"
             image-definition: "src/WebApi/Dockerfile"
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-scan.yml@58dbfe0e9927f2191796ac616a4bb43126e59d98
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-scan.yml@00907950b2c345e8ad6934b07268cef056d50d86
     with:
       image-definition: ${{ matrix.image-definition }}
       image-name: ${{ matrix.image-name }}
@@ -117,4 +123,4 @@ jobs:
       image-tag: "${{ needs.git-check.outputs.version_major_minor }}.${{ github.run_id }}"
       max-high-cves: 1 # temporary (2026-07-19): libxml2-2 │ SUSE-SU-2026:3097-1 │ HIGH │ fixed │ 2.12.10-150700.4.11.1 │ 2.12.10-150700.4.14.1 │ Security update for libxml2
       max-medium-cves: 0
-      workflow-parts-version: 58dbfe0e9927f2191796ac616a4bb43126e59d98
+      workflow-parts-version: 00907950b2c345e8ad6934b07268cef056d50d86

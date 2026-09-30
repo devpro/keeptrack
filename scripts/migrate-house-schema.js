@@ -6,7 +6,7 @@
 //
 // `city` can't be reliably derived from the old free-text `address` field, and `property_type` has no
 // prior signal at all, so both get a neutral placeholder ("" / "Other") rather than a guess - same
-// "don't guess when you don't have the info" principle as the rest of the reference-data code. Affected
+// "don't guess when the information isn't there" principle as the rest of the reference-data code. Affected
 // houses are printed below so the owner can fill in the real values by hand.
 //
 // Idempotent: the $set only touches documents still missing `city`/`property_type`, and the $unset only

@@ -1,4 +1,4 @@
-﻿namespace Keeptrack.WebApi.DependencyInjection;
+namespace Keeptrack.WebApi.DependencyInjection;
 
 public static class OpenApiServiceCollectionExtensions
 {

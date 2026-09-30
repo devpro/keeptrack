@@ -11,7 +11,7 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
 /// Basic full-cycle CRUD coverage for <c>CarHistory</c>, plus a regression test for the specific bug tracked
-/// in docs/code-quality-findings.md: <c>CarHistoryRepository.GetFilter</c> used to combine two <c>$text</c>
+/// in docs/findings/persistence-and-mapping.md: <c>CarHistoryRepository.GetFilter</c> used to combine two <c>$text</c>
 /// expressions (one for <c>CarId</c>, one for the free-text search) in a single query, which MongoDB rejects
 /// whenever both are supplied at once.
 /// </summary>
@@ -44,24 +44,17 @@ public class CarHistoryResourceTest(KestrelWebAppFactory<Program> factory)
         var carId = Guid.NewGuid().ToString();
         var initialItems = await GetAsync<PagedResult<CarHistoryDto>>($"/{ResourceEndpoint}?CarId={carId}");
 
-        var created = await PostAsync($"/{ResourceEndpoint}", NewEntry(carId));
+        var created = await CreateAsync($"/{ResourceEndpoint}", NewEntry(carId));
         created.Id.Should().NotBeNullOrEmpty();
 
-        try
-        {
-            created.Cost = 55.0;
-            await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
+        created.Cost = 55.0;
+        await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
 
-            var updated = await GetAsync<CarHistoryDto>($"/{ResourceEndpoint}/{created.Id}");
-            updated.Should().BeEquivalentTo(created);
+        var updated = await GetAsync<CarHistoryDto>($"/{ResourceEndpoint}/{created.Id}");
+        updated.Should().BeEquivalentTo(created);
 
-            var finalItems = await GetAsync<PagedResult<CarHistoryDto>>($"/{ResourceEndpoint}?CarId={carId}");
-            finalItems.TotalCount.Should().BeGreaterThan(initialItems.TotalCount);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        var finalItems = await GetAsync<PagedResult<CarHistoryDto>>($"/{ResourceEndpoint}?CarId={carId}");
+        finalItems.TotalCount.Should().BeGreaterThan(initialItems.TotalCount);
     }
 
     [Fact]
@@ -71,20 +64,12 @@ public class CarHistoryResourceTest(KestrelWebAppFactory<Program> factory)
 
         var carId = Guid.NewGuid().ToString();
         var otherCarId = Guid.NewGuid().ToString();
-        var created = await PostAsync($"/{ResourceEndpoint}", NewEntry(carId));
-        var otherCreated = await PostAsync($"/{ResourceEndpoint}", NewEntry(otherCarId));
+        var created = await CreateAsync($"/{ResourceEndpoint}", NewEntry(carId));
+        var otherCreated = await CreateAsync($"/{ResourceEndpoint}", NewEntry(otherCarId));
 
-        try
-        {
-            var results = await GetAsync<PagedResult<CarHistoryDto>>($"/{ResourceEndpoint}?CarId={carId}");
-            results.Items.Should().ContainSingle(x => x.Id == created.Id);
-            results.Items.Should().NotContain(x => x.Id == otherCreated.Id);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-            await DeleteAsync($"/{ResourceEndpoint}/{otherCreated.Id}");
-        }
+        var results = await GetAsync<PagedResult<CarHistoryDto>>($"/{ResourceEndpoint}?CarId={carId}");
+        results.Items.Should().ContainSingle(x => x.Id == created.Id);
+        results.Items.Should().NotContain(x => x.Id == otherCreated.Id);
     }
 
     /// <summary>
@@ -100,16 +85,9 @@ public class CarHistoryResourceTest(KestrelWebAppFactory<Program> factory)
         var description = Guid.NewGuid().ToString();
         var entry = NewEntry(carId);
         entry.Description = description;
-        var created = await PostAsync($"/{ResourceEndpoint}", entry);
+        var created = await CreateAsync($"/{ResourceEndpoint}", entry);
 
-        try
-        {
-            var results = await GetAsync<PagedResult<CarHistoryDto>>($"/{ResourceEndpoint}?CarId={carId}&search={description}");
-            results.Items.Should().ContainSingle(x => x.Id == created.Id);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        var results = await GetAsync<PagedResult<CarHistoryDto>>($"/{ResourceEndpoint}?CarId={carId}&search={description}");
+        results.Items.Should().ContainSingle(x => x.Id == created.Id);
     }
 }

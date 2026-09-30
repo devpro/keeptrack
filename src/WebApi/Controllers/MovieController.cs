@@ -1,3 +1,4 @@
+using System.Threading;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.WebApi.Mappers;
@@ -26,7 +27,7 @@ public class MovieController(
     /// Hydrates each page item's cover image from its linked reference document - one batched lookup per
     /// page (see <see cref="ReferenceImageHydrator"/>), keyed by the id-bearing documents only.
     /// </summary>
-    protected override Task OnListMappedAsync(List<MovieDto> dtos)
+    protected override Task OnListMappedAsync(List<MovieDto> dtos, CancellationToken cancellationToken)
         => ReferenceImageHydrator.HydrateAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl);
 
     /// <summary>
@@ -35,14 +36,13 @@ public class MovieController(
     protected override Task OnCreatedAsync(MovieModel model)
     {
         var title = model.Title;
-        var year = model.Year;
         _ = Task.Run(async () =>
         {
             try
             {
                 using var scope = scopeFactory.CreateScope();
                 var scopedEnrichmentService = scope.ServiceProvider.GetRequiredService<ReferenceEnrichmentService>();
-                await scopedEnrichmentService.TryAutoResolveMovieAsync(title, year);
+                await scopedEnrichmentService.TryAutoResolveMovieAsync(model);
             }
             catch (Exception ex)
             {
@@ -59,12 +59,12 @@ public class MovieController(
     [HttpPost("{id}/refresh-reference")]
     [ProducesResponseType(200)]
     [ProducesResponseType(404)]
-    public async Task<ActionResult<MovieDto>> RefreshReference(string id)
+    public async Task<ActionResult<MovieDto>> RefreshReference(string id, CancellationToken cancellationToken)
     {
-        var model = await dataRepository.FindOneAsync(id, this.GetUserId());
+        var model = await dataRepository.FindOneAsync(id, this.GetUserId(), cancellationToken);
         if (model is null) return NotFound();
 
-        model = await enrichmentService.TryLinkExistingMovieReferenceAsync(model);
+        model = await enrichmentService.LinkMovieReferenceAsync(model);
         return Ok(Mapper.ToDto(model));
     }
 
@@ -76,9 +76,9 @@ public class MovieController(
     [Authorize(Policy = "AdminOnly")]
     [ProducesResponseType(200)]
     [ProducesResponseType(404)]
-    public async Task<ActionResult<MovieDto>> UnlinkReference(string id)
+    public async Task<ActionResult<MovieDto>> UnlinkReference(string id, CancellationToken cancellationToken)
     {
-        var model = await dataRepository.FindOneAsync(id, this.GetUserId());
+        var model = await dataRepository.FindOneAsync(id, this.GetUserId(), cancellationToken);
         if (model is null) return NotFound();
 
         model = await enrichmentService.UnlinkMovieReferenceAsync(model);

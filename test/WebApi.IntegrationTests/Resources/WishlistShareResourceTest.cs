@@ -31,41 +31,35 @@ public class WishlistShareResourceTest(KestrelWebAppFactory<Program> factory)
         await Authenticate();
 
         // a wishlisted movie that must appear in the shared view
-        var movie = await PostAsync<MovieDto>("/api/movies", new MovieDto { Title = $"SharedWishlistTarget-{Guid.NewGuid():N}", IsWishlisted = true });
+        var movie = await CreateAsync("/api/movies", new MovieDto { Title = $"SharedWishlistTarget-{Guid.NewGuid():N}", IsWishlisted = true });
 
         var mumShare = await PostAsync<CreateWishlistShareRequestDto, WishlistShareDto>("/api/wishlist/shares", new CreateWishlistShareRequestDto { Label = "Mum" });
+        TrackResource("/api/wishlist/shares", mumShare.Id);
         var friendShare = await PostAsync<CreateWishlistShareRequestDto, WishlistShareDto>("/api/wishlist/shares", new CreateWishlistShareRequestDto { Label = "Friend" });
+        TrackResource("/api/wishlist/shares", friendShare.Id);
         mumShare.Token.Should().NotBeNullOrEmpty().And.NotBe(friendShare.Token);
         mumShare.Label.Should().Be("Mum");
 
         // a genuinely anonymous client - no Authenticate(), no bearer header, like a share recipient
         using var anonymous = new HttpClient { BaseAddress = new Uri(Factory.ServerAddress) };
-        try
-        {
-            var shares = await GetAsync<List<WishlistShareDto>>("/api/wishlist/shares");
-            shares.Should().Contain(s => s.Id == mumShare.Id && s.Label == "Mum");
-            shares.Should().Contain(s => s.Id == friendShare.Id && s.Label == "Friend");
 
-            var shared = await anonymous.GetFromJsonAsync<WishlistDto>($"/api/wishlist/shared/{mumShare.Token}", TestContext.Current.CancellationToken);
-            shared!.Movies.Should().Contain(m => m.Id == movie.Id);
+        var shares = await GetAsync<List<WishlistShareDto>>("/api/wishlist/shares");
+        shares.Should().Contain(s => s.Id == mumShare.Id && s.Label == "Mum");
+        shares.Should().Contain(s => s.Id == friendShare.Id && s.Label == "Friend");
 
-            // an unknown token is an indistinguishable 404
-            (await anonymous.GetAsync($"/api/wishlist/shared/{Guid.NewGuid():N}", TestContext.Current.CancellationToken)).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        var shared = await anonymous.GetFromJsonAsync<WishlistDto>($"/api/wishlist/shared/{mumShare.Token}", TestContext.Current.CancellationToken);
+        shared!.Movies.Should().Contain(m => m.Id == movie.Id);
 
-            // revoking one link kills that link only - the other keeps working
-            await DeleteAsync($"/api/wishlist/shares/{mumShare.Id}");
-            (await anonymous.GetAsync($"/api/wishlist/shared/{mumShare.Token}", TestContext.Current.CancellationToken)).StatusCode.Should().Be(HttpStatusCode.NotFound);
-            (await anonymous.GetAsync($"/api/wishlist/shared/{friendShare.Token}", TestContext.Current.CancellationToken)).StatusCode.Should().Be(HttpStatusCode.OK);
+        // an unknown token is an indistinguishable 404
+        (await anonymous.GetAsync($"/api/wishlist/shared/{Guid.NewGuid():N}", TestContext.Current.CancellationToken)).StatusCode.Should().Be(HttpStatusCode.NotFound);
 
-            var remaining = await GetAsync<List<WishlistShareDto>>("/api/wishlist/shares");
-            remaining.Should().NotContain(s => s.Id == mumShare.Id);
-            remaining.Should().Contain(s => s.Id == friendShare.Id);
-        }
-        finally
-        {
-            await DeleteAsync($"/api/movies/{movie.Id}");
-            await DeleteAsync($"/api/wishlist/shares/{mumShare.Id}");
-            await DeleteAsync($"/api/wishlist/shares/{friendShare.Id}");
-        }
+        // revoking one link kills that link only - the other keeps working
+        await DeleteAsync($"/api/wishlist/shares/{mumShare.Id}");
+        (await anonymous.GetAsync($"/api/wishlist/shared/{mumShare.Token}", TestContext.Current.CancellationToken)).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await anonymous.GetAsync($"/api/wishlist/shared/{friendShare.Token}", TestContext.Current.CancellationToken)).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var remaining = await GetAsync<List<WishlistShareDto>>("/api/wishlist/shares");
+        remaining.Should().NotContain(s => s.Id == mumShare.Id);
+        remaining.Should().Contain(s => s.Id == friendShare.Id);
     }
 }

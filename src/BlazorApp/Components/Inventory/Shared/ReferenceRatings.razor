@@ -1,0 +1,42 @@
+@* Per-source rating breakdown for a reference-linked detail page (e.g. "★ 7.8 / 10 TMDB (12,345)").
+   Shared by every reference-bearing detail page so the source-name mapping and layout live once.
+   Renders nothing when the reference carries no ratings. *@
+@using System.Globalization
+
+@if (Ratings.Count > 0)
+{
+    <div class="kt-ref-ratings">
+        @foreach (var (source, rating) in Ratings)
+        {
+            <span class="kt-ref-rating-detail">
+                <span class="kt-ref-rating-star">★</span>
+                <span class="kt-ref-rating-value">@rating.Value.ToString("0.0", CultureInfo.InvariantCulture)</span>
+                <span class="kt-ref-rating-scale">/ @rating.Scale.ToString("0.#", CultureInfo.InvariantCulture)</span>
+                <span class="kt-ref-rating-source">@SourceName(source)</span>
+                @if (rating.Count is > 0)
+                {
+                    <span class="kt-ref-rating-count">(@rating.Count.Value.ToString("N0", CultureInfo.InvariantCulture))</span>
+                }
+            </span>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public required Dictionary<string, ReferenceRatingDto> Ratings { get; set; }
+
+    private static string SourceName(string source) => source switch
+    {
+        "tmdb" => "TMDB",
+        "imdb" => "IMDb",
+        "rawg" => "RAWG",
+        "metacritic" => "Metacritic",
+        "igdb" => "IGDB",
+        "igdbcritic" => "IGDB Critics",
+        "discogs" => "Discogs",
+        "googlebooks" => "Google Books",
+        "openlibrary" => "Open Library",
+        "bnf" => "BnF",
+        _ => source
+    };
+}

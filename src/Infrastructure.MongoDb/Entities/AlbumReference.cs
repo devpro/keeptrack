@@ -9,7 +9,7 @@ namespace Keeptrack.Infrastructure.MongoDb.Entities;
 /// Shared, owner-less album metadata collection (<c>album_reference</c>). See
 /// <see cref="TvShowReference"/> for why this has no <c>owner_id</c>.
 /// </summary>
-public class AlbumReference
+public class AlbumReference : IHasMatchedAliases
 {
     [BsonId]
     [BsonRepresentation(BsonType.ObjectId)]
@@ -36,6 +36,9 @@ public class AlbumReference
     public List<string> Genres { get; set; } = [];
 
     public List<ReferenceTrack> Tracks { get; set; } = [];
+
+    /// <summary>Aggregate ratings keyed by source name ("discogs") - see <see cref="ReferenceRating"/>.</summary>
+    public Dictionary<string, ReferenceRating> Ratings { get; set; } = [];
 
     [BsonElement("image_url")]
     public string? ImageUrl { get; set; }

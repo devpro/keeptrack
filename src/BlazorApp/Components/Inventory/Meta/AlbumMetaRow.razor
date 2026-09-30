@@ -1,0 +1,30 @@
+@* The album list row's second line. Shared by the owner list page and the shared-collection view. *@
+
+@if (!string.IsNullOrEmpty(Item.Artist))
+{
+    <span>@Item.Artist</span>
+}
+@if (Item.Year > 0)
+{
+    <span>@Item.Year</span>
+}
+@if (Item.ReferenceRating is not null)
+{
+    <span class="kt-ref-rating" title="Rating from the linked reference"><span class="kt-ref-rating-star">★</span> @Item.ReferenceRating.Value.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)</span>
+}
+@if (Item.Rating is not null)
+{
+    <span class="kt-stars"><StarRating Rating="Item.Rating"/></span>
+}
+@if (Item.IsFavorite)
+{
+    <span class="kt-flag-badge favorite">Favorite</span>
+}
+@if (Item.OwnedVersions.Count > 0)
+{
+    <span class="kt-flag-badge">Owned</span>
+}
+
+@code {
+    [Parameter] public required AlbumDto Item { get; set; }
+}

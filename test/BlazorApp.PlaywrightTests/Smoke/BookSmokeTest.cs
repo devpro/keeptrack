@@ -28,6 +28,8 @@ public class BookSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 
         var detail = new BookDetailPage(Page);
         await detail.WaitForReadyAsync();
+        // registered as soon as the item exists, so an assertion failure below still removes it
+        TrackOpenItem("/api/books");
         await Assertions.Expect(detail.TitleInput).ToHaveValueAsync(title);
 
         await DetailPageBase.SetFieldAsync(detail.SeriesInput, Series);

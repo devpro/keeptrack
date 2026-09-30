@@ -1,0 +1,23 @@
+@* The collectible list row's second line (brand / year / flags). Extracted so the owner list page and the
+   read-only shared-collection view render the identical meta from one definition. *@
+
+@if (!string.IsNullOrEmpty(Item.Brand))
+{
+    <span>@Item.Brand</span>
+}
+@if (Item.Year > 0)
+{
+    <span>@Item.Year</span>
+}
+@if (Item.IsFavorite)
+{
+    <span class="kt-flag-badge favorite">Favorite</span>
+}
+@if (Item.OwnedVersions.Count > 0)
+{
+    <span class="kt-flag-badge">Owned</span>
+}
+
+@code {
+    [Parameter] public required CollectibleDto Item { get; set; }
+}

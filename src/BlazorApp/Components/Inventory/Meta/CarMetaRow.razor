@@ -1,0 +1,19 @@
+@* The car list row's second line (manufacturer/model / year / plate). Extracted so the owner list page and
+   the read-only shared-collection view render the identical meta from one definition. *@
+
+@if (!string.IsNullOrEmpty(Item.Manufacturer) || !string.IsNullOrEmpty(Item.Model))
+{
+    <span>@($"{Item.Manufacturer} {Item.Model}".Trim())</span>
+}
+@if (Item.Year > 0)
+{
+    <span>@Item.Year</span>
+}
+@if (!string.IsNullOrEmpty(Item.LicensePlate))
+{
+    <span>@Item.LicensePlate</span>
+}
+
+@code {
+    [Parameter] public required CarDto Item { get; set; }
+}

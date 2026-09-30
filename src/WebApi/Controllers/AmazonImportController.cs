@@ -6,6 +6,9 @@ using Keeptrack.Domain.Services;
 using Keeptrack.WebApi.Mappers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+// Both Domain.Models (imported above) and Contracts.Dto (a global using) declare ImportMediaType/CopyType.
+// The DTOs the request carries use the Contracts ones; these aliases keep the mapping below unambiguous.
+using AmazonMediaType = Keeptrack.WebApi.Contracts.Dto.AmazonImportMediaType;
 
 namespace Keeptrack.WebApi.Controllers;
 
@@ -14,6 +17,9 @@ namespace Keeptrack.WebApi.Controllers;
 /// UI as books, movies, TV shows, video games, gear, or collectibles (picked per row - see <see cref="AmazonImportMediaType"/>).
 /// Synchronous on both ends: unlike the TV Time import, there is no external API call in the loop, so even
 /// a multi-year export completes well within a normal request.
+/// The create/merge/dedup work is delegated to the shared <see cref="OwnedItemImportCommitCoordinator"/> (the
+/// same engine the generic store/CSV importer uses); this controller only parses Amazon's specific export and
+/// builds the reference/provenance text that is genuinely Amazon-specific.
 /// </summary>
 [ApiController]
 [Authorize(Policy = "MemberOnly")]
@@ -76,7 +82,7 @@ public class AmazonImportController(
     /// Creates/updates items from the rows the user selected in the review UI, grouped by the media type
     /// each row was assigned. A row whose (normalized) title matches an existing item of the same type - or
     /// one created earlier in this same request - gets an additional owned copy instead of a duplicate
-    /// item; see <see cref="OwnedItemImportMergeService.ComputeCommitPlan{TModel,TRequestItem}"/>.
+    /// item; see <see cref="OwnedItemImportCommitCoordinator.CommitAsync"/>.
     /// </summary>
     [HttpPost("commit")]
     [ProducesResponseType(200)]
@@ -84,7 +90,6 @@ public class AmazonImportController(
     public async Task<ActionResult<AmazonImportCommitResultDto>> Commit(AmazonImportCommitRequestDto request)
     {
         var ownerId = this.GetUserId();
-        var result = new AmazonImportCommitResultDto();
 
         var itemMissingMediaType = request.Items.FirstOrDefault(item => item.MediaType is null);
         if (itemMissingMediaType is not null)
@@ -92,205 +97,75 @@ public class AmazonImportController(
             throw new ArgumentException($"A media type is required to import '{itemMissingMediaType.Title}'.");
         }
 
-        var bookItems = request.Items.Where(i => i.MediaType == AmazonImportMediaType.Book).ToList();
-        var movieItems = request.Items.Where(i => i.MediaType == AmazonImportMediaType.Movie).ToList();
-        var tvShowItems = request.Items.Where(i => i.MediaType == AmazonImportMediaType.TvShow).ToList();
-        var videoGameItems = request.Items.Where(i => i.MediaType == AmazonImportMediaType.VideoGame).ToList();
-        var gearItems = request.Items.Where(i => i.MediaType == AmazonImportMediaType.Gear).ToList();
-        var collectibleItems = request.Items.Where(i => i.MediaType == AmazonImportMediaType.Collectible).ToList();
-
-        var videoGameItemMissingPlatform = videoGameItems.FirstOrDefault(item => string.IsNullOrWhiteSpace(item.Platform));
+        var videoGameItemMissingPlatform = request.Items.FirstOrDefault(item =>
+            item.MediaType == AmazonMediaType.VideoGame && string.IsNullOrWhiteSpace(item.Platform));
         if (videoGameItemMissingPlatform is not null)
         {
             throw new ArgumentException($"A platform is required to import '{videoGameItemMissingPlatform.Title}' as a video game.");
         }
 
-        if (bookItems.Count > 0)
-        {
-            var existingBooks = await FindAllAsync(bookRepository, ownerId, new BookModel { OwnerId = ownerId, Title = string.Empty, Author = string.Empty });
-            var (created, mergedInto, skipped) = await CommitAsync(
-                bookRepository, existingBooks, bookItems.Select(ToOwnedItemRequestItem).ToList(),
-                b => b.Title, b => b.OwnedVersions.Select(v => v.Reference),
-                i => i.Title, i => i.OwnedVersion.Reference,
-                item => new BookModel
-                {
-                    OwnerId = ownerId,
-                    Title = item.Title,
-                    Author = string.Empty,
-                    Year = item.Year,
-                    Isbn = item.Isbn,
-                    Notes = AmazonImportMergeService.BuildAmazonProvenanceNotes(item.AmazonTitle, item.Isbn),
-                    OwnedVersions = [item.OwnedVersion]
-                },
-                (book, item) => book.OwnedVersions.Add(item.OwnedVersion), ownerId);
-            (result.BooksCreated, result.BooksMergedInto, result.BooksSkipped) = (created, mergedInto, skipped);
-        }
+        var inputs = request.Items.Select(ToInput).ToList();
 
-        if (movieItems.Count > 0)
-        {
-            var existingMovies = await FindAllAsync(movieRepository, ownerId, new MovieModel { OwnerId = ownerId, Title = string.Empty });
-            var (created, mergedInto, skipped) = await CommitAsync(
-                movieRepository, existingMovies, movieItems.Select(ToOwnedItemRequestItem).ToList(),
-                m => m.Title, m => m.OwnedVersions.Select(v => v.Reference),
-                i => i.Title, i => i.OwnedVersion.Reference,
-                item => new MovieModel
-                {
-                    OwnerId = ownerId,
-                    Title = item.Title,
-                    Year = item.Year,
-                    Notes = AmazonImportMergeService.BuildAmazonProvenanceNotes(item.AmazonTitle, null),
-                    OwnedVersions = [item.OwnedVersion]
-                },
-                (movie, item) => movie.OwnedVersions.Add(item.OwnedVersion), ownerId);
-            (result.MoviesCreated, result.MoviesMergedInto, result.MoviesSkipped) = (created, mergedInto, skipped);
-        }
+        var counts = await OwnedItemImportCommitCoordinator.CommitAsync(
+            ownerId, inputs,
+            bookRepository, movieRepository, tvShowRepository, videoGameRepository, gearRepository, collectibleRepository);
 
-        if (tvShowItems.Count > 0)
+        return Ok(new AmazonImportCommitResultDto
         {
-            var existingTvShows = await FindAllAsync(tvShowRepository, ownerId, new TvShowModel { OwnerId = ownerId, Title = string.Empty });
-            var (created, mergedInto, skipped) = await CommitAsync(
-                tvShowRepository, existingTvShows, tvShowItems.Select(ToOwnedItemRequestItem).ToList(),
-                t => t.Title, t => t.OwnedVersions.Select(v => v.Reference),
-                i => i.Title, i => i.OwnedVersion.Reference,
-                item => new TvShowModel
-                {
-                    OwnerId = ownerId,
-                    Title = item.Title,
-                    Year = item.Year,
-                    Notes = AmazonImportMergeService.BuildAmazonProvenanceNotes(item.AmazonTitle, null),
-                    OwnedVersions = [item.OwnedVersion]
-                },
-                (tvShow, item) => tvShow.OwnedVersions.Add(item.OwnedVersion), ownerId);
-            (result.TvShowsCreated, result.TvShowsMergedInto, result.TvShowsSkipped) = (created, mergedInto, skipped);
-        }
-
-        if (videoGameItems.Count > 0)
-        {
-            var existingVideoGames = await FindAllAsync(videoGameRepository, ownerId, new VideoGameModel { OwnerId = ownerId, Title = string.Empty });
-            var (created, mergedInto, skipped) = await CommitAsync(
-                videoGameRepository, existingVideoGames, videoGameItems.Select(ToVideoGameRequestItem).ToList(),
-                g => g.Title, g => g.Platforms.Select(p => p.Reference),
-                i => i.Title, i => i.Platform.Reference,
-                item => new VideoGameModel
-                {
-                    OwnerId = ownerId,
-                    Title = item.Title,
-                    Year = item.Year,
-                    Notes = AmazonImportMergeService.BuildAmazonProvenanceNotes(item.AmazonTitle, null),
-                    Platforms = [item.Platform]
-                },
-                (game, item) => game.Platforms.Add(item.Platform), ownerId);
-            (result.VideoGamesCreated, result.VideoGamesMergedInto, result.VideoGamesSkipped) = (created, mergedInto, skipped);
-        }
-
-        if (gearItems.Count > 0)
-        {
-            var existingGear = await FindAllAsync(gearRepository, ownerId, new GearModel { OwnerId = ownerId, Title = string.Empty });
-            var (created, mergedInto, skipped) = await CommitAsync(
-                gearRepository, existingGear, gearItems.Select(ToOwnedItemRequestItem).ToList(),
-                g => g.Title, g => g.OwnedVersions.Select(v => v.Reference),
-                i => i.Title, i => i.OwnedVersion.Reference,
-                item => new GearModel
-                {
-                    OwnerId = ownerId,
-                    Title = item.Title,
-                    Year = item.Year,
-                    Notes = AmazonImportMergeService.BuildAmazonProvenanceNotes(item.AmazonTitle, null),
-                    OwnedVersions = [item.OwnedVersion]
-                },
-                (gear, item) => gear.OwnedVersions.Add(item.OwnedVersion), ownerId);
-            (result.GearCreated, result.GearMergedInto, result.GearSkipped) = (created, mergedInto, skipped);
-        }
-
-        if (collectibleItems.Count > 0)
-        {
-            var existingCollectibles = await FindAllAsync(collectibleRepository, ownerId, new CollectibleModel { OwnerId = ownerId, Title = string.Empty });
-            var (created, mergedInto, skipped) = await CommitAsync(
-                collectibleRepository, existingCollectibles, collectibleItems.Select(ToOwnedItemRequestItem).ToList(),
-                c => c.Title, c => c.OwnedVersions.Select(v => v.Reference),
-                i => i.Title, i => i.OwnedVersion.Reference,
-                item => new CollectibleModel
-                {
-                    OwnerId = ownerId,
-                    Title = item.Title,
-                    Year = item.Year,
-                    Notes = AmazonImportMergeService.BuildAmazonProvenanceNotes(item.AmazonTitle, null),
-                    OwnedVersions = [item.OwnedVersion]
-                },
-                (collectible, item) => collectible.OwnedVersions.Add(item.OwnedVersion), ownerId);
-            (result.CollectiblesCreated, result.CollectiblesMergedInto, result.CollectiblesSkipped) = (created, mergedInto, skipped);
-        }
-
-        return Ok(result);
+            BooksCreated = counts.Books.Created,
+            BooksMergedInto = counts.Books.MergedInto,
+            BooksSkipped = counts.Books.Skipped,
+            MoviesCreated = counts.Movies.Created,
+            MoviesMergedInto = counts.Movies.MergedInto,
+            MoviesSkipped = counts.Movies.Skipped,
+            TvShowsCreated = counts.TvShows.Created,
+            TvShowsMergedInto = counts.TvShows.MergedInto,
+            TvShowsSkipped = counts.TvShows.Skipped,
+            VideoGamesCreated = counts.VideoGames.Created,
+            VideoGamesMergedInto = counts.VideoGames.MergedInto,
+            VideoGamesSkipped = counts.VideoGames.Skipped,
+            GearCreated = counts.Gear.Created,
+            GearMergedInto = counts.Gear.MergedInto,
+            GearSkipped = counts.Gear.Skipped,
+            CollectiblesCreated = counts.Collectibles.Created,
+            CollectiblesMergedInto = counts.Collectibles.MergedInto,
+            CollectiblesSkipped = counts.Collectibles.Skipped
+        });
     }
 
-    private static AmazonOwnedItemImportRequestItem ToOwnedItemRequestItem(AmazonImportCommitItemDto item) => new()
+    private static OwnedItemImportInput ToInput(AmazonImportCommitItemDto item)
     {
-        Title = item.Title,
-        AmazonTitle = item.AmazonTitle,
-        Year = item.Year,
-        Isbn = item.Isbn,
-        OwnedVersion = ToOwnedVersion(item)
-    };
+        var isBook = item.MediaType == AmazonMediaType.Book;
+        var isVideoGame = item.MediaType == AmazonMediaType.VideoGame;
 
-    private static AmazonVideoGameImportRequestItem ToVideoGameRequestItem(AmazonImportCommitItemDto item) => new()
-    {
-        Title = item.Title,
-        AmazonTitle = item.AmazonTitle,
-        Year = item.Year,
-        Platform = new VideoGamePlatformModel
+        return new OwnedItemImportInput
         {
-            Platform = item.Platform!,
-            CopyType = ToDomainCopyType(item.CopyType),
-            Price = item.Price,
-            Vendor = item.Vendor,
-            AcquiredAt = item.AcquiredAt,
-            Reference = AmazonImportMergeService.FormatOrderReference(item.OrderId, item.Asin)
-        }
-    };
-
-    private static OwnedVersionModel ToOwnedVersion(AmazonImportCommitItemDto item) => new()
-    {
-        CopyType = ToDomainCopyType(item.CopyType),
-        Price = item.Price,
-        Vendor = item.Vendor,
-        AcquiredAt = item.AcquiredAt,
-        // Derived server-side from the order id + ASIN the preview row reported, never from a client-supplied
-        // Reference string - this is what disambiguates two different items sharing one Amazon order.
-        Reference = AmazonImportMergeService.FormatOrderReference(item.OrderId, item.Asin)
-    };
+            MediaType = Enum.Parse<Keeptrack.Domain.Models.ImportMediaType>(item.MediaType!.Value.ToString()),
+            Title = item.Title,
+            // The original, unedited Amazon listing text - kept in the created item's notes since reference-data
+            // linking is expected to overwrite Title (and, for a book, ISBN) with canonical values later.
+            ProvenanceNotes = AmazonImportMergeService.BuildAmazonProvenanceNotes(item.AmazonTitle, isBook ? item.Isbn : null),
+            Year = item.Year,
+            // Amazon's export has no author column; books are created author-less (the coordinator stores "").
+            Author = null,
+            Isbn = isBook ? item.Isbn : null,
+            Platform = isVideoGame ? item.Platform : null,
+            OwnedVersion = new OwnedVersionModel
+            {
+                CopyType = ToDomainCopyType(item.CopyType),
+                Price = item.Price,
+                Vendor = item.Vendor,
+                AcquiredAt = item.AcquiredAt,
+                // Derived server-side from the order id + ASIN the preview row reported, never from a
+                // client-supplied Reference string - this is what disambiguates two different items sharing one
+                // Amazon order and what a later re-preview dedups against.
+                Reference = AmazonImportMergeService.FormatOrderReference(item.OrderId, item.Asin)
+            }
+        };
+    }
 
     private static Keeptrack.Domain.Models.CopyType ToDomainCopyType(Keeptrack.WebApi.Contracts.Dto.CopyType copyType) =>
         Enum.Parse<Keeptrack.Domain.Models.CopyType>(copyType.ToString());
-
-    private static async Task<(int Created, int MergedInto, int Skipped)> CommitAsync<TModel, TRequestItem>(
-        IDataRepository<TModel> repository,
-        List<TModel> existingItems,
-        List<TRequestItem> requestItems,
-        Func<TModel, string> getExistingTitle,
-        Func<TModel, IEnumerable<string?>> getExistingReferences,
-        Func<TRequestItem, string> getItemTitle,
-        Func<TRequestItem, string?> getItemReference,
-        Func<TRequestItem, TModel> createNew,
-        Action<TModel, TRequestItem> appendOwnedCopy,
-        string ownerId)
-        where TModel : class, IHasIdAndOwnerId
-    {
-        var plan = OwnedItemImportMergeService.ComputeCommitPlan(
-            existingItems, requestItems, getExistingTitle, getExistingReferences, getItemTitle, getItemReference, createNew, appendOwnedCopy);
-
-        foreach (var item in plan.ItemsToCreate)
-        {
-            await repository.CreateAsync(item);
-        }
-
-        foreach (var item in plan.ItemsToUpdate)
-        {
-            await repository.UpdateAsync(item.Id!, item, ownerId);
-        }
-
-        return (plan.ItemsToCreate.Count, plan.ItemsToUpdate.Count, plan.OwnedCopiesSkipped);
-    }
 
     private static async Task<List<TModel>> FindAllAsync<TModel>(IDataRepository<TModel> repository, string ownerId, TModel blankSample)
         where TModel : IHasIdAndOwnerId =>

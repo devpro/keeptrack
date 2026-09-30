@@ -6,6 +6,8 @@
                Title="Gear"
                ItemName="Gear"
                Route="@ListRoute"
+               View="@_view"
+               OnViewChanged="@SetView"
                Items="@(Items ?? [])"
                Loading="@_loading"
                Loaded="@_loaded"
@@ -32,8 +34,8 @@
                ExtraSortValue="@ListSort.Bought"
                ExtraSortLabel="Bought">
     <Filters>
-        <button class="btn btn-sm kt-toggle-btn @(FavoriteFilter ? "active" : "")" @onclick='() => ToggleFilter("favorite", FavoriteFilter)'>★ Favorites</button>
-        <button class="btn btn-sm kt-toggle-btn @(OwnedFilter ? "active" : "")" @onclick='() => ToggleFilter("owned", OwnedFilter)'>● Owned</button>
+        <button class="btn btn-sm kt-toggle-btn @(FavoriteFilter ? "active" : "")" @onclick='() => ToggleFilter("favorite", FavoriteFilter)'><Icon Name="favorite" Size="13"/> Favorites</button>
+        <button class="btn btn-sm kt-toggle-btn @(OwnedFilter ? "active" : "")" @onclick='() => ToggleFilter("owned", OwnedFilter)'><Icon Name="owned" Size="13"/> Owned</button>
         @if (Categories.Count > 0)
         {
             @* A classic, closed-choice dropdown rather than SuggestInput's free-text field: unlike the detail page (where typing a brand-new category is the point),
@@ -50,26 +52,7 @@
         }
     </Filters>
     <MetaTemplate Context="gear">
-        @if (!string.IsNullOrEmpty(gear.Brand))
-        {
-            <span>@gear.Brand</span>
-        }
-        @if (!string.IsNullOrEmpty(gear.Category))
-        {
-            <span>@gear.Category</span>
-        }
-        @if (gear.Year > 0)
-        {
-            <span>@gear.Year</span>
-        }
-        @if (gear.IsFavorite)
-        {
-            <span class="kt-flag-badge favorite">Favorite</span>
-        }
-        @if (gear.OwnedVersions.Count > 0)
-        {
-            <span class="kt-flag-badge">Owned</span>
-        }
+        <GearMetaRow Item="gear"/>
     </MetaTemplate>
     <FormTemplate Context="gear">
         <div class="col-12">

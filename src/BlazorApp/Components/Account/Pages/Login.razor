@@ -1,4 +1,4 @@
-﻿@page "/account/login"
+@page "/account/login"
 @attribute [ExcludeFromInteractiveRouting]
 @inject FirebaseClientSettings FirebaseConfig
 
@@ -83,7 +83,7 @@
             const data = await res.json();
             window.location.href = data.redirect ?? '/';
         } catch (err) {
-            // auth/popup-closed-by-user is not a real error — user just dismissed
+            // auth/popup-closed-by-user is not an error: the user dismissed the popup.
             if (err.code === 'auth/popup-closed-by-user') return;
             errorDiv.textContent = err.message ?? 'Sign-in failed.';
             errorDiv.style.display = 'block';

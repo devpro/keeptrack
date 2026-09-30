@@ -6,6 +6,8 @@
                Title="Cars"
                ItemName="Car"
                Route="@ListRoute"
+               View="@_view"
+               OnViewChanged="@SetView"
                Items="@(Items ?? [])"
                Loading="@_loading"
                Loaded="@_loaded"
@@ -30,18 +32,7 @@
                Sort="@_sort"
                OnSortChanged="@SetSort">
     <MetaTemplate Context="car">
-        @if (!string.IsNullOrEmpty(car.Manufacturer) || !string.IsNullOrEmpty(car.Model))
-        {
-            <span>@($"{car.Manufacturer} {car.Model}".Trim())</span>
-        }
-        @if (car.Year > 0)
-        {
-            <span>@car.Year</span>
-        }
-        @if (!string.IsNullOrEmpty(car.LicensePlate))
-        {
-            <span>@car.LicensePlate</span>
-        }
+        <CarMetaRow Item="car"/>
     </MetaTemplate>
     <FormTemplate Context="car">
         <div class="col-12">

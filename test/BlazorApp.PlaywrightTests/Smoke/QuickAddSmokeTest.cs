@@ -52,17 +52,10 @@ public class QuickAddSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 
         var detail = new MovieDetailPage(Page);
         await detail.WaitForReadyAsync();
-        var movieId = ExtractIdFromUrl(Page.Url);
+        TrackOpenItem("/api/movies");
 
-        try
-        {
-            await Assertions.Expect(detail.TitleInput).ToHaveValueAsync(title);
-            await Assertions.Expect(Page.GetByTestId("version-price-input")).ToHaveValueAsync("19.99");
-        }
-        finally
-        {
-            await Fixture.DeleteItemAsync($"/api/movies/{movieId}");
-        }
+        await Assertions.Expect(detail.TitleInput).ToHaveValueAsync(title);
+        await Assertions.Expect(Page.GetByTestId("version-price-input")).ToHaveValueAsync("19.99");
     }
 
     [Fact]
@@ -73,35 +66,20 @@ public class QuickAddSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
         var carName = $"E2e QuickAdd Car {Guid.NewGuid():N}";
         var mileage = Random.Shared.Next(100_000, 999_999);
 
-        var carId = await CreateCarAsync(carName);
+        await CreateItemAsync("api/cars", new CarDto { Name = carName, EnergyType = CarEnergyType.Combustion });
 
-        try
-        {
-            var home = await new HomePage(Page).OpenAsync();
-            var quickAdd = await home.OpenQuickAddAsync();
-            await quickAdd.SelectTypeAsync("car");
+        var home = await new HomePage(Page).OpenAsync();
+        var quickAdd = await home.OpenQuickAddAsync();
+        await quickAdd.SelectTypeAsync("car");
 
-            // the tenant now has exactly one car - it's preselected silently, no segmented picker to click
-            await DetailPageBase.SetFieldAsync(Page.GetByTestId("mileage-input"), mileage.ToString());
-            await DetailPageBase.SetFieldAsync(Page.GetByTestId("cost-input"), "65.40");
-            await quickAdd.SaveButton.ClickAsync();
+        // the tenant now has exactly one car - it's preselected silently, no segmented picker to click
+        await DetailPageBase.SetFieldAsync(Page.GetByTestId("mileage-input"), mileage.ToString());
+        await DetailPageBase.SetFieldAsync(Page.GetByTestId("cost-input"), "65.40");
+        await quickAdd.SaveButton.ClickAsync();
 
-            var detail = new CarDetailPage(Page);
-            await detail.WaitForReadyAsync();
-            await Assertions.Expect(detail.TitleInput).ToHaveValueAsync(carName);
-            await Assertions.Expect(Page.Locator(".kt-car-sheet")).ToContainTextAsync(mileage.ToString());
-        }
-        finally
-        {
-            await Fixture.DeleteItemAsync($"/api/cars/{carId}");
-        }
-    }
-
-    private async Task<string> CreateCarAsync(string name)
-    {
-        var response = await Fixture.ApiHttpClient.PostAsJsonAsync("api/cars", new CarDto { Name = name, EnergyType = CarEnergyType.Combustion });
-        response.EnsureSuccessStatusCode();
-        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-        return body.RootElement.GetProperty("id").GetString()!;
+        var detail = new CarDetailPage(Page);
+        await detail.WaitForReadyAsync();
+        await Assertions.Expect(detail.TitleInput).ToHaveValueAsync(carName);
+        await Assertions.Expect(Page.Locator(".kt-car-sheet")).ToContainTextAsync(mileage.ToString());
     }
 }

@@ -1,53 +1,99 @@
-import { initializeApp, cert } from "npm:firebase-admin/app";
-import { getAuth } from "npm:firebase-admin/auth";
-import path from "node:path";
+#!/usr/bin/env node
+/*
+ * Sets the `role` custom claim of a Firebase user, or shows the claims it carries.
+ *
+ * Usage:
+ *   node scripts/firebase-user-role.js <service-account.json> <email-or-uid> [member|admin]
+ *   node scripts/firebase-user-role.js <service-account.json> <email-or-uid> --show
+ *
+ * The role defaults to member.
+ * A claim reaches the app at the user's next sign-in, since it is embedded in the ID token.
+ *
+ * Granting a role needs the project's service account, unlike creating a user (scripts/firebase-create-user.js).
+ * It calls the Identity Toolkit REST API directly, with an OAuth token the service account signs itself,
+ * so the script needs no npm package and runs on a bare Node.js.
+ * The custom attributes are replaced as a whole, the same as the Admin SDK's setCustomUserClaims.
+ *
+ * Reference: https://cloud.google.com/identity-platform/docs/reference/rest/v1/projects.accounts/update
+ */
 
-// 1. Grab command line arguments
-const [serviceAccountPath, userIdentifier, customRole] = Deno.args;
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+
+const [serviceAccountPath, userIdentifier, roleArgument] = process.argv.slice(2);
 
 if (!serviceAccountPath || !userIdentifier) {
-  console.error("❌ Error: Missing arguments.");
-  console.log("Usage: deno run -A scripts/firebase-user-role.js <path-to-json> <email-or-uid> [role]");
-  Deno.exit(1);
+    process.stderr.write('Usage: node scripts/firebase-user-role.js <service-account.json> <email-or-uid> [member|admin|--show]\n');
+    process.exit(1);
 }
 
-// Default to "member" if no role is explicitly passed
-const role = customRole || "member";
+const showOnly = roleArgument === '--show';
+const role = showOnly ? null : roleArgument ?? 'member';
+const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+const accountsUrl = `https://identitytoolkit.googleapis.com/v1/projects/${serviceAccount.project_id}/accounts`;
 
-try {
-  // 2. Read and parse the service account file natively
-  const resolvedPath = path.resolve(serviceAccountPath);
-  const jsonRaw = await Deno.readTextFile(resolvedPath);
-  const serviceAccount = JSON.parse(jsonRaw);
+async function getAccessToken() {
+    const now = Math.floor(Date.now() / 1000);
+    const encode = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
+    const unsigned = `${encode({ alg: 'RS256', typ: 'JWT' })}.${encode({
+        iss: serviceAccount.client_email,
+        scope: 'https://www.googleapis.com/auth/identitytoolkit',
+        aud: 'https://oauth2.googleapis.com/token',
+        iat: now,
+        exp: now + 600,
+    })}`;
+    const signature = crypto.sign('RSA-SHA256', Buffer.from(unsigned), serviceAccount.private_key).toString('base64url');
 
-  // 3. Initialize official Firebase Admin SDK using modern ESM functions
-  initializeApp({
-    credential: cert(serviceAccount)
-  });
-
-  // Get the Auth instance
-  const auth = getAuth();
-
-  let uid = userIdentifier;
-
-  // 4. Resolve email to UID if necessary
-  if (userIdentifier.includes('@')) {
-    console.log(`🔍 Looking up user by email: ${userIdentifier}...`);
-    const userRecord = await auth.getUserByEmail(userIdentifier);
-    uid = userRecord.uid;
-  }
-
-  // 5. Set the custom claim using the dynamic role variable
-  console.log(`🚀 Setting '${role}' role claim for UID: ${uid}...`);
-  await auth.setCustomUserClaims(uid, { role: role });
-
-  console.log(`%c✅ Successfully set '${role}' claim!`, "color: green; font-weight: bold;");
-
-  // 6. Verify it worked
-  const updatedUser = await auth.getUser(uid);
-  console.log("Current custom claims:", updatedUser.customClaims);
-
-} catch (error) {
-  console.error(`❌ Error: ${error.message}`);
-  Deno.exit(1);
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: `${unsigned}.${signature}` }),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+        throw new Error(`Google refused the service account: ${body.error_description ?? body.error ?? response.statusText}`);
+    }
+    return body.access_token;
 }
+
+async function call(accessToken, action, payload) {
+    const response = await fetch(`${accountsUrl}:${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify(payload),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+        throw new Error(`Firebase rejected ${action}: ${body.error?.message ?? response.statusText}`);
+    }
+    return body;
+}
+
+async function lookUp(accessToken) {
+    const query = userIdentifier.includes('@') ? { email: [userIdentifier] } : { localId: [userIdentifier] };
+    const user = (await call(accessToken, 'lookup', query)).users?.[0];
+    if (!user) {
+        throw new Error(`No user matches ${userIdentifier}.`);
+    }
+    return user;
+}
+
+async function main() {
+    const accessToken = await getAccessToken();
+    const user = await lookUp(accessToken);
+
+    if (!showOnly) {
+        await call(accessToken, 'update', { localId: user.localId, customAttributes: JSON.stringify({ role }) });
+        process.stdout.write(`Set role '${role}' on ${user.email ?? user.localId}.\n`);
+    }
+
+    const current = showOnly ? user : await lookUp(accessToken);
+    process.stdout.write(`uid:    ${current.localId}\n`);
+    process.stdout.write(`email:  ${current.email ?? ''}\n`);
+    process.stdout.write(`claims: ${current.customAttributes ?? '{}'}\n`);
+}
+
+main().catch((error) => {
+    process.stderr.write(`${error.message}\n`);
+    process.exit(1);
+});

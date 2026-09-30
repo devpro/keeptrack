@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -12,7 +12,6 @@ using Keeptrack.Infrastructure.MongoDb.Entities;
 using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.IntegrationTests.Hosting;
 using Microsoft.Extensions.DependencyInjection;
-using MongoDB.Driver;
 using Xunit;
 
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
@@ -42,26 +41,19 @@ public class BookResourceTest(KestrelWebAppFactory<Program> factory)
                 o.Isbn = f.Random.Replace("##########");
             })
             .Generate();
-        var created = await PostAsync($"/{ResourceEndpoint}", input);
+        var created = await CreateAsync($"/{ResourceEndpoint}", input);
         created.Id.Should().NotBeNullOrEmpty();
 
-        try
-        {
-            created.Title = "New shiny title";
-            await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
+        created.Title = "New shiny title";
+        await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
 
-            var updated = await GetAsync<BookDto>($"/{ResourceEndpoint}/{created.Id}");
-            updated.Should().BeEquivalentTo(created, x => x.Excluding(item => item.FirstReadAt)); // issue with DateTime and MongoDB
+        var updated = await GetAsync<BookDto>($"/{ResourceEndpoint}/{created.Id}");
+        updated.Should().BeEquivalentTo(created, x => x.Excluding(item => item.FirstReadAt)); // issue with DateTime and MongoDB
 
-            var finalItems = await GetAsync<PagedResult<BookDto>>($"/{ResourceEndpoint}");
-            var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
-            firstItem.Should().NotBeNull();
-            firstItem.Title.Should().Be(updated.Title);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        var finalItems = await GetAsync<PagedResult<BookDto>>($"/{ResourceEndpoint}");
+        var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
+        firstItem.Should().NotBeNull();
+        firstItem.Title.Should().Be(updated.Title);
     }
 
     [Fact]
@@ -69,7 +61,7 @@ public class BookResourceTest(KestrelWebAppFactory<Program> factory)
     {
         await Authenticate();
 
-        var uniqueTitle = $"OwnedWishlistTarget-{System.Guid.NewGuid():N}";
+        var uniqueTitle = $"OwnedWishlistTarget-{Guid.NewGuid():N}";
         var input = new Faker<BookDto>()
             .Rules((f, o) =>
             {
@@ -80,21 +72,14 @@ public class BookResourceTest(KestrelWebAppFactory<Program> factory)
                 o.IsWishlisted = true;
             })
             .Generate();
-        var created = await PostAsync($"/{ResourceEndpoint}", input);
+        var created = await CreateAsync($"/{ResourceEndpoint}", input);
 
-        try
-        {
-            var owned = await GetAsync<PagedResult<BookDto>>($"/{ResourceEndpoint}?IsOwned=true&search={uniqueTitle}");
-            owned.Items.Should().ContainSingle(b => b.Id == created.Id);
+        var owned = await GetAsync<PagedResult<BookDto>>($"/{ResourceEndpoint}?IsOwned=true&search={uniqueTitle}");
+        owned.Items.Should().ContainSingle(b => b.Id == created.Id);
 
-            // this is the WishlistController filter-probe, not a list-page UI filter (removed) - still real API behavior
-            var wishlisted = await GetAsync<PagedResult<BookDto>>($"/{ResourceEndpoint}?IsWishlisted=true&search={uniqueTitle}");
-            wishlisted.Items.Should().ContainSingle(b => b.Id == created.Id);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        // this is the WishlistController filter-probe, not a list-page UI filter (removed) - still real API behavior
+        var wishlisted = await GetAsync<PagedResult<BookDto>>($"/{ResourceEndpoint}?IsWishlisted=true&search={uniqueTitle}");
+        wishlisted.Items.Should().ContainSingle(b => b.Id == created.Id);
     }
 
     /// <summary>
@@ -114,13 +99,14 @@ public class BookResourceTest(KestrelWebAppFactory<Program> factory)
         {
             Title = "Some Reference Title",
             TitleNormalized = "some reference title",
-            ExternalIds = new Dictionary<string, string> { ["googlebooks"] = $"gb-{Guid.NewGuid():N}" },
+            ExternalIds = new Dictionary<string, string> { ["googlebooks"] = TestExternalId.New() },
             ImageUrl = "https://example.com/reference-cover.jpg"
         });
+        TrackDocument("book_reference", reference.Id);
 
         await Authenticate();
         const string customImageUrl = "https://example.com/custom-cover.jpg";
-        var created = await PostAsync($"/{ResourceEndpoint}", new BookDto
+        var created = await CreateAsync($"/{ResourceEndpoint}", new BookDto
         {
             Title = uniqueTitle,
             Author = "Some Author",
@@ -128,17 +114,8 @@ public class BookResourceTest(KestrelWebAppFactory<Program> factory)
             CustomImageUrl = customImageUrl
         });
 
-        try
-        {
-            var list = await GetAsync<PagedResult<BookDto>>($"/{ResourceEndpoint}?search={uniqueTitle}");
-            var item = list.Items.Should().ContainSingle(b => b.Id == created.Id).Subject;
-            item.ImageUrl.Should().Be(customImageUrl);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-            var referenceCollection = scope.ServiceProvider.GetRequiredService<IMongoDatabase>().GetCollection<BookReference>("book_reference");
-            await referenceCollection.DeleteOneAsync(Builders<BookReference>.Filter.Eq(x => x.Id, reference.Id), TestContext.Current.CancellationToken);
-        }
+        var list = await GetAsync<PagedResult<BookDto>>($"/{ResourceEndpoint}?search={uniqueTitle}");
+        var item = list.Items.Should().ContainSingle(b => b.Id == created.Id).Subject;
+        item.ImageUrl.Should().Be(customImageUrl);
     }
 }

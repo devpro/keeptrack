@@ -1,9 +1,11 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
+using Keeptrack.Domain.Services;
 using Keeptrack.Infrastructure.MongoDb.Entities;
 using Keeptrack.Infrastructure.MongoDb.Mappers;
 using MongoDB.Driver;
@@ -31,26 +33,24 @@ public class MovieReferenceRepository(IMongoDatabase mongoDatabase, MovieReferen
         return entities.Select(mapper.ToModel).ToList();
     }
 
+    public Task<IReadOnlyList<string>> FindExternalIdsAsync(IReadOnlyCollection<string> ids, string provider) =>
+        ExploreExclusionQueries.FindExternalIdsAsync(Collection, ids, provider, x => x.Id, x => x.ExternalIds);
+
+    public Task<IReadOnlyList<(string Id, Dictionary<string, ReferenceRatingModel> Ratings)>> FindRatingsAsync(string? afterId, int limit) =>
+        ReferenceRatingQueries.FindRatingsAsync<MovieReference>(Collection, afterId, limit);
+
+    /// <summary>
+    /// Matches against every (title, year) combination ever confirmed for a reference, not just its canonical one - see <see cref="ReferenceAliasQueries"/> for the shared query and why every condition sits in one <c>ElemMatch</c>.
+    /// </summary>
     public async Task<MovieReferenceModel?> FindByTitleYearAsync(string title, int? year)
     {
-        // matches against every known-good (title, year) combination for this reference (see
-        // MatchedAliases), not just its canonical TitleNormalized/Year - ElemMatch requires both conditions
-        // to hold on the SAME array element, so a tenant whose recorded year genuinely differs from the
-        // document's own canonical Year still matches, as long as that exact (title, year) pair was
-        // confirmed at some point (automatic resolution or admin pick).
-        var normalized = TitleNormalizer.Normalize(title);
-        var filter = Builders<MovieReference>.Filter.ElemMatch(x => x.MatchedAliases,
-            Builders<ReferenceMatch>.Filter.Eq(m => m.Title, normalized) & Builders<ReferenceMatch>.Filter.Eq(m => m.Year, year));
-        var entity = await Collection.Find(filter).FirstOrDefaultAsync();
+        var entity = await ReferenceAliasQueries.FindByTitleYearAsync(Collection, title, year);
         return entity is null ? null : mapper.ToModel(entity);
     }
 
     public async Task<MovieReferenceModel?> FindByTitleAsync(string title)
     {
-        var normalized = TitleNormalizer.Normalize(title);
-        var filter = Builders<MovieReference>.Filter.ElemMatch(x => x.MatchedAliases,
-            Builders<ReferenceMatch>.Filter.Eq(m => m.Title, normalized));
-        var entity = await Collection.Find(filter).FirstOrDefaultAsync();
+        var entity = await ReferenceAliasQueries.FindByTitleAsync(Collection, title);
         return entity is null ? null : mapper.ToModel(entity);
     }
 
@@ -63,6 +63,12 @@ public class MovieReferenceRepository(IMongoDatabase mongoDatabase, MovieReferen
         return entity is null ? null : mapper.ToModel(entity);
     }
 
+    public async Task<List<MovieReferenceModel>> FindStaleAsync(DateTime cutoff, int limit)
+    {
+        var entities = await ReferenceStalenessQueries.FindStaleAsync(Collection, x => x.LastEnrichedAt, cutoff, limit);
+        return entities.Select(mapper.ToModel).ToList();
+    }
+
     public async Task<List<MovieReferenceModel>> FindAllAsync()
     {
         var entities = await Collection.Find(FilterDefinition<MovieReference>.Empty).ToListAsync();
@@ -72,12 +78,8 @@ public class MovieReferenceRepository(IMongoDatabase mongoDatabase, MovieReferen
     public async Task<MovieReferenceModel> UpsertAsync(MovieReferenceModel model)
     {
         model.TitleNormalized = TitleNormalizer.Normalize(model.Title);
-        // the canonical (title, year) combination is always itself a valid match, whether or not the caller
-        // remembered to include it
-        if (!model.MatchedAliases.Any(m => m.Title == model.TitleNormalized && m.Year == model.Year))
-        {
-            model.MatchedAliases.Add(new ReferenceMatchModel { Title = model.TitleNormalized, Year = model.Year });
-        }
+        // the canonical (title, year) combination is always itself a valid match, whether or not the caller remembered to include it - but only while it is a complete key, so a film with no year records nothing rather than a title-only alias that would answer for every year (see ReferenceAliasRule)
+        ReferenceAliasRule.TitleAndYear.EnsureCanonical(model.MatchedAliases, model.TitleNormalized, model.Year);
         var entity = mapper.ToEntity(model);
 
         if (string.IsNullOrEmpty(entity.Id))

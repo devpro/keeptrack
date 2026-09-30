@@ -11,11 +11,11 @@
 {
     <div class="kt-stat-grid kt-quickadd-picker">
         <a class="kt-stat-tile" href="/add?type=movie" data-testid="quickadd-type-movie">
-            <span class="kt-stat-value">◼</span>
+            <span class="kt-stat-value"><Icon Name="movies" Size="22"/></span>
             <span class="kt-stat-label">Movie</span>
         </a>
         <a class="kt-stat-tile" href="/add?type=tv-show" data-testid="quickadd-type-tv-show">
-            <span class="kt-stat-value">▭</span>
+            <span class="kt-stat-value"><Icon Name="tv-shows" Size="22"/></span>
             <span class="kt-stat-label">TV show</span>
         </a>
         @* Free preview accounts only get movies and TV shows, same rule as NavMenu.razor - hiding is UX,
@@ -23,27 +23,27 @@
         <AuthorizeView Policy="MemberOnly" Context="memberContext">
             <Authorized>
                 <a class="kt-stat-tile" href="/add?type=book" data-testid="quickadd-type-book">
-                    <span class="kt-stat-value">▬</span>
+                    <span class="kt-stat-value"><Icon Name="books" Size="22"/></span>
                     <span class="kt-stat-label">Book</span>
                 </a>
                 <a class="kt-stat-tile" href="/add?type=album" data-testid="quickadd-type-album">
-                    <span class="kt-stat-value">♪</span>
+                    <span class="kt-stat-value"><Icon Name="albums" Size="22"/></span>
                     <span class="kt-stat-label">Album</span>
                 </a>
                 <a class="kt-stat-tile" href="/add?type=video-game" data-testid="quickadd-type-video-game">
-                    <span class="kt-stat-value">◆</span>
+                    <span class="kt-stat-value"><Icon Name="video-games" Size="22"/></span>
                     <span class="kt-stat-label">Video game</span>
                 </a>
                 <a class="kt-stat-tile" href="/add?type=car" data-testid="quickadd-type-car">
-                    <span class="kt-stat-value">◉</span>
+                    <span class="kt-stat-value"><Icon Name="cars" Size="22"/></span>
                     <span class="kt-stat-label">Car record</span>
                 </a>
                 <a class="kt-stat-tile" href="/add?type=house" data-testid="quickadd-type-house">
-                    <span class="kt-stat-value">▲</span>
+                    <span class="kt-stat-value"><Icon Name="houses" Size="22"/></span>
                     <span class="kt-stat-label">House record</span>
                 </a>
                 <a class="kt-stat-tile" href="/add?type=health" data-testid="quickadd-type-health">
-                    <span class="kt-stat-value">✚</span>
+                    <span class="kt-stat-value"><Icon Name="health" Size="22"/></span>
                     <span class="kt-stat-label">Health record</span>
                 </a>
             </Authorized>
@@ -228,7 +228,7 @@ else
                     else if (_cars.Count == 0)
                     {
                         <div class="kt-empty">
-                            <div class="kt-empty-icon">◉</div>
+                            <div class="kt-empty-icon"><Icon Name="cars" Size="40" StrokeWidth="1.1"/></div>
                             <p>No cars yet. <a href="/cars">Add one first</a>, then come back here to log a record.</p>
                         </div>
                     }
@@ -261,7 +261,7 @@ else
                     else if (_houses.Count == 0)
                     {
                         <div class="kt-empty">
-                            <div class="kt-empty-icon">▲</div>
+                            <div class="kt-empty-icon"><Icon Name="houses" Size="40" StrokeWidth="1.1"/></div>
                             <p>No houses yet. <a href="/houses">Add one first</a>, then come back here to log a record.</p>
                         </div>
                     }

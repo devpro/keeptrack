@@ -21,5 +21,8 @@ public class MovieReferenceDto : IHasId
 
     public List<CastMemberDto> Cast { get; set; } = [];
 
+    /// <summary>Aggregate ratings keyed by source name (e.g. "tmdb") - see <see cref="ReferenceRatingDto"/>.</summary>
+    public Dictionary<string, ReferenceRatingDto> Ratings { get; set; } = [];
+
     public string? ImageUrl { get; set; }
 }

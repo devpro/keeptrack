@@ -1,4 +1,4 @@
-﻿using Keeptrack.WebApi.Contracts.Dto;
+using Keeptrack.WebApi.Contracts.Dto;
 using Microsoft.AspNetCore.Components;
 
 namespace Keeptrack.BlazorApp.Components.Inventory.Pages;

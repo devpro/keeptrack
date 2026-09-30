@@ -1,0 +1,25 @@
+# IstarCI configuration, read from the root of the repository.
+
+runner:
+  image: ghcr.io/devpro/ubuntu-dotnet:latest
+  images:
+    "git-check*": ghcr.io/devpro/debian-node:latest
+    "markup-lint*": ghcr.io/devpro/debian-node:latest
+    "image-scan*": ghcr.io/devpro/debian-node:latest
+  # The scan jobs build an image and scan it through the host Docker daemon.
+  docker: true
+
+workflow:
+  # Actions published by GitHub or Docker, and the composite replacements for every other one kept in github-workflow-parts.
+  allowedActions:
+    - actions/*
+    - github/*
+    - docker/*
+    - devpro/github-workflow-parts/*
+  # Delivery publishes on a push to the default branch, which a local run must never reach.
+  exclude:
+    - pkg.yaml
+
+# Repository variables the pipeline reads, which a local run otherwise gets as placeholders, and an image tag refuses the uppercase in one.
+vars:
+  CONTAINER_REGISTRY_PATH: devprofr

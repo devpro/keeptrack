@@ -7,7 +7,7 @@ namespace Keeptrack.WebApi.Mappers;
 /// One-directional (Model -> Dto): <see cref="Domain.Services.WatchNextService"/> is a pure Domain-level
 /// computation with no Dto dependency, so <see cref="Controllers.WatchNextController"/> maps its result
 /// here. Injected directly, same shape as the reference-data storage mappers - see
-/// <c>docs/automapper-removal-plan.md</c>.
+/// <c>docs/archived/automapper-removal-plan.md</c>.
 /// </summary>
 [Mapper]
 public partial class InProgressShowDtoMapper

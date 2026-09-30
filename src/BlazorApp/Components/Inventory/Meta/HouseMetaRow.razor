@@ -1,0 +1,15 @@
+@* The house list row's second line (city / property type). Extracted so the owner list page and the
+   read-only shared-collection view render the identical meta from one definition. *@
+
+@if (!string.IsNullOrEmpty(Item.City))
+{
+    <span>@Item.City</span>
+}
+@if (Item.PropertyType is not null)
+{
+    <span>@Item.PropertyType</span>
+}
+
+@code {
+    [Parameter] public required HouseDto Item { get; set; }
+}

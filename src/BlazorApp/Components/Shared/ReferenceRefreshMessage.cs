@@ -12,12 +12,12 @@ public static class ReferenceRefreshMessage
         if (string.IsNullOrEmpty(newReferenceId))
         {
             return string.IsNullOrEmpty(previousReferenceId)
-                ? ("No match found", "neutral")
-                : ("Unlinked - no match", "danger");
+                ? ("No match", "neutral")
+                : ("Unlinked", "danger");
         }
 
         return newReferenceId == previousReferenceId
-            ? ("Already linked", "neutral")
+            ? ("No change", "neutral")
             : ("Linked!", "success");
     }
 }

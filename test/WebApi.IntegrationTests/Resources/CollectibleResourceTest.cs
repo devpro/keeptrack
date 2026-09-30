@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
@@ -36,26 +37,19 @@ public class CollectibleResourceTest(KestrelWebAppFactory<Program> factory)
                 o.ImageUrl = f.Internet.Url();
             })
             .Generate();
-        var created = await PostAsync($"/{ResourceEndpoint}", input);
+        var created = await CreateAsync($"/{ResourceEndpoint}", input);
         created.Id.Should().NotBeNullOrEmpty();
 
-        try
-        {
-            created.Title = "New shiny title";
-            await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
+        created.Title = "New shiny title";
+        await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
 
-            var updated = await GetAsync<CollectibleDto>($"/{ResourceEndpoint}/{created.Id}");
-            updated.Should().BeEquivalentTo(created);
+        var updated = await GetAsync<CollectibleDto>($"/{ResourceEndpoint}/{created.Id}");
+        updated.Should().BeEquivalentTo(created);
 
-            var finalItems = await GetAsync<PagedResult<CollectibleDto>>($"/{ResourceEndpoint}");
-            var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
-            firstItem.Should().NotBeNull();
-            firstItem.Title.Should().Be(updated.Title);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        var finalItems = await GetAsync<PagedResult<CollectibleDto>>($"/{ResourceEndpoint}");
+        var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
+        firstItem.Should().NotBeNull();
+        firstItem.Title.Should().Be(updated.Title);
     }
 
     [Fact]
@@ -63,18 +57,11 @@ public class CollectibleResourceTest(KestrelWebAppFactory<Program> factory)
     {
         await Authenticate();
 
-        var title = System.Guid.NewGuid().ToString();
-        var created = await PostAsync($"/{ResourceEndpoint}", new CollectibleDto { Title = title });
+        var title = Guid.NewGuid().ToString();
+        var created = await CreateAsync($"/{ResourceEndpoint}", new CollectibleDto { Title = title });
 
-        try
-        {
-            var results = await GetAsync<PagedResult<CollectibleDto>>($"/{ResourceEndpoint}?search={title}");
-            results.Items.Should().ContainSingle(x => x.Id == created.Id);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        var results = await GetAsync<PagedResult<CollectibleDto>>($"/{ResourceEndpoint}?search={title}");
+        results.Items.Should().ContainSingle(x => x.Id == created.Id);
     }
 
     [Fact]
@@ -82,33 +69,24 @@ public class CollectibleResourceTest(KestrelWebAppFactory<Program> factory)
     {
         await Authenticate();
 
-        var title = $"OwnedTarget-{System.Guid.NewGuid():N}";
-        var owned = await PostAsync($"/{ResourceEndpoint}", new CollectibleDto
+        var title = $"OwnedTarget-{Guid.NewGuid():N}";
+        var owned = await CreateAsync($"/{ResourceEndpoint}", new CollectibleDto
         {
             Title = title,
             // "owned" is derived from having at least one owned version, not a stored flag
             OwnedVersions = [new OwnedVersionDto { CopyType = CopyType.Physical, Price = 42.50m, ProductName = "Ultimate Collector's Edition" }]
         });
-        var favorite = await PostAsync($"/{ResourceEndpoint}", new CollectibleDto { Title = title, IsFavorite = true });
-        var plain = await PostAsync($"/{ResourceEndpoint}", new CollectibleDto { Title = title });
+        var favorite = await CreateAsync($"/{ResourceEndpoint}", new CollectibleDto { Title = title, IsFavorite = true });
+        var plain = await CreateAsync($"/{ResourceEndpoint}", new CollectibleDto { Title = title });
 
-        try
-        {
-            var ownedResults = await GetAsync<PagedResult<CollectibleDto>>($"/{ResourceEndpoint}?IsOwned=true&search={title}");
-            ownedResults.Items.Should().ContainSingle(x => x.Id == owned.Id);
-            ownedResults.Items.Should().NotContain(x => x.Id == plain.Id);
-            // the version's fields must survive the full DTO -> model -> BSON round trip, including ProductName
-            ownedResults.Items.Single(x => x.Id == owned.Id).OwnedVersions.Should().BeEquivalentTo(owned.OwnedVersions);
+        var ownedResults = await GetAsync<PagedResult<CollectibleDto>>($"/{ResourceEndpoint}?IsOwned=true&search={title}");
+        ownedResults.Items.Should().ContainSingle(x => x.Id == owned.Id);
+        ownedResults.Items.Should().NotContain(x => x.Id == plain.Id);
+        // the version's fields must survive the full DTO -> model -> BSON round trip, including ProductName
+        ownedResults.Items.Single(x => x.Id == owned.Id).OwnedVersions.Should().BeEquivalentTo(owned.OwnedVersions);
 
-            var favoriteResults = await GetAsync<PagedResult<CollectibleDto>>($"/{ResourceEndpoint}?IsFavorite=true&search={title}");
-            favoriteResults.Items.Should().ContainSingle(x => x.Id == favorite.Id);
-            favoriteResults.Items.Should().NotContain(x => x.Id == plain.Id);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{owned.Id}");
-            await DeleteAsync($"/{ResourceEndpoint}/{favorite.Id}");
-            await DeleteAsync($"/{ResourceEndpoint}/{plain.Id}");
-        }
+        var favoriteResults = await GetAsync<PagedResult<CollectibleDto>>($"/{ResourceEndpoint}?IsFavorite=true&search={title}");
+        favoriteResults.Items.Should().ContainSingle(x => x.Id == favorite.Id);
+        favoriteResults.Items.Should().NotContain(x => x.Id == plain.Id);
     }
 }

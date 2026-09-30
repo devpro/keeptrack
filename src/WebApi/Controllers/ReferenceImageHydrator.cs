@@ -1,4 +1,5 @@
 using Keeptrack.Common.System;
+using Keeptrack.WebApi.Contracts.Dto;
 
 namespace Keeptrack.WebApi.Controllers;
 
@@ -32,6 +33,30 @@ public static class ReferenceImageHydrator
             if (!string.IsNullOrEmpty(dto.ReferenceId) && imageUrlByReferenceId.TryGetValue(dto.ReferenceId, out var url))
             {
                 dto.ImageUrl = url;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Reference-image hydration plus the tenant's own <c>CustomImageUrl</c> override (book/album/game only),
+    /// which takes priority over the linked reference's cover. Shared by those types' list controllers, the
+    /// shared-with-me reads and the wishlist so the "hydrate then override" order lives in exactly one place.
+    /// </summary>
+    public static async Task HydrateWithCustomOverrideAsync<TDto, TReference>(
+        IReadOnlyList<TDto> dtos,
+        Func<IReadOnlyCollection<string>, Task<List<TReference>>> findReferencesByIds,
+        Func<TReference, string?> referenceImageUrl,
+        Func<TDto, string?> customImageUrl)
+        where TDto : IReferenceLinkedDto
+        where TReference : IHasId
+    {
+        await HydrateAsync(dtos, findReferencesByIds, referenceImageUrl);
+        foreach (var dto in dtos)
+        {
+            var custom = customImageUrl(dto);
+            if (!string.IsNullOrEmpty(custom))
+            {
+                dto.ImageUrl = custom;
             }
         }
     }

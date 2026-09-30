@@ -18,15 +18,28 @@
     <DateTimeFields @bind-Value="Entry.HistoryDate"/>
     @if (Entry.EventType == HealthEventType.Appointment)
     {
+        @* Both fields are free text with a suggestion dropdown over what this account has already typed,
+           the same shape as the car history form's fuel type: the same specialty and the same doctor come
+           back visit after visit, and re-typing them is what lets "dentiste"/"Dentiste" drift apart.
+           The list is fetched per account (see HealthRecordController.GetSuggestions) - a practitioner's
+           name is not something to share between users the way a fuel grade is.
+           InputCssClass: full-size, or these two render visibly shorter than every other field here. *@
         <div class="col-md-6">
             <label class="form-label">Specialty</label>
-            <input class="form-control" placeholder="généraliste, dentiste, …" @bind="Entry.Specialty"/>
+            @* data-testid: same for/id gotcha as Practitioner below *@
+            <SuggestInput Value="@Entry.Specialty" ValueChanged="v => Entry.Specialty = v"
+                          Suggestions="@_specialties" InputCssClass="form-control"
+                          Placeholder="généraliste, dentiste, …" data-testid="specialty-input"/>
         </div>
         <div class="col-md-6">
             <label class="form-label">Practitioner</label>
             @* data-testid: the label/input pair has no for/id association, so GetByLabel
                can't resolve it in e2e tests - same as every inventory Add form *@
-            <input class="form-control" placeholder="Dr …" data-testid="practitioner-input" @bind="Entry.Practitioner"/>
+            @* More matches than the default 8: a household accumulates a practitioner per specialty per
+               person, so a short list reads as "it doesn't know mine" - the StationPicker's reasoning. *@
+            <SuggestInput Value="@Entry.Practitioner" ValueChanged="v => Entry.Practitioner = v"
+                          Suggestions="@_practitioners" InputCssClass="form-control" MaxSuggestions="15"
+                          Placeholder="Dr …" data-testid="practitioner-input"/>
         </div>
         <div class="col-md-3">
             <label class="form-label">Price paid (€)</label>
@@ -75,6 +88,22 @@
 
 @code {
     [Parameter] public required HealthRecordDto Entry { get; set; }
+
+    [Inject] private HealthRecordApiClient HealthRecordApi { get; set; } = null!;
+
+    private List<string> _specialties = [];
+    private List<string> _practitioners = [];
+
+    /// <summary>
+    /// One call for both suggestion lists when the form opens - they're small, owner-scoped and shared by
+    /// every field on the form, so nothing here costs a request per keystroke.
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        var suggestions = await HealthRecordApi.GetSuggestionsAsync();
+        _specialties = suggestions.Specialties;
+        _practitioners = suggestions.Practitioners;
+    }
 
     /// <summary>Live preview of the same balance HealthMetricsService computes server-side.</summary>
     private double MissingAmount =>

@@ -1,0 +1,40 @@
+@* Cover art + fields, side by side on desktop and stacked on a phone - the top of a media detail page.
+
+   Book/Movie/TvShow each put their cover in a Bootstrap `col-md-2`, which is 1/6th of the row: on a wide
+   card that rendered a ~130px poster, small enough to read as a thumbnail rather than as the artwork, with
+   the fields stranded in a narrow strip beside it. Album already did the right thing, but through its own
+   one-off grid (`.kt-album-hero`), so the same layout job had two implementations and three wrong ones.
+
+   One component instead: it owns the "no cover -> single column" rule, the per-shape cover sizing, and the
+   stacking breakpoint, and it renders the fields row itself so a caller supplies only `col-*` children. *@
+
+<div class="kt-detail-hero @Shape @(HasCover ? null : "kt-detail-hero-no-cover")">
+    @if (HasCover)
+    {
+        @* Decorative-ish but genuinely informative here (it's the work's own artwork), so it keeps a real
+           alt text from the caller rather than an empty one. *@
+        <img class="kt-detail-cover @Shape" src="@ImageUrl" alt="@Alt" loading="lazy"/>
+    }
+    <div class="row g-3 align-content-start">
+        @ChildContent
+    </div>
+</div>
+
+@code {
+    /// <summary>
+    /// Cover URL - the tenant's own <c>CustomImageUrl</c> when set, otherwise the linked reference's.
+    /// Null or empty collapses the hero to a single full-width fields column.
+    /// </summary>
+    [Parameter] public string? ImageUrl { get; set; }
+
+    /// <summary>Unset = portrait (2:3 posters and book covers), <c>"square"</c> = album art.</summary>
+    [Parameter] public string? Shape { get; set; }
+
+    /// <summary>Alt text for the cover, e.g. "Heat poster".</summary>
+    [Parameter] public string? Alt { get; set; }
+
+    /// <summary>The fields, as Bootstrap <c>col-*</c> children - this component supplies the row.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private bool HasCover => !string.IsNullOrEmpty(ImageUrl);
+}

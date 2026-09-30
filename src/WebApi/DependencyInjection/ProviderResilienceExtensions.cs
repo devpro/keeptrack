@@ -13,8 +13,16 @@ internal static class ProviderResilienceExtensions
     /// <c>client.Timeout = Timeout.InfiniteTimeSpan</c> on the HttpClient itself (see Program.cs's
     /// comment on why HttpClient's own 100s timeout must not compete with this pipeline).
     /// </summary>
-    internal static void AddProviderResilienceHandler(this IHttpClientBuilder builder) =>
+    /// <remarks>
+    /// Returns the builder so a caller can keep chaining - which matters for one client only: a handler added
+    /// *after* this call runs inside the resilience pipeline rather than outside it. See the IGDB rate limiter
+    /// in Program.cs for why that placement is deliberate there.
+    /// </remarks>
+    internal static IHttpClientBuilder AddProviderResilienceHandler(this IHttpClientBuilder builder)
+    {
         builder.AddStandardResilienceHandler(options => options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(10));
+        return builder;
+    }
 
     /// <summary>
     /// Same pipeline as <see cref="AddProviderResilienceHandler"/>, with a larger retry budget - confirmed

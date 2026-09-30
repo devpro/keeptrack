@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
@@ -12,7 +13,7 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
 /// Basic full-cycle CRUD coverage for <c>Car</c> - closes the "Car has no controller or Blazor page" /
-/// "no CRUD integration test" findings tracked in docs/code-quality-findings.md, same shape as
+/// "no CRUD integration test" findings tracked in docs/findings/by-design-and-gaps.md, same shape as
 /// <see cref="VideoGameResourceTest"/>.
 /// </summary>
 public class CarResourceTest(KestrelWebAppFactory<Program> factory)
@@ -39,50 +40,36 @@ public class CarResourceTest(KestrelWebAppFactory<Program> factory)
                 o.ImageUrl = f.Internet.Url();
             })
             .Generate();
-        var created = await PostAsync($"/{ResourceEndpoint}", input);
+        var created = await CreateAsync($"/{ResourceEndpoint}", input);
         created.Id.Should().NotBeNullOrEmpty();
 
-        try
-        {
-            created.Name = "New shiny name";
-            await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
+        created.Name = "New shiny name";
+        await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
 
-            var updated = await GetAsync<CarDto>($"/{ResourceEndpoint}/{created.Id}");
-            updated.Should().BeEquivalentTo(created);
+        var updated = await GetAsync<CarDto>($"/{ResourceEndpoint}/{created.Id}");
+        updated.Should().BeEquivalentTo(created);
 
-            var finalItems = await GetAsync<PagedResult<CarDto>>($"/{ResourceEndpoint}");
-            var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
-            firstItem.Should().NotBeNull();
-            firstItem.Name.Should().Be(updated.Name);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        var finalItems = await GetAsync<PagedResult<CarDto>>($"/{ResourceEndpoint}");
+        var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
+        firstItem.Should().NotBeNull();
+        firstItem.Name.Should().Be(updated.Name);
     }
 
     /// <summary>
     /// CarRepository previously had no GetFilter override at all, so search silently fell back to the base
     /// class's $text query against an index that didn't even cover Car's field name (see
-    /// docs/code-quality-findings.md) - this proves a name search now actually finds the car.
+    /// docs/findings/persistence-and-mapping.md) - this proves a name search now actually finds the car.
     /// </summary>
     [Fact]
     public async Task CarResourceSearch_FiltersByName_IsOk()
     {
         await Authenticate();
 
-        var name = System.Guid.NewGuid().ToString();
-        var created = await PostAsync($"/{ResourceEndpoint}", new CarDto { Name = name });
+        var name = Guid.NewGuid().ToString();
+        var created = await CreateAsync($"/{ResourceEndpoint}", new CarDto { Name = name });
 
-        try
-        {
-            var results = await GetAsync<PagedResult<CarDto>>($"/{ResourceEndpoint}?search={name}");
-            results.Items.Should().ContainSingle(x => x.Id == created.Id);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        var results = await GetAsync<PagedResult<CarDto>>($"/{ResourceEndpoint}?search={name}");
+        results.Items.Should().ContainSingle(x => x.Id == created.Id);
     }
 
     [Fact]
@@ -103,20 +90,37 @@ public class CarResourceTest(KestrelWebAppFactory<Program> factory)
     {
         await Authenticate();
 
-        var created = await PostAsync($"/{ResourceEndpoint}", new CarDto { Name = System.Guid.NewGuid().ToString() });
+        var created = await CreateAsync($"/{ResourceEndpoint}", new CarDto { Name = Guid.NewGuid().ToString() });
 
-        try
+        var metrics = await GetAsync<CarMetricsDto>($"/{ResourceEndpoint}/{created.Id}/metrics");
+        metrics.FuelConsumption.Should().BeEmpty();
+        metrics.ElectricConsumption.Should().BeEmpty();
+        metrics.CostHistory.Should().BeEmpty();
+        metrics.MileageWarnings.Should().BeEmpty();
+        metrics.LastRecords.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// CarHistory is a separate top-level collection referencing its car by id (see AGENTS.md's "Child entities" section).
+    /// Without CarController.OnDeletedAsync cascading the delete, a deleted car's history would be orphaned in MongoDB forever, only ever reachable via the now-gone car id.
+    /// Same shape as <see cref="HouseResourceTest.HouseResourceDelete_CascadesToItsHistory_IsOk"/>.
+    /// </summary>
+    [Fact]
+    public async Task CarResourceDelete_CascadesToItsHistory_IsOk()
+    {
+        await Authenticate();
+
+        // both are registered even though the delete below is the point of the test: if the cascade is ever broken, the orphaned history entry is exactly what would otherwise be left behind.
+        var car = await CreateAsync($"/{ResourceEndpoint}", new CarDto { Name = Guid.NewGuid().ToString() });
+        var entry = await CreateAsync("/api/car-history", new CarHistoryDto
         {
-            var metrics = await GetAsync<CarMetricsDto>($"/{ResourceEndpoint}/{created.Id}/metrics");
-            metrics.FuelConsumption.Should().BeEmpty();
-            metrics.ElectricConsumption.Should().BeEmpty();
-            metrics.CostHistory.Should().BeEmpty();
-            metrics.MileageWarnings.Should().BeEmpty();
-            metrics.LastRecords.Should().BeEmpty();
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+            CarId = car.Id!,
+            HistoryDate = DateTime.Today,
+            EventType = CarHistoryType.Maintenance
+        });
+
+        await DeleteAsync($"/{ResourceEndpoint}/{car.Id}");
+
+        await GetAsync($"/api/car-history/{entry.Id}", HttpStatusCode.NotFound);
     }
 }

@@ -49,44 +49,32 @@ public class WatchNextSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 
         var showDetail = new TvShowDetailPage(Page);
         await showDetail.WaitForReadyAsync();
-        var showId = ExtractIdFromUrl(Page.Url);
+        // the episode marked watched below needs no cleanup of its own: TvShowController.OnDeletedAsync
+        // cascades the delete to every episode of the show.
+        TrackOpenItem("/api/tv-shows");
 
-        try
-        {
-            await showDetail.SearchAndLinkFirstResultAsync();
-            await showDetail.SetStateAsync("Current");
-            await showDetail.MarkFirstEpisodeWatchedAsync();
+        await showDetail.SearchAndLinkFirstResultAsync();
+        await showDetail.SetStateAsync("Current");
+        await showDetail.MarkFirstEpisodeWatchedAsync();
 
-            var moviesList = await showDetail.OpenMoviesAsync();
-            await moviesList.ClickAddAsync();
-            await moviesList.FillAsync("title-input", MovieTitle);
-            await moviesList.FillAsync("year-input", MovieYear);
-            await moviesList.SaveNewAsync();
+        var moviesList = await showDetail.OpenMoviesAsync();
+        await moviesList.ClickAddAsync();
+        await moviesList.FillAsync("title-input", MovieTitle);
+        await moviesList.FillAsync("year-input", MovieYear);
+        await moviesList.SaveNewAsync();
 
-            var movieDetail = new MovieDetailPage(Page);
-            await movieDetail.WaitForReadyAsync();
-            var movieId = ExtractIdFromUrl(Page.Url);
+        var movieDetail = new MovieDetailPage(Page);
+        await movieDetail.WaitForReadyAsync();
+        TrackOpenItem("/api/movies");
 
-            try
-            {
-                await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Watchlist" }).ClickAsync();
+        await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Watchlist" }).ClickAsync();
 
-                var watchNext = await movieDetail.OpenWatchNextAsync();
+        var watchNext = await movieDetail.OpenWatchNextAsync();
 
-                await Assertions.Expect(watchNext.Card(ShowTitle)).ToBeVisibleAsync();
-                await Assertions.Expect(watchNext.CardBadge(ShowTitle)).ToContainTextAsync("E02");
+        await Assertions.Expect(watchNext.Card(ShowTitle)).ToBeVisibleAsync();
+        await Assertions.Expect(watchNext.CardBadge(ShowTitle)).ToContainTextAsync("E02");
 
-                await watchNext.OpenMoviesTabAsync();
-                await Assertions.Expect(watchNext.Card(MovieTitle)).ToBeVisibleAsync();
-            }
-            finally
-            {
-                await Fixture.DeleteItemAsync($"/api/movies/{movieId}");
-            }
-        }
-        finally
-        {
-            await Fixture.DeleteItemAsync($"/api/tv-shows/{showId}");
-        }
+        await watchNext.OpenMoviesTabAsync();
+        await Assertions.Expect(watchNext.Card(MovieTitle)).ToBeVisibleAsync();
     }
 }

@@ -3,6 +3,8 @@ using System.Threading.Tasks;
 using AwesomeAssertions;
 using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.IntegrationTests.Hosting;
+using MongoDB.Bson;
+using MongoDB.Driver;
 using Xunit;
 
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
@@ -37,6 +39,10 @@ public class UserPreferencesResourceTest(KestrelWebAppFactory<Program> factory)
     public async Task Put_ThenGet_RoundTripsTheSavedValue()
     {
         await Authenticate();
+        // The document is created server-side under the caller's own owner id and has no id the test ever
+        // sees, so it's cleaned up by owner. Leaving it behind would also quietly undermine
+        // Get_ReturnsAllFalseDefaults_WhenNothingWasEverSaved above, whose whole point is the never-saved case.
+        TrackDocumentsWhere("user_preference", Builders<BsonDocument>.Filter.Eq("owner_id", AuthenticatedUserId));
 
         await PutAsync($"/{ResourceEndpoint}", new UserPreferencesDto { Features = new UserPreferencesFeaturesDto { ShowChasseAuxLivresLink = true } });
         var afterFirstSave = await GetAsync<UserPreferencesDto>($"/{ResourceEndpoint}");

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Keeptrack.Domain.Models;
@@ -16,6 +17,19 @@ public interface IVideoGameReferenceRepository
     /// Batched id lookup backing list-page image hydration - one query per page instead of one per item.
     /// </summary>
     Task<List<VideoGameReferenceModel>> FindByIdsAsync(IReadOnlyCollection<string> ids);
+
+    /// <summary>
+    /// The <paramref name="provider"/> id of each of the given references, read with a server-side projection
+    /// over <c>external_ids</c> alone - the Explore exclusion set wants one string per reference, and
+    /// <see cref="FindByIdsAsync"/> would fetch whole documents to supply it.
+    /// </summary>
+    Task<IReadOnlyList<string>> FindExternalIdsAsync(IReadOnlyCollection<string> ids, string provider);
+
+    /// <summary>
+    /// One page of (id, ratings) for the admin rating recompute - see
+    /// <see cref="IMovieReferenceRepository.FindRatingsAsync"/>.
+    /// </summary>
+    Task<IReadOnlyList<(string Id, Dictionary<string, ReferenceRatingModel> Ratings)>> FindRatingsAsync(string? afterId, int limit);
 
     Task<VideoGameReferenceModel?> FindByTitleYearAsync(string title, int? year);
 
@@ -38,6 +52,27 @@ public interface IVideoGameReferenceRepository
     /// full unpaged read is fine.
     /// </summary>
     Task<List<VideoGameReferenceModel>> FindAllAsync();
+
+    /// <summary>
+    /// The stalest <paramref name="limit"/> documents the periodic sync should refresh next: never enriched
+    /// first, then least-recently enriched, and only those untouched since <paramref name="cutoff"/>.
+    /// The ordering is what makes the cap safe - a pass takes the oldest, so what it doesn't reach is first
+    /// in line next time, instead of the head of the collection being re-walked forever.
+    /// </summary>
+    Task<List<VideoGameReferenceModel>> FindStaleAsync(DateTime cutoff, int limit);
+
+    /// <summary>
+    /// Every reference document carrying no id at all in <paramref name="provider"/>'s number space - the
+    /// admin reconciliation queue's backlog, and the exact set that the Explore "already have it" exclusion
+    /// (which asks each linked reference for the discovery provider's id) cannot see.
+    /// <para>
+    /// Whole documents rather than a projection, unlike <see cref="FindExternalIdsAsync"/>: the queue shows
+    /// title, year, every id already held and the last adoption attempt, and a video game reference carries no
+    /// embedded episode guide to make that expensive. Unpaged for the same reason
+    /// <see cref="FindAllAsync"/> is - this is the small shared collection, and the backlog is a fraction of it.
+    /// </para>
+    /// </summary>
+    Task<List<VideoGameReferenceModel>> FindWithoutExternalIdAsync(string provider);
 
     /// <summary>
     /// Permanently removes a reference document - backs the admin "unlink" action, which deletes the

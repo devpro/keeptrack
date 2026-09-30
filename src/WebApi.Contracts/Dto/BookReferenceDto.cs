@@ -23,6 +23,9 @@ public class BookReferenceDto : IHasId
 
     public List<string> Genres { get; set; } = [];
 
+    /// <summary>Aggregate ratings keyed by provider key ("googlebooks"/"openlibrary") - see <see cref="ReferenceRatingDto"/>.</summary>
+    public Dictionary<string, ReferenceRatingDto> Ratings { get; set; } = [];
+
     public string? ImageUrl { get; set; }
 
     /// <summary>The book's language, when the linking provider reports one.</summary>

@@ -19,5 +19,7 @@ public partial class TvShowReferenceDtoMapper
     [MapperIgnoreSource(nameof(TvShowReferenceModel.MatchedAliases))]
     [MapperIgnoreSource(nameof(TvShowReferenceModel.Cast))]
     [MapperIgnoreSource(nameof(TvShowReferenceModel.LastEnrichedAt))]
+    // sync bookkeeping (when a rating source was last asked), like LastEnrichedAt above - of no use to a client
+    [MapperIgnoreSource(nameof(TvShowReferenceModel.RatingsCheckedAt))]
     public partial TvShowReferenceDto ToDto(TvShowReferenceModel model);
 }

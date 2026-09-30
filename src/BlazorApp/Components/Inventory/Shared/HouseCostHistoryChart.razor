@@ -1,0 +1,47 @@
+@using static Keeptrack.BlazorApp.Components.Shared.SvgChartHelpers
+@*
+    A single-series bar chart of total cost per year.
+    Not stacked by category, which would need six colors: the breakdown table below it carries the per-category detail.
+*@
+
+<svg viewBox="0 0 @ToSvgDimension(Geometry.ViewWidth) @ToSvgDimension(Geometry.ViewHeight)" class="kt-chart-svg">
+    <ChartAxes Geometry="Geometry" MarkerId="kt-chart-arrow-house-cost" XAxisLabel="Year" YAxisLabel="€" YTicks="YTicks" XTicks="XTicks"/>
+    @for (var i = 0; i < Points.Count; i++)
+    {
+        var point = Points[i];
+        var height = ScaleHeight(point.TotalCost);
+        <rect x="@ToSvg(BarX(i))" y="@ToSvg(Geometry.PlotBottom - height)" width="@ToSvg(_barWidth)" height="@ToSvg(height)" fill="var(--kt-accent)">
+            <title>@($"{point.Year}: {point.TotalCost:F2}")</title>
+        </rect>
+    }
+</svg>
+
+@code {
+    private static readonly ChartGeometry Geometry = FullWidthGeometry;
+
+    [Parameter, EditorRequired] public List<HouseCostHistoryPointDto> Points { get; set; } = [];
+
+    private double _maxTotal;
+    private double _barWidth;
+    private double _gap;
+
+    private List<(double, string)> YTicks { get; set; } = [];
+
+    private List<(double, string)> XTicks { get; set; } = [];
+
+    protected override void OnParametersSet()
+    {
+        _maxTotal = Points.Max(p => p.TotalCost);
+        if (_maxTotal <= 0) _maxTotal = 1;
+        var plotWidth = Geometry.PlotRight - Geometry.PlotLeft;
+        _barWidth = plotWidth / Points.Count * 0.6;
+        _gap = plotWidth / Points.Count * 0.4;
+
+        YTicks = Enumerable.Range(0, 4).Select(i => _maxTotal * i / 3.0).Select(v => (Geometry.PlotBottom - ScaleHeight(v), v.ToString("F0"))).ToList();
+        XTicks = Points.Select((p, i) => (BarX(i) + _barWidth / 2, p.Year.ToString())).ToList();
+    }
+
+    private double BarX(int index) => Geometry.PlotLeft + index * (_barWidth + _gap);
+
+    private double ScaleHeight(double value) => value / _maxTotal * (Geometry.PlotBottom - Geometry.PlotTop);
+}

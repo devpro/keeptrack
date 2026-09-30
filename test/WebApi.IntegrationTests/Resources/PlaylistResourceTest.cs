@@ -30,26 +30,19 @@ public class PlaylistResourceTest(KestrelWebAppFactory<Program> factory)
         var input = new Faker<PlaylistDto>()
             .Rules((f, o) => { o.Title = f.Random.AlphaNumeric(14); })
             .Generate();
-        var created = await PostAsync($"/{ResourceEndpoint}", input);
+        var created = await CreateAsync($"/{ResourceEndpoint}", input);
         created.Id.Should().NotBeNullOrEmpty();
 
-        try
-        {
-            created.Title = "New shiny title";
-            await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
+        created.Title = "New shiny title";
+        await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
 
-            var updated = await GetAsync<PlaylistDto>($"/{ResourceEndpoint}/{created.Id}");
-            updated.Should().BeEquivalentTo(created);
+        var updated = await GetAsync<PlaylistDto>($"/{ResourceEndpoint}/{created.Id}");
+        updated.Should().BeEquivalentTo(created);
 
-            var finalItems = await GetAsync<PagedResult<PlaylistDto>>($"/{ResourceEndpoint}");
-            var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
-            firstItem.Should().NotBeNull();
-            firstItem.Title.Should().Be(updated.Title);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        var finalItems = await GetAsync<PagedResult<PlaylistDto>>($"/{ResourceEndpoint}");
+        var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
+        firstItem.Should().NotBeNull();
+        firstItem.Title.Should().Be(updated.Title);
     }
 
     [Fact]
@@ -57,26 +50,19 @@ public class PlaylistResourceTest(KestrelWebAppFactory<Program> factory)
     {
         await Authenticate();
 
-        var created = await PostAsync($"/{ResourceEndpoint}", new PlaylistDto { Title = "Order Test Playlist" });
+        var created = await CreateAsync($"/{ResourceEndpoint}", new PlaylistDto { Title = "Order Test Playlist" });
 
-        try
-        {
-            created.SongIds = ["song-c", "song-a", "song-b"];
-            await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
+        created.SongIds = ["song-c", "song-a", "song-b"];
+        await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
 
-            var updated = await GetAsync<PlaylistDto>($"/{ResourceEndpoint}/{created.Id}");
-            updated.SongIds.Should().ContainInOrder("song-c", "song-a", "song-b");
+        var updated = await GetAsync<PlaylistDto>($"/{ResourceEndpoint}/{created.Id}");
+        updated.SongIds.Should().ContainInOrder("song-c", "song-a", "song-b");
 
-            created.SongIds = ["song-a", "song-b"];
-            await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
+        created.SongIds = ["song-a", "song-b"];
+        await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
 
-            var afterRemoval = await GetAsync<PlaylistDto>($"/{ResourceEndpoint}/{created.Id}");
-            afterRemoval.SongIds.Should().ContainInOrder("song-a", "song-b");
-            afterRemoval.SongIds.Should().HaveCount(2);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        var afterRemoval = await GetAsync<PlaylistDto>($"/{ResourceEndpoint}/{created.Id}");
+        afterRemoval.SongIds.Should().ContainInOrder("song-a", "song-b");
+        afterRemoval.SongIds.Should().HaveCount(2);
     }
 }

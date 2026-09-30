@@ -15,7 +15,10 @@ namespace Keeptrack.WebApi.Import;
 /// matches an existing car by name so re-running doesn't duplicate the cars themselves, but re-uploading the same file will duplicate history entries.
 /// This is meant to be run once per car; unlike <see cref="TvTimeImportService"/>, there is no per-entry natural key in the source data to de-duplicate against.
 /// </summary>
-public class CarHistoryImportService(ICarRepository carRepository, ICarHistoryRepository carHistoryRepository)
+public class CarHistoryImportService(
+    ICarRepository carRepository,
+    ICarHistoryRepository carHistoryRepository,
+    ICarStationRepository carStationRepository)
 {
     private static readonly CultureInfo French = CultureInfo.GetCultureInfo("fr-FR");
 
@@ -88,14 +91,21 @@ public class CarHistoryImportService(ICarRepository carRepository, ICarHistoryRe
 
             var time = ExcelCellParser.ParseTime(Cell(row, headers, "Heure")) ?? TimeOnly.MinValue;
 
+            // A refuel's Distributeur/Ville/CP triple describes the station, not the entry - it resolves to
+            // one shared car_station document (created once, reused by every later row at the same place)
+            // instead of being copied onto every line, which is the whole point of the station collection.
+            var stationId = await ResolveStationIdAsync(
+                ExcelCellParser.StringOrNull(Cell(row, headers, "Distributeur")),
+                ExcelCellParser.StringOrNull(Cell(row, headers, "Ville")),
+                ExcelCellParser.StringOrNull(Cell(row, headers, "CP")));
+
             var entry = new CarHistoryModel
             {
                 OwnerId = ownerId,
                 CarId = carId,
                 HistoryDate = date.Value.ToDateTime(time),
                 EventType = CarHistoryType.Refuel,
-                City = ExcelCellParser.StringOrNull(Cell(row, headers, "Ville")),
-                PostalCode = ExcelCellParser.StringOrNull(Cell(row, headers, "CP")),
+                StationId = stationId,
                 FuelCategory = ExcelCellParser.StringOrNull(Cell(row, headers, "Type carburant")),
                 FuelVolume = ExcelCellParser.DoubleOrNull(Cell(row, headers, "Volume (L)")) ?? ExcelCellParser.DoubleOrNull(Cell(row, headers, "Quantité (L)")),
                 FuelUnitPrice = ExcelCellParser.PriceOrNull(Cell(row, headers, "Prix (€ / L)")),
@@ -103,7 +113,6 @@ public class CarHistoryImportService(ICarRepository carRepository, ICarHistoryRe
                 Mileage = ExcelCellParser.IntOrNull(Cell(row, headers, "Km")),
                 DeltaMileage = ExcelCellParser.DoubleOrNull(Cell(row, headers, "Distance (km)")),
                 IsFullRefill = IsFlagSet(Cell(row, headers, "Plein")),
-                StationBrandName = ExcelCellParser.StringOrNull(Cell(row, headers, "Distributeur")),
                 Description = ExcelCellParser.JoinNonEmpty("; ",
                     ExcelCellParser.StringOrNull(Cell(row, headers, "Voyage")) is { } voyage ? $"Voyage : {voyage}" : null,
                     ExcelCellParser.StringOrNull(Cell(row, headers, "Détails")),
@@ -117,6 +126,27 @@ public class CarHistoryImportService(ICarRepository carRepository, ICarHistoryRe
         }
 
         return created;
+    }
+
+    /// <summary>
+    /// Find-or-create the shared station a refuel row happened at. Returns null when the row names no
+    /// station at all - a station with no brand name has no identity to de-duplicate on, so an entry with
+    /// a bare city is better left unlinked than pointed at a nameless catch-all document.
+    /// </summary>
+    private async Task<string?> ResolveStationIdAsync(string? brandName, string? city, string? postalCode)
+    {
+        if (string.IsNullOrWhiteSpace(brandName)) return null;
+
+        var existing = await carStationRepository.FindByNaturalKeyAsync(brandName, city, postalCode);
+        if (existing is not null) return existing.Id;
+
+        var created = await carStationRepository.UpsertAsync(new CarStationModel
+        {
+            BrandName = brandName,
+            City = city,
+            PostalCode = postalCode
+        });
+        return created.Id;
     }
 
     private async Task<int> ImportMaintenanceSheetAsync(IXLWorksheet sheet, string carId, string ownerId, string carName, List<string> warnings)

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
@@ -26,26 +26,19 @@ public class MovieResourceTest(KestrelWebAppFactory<Program> factory)
         var input = new Faker<MovieDto>()
             .Rules((f, o) => { o.Title = f.Random.AlphaNumeric(14); })
             .Generate();
-        var created = await PostAsync($"/{ResourceEndpoint}", input);
+        var created = await CreateAsync($"/{ResourceEndpoint}", input);
         created.Id.Should().NotBeNullOrEmpty();
 
-        try
-        {
-            created.Title = "New shiny title";
-            await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
+        created.Title = "New shiny title";
+        await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
 
-            var updated = await GetAsync<MovieDto>($"/{ResourceEndpoint}/{created.Id}");
-            updated.Should().BeEquivalentTo(created);
+        var updated = await GetAsync<MovieDto>($"/{ResourceEndpoint}/{created.Id}");
+        updated.Should().BeEquivalentTo(created);
 
-            var finalItems = await GetAsync<PagedResult<MovieDto>>($"/{ResourceEndpoint}");
-            var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
-            firstItem.Should().NotBeNull();
-            firstItem.Title.Should().Be(updated.Title);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        var finalItems = await GetAsync<PagedResult<MovieDto>>($"/{ResourceEndpoint}");
+        var firstItem = finalItems.Items.FirstOrDefault(x => x.Id == updated.Id);
+        firstItem.Should().NotBeNull();
+        firstItem.Title.Should().Be(updated.Title);
     }
 
     [Fact]
@@ -55,20 +48,13 @@ public class MovieResourceTest(KestrelWebAppFactory<Program> factory)
 
         var uniqueTitle = $"UniqueSearchTarget-{Guid.NewGuid():N}";
         var input = new Faker<MovieDto>().Rules((f, o) => { o.Title = uniqueTitle; }).Generate();
-        var created = await PostAsync($"/{ResourceEndpoint}", input);
+        var created = await CreateAsync($"/{ResourceEndpoint}", input);
 
-        try
-        {
-            var matching = await GetAsync<PagedResult<MovieDto>>($"/{ResourceEndpoint}?search={uniqueTitle}");
-            matching.Items.Should().Contain(m => m.Id == created.Id);
+        var matching = await GetAsync<PagedResult<MovieDto>>($"/{ResourceEndpoint}?search={uniqueTitle}");
+        matching.Items.Should().Contain(m => m.Id == created.Id);
 
-            var nonMatching = await GetAsync<PagedResult<MovieDto>>($"/{ResourceEndpoint}?search={Guid.NewGuid():N}");
-            nonMatching.Items.Should().NotContain(m => m.Id == created.Id);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        var nonMatching = await GetAsync<PagedResult<MovieDto>>($"/{ResourceEndpoint}?search={Guid.NewGuid():N}");
+        nonMatching.Items.Should().NotContain(m => m.Id == created.Id);
     }
 
     [Fact]
@@ -86,25 +72,18 @@ public class MovieResourceTest(KestrelWebAppFactory<Program> factory)
                 o.IsWishlisted = true;
             })
             .Generate();
-        var created = await PostAsync($"/{ResourceEndpoint}", input);
+        var created = await CreateAsync($"/{ResourceEndpoint}", input);
 
-        try
-        {
-            var owned = await GetAsync<PagedResult<MovieDto>>($"/{ResourceEndpoint}?IsOwned=true&search={uniqueTitle}");
-            owned.Items.Should().ContainSingle(m => m.Id == created.Id);
+        var owned = await GetAsync<PagedResult<MovieDto>>($"/{ResourceEndpoint}?IsOwned=true&search={uniqueTitle}");
+        owned.Items.Should().ContainSingle(m => m.Id == created.Id);
 
-            // the version's fields must survive the full DTO -> model -> BSON round trip (incl. the decimal price)
-            var fetchedVersions = owned.Items.Single(m => m.Id == created.Id).OwnedVersions;
-            fetchedVersions.Should().BeEquivalentTo(input.OwnedVersions);
+        // the version's fields must survive the full DTO -> model -> BSON round trip (incl. the decimal price)
+        var fetchedVersions = owned.Items.Single(m => m.Id == created.Id).OwnedVersions;
+        fetchedVersions.Should().BeEquivalentTo(input.OwnedVersions);
 
-            // this is the WishlistController filter-probe, not a list-page UI filter (removed) - still real API behavior
-            var wishlisted = await GetAsync<PagedResult<MovieDto>>($"/{ResourceEndpoint}?IsWishlisted=true&search={uniqueTitle}");
-            wishlisted.Items.Should().ContainSingle(m => m.Id == created.Id);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        // this is the WishlistController filter-probe, not a list-page UI filter (removed) - still real API behavior
+        var wishlisted = await GetAsync<PagedResult<MovieDto>>($"/{ResourceEndpoint}?IsWishlisted=true&search={uniqueTitle}");
+        wishlisted.Items.Should().ContainSingle(m => m.Id == created.Id);
     }
 
     [Fact]
@@ -114,16 +93,9 @@ public class MovieResourceTest(KestrelWebAppFactory<Program> factory)
 
         var uniqueTitle = $"NotOwnedTarget-{Guid.NewGuid():N}";
         var input = new Faker<MovieDto>().Rules((f, o) => { o.Title = uniqueTitle; }).Generate();
-        var created = await PostAsync($"/{ResourceEndpoint}", input);
+        var created = await CreateAsync($"/{ResourceEndpoint}", input);
 
-        try
-        {
-            var owned = await GetAsync<PagedResult<MovieDto>>($"/{ResourceEndpoint}?IsOwned=true&search={uniqueTitle}");
-            owned.Items.Should().NotContain(m => m.Id == created.Id);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        var owned = await GetAsync<PagedResult<MovieDto>>($"/{ResourceEndpoint}?IsOwned=true&search={uniqueTitle}");
+        owned.Items.Should().NotContain(m => m.Id == created.Id);
     }
 }

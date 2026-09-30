@@ -42,6 +42,22 @@ public class VideoGameDto : IHasId, IReferenceLinkedDto
     public string? ImageUrl { get; set; }
 
     /// <summary>
+    /// Denormalized primary-source (RAWG, 0-5) rating from the linked reference, on <see cref="ReferenceRatingScale"/>.
+    /// Server-managed on link/refresh, round-tripped on edits; null until linked. Full breakdown (incl. Metacritic)
+    /// on <see cref="VideoGameReferenceDto.Ratings"/>.
+    /// </summary>
+    public double? ReferenceRating { get; set; }
+
+    /// <summary>Scale of <see cref="ReferenceRating"/> (5 for RAWG); null when there is no reference rating.</summary>
+    public double? ReferenceRatingScale { get; set; }
+
+    /// <summary>
+    /// Which rating source <see cref="ReferenceRating"/> came from ("tmdb", "imdb", ...), so the value can be
+    /// labelled rather than shown as a bare number. Server-managed on link/refresh, round-tripped on edits.
+    /// </summary>
+    public string? ReferenceRatingSource { get; set; }
+
+    /// <summary>
     /// Tenant-owned cover image override, freely editable - takes priority over the linked reference's
     /// cover wherever one is shown. Null means "use the reference's cover, if any".
     /// </summary>

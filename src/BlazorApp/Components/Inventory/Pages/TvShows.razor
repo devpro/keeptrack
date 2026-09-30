@@ -6,6 +6,8 @@
                Title="TV Shows"
                ItemName="TV show"
                Route="@ListRoute"
+               View="@_view"
+               OnViewChanged="@SetView"
                Items="@(Items ?? [])"
                Loading="@_loading"
                Loaded="@_loaded"
@@ -24,48 +26,23 @@
                OnShowAddForm="@ShowAddForm"
                OnCancelForm="@CancelForm"
                OnSave="@SaveAsync"
+               Matching="@MatchingNewItem"
                OnDelete="@DeleteAsync"
                OnSearchChanged="@OnSearchChanged"
                Sort="@_sort"
                OnSortChanged="@SetSort"
-               HasRatingSort="true">
+               HasRatingSort="true"
+               HasReferenceRatingSort="true">
     <Filters>
         <button class="btn btn-sm @(StateFilter is null ? "btn-primary" : "btn-secondary")" @onclick='() => SetFilter("state", null)'>All</button>
         <button class="btn btn-sm @(StateFilter == TvShowStatus.Current ? "btn-primary" : "btn-secondary")" @onclick='() => SetFilter("state", nameof(TvShowStatus.Current))'>Current</button>
         <button class="btn btn-sm @(StateFilter == TvShowStatus.Finished ? "btn-primary" : "btn-secondary")" @onclick='() => SetFilter("state", nameof(TvShowStatus.Finished))'>Finished</button>
         <button class="btn btn-sm @(StateFilter == TvShowStatus.Stopped ? "btn-primary" : "btn-secondary")" @onclick='() => SetFilter("state", nameof(TvShowStatus.Stopped))'>Stopped</button>
-        <button class="btn btn-sm kt-toggle-btn @(FavoriteFilter ? "active" : "")" @onclick='() => ToggleFilter("favorite", FavoriteFilter)'>★ Favorites</button>
-        <button class="btn btn-sm kt-toggle-btn @(OwnedFilter ? "active" : "")" @onclick='() => ToggleFilter("owned", OwnedFilter)'>● Owned</button>
+        <button class="btn btn-sm kt-toggle-btn @(FavoriteFilter ? "active" : "")" @onclick='() => ToggleFilter("favorite", FavoriteFilter)'><Icon Name="favorite" Size="13"/> Favorites</button>
+        <button class="btn btn-sm kt-toggle-btn @(OwnedFilter ? "active" : "")" @onclick='() => ToggleFilter("owned", OwnedFilter)'><Icon Name="owned" Size="13"/> Owned</button>
     </Filters>
     <MetaTemplate Context="show">
-        @if (show.Year > 0)
-        {
-            <span>@show.Year</span>
-        }
-        @if (show.State is not null)
-        {
-            <span class="kt-status-badge @show.State.ToString()!.ToLowerInvariant()">@show.State</span>
-        }
-        @if (show.Rating is not null)
-        {
-            <span class="kt-stars"><StarRating Rating="show.Rating"/></span>
-        }
-        @if (show.IsFavorite)
-        {
-            <span class="kt-flag-badge favorite">Favorite</span>
-        }
-        @if (show.WantToWatch)
-        {
-            <span class="kt-flag-badge wishlist">To watch</span>
-        }
-        @if (show.OwnedVersions.Count > 0)
-        {
-            <span class="kt-flag-badge">Owned</span>
-        }
-        @if (show.IsWishlisted)
-        {
-            <span class="kt-flag-badge wishlist">Wishlist</span>
-        }
+        <TvShowMetaRow Item="show"/>
     </MetaTemplate>
     <FormTemplate Context="show">
         <div class="col-12">

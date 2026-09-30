@@ -1,3 +1,4 @@
+using System.Threading;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.Domain.Services;
@@ -24,15 +25,15 @@ public class HealthProfileController(
     [HttpGet("{id}/metrics")]
     [ProducesResponseType(200)]
     [ProducesResponseType(404)]
-    public async Task<ActionResult<HealthMetricsDto>> GetMetrics(string id)
+    public async Task<ActionResult<HealthMetricsDto>> GetMetrics(string id, CancellationToken cancellationToken)
     {
         var ownerId = this.GetUserId();
 
-        var profile = await dataRepository.FindOneAsync(id, ownerId);
+        var profile = await dataRepository.FindOneAsync(id, ownerId, cancellationToken);
         if (profile is null) return NotFound();
 
         var records = await healthRecordRepository.FindAllAsync(ownerId, 1, int.MaxValue, null,
-            new HealthRecordModel { OwnerId = ownerId, HealthProfileId = id, EventType = default, HistoryDate = default });
+            new HealthRecordModel { OwnerId = ownerId, HealthProfileId = id, EventType = default, HistoryDate = default }, cancellationToken: cancellationToken);
 
         return Ok(metricsMapper.ToDto(HealthMetricsService.ComputeMetrics(records.Items)));
     }
@@ -41,8 +42,8 @@ public class HealthProfileController(
     /// HealthRecord is a separate top-level collection referencing its profile by id, not an embedded array (see CLAUDE.md's "Child entities" section) -
     /// without this, deleting a profile would leave its journal orphaned in MongoDB forever, since it's only ever reachable via the profile's own id.
     /// </summary>
-    protected override async Task OnDeletedAsync(string id, string ownerId)
+    protected override async Task OnDeletedAsync(string id, string ownerId, CancellationToken cancellationToken)
     {
-        await healthRecordRepository.DeleteAllForProfileAsync(id, ownerId);
+        await healthRecordRepository.DeleteAllForProfileAsync(id, ownerId, cancellationToken);
     }
 }

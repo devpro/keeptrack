@@ -1,3 +1,4 @@
+using System.Threading;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.WebApi.Mappers;
@@ -22,18 +23,13 @@ public class BookController(
     /// <summary>
     /// Hydrates each page item's cover image from its linked reference document - one batched lookup per
     /// page (see <see cref="ReferenceImageHydrator"/>), keyed by the id-bearing documents only. A book with
-    /// its own <see cref="BookDto.CustomImageUrl"/> set overrides that afterward - this is Book-specific
-    /// (not shared via <see cref="ReferenceImageHydrator"/>/<see cref="Contracts.Dto.IReferenceLinkedDto"/>,
-    /// which the other four reference-linked types also implement, with no equivalent override field).
+    /// its own <see cref="BookDto.CustomImageUrl"/> set overrides that afterward, via the shared
+    /// <see cref="ReferenceImageHydrator.HydrateWithCustomOverrideAsync"/>. Only Book/Album/VideoGame carry a
+    /// <c>CustomImageUrl</c>; the other reference-linked types (movie, TV show) have no equivalent override and
+    /// use the plain <see cref="ReferenceImageHydrator.HydrateAsync"/> path instead.
     /// </summary>
-    protected override async Task OnListMappedAsync(List<BookDto> dtos)
-    {
-        await ReferenceImageHydrator.HydrateAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl);
-        foreach (var dto in dtos.Where(d => !string.IsNullOrEmpty(d.CustomImageUrl)))
-        {
-            dto.ImageUrl = dto.CustomImageUrl;
-        }
-    }
+    protected override Task OnListMappedAsync(List<BookDto> dtos, CancellationToken cancellationToken) =>
+        ReferenceImageHydrator.HydrateWithCustomOverrideAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl, x => x.CustomImageUrl);
 
     /// <summary>
     /// Fires a best-effort background Open Library match for the new book - see <see cref="TvShowController.OnCreatedAsync"/>.
@@ -41,15 +37,13 @@ public class BookController(
     protected override Task OnCreatedAsync(BookModel model)
     {
         var title = model.Title;
-        var year = model.Year;
-        var author = model.Author;
         _ = Task.Run(async () =>
         {
             try
             {
                 using var scope = scopeFactory.CreateScope();
                 var scopedEnrichmentService = scope.ServiceProvider.GetRequiredService<ReferenceEnrichmentService>();
-                await scopedEnrichmentService.TryAutoResolveBookAsync(title, year, author);
+                await scopedEnrichmentService.TryAutoResolveBookAsync(model);
             }
             catch (Exception ex)
             {
@@ -66,12 +60,12 @@ public class BookController(
     [HttpPost("{id}/refresh-reference")]
     [ProducesResponseType(200)]
     [ProducesResponseType(404)]
-    public async Task<ActionResult<BookDto>> RefreshReference(string id)
+    public async Task<ActionResult<BookDto>> RefreshReference(string id, CancellationToken cancellationToken)
     {
-        var model = await dataRepository.FindOneAsync(id, this.GetUserId());
+        var model = await dataRepository.FindOneAsync(id, this.GetUserId(), cancellationToken);
         if (model is null) return NotFound();
 
-        model = await enrichmentService.TryLinkExistingBookReferenceAsync(model);
+        model = await enrichmentService.LinkBookReferenceAsync(model);
         return Ok(Mapper.ToDto(model));
     }
 
@@ -83,9 +77,9 @@ public class BookController(
     [Authorize(Policy = "AdminOnly")]
     [ProducesResponseType(200)]
     [ProducesResponseType(404)]
-    public async Task<ActionResult<BookDto>> UnlinkReference(string id)
+    public async Task<ActionResult<BookDto>> UnlinkReference(string id, CancellationToken cancellationToken)
     {
-        var model = await dataRepository.FindOneAsync(id, this.GetUserId());
+        var model = await dataRepository.FindOneAsync(id, this.GetUserId(), cancellationToken);
         if (model is null) return NotFound();
 
         model = await enrichmentService.UnlinkBookReferenceAsync(model);

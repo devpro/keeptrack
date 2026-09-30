@@ -1,9 +1,10 @@
 @page "/health/{Id}"
 @attribute [Authorize]
+@inherits JournalDetailPageBase<HealthProfileDto, HealthRecordDto, HealthMetricsDto>
 
-@if (!_loaded)
+@if (!IsLoaded)
 {
-    @if (_loading)
+    @if (IsLoading)
     {
         <div class="kt-loading">
             <div class="kt-spinner"></div>
@@ -14,17 +15,25 @@
 else if (Profile is null)
 {
     <div class="kt-empty">
-        <div class="kt-empty-icon">◈</div>
+        <div class="kt-empty-icon"><Icon Name="empty" Size="40" StrokeWidth="1.1"/></div>
         <p>Health profile not found.</p>
     </div>
 }
 else
 {
-    <Breadcrumb ListRoute="/health" ListLabel="Health" Current="@Profile.Name"/>
+    @if (CanEdit)
+    {
+        <Breadcrumb ListRoute="/health" ListLabel="Health" Current="@Profile.Name"/>
+    }
+    else
+    {
+        <Breadcrumb ParentRoute="/account/manage/shared-with-me" ParentLabel="Shared with me"
+                    ListRoute="@($"/account/manage/shared/{ShareId}")" ListLabel="@(OwnerName ?? "Shared collection")" Current="@Profile.Name"/>
+    }
 
     <div class="kt-page-header">
         <div class="kt-title-row">
-            <input class="kt-title-input" value="@Profile.Name" @onchange="SaveNameAsync"/>
+            <input class="kt-title-input" value="@Profile.Name" @onchange="SaveNameAsync" disabled="@(!CanEdit)"/>
         </div>
     </div>
 
@@ -39,12 +48,15 @@ else
         <div class="row g-3">
             <div class="col-12">
                 <label class="form-label">Notes</label>
-                <textarea class="form-control form-control-sm" rows="2" @onchange="SaveNotesAsync">@Profile.Notes</textarea>
+                <textarea class="form-control form-control-sm" rows="2" @onchange="SaveNotesAsync" disabled="@(!CanEdit)">@Profile.Notes</textarea>
             </div>
-            <div class="col-12">
-                <label class="form-label">Cover image URL</label>
-                <input class="form-control form-control-sm" data-testid="image-url-input" value="@Profile.ImageUrl" @onchange="SaveImageUrlAsync"/>
-            </div>
+            @if (CanEdit)
+            {
+                <div class="col-12">
+                    <label class="form-label">Cover image URL</label>
+                    <input class="form-control form-control-sm" data-testid="image-url-input" value="@Profile.ImageUrl" @onchange="SaveImageUrlAsync"/>
+                </div>
+            }
         </div>
     </div>
 
@@ -67,7 +79,10 @@ else
 
     <div class="d-flex justify-content-between align-items-center">
         <h2 class="kt-section-title">Journal</h2>
-        <button class="btn btn-sm btn-primary" @onclick="ShowAddModal">+ Add entry</button>
+        @if (CanEdit)
+        {
+            <button class="btn btn-sm btn-primary" @onclick="ShowAddModal">+ Add entry</button>
+        }
     </div>
     @* Excel-like on purpose: no header row, no per-field labels, aligned columns at every width
        (kt-table-grid opts out of the mobile stacked-cards treatment) - date, specialty, name, a warning
@@ -80,7 +95,7 @@ else
             <div class="table-responsive">
                 <table class="table kt-sheet-table kt-table-grid mb-0">
                     <tbody>
-                    <tr><td class="text-center kt-card-meta">No entries yet - add the first one above.</td></tr>
+                    <tr><td class="text-center kt-card-meta">@(CanEdit ? "No entries yet - add the first one above." : "No entries recorded.")</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -89,18 +104,35 @@ else
     else
     {
         <div class="kt-season-picker">
-            @foreach (var year in _years)
+            @foreach (var year in Years)
             {
-                <button class="kt-page-btn @(year == _selectedYear ? "active" : "")" @onclick="() => SelectYear(year)">@year</button>
+                <button class="kt-page-btn @(year == SelectedYear ? "active" : "")" @onclick="() => SelectYear(year)">@year</button>
             }
         </div>
         <div class="kt-table-wrap">
             <div class="table-responsive">
                 <table class="table kt-sheet-table kt-table-grid mb-0">
+                    @* The journal is the one table here that had no header row, while the yearly review
+                       directly below it does - so its columns had to be inferred from their contents.
+                       Column set and the d-none d-md-table-cell breakpoints mirror HealthRecordRow. *@
+                    <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Specialty</th>
+                        <th>Practitioner</th>
+                        <th class="d-none d-md-table-cell">Description</th>
+                        <th class="d-none d-md-table-cell kt-num">Price</th>
+                        <th><span class="visually-hidden">To check</span></th>
+                        @if (CanEdit)
+                        {
+                            <th><span class="visually-hidden">Actions</span></th>
+                        }
+                    </tr>
+                    </thead>
                     <tbody>
-                    @foreach (var entry in _recordsByYear.GetValueOrDefault(_selectedYear, []))
+                    @foreach (var entry in SelectedYearEntries)
                     {
-                        <HealthRecordRow Entry="entry" IsUnbalanced="@UnbalancedRecordIds.Contains(entry.Id!)" OnEdit="ShowEditModal" OnDelete="DeleteEntryAsync"/>
+                        <HealthRecordRow Entry="entry" IsUnbalanced="@UnbalancedRecordIds.Contains(entry.Id!)" ReadOnly="@(!CanEdit)" OnEdit="ShowEditModal" OnDelete="DeleteEntryAsync"/>
                     }
                     </tbody>
                 </table>
@@ -138,51 +170,42 @@ else
         </div>
     }
 
-    @if (_showModal)
+    @if (CanEdit)
     {
-        <div class="kt-modal-backdrop">
-            <div class="kt-modal">
-                <div class="kt-modal-header">
-                    <h5>@(IsEditMode ? "Edit" : "Add") journal entry</h5>
-                    <button class="kt-modal-close" @onclick="RequestCancelModal">✕</button>
-                </div>
-                <div class="kt-modal-body">
-                    <HealthRecordForm Entry="_modalEntry"/>
-                </div>
-                <div class="kt-modal-footer">
-                    <button class="btn btn-secondary" @onclick="RequestCancelModal">Cancel</button>
-                    <button class="btn btn-success" @onclick="SaveModalEntryAsync">Save</button>
-                </div>
-            </div>
-        </div>
+        <JournalEntryModal Show="ShowModal" Title="@($"{(IsEditMode ? "Edit" : "Add")} journal entry")"
+                           OnCancel="RequestCancelModal" OnSave="SaveModalEntryAsync"
+                           ShowDiscardConfirm="ShowDiscardConfirm" OnConfirmDiscard="ConfirmDiscard" OnCancelDiscard="CancelDiscard">
+            <HealthRecordForm Entry="ModalEntry!"/>
+        </JournalEntryModal>
     }
-
-    <ConfirmModal Show="_showDiscardConfirm"
-                  Title="Discard unsaved changes?"
-                  Message="This entry has unsaved changes that will be lost."
-                  ConfirmLabel="Discard"
-                  OnConfirm="ConfirmDiscard" OnCancel="CancelDiscard"/>
 }
 
 @code {
-    [Parameter] public required string Id { get; set; }
-
     [Inject] private HealthProfileApiClient HealthProfileApi { get; set; } = null!;
 
     [Inject] private HealthRecordApiClient HealthRecordApi { get; set; } = null!;
 
-    // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
-    // _loaded tracks whether a load attempt has finished at all, fresh or restored from persisted
-    // prerender state - both default false so the forced render Blazor triggers right after the
-    // synchronous prefix of OnParametersSetAsync (before any awaited fetch resolves) shows blank instead
-    // of a spinner flash on every navigation to this page.
-    private bool _loading;
-    private bool _loaded;
+    protected override HealthProfileDto? JournalParent { get => Profile; set => Profile = value; }
 
-    // Public properties (a framework requirement for [PersistentState]): the data loaded during the
-    // prerender pass is carried over to the interactive circuit, so the first interactive render reuses
-    // it instead of resetting to the spinner and re-fetching - same pattern as MovieDetail. The derived
-    // by-year grouping is rebuilt locally from these in BuildDerivedState, same as CarDetail/HouseDetail.
+    protected override List<HealthRecordDto>? JournalEntries { get => Records; set => Records = value; }
+
+    protected override HealthMetricsDto? JournalMetrics { get => Metrics; set => Metrics = value; }
+
+    protected override InventoryApiClientBase<HealthProfileDto> ParentApi => HealthProfileApi;
+
+    protected override InventoryApiClientBase<HealthRecordDto> EntryApi => HealthRecordApi;
+
+    protected override string ParentIdQueryKey => "HealthProfileId";
+
+    protected override Task<HealthMetricsDto> GetMetricsAsync() => HealthProfileApi.GetMetricsAsync(Id);
+
+    protected override Task<SharedDetailDto<HealthProfileDto, HealthRecordDto, HealthMetricsDto>?> GetSharedAsync(SharedWithMeApiClient sharedApi, string shareId) => sharedApi.GetHealthProfileAsync(shareId, Id);
+
+    protected override DateTime EntryDate(HealthRecordDto entry) => entry.HistoryDate;
+
+    protected override HealthRecordDto NewEntry() => HealthRecordForm.NewEntry(Id);
+
+    // Public, as [PersistentState] requires: the prerendered journal carries over to the interactive circuit instead of being fetched again.
     [PersistentState]
     public HealthProfileDto? Profile { get; set; }
 
@@ -191,71 +214,11 @@ else
 
     [PersistentState]
     public HealthMetricsDto? Metrics { get; set; }
-    private Dictionary<int, List<HealthRecordDto>> _recordsByYear = new();
-    private List<int> _years = [];
-    private int _selectedYear;
-    private HealthRecordDto _modalEntry = HealthRecordForm.NewEntry("");
-    private HealthRecordDto _pristineModalEntry = HealthRecordForm.NewEntry("");
-    private bool _showModal;
-    private bool _showDiscardConfirm;
-
-    private bool IsEditMode => !string.IsNullOrEmpty(_modalEntry.Id);
 
     /// <summary>The journal rows' warning flags come from the metrics (the one balance computation,
     /// server-side in HealthMetricsService) rather than re-deriving the arithmetic per row.</summary>
     private HashSet<string> UnbalancedRecordIds =>
         Metrics is null ? [] : [.. Metrics.UnbalancedRecords.Select(u => u.RecordId)];
-
-    protected override async Task OnParametersSetAsync()
-    {
-        // Profile already holds this route's item when PersistentState restored the prerendered data
-        // the id check keeps an in-circuit navigation to a different profile reloading as before
-        if (Profile?.Id == Id && Records is not null && Metrics is not null)
-        {
-            BuildDerivedState();
-            _loading = false;
-            _loaded = true;
-            return;
-        }
-        await LoadAsync();
-    }
-
-    private async Task LoadAsync()
-    {
-        await LoadingIndicator.RunAsync(FetchAsync(), v => _loading = v, StateHasChanged);
-        _loading = false;
-        _loaded = true;
-    }
-
-    private async Task FetchAsync()
-    {
-        Profile = await HealthProfileApi.GetOneAsync(Id);
-        if (Profile is not null)
-        {
-            var result = await HealthRecordApi.GetAsync("", 1, int.MaxValue, new Dictionary<string, string> { ["HealthProfileId"] = Id });
-            // most recent first - a journal reads with the newest entry on top, same call as HouseDetail
-            Records = result.Items.OrderByDescending(r => r.HistoryDate).ToList();
-            Metrics = await HealthProfileApi.GetMetricsAsync(Id);
-            BuildDerivedState();
-        }
-    }
-
-    private void BuildDerivedState()
-    {
-        _recordsByYear = Records!.GroupBy(r => r.HistoryDate.Year).ToDictionary(g => g.Key, g => g.ToList());
-        _years = _recordsByYear.Keys.OrderByDescending(y => y).ToList();
-        // same "keep the current tab if it still exists, else default to the newest" rule as
-        // TvShowDetail.razor's own season selection
-        if (!_years.Contains(_selectedYear)) _selectedYear = _years.Count > 0 ? _years[0] : 0;
-    }
-
-    private void SelectYear(int year) => _selectedYear = year;
-
-    private async Task SaveProfileAsync()
-    {
-        if (Profile is null) return;
-        await HealthProfileApi.UpdateAsync(Profile);
-    }
 
     private async Task SaveNameAsync(ChangeEventArgs e)
     {
@@ -263,70 +226,24 @@ else
         var name = e.Value?.ToString();
         if (string.IsNullOrWhiteSpace(name)) return;
         Profile.Name = name;
-        await SaveProfileAsync();
+        await SaveParentAsync();
     }
 
     private async Task SaveNotesAsync(ChangeEventArgs e)
     {
         if (Profile is null) return;
         Profile.Notes = e.Value?.ToString();
-        await SaveProfileAsync();
+        await SaveParentAsync();
     }
 
     private async Task SaveImageUrlAsync(ChangeEventArgs e)
     {
         if (Profile is null) return;
         Profile.ImageUrl = e.Value?.ToString();
-        await SaveProfileAsync();
+        await SaveParentAsync();
     }
 
-    private void ShowAddModal()
-    {
-        _modalEntry = HealthRecordForm.NewEntry(Id);
-        _pristineModalEntry = CloneEntry(_modalEntry);
-        _showModal = true;
-    }
-
-    /// <summary>Edits a copy, not the row's own object, so Cancel discards changes instead of leaving the
-    /// table showing edits that were never saved.</summary>
-    private void ShowEditModal(HealthRecordDto entry)
-    {
-        _modalEntry = CloneEntry(entry);
-        _pristineModalEntry = CloneEntry(entry);
-        _showModal = true;
-    }
-
-    /// <summary>
-    /// A click/drag outside the modal no longer closes it (see the backdrop markup above) - only these
-    /// explicit Cancel/✕ buttons can, and they route through this unsaved-data check first.
-    /// </summary>
-    private void RequestCancelModal()
-    {
-        if (DirtyTracking.IsDirty(_pristineModalEntry, _modalEntry)) _showDiscardConfirm = true;
-        else _showModal = false;
-    }
-
-    private void ConfirmDiscard()
-    {
-        _showDiscardConfirm = false;
-        _showModal = false;
-    }
-
-    private void CancelDiscard() => _showDiscardConfirm = false;
-
-    /// <summary>Every journal mutation reloads the whole profile (journal + metrics) rather than patching
-    /// local state - an edit can change the yearly totals, the row badges and the last-visit table, so
-    /// recomputing from the server is simpler and safer than syncing derived state by hand.</summary>
-    private async Task SaveModalEntryAsync()
-    {
-        if (IsEditMode) await HealthRecordApi.UpdateAsync(_modalEntry);
-        else await HealthRecordApi.AddAsync(_modalEntry);
-
-        _showModal = false;
-        await LoadAsync();
-    }
-
-    private static HealthRecordDto CloneEntry(HealthRecordDto entry) => new()
+    protected override HealthRecordDto CloneEntry(HealthRecordDto entry) => new()
     {
         Id = entry.Id,
         HealthProfileId = entry.HealthProfileId,
@@ -341,10 +258,4 @@ else
         InsuranceReimbursement = entry.InsuranceReimbursement,
         NotCovered = entry.NotCovered
     };
-
-    private async Task DeleteEntryAsync(string id)
-    {
-        await HealthRecordApi.DeleteAsync(id);
-        await LoadAsync();
-    }
 }

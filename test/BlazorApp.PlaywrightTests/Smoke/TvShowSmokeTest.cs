@@ -32,17 +32,11 @@ public class TvShowSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 
         var detail = new TvShowDetailPage(Page);
         await detail.WaitForReadyAsync();
-        var id = ExtractIdFromUrl(Page.Url);
+        // registered as soon as the item exists, so an assertion failure below still removes it
+        TrackOpenItem("/api/tv-shows");
 
-        try
-        {
-            await detail.SearchAndLinkFirstResultAsync();
+        await detail.SearchAndLinkFirstResultAsync();
 
-            await Assertions.Expect(detail.CoverImage).ToBeVisibleAsync();
-        }
-        finally
-        {
-            await Fixture.DeleteItemAsync($"/api/tv-shows/{id}");
-        }
+        await Assertions.Expect(detail.CoverImage).ToBeVisibleAsync();
     }
 }

@@ -36,24 +36,17 @@ public class HouseHistoryResourceTest(KestrelWebAppFactory<Program> factory)
         var houseId = Guid.NewGuid().ToString();
         var initialItems = await GetAsync<PagedResult<HouseHistoryDto>>($"/{ResourceEndpoint}?HouseId={houseId}");
 
-        var created = await PostAsync($"/{ResourceEndpoint}", NewEntry(houseId));
+        var created = await CreateAsync($"/{ResourceEndpoint}", NewEntry(houseId));
         created.Id.Should().NotBeNullOrEmpty();
 
-        try
-        {
-            created.Cost = 55.0;
-            await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
+        created.Cost = 55.0;
+        await PutAsync($"/{ResourceEndpoint}/{created.Id}", created);
 
-            var updated = await GetAsync<HouseHistoryDto>($"/{ResourceEndpoint}/{created.Id}");
-            updated.Should().BeEquivalentTo(created);
+        var updated = await GetAsync<HouseHistoryDto>($"/{ResourceEndpoint}/{created.Id}");
+        updated.Should().BeEquivalentTo(created);
 
-            var finalItems = await GetAsync<PagedResult<HouseHistoryDto>>($"/{ResourceEndpoint}?HouseId={houseId}");
-            finalItems.TotalCount.Should().BeGreaterThan(initialItems.TotalCount);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        var finalItems = await GetAsync<PagedResult<HouseHistoryDto>>($"/{ResourceEndpoint}?HouseId={houseId}");
+        finalItems.TotalCount.Should().BeGreaterThan(initialItems.TotalCount);
     }
 
     [Fact]
@@ -63,20 +56,12 @@ public class HouseHistoryResourceTest(KestrelWebAppFactory<Program> factory)
 
         var houseId = Guid.NewGuid().ToString();
         var otherHouseId = Guid.NewGuid().ToString();
-        var created = await PostAsync($"/{ResourceEndpoint}", NewEntry(houseId));
-        var otherCreated = await PostAsync($"/{ResourceEndpoint}", NewEntry(otherHouseId));
+        var created = await CreateAsync($"/{ResourceEndpoint}", NewEntry(houseId));
+        var otherCreated = await CreateAsync($"/{ResourceEndpoint}", NewEntry(otherHouseId));
 
-        try
-        {
-            var results = await GetAsync<PagedResult<HouseHistoryDto>>($"/{ResourceEndpoint}?HouseId={houseId}");
-            results.Items.Should().ContainSingle(x => x.Id == created.Id);
-            results.Items.Should().NotContain(x => x.Id == otherCreated.Id);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-            await DeleteAsync($"/{ResourceEndpoint}/{otherCreated.Id}");
-        }
+        var results = await GetAsync<PagedResult<HouseHistoryDto>>($"/{ResourceEndpoint}?HouseId={houseId}");
+        results.Items.Should().ContainSingle(x => x.Id == created.Id);
+        results.Items.Should().NotContain(x => x.Id == otherCreated.Id);
     }
 
     [Fact]
@@ -88,16 +73,9 @@ public class HouseHistoryResourceTest(KestrelWebAppFactory<Program> factory)
         var description = Guid.NewGuid().ToString();
         var entry = NewEntry(houseId);
         entry.Description = description;
-        var created = await PostAsync($"/{ResourceEndpoint}", entry);
+        var created = await CreateAsync($"/{ResourceEndpoint}", entry);
 
-        try
-        {
-            var results = await GetAsync<PagedResult<HouseHistoryDto>>($"/{ResourceEndpoint}?HouseId={houseId}&search={description}");
-            results.Items.Should().ContainSingle(x => x.Id == created.Id);
-        }
-        finally
-        {
-            await DeleteAsync($"/{ResourceEndpoint}/{created.Id}");
-        }
+        var results = await GetAsync<PagedResult<HouseHistoryDto>>($"/{ResourceEndpoint}?HouseId={houseId}&search={description}");
+        results.Items.Should().ContainSingle(x => x.Id == created.Id);
     }
 }

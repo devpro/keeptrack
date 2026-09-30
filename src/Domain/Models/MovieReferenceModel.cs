@@ -8,7 +8,7 @@ namespace Keeptrack.Domain.Models;
 /// Shared, tenant-agnostic movie metadata sourced from an external provider such as TMDB.
 /// See <see cref="TvShowReferenceModel"/> for why this deliberately has no <c>OwnerId</c>.
 /// </summary>
-public class MovieReferenceModel : IHasId
+public class MovieReferenceModel : IHasExternalIds
 {
     public string? Id { get; set; }
 
@@ -32,6 +32,19 @@ public class MovieReferenceModel : IHasId
     public List<string> Genres { get; set; } = [];
 
     public List<CastMemberModel> Cast { get; set; } = [];
+
+    /// <summary>
+    /// Aggregate ratings for this movie keyed by source ("tmdb" today; "imdb"/others later) - see
+    /// <see cref="ReferenceRatingModel"/>. Canonical here on the shared reference document; the primary
+    /// source's value is denormalized onto each tenant's <see cref="MovieModel.ReferenceRating"/> on link.
+    /// </summary>
+    public Dictionary<string, ReferenceRatingModel> Ratings { get; set; } = [];
+
+    /// <summary>
+    /// When each rating source was last *attempted* for this movie, whether or not it produced a value -
+    /// see <see cref="TvShowReferenceModel.RatingsCheckedAt"/> for what it protects against.
+    /// </summary>
+    public Dictionary<string, DateTime> RatingsCheckedAt { get; set; } = [];
 
     public string? ImageUrl { get; set; }
 

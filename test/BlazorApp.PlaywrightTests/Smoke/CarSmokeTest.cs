@@ -27,6 +27,8 @@ public class CarSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 
         var detail = new CarDetailPage(Page);
         await detail.WaitForReadyAsync();
+        // registered as soon as the item exists, so an assertion failure below still removes it
+        TrackOpenItem("/api/cars");
         await Assertions.Expect(detail.TitleInput).ToHaveValueAsync(name);
 
         // cover image: the detail banner and the list's wide thumbnail (same shape as VideoGames.razor)
@@ -35,7 +37,7 @@ public class CarSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
         await Assertions.Expect(detail.CoverImage).ToHaveAttributeAsync("src", imageUrl);
 
         list = await detail.OpenCarsAsync();
-        await Assertions.Expect(list.Row(name).Locator(".kt-item-thumb.wide img")).ToHaveAttributeAsync("src", imageUrl);
+        await list.ExpectRowThumbnailAsync(name, imageUrl);
 
         await list.DeleteAsync(name);
         await Assertions.Expect(list.Row(name)).Not.ToBeVisibleAsync();

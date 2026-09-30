@@ -27,8 +27,12 @@ internal sealed class FakeBookReferenceClient : IBookReferenceClient
 
     public static FakeBookReferenceClient WithSearchResults(params BookSearchResult[] results) => new([.. results]);
 
+    /// <summary>How many searches were issued - zero is what "the local reference answered" looks like.</summary>
+    public int SearchCount { get; private set; }
+
     public Task<IReadOnlyList<BookSearchResult>> SearchBooksAsync(string title, int? year, string? author = null, string? isbn = null, CancellationToken cancellationToken = default)
     {
+        SearchCount++;
         LastSearchAuthor = author;
         LastSearchIsbn = isbn;
         return Task.FromResult<IReadOnlyList<BookSearchResult>>(_searchResults);

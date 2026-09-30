@@ -1,9 +1,11 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
+using Keeptrack.Domain.Services;
 using Keeptrack.Infrastructure.MongoDb.Entities;
 using Keeptrack.Infrastructure.MongoDb.Mappers;
 using MongoDB.Driver;
@@ -29,26 +31,14 @@ public class AlbumReferenceRepository(IMongoDatabase mongoDatabase, AlbumReferen
         return entities.Select(mapper.ToModel).ToList();
     }
 
-    public async Task<AlbumReferenceModel?> FindByTitleYearAsync(string title, int? year, string artist)
+    /// <summary>
+    /// Matches against every (title, artist) combination ever confirmed for a reference, not just its canonical one - see <see cref="ReferenceAliasQueries"/> for the shared query.
+    /// The year takes no part: it is not in an album's identity (see <see cref="ReferenceAliasRule.TitleAndCreator"/>), so an alias written under one pressing's year still answers a tenant who recorded another's.
+    /// </summary>
+    public async Task<AlbumReferenceModel?> FindByTitleCreatorAsync(string title, string artist)
     {
-        var normalized = TitleNormalizer.Normalize(title);
-        var normalizedArtist = TitleNormalizer.Normalize(artist);
-        var filter = Builders<AlbumReference>.Filter.ElemMatch(x => x.MatchedAliases,
-            Builders<ReferenceMatch>.Filter.Eq(m => m.Title, normalized)
-            & Builders<ReferenceMatch>.Filter.Eq(m => m.Year, year)
-            & Builders<ReferenceMatch>.Filter.Eq(m => m.Creator, normalizedArtist));
-        var entity = await Collection.Find(filter).FirstOrDefaultAsync();
-        return entity is null ? null : mapper.ToModel(entity);
-    }
-
-    public async Task<AlbumReferenceModel?> FindByTitleAsync(string title, string artist)
-    {
-        var normalized = TitleNormalizer.Normalize(title);
-        var normalizedArtist = TitleNormalizer.Normalize(artist);
-        var filter = Builders<AlbumReference>.Filter.ElemMatch(x => x.MatchedAliases,
-            Builders<ReferenceMatch>.Filter.Eq(m => m.Title, normalized)
-            & Builders<ReferenceMatch>.Filter.Eq(m => m.Creator, normalizedArtist));
-        var entity = await Collection.Find(filter).FirstOrDefaultAsync();
+        // not refuseAmbiguous: title + artist IS the identity here, so two matching documents are a duplicate to merge rather than an ambiguity - either one answers the question, same as a title+year pair.
+        var entity = await ReferenceAliasQueries.FindByTitleCreatorAsync(Collection, title, artist, refuseAmbiguous: false);
         return entity is null ? null : mapper.ToModel(entity);
     }
 
@@ -57,6 +47,12 @@ public class AlbumReferenceRepository(IMongoDatabase mongoDatabase, AlbumReferen
         var filter = Builders<AlbumReference>.Filter.Eq($"external_ids.{provider}", externalId);
         var entity = await Collection.Find(filter).FirstOrDefaultAsync();
         return entity is null ? null : mapper.ToModel(entity);
+    }
+
+    public async Task<List<AlbumReferenceModel>> FindStaleAsync(DateTime cutoff, int limit)
+    {
+        var entities = await ReferenceStalenessQueries.FindStaleAsync(Collection, x => x.LastEnrichedAt, cutoff, limit);
+        return entities.Select(mapper.ToModel).ToList();
     }
 
     public async Task<List<AlbumReferenceModel>> FindAllAsync()
@@ -68,13 +64,8 @@ public class AlbumReferenceRepository(IMongoDatabase mongoDatabase, AlbumReferen
     public async Task<AlbumReferenceModel> UpsertAsync(AlbumReferenceModel model)
     {
         model.TitleNormalized = TitleNormalizer.Normalize(model.Title);
-        // see BookReferenceRepository.UpsertAsync's equivalent comment - this safety net can't know the
-        // canonical artist text (the model only carries ArtistReferenceId), so it's harmless dead weight
-        // when hit, not a false-positive risk.
-        if (!model.MatchedAliases.Any(m => m.Title == model.TitleNormalized && m.Year == model.Year))
-        {
-            model.MatchedAliases.Add(new ReferenceMatchModel { Title = model.TitleNormalized, Year = model.Year });
-        }
+        // No canonical-alias safety net here - see BookReferenceRepository.UpsertAsync's equivalent comment: an album is identified by title + artist and this model carries only ArtistReferenceId, so the (title, year) pair it used to add was an artist-less half-key on every album reference ever upserted.
+        // ReferenceAliasRule.TitleAndCreator is what the Resolve/Refresh paths write instead.
         var entity = mapper.ToEntity(model);
 
         if (string.IsNullOrEmpty(entity.Id))

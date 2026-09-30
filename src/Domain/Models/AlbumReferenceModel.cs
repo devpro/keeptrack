@@ -8,7 +8,7 @@ namespace Keeptrack.Domain.Models;
 /// Shared, tenant-agnostic album metadata sourced from an external provider (Discogs).
 /// See <see cref="TvShowReferenceModel"/> for why this deliberately has no <c>OwnerId</c>.
 /// </summary>
-public class AlbumReferenceModel : IHasId
+public class AlbumReferenceModel : IHasExternalIds
 {
     public string? Id { get; set; }
 
@@ -39,6 +39,9 @@ public class AlbumReferenceModel : IHasId
     public List<string> Genres { get; set; } = [];
 
     public List<ReferenceTrackModel> Tracks { get; set; } = [];
+
+    /// <summary>Aggregate ratings keyed by source ("discogs") - see <see cref="ReferenceRatingModel"/>.</summary>
+    public Dictionary<string, ReferenceRatingModel> Ratings { get; set; } = [];
 
     public string? ImageUrl { get; set; }
 

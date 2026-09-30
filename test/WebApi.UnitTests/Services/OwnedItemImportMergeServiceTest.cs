@@ -32,17 +32,18 @@ public class OwnedItemImportMergeServiceTest
     private static ImportCommitPlan<BookModel> ComputeBookPlan(IReadOnlyCollection<BookModel> existing, IReadOnlyList<AmazonOwnedItemImportRequestItem> items) =>
         OwnedItemImportMergeService.ComputeCommitPlan(
             existing, items,
-            b => b.Title, b => b.OwnedVersions.Select(v => v.Reference),
-            i => i.Title, i => i.OwnedVersion.Reference,
-            item => new BookModel
-            {
-                OwnerId = OwnerId,
-                Title = item.Title,
-                Author = string.Empty,
-                Notes = AmazonImportMergeService.BuildAmazonProvenanceNotes(item.AmazonTitle, item.Isbn),
-                OwnedVersions = [item.OwnedVersion]
-            },
-            (book, item) => book.OwnedVersions.Add(item.OwnedVersion));
+            new OwnedItemImportAdapter<BookModel, AmazonOwnedItemImportRequestItem>(
+                b => b.Title, b => b.OwnedVersions.Select(v => v.Reference),
+                i => i.Title, i => i.OwnedVersion.Reference,
+                item => new BookModel
+                {
+                    OwnerId = OwnerId,
+                    Title = item.Title,
+                    Author = string.Empty,
+                    Notes = AmazonImportMergeService.BuildAmazonProvenanceNotes(item.AmazonTitle, item.Isbn),
+                    OwnedVersions = [item.OwnedVersion]
+                },
+                (book, item) => book.OwnedVersions.Add(item.OwnedVersion)));
 
     [Fact]
     public void ComputeCommitPlan_CreatesANewBook_WhenNoExistingBookMatchesTheTitle()
@@ -190,10 +191,11 @@ public class OwnedItemImportMergeServiceTest
 
         var plan = OwnedItemImportMergeService.ComputeCommitPlan(
             new List<VideoGameModel>(), [item],
-            g => g.Title, g => g.Platforms.Select(p => p.Reference),
-            i => i.Title, i => i.Platform.Reference,
-            requestItem => new VideoGameModel { OwnerId = OwnerId, Title = requestItem.Title, Platforms = [requestItem.Platform] },
-            (game, requestItem) => game.Platforms.Add(requestItem.Platform));
+            new OwnedItemImportAdapter<VideoGameModel, AmazonVideoGameImportRequestItem>(
+                g => g.Title, g => g.Platforms.Select(p => p.Reference),
+                i => i.Title, i => i.Platform.Reference,
+                requestItem => new VideoGameModel { OwnerId = OwnerId, Title = requestItem.Title, Platforms = [requestItem.Platform] },
+                (game, requestItem) => game.Platforms.Add(requestItem.Platform)));
 
         plan.ItemsToCreate.Should().ContainSingle();
         plan.ItemsToCreate[0].Platforms.Should().ContainSingle().Which.Platform.Should().Be("PS3");

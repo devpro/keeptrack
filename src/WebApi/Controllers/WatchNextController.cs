@@ -28,23 +28,28 @@ public class WatchNextController(
 
         var shows = await tvShowRepository.FindAllAsync(ownerId, 1, int.MaxValue, null,
             new TvShowModel { OwnerId = ownerId, Title = string.Empty });
-        var episodes = await episodeRepository.FindAllAsync(ownerId, 1, int.MaxValue, null,
-            new EpisodeModel { OwnerId = ownerId, TvShowId = string.Empty, SeasonNumber = 0, EpisodeNumber = 0 });
         var moviesToWatch = await movieRepository.FindAllAsync(ownerId, 1, int.MaxValue, null,
             new MovieModel { OwnerId = ownerId, Title = string.Empty, WantToWatch = true });
 
         // only current shows with a reference link can possibly appear in the result (see WatchNextService),
-        // so only those need their (small, bounded) episode guide fetched
-        var referencesByShowId = new Dictionary<string, TvShowReferenceModel>();
-        foreach (var show in shows.Items.Where(s => s.State == Domain.Models.TvShowStatus.Current && !string.IsNullOrEmpty(s.ReferenceId)))
-        {
-            var reference = await tvShowReferenceRepository.FindByIdAsync(show.ReferenceId!);
-            if (reference is not null) referencesByShowId[show.Id!] = reference;
-        }
+        // so only those shows need their episodes and their (small, bounded) reference episode guide fetched.
+        var candidateShows = shows.Items
+            .Where(s => s.State == Domain.Models.TvShowStatus.Current && !string.IsNullOrEmpty(s.ReferenceId))
+            .ToList();
+
+        var episodes = await episodeRepository.FindByShowIdsAsync(ownerId, candidateShows.Select(s => s.Id!).ToList());
+
+        // one batched lookup instead of one round trip per show (see ReferenceImageHydrator below for the same pattern).
+        var referencesById = (await tvShowReferenceRepository.FindByIdsAsync(
+                candidateShows.Select(s => s.ReferenceId!).Distinct().ToList()))
+            .ToDictionary(r => r.Id!);
+        var referencesByShowId = candidateShows
+            .Where(s => referencesById.ContainsKey(s.ReferenceId!))
+            .ToDictionary(s => s.Id!, s => referencesById[s.ReferenceId!]);
 
         var result = new WatchNextDto
         {
-            InProgressShows = WatchNextService.ComputeInProgressShows(shows.Items, episodes.Items, referencesByShowId)
+            InProgressShows = WatchNextService.ComputeInProgressShows(shows.Items, episodes, referencesByShowId)
                 .Select(inProgressShowMapper.ToDto).ToList(),
             MoviesToWatch = WatchNextService.FilterMoviesToWatch(moviesToWatch.Items).Select(movieMapper.ToDto).ToList()
         };

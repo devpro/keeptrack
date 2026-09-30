@@ -13,6 +13,13 @@ public enum ReferenceSyncStage
     SyncingBooks,
     SyncingVideoGames,
     SyncingAlbums,
+
+    /// <summary>
+    /// Rebuilding the Explore discovery rankings - the last phase of a full pass, and the only one an
+    /// Explore-only run has. Worth its own stage rather than leaving the bar on "albums": the ranking rebuild
+    /// walks several provider pages per ordering and can outlast every reference domain put together.
+    /// </summary>
+    RefreshingExplore,
     Completed,
     Failed
 }

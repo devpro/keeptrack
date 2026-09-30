@@ -1,4 +1,7 @@
-﻿using Keeptrack.Common.System;
+using System.Net;
+using System.Threading;
+using Keeptrack.BlazorApp.Components.Shared;
+using Keeptrack.Common.System;
 
 namespace Keeptrack.BlazorApp.Components.Inventory.Clients;
 
@@ -15,7 +18,10 @@ public abstract class InventoryApiClientBase<TDto>(HttpClient http, bool hasRefe
     /// </summary>
     protected HttpClient Http => http;
 
-    public async Task<PagedResult<TDto>> GetAsync(string search, int page, int pageSize, IReadOnlyDictionary<string, string>? extraQuery = null, string? sort = null)
+    // An id comes from the page route, so unescaped "../admin" would address another API resource.
+    private string ItemPath(string? id) => $"{ApiResourceName}/{Uri.EscapeDataString(id ?? string.Empty)}";
+
+    public async Task<PagedResult<TDto>> GetAsync(string search, int page, int pageSize, IReadOnlyDictionary<string, string>? extraQuery = null, string? sort = null, CancellationToken cancellationToken = default)
     {
         var query = $"{ApiResourceName}?search={Uri.EscapeDataString(search)}&page={page}&pageSize={pageSize}";
         if (!string.IsNullOrEmpty(sort))
@@ -30,70 +36,84 @@ public abstract class InventoryApiClientBase<TDto>(HttpClient http, bool hasRefe
             }
         }
 
-        var result = await http.GetFromJsonAsync<PagedResult<TDto>>(query);
+        var result = await http.GetFromJsonAsync<PagedResult<TDto>>(query, cancellationToken);
         return result ?? new PagedResult<TDto>([], 0, 1, 1);
     }
 
-    public async Task<TDto?> GetOneAsync(string id)
+    /// <summary>
+    /// Returns null when the API reports 404 - an id that doesn't exist, or one belonging to another owner
+    /// (every query is owner-scoped server-side, so the two are indistinguishable from here, deliberately).
+    /// Every detail page already renders its own "&lt;type&gt; not found." state from that null; this used to call
+    /// <c>GetFromJsonAsync</c>, whose built-in <c>EnsureSuccessStatusCode</c> made an ordinary 404 throw instead -
+    /// killing the circuit on an in-app navigation, and blowing up the prerender pass into the generic /error
+    /// page on a direct load, which left that null branch unreachable.
+    /// Any other failure still throws: only "it isn't there" is an expected answer.
+    /// </summary>
+    public async Task<TDto?> GetOneAsync(string id, CancellationToken cancellationToken = default)
     {
-        return await http.GetFromJsonAsync<TDto>($"{ApiResourceName}/{id}");
+        var response = await http.GetAsync(ItemPath(id), cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return default;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<TDto>(cancellationToken);
     }
 
-    public async Task<TDto> AddAsync(TDto movie)
+    public async Task<TDto> AddAsync(TDto movie, CancellationToken cancellationToken = default)
     {
-        var response = await http.PostAsJsonAsync($"{ApiResourceName}", movie);
+        var response = await http.PostAsJsonAsync($"{ApiResourceName}", movie, cancellationToken);
         if (response.IsSuccessStatusCode)
         {
-            return (await response.Content.ReadFromJsonAsync<TDto>())!;
+            return (await response.Content.ReadFromJsonAsync<TDto>(cancellationToken))!;
         }
 
         // the API returns error bodies (free-tier quota 403s, ApiExceptionFilterAttribute's 400s/500s) -
         // surfacing that text beats EnsureSuccessStatusCode's opaque "403 (Forbidden)" in the Add form
-        var body = await response.Content.ReadFromJsonAsync<ApiError>();
+        var body = await response.Content.ReadFromJsonAsync<ApiError>(cancellationToken);
         throw new InvalidOperationException(string.IsNullOrEmpty(body?.Error)
             ? $"The request failed ({(int)response.StatusCode})."
             : body.Error);
 
     }
 
-    public async Task UpdateAsync(TDto movie)
+    public async Task UpdateAsync(TDto movie, CancellationToken cancellationToken = default)
     {
-        (await http.PutAsJsonAsync($"{ApiResourceName}/{movie.Id}", movie)).EnsureSuccessStatusCode();
+        (await http.PutAsJsonAsync(ItemPath(movie.Id), movie, cancellationToken)).EnsureSuccessStatusCode();
     }
 
-    public async Task DeleteAsync(string id)
+    public async Task DeleteAsync(string id, CancellationToken cancellationToken = default)
     {
-        (await http.DeleteAsync($"{ApiResourceName}/{id}")).EnsureSuccessStatusCode();
+        (await http.DeleteAsync(ItemPath(id), cancellationToken)).EnsureSuccessStatusCode();
     }
 
     /// <summary>
-    /// User-triggered, exact-match-only re-check against the local reference collection (POST api/{type}/{id}/refresh-reference on WebApi).
-    /// Returns the (possibly now-linked) item so the caller can tell whether a match was actually found.
+    /// User-triggered re-check of the item's reference match (POST api/{type}/{id}/refresh-reference on WebApi), escalating to the provider when nothing local matches.
+    /// Returns the (possibly now-linked) item so the caller can tell whether a match was actually found, and throws <see cref="ApiRequestException"/> with the API's own message, which the page shows.
     /// </summary>
-    public async Task<TDto> RefreshReferenceAsync(string id)
+    public async Task<TDto> RefreshReferenceAsync(string id, CancellationToken cancellationToken = default)
     {
         if (!hasReference)
         {
             throw new NotImplementedException();
         }
 
-        var response = await Http.PostAsync($"{ApiResourceName}/{id}/refresh-reference", null);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<TDto>())!;
+        var response = await Http.PostAsync($"{ItemPath(id)}/refresh-reference", null, cancellationToken);
+        return (await response.ReadJsonOrThrowAsync<TDto>(cancellationToken))!;
     }
 
     /// <summary>
     /// Admin-only: unlinks and permanently deletes the shared reference document (POST api/{type}/{id}/unlink-reference on WebApi).
     /// </summary>
-    public async Task<TDto> UnlinkReferenceAsync(string id)
+    public async Task<TDto> UnlinkReferenceAsync(string id, CancellationToken cancellationToken = default)
     {
         if (!hasReference)
         {
             throw new NotImplementedException();
         }
 
-        var response = await Http.PostAsync($"{ApiResourceName}/{id}/unlink-reference", null);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<TDto>())!;
+        var response = await Http.PostAsync($"{ItemPath(id)}/unlink-reference", null, cancellationToken);
+        return (await response.ReadJsonOrThrowAsync<TDto>(cancellationToken))!;
     }
 }

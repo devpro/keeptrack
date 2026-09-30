@@ -9,13 +9,12 @@
 [![FOSSA Status](https://app.fossa.com/api/projects/custom%2B60068%2Fgithub.com%2Fdevpro%2Fkeeptrack.svg?type=shield&issueType=license)](https://app.fossa.com/projects/custom%2B60068%2Fgithub.com%2Fdevpro%2Fkeeptrack?ref=badge_shield&issueType=license)
 [![FOSSA Status](https://app.fossa.com/api/projects/custom%2B60068%2Fgithub.com%2Fdevpro%2Fkeeptrack.svg?type=shield&issueType=security)](https://app.fossa.com/projects/custom%2B60068%2Fgithub.com%2Fdevpro%2Fkeeptrack?ref=badge_shield&issueType=security)
 
-Keeptrack is a source-available application that let you save and review everything you read, watch, listen or play.
+Keeptrack is a source-available application to save and review everything read, watched, listened to or played.
 
 ## Hosting
 
-Applications are Cloud Native by design, they can be deployed to any kind of infrastructure.
-
-A SaaS free version is currently available for early adopters (contact the repository owner to get an access).
+The applications are cloud native and run on any container platform.
+A free SaaS version is open to early adopters: contact the repository owner for access.
 
 ## Software design
 
@@ -25,14 +24,12 @@ Three-tier application:
 - Backend: ASP.NET Web API application (.NET 10/C#)
 - Database: MongoDB
 
-For more details, see [CONTRIBUTING.md](CONTRIBUTING.md).
-Any help is more than welcome 🙂
+Architecture and conventions are in [AGENTS.md](AGENTS.md), local setup in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-Keeptrack is licensed under the [PolyForm Strict License 1.0.0](LICENSE) - it is source-available, not open source.
-You may read the code, run it for personal noncommercial purposes, and submit contributions (see [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution terms).
-Any other use - in particular any commercial use, distribution, or hosting the application for others - requires prior written permission from the repository owner.
-Contact the repository owner to ask for permission.
+Keeptrack is licensed under the [PolyForm Strict License 1.0.0](LICENSE): it is source-available, not open source.
+The code may be read, run for personal noncommercial purposes, and contributed to (see [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution terms).
+Any other use, in particular commercial use, distribution, or hosting the application for others, requires prior written permission from the repository owner.
 
 Versions of this repository published before this license change remain available under their original MIT license terms.

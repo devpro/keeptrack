@@ -12,6 +12,17 @@
     </Authorized>
 </AuthorizeView>
 
+<AuthorizeView Policy="MemberOnly">
+    <Authorized>
+        <h3 class="mt-4">Sharing</h3>
+        <p style="color:var(--kt-text-muted)">Share whole categories of your collection with family or friends, read-only.</p>
+        <div class="d-flex gap-2 flex-wrap">
+            <a class="btn btn-sm btn-secondary" href="/account/manage/sharing">Manage shares</a>
+            <a class="btn btn-sm btn-secondary" href="/account/manage/shared-with-me">Shared with me</a>
+        </div>
+    </Authorized>
+</AuthorizeView>
+
 @if (_preferences is not null)
 {
     <h3 class="mt-4">Preferences</h3>

@@ -11,7 +11,7 @@ namespace Keeptrack.WebApi.Mappers;
 /// rather than letting a missing title become a null reference deeper in the model. Attached to every
 /// DTO mapper that has at least one such member via <c>[UseStaticMapper(typeof(CommonDtoMappings))]</c>.
 /// Tightening this to a real 400 validation error for a missing title is a deliberate follow-up, not
-/// part of this mechanical migration - see docs/automapper-removal-plan.md.
+/// part of this mechanical migration - see docs/archived/automapper-removal-plan.md.
 /// </summary>
 public static class CommonDtoMappings
 {

@@ -36,6 +36,8 @@ public class CollectibleSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixtur
 
         var detail = new CollectibleDetailPage(Page);
         await detail.WaitForReadyAsync();
+        // registered as soon as the item exists, so an assertion failure below still removes it
+        TrackOpenItem("/api/collectibles");
         await Assertions.Expect(detail.TitleInput).ToHaveValueAsync(title);
 
         await DetailPageBase.SetFieldAsync(detail.ImageUrlInput, imageUrl);
@@ -44,7 +46,7 @@ public class CollectibleSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixtur
         list = await detail.OpenCollectiblesAsync();
         // ItemImageShape="wide" (same as VideoGames.razor) - a plain default-portrait thumb was the
         // reported regression, so this pins the actual rendered shape, not just that an image exists.
-        await Assertions.Expect(list.Row(title).Locator(".kt-item-thumb.wide img")).ToHaveAttributeAsync("src", imageUrl);
+        await list.ExpectRowThumbnailAsync(title, imageUrl);
 
         await list.DeleteAsync(title);
         await Assertions.Expect(list.Row(title)).Not.ToBeVisibleAsync();

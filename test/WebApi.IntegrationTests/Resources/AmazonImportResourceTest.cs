@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using AwesomeAssertions;
@@ -42,145 +41,113 @@ public class AmazonImportResourceTest(KestrelWebAppFactory<Program> factory)
         gearRow.LooksLikeBook.Should().BeFalse();
         collectibleRow.LooksLikeBook.Should().BeFalse();
 
-        try
+        // the commit creates items whose ids this test never sees, so cleanup is keyed on the fixture's own
+        // synthetic titles - and registered before the commit, so a partial commit is cleaned up too
+        TrackResourcesMatching<BookDto>("/api/books", AmazonFixtureCsvBuilder.BookTitle);
+        TrackResourcesMatching<MovieDto>("/api/movies", AmazonFixtureCsvBuilder.MovieTitle);
+        TrackResourcesMatching<TvShowDto>("/api/tv-shows", AmazonFixtureCsvBuilder.TvShowTitle);
+        TrackResourcesMatching<VideoGameDto>("/api/video-games", AmazonFixtureCsvBuilder.VideoGameTitle);
+        TrackResourcesMatching<GearDto>("/api/gear", AmazonFixtureCsvBuilder.GearTitle);
+        TrackResourcesMatching<CollectibleDto>("/api/collectibles", AmazonFixtureCsvBuilder.CollectibleTitle);
+
+        // a video game row with no platform must be rejected before anything is persisted
+        var invalidPlatformRequest = new AmazonImportCommitRequestDto { Items = [ToCommitItem(videoGameRow, AmazonImportMediaType.VideoGame, platform: null)] };
+        await PostAsync<AmazonImportCommitRequestDto, AmazonImportCommitResultDto>("/api/import/amazon/commit", invalidPlatformRequest, HttpStatusCode.BadRequest);
+
+        // a row with no media type chosen must also be rejected before anything is persisted
+        var noMediaTypeItem = ToCommitItem(bookRow, AmazonImportMediaType.Book);
+        noMediaTypeItem.MediaType = null;
+        var invalidTypeRequest = new AmazonImportCommitRequestDto { Items = [noMediaTypeItem] };
+        await PostAsync<AmazonImportCommitRequestDto, AmazonImportCommitResultDto>("/api/import/amazon/commit", invalidTypeRequest, HttpStatusCode.BadRequest);
+
+        var commitRequest = new AmazonImportCommitRequestDto
         {
-            // a video game row with no platform must be rejected before anything is persisted
-            var invalidPlatformRequest = new AmazonImportCommitRequestDto { Items = [ToCommitItem(videoGameRow, AmazonImportMediaType.VideoGame, platform: null)] };
-            await PostAsync<AmazonImportCommitRequestDto, AmazonImportCommitResultDto>("/api/import/amazon/commit", invalidPlatformRequest, HttpStatusCode.BadRequest);
+            Items =
+            [
+                ToCommitItem(bookRow, AmazonImportMediaType.Book, isbn: bookRow.SuggestedIsbn, year: 1997),
+                ToCommitItem(movieRow, AmazonImportMediaType.Movie),
+                ToCommitItem(tvShowRow, AmazonImportMediaType.TvShow),
+                ToCommitItem(videoGameRow, AmazonImportMediaType.VideoGame, platform: "PS5"),
+                ToCommitItem(gearRow, AmazonImportMediaType.Gear),
+                ToCommitItem(collectibleRow, AmazonImportMediaType.Collectible)
+            ]
+        };
 
-            // a row with no media type chosen must also be rejected before anything is persisted
-            var noMediaTypeItem = ToCommitItem(bookRow, AmazonImportMediaType.Book);
-            noMediaTypeItem.MediaType = null;
-            var invalidTypeRequest = new AmazonImportCommitRequestDto { Items = [noMediaTypeItem] };
-            await PostAsync<AmazonImportCommitRequestDto, AmazonImportCommitResultDto>("/api/import/amazon/commit", invalidTypeRequest, HttpStatusCode.BadRequest);
+        var commitResult = await PostAsync<AmazonImportCommitRequestDto, AmazonImportCommitResultDto>("/api/import/amazon/commit", commitRequest);
+        commitResult.BooksCreated.Should().Be(1);
+        commitResult.MoviesCreated.Should().Be(1);
+        commitResult.TvShowsCreated.Should().Be(1);
+        commitResult.VideoGamesCreated.Should().Be(1);
+        commitResult.GearCreated.Should().Be(1);
+        commitResult.CollectiblesCreated.Should().Be(1);
 
-            var commitRequest = new AmazonImportCommitRequestDto
-            {
-                Items =
-                [
-                    ToCommitItem(bookRow, AmazonImportMediaType.Book, isbn: bookRow.SuggestedIsbn, year: 1997),
-                    ToCommitItem(movieRow, AmazonImportMediaType.Movie),
-                    ToCommitItem(tvShowRow, AmazonImportMediaType.TvShow),
-                    ToCommitItem(videoGameRow, AmazonImportMediaType.VideoGame, platform: "PS5"),
-                    ToCommitItem(gearRow, AmazonImportMediaType.Gear),
-                    ToCommitItem(collectibleRow, AmazonImportMediaType.Collectible)
-                ]
-            };
+        var books = await GetAsync<PagedResult<BookDto>>($"/api/books?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.BookTitle)}");
+        var book = books.Items.Should().ContainSingle().Subject;
+        book.Year.Should().Be(1997);
+        book.Isbn.Should().Be(AmazonFixtureCsvBuilder.BookIsbn);
+        book.OwnedVersions.Should().ContainSingle();
+        book.OwnedVersions[0].Price.Should().Be(10.49m);
+        book.OwnedVersions[0].Reference.Should().Contain(AmazonFixtureCsvBuilder.BookOrderId);
+        book.Notes.Should().Be($"Title from Amazon: {AmazonFixtureCsvBuilder.BookTitle}\nISBN from Amazon: {AmazonFixtureCsvBuilder.BookIsbn}");
 
-            var commitResult = await PostAsync<AmazonImportCommitRequestDto, AmazonImportCommitResultDto>("/api/import/amazon/commit", commitRequest);
-            commitResult.BooksCreated.Should().Be(1);
-            commitResult.MoviesCreated.Should().Be(1);
-            commitResult.TvShowsCreated.Should().Be(1);
-            commitResult.VideoGamesCreated.Should().Be(1);
-            commitResult.GearCreated.Should().Be(1);
-            commitResult.CollectiblesCreated.Should().Be(1);
+        var movies = await GetAsync<PagedResult<MovieDto>>($"/api/movies?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.MovieTitle)}");
+        var movie = movies.Items.Should().ContainSingle().Subject;
+        movie.OwnedVersions.Should().ContainSingle();
+        movie.Notes.Should().Be($"Title from Amazon: {AmazonFixtureCsvBuilder.MovieTitle}");
 
-            var books = await GetAsync<PagedResult<BookDto>>($"/api/books?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.BookTitle)}");
-            var book = books.Items.Should().ContainSingle().Subject;
-            book.Year.Should().Be(1997);
-            book.Isbn.Should().Be(AmazonFixtureCsvBuilder.BookIsbn);
-            book.OwnedVersions.Should().ContainSingle();
-            book.OwnedVersions[0].Price.Should().Be(10.49m);
-            book.OwnedVersions[0].Reference.Should().Contain(AmazonFixtureCsvBuilder.BookOrderId);
-            book.Notes.Should().Be($"Title from Amazon: {AmazonFixtureCsvBuilder.BookTitle}\nISBN from Amazon: {AmazonFixtureCsvBuilder.BookIsbn}");
+        var tvShows = await GetAsync<PagedResult<TvShowDto>>($"/api/tv-shows?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.TvShowTitle)}");
+        var tvShow = tvShows.Items.Should().ContainSingle().Subject;
+        tvShow.OwnedVersions.Should().ContainSingle();
 
-            var movies = await GetAsync<PagedResult<MovieDto>>($"/api/movies?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.MovieTitle)}");
-            var movie = movies.Items.Should().ContainSingle().Subject;
-            movie.OwnedVersions.Should().ContainSingle();
-            movie.Notes.Should().Be($"Title from Amazon: {AmazonFixtureCsvBuilder.MovieTitle}");
+        var videoGames = await GetAsync<PagedResult<VideoGameDto>>($"/api/video-games?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.VideoGameTitle)}");
+        var videoGame = videoGames.Items.Should().ContainSingle().Subject;
+        videoGame.Platforms.Should().ContainSingle();
+        videoGame.Platforms[0].Platform.Should().Be("PS5");
+        videoGame.Platforms[0].Reference.Should().Contain(AmazonFixtureCsvBuilder.VideoGameOrderId);
 
-            var tvShows = await GetAsync<PagedResult<TvShowDto>>($"/api/tv-shows?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.TvShowTitle)}");
-            var tvShow = tvShows.Items.Should().ContainSingle().Subject;
-            tvShow.OwnedVersions.Should().ContainSingle();
+        var gearList = await GetAsync<PagedResult<GearDto>>($"/api/gear?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.GearTitle)}");
+        var gear = gearList.Items.Should().ContainSingle().Subject;
+        gear.OwnedVersions.Should().ContainSingle();
+        gear.OwnedVersions[0].Reference.Should().Contain(AmazonFixtureCsvBuilder.GearOrderId);
 
-            var videoGames = await GetAsync<PagedResult<VideoGameDto>>($"/api/video-games?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.VideoGameTitle)}");
-            var videoGame = videoGames.Items.Should().ContainSingle().Subject;
-            videoGame.Platforms.Should().ContainSingle();
-            videoGame.Platforms[0].Platform.Should().Be("PS5");
-            videoGame.Platforms[0].Reference.Should().Contain(AmazonFixtureCsvBuilder.VideoGameOrderId);
+        var collectibles = await GetAsync<PagedResult<CollectibleDto>>($"/api/collectibles?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.CollectibleTitle)}");
+        var collectible = collectibles.Items.Should().ContainSingle().Subject;
+        collectible.OwnedVersions.Should().ContainSingle();
+        collectible.OwnedVersions[0].Reference.Should().Contain(AmazonFixtureCsvBuilder.CollectibleOrderId);
 
-            var gearList = await GetAsync<PagedResult<GearDto>>($"/api/gear?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.GearTitle)}");
-            var gear = gearList.Items.Should().ContainSingle().Subject;
-            gear.OwnedVersions.Should().ContainSingle();
-            gear.OwnedVersions[0].Reference.Should().Contain(AmazonFixtureCsvBuilder.GearOrderId);
+        // re-preview after commit: every just-imported order must now be flagged, regardless of which
+        // type it was imported as, so re-uploading a newer export later doesn't silently duplicate any of them
+        var secondPreview = await PostFileAsync<List<AmazonOrderPreviewRowDto>>("/api/import/amazon/preview", "file", csv, "orders.csv");
+        secondPreview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.BookTitle && r.AlreadyImported);
+        secondPreview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.MovieTitle && r.AlreadyImported);
+        secondPreview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.TvShowTitle && r.AlreadyImported);
+        secondPreview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.VideoGameTitle && r.AlreadyImported);
+        secondPreview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.GearTitle && r.AlreadyImported);
+        secondPreview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.CollectibleTitle && r.AlreadyImported);
 
-            var collectibles = await GetAsync<PagedResult<CollectibleDto>>($"/api/collectibles?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.CollectibleTitle)}");
-            var collectible = collectibles.Items.Should().ContainSingle().Subject;
-            collectible.OwnedVersions.Should().ContainSingle();
-            collectible.OwnedVersions[0].Reference.Should().Contain(AmazonFixtureCsvBuilder.CollectibleOrderId);
+        // committing the exact same rows again (e.g. the user re-runs the import without noticing the
+        // "already imported" badge) must not duplicate anything - this is the bug reported in practice
+        var secondCommitResult = await PostAsync<AmazonImportCommitRequestDto, AmazonImportCommitResultDto>("/api/import/amazon/commit", commitRequest);
+        secondCommitResult.BooksCreated.Should().Be(0);
+        secondCommitResult.BooksMergedInto.Should().Be(0);
+        secondCommitResult.BooksSkipped.Should().Be(1);
+        secondCommitResult.MoviesSkipped.Should().Be(1);
+        secondCommitResult.TvShowsSkipped.Should().Be(1);
+        secondCommitResult.VideoGamesSkipped.Should().Be(1);
+        secondCommitResult.GearSkipped.Should().Be(1);
+        secondCommitResult.CollectiblesSkipped.Should().Be(1);
 
-            // re-preview after commit: every just-imported order must now be flagged, regardless of which
-            // type it was imported as, so re-uploading a newer export later doesn't silently duplicate any of them
-            var secondPreview = await PostFileAsync<List<AmazonOrderPreviewRowDto>>("/api/import/amazon/preview", "file", csv, "orders.csv");
-            secondPreview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.BookTitle && r.AlreadyImported);
-            secondPreview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.MovieTitle && r.AlreadyImported);
-            secondPreview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.TvShowTitle && r.AlreadyImported);
-            secondPreview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.VideoGameTitle && r.AlreadyImported);
-            secondPreview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.GearTitle && r.AlreadyImported);
-            secondPreview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.CollectibleTitle && r.AlreadyImported);
+        var booksAfterReimport = await GetAsync<PagedResult<BookDto>>($"/api/books?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.BookTitle)}");
+        booksAfterReimport.Items.Should().ContainSingle().Which.OwnedVersions.Should().ContainSingle();
 
-            // committing the exact same rows again (e.g. the user re-runs the import without noticing the
-            // "already imported" badge) must not duplicate anything - this is the bug reported in practice
-            var secondCommitResult = await PostAsync<AmazonImportCommitRequestDto, AmazonImportCommitResultDto>("/api/import/amazon/commit", commitRequest);
-            secondCommitResult.BooksCreated.Should().Be(0);
-            secondCommitResult.BooksMergedInto.Should().Be(0);
-            secondCommitResult.BooksSkipped.Should().Be(1);
-            secondCommitResult.MoviesSkipped.Should().Be(1);
-            secondCommitResult.TvShowsSkipped.Should().Be(1);
-            secondCommitResult.VideoGamesSkipped.Should().Be(1);
-            secondCommitResult.GearSkipped.Should().Be(1);
-            secondCommitResult.CollectiblesSkipped.Should().Be(1);
+        var videoGamesAfterReimport = await GetAsync<PagedResult<VideoGameDto>>($"/api/video-games?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.VideoGameTitle)}");
+        videoGamesAfterReimport.Items.Should().ContainSingle().Which.Platforms.Should().ContainSingle();
 
-            var booksAfterReimport = await GetAsync<PagedResult<BookDto>>($"/api/books?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.BookTitle)}");
-            booksAfterReimport.Items.Should().ContainSingle().Which.OwnedVersions.Should().ContainSingle();
+        var gearAfterReimport = await GetAsync<PagedResult<GearDto>>($"/api/gear?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.GearTitle)}");
+        gearAfterReimport.Items.Should().ContainSingle().Which.OwnedVersions.Should().ContainSingle();
 
-            var videoGamesAfterReimport = await GetAsync<PagedResult<VideoGameDto>>($"/api/video-games?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.VideoGameTitle)}");
-            videoGamesAfterReimport.Items.Should().ContainSingle().Which.Platforms.Should().ContainSingle();
-
-            var gearAfterReimport = await GetAsync<PagedResult<GearDto>>($"/api/gear?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.GearTitle)}");
-            gearAfterReimport.Items.Should().ContainSingle().Which.OwnedVersions.Should().ContainSingle();
-
-            var collectiblesAfterReimport = await GetAsync<PagedResult<CollectibleDto>>($"/api/collectibles?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.CollectibleTitle)}");
-            collectiblesAfterReimport.Items.Should().ContainSingle().Which.OwnedVersions.Should().ContainSingle();
-        }
-        finally
-        {
-            var books = await GetAsync<PagedResult<BookDto>>($"/api/books?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.BookTitle)}");
-            foreach (var book in books.Items.Where(b => b.Id is not null))
-            {
-                await DeleteAsync($"/api/books/{book.Id}");
-            }
-
-            var movies = await GetAsync<PagedResult<MovieDto>>($"/api/movies?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.MovieTitle)}");
-            foreach (var movie in movies.Items.Where(m => m.Id is not null))
-            {
-                await DeleteAsync($"/api/movies/{movie.Id}");
-            }
-
-            var tvShows = await GetAsync<PagedResult<TvShowDto>>($"/api/tv-shows?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.TvShowTitle)}");
-            foreach (var tvShow in tvShows.Items.Where(t => t.Id is not null))
-            {
-                await DeleteAsync($"/api/tv-shows/{tvShow.Id}");
-            }
-
-            var videoGames = await GetAsync<PagedResult<VideoGameDto>>($"/api/video-games?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.VideoGameTitle)}");
-            foreach (var videoGame in videoGames.Items.Where(g => g.Id is not null))
-            {
-                await DeleteAsync($"/api/video-games/{videoGame.Id}");
-            }
-
-            var gearList = await GetAsync<PagedResult<GearDto>>($"/api/gear?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.GearTitle)}");
-            foreach (var gear in gearList.Items.Where(g => g.Id is not null))
-            {
-                await DeleteAsync($"/api/gear/{gear.Id}");
-            }
-
-            var collectibles = await GetAsync<PagedResult<CollectibleDto>>($"/api/collectibles?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.CollectibleTitle)}");
-            foreach (var collectible in collectibles.Items.Where(c => c.Id is not null))
-            {
-                await DeleteAsync($"/api/collectibles/{collectible.Id}");
-            }
-        }
+        var collectiblesAfterReimport = await GetAsync<PagedResult<CollectibleDto>>($"/api/collectibles?search={Uri.EscapeDataString(AmazonFixtureCsvBuilder.CollectibleTitle)}");
+        collectiblesAfterReimport.Items.Should().ContainSingle().Which.OwnedVersions.Should().ContainSingle();
     }
 
     private static AmazonImportCommitItemDto ToCommitItem(AmazonOrderPreviewRowDto row, AmazonImportMediaType mediaType, int? year = null, string? isbn = null, string? platform = null) => new()
@@ -229,27 +196,16 @@ public class AmazonImportResourceTest(KestrelWebAppFactory<Program> factory)
             ]
         };
 
-        try
-        {
-            var commitResult = await PostAsync<AmazonImportCommitRequestDto, AmazonImportCommitResultDto>("/api/import/amazon/commit", request);
-            commitResult.BooksCreated.Should().Be(2);
-            commitResult.BooksSkipped.Should().Be(0);
+        TrackResourcesMatching<BookDto>("/api/books", firstTitle);
+        TrackResourcesMatching<BookDto>("/api/books", secondTitle);
 
-            var firstBook = (await GetAsync<PagedResult<BookDto>>($"/api/books?search={Uri.EscapeDataString(firstTitle)}")).Items.Should().ContainSingle().Subject;
-            var secondBook = (await GetAsync<PagedResult<BookDto>>($"/api/books?search={Uri.EscapeDataString(secondTitle)}")).Items.Should().ContainSingle().Subject;
-            firstBook.OwnedVersions.Should().ContainSingle().Which.Reference.Should().Contain("1111111111");
-            secondBook.OwnedVersions.Should().ContainSingle().Which.Reference.Should().Contain("2222222222");
-        }
-        finally
-        {
-            foreach (var title in new[] { firstTitle, secondTitle })
-            {
-                var books = await GetAsync<PagedResult<BookDto>>($"/api/books?search={Uri.EscapeDataString(title)}");
-                foreach (var book in books.Items.Where(b => b.Id is not null))
-                {
-                    await DeleteAsync($"/api/books/{book.Id}");
-                }
-            }
-        }
+        var commitResult = await PostAsync<AmazonImportCommitRequestDto, AmazonImportCommitResultDto>("/api/import/amazon/commit", request);
+        commitResult.BooksCreated.Should().Be(2);
+        commitResult.BooksSkipped.Should().Be(0);
+
+        var firstBook = (await GetAsync<PagedResult<BookDto>>($"/api/books?search={Uri.EscapeDataString(firstTitle)}")).Items.Should().ContainSingle().Subject;
+        var secondBook = (await GetAsync<PagedResult<BookDto>>($"/api/books?search={Uri.EscapeDataString(secondTitle)}")).Items.Should().ContainSingle().Subject;
+        firstBook.OwnedVersions.Should().ContainSingle().Which.Reference.Should().Contain("1111111111");
+        secondBook.OwnedVersions.Should().ContainSingle().Which.Reference.Should().Contain("2222222222");
     }
 }

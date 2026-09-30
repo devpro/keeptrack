@@ -1,11 +1,12 @@
 @page "/books/{Id}"
 @attribute [Authorize]
+@inherits ReferenceLinkedDetailPageBase<BookDto, BookReferenceDto>
 @using Keeptrack.BlazorApp.Components.ReferenceData
 @using Keeptrack.BlazorApp.Components.ReferenceDataAdmin
 
-@if (!_loaded)
+@if (!IsLoaded)
 {
-    @if (_loading)
+    @if (IsLoading)
     {
         <div class="kt-loading">
             <div class="kt-spinner"></div>
@@ -16,7 +17,7 @@
 else if (Book is null)
 {
     <div class="kt-empty">
-        <div class="kt-empty-icon">◈</div>
+        <div class="kt-empty-icon"><Icon Name="empty" Size="40" StrokeWidth="1.1"/></div>
         <p>Book not found.</p>
     </div>
 }
@@ -27,32 +28,17 @@ else
     <div class="kt-page-header">
         <div class="kt-title-row">
             <input class="kt-title-input" data-testid="title-input" value="@Book.Title" @onchange="SaveTitleAsync"/>
-            <button class="kt-icon-btn" @onclick="RefreshReferenceAsync" disabled="@_refreshingReference"
-                    title="@(string.IsNullOrEmpty(Book.ReferenceId) ? "Check for reference match using the title and year below." : $"Linked to \"{Reference?.Title}\". Not right? Edit the title or year below, then check again.")">
-                <span class="@(_refreshingReference ? "kt-icon-spin" : "")">↻</span>
-            </button>
-            @if (!string.IsNullOrEmpty(Book.ReferenceId))
-            {
-                <AuthorizeView Policy="AdminOnly">
-                    <Authorized>
-                        <button class="kt-icon-btn" title="Unlink and remove this reference" aria-label="Unlink reference"
-                                @onclick="() => _pendingUnlink = true">
-                            <TrashIcon/>
-                        </button>
-                    </Authorized>
-                </AuthorizeView>
-            }
-            @if (_refreshMessage is not null)
-            {
-                <span class="kt-inline-toast @_refreshMessageStyle">@_refreshMessage</span>
-            }
+            <ReferenceMatchControls TDto="BookDto" Api="Api" ItemId="@(Book.Id!)" ReferenceId="@Book.ReferenceId" ReferenceTitle="@Reference?.Title"
+                                    ReferenceDataDescription="cover, synopsis, genre/language/ISBN autofill"
+                                    OnChecked="OnReferenceCheckedAsync" OnUnlinked="LoadAsync"/>
         </div>
-        <div class="d-flex gap-2">
+        @* "Read" is deliberately NOT here - it lives on the card below as a .kt-corner-flag, see MovieDetail. *@
+        <div class="d-flex gap-2 flex-wrap">
             <button class="btn btn-sm kt-toggle-btn @(Book.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>
-            <button class="btn btn-sm kt-toggle-btn @(Book.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync">○ Wishlist</button>
+            <button class="btn btn-sm kt-toggle-btn @(Book.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync"><Icon Name="wishlist" Size="13"/> Wishlist</button>
         </div>
     </div>
-    @if (string.IsNullOrEmpty(Book.ReferenceId))
+    @if (ShowLinker)
     {
         <AuthorizeView Policy="AdminOnly">
             <Authorized>
@@ -61,82 +47,84 @@ else
         </AuthorizeView>
     }
 
-    <ConfirmModal Show="_pendingUnlink"
-                  Title="Unlink this reference?"
-                  Message="This clears the link on this item and permanently deletes the matched reference data (cover, synopsis, genre/language/ISBN autofill). This can't be undone."
-                  ConfirmLabel="Unlink"
-                  OnConfirm="UnlinkReferenceAsync" OnCancel="() => _pendingUnlink = false"/>
-
     <div class="kt-form-card">
-        <span class="kt-corner-flag @(Book.FirstReadAt is not null ? "active" : "")" @onclick="ToggleReadAsync">
-            @(Book.FirstReadAt is not null ? "✓ Read" : "Mark as read")
-        </span>
-        <div class="row g-3">
-            @{ var coverUrl = !string.IsNullOrEmpty(Book.CustomImageUrl) ? Book.CustomImageUrl : Reference?.ImageUrl; }
-            @if (!string.IsNullOrEmpty(coverUrl))
+        <button type="button" class="kt-corner-flag @(Book.FirstReadAt is not null ? "active" : "")"
+                aria-pressed="@(Book.FirstReadAt is not null)" @onclick="ToggleReadAsync">
+            @if (Book.FirstReadAt is not null)
             {
-                <div class="col-md-2">
-                    <img src="@coverUrl" alt="@Book.Title cover" class="img-fluid rounded"/>
+                <span class="kt-corner-check">✓</span>
+                <span>Read</span>
+            }
+            else
+            {
+                <span>Mark as read</span>
+            }
+        </button>
+        @{ var coverUrl = !string.IsNullOrEmpty(Book.CustomImageUrl) ? Book.CustomImageUrl : Reference?.ImageUrl; }
+        <DetailHero ImageUrl="@coverUrl" Alt="@($"{Book.Title} cover")">
+            <div class="col-12">
+                <label class="form-label">Author</label>
+                <input class="form-control form-control-sm" data-testid="author-input" value="@Book.Author" @onchange="SaveAuthorAsync"/>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Series</label>
+                <input class="form-control form-control-sm" data-testid="series-input" value="@Book.Series" @onchange="SaveSeriesAsync"/>
+            </div>
+            <div class="col-6">
+                <label class="form-label">Year</label>
+                <input class="form-control form-control-sm" type="number" min="1400" max="2100"
+                       value="@Book.Year" @onchange="SaveYearAsync"/>
+            </div>
+            @if (Book.FirstReadAt is not null)
+            {
+                <div class="col-6">
+                    <label class="form-label">Read on</label>
+                    <input class="form-control form-control-sm" type="date"
+                           value="@Book.FirstReadAt?.ToString("yyyy-MM-dd")" @onchange="SetReadDateAsync"/>
                 </div>
             }
-            <div class="col-md-4">
-                <div>
-                    <label class="form-label">Author</label>
-                    <input class="form-control form-control-sm" data-testid="author-input" value="@Book.Author" @onchange="SaveAuthorAsync"/>
+            <div class="col-12">
+                <label class="form-label">Rating</label>
+                <StarRatingInput Rating="Book.Rating" RatingChanged="SetRatingAsync"/>
+            </div>
+            @if (Reference?.Ratings.Count > 0)
+            {
+                <div class="col-12">
+                    <label class="form-label">Reference rating</label>
+                    <ReferenceRatings Ratings="Reference.Ratings"/>
                 </div>
-                <div class="mt-3">
-                    <label class="form-label">Series</label>
-                    <input class="form-control form-control-sm" data-testid="series-input" value="@Book.Series" @onchange="SaveSeriesAsync"/>
-                </div>
-                <div class="mt-3">
-                    <label class="form-label">Year</label>
-                    <input class="form-control form-control-sm" style="max-width:120px" type="number" min="1400" max="2100"
-                           value="@Book.Year" @onchange="SaveYearAsync"/>
-                </div>
-                <div class="mt-3">
-                    <label class="form-label">Rating</label>
-                    <StarRatingInput Rating="Book.Rating" RatingChanged="SetRatingAsync"/>
-                </div>
-                @if (Book.FirstReadAt is not null)
-                {
-                    <div class="mt-3">
-                        <label class="form-label">Read on</label>
-                        <input class="form-control form-control-sm" style="max-width:160px" type="date"
-                               value="@Book.FirstReadAt?.ToString("yyyy-MM-dd")" @onchange="SetReadDateAsync"/>
-                    </div>
-                }
-                <div class="mt-3">
-                    <label class="form-label">Genre</label>
-                    <input class="form-control form-control-sm" value="@Book.Genre" @onchange="SaveGenreAsync"/>
-                </div>
-                <div class="mt-3">
-                    <label class="form-label">Language</label>
-                    <input class="form-control form-control-sm" value="@Book.Language" @onchange="SaveLanguageAsync"/>
-                </div>
-                <div class="mt-3">
-                    <label class="form-label">ISBN</label>
-                    <div class="d-flex gap-2 align-items-center">
-                        <input class="form-control form-control-sm" value="@Book.Isbn" @onchange="SaveIsbnAsync"/>
-                        @if (!string.IsNullOrEmpty(Book.Isbn) && ShowChasseAuxLivresLink)
-                        {
-                            <a class="kt-icon-btn" href="@($"https://www.chasse-aux-livres.fr/{Book.Isbn}")"
-                               target="_blank" rel="noopener noreferrer" title="Open on chasse-aux-livres.fr">
-                                <ExternalLinkIcon/>
-                            </a>
-                        }
-                    </div>
-                </div>
-                <div class="mt-3">
-                    <label class="form-label">Cover image URL</label>
-                    <input class="form-control form-control-sm" placeholder="@(Reference?.ImageUrl is null ? "" : "Leave blank to use the linked reference's cover")"
-                           value="@Book.CustomImageUrl" @onchange="SaveCustomImageUrlAsync"/>
+            }
+            <div class="col-6">
+                <label class="form-label">Genre</label>
+                <input class="form-control form-control-sm" value="@Book.Genre" @onchange="SaveGenreAsync"/>
+            </div>
+            <div class="col-6">
+                <label class="form-label">Language</label>
+                <input class="form-control form-control-sm" value="@Book.Language" @onchange="SaveLanguageAsync"/>
+            </div>
+            <div class="col-12">
+                <label class="form-label">ISBN</label>
+                <div class="d-flex gap-2 align-items-center">
+                    <input class="form-control form-control-sm" value="@Book.Isbn" @onchange="SaveIsbnAsync"/>
+                    @if (!string.IsNullOrEmpty(Book.Isbn) && ShowChasseAuxLivresLink)
+                    {
+                        <a class="kt-icon-btn" href="@($"https://www.chasse-aux-livres.fr/{Book.Isbn}")"
+                           target="_blank" rel="noopener noreferrer" title="Open on chasse-aux-livres.fr">
+                            <Icon Name="external-link" Size="15"/>
+                        </a>
+                    }
                 </div>
             </div>
-            <div class="col-md-6">
+            <div class="col-12">
+                <label class="form-label">Cover image URL</label>
+                <input class="form-control form-control-sm" placeholder="@(Reference?.ImageUrl is null ? "" : "Leave blank to use the linked reference's cover")"
+                       value="@Book.CustomImageUrl" @onchange="SaveCustomImageUrlAsync"/>
+            </div>
+            <div class="col-12">
                 <label class="form-label">Notes</label>
                 <textarea class="form-control" rows="3" @onchange="SaveNotesAsync">@Book.Notes</textarea>
             </div>
-        </div>
+        </DetailHero>
         @if (!string.IsNullOrEmpty(Reference?.Synopsis))
         {
             <hr/>
@@ -147,29 +135,30 @@ else
         }
     </div>
 
-    <OwnedVersionsEditor Versions="Book.OwnedVersions" OnChanged="SaveBookAsync"/>
+    <OwnedVersionsEditor Versions="Book.OwnedVersions" OnChanged="SaveAsync"/>
 }
 
 @code {
-    [Parameter] public required string Id { get; set; }
-
     [Inject] private BookApiClient BookApi { get; set; } = null!;
 
     [Inject] private ReferenceDataApiClient ReferenceDataApi { get; set; } = null!;
 
     [Inject] private UserPreferencesState PreferencesState { get; set; } = null!;
 
-    private static readonly TimeSpan RefreshMessageDuration = TimeSpan.FromSeconds(4);
+    protected override InventoryApiClientBase<BookDto> Api => BookApi;
 
-    // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
-    // _loaded tracks whether a load attempt has finished at all, fresh or restored from persisted prerender state -
-    // both default false so the forced render Blazor triggers right after the synchronous prefix of OnParametersSetAsync (before any awaited fetch resolves)
-    // shows blank instead of a spinner flash on every navigation to this page.
-    private bool _loading;
-    private bool _loaded;
+    protected override BookDto? Item { get => Book; set => Book = value; }
 
-    // Public properties (a framework requirement for [PersistentState]): the data loaded during the prerender pass is carried over to the interactive circuit,
-    // so the first interactive render reuses it instead of resetting to the spinner and re-fetching - same pattern as MovieDetail.
+    protected override BookReferenceDto? ItemReference { get => Reference; set => Reference = value; }
+
+    protected override Task<BookReferenceDto?> GetReferenceAsync(string referenceId) => ReferenceDataApi.GetBookAsync(referenceId);
+
+    protected override async Task LoadExtrasAsync()
+    {
+        ShowChasseAuxLivresLink = (await PreferencesState.GetAsync()).Features.ShowChasseAuxLivresLink;
+    }
+
+    // Public, as [PersistentState] requires: the prerendered item carries over to the interactive circuit instead of being fetched again.
     [PersistentState]
     public BookDto? Book { get; set; }
 
@@ -178,78 +167,40 @@ else
 
     [PersistentState]
     public bool ShowChasseAuxLivresLink { get; set; }
-    private bool _refreshingReference;
-    private string? _refreshMessage;
-    private string _refreshMessageStyle = "neutral";
-    private object? _refreshMessageToken;
-    private bool _pendingUnlink;
-
-    protected override async Task OnParametersSetAsync()
-    {
-        // Book already holds this route's item when PersistentState restored the prerendered data
-        // the id check keeps an in-circuit navigation to a *different* book reloading as before
-        if (Book?.Id == Id)
-        {
-            _loading = false;
-            _loaded = true;
-            return;
-        }
-        await LoadAsync();
-    }
-
-    private async Task LoadAsync()
-    {
-        await LoadingIndicator.RunAsync(FetchAsync(), v => _loading = v, StateHasChanged);
-        _loading = false;
-        _loaded = true;
-    }
-
-    private async Task FetchAsync()
-    {
-        Book = await BookApi.GetOneAsync(Id);
-        Reference = string.IsNullOrEmpty(Book?.ReferenceId) ? null : await ReferenceDataApi.GetBookAsync(Book.ReferenceId);
-        ShowChasseAuxLivresLink = (await PreferencesState.GetAsync()).Features.ShowChasseAuxLivresLink;
-    }
 
     private async Task SetRatingAsync(float rating)
     {
         if (Book is null) return;
         Book.Rating = rating;
-        await BookApi.UpdateAsync(Book);
+        await SaveAsync();
     }
 
     private async Task ToggleFavoriteAsync()
     {
         if (Book is null) return;
         Book.IsFavorite = !Book.IsFavorite;
-        await BookApi.UpdateAsync(Book);
-    }
-
-    private async Task SaveBookAsync()
-    {
-        if (Book is null) return;
-        await BookApi.UpdateAsync(Book);
+        await SaveAsync();
     }
 
     private async Task ToggleWishlistedAsync()
     {
         if (Book is null) return;
         Book.IsWishlisted = !Book.IsWishlisted;
-        await BookApi.UpdateAsync(Book);
+        await SaveAsync();
     }
 
     private async Task ToggleReadAsync()
     {
         if (Book is null) return;
         Book.FirstReadAt = Book.FirstReadAt is null ? DateOnly.FromDateTime(DateTime.Today) : null;
-        await BookApi.UpdateAsync(Book);
+        await SaveAsync();
     }
 
     private async Task SetReadDateAsync(ChangeEventArgs e)
     {
         if (Book is null) return;
         Book.FirstReadAt = DateOnlyInput.Parse(e.Value);
-        await BookApi.UpdateAsync(Book);
+        await SaveAsync();
     }
 
     private async Task SaveTitleAsync(ChangeEventArgs e)
@@ -258,128 +209,62 @@ else
         var title = e.Value?.ToString();
         if (string.IsNullOrWhiteSpace(title)) return;
         Book.Title = title;
-        await BookApi.UpdateAsync(Book);
+        await SaveAsync();
     }
 
     private async Task SaveAuthorAsync(ChangeEventArgs e)
     {
         if (Book is null) return;
         Book.Author = e.Value?.ToString();
-        await BookApi.UpdateAsync(Book);
+        await SaveAsync();
     }
 
     private async Task SaveSeriesAsync(ChangeEventArgs e)
     {
         if (Book is null) return;
         Book.Series = e.Value?.ToString();
-        await BookApi.UpdateAsync(Book);
+        await SaveAsync();
     }
 
     private async Task SaveGenreAsync(ChangeEventArgs e)
     {
         if (Book is null) return;
         Book.Genre = e.Value?.ToString();
-        await BookApi.UpdateAsync(Book);
+        await SaveAsync();
     }
 
     private async Task SaveLanguageAsync(ChangeEventArgs e)
     {
         if (Book is null) return;
         Book.Language = e.Value?.ToString();
-        await BookApi.UpdateAsync(Book);
+        await SaveAsync();
     }
 
     private async Task SaveIsbnAsync(ChangeEventArgs e)
     {
         if (Book is null) return;
         Book.Isbn = e.Value?.ToString();
-        await BookApi.UpdateAsync(Book);
+        await SaveAsync();
     }
 
     private async Task SaveCustomImageUrlAsync(ChangeEventArgs e)
     {
         if (Book is null) return;
         Book.CustomImageUrl = e.Value?.ToString();
-        await BookApi.UpdateAsync(Book);
-    }
-
-    private async Task RefreshReferenceAsync()
-    {
-        if (Book?.Id is null) return;
-
-        var previousReferenceId = Book.ReferenceId;
-        _refreshingReference = true;
-        _refreshMessage = null;
-        try
-        {
-            var refreshed = await BookApi.RefreshReferenceAsync(Book.Id);
-            await LoadAsync();
-
-            (_refreshMessage, _refreshMessageStyle) = ReferenceRefreshMessage.Compute(previousReferenceId, refreshed.ReferenceId);
-        }
-        catch (Exception ex)
-        {
-            _refreshMessage = $"Error: {ex.Message}";
-            _refreshMessageStyle = "danger";
-        }
-        finally
-        {
-            _refreshingReference = false;
-        }
-
-        ScheduleRefreshMessageClear();
-    }
-
-    private async Task UnlinkReferenceAsync()
-    {
-        _pendingUnlink = false;
-        if (Book?.Id is null) return;
-
-        try
-        {
-            await BookApi.UnlinkReferenceAsync(Book.Id);
-            await LoadAsync();
-            (_refreshMessage, _refreshMessageStyle) = ("Unlinked and reference removed.", "success");
-        }
-        catch (Exception ex)
-        {
-            _refreshMessage = $"Error: {ex.Message}";
-            _refreshMessageStyle = "danger";
-        }
-
-        ScheduleRefreshMessageClear();
-    }
-
-    /// <summary>
-    /// The toast is a small, auto-dismissing pill next to the refresh icon, not a permanent line of text -
-    /// a token guards against an in-flight delay from a previous click clearing a newer message.
-    /// </summary>
-    private void ScheduleRefreshMessageClear()
-    {
-        var token = new object();
-        _refreshMessageToken = token;
-        _ = ClearRefreshMessageAfterDelayAsync(token);
-    }
-
-    private async Task ClearRefreshMessageAfterDelayAsync(object token)
-    {
-        await Task.Delay(RefreshMessageDuration);
-        if (!ReferenceEquals(_refreshMessageToken, token)) return;
-        _refreshMessage = null;
-        await InvokeAsync(StateHasChanged);
+        await SaveAsync();
     }
 
     private async Task SaveYearAsync(ChangeEventArgs e)
     {
         if (Book is null) return;
         Book.Year = int.TryParse(e.Value?.ToString(), out var year) ? year : null;
-        await BookApi.UpdateAsync(Book);
+        await SaveAsync();
     }
 
     private async Task SaveNotesAsync(ChangeEventArgs e)
     {
         if (Book is null) return;
         Book.Notes = e.Value?.ToString();
-        await BookApi.UpdateAsync(Book);
+        await SaveAsync();
     }
 }

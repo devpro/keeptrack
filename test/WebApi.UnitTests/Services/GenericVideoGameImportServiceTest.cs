@@ -10,7 +10,7 @@ namespace Keeptrack.WebApi.UnitTests.Services;
 [Trait("Category", "UnitTests")]
 public class GenericVideoGameImportServiceTest
 {
-    private static Stream ToStream(string csv) => new MemoryStream(Encoding.UTF8.GetBytes(csv));
+    private static MemoryStream ToStream(string csv) => new(Encoding.UTF8.GetBytes(csv));
 
     private const string Csv = """
                                Transaction Date,Game Name,Product Name,Platform,Vendor,Transaction Id,Order Id,Final Price (€)

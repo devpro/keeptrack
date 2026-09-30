@@ -57,11 +57,19 @@ public class CarHistoryModel : IHasIdAndOwnerId
     /// </summary>
     public double? DeltaMileage { get; set; }
 
-    public string? StationBrandName { get; set; }
+    /// <summary>
+    /// The <see cref="CarStationModel"/> this Refuel happened at, by id. Replaces the free-text station
+    /// brand name every entry used to carry alongside its own copy of the station's city, postal code and
+    /// coordinates: that location is a property of the station, so it is stored once there and hydrated
+    /// for display, never duplicated per refuel (see <c>scripts/migrate-car-history-station.js</c>).
+    /// Refuel-only, the counterpart of <see cref="Garage"/>.
+    /// </summary>
+    public string? StationId { get; set; }
 
     /// <summary>
-    /// Garage/auto shop name - the Maintenance/Other-event counterpart of <see cref="StationBrandName"/>
-    /// (which only applies to Refuel events).
+    /// Garage/auto shop name - the Maintenance/Other-event counterpart of <see cref="StationId"/>
+    /// (which only applies to Refuel events). Deliberately still free text on the entry: unlike a fuel
+    /// station, a garage carries no location of its own here, so there is nothing to de-duplicate.
     /// </summary>
     public string? Garage { get; set; }
 }

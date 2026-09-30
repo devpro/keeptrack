@@ -1,3 +1,4 @@
+using System.Threading;
 using System.Threading.Tasks;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
@@ -13,12 +14,8 @@ public class HouseHistoryRepository(IMongoDatabase mongoDatabase, ILogger<HouseH
 {
     protected override string CollectionName => "house_history";
 
-    public async Task<long> DeleteAllForHouseAsync(string houseId, string ownerId)
-    {
-        var filter = Builders<HouseHistory>.Filter.Eq(f => f.OwnerId, ownerId) & Builders<HouseHistory>.Filter.Eq(f => f.HouseId, houseId);
-        var result = await GetCollection().DeleteManyAsync(filter);
-        return result.DeletedCount;
-    }
+    public Task<long> DeleteAllForHouseAsync(string houseId, string ownerId, CancellationToken cancellationToken = default)
+        => DeleteAllByParentAsync(f => f.HouseId, houseId, ownerId, cancellationToken);
 
     protected override FilterDefinition<HouseHistory> GetFilter(string ownerId, string? search, HouseHistoryModel input)
     {

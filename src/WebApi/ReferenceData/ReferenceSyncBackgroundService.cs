@@ -28,7 +28,10 @@ public class ReferenceSyncBackgroundService(
     private const string SystemOwnerId = "system";
 
     private static readonly TimeSpan s_interval = TimeSpan.FromHours(24);
-    private static readonly TimeSpan s_staleAfter = TimeSpan.FromDays(3);
+
+    // how stale is stale is declared once, in ReferenceSyncWindows: an unforced admin "sync now" runs this
+    // very same pass, and two copies of those windows would drift apart without anything failing.
+    private static readonly ReferenceSyncWindows s_windows = ReferenceSyncWindows.Periodic;
 
     // comfortably longer than any sync run, much shorter than the 24h tick:
     // a replica that dies holding the lease only delays the next successful pass by this long,
@@ -65,11 +68,27 @@ public class ReferenceSyncBackgroundService(
                 jobId = await jobStore.CreateAsync(SystemOwnerId, ReferenceSyncStage.SyncingTvShows);
 
                 var syncService = scope.ServiceProvider.GetRequiredService<ReferenceSyncService>();
-                var result = await syncService.SyncStaleReferencesAsync(s_staleAfter, cancellationToken: stoppingToken);
+                var result = await syncService.SyncStaleReferencesAsync(s_windows.References, cancellationToken: stoppingToken);
+
+                // reconcile finished shows against the just-refreshed reference episode guides, in the same
+                // lease-held tick so it never runs against stale data or races another replica.
+                var reconciliationService = scope.ServiceProvider.GetRequiredService<TvShowStatusReconciliationService>();
+                result.FinishedShowsReopened = await reconciliationService.ReconcileFinishedShowsAsync(stoppingToken);
+
+                // the Explore discovery rankings ride the same lease-held tick on their own, longer staleness
+                // window - see ReferenceSyncWindows.Periodic.
+                var exploreRefreshService = scope.ServiceProvider.GetRequiredService<ExploreCatalogueRefreshService>();
+                result.ApplyExploreRefresh(await exploreRefreshService.RefreshAsync(s_windows.Explore, stoppingToken));
+
                 await jobStore.CompleteAsync(jobId.Value, ReferenceSyncStage.Completed, result);
+                // every domain the pass actually syncs is reported: a message naming only TV and movies reads as
+                // "nothing happened" on a pass that refreshed books, games or albums, which is exactly how a
+                // healthy pass came to look like a broken one.
                 logger.LogInformation(
-                    "Reference sync: {TvShowsChecked} TV show(s) checked ({TvShowsUpdated} updated), {MoviesChecked} movie(s) checked ({MoviesUpdated} updated).",
-                    result.TvShowsChecked, result.TvShowsUpdated, result.MoviesChecked, result.MoviesUpdated);
+                    "Reference sync: {TvShowsChecked} TV show(s) checked ({TvShowsUpdated} updated), {MoviesChecked} movie(s) checked ({MoviesUpdated} updated), {BooksChecked} book(s) checked ({BooksUpdated} updated), {VideoGamesChecked} video game(s) checked ({VideoGamesUpdated} updated), {AlbumsChecked} album(s) checked ({AlbumsUpdated} updated), {FinishedShowsReopened} finished show(s) reopened, {ExploreRankingsRefreshed} Explore ranking(s) refreshed.",
+                    result.TvShowsChecked, result.TvShowsUpdated, result.MoviesChecked, result.MoviesUpdated,
+                    result.BooksChecked, result.BooksUpdated, result.VideoGamesChecked, result.VideoGamesUpdated,
+                    result.AlbumsChecked, result.AlbumsUpdated, result.FinishedShowsReopened, result.ExploreRankingsRefreshed);
             }
             catch (Exception ex)
             {

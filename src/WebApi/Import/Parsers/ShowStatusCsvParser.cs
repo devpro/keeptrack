@@ -22,8 +22,6 @@ public static class ShowStatusCsvParser
 {
     public const string FavoriteStatus = "favorite";
 
-    public const string ForLaterStatus = "for_later";
-
     public static List<ShowStatusRecord> Parse(Stream csvStream)
     {
         using var reader = new StreamReader(csvStream);

@@ -1,3 +1,4 @@
+using System.Threading;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.Domain.Services;
@@ -23,15 +24,15 @@ public class HouseController(
     [HttpGet("{id}/metrics")]
     [ProducesResponseType(200)]
     [ProducesResponseType(404)]
-    public async Task<ActionResult<HouseMetricsDto>> GetMetrics(string id)
+    public async Task<ActionResult<HouseMetricsDto>> GetMetrics(string id, CancellationToken cancellationToken)
     {
         var ownerId = this.GetUserId();
 
-        var house = await dataRepository.FindOneAsync(id, ownerId);
+        var house = await dataRepository.FindOneAsync(id, ownerId, cancellationToken);
         if (house is null) return NotFound();
 
         var history = await houseHistoryRepository.FindAllAsync(ownerId, 1, int.MaxValue, null,
-            new HouseHistoryModel { OwnerId = ownerId, HouseId = id, EventType = default, HistoryDate = default });
+            new HouseHistoryModel { OwnerId = ownerId, HouseId = id, EventType = default, HistoryDate = default }, cancellationToken: cancellationToken);
 
         return Ok(metricsMapper.ToDto(HouseMetricsService.ComputeMetrics(history.Items)));
     }
@@ -40,8 +41,8 @@ public class HouseController(
     /// HouseHistory is a separate top-level collection referencing its house by id -
     /// without this, deleting a house would leave its history orphaned in MongoDB forever, since it's only ever reachable via the house's own id.
     /// </summary>
-    protected override async Task OnDeletedAsync(string id, string ownerId)
+    protected override async Task OnDeletedAsync(string id, string ownerId, CancellationToken cancellationToken)
     {
-        await houseHistoryRepository.DeleteAllForHouseAsync(id, ownerId);
+        await houseHistoryRepository.DeleteAllForHouseAsync(id, ownerId, cancellationToken);
     }
 }

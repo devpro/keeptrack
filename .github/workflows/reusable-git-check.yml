@@ -1,4 +1,4 @@
-﻿name: Reusable - Git check
+name: Reusable - Git check
 
 on:
   workflow_call:

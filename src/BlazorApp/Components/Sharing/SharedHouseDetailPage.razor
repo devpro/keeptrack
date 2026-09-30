@@ -1,0 +1,12 @@
+@page "/account/manage/shared/{ShareId}/houses/{Id}"
+@using Keeptrack.BlazorApp.Components.Inventory.Pages
+@attribute [Authorize(Policy = "MemberOnly")]
+
+@* The recipient route for a shared house. Reuses the owner's HouseDetail page in read-only mode (ShareId set). *@
+<HouseDetail ShareId="@ShareId" Id="@Id"/>
+
+@code {
+    [Parameter] public required string ShareId { get; set; }
+
+    [Parameter] public required string Id { get; set; }
+}
