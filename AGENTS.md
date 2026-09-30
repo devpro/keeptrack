@@ -341,8 +341,10 @@ Images are hotlinked from the provider CDN (TMDB's sanctioned pattern), so there
 - These repositories do **not** extend `IDataRepository<TModel>`/`MongoDbRepositoryBase`, both constrained to `IHasIdAndOwnerId` and owner-scoped CRUD.
   A new owner-less collection gets a small purpose-built repository.
 - `ReferenceEnrichmentService` is one `partial class` split by domain file, each with `TryLinkExisting<X>ReferenceAsync`/`TryAutoResolve<X>Async`/`Resolve<X>Async`/`Refresh<X>ReferenceAsync`, shared helpers in the core file.
-- It is the single place a title and identity resolve to a provider id, and it propagates the result to every tenant's matching document via `I<X>Repository.SetReferenceLinkAsync`.
+- It is the single place a title and identity resolve to a provider id.
   Automatic resolution fires from `<X>Controller.OnCreatedAsync` and from `TvTimeImportService` on its own DI scope, never awaited inline.
+- **A link reaches only the record it was made for** (`ReferenceLinkTarget`): creating an item, the check button and Explore's add link that one item, since another owner's copy is theirs to check.
+  Only an admin's link reaches other records, every unlinked one matching the title and year it was made with, plus the artist for an album, which the admin must supply.
 - `SetReferenceLinkAsync` also sets `Title`, `Year` and per domain `Author`/`Artist`/`Genre`/`Language` from the canonical record, but **never overwrites with nothing**.
   `VideoGameModel.Platform`/`State` describe the tenant's own copy and are never overwritten.
 - **Person dedup is by provider person id, never by name** (`ResolvePersonReferenceIdAsync`, covering actors, authors and artists).
@@ -388,7 +390,7 @@ and `person_reference` covers `tmdb`/`discogs`/`googlebooks`/`openlibrary`/`bnf`
 
 - It checks local references first and **escalates to the provider when nothing matches** (`Link<X>ReferenceAsync`), linking exactly what resolution on create would have.
 - It does **not** short-circuit on an existing `ReferenceId`, since `Title`/`Year` are editable and replacing a bad match is the point.
-- On a match it updates the tenant's document, then calls `SetReferenceLinkAsync` with the pre-edit title and year so other tenants benefit.
+- On a match it updates the tenant's document and no other record.
 - On **no** match for a linked item the link is cleared (`ReferenceId = ""`), returning it to the admin queue.
 - The title-only fallback runs **even when `Year` is null**, since `FindByTitleYearAsync(title, null)` only matches a reference whose year is also null.
 - Editing a field never searches by itself: the button is the only thing that re-resolves.

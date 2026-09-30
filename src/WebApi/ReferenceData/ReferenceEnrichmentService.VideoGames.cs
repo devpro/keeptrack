@@ -47,8 +47,6 @@ public partial class ReferenceEnrichmentService
             return model;
         }
 
-        var originalTitle = model.Title;
-        var originalYear = model.Year;
         var (ratingValue, ratingScale, ratingSource) = PrimaryRating(reference.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.VideoGame));
 
         model.ReferenceId = reference.Id;
@@ -58,7 +56,6 @@ public partial class ReferenceEnrichmentService
         model.ReferenceRatingScale = ratingScale;
         model.ReferenceRatingSource = ratingSource;
         await videoGameRepository.UpdateAsync(model.Id!, model, model.OwnerId);
-        await videoGameRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year, ratingValue, ratingScale, ratingSource);
 
         return model;
     }
@@ -93,9 +90,8 @@ public partial class ReferenceEnrichmentService
         model = await TryLinkExistingVideoGameReferenceAsync(model);
         if (!string.IsNullOrEmpty(model.ReferenceId)) return model;
 
-        // resolution propagates by title+year across every tenant's matching item rather than returning this
-        // one, so the caller's copy is re-read rather than patched up here
-        await TryAutoResolveVideoGameAsync(model.Title, model.Year);
+        // resolution writes the link straight to the stored item, so the caller's copy is re-read
+        await TryAutoResolveVideoGameAsync(model);
         return await videoGameRepository.FindOneAsync(model.Id!, model.OwnerId) ?? model;
     }
 
@@ -141,8 +137,11 @@ public partial class ReferenceEnrichmentService
     /// is silent data loss" trade every other rule in this file makes.
     /// </para>
     /// </summary>
-    public async Task TryAutoResolveVideoGameAsync(string title, int? year)
+    public async Task TryAutoResolveVideoGameAsync(VideoGameModel item)
     {
+        var title = item.Title;
+        var year = item.Year;
+
         if (string.IsNullOrWhiteSpace(title)) return; // see TryAutoResolveTvShowAsync
 
         // A year is required for any automatic link in this domain (owner's rule). Video game catalogues are
@@ -156,7 +155,7 @@ public partial class ReferenceEnrichmentService
         // a reference someone already confirmed for this exact (title, year) is the answer - see TryLinkKnownReferenceAsync for why it is worth asking before the provider is
         if (await TryLinkKnownReferenceAsync(
                 () => videoGameReferenceRepository.FindByTitleYearAsync(title, year),
-                reference => PropagateVideoGameLinkAsync(reference, title, year)))
+                reference => WriteVideoGameLinkAsync(reference, ReferenceLinkTarget.Item(item.Id!, item.OwnerId))))
         {
             return;
         }
@@ -165,17 +164,17 @@ public partial class ReferenceEnrichmentService
         var candidates = await client.SearchGamesAsync(title, year);
         var matches = ReferenceMatchRules.ConfirmedMatches(candidates, title, year);
         if (matches.Count != 1) return;
-        await ResolveVideoGameAsync(title, year, matches[0].ExternalId, client.ProviderKey);
+        await ResolveVideoGameAsync(title, year, matches[0].ExternalId, ReferenceLinkTarget.Item(item.Id!, item.OwnerId), client.ProviderKey);
     }
 
     /// <summary>
-    /// Resolves a title+year to a specific provider's game id, upserts the reference document, and propagates
-    /// the link - see <see cref="ResolveTvShowAsync"/>. <paramref name="providerKey"/> is which registered
+    /// Resolves a title+year to a specific provider's game id, upserts the reference document, and links the records <paramref name="target"/> names, see <see cref="ResolveTvShowAsync"/>.
+    /// <paramref name="providerKey"/> is which registered
     /// <see cref="IVideoGameReferenceClient"/> <paramref name="externalId"/> came from - required from the
     /// admin's manual link action (an id is meaningless without knowing which provider issued it once more
     /// than one is registered), defaults to the deployment default for the automatic path above.
     /// </summary>
-    public async Task<VideoGameReferenceModel> ResolveVideoGameAsync(string title, int? year, string externalId, string? providerKey = null)
+    public async Task<VideoGameReferenceModel> ResolveVideoGameAsync(string title, int? year, string externalId, ReferenceLinkTarget target, string? providerKey = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
 
@@ -212,15 +211,15 @@ public partial class ReferenceEnrichmentService
         };
 
         var saved = await videoGameReferenceRepository.UpsertAsync(model);
-        await PropagateVideoGameLinkAsync(saved, title, year);
+        await WriteVideoGameLinkAsync(saved, target);
         return saved;
     }
 
-    /// <summary>Video game equivalent of <see cref="PropagateTvShowLinkAsync"/>.</summary>
-    private async Task PropagateVideoGameLinkAsync(VideoGameReferenceModel reference, string searchTitle, int? searchYear)
+    /// <summary>Video game equivalent of <see cref="WriteTvShowLinkAsync"/>.</summary>
+    private async Task WriteVideoGameLinkAsync(VideoGameReferenceModel reference, ReferenceLinkTarget target)
     {
         var (ratingValue, ratingScale, ratingSource) = PrimaryRating(reference.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.VideoGame));
-        await videoGameRepository.SetReferenceLinkAsync(searchTitle, searchYear, reference.Id!, reference.Title, reference.Year, ratingValue, ratingScale, ratingSource);
+        await videoGameRepository.SetReferenceLinkAsync(target, reference.Id!, reference.Title, reference.Year, ratingValue, ratingScale, ratingSource);
     }
 
     /// <summary>

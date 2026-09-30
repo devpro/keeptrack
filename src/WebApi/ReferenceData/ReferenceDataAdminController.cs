@@ -724,22 +724,25 @@ public class ReferenceDataAdminController(
     [ProducesResponseType(204)]
     public async Task<IActionResult> Link([FromBody] LinkReferenceRequestDto request)
     {
+        var target = ReferenceLinkTarget.Matching(request.Title, request.Year, request.Creator);
         switch (request.Type)
         {
             case ReferenceItemType.TvShow:
-                await enrichmentService.ResolveTvShowAsync(request.Title, request.Year, request.ExternalId);
+                await enrichmentService.ResolveTvShowAsync(request.Title, request.Year, request.ExternalId, target);
                 break;
             case ReferenceItemType.Movie:
-                await enrichmentService.ResolveMovieAsync(request.Title, request.Year, request.ExternalId);
+                await enrichmentService.ResolveMovieAsync(request.Title, request.Year, request.ExternalId, target);
                 break;
             case ReferenceItemType.Book:
-                await enrichmentService.ResolveBookAsync(request.Title, request.Year, request.ExternalId, request.Provider, request.Isbn);
+                await enrichmentService.ResolveBookAsync(request.Title, request.Year, request.ExternalId, target, request.Provider, request.Isbn);
                 break;
             case ReferenceItemType.VideoGame:
-                await enrichmentService.ResolveVideoGameAsync(request.Title, request.Year, request.ExternalId, request.Provider);
+                await enrichmentService.ResolveVideoGameAsync(request.Title, request.Year, request.ExternalId, target, request.Provider);
                 break;
             case ReferenceItemType.Album:
-                await enrichmentService.ResolveAlbumAsync(request.Title, request.Year, request.ExternalId);
+                // an album is its title and artist, so an admin names the artist whose albums the link reaches
+                ArgumentException.ThrowIfNullOrWhiteSpace(request.Creator);
+                await enrichmentService.ResolveAlbumAsync(request.Title, request.Year, request.ExternalId, target);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(request));

@@ -139,8 +139,6 @@ public partial class ReferenceEnrichmentService
             return model;
         }
 
-        var originalTitle = model.Title;
-        var originalYear = model.Year;
         var authorName = await ResolvePersonNameAsync(reference.AuthorReferenceId);
         var genre = JoinGenres(reference.Genres);
         var (ratingValue, ratingScale, ratingSource) = BookPrimaryRating(reference);
@@ -156,7 +154,6 @@ public partial class ReferenceEnrichmentService
         model.ReferenceRatingScale = ratingScale;
         model.ReferenceRatingSource = ratingSource;
         await bookRepository.UpdateAsync(model.Id!, model, model.OwnerId);
-        await bookRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year, authorName, genre, reference.Language, reference.Isbn, ratingValue, ratingScale, ratingSource);
 
         return model;
     }
@@ -187,14 +184,14 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// Points every tenant book still recorded under <paramref name="searchTitle"/>/<paramref name="searchYear"/> at <paramref name="reference"/> - see <see cref="PropagateTvShowLinkAsync"/>.
+    /// Book equivalent of <see cref="WriteTvShowLinkAsync"/>.
     /// The author's name is joined from <c>person_reference</c>, since a book reference stores only the id.
     /// </summary>
-    private async Task PropagateBookLinkAsync(BookReferenceModel reference, string searchTitle, int? searchYear)
+    private async Task WriteBookLinkAsync(BookReferenceModel reference, ReferenceLinkTarget target)
     {
         var authorName = await ResolvePersonNameAsync(reference.AuthorReferenceId);
         var (ratingValue, ratingScale, ratingSource) = BookPrimaryRating(reference);
-        await bookRepository.SetReferenceLinkAsync(searchTitle, searchYear, reference.Id!, reference.Title, reference.Year,
+        await bookRepository.SetReferenceLinkAsync(target, reference.Id!, reference.Title, reference.Year,
             authorName, JoinGenres(reference.Genres), reference.Language, reference.Isbn, ratingValue, ratingScale, ratingSource);
     }
 
@@ -223,9 +220,7 @@ public partial class ReferenceEnrichmentService
     /// Best-effort automatic match for books - see <see cref="TryAutoResolveTvShowAsync"/>. Always searches
     /// the deployment's *default* provider (<see cref="ReferenceClientRegistry{TClient}.Resolve"/> with a null
     /// key) - this is the unattended background path, so there's no admin picking a provider here.
-    /// <paramref name="isbn"/> is always null on this path today (the Add form doesn't collect it, only the
-    /// detail page does), but threaded through anyway so this stays the single place that decides how a
-    /// search is issued.
+    /// The item's ISBN is empty on create, since the Add form doesn't collect it, but is used when the detail page supplied one.
     /// <para>
     /// <b>A book is identified by its title and its author, never by a year</b>, which is the one place this
     /// domain genuinely differs from films, shows and games rather than merely lagging behind them. Measured
@@ -241,8 +236,13 @@ public partial class ReferenceEnrichmentService
     /// exactly what the measurement above predicts.
     /// </para>
     /// </summary>
-    public async Task TryAutoResolveBookAsync(string title, int? year, string? author = null, string? isbn = null)
+    public async Task TryAutoResolveBookAsync(BookModel item)
     {
+        var title = item.Title;
+        var year = item.Year;
+        var author = item.Author;
+        var isbn = item.Isbn;
+
         if (string.IsNullOrWhiteSpace(title)) return; // see TryAutoResolveTvShowAsync
 
         // An author is required for any automatic link here (owner's rule), the same way a year is required
@@ -253,7 +253,7 @@ public partial class ReferenceEnrichmentService
         // a reference someone already matched this book to is the answer - see TryLinkKnownReferenceAsync
         if (await TryLinkKnownReferenceAsync(
                 () => FindKnownBookReferenceAsync(title, year, author, isbn),
-                reference => PropagateBookLinkAsync(reference, title, year)))
+                reference => WriteBookLinkAsync(reference, ReferenceLinkTarget.Item(item.Id!, item.OwnerId))))
         {
             return;
         }
@@ -262,7 +262,7 @@ public partial class ReferenceEnrichmentService
         var candidates = await client.SearchBooksAsync(title, year, author, isbn);
         var matches = ReferenceMatchRules.ConfirmedCreatorMatches(candidates, title, author);
         if (matches.Count == 0) return;
-        await ResolveBookAsync(title, year, matches[0].ExternalId, client.ProviderKey, isbn);
+        await ResolveBookAsync(title, year, matches[0].ExternalId, ReferenceLinkTarget.Item(item.Id!, item.OwnerId), client.ProviderKey, isbn);
     }
 
     /// <summary>
@@ -276,17 +276,17 @@ public partial class ReferenceEnrichmentService
         model = await TryLinkExistingBookReferenceAsync(model);
         if (!string.IsNullOrEmpty(model.ReferenceId)) return model;
 
-        await TryAutoResolveBookAsync(model.Title, model.Year, model.Author, model.Isbn);
+        await TryAutoResolveBookAsync(model);
         return await bookRepository.FindOneAsync(model.Id!, model.OwnerId) ?? model;
     }
 
     /// <summary>
-    /// Resolves a title+year to a specific book provider id, upserts the reference document, and propagates the link - see <see cref="ResolveTvShowAsync"/>.
+    /// Resolves a title+year to a specific book provider id, upserts the reference document, and links the records <paramref name="target"/> names, see <see cref="ResolveTvShowAsync"/>.
     /// <paramref name="providerKey"/> is which registered <see cref="IBookReferenceClient"/> <paramref name="externalId"/> came from - required from the admin's manual link action (an id is meaningless without knowing which provider issued it once more than one is registered), defaults to the deployment default for the automatic path above.
     /// <paramref name="isbn"/>
     /// is the ISBN that was actually supplied as search input (if any) - it only ever feeds the *tenant-search* alias entry (what the caller actually searched with), never the canonical one (which always uses whatever the provider itself reports, <see cref="BookDetails.Isbn"/>, regardless of what was searched for) - see <see cref="ReferenceAliasRule.TitleAndCreatorWithYear"/>.
     /// </summary>
-    public async Task<BookReferenceModel> ResolveBookAsync(string title, int? year, string externalId, string? providerKey = null, string? isbn = null)
+    public async Task<BookReferenceModel> ResolveBookAsync(string title, int? year, string externalId, ReferenceLinkTarget target, string? providerKey = null, string? isbn = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
 
@@ -331,7 +331,7 @@ public partial class ReferenceEnrichmentService
 
         var saved = await bookReferenceRepository.UpsertAsync(model);
         var (ratingValue, ratingScale, ratingSource) = BookPrimaryRating(saved);
-        await bookRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, details.Author, JoinGenres(details.Genres), details.Language, details.Isbn, ratingValue, ratingScale, ratingSource);
+        await bookRepository.SetReferenceLinkAsync(target, saved.Id!, details.Title, saved.Year, details.Author, JoinGenres(details.Genres), details.Language, details.Isbn, ratingValue, ratingScale, ratingSource);
         return saved;
     }
 

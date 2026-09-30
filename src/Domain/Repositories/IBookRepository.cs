@@ -7,13 +7,9 @@ namespace Keeptrack.Domain.Repositories;
 public interface IBookRepository : IDataRepository<BookModel>
 {
     /// <summary>
-    /// Sets <see cref="BookModel.ReferenceId"/>, <see cref="BookModel.Title"/>, <see cref="BookModel.Year"/>,
-    /// <see cref="BookModel.Author"/>, <see cref="BookModel.Genre"/>, <see cref="BookModel.Language"/> and
-    /// <see cref="BookModel.Isbn"/> (to the reference's canonical values) on every tenant's book matching
-    /// this title/year that doesn't already have a reference link - see
-    /// <see cref="ITvShowRepository.SetReferenceLinkAsync"/>.
+    /// Sets <see cref="BookModel.ReferenceId"/>, <see cref="BookModel.Title"/>, <see cref="BookModel.Year"/>, <see cref="BookModel.Author"/>, <see cref="BookModel.Genre"/>, <see cref="BookModel.Language"/> and <see cref="BookModel.Isbn"/> (to the reference's canonical values) on the records <paramref name="target"/> names, see <see cref="ITvShowRepository.SetReferenceLinkAsync"/>.
     /// </summary>
-    Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null, string? canonicalAuthor = null, string? canonicalGenre = null,
+    Task<long> SetReferenceLinkAsync(ReferenceLinkTarget target, string referenceId, string canonicalTitle, int? canonicalYear = null, string? canonicalAuthor = null, string? canonicalGenre = null,
         string? canonicalLanguage = null, string? canonicalIsbn = null, double? canonicalRating = null, double? canonicalRatingScale = null, string? canonicalRatingSource = null);
 
     /// <summary>

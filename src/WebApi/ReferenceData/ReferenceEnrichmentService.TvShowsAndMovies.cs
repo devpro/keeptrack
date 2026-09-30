@@ -224,10 +224,8 @@ public partial class ReferenceEnrichmentService
     /// detail page: no HTTP call, just an indexed Mongo lookup. Deliberately does NOT short-circuit when the
     /// model already has a link: the whole point is to let a tenant who isn't happy with the current match
     /// fix the title/year and re-check, replacing a wrong link - "don't guess" only applies to inventing a
-    /// match from nothing, not to re-verifying one the tenant explicitly asked to redo. Updates only this
-    /// tenant's own document directly (not the broad cross-tenant <see cref="ITvShowRepository.SetReferenceLinkAsync"/>,
-    /// which refuses to touch already-linked documents by design), but still calls that method with the
-    /// pre-edit title/year afterward so any other still-unresolved tenant sharing that text benefits too.
+    /// match from nothing, not to re-verifying one the tenant explicitly asked to redo.
+    /// Updates only this tenant's own document and never another record, see <see cref="ReferenceLinkTarget"/>.
     /// A successful match also sets <see cref="TvShowModel.Year"/> to the reference's own canonical year
     /// (when it has one) - the tenant can still edit it afterward, but it's better pre-populated with a
     /// trustworthy value than left at whatever the tenant originally guessed. If no match is found for the
@@ -267,8 +265,6 @@ public partial class ReferenceEnrichmentService
             return model;
         }
 
-        var originalTitle = model.Title;
-        var originalYear = model.Year;
         var (ratingValue, ratingScale, ratingSource) = PrimaryRating(reference.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.TvShow));
 
         model.ReferenceId = reference.Id;
@@ -278,7 +274,6 @@ public partial class ReferenceEnrichmentService
         model.ReferenceRatingScale = ratingScale;
         model.ReferenceRatingSource = ratingSource;
         await tvShowRepository.UpdateAsync(model.Id!, model, model.OwnerId);
-        await tvShowRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year, ratingValue, ratingScale, ratingSource);
 
         return model;
     }
@@ -313,8 +308,6 @@ public partial class ReferenceEnrichmentService
             return model;
         }
 
-        var originalTitle = model.Title;
-        var originalYear = model.Year;
         var (ratingValue, ratingScale, ratingSource) = PrimaryRating(reference.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.Movie));
 
         model.ReferenceId = reference.Id;
@@ -324,7 +317,6 @@ public partial class ReferenceEnrichmentService
         model.ReferenceRatingScale = ratingScale;
         model.ReferenceRatingSource = ratingSource;
         await movieRepository.UpdateAsync(model.Id!, model, model.OwnerId);
-        await movieRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year, ratingValue, ratingScale, ratingSource);
 
         return model;
     }
@@ -394,8 +386,11 @@ public partial class ReferenceEnrichmentService
     /// loss, since nothing in the app ever says a wrong reference was chosen.
     /// </para>
     /// </summary>
-    public async Task TryAutoResolveTvShowAsync(string title, int? year)
+    public async Task TryAutoResolveTvShowAsync(TvShowModel item)
     {
+        var title = item.Title;
+        var year = item.Year;
+
         // never call the provider with an empty title - there is nothing to search with
         if (string.IsNullOrWhiteSpace(title)) return;
 
@@ -408,7 +403,7 @@ public partial class ReferenceEnrichmentService
         // a reference someone already confirmed for this exact (title, year) is the answer - see TryLinkKnownReferenceAsync for why it is worth asking before TMDB is
         if (await TryLinkKnownReferenceAsync(
                 () => tvShowReferenceRepository.FindByTitleYearAsync(title, year),
-                reference => PropagateTvShowLinkAsync(reference, title, year)))
+                reference => WriteTvShowLinkAsync(reference, ReferenceLinkTarget.Item(item.Id!, item.OwnerId))))
         {
             return;
         }
@@ -416,7 +411,7 @@ public partial class ReferenceEnrichmentService
         var candidates = await tmdbClient.SearchTvShowAsync(title, year);
         var matches = ReferenceMatchRules.ConfirmedMatches(candidates, title, year);
         if (matches.Count != 1) return;
-        await ResolveTvShowAsync(title, year, matches[0].TmdbId);
+        await ResolveTvShowAsync(title, year, matches[0].TmdbId, ReferenceLinkTarget.Item(item.Id!, item.OwnerId));
     }
 
     /// <summary>
@@ -429,14 +424,17 @@ public partial class ReferenceEnrichmentService
     /// just as much: TMDB holds a "Road House" from 1989 and another from 2024, both exactly named.
     /// </para>
     /// </summary>
-    public async Task TryAutoResolveMovieAsync(string title, int? year)
+    public async Task TryAutoResolveMovieAsync(MovieModel item)
     {
+        var title = item.Title;
+        var year = item.Year;
+
         if (string.IsNullOrWhiteSpace(title)) return; // see TryAutoResolveTvShowAsync
         if (year is null) return; // see TryAutoResolveTvShowAsync - a year is required here too
 
         if (await TryLinkKnownReferenceAsync(
                 () => movieReferenceRepository.FindByTitleYearAsync(title, year),
-                reference => PropagateMovieLinkAsync(reference, title, year)))
+                reference => WriteMovieLinkAsync(reference, ReferenceLinkTarget.Item(item.Id!, item.OwnerId))))
         {
             return;
         }
@@ -444,7 +442,7 @@ public partial class ReferenceEnrichmentService
         var candidates = await tmdbClient.SearchMovieAsync(title, year);
         var matches = ReferenceMatchRules.ConfirmedMatches(candidates, title, year);
         if (matches.Count != 1) return;
-        await ResolveMovieAsync(title, year, matches[0].TmdbId);
+        await ResolveMovieAsync(title, year, matches[0].TmdbId, ReferenceLinkTarget.Item(item.Id!, item.OwnerId));
     }
 
     /// <summary>
@@ -469,9 +467,8 @@ public partial class ReferenceEnrichmentService
         model = await TryLinkExistingTvShowReferenceAsync(model);
         if (!string.IsNullOrEmpty(model.ReferenceId)) return model;
 
-        // resolution propagates by title+year across every tenant's matching item rather than returning this
-        // one, so the caller's copy is re-read rather than patched up here
-        await TryAutoResolveTvShowAsync(model.Title, model.Year);
+        // resolution writes the link straight to the stored item, so the caller's copy is re-read
+        await TryAutoResolveTvShowAsync(model);
         return await tvShowRepository.FindOneAsync(model.Id!, model.OwnerId) ?? model;
     }
 
@@ -481,15 +478,14 @@ public partial class ReferenceEnrichmentService
         model = await TryLinkExistingMovieReferenceAsync(model);
         if (!string.IsNullOrEmpty(model.ReferenceId)) return model;
 
-        await TryAutoResolveMovieAsync(model.Title, model.Year);
+        await TryAutoResolveMovieAsync(model);
         return await movieRepository.FindOneAsync(model.Id!, model.OwnerId) ?? model;
     }
 
     /// <summary>
-    /// Resolves a title+year to a specific TMDB show id (an admin's manual pick, or the single
-    /// confident automatic match), upserts the reference document, and propagates the link.
+    /// Resolves a title+year to a specific TMDB show id (an admin's manual pick, or the single confident automatic match), upserts the reference document, and links the records <paramref name="target"/> names.
     /// </summary>
-    public async Task<TvShowReferenceModel> ResolveTvShowAsync(string title, int? year, string tmdbId)
+    public async Task<TvShowReferenceModel> ResolveTvShowAsync(string title, int? year, string tmdbId, ReferenceLinkTarget target)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title); // mapped to a 400 by ApiExceptionFilterAttribute
 
@@ -549,24 +545,23 @@ public partial class ReferenceEnrichmentService
         };
 
         var saved = await tvShowReferenceRepository.UpsertAsync(model);
-        await PropagateTvShowLinkAsync(saved, title, year);
+        await WriteTvShowLinkAsync(saved, target);
         return saved;
     }
 
     /// <summary>
-    /// Points every tenant show still recorded under <paramref name="searchTitle"/>/<paramref name="searchYear"/> at <paramref name="reference"/>, carrying its canonical title, year and primary rating across.
-    /// Shared by the two paths that establish a link without a tenant document in hand: a fresh resolve, and the reuse of a reference the collection already held.
+    /// Points the records <paramref name="target"/> names at <paramref name="reference"/>, carrying its canonical title, year and primary rating across.
     /// </summary>
-    private async Task PropagateTvShowLinkAsync(TvShowReferenceModel reference, string searchTitle, int? searchYear)
+    private async Task WriteTvShowLinkAsync(TvShowReferenceModel reference, ReferenceLinkTarget target)
     {
         var (ratingValue, ratingScale, ratingSource) = PrimaryRating(reference.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.TvShow));
-        await tvShowRepository.SetReferenceLinkAsync(searchTitle, searchYear, reference.Id!, reference.Title, reference.Year, ratingValue, ratingScale, ratingSource);
+        await tvShowRepository.SetReferenceLinkAsync(target, reference.Id!, reference.Title, reference.Year, ratingValue, ratingScale, ratingSource);
     }
 
     /// <summary>
     /// Movie equivalent of <see cref="ResolveTvShowAsync"/>.
     /// </summary>
-    public async Task<MovieReferenceModel> ResolveMovieAsync(string title, int? year, string tmdbId)
+    public async Task<MovieReferenceModel> ResolveMovieAsync(string title, int? year, string tmdbId, ReferenceLinkTarget target)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
 
@@ -619,15 +614,15 @@ public partial class ReferenceEnrichmentService
         };
 
         var saved = await movieReferenceRepository.UpsertAsync(model);
-        await PropagateMovieLinkAsync(saved, title, year);
+        await WriteMovieLinkAsync(saved, target);
         return saved;
     }
 
-    /// <summary>Movie equivalent of <see cref="PropagateTvShowLinkAsync"/>.</summary>
-    private async Task PropagateMovieLinkAsync(MovieReferenceModel reference, string searchTitle, int? searchYear)
+    /// <summary>Movie equivalent of <see cref="WriteTvShowLinkAsync"/>.</summary>
+    private async Task WriteMovieLinkAsync(MovieReferenceModel reference, ReferenceLinkTarget target)
     {
         var (ratingValue, ratingScale, ratingSource) = PrimaryRating(reference.Ratings, await GetPrimaryRatingSourceAsync(ReferenceItemType.Movie));
-        await movieRepository.SetReferenceLinkAsync(searchTitle, searchYear, reference.Id!, reference.Title, reference.Year, ratingValue, ratingScale, ratingSource);
+        await movieRepository.SetReferenceLinkAsync(target, reference.Id!, reference.Title, reference.Year, ratingValue, ratingScale, ratingSource);
     }
 
     /// <summary>

@@ -50,8 +50,6 @@ public partial class ReferenceEnrichmentService
             return model;
         }
 
-        var originalTitle = model.Title;
-        var originalYear = model.Year;
         var artistName = await ResolvePersonNameAsync(reference.ArtistReferenceId);
         var genre = JoinGenres(reference.Genres);
         var (ratingValue, ratingScale, ratingSource) = PrimaryRating(reference.Ratings, DiscogsProviderKey);
@@ -65,7 +63,6 @@ public partial class ReferenceEnrichmentService
         model.ReferenceRatingScale = ratingScale;
         model.ReferenceRatingSource = ratingSource;
         await albumRepository.UpdateAsync(model.Id!, model, model.OwnerId);
-        await albumRepository.SetReferenceLinkAsync(originalTitle, originalYear, reference.Id!, reference.Title, reference.Year, artistName, genre, ratingValue, ratingScale, ratingSource);
 
         return model;
     }
@@ -108,8 +105,12 @@ public partial class ReferenceEnrichmentService
     /// saved from being linked only by the title re-check <c>DiscogsClient</c> already happened to apply.
     /// </para>
     /// </summary>
-    public async Task TryAutoResolveAlbumAsync(string title, int? year, string? artist = null)
+    public async Task TryAutoResolveAlbumAsync(AlbumModel item)
     {
+        var title = item.Title;
+        var year = item.Year;
+        var artist = item.Artist;
+
         if (string.IsNullOrWhiteSpace(title)) return; // see TryAutoResolveTvShowAsync
 
         // an artist is required for any automatic link here - see TryAutoResolveBookAsync, same rule
@@ -118,7 +119,7 @@ public partial class ReferenceEnrichmentService
         // a reference someone already confirmed for this (title, artist) is the answer - see TryLinkKnownReferenceAsync for why it is worth asking before Discogs is
         if (await TryLinkKnownReferenceAsync(
                 () => albumReferenceRepository.FindByTitleCreatorAsync(title, artist),
-                reference => PropagateAlbumLinkAsync(reference, title, year)))
+                reference => WriteAlbumLinkAsync(reference, ReferenceLinkTarget.Item(item.Id!, item.OwnerId))))
         {
             return;
         }
@@ -126,7 +127,7 @@ public partial class ReferenceEnrichmentService
         var candidates = await discogsClient.SearchAlbumsAsync(title, year, artist);
         var matches = ReferenceMatchRules.ConfirmedCreatorMatches(candidates, title, artist);
         if (matches.Count == 0) return;
-        await ResolveAlbumAsync(title, year, matches[0].ExternalId);
+        await ResolveAlbumAsync(title, year, matches[0].ExternalId, ReferenceLinkTarget.Item(item.Id!, item.OwnerId));
     }
 
     /// <summary>
@@ -140,15 +141,14 @@ public partial class ReferenceEnrichmentService
         model = await TryLinkExistingAlbumReferenceAsync(model);
         if (!string.IsNullOrEmpty(model.ReferenceId)) return model;
 
-        await TryAutoResolveAlbumAsync(model.Title, model.Year, model.Artist);
+        await TryAutoResolveAlbumAsync(model);
         return await albumRepository.FindOneAsync(model.Id!, model.OwnerId) ?? model;
     }
 
     /// <summary>
-    /// Resolves a title+year to a specific Discogs master id, upserts the reference document, and
-    /// propagates the link - see <see cref="ResolveTvShowAsync"/>.
+    /// Resolves a title+year to a specific Discogs master id, upserts the reference document, and links the records <paramref name="target"/> names, see <see cref="ResolveTvShowAsync"/>.
     /// </summary>
-    public async Task<AlbumReferenceModel> ResolveAlbumAsync(string title, int? year, string externalId)
+    public async Task<AlbumReferenceModel> ResolveAlbumAsync(string title, int? year, string externalId, ReferenceLinkTarget target)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
 
@@ -185,19 +185,19 @@ public partial class ReferenceEnrichmentService
 
         var saved = await albumReferenceRepository.UpsertAsync(model);
         var (ratingValue, ratingScale, ratingSource) = PrimaryRating(saved.Ratings, DiscogsProviderKey);
-        await albumRepository.SetReferenceLinkAsync(title, year, saved.Id!, details.Title, saved.Year, details.Artist, JoinGenres(details.Genres), ratingValue, ratingScale, ratingSource);
+        await albumRepository.SetReferenceLinkAsync(target, saved.Id!, details.Title, saved.Year, details.Artist, JoinGenres(details.Genres), ratingValue, ratingScale, ratingSource);
         return saved;
     }
 
     /// <summary>
-    /// Points every tenant album still recorded under <paramref name="searchTitle"/>/<paramref name="searchYear"/> at <paramref name="reference"/> - see <see cref="PropagateTvShowLinkAsync"/>.
+    /// Album equivalent of <see cref="WriteTvShowLinkAsync"/>.
     /// The artist's name is joined from <c>person_reference</c>, since an album reference stores only the id.
     /// </summary>
-    private async Task PropagateAlbumLinkAsync(AlbumReferenceModel reference, string searchTitle, int? searchYear)
+    private async Task WriteAlbumLinkAsync(AlbumReferenceModel reference, ReferenceLinkTarget target)
     {
         var artistName = await ResolvePersonNameAsync(reference.ArtistReferenceId);
         var (ratingValue, ratingScale, ratingSource) = PrimaryRating(reference.Ratings, DiscogsProviderKey);
-        await albumRepository.SetReferenceLinkAsync(searchTitle, searchYear, reference.Id!, reference.Title, reference.Year,
+        await albumRepository.SetReferenceLinkAsync(target, reference.Id!, reference.Title, reference.Year,
             artistName, JoinGenres(reference.Genres), ratingValue, ratingScale, ratingSource);
     }
 

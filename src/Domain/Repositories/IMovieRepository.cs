@@ -7,12 +7,9 @@ namespace Keeptrack.Domain.Repositories;
 public interface IMovieRepository : IDataRepository<MovieModel>, IExploreSourceRepository
 {
     /// <summary>
-    /// Sets <see cref="MovieModel.ReferenceId"/>, <see cref="MovieModel.Title"/>, <see cref="MovieModel.Year"/>
-    /// and the denormalized <see cref="MovieModel.ReferenceRating"/>/<see cref="MovieModel.ReferenceRatingScale"/>
-    /// (to the reference's canonical values) on every tenant's movie matching this title/year that doesn't
-    /// already have a reference link - see <see cref="ITvShowRepository.SetReferenceLinkAsync"/>.
+    /// Sets <see cref="MovieModel.ReferenceId"/>, <see cref="MovieModel.Title"/>, <see cref="MovieModel.Year"/> and the denormalized <see cref="MovieModel.ReferenceRating"/>/<see cref="MovieModel.ReferenceRatingScale"/> (to the reference's canonical values) on the records <paramref name="target"/> names, see <see cref="ITvShowRepository.SetReferenceLinkAsync"/>.
     /// </summary>
-    Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null, double? canonicalRating = null, double? canonicalRatingScale = null, string? canonicalRatingSource = null);
+    Task<long> SetReferenceLinkAsync(ReferenceLinkTarget target, string referenceId, string canonicalTitle, int? canonicalYear = null, double? canonicalRating = null, double? canonicalRatingScale = null, string? canonicalRatingSource = null);
 
     /// <summary>
     /// Re-propagates the denormalized <see cref="MovieModel.ReferenceRating"/>/<see cref="MovieModel.ReferenceRatingScale"/>

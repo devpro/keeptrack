@@ -372,14 +372,13 @@ public class TvTimeImportService(
     private Task TryEnrichShowAsync(TvShowModel show)
     {
         var title = show.Title;
-        var year = show.Year;
         _ = Task.Run(async () =>
         {
             try
             {
                 using var scope = scopeFactory.CreateScope();
                 var enrichmentService = scope.ServiceProvider.GetRequiredService<ReferenceEnrichmentService>();
-                await enrichmentService.TryAutoResolveTvShowAsync(title, year);
+                await enrichmentService.TryAutoResolveTvShowAsync(show);
             }
             catch (Exception ex)
             {
@@ -395,14 +394,13 @@ public class TvTimeImportService(
     private Task TryEnrichMovieAsync(MovieModel movie)
     {
         var title = movie.Title;
-        var year = movie.Year;
         _ = Task.Run(async () =>
         {
             try
             {
                 using var scope = scopeFactory.CreateScope();
                 var enrichmentService = scope.ServiceProvider.GetRequiredService<ReferenceEnrichmentService>();
-                await enrichmentService.TryAutoResolveMovieAsync(title, year);
+                await enrichmentService.TryAutoResolveMovieAsync(movie);
             }
             catch (Exception ex)
             {

@@ -37,15 +37,13 @@ public class BookController(
     protected override Task OnCreatedAsync(BookModel model)
     {
         var title = model.Title;
-        var year = model.Year;
-        var author = model.Author;
         _ = Task.Run(async () =>
         {
             try
             {
                 using var scope = scopeFactory.CreateScope();
                 var scopedEnrichmentService = scope.ServiceProvider.GetRequiredService<ReferenceEnrichmentService>();
-                await scopedEnrichmentService.TryAutoResolveBookAsync(title, year, author);
+                await scopedEnrichmentService.TryAutoResolveBookAsync(model);
             }
             catch (Exception ex)
             {

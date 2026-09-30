@@ -36,14 +36,13 @@ public class MovieController(
     protected override Task OnCreatedAsync(MovieModel model)
     {
         var title = model.Title;
-        var year = model.Year;
         _ = Task.Run(async () =>
         {
             try
             {
                 using var scope = scopeFactory.CreateScope();
                 var scopedEnrichmentService = scope.ServiceProvider.GetRequiredService<ReferenceEnrichmentService>();
-                await scopedEnrichmentService.TryAutoResolveMovieAsync(title, year);
+                await scopedEnrichmentService.TryAutoResolveMovieAsync(model);
             }
             catch (Exception ex)
             {

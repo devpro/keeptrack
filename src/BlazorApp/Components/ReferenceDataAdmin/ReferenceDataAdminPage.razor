@@ -1068,7 +1068,8 @@
                 Year = _selected.Year,
                 ExternalId = candidate.ExternalId,
                 Provider = _selectedProvider,
-                Isbn = _type == ReferenceItemType.Book ? _isbn : null
+                Isbn = _type == ReferenceItemType.Book ? _isbn : null,
+                Creator = _type == ReferenceItemType.Album ? _selected.Creator : null
             });
             await LoadUnresolvedAsync();
         }

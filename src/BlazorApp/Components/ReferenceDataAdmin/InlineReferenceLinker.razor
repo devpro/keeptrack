@@ -150,7 +150,8 @@
                 Year = Year,
                 ExternalId = candidate.ExternalId,
                 Provider = _selectedProvider,
-                Isbn = Type == ReferenceItemType.Book ? Isbn : null
+                Isbn = Type == ReferenceItemType.Book ? Isbn : null,
+                Creator = Type == ReferenceItemType.Album ? Creator : null
             });
             await OnLinked.InvokeAsync();
         }

@@ -53,7 +53,7 @@ public class MovieReferenceRatingRepositoryTest(KestrelWebAppFactory<Program> fa
         var unlinked = await CreateMovieAsync(repository, NewMovie(ownerId, title, year: 1999));
         var alreadyLinked = await CreateMovieAsync(repository, NewMovie(ownerId, title, year: 1999, referenceId: "pre-existing"));
 
-        await repository.SetReferenceLinkAsync(title, 1999, "reference-1", title, 1999, 8.2, 10);
+        await repository.SetReferenceLinkAsync(ReferenceLinkTarget.Matching(title, 1999), "reference-1", title, 1999, 8.2, 10);
 
         var reloadedUnlinked = await repository.FindOneAsync(unlinked.Id!, ownerId, TestContext.Current.CancellationToken);
         reloadedUnlinked!.ReferenceId.Should().Be("reference-1");

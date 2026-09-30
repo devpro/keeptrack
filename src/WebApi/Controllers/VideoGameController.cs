@@ -35,14 +35,13 @@ public class VideoGameController(
     protected override Task OnCreatedAsync(VideoGameModel model)
     {
         var title = model.Title;
-        var year = model.Year;
         _ = Task.Run(async () =>
         {
             try
             {
                 using var scope = scopeFactory.CreateScope();
                 var scopedEnrichmentService = scope.ServiceProvider.GetRequiredService<ReferenceEnrichmentService>();
-                await scopedEnrichmentService.TryAutoResolveVideoGameAsync(title, year);
+                await scopedEnrichmentService.TryAutoResolveVideoGameAsync(model);
             }
             catch (Exception ex)
             {

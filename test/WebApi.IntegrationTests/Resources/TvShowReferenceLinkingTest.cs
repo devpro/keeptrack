@@ -42,7 +42,7 @@ public class TvShowReferenceLinkingTest(KestrelWebAppFactory<Program> factory) :
             ReferenceId = "pre-existing-link"
         });
 
-        var modifiedCount = await repository.SetReferenceLinkAsync(title, year, "reference-123", canonicalTitle);
+        var modifiedCount = await repository.SetReferenceLinkAsync(ReferenceLinkTarget.Matching(title, year), "reference-123", canonicalTitle);
 
         modifiedCount.Should().Be(2);
         var tenantAResult = (await repository.FindOneAsync(tenantAShow.Id!, "reference-link-tenant-a", TestContext.Current.CancellationToken))!;

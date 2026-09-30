@@ -80,23 +80,21 @@ public class ExploreController(
             return StatusCode(StatusCodes.Status403Forbidden, new { error = quotaError });
         }
 
-        // create the item unlinked, then resolve the reference by its exact provider id (upserts the shared
-        // reference document and links this just-created item by (title, year) - see ResolveMovieAsync). Using
-        // the id, not a title search, is why this links reliably where the ordinary create's search-based
-        // auto-resolve can miss a title with several provider candidates.
+        // create the item unlinked, then resolve the reference by its exact provider id and link this one item to it.
+        // The id, not a title search, is why this links reliably where the ordinary create's search-based auto-resolve can miss a title with several provider candidates.
         switch (type)
         {
             case ReferenceItemType.Movie:
-                await movieRepository.CreateAsync(new MovieModel { OwnerId = ownerId, Title = request.Title, Year = request.Year });
-                await enrichmentService.ResolveMovieAsync(request.Title, request.Year, externalId);
+                var movie = await movieRepository.CreateAsync(new MovieModel { OwnerId = ownerId, Title = request.Title, Year = request.Year });
+                await enrichmentService.ResolveMovieAsync(request.Title, request.Year, externalId, ReferenceLinkTarget.Item(movie.Id!, ownerId));
                 break;
             case ReferenceItemType.TvShow:
-                await tvShowRepository.CreateAsync(new TvShowModel { OwnerId = ownerId, Title = request.Title, Year = request.Year });
-                await enrichmentService.ResolveTvShowAsync(request.Title, request.Year, externalId);
+                var show = await tvShowRepository.CreateAsync(new TvShowModel { OwnerId = ownerId, Title = request.Title, Year = request.Year });
+                await enrichmentService.ResolveTvShowAsync(request.Title, request.Year, externalId, ReferenceLinkTarget.Item(show.Id!, ownerId));
                 break;
             case ReferenceItemType.VideoGame:
-                await videoGameRepository.CreateAsync(new VideoGameModel { OwnerId = ownerId, Title = request.Title, Year = request.Year });
-                await enrichmentService.ResolveVideoGameAsync(request.Title, request.Year, externalId);
+                var game = await videoGameRepository.CreateAsync(new VideoGameModel { OwnerId = ownerId, Title = request.Title, Year = request.Year });
+                await enrichmentService.ResolveVideoGameAsync(request.Title, request.Year, externalId, ReferenceLinkTarget.Item(game.Id!, ownerId));
                 break;
         }
 

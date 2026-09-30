@@ -44,13 +44,13 @@ public class BookRepository(IMongoDatabase mongoDatabase, ILogger<BookRepository
         return filter;
     }
 
-    public async Task<long> SetReferenceLinkAsync(string title, int? year, string referenceId, string canonicalTitle, int? canonicalYear = null, string? canonicalAuthor = null, string? canonicalGenre = null,
+    public async Task<long> SetReferenceLinkAsync(ReferenceLinkTarget target, string referenceId, string canonicalTitle, int? canonicalYear = null, string? canonicalAuthor = null, string? canonicalGenre = null,
         string? canonicalLanguage = null, string? canonicalIsbn = null, double? canonicalRating = null, double? canonicalRatingScale = null, string? canonicalRatingSource = null)
     {
         var builder = Builders<Book>.Filter;
-        var filter = builder.Regex(f => f.Title, new BsonRegularExpression($"^{Regex.Escape(title)}$", "i"))
-                     & builder.Eq(f => f.Year, year)
-                     & UnresolvedFilter();
+        var filter = ReferenceLinkFilter(target, () => builder.Regex(f => f.Title, new BsonRegularExpression($"^{Regex.Escape(target.Title!)}$", "i"))
+                                                   & builder.Eq(f => f.Year, target.Year)
+                                                   & UnresolvedFilter());
 
         var update = Builders<Book>.Update.Set(f => f.ReferenceId, referenceId).Set(f => f.Title, canonicalTitle)
             .Set(f => f.ReferenceRating, canonicalRating).Set(f => f.ReferenceRatingScale, canonicalRatingScale)

@@ -35,15 +35,13 @@ public class AlbumController(
     protected override Task OnCreatedAsync(AlbumModel model)
     {
         var title = model.Title;
-        var year = model.Year;
-        var artist = model.Artist;
         _ = Task.Run(async () =>
         {
             try
             {
                 using var scope = scopeFactory.CreateScope();
                 var scopedEnrichmentService = scope.ServiceProvider.GetRequiredService<ReferenceEnrichmentService>();
-                await scopedEnrichmentService.TryAutoResolveAlbumAsync(title, year, artist);
+                await scopedEnrichmentService.TryAutoResolveAlbumAsync(model);
             }
             catch (Exception ex)
             {

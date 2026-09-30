@@ -4,6 +4,7 @@ using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Keeptrack.Common.System;
+using Keeptrack.Domain.Models;
 using Keeptrack.Infrastructure.MongoDb.Mappers;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
@@ -46,6 +47,15 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
     /// a truthful answer for that case (a 404, and the detail page's own "not found" state).
     /// </summary>
     private static bool CanNameADocument(string id) => ObjectId.TryParse(id, out _);
+
+    /// <summary>
+    /// The records a reference link is written to, see <see cref="ReferenceLinkTarget"/>.
+    /// <paramref name="adminMatch"/> carries the domain's own unlinked filter, since an admin's link never replaces a link already made.
+    /// </summary>
+    protected static FilterDefinition<TEntity> ReferenceLinkFilter(ReferenceLinkTarget target, Func<FilterDefinition<TEntity>> adminMatch) =>
+        target.ItemId is not null
+            ? Builders<TEntity>.Filter.Where(x => x.Id == target.ItemId && x.OwnerId == target.OwnerId)
+            : adminMatch();
 
     public async Task<TModel?> FindOneAsync(string id, string ownerId, CancellationToken cancellationToken = default)
     {
