@@ -67,11 +67,11 @@ public class OmdbClient(HttpClient http, OmdbSettings settings, IOmdbCallBudget 
             logger.LogWarning(ex, "OMDb lookup failed for imdb id {ImdbId}; skipping the IMDb rating.", imdbId);
             return OmdbLookupResult.NotAttempted;
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
         {
             // a timeout from the resilience pipeline, not the caller giving up - the caller's own cancellation
             // must keep propagating, or a shutting-down background service would look like it completed
-            logger.LogWarning("OMDb lookup timed out for imdb id {ImdbId}; skipping the IMDb rating.", imdbId);
+            logger.LogWarning(ex, "OMDb lookup timed out for imdb id {ImdbId}; skipping the IMDb rating.", imdbId);
             return OmdbLookupResult.NotAttempted;
         }
     }

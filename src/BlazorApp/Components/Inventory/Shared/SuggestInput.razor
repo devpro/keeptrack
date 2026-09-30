@@ -4,7 +4,7 @@
    A suggestion is taken three ways, all of which must work: clicking it, pressing Enter on the match
    typing already highlighted, or moving to another with ↑/↓ first. *@
 @{
-    var suggestions = FilteredSuggestions;
+    var suggestions = FilterSuggestions();
     var menuOpen = _open && suggestions.Count > 0;
 }
 <div class="kt-autocomplete @CssClass">
@@ -87,7 +87,7 @@
     /// <summary>Set by a mousedown inside the menu, consumed by the focusout it may cause - see the markup.</summary>
     private bool _menuMouseDown;
 
-    private List<string> FilteredSuggestions =>
+    private List<string> FilterSuggestions() =>
         Suggestions.Where(s => string.IsNullOrEmpty(_query) || s.Contains(_query, StringComparison.OrdinalIgnoreCase))
             .Take(MaxSuggestions)
             .ToList();
@@ -98,7 +98,7 @@
         get
         {
             if (!_open) return null;
-            var suggestions = FilteredSuggestions;
+            var suggestions = FilterSuggestions();
             return _activeIndex >= 0 && _activeIndex < suggestions.Count ? suggestions[_activeIndex] : null;
         }
     }
@@ -139,7 +139,7 @@
     private int DefaultActiveIndex()
     {
         if (string.IsNullOrWhiteSpace(_query)) return -1;
-        var suggestions = FilteredSuggestions;
+        var suggestions = FilterSuggestions();
         var exact = suggestions.FindIndex(s => string.Equals(s, _query, StringComparison.OrdinalIgnoreCase));
         if (exact >= 0) return exact;
         return suggestions.Count > 0 ? 0 : -1;
@@ -216,7 +216,7 @@
     /// </summary>
     private void Move(int delta)
     {
-        var suggestions = FilteredSuggestions;
+        var suggestions = FilterSuggestions();
         if (suggestions.Count == 0) return;
         _open = true;
         _highlightIsExplicit = true;

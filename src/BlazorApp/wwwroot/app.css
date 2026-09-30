@@ -688,10 +688,8 @@ a.kt-item-row { color: inherit; text-decoration: none; }
    being squashed unreadable, which is why this isn't a plain CSS grid instead. */
 .kt-btn-row-even > button { flex: 1 1 0; }
 
-/* editable "title" input on a detail page, styled to read as a heading until you interact with it.
-   flex/min-width let it fill its row (rather than a fixed browser-default input width), so a button placed
-   right after it (e.g. the reference-refresh icon) sits at a predictable spot instead of trailing right
-   after wherever the visible text happens to end. */
+/* The detail page's editable title reads as a heading.
+   `flex` and `min-width` make it fill its row, so the button after it sits at a fixed spot rather than wherever the text ends. */
 .kt-title-input {
   font-size: 2rem;
   font-weight: 700;
@@ -705,12 +703,11 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   flex: 1 1 auto;
   min-width: 0;
   font-family: var(--kt-font);
+  /* A text cursor and a faint underline mark it as editable without making it look like a button.
+     A pencil icon would read as one more of the row's icon buttons. */
+  cursor: text;
+  border-bottom-color: var(--kt-border);
 }
-/* A heading you can type into needs to say so without pretending to be a button: a faint rule under the
-   text (the inline-edit convention) plus a text cursor, resolving to a full border on hover and the accent
-   on focus. An adjacent pencil icon was the alternative and was rejected - it would sit in a row that
-   already holds real icon buttons, so it would read as a fourth one. */
-.kt-title-input { cursor: text; border-bottom-color: var(--kt-border); }
 .kt-title-input:hover:not(:disabled) { border-color: var(--kt-border); }
 .kt-title-input:focus { border-color: var(--kt-accent); outline: none; background: var(--kt-surface); }
 .kt-title-input:disabled { cursor: not-allowed; }

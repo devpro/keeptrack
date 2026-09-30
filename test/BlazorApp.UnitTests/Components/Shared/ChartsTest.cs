@@ -49,6 +49,9 @@ public partial class ChartsTest
     [GeneratedRegex("points=\"([^\"]*)\"")]
     private static partial Regex PolylinePoints();
 
+    [GeneratedRegex("<rect ")]
+    private static partial Regex RectTag();
+
     [Fact]
     public async Task ConsumptionChart_WritesCoordinatesWithADecimalPoint_UnderACultureWithADecimalComma()
     {
@@ -84,7 +87,7 @@ public partial class ChartsTest
     {
         var html = await HtmlRendering.RenderAsync<CarCostHistoryChart>(new Dictionary<string, object?> { [nameof(CarCostHistoryChart.Points)] = s_carCosts });
 
-        Regex.Matches(html, "<rect ").Should().HaveCount(s_carCosts.Count * 2);
+        RectTag().Matches(html).Should().HaveCount(s_carCosts.Count * 2);
         html.Should().Contain("<title>2025-02: maintenance 300.00</title>").And.Contain("<title>2025-02: fuel 90.50</title>");
         html.Should().Contain(">Month</text>").And.Contain(">&#x20AC;</text>", "the Y axis is captioned with the euro sign, which the HTML renderer encodes");
     }
@@ -94,7 +97,7 @@ public partial class ChartsTest
     {
         var html = await HtmlRendering.RenderAsync<HouseCostHistoryChart>(new Dictionary<string, object?> { [nameof(HouseCostHistoryChart.Points)] = s_houseCosts });
 
-        Regex.Matches(html, "<rect ").Should().HaveCount(s_houseCosts.Count);
+        RectTag().Matches(html).Should().HaveCount(s_houseCosts.Count);
         s_houseCosts.Select(p => $">{p.Year}</text>").Should().AllSatisfy(label => html.Should().Contain(label));
     }
 }

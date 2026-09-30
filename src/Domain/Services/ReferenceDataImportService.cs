@@ -167,7 +167,7 @@ public static class ReferenceDataImportService
                 }
             }
 
-            if (!string.IsNullOrEmpty(exportedId) && !string.IsNullOrEmpty(saved.Id)) idMap[exportedId] = saved.Id!;
+            if (!string.IsNullOrEmpty(exportedId) && !string.IsNullOrEmpty(saved.Id)) idMap[exportedId] = saved.Id;
             // keep the index current, so two documents inside the same archive can't both claim one id
             Index(saved, byExternalId, byId);
             if (identityOf is not null) knownTitles.Add(TitleKey(identityOf(saved)));
@@ -184,7 +184,7 @@ public static class ReferenceDataImportService
             byExternalId[ExternalKey(provider, externalId)] = document;
         }
 
-        if (!string.IsNullOrEmpty(document.Id)) byId[document.Id!] = document;
+        if (!string.IsNullOrEmpty(document.Id)) byId[document.Id] = document;
     }
 
     private static T? FindMatch<T>(T document, Dictionary<string, T> byExternalId, Dictionary<string, T> byId)

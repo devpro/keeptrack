@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 
 namespace Keeptrack.Testing.Shared.Hosting;
 
@@ -56,15 +57,12 @@ public static class TestDatabaseGuard
                 "variables into your shell first when you need to combine a filter with a run (see CLAUDE.md).");
         }
 
-        foreach (var marker in ProtectedDatabaseMarkers)
+        if (ProtectedDatabaseMarkers.Any(marker => databaseName.Contains(marker, StringComparison.OrdinalIgnoreCase)))
         {
-            if (databaseName.Contains(marker, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException(
-                    $"{DatabaseNameVariable} is set to '{databaseName}', which looks like a real database, not a " +
-                    "throwaway test one. The suite creates and deletes documents, so point it at a dedicated " +
-                    "database (e.g. keeptrack_integrationtests) instead.");
-            }
+            throw new InvalidOperationException(
+                $"{DatabaseNameVariable} is set to '{databaseName}', which looks like a real database, not a " +
+                "throwaway test one. The suite creates and deletes documents, so point it at a dedicated " +
+                "database (e.g. keeptrack_integrationtests) instead.");
         }
     }
 }

@@ -13,7 +13,7 @@
  *
  * Usage:
  *   eval "$(node scripts/load-runsettings.js)"
- *   eval "$(node scripts/load-runsettings.js path/to/other.runsettings)"
+ *   eval "$(node scripts/load-runsettings.js Other.runsettings)"
  *   dotnet test --project test/WebApi.IntegrationTests/WebApi.IntegrationTests.csproj --filter-method "*WishlistResourceTest*"
  *
  * The equivalent PowerShell one-liner is in CONTRIBUTING.md and has no such trap, because `Set-Item -Value` never re-parses what it is given.
@@ -27,11 +27,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
-const file = path.resolve(process.argv[2] ?? 'Local.runsettings');
 
-// The argument is often typed by an agent, and only a runsettings file inside the repository is ever meant, so nothing else is read.
-if (!file.startsWith(root + path.sep) || path.extname(file) !== '.runsettings') {
-    process.stderr.write(`Not a .runsettings file inside ${root}: ${file}\n`);
+// The argument is often typed by an agent, so it names a file at the repository root and any directory part is dropped.
+const file = path.join(root, path.basename(process.argv[2] ?? 'Local.runsettings'));
+
+if (path.extname(file) !== '.runsettings') {
+    process.stderr.write(`Not a .runsettings file: ${file}\n`);
     process.exit(1);
 }
 
@@ -45,7 +46,7 @@ const xml = fs.readFileSync(file, 'utf8');
 // Comments are stripped first, so a commented-out variable stays commented out.
 // The real file carries one, and a match against the raw text would export it as though it were live.
 const block = xml
-    .replace(/<!--[\s\S]*?-->/g, '')
+    .replaceAll(/<!--[\s\S]*?-->/g, '')
     .match(/<EnvironmentVariables>([\s\S]*?)<\/EnvironmentVariables>/);
 
 if (block === null) {
@@ -55,17 +56,17 @@ if (block === null) {
 
 // `&amp;` is decoded last, otherwise an escaped entity such as `&amp;lt;` would be decoded twice.
 const decode = (value) => value
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, '&');
+    .replaceAll(/&lt;/g, '<')
+    .replaceAll(/&gt;/g, '>')
+    .replaceAll(/&quot;/g, '"')
+    .replaceAll(/&apos;/g, "'")
+    .replaceAll(/&amp;/g, '&');
 
 // A single-quoted shell string ends at the first `'`, so an embedded one closes the string, escapes as a literal, and reopens it.
-const quote = (value) => `'${value.replace(/'/g, "'\\''")}'`;
+const quote = (value) => `'${value.replaceAll(/'/g, "'\\''")}'`;
 
 const lines = [];
-for (const match of block[1].matchAll(/<([A-Za-z_][A-Za-z0-9_]*)>([\s\S]*?)<\/\1>/g)) {
+for (const match of block[1].matchAll(/<([A-Za-z_]\w*)>([\s\S]*?)<\/\1>/g)) {
     lines.push(`export ${match[1]}=${quote(decode(match[2]))}`);
 }
 

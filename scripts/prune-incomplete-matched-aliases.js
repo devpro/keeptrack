@@ -19,7 +19,7 @@
 //   mongosh "mongodb://localhost:27017/keeptrack_dev" scripts/prune-incomplete-matched-aliases.js
 //   APPLY=1 mongosh "mongodb://localhost:27017/keeptrack_dev" scripts/prune-incomplete-matched-aliases.js
 
-const apply = (typeof process !== "undefined" && process.env && process.env.APPLY === "1") || false;
+const apply = typeof process !== "undefined" && process.env?.APPLY === "1";
 
 function isBlank(value) {
   return value === null || value === undefined || String(value).trim() === "";
@@ -82,7 +82,8 @@ function prune(collection, keepIfComplete) {
     if (apply) collection.updateOne({ _id: doc._id }, { $set: { matched_aliases: kept } });
   });
 
-  print(`${collection.getName()}: ${changed} document(s) with ${removed} incomplete/duplicate alias(es)${emptied > 0 ? `, ${emptied} left with none` : ""}${apply ? " - written" : " - dry run, nothing written"}`);
+  const emptiedNote = emptied > 0 ? `, ${emptied} left with none` : "";
+  print(`${collection.getName()}: ${changed} document(s) with ${removed} incomplete/duplicate alias(es)${emptiedNote}${apply ? ", written" : ", dry run, nothing written"}`);
 }
 
 prune(db.tvshow_reference, titleAndYear);

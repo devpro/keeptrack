@@ -18,7 +18,7 @@ public class ExploreDismissalRepository(IMongoDatabase mongoDatabase) : IExplore
     private IMongoCollection<ExploreDismissal> Collection => mongoDatabase.GetCollection<ExploreDismissal>(CollectionName);
 
     public async Task<IReadOnlyList<string>> FindDismissedExternalIdsAsync(string ownerId, ExploreItemType type, string externalSource) =>
-        await Collection.Distinct(d => d.ExternalId, KeyFilter(ownerId, type, externalSource)).ToListAsync();
+        await (await Collection.DistinctAsync(d => d.ExternalId, KeyFilter(ownerId, type, externalSource))).ToListAsync();
 
     public async Task AddAsync(ExploreDismissalModel model)
     {

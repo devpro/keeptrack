@@ -81,9 +81,10 @@ for (const domain of domains) {
       continue;
     }
 
+    const sharing = matching.map((r) => r.title + " (" + r.year + ")").join(", ");
     print(
       `  ${domain.items} ${item._id} "${item.title}" -> was linked to ${item.reference_id}` +
-        ` (${matching.length}+ references share this title: ${matching.map((r) => `${r.title} (${r.year})`).join(", ")})`
+        ` (${matching.length}+ references share this title: ${sharing})`
     );
 
     if (APPLY) {

@@ -34,7 +34,7 @@ internal static class ExploreExclusionQueries
         var filter = builder.Eq(f => f.OwnerId, ownerId)
                      & builder.Ne(referenceIdField, null)
                      & builder.Ne(referenceIdField, string.Empty);
-        var ids = await collection.Distinct(referenceIdField, filter).ToListAsync();
+        var ids = await (await collection.DistinctAsync(referenceIdField, filter)).ToListAsync();
         return ids.Where(id => !string.IsNullOrEmpty(id)).Select(id => id!).ToList();
     }
 
@@ -81,7 +81,7 @@ internal static class ExploreExclusionQueries
         IMongoCollection<TEntity> collection, string ownerId, Expression<Func<TEntity, string>> titleField)
         where TEntity : IHasIdAndOwnerId
     {
-        var titles = await collection.Distinct(titleField, Builders<TEntity>.Filter.Eq(f => f.OwnerId, ownerId)).ToListAsync();
+        var titles = await (await collection.DistinctAsync(titleField, Builders<TEntity>.Filter.Eq(f => f.OwnerId, ownerId))).ToListAsync();
         return titles.Where(title => !string.IsNullOrWhiteSpace(title)).ToList();
     }
 }

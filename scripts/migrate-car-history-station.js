@@ -32,10 +32,10 @@ function blankToNull(value) {
 
 // Find-or-create by natural key, then top up whatever the station doesn't know yet.
 function resolveStationId(brandName, location) {
-  const city = blankToNull(location && location.city);
-  const postalCode = blankToNull(location && location.postal_code);
-  const country = blankToNull(location && location.country);
-  const coordinates = location && Array.isArray(location.coordinates) && location.coordinates.length === 2
+  const city = blankToNull(location?.city);
+  const postalCode = blankToNull(location?.postal_code);
+  const country = blankToNull(location?.country);
+  const coordinates = Array.isArray(location?.coordinates) && location.coordinates.length === 2
     ? location.coordinates
     : null;
 

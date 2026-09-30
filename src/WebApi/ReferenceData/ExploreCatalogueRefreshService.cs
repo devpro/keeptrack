@@ -250,7 +250,7 @@ public class ExploreCatalogueRefreshService(
     [
         .. items.Select(i => new CatalogueItem(
             i.TmdbId, i.Title, i.Year, i.Synopsis, i.PosterUrl,
-            Ratings((RatingSourceCatalog.Tmdb, i.VoteAverage)), WebUrls(providerKey, i.WebUrl)))
+            RatingsOf((RatingSourceCatalog.Tmdb, i.VoteAverage)), WebUrlsOf(providerKey, i.WebUrl)))
     ];
 
     // a video game provider reports every score it has on each listing entry, so all of them are stored
@@ -258,15 +258,15 @@ public class ExploreCatalogueRefreshService(
     // all. The client has already keyed them by its own sources, so there is nothing to map per provider here.
     private static List<CatalogueItem> ToItems(IReadOnlyList<VideoGameTopRatedItem> items, string providerKey) =>
     [
-        .. items.Select(i => new CatalogueItem(i.ExternalId, i.Title, i.Year, null, i.ImageUrl, i.Ratings, WebUrls(providerKey, i.WebUrl)))
+        .. items.Select(i => new CatalogueItem(i.ExternalId, i.Title, i.Year, null, i.ImageUrl, i.Ratings, WebUrlsOf(providerKey, i.WebUrl)))
     ];
 
-    private static Dictionary<string, double> Ratings(params (string Source, double? Value)[] ratings) =>
+    private static Dictionary<string, double> RatingsOf(params (string Source, double? Value)[] ratings) =>
         ratings.Where(r => r.Value is not null).ToDictionary(r => r.Source, r => r.Value!.Value);
 
     // a provider that didn't give a page URL simply contributes no key, exactly like a missing rating - the
     // card then falls back to whatever other link the entry carries rather than showing a dead one.
-    private static Dictionary<string, string> WebUrls(string providerKey, string? webUrl) =>
+    private static Dictionary<string, string> WebUrlsOf(string providerKey, string? webUrl) =>
         string.IsNullOrWhiteSpace(webUrl) ? [] : new Dictionary<string, string> { [providerKey] = webUrl };
 
     private static ExploreCatalogueEntryModel ToEntry(ExploreItemType type, string ranking, CatalogueItem item, int rank, DateTime refreshedAt) => new()

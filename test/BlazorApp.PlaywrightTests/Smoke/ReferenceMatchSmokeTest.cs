@@ -127,7 +127,7 @@ public class ReferenceMatchSmokeTest(End2EndFixture fixture) : SmokeTestBase(fix
     {
         SkipIfReadOnly();
         var list = await OpenListAsync(home => home.OpenAlbumsAsync());
-        await AddAsync(list, "Kid A", ("Year", "2000"));
+        await AddAsync(list, "In Rainbows", ("Year", "2007"));
         var (detail, id) = await OpenDetailAsync(new AlbumDetailPage(Page), "/api/albums");
 
         (await ReadLinkAsync<AlbumDto>("/api/albums", id)).Should().BeNullOrEmpty(
@@ -137,7 +137,7 @@ public class ReferenceMatchSmokeTest(End2EndFixture fixture) : SmokeTestBase(fix
         await detail.ClickCheckReferenceMatchAsync();
 
         var linked = await WaitForLinkAsync<AlbumDto>("/api/albums", id);
-        linked.Should().NotBeNullOrEmpty("Discogs holds one master \"Kid A\" by Radiohead");
+        linked.Should().NotBeNullOrEmpty("Discogs holds one master \"In Rainbows\" by Radiohead");
     }
 
     /// <summary>
@@ -178,7 +178,7 @@ public class ReferenceMatchSmokeTest(End2EndFixture fixture) : SmokeTestBase(fix
     private async Task<ListPage> OpenListAsync(Func<HomePage, Task<ListPage>> open) => await open(await new HomePage(Page).OpenAsync());
 
     /// <summary>Adds an item through the list's own Add form, which navigates to its detail page.</summary>
-    private async Task AddAsync(ListPage list, string title, params (string Placeholder, string Value)[] fields)
+    private static async Task AddAsync(ListPage list, string title, params (string Placeholder, string Value)[] fields)
     {
         await list.ClickAddAsync();
         await list.FillByPlaceholderAsync("Title", title);

@@ -2746,7 +2746,7 @@ public class ReferenceEnrichmentServiceTest
 
         // the game leads the row, ahead of the search's junk and of every edition and namesake that also
         // contains both words
-        candidates.First().Title.Should().Be("Marvel's Avengers");
+        candidates[0].Title.Should().Be("Marvel's Avengers");
         // and the row stays a list of candidates rather than the whole substring result
         candidates.Should().HaveCount(9); // the search's one junk answer plus a shortlist of eight
         // still not adopted unattended: "Marvel Avengers" and "Marvel's Avengers" are one apostrophe apart,
