@@ -5,21 +5,17 @@ using Keeptrack.Domain.Services;
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// Rebuilds the local copy of each discovery provider's "best of" ranking (<c>explore_catalogue</c>), so the
-/// Explore read path never calls a provider.
+/// Rebuilds the local copy of each discovery provider's "best of" ranking (<c>explore_catalogue</c>), so the Explore read path never calls a provider.
 /// <para>
-/// This is the whole point of the catalogue. The ranking is a *global* fact - every user's Explore page reads
-/// the same list, with only the exclusion half ("do I already track this?") differing - so paying for it per
-/// request was pure duplicated work: a page load re-pulled the provider's first pages, and so did every add
-/// and every dismiss that topped the list back up. Paying for it once a week instead both removes that
-/// traffic and lifts the ceiling it forced: a request could only ever afford a handful of provider pages, so
-/// Explore could never show more than the top ~100 titles no matter how many the user had already worked
-/// through. A stored ranking is paged with a database query, so <see cref="CatalogueDepth"/> is now a storage
-/// decision rather than a per-request latency budget.
+/// This is the whole point of the catalogue.
+/// The ranking is a *global* fact - every user's Explore page reads the same list, with only the exclusion half ("do I already track this?") differing,
+/// so paying for it per request was pure duplicated work: a page load re-pulled the provider's first pages, and so did every add and every dismiss that topped the list back up.
+/// Paying for it once a week instead both removes that traffic and lifts the ceiling it forced: a request could only ever afford a handful of provider pages,
+/// so Explore could never show more than the top ~100 titles no matter how many the user had already worked through.
+/// A stored ranking is paged with a database query, so <see cref="CatalogueDepth"/> is now a storage decision rather than a per-request latency budget.
 /// </para>
 /// <para>
-/// Lives in WebApi/ReferenceData beside <see cref="ExploreService"/> because it depends on the provider
-/// clients, the same reason that one does.
+/// Lives in WebApi/ReferenceData beside <see cref="ExploreService"/> because it depends on the provider clients, the same reason that one does.
 /// </para>
 /// </summary>
 public class ExploreCatalogueRefreshService(
@@ -226,9 +222,10 @@ public class ExploreCatalogueRefreshService(
         return backfilled;
     }
 
-    // which client answers for a (domain, ordering). TMDB has one top-rated list per domain; the video game
-    // provider orders natively by whichever of its own sources the ordering names. Each arm names the source
-    // key its listing's page links are stored under - the discovery provider's, whatever the displayed rating.
+    // which client answers for a (domain, ordering).
+    // TMDB has one top-rated list per domain;
+    // the video game provider orders natively by whichever of its own sources the ordering names.
+    // Each arm names the source key its listing's page links are stored under (the discovery provider's, whatever the displayed rating).
     private Func<int, CancellationToken, Task<IReadOnlyList<CatalogueItem>>> TopRatedFetcher(ExploreItemType type, string ranking) => type switch
     {
         ExploreItemType.Movie => async (page, token) => ToItems(await tmdbClient.GetTopRatedMoviesAsync(page, token), RatingSourceCatalog.Tmdb),
@@ -237,7 +234,8 @@ public class ExploreCatalogueRefreshService(
         {
             var client = videoGameClients.Resolve(null);
             return ToItems(await client.GetTopRatedGamesAsync(page, ranking, token), client.ProviderKey);
-        },
+        }
+        ,
         _ => throw new ArgumentOutOfRangeException(nameof(type), $"Explore is not available for {type}.")
     };
 
@@ -287,8 +285,7 @@ public class ExploreCatalogueRefreshService(
     };
 
     /// <summary>
-    /// One provider listing entry, normalized across providers so the paging/storing loop above is written
-    /// once instead of per domain.
+    /// One provider listing entry, normalized across providers so the paging/storing loop above is written once instead of per domain.
     /// </summary>
     private sealed record CatalogueItem(
         string ExternalId,
@@ -301,15 +298,14 @@ public class ExploreCatalogueRefreshService(
 }
 
 /// <summary>
-/// What one catalogue refresh pass did. Internal to the API (it is folded into the reference-sync job's own
-/// result for reporting), so it is a plain record rather than a contract DTO.
+/// What one catalogue refresh pass did.
+/// Internal to the API (it is folded into the reference-sync job's own result for reporting), so it is a plain record rather than a contract DTO.
 /// </summary>
 public sealed record ExploreCatalogueRefreshResult(int RankingsRefreshed, int EntriesRefreshed, int ImdbRatingsBackfilled);
 
 /// <summary>
-/// Folds a refresh pass's counts into the reference-sync result both the periodic pass and the admin's "sync
-/// now" report through. An extension rather than members on <see cref="ReferenceSyncResultDto"/> because that
-/// DTO lives in WebApi.Contracts, which doesn't (and shouldn't) know this service's types.
+/// Folds a refresh pass's counts into the reference-sync result both the periodic pass and the admin's "sync now" report through.
+/// An extension rather than members on <see cref="ReferenceSyncResultDto"/> because that DTO lives in WebApi.Contracts, which doesn't (and shouldn't) know this service's types.
 /// </summary>
 public static class ExploreCatalogueRefreshResultExtensions
 {

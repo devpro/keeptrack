@@ -51,46 +51,46 @@ public class ReferenceLinkOnCreateSmokeTest(End2EndFixture fixture) : SmokeTestB
         switch (type)
         {
             case "movies":
-            {
-                var list = await home.OpenMoviesAsync();
-                await list.ClickAddAsync();
-                await list.FillAsync("title-input", "Whiplash");
-                await list.FillAsync("year-input", "2014");
-                await list.SaveNewAsync();
-                detail = new MovieDetailPage(Page);
-                break;
-            }
+                {
+                    var list = await home.OpenMoviesAsync();
+                    await list.ClickAddAsync();
+                    await list.FillAsync("title-input", "Whiplash");
+                    await list.FillAsync("year-input", "2014");
+                    await list.SaveNewAsync();
+                    detail = new MovieDetailPage(Page);
+                    break;
+                }
             case "tv-shows":
-            {
-                var list = await home.OpenTvShowsAsync();
-                await list.ClickAddAsync();
-                await list.FillAsync("title-input", "Severance");
-                await list.FillAsync("year-input", "2022");
-                await list.SaveNewAsync();
-                detail = new TvShowDetailPage(Page);
-                break;
-            }
+                {
+                    var list = await home.OpenTvShowsAsync();
+                    await list.ClickAddAsync();
+                    await list.FillAsync("title-input", "Severance");
+                    await list.FillAsync("year-input", "2022");
+                    await list.SaveNewAsync();
+                    detail = new TvShowDetailPage(Page);
+                    break;
+                }
             case "albums":
-            {
-                var list = await home.OpenAlbumsAsync();
-                await list.ClickAddAsync();
-                await list.FillAsync("title-input", "Kid A");
-                await list.FillAsync("artist-input", "Radiohead");
-                await list.FillAsync("year-input", "2000");
-                await list.SaveNewAsync();
-                detail = new AlbumDetailPage(Page);
-                break;
-            }
+                {
+                    var list = await home.OpenAlbumsAsync();
+                    await list.ClickAddAsync();
+                    await list.FillAsync("title-input", "Kid A");
+                    await list.FillAsync("artist-input", "Radiohead");
+                    await list.FillAsync("year-input", "2000");
+                    await list.SaveNewAsync();
+                    detail = new AlbumDetailPage(Page);
+                    break;
+                }
             default:
-            {
-                var list = await home.OpenVideoGamesAsync();
-                await list.ClickAddAsync();
-                await list.FillByPlaceholderAsync("Title", "Stardew Valley");
-                await list.FillByPlaceholderAsync("Year", "2016");
-                await list.SaveNewAsync();
-                detail = new VideoGameDetailPage(Page);
-                break;
-            }
+                {
+                    var list = await home.OpenVideoGamesAsync();
+                    await list.ClickAddAsync();
+                    await list.FillByPlaceholderAsync("Title", "Stardew Valley");
+                    await list.FillByPlaceholderAsync("Year", "2016");
+                    await list.SaveNewAsync();
+                    detail = new VideoGameDetailPage(Page);
+                    break;
+                }
         }
 
         await detail.WaitForReadyAsync();

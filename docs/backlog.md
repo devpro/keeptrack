@@ -2,9 +2,12 @@
 
 ## Code quality
 
-- [ ] Bring the remaining code comments in line with the writing style in `AGENTS.md`, file by file when a file is touched rather than as one sweeping change: spaced hyphens used as dashes, and comments telling history ("used to", "no longer").
-- [ ] Decide on the dashes and second person in UI copy (`— Choose an album —` placeholders, "Welcome back —", "across your shows"), which the writing rules cover for documentation but not explicitly for product text.
-- [ ] Migrate the `WebApi/Import/` and `WebApi/ReferenceData/` feature folders to the layered shape: provider clients in their own folder, controllers in `Controllers/`, pure logic in `Domain/Services/` (`ReferenceMatchRules` and `RatingSourceCatalog` already are).
+- [ ] Bring the remaining code comments in line with the writing style in `AGENTS.md`, file by file when a file is touched rather than as one sweeping change:
+  spaced hyphens used as dashes, and comments telling history ("used to", "no longer").
+- [ ] Decide on the dashes and second person in UI copy (`— Choose an album —` placeholders, "Welcome back —", "across your shows"),
+  which the writing rules cover for documentation but not explicitly for product text.
+- [ ] Migrate the `WebApi/Import/` and `WebApi/ReferenceData/` feature folders to the layered shape:
+  provider clients in their own folder, controllers in `Controllers/`, pure logic in `Domain/Services/` (`ReferenceMatchRules` and `RatingSourceCatalog` already are).
 
 ## Tests
 

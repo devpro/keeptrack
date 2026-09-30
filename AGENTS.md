@@ -22,7 +22,8 @@ Reading a lint configuration and reshaping text to fit it, or rewrapping a parag
 An agent that notices prose a linter might flag says so in its report and changes nothing.
 Test commands are not linters.
 
-**A subagent, a fork or a background task is never launched without asking first**, even for read-only research.
+**Every command runs in the foreground, and the agent waits for it.**
+No background command, no subagent, no fork, no parallel task, even for a long command.
 
 **Only GitHub Actions published by `github` or `docker` are allowed in workflows.**
 Reusable actions owned by this account, in `../github-workflow-parts`, are also allowed.
@@ -40,7 +41,11 @@ Tests are written before the implementation and versioned as the source of truth
 A regression test is seen failing for the stated reason before the fix, a refactor of untested code gets its test first, seen green against the unmodified code.
 
 **Preserve existing comments and formatting when editing a file.**
-Commit only when asked.
+Commit only when asked, and never push.
+
+**Documentation is as short as possible, and headers stay.**
+Short documentation still has sections.
+It keeps what is needed to understand the code: why it is shaped this way and the known gotchas, never the story of how it got there.
 
 ## Writing style
 
@@ -75,7 +80,7 @@ Prefer `>` over `→` for UI navigation, for example **Project Settings > Qualit
 ## Repository conventions
 
 This file holds what cannot be read off the code: a convention, a decision and its reason, a gotcha measured against a real system, in one or two lines each.
-What was done and when is git history's, and how a bug was found and proven belongs to `docs/findings/`.
+What was done and when is git history's, and the detailed why and gotchas of a subject belong to `docs/findings/`.
 A sentence that only says something used to be otherwise is deleted rather than kept.
 
 Shell scripts are named in `snake_case` and committed with the executable bit set (`git update-index --chmod=+x path/to/script.sh`), since a script committed as `100644` fails on a fresh clone.
@@ -147,7 +152,8 @@ Mapping is compile-time via [Riok.Mapperly](https://github.com/riok/mapperly): o
 
 - Unmapped members are **build errors** (`RMG012`/`RMG020` escalated in `.editorconfig`).
   A member a direction genuinely doesn't need gets an explicit `[MapperIgnoreSource]`/`[MapperIgnoreTarget]`.
-- **A single-word entity property is stored camelCase, not snake_case**: `CamelCaseElementNameConvention` is registered globally in `InfrastructureServiceCollectionExtensions`, so only multi-word members carry an explicit `[BsonElement("public_reimbursement")]`.
+- **A single-word entity property is stored camelCase, not snake_case**: `CamelCaseElementNameConvention` is registered globally in `InfrastructureServiceCollectionExtensions`,
+  so only multi-word members carry an explicit `[BsonElement("public_reimbursement")]`.
   Repository code names fields with **expressions**, which resolve through the class map.
   Anything written by hand against raw names must use the stored one: an index or a `$rename` naming `Specialty` instead of `specialty` matches zero documents and reports success.
 - `OwnerId` uses `[MapValue(nameof(Model.OwnerId), "")]` on DTO to model (a plain ignore won't compile, it's `required`).
@@ -164,7 +170,8 @@ Mapping is compile-time via [Riok.Mapperly](https://github.com/riok/mapperly): o
 That base is constrained `where TDto : IHasId, new()`, and any `required` member breaks `new()` (`CS9040`).
 That is why `BookDto.Title`, `CarDto.Name` and friends are nullable while their models are `required`, and DTOs with no `InventoryPageBase` usage (`CarHistoryDto`) mirror `required` in full.
 
-**Data-shape renames need an idempotent migration script** (`scripts/migrate-*.js`, a `$rename` or equivalent, followed by a re-run of `scripts/mongodb-create-index.js`), not just updated `[BsonElement]` attributes, or every pre-existing document silently loses the field.
+**Data-shape renames need an idempotent migration script** (`scripts/migrate-*.js`, a `$rename` or equivalent, followed by a re-run of `scripts/mongodb-create-index.js`),
+not just updated `[BsonElement]` attributes, or every pre-existing document silently loses the field.
 A C# rename that keeps the stored element name (`[BsonElement("status")]` on `State`) needs none.
 
 ### Adding a new trackable item type
@@ -181,13 +188,15 @@ A new type touches every layer:
    The Add form carries only identity fields, everything else is edited on the detail page, which starts with a `<Breadcrumb/>`.
    List rows are uniform media rows rendered by `InventoryList`, the whole row opens the detail page, and there is deliberately no per-row edit modal.
 7. Declare indexes in `scripts/mongodb-create-index.js` (natural-key uniqueness, query shapes, partial indexes for sparse flags).
-8. If reference-linked: the DTO implements `IReferenceLinkedDto` (server-hydrated `ImageUrl`, ignored both ways in the mapper), the reference repository gets a batched `FindByIdsAsync`, and the controller overrides `OnListMappedAsync` to hydrate covers via `ReferenceImageHydrator`, one batched lookup per page, never one per item.
+8. If reference-linked: the DTO implements `IReferenceLinkedDto` (server-hydrated `ImageUrl`, ignored both ways in the mapper), the reference repository gets a batched `FindByIdsAsync`,
+   and the controller overrides `OnListMappedAsync` to hydrate covers via `ReferenceImageHydrator`, one batched lookup per page, never one per item.
 
 ### Ownership: owned versions, never a stored flag
 
 An item is owned exactly when it has at least one owned copy, so there is no stored `is_owned` flag to drift.
 
-- `Movie`/`TvShow`/`Book`/`Album` embed `List<OwnedVersionModel>` (`owned_versions`): `CopyType` (`Physical` first so it's the default, or `Digital`), optional `Price` (`decimal`/Decimal128, currency-agnostic), `AcquiredAt` (`DateOnly` via `CommonStorageMappings`), `Vendor`, and free-text `Reference` (edition/order number, unrelated to `ReferenceId`).
+- `Movie`/`TvShow`/`Book`/`Album` embed `List<OwnedVersionModel>` (`owned_versions`): `CopyType` (`Physical` first so it's the default, or `Digital`),
+  optional `Price` (`decimal`/Decimal128, currency-agnostic), `AcquiredAt` (`DateOnly` via `CommonStorageMappings`), `Vendor`, and free-text `Reference` (edition/order number, unrelated to `ReferenceId`).
 - Video games have **no** `OwnedVersions`: their per-platform entries carry a `CopyType` and *are* the copies, so a game is owned when `Platforms` is non-empty.
   `VideoGamePlatformModel.ProductName` (the store's own product/edition text) renders through `OwnedVersionFields`' `ExtraFields` slot rather than joining `IOwnedCopyDto`, since no other type has the concept.
 - `IsOwned` exists only as a query parameter: repositories translate it to `SizeGt(OwnedVersions/Platforms, 0)`, the `*_owned` partial indexes match that predicate, and storage mappers ignore it both ways.
@@ -206,7 +215,8 @@ Three importers of the same shape, controller in `Controllers/` and pure parsing
   Aliases cover real headers (`Product Name` to Title, `ASIN`/`SKU` to `ProductId`, `Total Amount` to Price, `Product Condition` to Condition).
   `Vendor` becomes the copy's Vendor and `Website` its `Reference`, and `Condition` is kept on the copy's `ProductName` (owner's request).
 
-The shared engine is never duplicated: `Domain/Services/OwnedItemImportMergeService.cs` (`ComputeCommitPlan`/`FindImportedReferences`, matching by normalized title via `TitleNormalizer`, merging within the same commit batch) returns `Domain/Models/ImportCommitPlan.cs`, and `Domain/Services/OwnedItemImportCommitCoordinator.cs` owns per-type create/merge orchestration for both multi-type controllers.
+The shared engine is never duplicated: `Domain/Services/OwnedItemImportMergeService.cs` (`ComputeCommitPlan`/`FindImportedReferences`, matching by normalized title via `TitleNormalizer`,
+merging within the same commit batch) returns `Domain/Models/ImportCommitPlan.cs`, and `Domain/Services/OwnedItemImportCommitCoordinator.cs` owns per-type create/merge orchestration for both multi-type controllers.
 
 `ImportMediaType` and `CopyType` exist in both `Domain.Models` and `WebApi.Contracts.Dto`, so a controller importing both namespaces aliases one.
 
@@ -222,7 +232,8 @@ They grow unbounded per parent, and features query them across *all* of a user's
 Embed only small, always-together, never-queried-alone data (`TvShowReferenceModel.Episodes`: bounded, always fetched whole).
 
 - `GetFilter` on a child repository filters the parent id with `Eq`, **not** `Text`: MongoDB allows one `$text` per query, so a `Text` id filter throws whenever a free-text `search` is also supplied.
-- **Every parent cascades its delete**: its controller overrides `OnDeletedAsync` and calls the child repository's `DeleteAllFor<Parent>Async`, a one-liner over `MongoDbRepositoryBase.DeleteAllByParentAsync` taking the parent-id **expression**.
+- **Every parent cascades its delete**: its controller overrides `OnDeletedAsync` and calls the child repository's `DeleteAllFor<Parent>Async`,
+  a one-liner over `MongoDbRepositoryBase.DeleteAllByParentAsync` taking the parent-id **expression**.
   A child is only reachable through its parent id, so it would otherwise be orphaned forever.
   Each cascade has a real-MongoDB `*ResourceTest` case, since a mocked repository can't prove the filter matches.
 
@@ -277,7 +288,8 @@ Resolution, the detail page's check and an admin unlink write the link through a
 
 `ApiExceptionFilterAttribute` logs every unhandled exception, then converts it: `ArgumentException` to 400, a failed provider call to 502, else 500.
 
-- **A third-party provider that timed out, exhausted its retries or tripped its circuit breaker is a 502, not a 500** (`TimeoutRejectedException`/`BrokenCircuitException`/`HttpRequestException`, logged as a warning), so an outage is distinguishable from a defect here.
+- **A third-party provider that timed out, exhausted its retries or tripped its circuit breaker is a 502, not a 500** (`TimeoutRejectedException`/`BrokenCircuitException`/`HttpRequestException`, logged as a warning),
+  so an outage is distinguishable from a defect here.
 - **The 502's `{ error }` says what the provider actually did** (`DescribeUpstreamFailure`: its status, unreachable, timed out or circuit-open).
 - **`BlazorApp/Components/Shared/ApiResponseExtensions` (`EnsureSuccessOrThrowAsync`/`ReadJsonOrThrowAsync`) is used wherever a failure is shown to a user, never `EnsureSuccessStatusCode`/`GetFromJsonAsync`**, which discard the body.
   They throw `ApiRequestException`, whose `IsUpstreamProviderFailure` tells a provider outage from a defect.
@@ -291,7 +303,8 @@ A background service still catches what it can anticipate.
 Read-only cross-entity aggregations (`WatchNextController`, `WishlistController`, `StatsController`, `SystemStatusController`) are plain `ControllerBase` in `WebApi/Controllers/`, with any real computation in `Domain/Services/`.
 `WebApi/Import/` and `WebApi/ReferenceData/` use an older feature-folder shape that new code does not extend.
 
-**Wishlist sharing is capability-URL based**: `GET/POST /api/wishlist/shares`, `DELETE /api/wishlist/shares/{id}` (`wishlist_share`, one document per link, `token` unique), plus `GET /api/wishlist/shared/{token}`, the app's **one deliberately anonymous read**, backing a static-SSR `noindex` page at `/shared/wishlist/{token}`.
+**Wishlist sharing is capability-URL based**: `GET/POST /api/wishlist/shares`, `DELETE /api/wishlist/shares/{id}` (`wishlist_share`, one document per link, `token` unique), plus `GET /api/wishlist/shared/{token}`,
+the app's **one deliberately anonymous read**, backing a static-SSR `noindex` page at `/shared/wishlist/{token}`.
 The 128-bit token *is* the access control: there is no mail infrastructure and it works for unregistered recipients.
 Revoking deletes one owner-scoped document, and `SharedWishlistApiClient` is registered **without** `AuthenticationTokenHandler`, which would bounce an anonymous recipient to login.
 
@@ -310,7 +323,8 @@ For the same reason, per-item catches that keep one failing document from aborti
   Firebase sends a plain `role` claim, which `BlazorApp`'s `AuthenticationController` copies into the cookie principal at sign-in (`FirebaseClaimsBuilder`).
 - **Gotcha:** `AddJwtBearer` sets `MapInboundClaims = false`, otherwise the handler renames short JWT claim names to legacy `ClaimTypes.*` URIs and `RequireClaim("role", ...)` never matches.
   A new custom claim is checked against this.
-- **Free preview tier:** an account with no `role` claim gets movies and TV shows only, capped at `Features:FreeTierItemLimit` per collection (default 20, `AppConfiguration.GetFreeTierItemLimit`), episodes at 100x that (`EpisodeController.FreeTierLimitFactor`, only to stop a raw-API caller flooding the database).
+- **Free preview tier:** an account with no `role` claim gets movies and TV shows only, capped at `Features:FreeTierItemLimit` per collection (default 20, `AppConfiguration.GetFreeTierItemLimit`),
+  episodes at 100x that (`EpisodeController.FreeTierLimitFactor`, only to stop a raw-API caller flooding the database).
   Enforcement is API-side: `[Authorize(Policy = "MemberOnly")]` on every restricted controller plus the creation quota in `DataCrudControllerBase.Post` (403 with `{ error }`).
   `NavMenu.razor` hiding sections is UX, never security, and `FreeTierTest` carries a reflection guard asserting each controller's expected policy.
 - **Runtime-changeable global admin settings** live in one `app_setting` document (`_id: "global"`, one field per setting) via `IAppSettingRepository`, written with a targeted `$set`.
@@ -358,7 +372,8 @@ Queries use `Builders.Filter.ElemMatch` so every condition holds on the *same* e
 - `Creator` always comes from the canonical provider response, never from tenant text, and `Isbn` is recorded only on the alias that used it.
 - Indexes follow each domain's lookup (`title`+`year`, `title`+`creator`+`year`, `title`+`creator`, partial `matched_aliases.isbn`), or the `ElemMatch` scans the collection.
 
-**The title-only lookup refuses to choose: `FindByTitleAsync` returns a match only when there is exactly one** (`ReferenceAliasQueries.FindSingleMatchAsync`), since ambiguous and no-match are the same answer to a caller that must not guess.
+**The title-only lookup refuses to choose: `FindByTitleAsync` returns a match only when there is exactly one** (`ReferenceAliasQueries.FindSingleMatchAsync`),
+since ambiguous and no-match are the same answer to a caller that must not guess.
 Not applied to `FindByTitleYearAsync` or to the album lookup, where two documents sharing the whole identity are a duplicate to merge.
 
 #### Resolution and confirmation
@@ -366,7 +381,8 @@ Not applied to `FindByTitleYearAsync` or to the album lookup, where two document
 `Resolve<X>Async` looks up an existing reference **by provider id first** (`FindByExternalIdAsync`), then by the domain's identity, since title text can't prevent duplicates and the provider id is invariant.
 
 External-id indexes are `unique: true` with `partialFilterExpression: { "external_ids.<key>": { $exists: true } }` (not `sparse`, so documents missing the key don't collide on null).
-There is **one index per provider that can write a collection**, since a document holds ids from several: books cover `googlebooks`/`openlibrary`/`bnf`, and `person_reference` covers `tmdb`/`discogs`/`googlebooks`/`openlibrary`/`bnf` (`ResolvePersonReferenceIdAsync` is handed the linking client's `ProviderKey`).
+There is **one index per provider that can write a collection**, since a document holds ids from several: books cover `googlebooks`/`openlibrary`/`bnf`,
+and `person_reference` covers `tmdb`/`discogs`/`googlebooks`/`openlibrary`/`bnf` (`ResolvePersonReferenceIdAsync` is handed the linking client's `ProviderKey`).
 
 `TryLinkExisting<X>ReferenceAsync` backs `POST /api/<collection>/{id}/refresh-reference`, the "check for reference match" control shown on every detail page to every authenticated user.
 
@@ -386,7 +402,8 @@ Row counting refuses ordinary titles (TMDB's fuzzy `The Bear` + 2022 returns 8 r
 - **An identity field is mandatory for any automatic link** (owner's rule): a year for films, shows and games, a creator for books and albums.
   Without it the item waits for "check for reference match".
 - Candidates must agree with the creator the tenant supplied, not with each other ("J.R.R. Tolkien" and "John Ronald Reuel Tolkien" are one author).
-- **An exactly-spelled title beats a loosely-matched one**: `NormalizeLoose` drops "the" and parenthesised groups, so the loose tier is used only when nothing matches exactly (`Alien` must not link *The Alien*, `Shogun` still links *Shōgun*).
+- **An exactly-spelled title beats a loosely-matched one**: `NormalizeLoose` drops "the" and parenthesised groups,
+  so the loose tier is used only when nothing matches exactly (`Alien` must not link *The Alien*, `Shogun` still links *Shōgun*).
 - **A hard year filter is never the only query asked.**
   TMDB TV's `first_air_date_year` and Discogs' `year` are hard, so those searches run with and without it and union the results.
   TMDB movie's `year` is not hard, so movies are ranked and never widened.
@@ -398,7 +415,8 @@ Row counting refuses ordinary titles (TMDB's fuzzy `The Bear` + 2022 returns 8 r
 
 **IGDB** is a plain typed `HttpClient` with three differences handled around it.
 
-- It authenticates with a **Twitch app access token**: `IgdbTokenProvider` caches one per process (a token is not a shared quota, unlike OMDb's budget), and `IgdbAuthenticationHandler` attaches `Client-ID` plus bearer and retries **once** on a 401 with a fresh token.
+- It authenticates with a **Twitch app access token**: `IgdbTokenProvider` caches one per process (a token is not a shared quota, unlike OMDb's budget),
+  and `IgdbAuthenticationHandler` attaches `Client-ID` plus bearer and retries **once** on a 401 with a fresh token.
   The renewal margin is capped at half the token's lifetime, or every call would fetch a new token.
 - It allows **4 requests/second**, paced by a `TokenBucketRateLimiter` in a singleton (`IgdbRateLimiter`), since `IHttpClientFactory` rebuilds handlers on rotation.
 - Queries are **Apicalypse POST bodies**, so a tenant title is escaped before being embedded in a string literal.
@@ -413,14 +431,17 @@ Row counting refuses ordinary titles (TMDB's fuzzy `The Bear` + 2022 returns 8 r
 **Open Library** never sends `year` as a filter (`first_publish_year` is the work's original year), and searches `q=` rather than `title=`, which misses regional variants.
 `GetBookDetailsAsync` falls back to a `q=key:{workKey}` re-query when the work JSON lacks `first_publish_date`.
 It exposes no reliable series, so `BookModel.Series` is not auto-filled.
-Its search is the slowest endpoint here (tens of seconds, and 503s), so **the cross-provider rating fallback is guarded**: `AddOpenLibraryRatingFallbackAsync` catches everything but `OperationCanceledException` and keeps the previously stored rating when the lookup never answered.
+Its search is the slowest endpoint here (tens of seconds, and 503s), so **the cross-provider rating fallback is guarded**: `AddOpenLibraryRatingFallbackAsync` catches everything
+but `OperationCanceledException` and keeps the previously stored rating when the lookup never answered.
 An optional secondary provider never fails the primary operation.
 
 **An optional narrowing parameter never silently zeroes out results a broader search would find.**
-`DiscogsClient` and `OpenLibraryClient` retry without the artist/author when the constrained search is empty (Discogs indexes "Artist (2)"), and `DiscogsClient` asks with and without `year=` and unions them (`Kid A` + Radiohead + 2001 returns only *Amnesiac*).
+`DiscogsClient` and `OpenLibraryClient` retry without the artist/author when the constrained search is empty (Discogs indexes "Artist (2)"),
+and `DiscogsClient` asks with and without `year=` and unions them (`Kid A` + Radiohead + 2001 returns only *Amnesiac*).
 
 **A provider's free-text `q=` is not a title field.**
-Discogs' `q=` also matches artist, label, credits and tracklist, so `SearchAlbumsCoreAsync` drops candidates whose parsed release title fails `TitleNormalizer.LooselyContains`, inside the core search so the artist retry still sees "nothing".
+Discogs' `q=` also matches artist, label, credits and tracklist, so `SearchAlbumsCoreAsync` drops candidates whose parsed release title fails `TitleNormalizer.LooselyContains`,
+inside the core search so the artist retry still sees "nothing".
 `release_title=` is precise but ranks badly (`Nevermind` + Nirvana puts the 1991 album fourth), hence filtering.
 Open Library's `q=` has the same noise and is deliberately **not** filtered: read `docs/findings/by-design-and-gaps.md` before changing that.
 
@@ -429,7 +450,8 @@ It is the one XML/SRU client, its `ExternalId` is the bare ARK, `dc:creator` "La
 
 **Google Books** is the book default (synopses, covers, language, widest catalogue including manga), querying `intitle:`/`inauthor:`, with an `isbn` as the sole query when given.
 Its `volumes?q=` endpoint can be down for days while `volumes/{id}` answers, so a "book search is broken" report is diagnosed by curling the endpoint.
-`CleanDescription` decodes entities **first**, converts newlines to `<br/>`, then rebuilds only bare `b`/`i`/`br` tags and strips everything else, which is what makes `BookDetail.razor`'s `MarkupString` safe: **a `MarkupString` is never rendered from text that hasn't been through it.**
+`CleanDescription` decodes entities **first**, converts newlines to `<br/>`, then rebuilds only bare `b`/`i`/`br` tags and strips everything else, which is what makes `BookDetail.razor`'s `MarkupString` safe:
+**a `MarkupString` is never rendered from text that hasn't been through it.**
 Thumbnails are upgraded to `https://` against mixed-content blocking.
 
 #### Search policies
@@ -457,7 +479,8 @@ No video game client sends the year as a filter, so a wrong year costs a place i
 
 **`TryAutoResolveVideoGameAsync` links a single *confirmed* match and requires a year**, and this domain has **no** title-only local fallback (IGDB holds eight games named "Resident Evil 2", three from 1998).
 
-`VideoGameReferenceMatchSmokeTest` covers the journey through the real UI and real IGDB, and deletes every reference it creates (`End2EndFixture.RemoveVideoGameReferencesAsync`), since a leftover lets the local lookup answer and hides a broken escalation.
+`VideoGameReferenceMatchSmokeTest` covers the journey through the real UI and real IGDB, and deletes every reference it creates (`End2EndFixture.RemoveVideoGameReferencesAsync`),
+since a leftover lets the local lookup answer and hides a broken escalation.
 Every regression of this domain is in `docs/findings/video-game-matching.md`.
 
 TV, movie and album stay hard-wired to TMDB and Discogs (provider-named DTOs and keys on purpose, swapping one is a redesign rather than config).
@@ -474,7 +497,8 @@ It requires exactly one candidate whose title matches the reference's with a com
 
 - **Failed adoption breaks Explore**: its exclusion asks each linked reference for the discovery provider's id, so an unadopted reference is a tracked game that keeps being suggested.
 - `FindAdoptionCandidatesAsync` runs a ladder, widening when nothing **matched** (not when nothing came back, since a relevance search answers with unrelated results), accumulating candidates across rungs:
-  exact title (`where name ~ "..."`), the same with `TitleNormalizer.StripDisambiguator` (RAWG's `GoldenEye 007 (1997)`), `TitleNormalizer.ToProviderQuery` (`NieR Automata` finds what `NieR:Automata` does not), trailing words dropped (`MaxTruncatedQueries` = 3, never below `MinTruncatedQueryWords` = 2), and finally every word as a substring (`FindGamesContainingAllWordsAsync`), shortlisted to the eight closest titles.
+  exact title (`where name ~ "..."`), the same with `TitleNormalizer.StripDisambiguator` (RAWG's `GoldenEye 007 (1997)`), `TitleNormalizer.ToProviderQuery` (`NieR Automata` finds what `NieR:Automata` does not),
+  trailing words dropped (`MaxTruncatedQueries` = 3, never below `MinTruncatedQueryWords` = 2), and finally every word as a substring (`FindGamesContainingAllWordsAsync`), shortlisted to the eight closest titles.
 - Confirmation is always against the **reference's** title with `NormalizeLoose`, never against the query that found the candidate.
   `Normalize` stays strict because it keys stored aliases against tenant text.
 - `Marvel's Avengers` is deliberately not adopted unattended: a rule equating it with `Marvel Avengers` would equate `The Sim` with `The Sims`.
@@ -484,7 +508,8 @@ It requires exactly one candidate whose title matches the reference's with a com
 
 - The gap list and duplicate groups are database reads (`FindWithoutExternalIdAsync`, `Exists(..., false)`), and candidates are fetched per row on demand.
 - A row can be searched with admin text or a pasted provider URL or numeric id (`FindGameByIdentifierAsync`); `ProviderWebLinks.TryReadIdentifier` treats nothing else as an address, since `Half-Life` looks like a slug.
-- `AdoptVideoGameProviderIdAsync` writes the id onto the **existing** document then reuses `RefreshVideoGameReferenceAsync`, never `ResolveVideoGameAsync`, which could mint a second document, and refuses when another document claims the id, naming it.
+- `AdoptVideoGameProviderIdAsync` writes the id onto the **existing** document then reuses `RefreshVideoGameReferenceAsync`, never `ResolveVideoGameAsync`,
+  which could mint a second document, and refuses when another document claims the id, naming it.
 - `MergeVideoGameReferencesAsync` fills the survivor's gaps, re-points every tenant item (`RepointReferenceAsync`), then deletes the absorbed document.
   `MergedImageUrl` is computed **before** the ids are unioned, since "is this a RAWG image" is "does this document carry a rawg id".
 
@@ -506,12 +531,14 @@ A source key is not a provider, so `rawg` and `metacritic` stay declared while s
 - **A tenant item's denormalized rating carries its source** (`ReferenceRatingSource` next to `ReferenceRating`/`ReferenceRatingScale`), written by every path that writes the value, even when that source has no value.
 - **`recompute` opens with `CountLinkedOnOtherRatingSourceAsync`** and returns `(0, 0)` without reading references when nothing differs; an unstamped item counts as different, so the first run backfills.
   It is not a value-drift repair, which is the sync's job.
-- **A batch is one projected read and one bulk write** (`RecomputeBatchSize` = 500): `FindRatingsAsync(afterId, limit)` pages by `_id`, and `SetReferenceRatingsAsync` writes one unordered `BulkWrite` of `UpdateMany`, shared in `ReferenceRatingQueries.cs` over `IHasReferenceRating`.
+- **A batch is one projected read and one bulk write** (`RecomputeBatchSize` = 500):
+  `FindRatingsAsync(afterId, limit)` pages by `_id`, and `SetReferenceRatingsAsync` writes one unordered `BulkWrite` of `UpdateMany`, shared in `ReferenceRatingQueries.cs` over `IHasReferenceRating`.
 - Books have no selectable source: `BookPrimaryRating` reads whichever key the reference stores, which is why the source is nullable end-to-end.
 
 **OMDb** supplies IMDb ratings keyed by the IMDb id TMDB exposes, optional (`OmdbSettings.ApiKey` nullable).
 
-- **The free tier is 1000 calls/day, so every call goes through `OmdbCallBudget`**: one shared document per (provider, UTC day) in `provider_quota` (TTL 7 days), reserved **before** the call with an atomic filtered upsert, so an over-count is possible and an under-count is not.
+- **The free tier is 1000 calls/day, so every call goes through `OmdbCallBudget`**: one shared document per (provider, UTC day) in `provider_quota` (TTL 7 days), reserved **before** the call with an atomic filtered upsert,
+   so an over-count is possible and an under-count is not.
   `Omdb:DailyCallBudget` (1000) and `Omdb:InteractiveReserve` (50): `Background` stops short of the reserve, so a user's action is never left unrated.
 - **`OmdbClient` never throws for anything OMDb or the network can do**, returning an `OmdbLookupResult`, and both 401s (limit reached, rejected key) mark the day spent.
 - **`OmdbLookupResult.Attempted` decides stamping**: "answered with nothing" is recorded, "never asked" leaves no stamp.
@@ -546,7 +573,8 @@ The two differ only by the staleness windows, declared once in `ReferenceSyncWin
 `sync-now?force=true` rechecks everything, and without it runs exactly the background tick.
 One failing document never aborts the run, and one generic loop covers five one-line domain arms (`SyncDomainAsync`).
 
-**`I<X>ReferenceRepository.FindStaleAsync(cutoff, limit)` picks and orders the work** (`ReferenceStalenessQueries.cs`): never-enriched first, then least-recently-enriched, capped at `MaxDocumentsPerDomainPerPass` (500), so what a pass misses leads the next one.
+**`I<X>ReferenceRepository.FindStaleAsync(cutoff, limit)` picks and orders the work** (`ReferenceStalenessQueries.cs`):
+never-enriched first, then least-recently-enriched, capped at `MaxDocumentsPerDomainPerPass` (500), so what a pass misses leads the next one.
 
 **Gotcha: "never enriched" cannot come from the date comparison**, since `Lte(LastEnrichedAt, cutoff)` matches neither null nor missing.
 `Eq(field, null)` matches both and BSON sorts null first, proven only by the real-Mongo `ReferenceStalenessRepositoryTest`; `last_enriched_at` is indexed on all five collections.
@@ -554,7 +582,8 @@ One failing document never aborts the run, and one generic loop covers five one-
 TV and movie refreshes pre-check TMDB's `/changes?start_date=...` and only bump `LastEnrichedAt` when nothing changed.
 IGDB, RAWG, Discogs and the book providers have no equivalent, so they always full-fetch past the cutoff.
 
-**Gotcha:** the service only works when `Features:IsReferenceSyncEnabled` (default `true`, read every tick), which `KestrelWebAppFactory` sets `false` through `ConfigureAppConfiguration` (`UseSetting` doesn't work with a top-level-statement `Program.cs`).
+**Gotcha:** the service only works when `Features:IsReferenceSyncEnabled` (default `true`, read every tick),
+which `KestrelWebAppFactory` sets `false` through `ConfigureAppConfiguration` (`UseSetting` doesn't work with a top-level-statement `Program.cs`).
 **Every integration fixture uses `KestrelWebAppFactory<Program>`** to inherit that, or it fires real TMDB calls.
 
 ### TV Time import
@@ -566,20 +595,23 @@ All of the following is confirmed against real export data.
 - `followed_tv_show.csv` is incomplete too, so `ImportEpisodesAsync` creates shows from watch events and never skips an unfollowed show.
 - Movies carry watch dates in `tracking-prod-records.csv` (`entity_type == "movie"`: watch, towatch when unwatched, follow), and `-v2.csv` has no movie data.
 - **Idempotency is by stable id, never by title**, since enrichment rewrites `Title`.
-  Imported items carry `TvTimeId` (`IHasTvTimeId`, round-tripped on edits): TV Time's show id or the movie's tracking `uuid`, else a deterministic `tvtime_title:<normalized export title>` via `ResolveTvTimeId`, with `BuildIdByTitle` mapping title-only files onto the id-bearing ones.
+  Imported items carry `TvTimeId` (`IHasTvTimeId`, round-tripped on edits): TV Time's show id or the movie's tracking `uuid`, else a deterministic `tvtime_title:<normalized export title>` via `ResolveTvTimeId`,
+  with `BuildIdByTitle` mapping title-only files onto the id-bearing ones.
 - `UpsertIndex<TModel>` matches by `TvTimeId`, falls back to title only for a record with no id yet (back-filled once by `BackfillTvTimeIdAsync`), and leaves a record with a different id alone.
 - **A matched record is never modified**, so edits made in the app survive a re-import.
 - **Gotcha:** a CSV property missing from some files' headers needs CsvHelper's `[Optional]` on top of being nullable, or header validation throws.
 
 ### Watch Next
 
-`WatchNextService.ComputeInProgressShows(shows, episodes, referencesByShowId)` reports a show only when its `State` is `TvShowStatus.Current` **and** the reference's episode list has an entry after the last one watched, compared by `(SeasonNumber, EpisodeNumber)`, whose `AirDate` is past or unset.
+`WatchNextService.ComputeInProgressShows(shows, episodes, referencesByShowId)` reports a show only when its `State` is `TvShowStatus.Current` **and** the reference's episode list has an entry after the last one watched,
+compared by `(SeasonNumber, EpisodeNumber)`, whose `AirDate` is past or unset.
 A show with no reference is excluded rather than guessed at, and `InProgressShowDto.Next*` reports that confirmed next episode.
 
 `FilterMoviesToWatch` excludes a movie once `FirstSeenAt` is set even if `WantToWatch` is still true, since the flag can go stale.
 **`WantToWatch` is movie-only**: a "shows to start" surface would be a real Watch Next section, not a flag.
 
-`TvShowDetail.razor`'s episode checklist hides episodes not yet aired, and is a full watch-through checklist once the show has a `ReferenceId` (checking creates an `Episode`, unchecking deletes it), falling back to recorded episodes plus a manual add form without one.
+`TvShowDetail.razor`'s episode checklist hides episodes not yet aired, and is a full watch-through checklist once the show has a `ReferenceId` (checking creates an `Episode`, unchecking deletes it),
+falling back to recorded episodes plus a manual add form without one.
 
 ### Explore (discovery)
 
@@ -602,7 +634,8 @@ A show with no reference is excluded rather than guessed at, and `InProgressShow
 - **Gotcha:** a plain average ranks a single-vote title above every classic, so IGDB uses a vote floor (`MinUserRatingCount`/`MinCriticRatingCount`) as its only filter, and RAWG constrained `metacritic={MinMetacritic},100` server-side.
   Never filter client-side: the paging loop stops on an empty page.
 - Explore deliberately does not restrict IGDB to main games: a well-reviewed DLC or remaster is a legitimate suggestion.
-- **The "already have it" exclusion needs both halves**: by provider id (`FindLinkedReferenceIdsAsync` to `FindExternalIdsAsync`, a projected read) and by title (`FindDistinctTitlesAsync` with `NormalizeLoose`, since the linking and discovery providers spell titles differently).
+- **The "already have it" exclusion needs both halves**: by provider id (`FindLinkedReferenceIdsAsync` to `FindExternalIdsAsync`, a projected read) and by title (`FindDistinctTitlesAsync` with `NormalizeLoose`,
+  since the linking and discovery providers spell titles differently).
   Both are only as good as adoption, and `ExploreExclusionQueries` implements them once over `IExploreSourceRepository`.
 - `explore_dismissal` is keyed `{owner_id, item_type, external_source, external_id}` on the **discovery** provider's id (`ExploreRankings.DiscoverySource`), since TMDB and RAWG ids are both plain integers.
 - **Adding goes through `POST /api/explore/{type}/add/{externalId}`**: it creates the item then awaits `Resolve*Async` with the exact provider id, and enforces the free-tier quota via `FreeTierQuota.CheckAsync`.
@@ -633,7 +666,8 @@ The title sort attaches a per-query `Collation` ("en", strength 2).
 
 - **Gotcha:** MongoDB rejects a collation with a `$text` filter, safe only because every `GetFilter` searches with regex `Contains`, so a `$text` repository must gate the collation.
 - `InventoryList`'s search box keeps a local copy of the text so a racing re-render can't revert characters, and adopts an external `Search` only when it didn't originate there (`OnParametersSet`).
-- **`SuggestInput`'s menu survives the blur its own click causes** (`@onmousedown:preventDefault` on item and menu, plus `_menuMouseDown`): Blazor Server runs the `focusout` handler to completion before the click is dispatched, which no `Task.Delay` fixes.
+- **`SuggestInput`'s menu survives the blur its own click causes** (`@onmousedown:preventDefault` on item and menu, plus `_menuMouseDown`):
+  Blazor Server runs the `focusout` handler to completion before the click is dispatched, which no `Task.Delay` fixes.
 - **Typing highlights a match immediately** (`DefaultActiveIndex`, the ARIA combobox automatic selection), so Enter completes; an empty field highlights nothing.
 - **Enter takes the highlight, Tab only one reached with the arrow keys**, since completing on Tab turns "Dr Kim" into "Dr Kimura"; Escape drops the highlight, and there is no `preventDefault` on keydown.
 
@@ -654,7 +688,8 @@ It stops at the first save (`MarkEdited`, called before the PUT), and discards a
 ### Missing pages and missing items: 404, never the error page
 
 `Components/Pages/NotFound.razor` is reached by `UseStatusCodePagesWithReExecute("/not-found")` on a full page load, by the Router's `NotFoundPage` in-circuit, and by `NavigationManager.NotFound()`.
-It carries `[ExcludeFromInteractiveRouting]` so it renders statically with the `HttpContext` available and opens no circuit, reads the original status from `IStatusCodeReExecuteFeature` (relabelling below 400 as 404), and has no `[Authorize]`, which would reveal the page exists.
+It carries `[ExcludeFromInteractiveRouting]` so it renders statically with the `HttpContext` available and opens no circuit, reads the original status from `IStatusCodeReExecuteFeature` (relabelling below 400 as 404),
+and has no `[Authorize]`, which would reveal the page exists.
 
 A missing *item* is a 404 at every layer:
 
@@ -681,7 +716,8 @@ Nav rows sit under three `.kt-nav-group` labels, and **Manage** is inside the `M
 **A media detail page's hero is `DetailHero.razor`**: cover left at 230px portrait or 260px square, fields right, stacking below 767px with the cover capped, and no cover meaning a single column.
 Video games (`.kt-game-banner`) and Gear/Collectibles (`.kt-product-cover-box`, "contain") deliberately stay out of it.
 
-**A video game's artwork is a full-width `aspect-ratio: 16 / 9` banner with `object-fit: cover`**, because 95% of stored references carry RAWG's 16:9 key art (count before redesigning around an aspect ratio: `db.videogame_reference.find({}, {image_url: 1})` grouped by host).
+**A video game's artwork is a full-width `aspect-ratio: 16 / 9` banner with `object-fit: cover`**, because 95% of stored references carry RAWG's 16:9 key art (count before redesigning around an aspect ratio:
+`db.videogame_reference.find({}, {image_url: 1})` grouped by host).
 Portrait covers are cropped hard on purpose, biased upward by `object-position: center 40%` since box art carries its title at the top.
 The banner is not wrapped in a card (owner feedback), and the page sits in a 920px `.kt-game-page` column so artwork, fields and platform cards share one width.
 
@@ -697,7 +733,8 @@ It is a `<button>` with `aria-pressed`, and its radius is the card's inner radiu
 - `test/WebApi.IntegrationTests`: a real Kestrel host (`KestrelWebAppFactory<Program>`) against real MongoDB.
   `ResourceTestBase` gives typed HTTP helpers, `Authenticate()` (a real Firebase bearer) and `AuthenticatedUserId`.
   `TvTimeFixtureZipBuilder` builds a synthetic export in memory, a real personal export is never committed.
-  **A test whose subject is a live provider calls it through `GetThroughLiveProviderAsync`/`PostNoContentThroughLiveProviderAsync`**, which skip on a 502 and never on anything wider, as in `BookProviderSearchAndLinkResourceTest`'s `[Theory]` over several providers.
+  **A test whose subject is a live provider calls it through `GetThroughLiveProviderAsync`/`PostNoContentThroughLiveProviderAsync`**, which skip on a 502 and never on anything wider,
+  as in `BookProviderSearchAndLinkResourceTest`'s `[Theory]` over several providers.
 - `test/Testing.Shared`: hosting and Firebase infrastructure for both suites, `KestrelWebAppFactory<TEntryPoint>` taking its env-var name and overrides as constructor parameters.
 - `test/BlazorApp.PlaywrightTests`: Playwright e2e (`Microsoft.Playwright.Xunit.v3`'s `PageTest`), self-skipping unless `E2E_ENABLED=true`.
   `E2eFixture` (`[AssemblyFixture]`) hosts both apps, signs in once and seeds a synthetic book reference.
@@ -707,16 +744,19 @@ It is a `<button>` with `aria-pressed`, and its radius is the card's inner radiu
 - Assertions use `AwesomeAssertions`, data via `Bogus`.
 
 **`ExploreSmokeTest` seeds `explore_catalogue` directly** (`End2EndFixture.SeedExploreCatalogueAsync`, self-hosted only), since the e2e host never runs the refresh.
-It seeds every ranking `ExploreRankings.Rankings` declares for a domain (the one read follows a stored admin setting), uses real provider ids only for the two `Add` cases (TMDB 278, IGDB 72), and its `[Theory]`s cover movies and video games, which differ in tab gating, ranking and id space.
+It seeds every ranking `ExploreRankings.Rankings` declares for a domain (the one read follows a stored admin setting), uses real provider ids only for the two `Add` cases (TMDB 278, IGDB 72),
+and its `[Theory]`s cover movies and video games, which differ in tab gating, ranking and id space.
 
 **Gotcha: a smoke test stays in the default list view**, since `ItemGridCard`'s `stretched-link` anchor has no size and Playwright refuses to click it.
 
-**`PageBase.WaitForReadyAsync` reloads once and re-asserts** (`ExpectWithReloadAsync`, also behind `ListPage.ExpectRowThumbnailAsync`): enhanced navigation can change the URL without ever swapping the content, and a list can render before a detail page's server-side PUT lands.
+**`PageBase.WaitForReadyAsync` reloads once and re-asserts** (`ExpectWithReloadAsync`, also behind `ListPage.ExpectRowThumbnailAsync`): enhanced navigation can change the URL without ever swapping the content,
+and a list can render before a detail page's server-side PUT lands.
 The reload only runs after a failed assertion, and firing often is the signal to re-investigate rather than raise a timeout.
 
 `MobileScreenshotTest` is an assertion-free visual harness behind `E2E_MOBILE_CHECK=true`.
 
-**A failing test's evidence is in `test/BlazorApp.PlaywrightTests/bin/<config>/net10.0/e2e-diagnostics`**, written by `SmokeTestBase.DisposeAsync` for every context the test opened, so a test needing a clean browser calls `SmokeTestBase.NewAnonymousPageAsync`.
+**A failing test's evidence is in `test/BlazorApp.PlaywrightTests/bin/<config>/net10.0/e2e-diagnostics`**, written by `SmokeTestBase.DisposeAsync` for every context the test opened,
+so a test needing a clean browser calls `SmokeTestBase.NewAnonymousPageAsync`.
 Capturing never throws.
 
 ### Which database a suite writes to, and leaving it as it was found
@@ -724,7 +764,8 @@ Capturing never throws.
 The integration and Playwright suites run against a real, long-lived MongoDB, with no throwaway database per test.
 
 **Each suite settles its own database, never `keeptrack_dev`.**
-`IntegrationTestDatabase.Name` (`keeptrack_integrationtests`) and `End2EndConfiguration.DatabaseName` (`keeptrack_e2e`) resolve it (overridable by `Infrastructure__MongoDB__DatabaseName` and `E2E_MONGODB_DATABASE` respectively) and push it into the host configuration, since otherwise the in-process `Development` host falls back to `appsettings.Development.json`.
+`IntegrationTestDatabase.Name` (`keeptrack_integrationtests`) and `End2EndConfiguration.DatabaseName` (`keeptrack_e2e`) resolve it (overridable by `Infrastructure__MongoDB__DatabaseName` and `E2E_MONGODB_DATABASE` respectively)
+and push it into the host configuration, since otherwise the in-process `Development` host falls back to `appsettings.Development.json`.
 `TestDatabaseGuard.EnsureTestDatabaseName` refuses a name containing `dev`/`prod`/`staging`/`preprod`.
 Defaults rather than requirements, because an IDE sets test variables once for the whole solution.
 
@@ -747,7 +788,8 @@ Deleting a TV show cascades to its episodes.
 
 **A document with no list page is the easiest to leak**: `explore_dismissal` appears in no UI, so tests register the undo (`DELETE /api/explore/{type}/dismiss/{externalId}`) as they dismiss.
 
-**A test that starts a background job must not let it do real work**: the `sync-now` tests use `ProviderlessWebAppFactory` (every provider credential blanked), except the opt-in `ReferenceSyncPollingResourceTest` (`REFERENCE_SYNC_POLL_ENABLED`).
+**A test that starts a background job must not let it do real work**: the `sync-now` tests use `ProviderlessWebAppFactory` (every provider credential blanked),
+except the opt-in `ReferenceSyncPollingResourceTest` (`REFERENCE_SYNC_POLL_ENABLED`).
 `ServerDerivedDataSweep` (`[assembly: AssemblyFixture]`) empties `explore_catalogue` and `lease` after the run, never `provider_quota`, the ledger of OMDb calls really spent.
 
 ## Code style
@@ -768,9 +810,11 @@ The owner has zero tolerance for bad design or duplicated algorithms, for new an
 
 - **No duplicated algorithms or logic.**
   Duplicated data *shapes* (Model, Entity and Dto) are expected, duplicated logic over them is not.
-  Shared behavior belongs in a base class or shared method, following `DataCrudControllerBase<TDto, TModel>`, `MongoDbRepositoryBase<TModel, TEntity>`, `InventoryPageBase<TDto>`, `ReferenceLinkedDetailPageBase`, `JournalDetailPageBase`, `OwnedItemImportCommitCoordinator`, `ChartAxes`.
+  Shared behavior belongs in a base class or shared method, following `DataCrudControllerBase<TDto, TModel>`, `MongoDbRepositoryBase<TModel, TEntity>`, `InventoryPageBase<TDto>`, `ReferenceLinkedDetailPageBase`,
+  `JournalDetailPageBase`, `OwnedItemImportCommitCoordinator`, `ChartAxes`.
 - **Every non-trivial piece of logic needs a test**, especially per-type overrides like `GetFilter`, where bugs have historically hidden.
 - **Don't guess when the information isn't there**: resolution, imports and Watch Next leave something unresolved rather than ship a confident wrong answer.
 - **A mocked-repository test cannot prove MongoDB semantics**: filters, collation, null storage and indexes need a real-MongoDB integration test.
 - Current best practice for the library and framework version in use is verified before proposing a fix.
-- Past findings are in `docs/findings/` (index in `docs/findings/README.md`): read when a specific question is open, checked before re-reporting anything (especially `by-design-and-gaps.md`), and extended in the file a new finding's subject belongs to.
+- Past findings are in `docs/findings/` (index in `docs/findings/README.md`): read when a specific question is open, checked before re-reporting anything (especially `by-design-and-gaps.md`),
+  and extended in the file a new finding's subject belongs to.

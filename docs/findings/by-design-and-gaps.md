@@ -23,20 +23,25 @@ Track and prioritize separately.
 
 ### Open Library's book search has the same free-text noise as Discogs had, and is deliberately left alone (decided 2026-08-05 - read this before "fixing" it)
 
-`OpenLibraryClient.SearchByTitleAsync` queries `q=` for the same documented reason Discogs did (relevance across alternate and regional titles, which the field-scoped `title=` misses entirely - see the method's own remarks), and it has the same consequence.
-Confirmed against the real API while investigating the album finding above: `q=Dune&author=Frank Herbert` returns "House Corrino" among the top hits, and `q=Sabbath` returns "Iron man" by Tony Iommi - matches on description and subject text, not on the title.
+`OpenLibraryClient.SearchByTitleAsync` queries `q=` for the same documented reason Discogs did (relevance across alternate and regional titles, which the field-scoped `title=` misses entirely), and it has the same consequence.
+Confirmed against the real API while investigating the album finding above:
+`q=Dune&author=Frank Herbert` returns "House Corrino" among the top hits, and `q=Sabbath` returns "Iron man" by Tony Iommi - matches on description and subject text, not on the title.
 The `TitleNormalizer.LooselyContains` filter written for `DiscogsClient` would apply unchanged.
 
 **It was deliberately not applied**, at the owner's call, and the reason is specific rather than general caution.
-Book search is the one domain with a multi-provider ladder rather than a single query: `BookReferenceClientBase` tries the ISBN alone, then title+author, then title alone, widening only on an **empty** step, across three providers with different catalogues and different failure modes.
-Recent work made that ladder reliable through a full Google Books search outage (see "A book search by ISBN had no fallback when Google Books was down" above), and a filter that can empty a step changes which rung the ladder lands on - so it is not a local change to one client the way it is for Discogs, whose search is one query with one widening retry.
+Book search is the one domain with a multi-provider ladder rather than a single query:
+`BookReferenceClientBase` tries the ISBN alone, then title+author, then title alone, widening only on an **empty** step, across three providers with different catalogues and different failure modes.
+Recent work made that ladder reliable through a full Google Books search outage (see "A book search by ISBN had no fallback when Google Books was down" above), and a filter that can empty a step changes which rung the ladder lands on,
+so it is not a local change to one client the way it is for Discogs, whose search is one query with one widening retry.
 
-If it is picked up later: the filter belongs inside each provider's own `SearchByTitleAsync`, never around `BookReferenceClientBase`'s ladder (a filtered-to-empty step must widen, not abort), it must not touch the ISBN rung at all (an exact identifier can legitimately resolve an edition whose title text differs from what the tenant typed), and it needs coverage proving the outage-era ISBN fallback still behaves.
+If it is picked up later: the filter belongs inside each provider's own `SearchByTitleAsync`, never around `BookReferenceClientBase`'s ladder (a filtered-to-empty step must widen, not abort),
+it must not touch the ISBN rung at all (an exact identifier can legitimately resolve an edition whose title text differs from what the tenant typed), and it needs coverage proving the outage-era ISBN fallback still behaves.
 Google Books (`intitle:`) and BnF (`bib.title`) query title-scoped fields already, so only Open Library is affected.
 
 ### `CancellationToken` propagation is partial
 
-Wired end to end for the generic CRUD surface: `IDataRepository<TModel>`/`MongoDbRepositoryBase`, `DataCrudControllerBase`'s five actions, `InventoryApiClientBase`, the four parent-cascade deletes, and the Car/House/HealthProfile/TvShow metrics and suggestion actions.
+Wired end to end for the generic CRUD surface: `IDataRepository<TModel>`/`MongoDbRepositoryBase`, `DataCrudControllerBase`'s five actions, `InventoryApiClientBase`, the four parent-cascade deletes,
+and the Car/House/HealthProfile/TvShow metrics and suggestion actions.
 `CancellationTokenPropagationTest` proves a cancelled token actually aborts a real MongoDB call.
 `OnCreatedAsync` deliberately takes none: it starts detached background enrichment, which the request that started it must never cancel.
 

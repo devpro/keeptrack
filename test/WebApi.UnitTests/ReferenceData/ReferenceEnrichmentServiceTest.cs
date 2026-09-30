@@ -8,16 +8,15 @@ using AwesomeAssertions;
 using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
+using Keeptrack.Domain.Services;
 using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.ReferenceData;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Xunit;
-
 // the recompute's bulk re-stamp payload; aliased so those tests read as assertions rather than as type noise
 using RatingUpdateBatch = System.Collections.Generic.IReadOnlyList<(string ReferenceId, double? Rating, double? RatingScale, string? Source)>;
 using ReferenceRatingsPage = System.Collections.Generic.IReadOnlyList<(string Id, System.Collections.Generic.Dictionary<string, Keeptrack.Domain.Models.ReferenceRatingModel> Ratings)>;
-using Keeptrack.Domain.Services;
 
 namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 

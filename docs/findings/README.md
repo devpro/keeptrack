@@ -1,7 +1,6 @@
 # Code quality findings
 
-Findings from the code review opened on 2026-07-06 against current .NET and MongoDB best practices, and from every review since.
-Each one records what went wrong, how it was proven, and what was changed, so a later review does not re-report it and a later change does not undo it.
+The why behind a design and its known gotchas, in more detail than `AGENTS.md` holds, so a later review does not re-report it and a later change does not undo it.
 `AGENTS.md` states the rule each finding produced and links here for the evidence, so a file below is read when a specific question is open, never as background.
 
 A finding is classified as a confirmed bug (all of which are now fixed), a confirmed by-design behaviour, or a known gap that is not yet implemented.
@@ -19,11 +18,12 @@ The alias key, the confirmation rules, and the link surviving an edit.
 
 ## [Video game matching](video-game-matching.md)
 
-The hardest matching domain, and the one whose regressions kept reaching the owner.
+The hardest matching domain: same-titled works, remakes, editions and DLC.
 
-- [Matching was tested as a rule, never as a journey](video-game-matching.md#video-game-matching-was-tested-only-as-a-rule-never-as-a-journey-so-three-regressions-in-a-row-reached-the-owner-instead-of-a-test)
-- [Search dropped the year and truncated the provider's ranking](video-game-matching.md#video-game-search-dropped-the-year-on-the-floor-and-truncated-the-providers-ranking-to-five-so-a-title-matching-name-and-year-exactly-was-routinely-not-among-the-results)
-- [Auto-resolution counted results instead of confirming one](video-game-matching.md#automatic-video-game-resolution-decided-on-how-many-results-the-search-returned-rather-than-on-whether-any-of-them-was-the-game)
+- [A year is required for any automatic link](video-game-matching.md#a-year-is-required-for-any-automatic-link)
+- [A link is confirmed by name and year, never by counting results](video-game-matching.md#a-link-is-confirmed-by-name-and-year-never-by-counting-results)
+- [Search asks for the exact title, reads a deep pool, and ranks it itself](video-game-matching.md#search-asks-for-the-exact-title-reads-a-deep-pool-and-ranks-it-itself)
+- [Gotchas](video-game-matching.md#gotchas)
 
 ## [Third-party providers](providers.md)
 
@@ -44,10 +44,11 @@ Outages, quotas, query quirks, and how a provider failure is reported.
 
 The work that runs on a schedule or in the background.
 
-- [Explore stopped recognising games the owner already tracks](sync-explore-and-import.md#explore-stopped-recognising-the-video-games-the-owner-already-tracks-because-both-halves-of-its-exclusion-failed-on-the-same-documents-after-the-igdb-switch)
-- [Import matched by the `_id` it was exported with](sync-explore-and-import.md#reference-data-import-matched-documents-by-the-_id-they-were-exported-with-so-importing-into-a-non-empty-database-duplicated-or-failed-outright)
-- [Import ran as a blocking request and always timed out](sync-explore-and-import.md#reference-data-import-ran-as-a-blocking-request-so-a-real-export-always-failed-on-the-clients-100s-http-timeout-while-the-server-kept-importing)
-- [The sync read every reference document each tick](sync-explore-and-import.md#the-periodic-sync-read-every-reference-document-each-tick-and-the-admins-rating-recompute-rewrote-values-that-were-already-correct)
+- [Explore's exclusion depends on every reference carrying the default provider's id](sync-explore-and-import.md#explores-exclusion-depends-on-every-reference-carrying-the-default-providers-id)
+- [Selectable rating sources come from the default provider](sync-explore-and-import.md#selectable-rating-sources-come-from-the-default-provider)
+- [Reference-data import matches by provider id, never by exported `_id`](sync-explore-and-import.md#reference-data-import-matches-by-provider-id-never-by-exported-_id)
+- [Reference-data import is a background job](sync-explore-and-import.md#reference-data-import-is-a-background-job)
+- [Gotchas](sync-explore-and-import.md#gotchas)
 
 ## [Blazor UI](blazor-ui.md)
 
@@ -71,10 +72,13 @@ MongoDB filters, indexes, and the AutoMapper null behaviour that predated Mapper
 
 ## [Sonar](sonar.md)
 
-What the analysis reported, what was acted on, and the standing false positives.
+Standing false positives, and the fixes whose reason is worth keeping.
 
-- [Project-wide review: S2365, ASP0025, CA1862, CA1859, JS S2486](sonar.md#project-wide-sonar-review-main-branch-not-pr-scoped-s2365-asp0025-2-ca1862-2-ca1859-3-js-s2486)
-- [S107: too many parameters on the import merge service](sonar.md#s107-too-many-parameters-on-owneditemimportmergeservicecomputecommitplanmergeitem-and-amazonimportcontrollercommitasync)
+- [S8970 in Razor is a false positive](sonar.md#s8970-in-razor-is-a-false-positive)
+- [S8969 is checked case by case](sonar.md#s8969-is-checked-case-by-case)
+- [The import merge takes one adapter, not six delegates (S107)](sonar.md#the-import-merge-takes-one-adapter-not-six-delegates-s107)
+- [Authorization uses `AddAuthorizationBuilder` (ASP0025)](sonar.md#authorization-uses-addauthorizationbuilder-asp0025)
+- [Known coverage gap](sonar.md#known-coverage-gap)
 
 ## [By design, and known gaps](by-design-and-gaps.md)
 

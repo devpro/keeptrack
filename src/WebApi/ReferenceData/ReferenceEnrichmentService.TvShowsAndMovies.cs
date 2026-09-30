@@ -1,7 +1,7 @@
 using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
-using Keeptrack.Domain.Services;
 using Keeptrack.Domain.Repositories;
+using Keeptrack.Domain.Services;
 
 namespace Keeptrack.WebApi.ReferenceData;
 

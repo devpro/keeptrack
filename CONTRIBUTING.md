@@ -89,29 +89,29 @@ Template for `src/WebApi/appsettings.Development.json`:
 
 A provider with no credentials is skipped: items of that type stay unlinked instead of failing.
 
-Domain            | Provider                                                                                  | Settings                              | How to get them
-------------------|-------------------------------------------------------------------------------------------|---------------------------------------|----------------
-TV shows, movies  | [TMDB](https://www.themoviedb.org/)                                                       | `Tmdb:ApiKey`                         | Free account, then a v3 key at [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api)
-TV shows, movies  | [OMDb](https://www.omdbapi.com/) (IMDb ratings, optional)                                 | `Omdb:ApiKey`                         | Free key at [omdbapi.com/apikey.aspx](https://www.omdbapi.com/apikey.aspx)
-Video games       | [IGDB](https://api-docs.igdb.com/) (default)                                              | `Igdb:ClientId`, `Igdb:ClientSecret`  | Register an application at [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps), the token is fetched and renewed by the app
-Video games       | [RAWG](https://rawg.io/apidocs) (admin search only)                                       | `Rawg:ApiKey`                         | Free account at [rawg.io/apidocs](https://rawg.io/apidocs)
-Albums            | [Discogs](https://www.discogs.com/developers)                                             | `Discogs:Token`                       | Personal access token at [discogs.com/settings/developers](https://www.discogs.com/settings/developers)
-Books             | [Google Books](https://developers.google.com/books) (default)                             | `GoogleBooks:ApiKey`                  | Enable the Books API in [Google Cloud Console](https://console.cloud.google.com/) and create an API key
-Books             | [Open Library](https://openlibrary.org/), [BnF](https://catalogue.bnf.fr/)                | none                                  | Keyless
+Domain           | Provider                                                                   | Settings                             | How to get them
+-----------------|----------------------------------------------------------------------------|--------------------------------------|----------------
+TV shows, movies | [TMDB](https://www.themoviedb.org/)                                        | `Tmdb:ApiKey`                        | Free account, then a v3 key at [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api)
+TV shows, movies | [OMDb](https://www.omdbapi.com/) (IMDb ratings, optional)                  | `Omdb:ApiKey`                        | Free key at [omdbapi.com/apikey.aspx](https://www.omdbapi.com/apikey.aspx)
+Video games      | [IGDB](https://api-docs.igdb.com/) (default)                               | `Igdb:ClientId`, `Igdb:ClientSecret` | Register an application at [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps), the token is fetched and renewed by the app
+Video games      | [RAWG](https://rawg.io/apidocs) (admin search only)                        | `Rawg:ApiKey`                        | Free account at [rawg.io/apidocs](https://rawg.io/apidocs)
+Albums           | [Discogs](https://www.discogs.com/developers)                              | `Discogs:Token`                      | Personal access token at [discogs.com/settings/developers](https://www.discogs.com/settings/developers)
+Books            | [Google Books](https://developers.google.com/books) (default)              | `GoogleBooks:ApiKey`                 | Enable the Books API in [Google Cloud Console](https://console.cloud.google.com/) and create an API key
+Books            | [Open Library](https://openlibrary.org/), [BnF](https://catalogue.bnf.fr/) | none                                 | Keyless
 
 ### Blazor app
 
-Key                                     | Required | Default value
-----------------------------------------|----------|--------------
-`AllowedHosts`                          | false    | `"*"`
-`Features:IsHttpsRedirectionEnabled`    | false    | `true`
-`Firebase:WebAppConfiguration:ApiKey`   | true     | `""`
-`Firebase:WebAppConfiguration:AuthDomain` | true   | `""`
-`Firebase:WebAppConfiguration:ProjectId` | true    | `""`
-`Firebase:ServiceAccount`               | true     | `""`
-`Logging:LogLevel:Default`              | false    | `"Information"`
-`Logging:LogLevel:Microsoft.AspNetCore` | false    | `"Warning"`
-`WebApi:BaseUrl`                        | true     | `""`
+Key                                       | Required | Default value
+------------------------------------------|----------|--------------
+`AllowedHosts`                            | false    | `"*"`
+`Features:IsHttpsRedirectionEnabled`      | false    | `true`
+`Firebase:WebAppConfiguration:ApiKey`     | true     | `""`
+`Firebase:WebAppConfiguration:AuthDomain` | true     | `""`
+`Firebase:WebAppConfiguration:ProjectId`  | true     | `""`
+`Firebase:ServiceAccount`                 | true     | `""`
+`Logging:LogLevel:Default`                | false    | `"Information"`
+`Logging:LogLevel:Microsoft.AspNetCore`   | false    | `"Warning"`
+`WebApi:BaseUrl`                          | true     | `""`
 
 ### Roles
 
@@ -149,11 +149,11 @@ dotnet run --project src/BlazorApp   # https://localhost:7042/
 
 ## Tests
 
-Project                        | Needs
--------------------------------|------
-`test/WebApi.UnitTests`        | Nothing
-`test/BlazorApp.UnitTests`     | Nothing
-`test/WebApi.IntegrationTests` | MongoDB and a Firebase test user
+Project                          | Needs
+---------------------------------|------
+`test/WebApi.UnitTests`          | Nothing
+`test/BlazorApp.UnitTests`       | Nothing
+`test/WebApi.IntegrationTests`   | MongoDB and a Firebase test user
 `test/BlazorApp.PlaywrightTests` | Skipped unless `E2E_ENABLED=true`, see [End-to-end tests](#end-to-end-tests)
 
 `test/Testing.Shared` is shared hosting and Firebase infrastructure, not a test project.
@@ -237,7 +237,8 @@ Self-hosted | `E2E_ENABLED=true`, no target URL | Both apps in the test process,
 Live        | `E2E_TARGET_URL` set              | Drives an already running deployment
 Read-only   | `E2E_READONLY=true`               | Every mutating test skips, paired with `E2E_TARGET_URL`
 
-Self-hosted mode needs the integration test variables above (except `FIREBASE_USERNAME`/`FIREBASE_PASSWORD`, an ephemeral admin user is created and deleted), plus `Tmdb__ApiKey`, `Igdb__ClientId`, `Igdb__ClientSecret` and `Discogs__Token`, since the smoke tests link real titles.
+Self-hosted mode needs the integration test variables above (except `FIREBASE_USERNAME`/`FIREBASE_PASSWORD`, an ephemeral admin user is created and deleted),
+plus `Tmdb__ApiKey`, `Igdb__ClientId`, `Igdb__ClientSecret` and `Discogs__Token`, since the smoke tests link real titles.
 The database defaults to `keeptrack_e2e`, independently of `Infrastructure__MongoDB__DatabaseName`, so the two suites never share one.
 
 ```bash
@@ -246,21 +247,21 @@ export E2E_ENABLED=true
 dotnet test --project test/BlazorApp.PlaywrightTests/BlazorApp.PlaywrightTests.csproj
 ```
 
-Variable                     | Default                             | Purpose
------------------------------|-------------------------------------|--------
-`E2E_ENABLED`                | `false`                             | Master switch
-`E2E_TARGET_URL`             | empty                               | Live mode: BlazorApp base URL
-`E2E_WEBAPI_URL`             | empty                               | Live mode: WebApi base URL, required unless read-only
-`E2E_READONLY`               | `false`                             | Skips every mutating test, user creation and seeding
-`E2E_USERNAME`, `E2E_PASSWORD` | empty                             | Existing account, required in live mode, else an ephemeral admin is created
-`E2E_MONGODB_DATABASE`       | `keeptrack_e2e`                     | Database of the self-hosted apps
-`E2E_HEADLESS`               | `true`                              | `false` shows the browser
-`E2E_SLOWMO_MS`              | `0`                                 | Delay before each Playwright action
-`E2E_BROWSER`                | `chromium`                          | `chromium`, `firefox` or `webkit`
-`E2E_TRACE`                  | `on-failure`                        | `off`, `on` or `on-failure`
-`E2E_MOBILE_CHECK`           | `false`                             | Runs `MobileScreenshotTest`, captures every page at a phone viewport
-`E2E_MOBILE_DIR`             | `bin/<config>/net10.0/mobile-shots` | Where those captures go
-`GOOGLE_BOOKS_SMOKE_ENABLED` | `false`                             | Runs `GoogleBooksSmokeTest`, needs `GoogleBooks__ApiKey`
+Variable                       | Default                             | Purpose
+-------------------------------|-------------------------------------|--------
+`E2E_ENABLED`                  | `false`                             | Master switch
+`E2E_TARGET_URL`               | empty                               | Live mode: BlazorApp base URL
+`E2E_WEBAPI_URL`               | empty                               | Live mode: WebApi base URL, required unless read-only
+`E2E_READONLY`                 | `false`                             | Skips every mutating test, user creation and seeding
+`E2E_USERNAME`, `E2E_PASSWORD` | empty                               | Existing account, required in live mode, else an ephemeral admin is created
+`E2E_MONGODB_DATABASE`         | `keeptrack_e2e`                     | Database of the self-hosted apps
+`E2E_HEADLESS`                 | `true`                              | `false` shows the browser
+`E2E_SLOWMO_MS`                | `0`                                 | Delay before each Playwright action
+`E2E_BROWSER`                  | `chromium`                          | `chromium`, `firefox` or `webkit`
+`E2E_TRACE`                    | `on-failure`                        | `off`, `on` or `on-failure`
+`E2E_MOBILE_CHECK`             | `false`                             | Runs `MobileScreenshotTest`, captures every page at a phone viewport
+`E2E_MOBILE_DIR`               | `bin/<config>/net10.0/mobile-shots` | Where those captures go
+`GOOGLE_BOOKS_SMOKE_ENABLED`   | `false`                             | Runs `GoogleBooksSmokeTest`, needs `GoogleBooks__ApiKey`
 
 `E2E_HEADLESS=false` with `E2E_SLOWMO_MS=250` shows a run, `PWDEBUG=1` opens the Playwright inspector.
 
@@ -286,7 +287,7 @@ istarci daemon start
 task ci:setup   # registers this repository and installs the pre-push hook
 ```
 
-Every commit made afterwards runs in the background:
+Every commit made afterward runs in the background:
 
 ```bash
 task ci        # the runs of the recent commits
