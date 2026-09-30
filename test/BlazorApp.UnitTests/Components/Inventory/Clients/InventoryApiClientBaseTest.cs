@@ -27,6 +27,17 @@ public class InventoryApiClientBaseTest
             Task.FromResult(new HttpResponseMessage(statusCode) { Content = content ?? new StringContent(string.Empty) });
     }
 
+    private sealed class RecordingHandler : HttpMessageHandler
+    {
+        public Uri? RequestUri { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            RequestUri = request.RequestUri;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(new MovieDto { Id = "abc", Title = "Heat" }) });
+        }
+    }
+
     private static MovieApiClient ClientReturning(HttpStatusCode statusCode, HttpContent? content = null) =>
         new(new HttpClient(new StubHandler(statusCode, content)) { BaseAddress = new Uri("https://api.example") });
 
@@ -82,5 +93,31 @@ public class InventoryApiClientBaseTest
         var unlink = async () => await client.UnlinkReferenceAsync("abc", TestContext.Current.CancellationToken);
 
         (await unlink.Should().ThrowAsync<ApiRequestException>()).Which.Message.Should().Be("Admins only.");
+    }
+
+    [Theory]
+    [InlineData("get")]
+    [InlineData("update")]
+    [InlineData("delete")]
+    [InlineData("refresh")]
+    [InlineData("unlink")]
+    public async Task EveryItemCall_KeepsTheIdInsideItsOwnPathSegment(string call)
+    {
+        // an id comes from the page route, so an unescaped "../admin" would address another API resource
+        var handler = new RecordingHandler();
+        var client = new MovieApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://api.example") });
+        var ct = TestContext.Current.CancellationToken;
+        const string Id = "../admin";
+
+        switch (call)
+        {
+            case "get": await client.GetOneAsync(Id, ct); break;
+            case "update": await client.UpdateAsync(new MovieDto { Id = Id, Title = "Heat" }, ct); break;
+            case "delete": await client.DeleteAsync(Id, ct); break;
+            case "refresh": await client.RefreshReferenceAsync(Id, ct); break;
+            case "unlink": await client.UnlinkReferenceAsync(Id, ct); break;
+        }
+
+        handler.RequestUri!.AbsolutePath.Should().StartWith("/api/movies/..%2Fadmin");
     }
 }

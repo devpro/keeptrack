@@ -18,6 +18,9 @@ public abstract class InventoryApiClientBase<TDto>(HttpClient http, bool hasRefe
     /// </summary>
     protected HttpClient Http => http;
 
+    // An id comes from the page route, so unescaped "../admin" would address another API resource.
+    private string ItemPath(string? id) => $"{ApiResourceName}/{Uri.EscapeDataString(id ?? string.Empty)}";
+
     public async Task<PagedResult<TDto>> GetAsync(string search, int page, int pageSize, IReadOnlyDictionary<string, string>? extraQuery = null, string? sort = null, CancellationToken cancellationToken = default)
     {
         var query = $"{ApiResourceName}?search={Uri.EscapeDataString(search)}&page={page}&pageSize={pageSize}";
@@ -48,7 +51,7 @@ public abstract class InventoryApiClientBase<TDto>(HttpClient http, bool hasRefe
     /// </summary>
     public async Task<TDto?> GetOneAsync(string id, CancellationToken cancellationToken = default)
     {
-        var response = await http.GetAsync($"{ApiResourceName}/{id}", cancellationToken);
+        var response = await http.GetAsync(ItemPath(id), cancellationToken);
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
             return default;
@@ -77,12 +80,12 @@ public abstract class InventoryApiClientBase<TDto>(HttpClient http, bool hasRefe
 
     public async Task UpdateAsync(TDto movie, CancellationToken cancellationToken = default)
     {
-        (await http.PutAsJsonAsync($"{ApiResourceName}/{movie.Id}", movie, cancellationToken)).EnsureSuccessStatusCode();
+        (await http.PutAsJsonAsync(ItemPath(movie.Id), movie, cancellationToken)).EnsureSuccessStatusCode();
     }
 
     public async Task DeleteAsync(string id, CancellationToken cancellationToken = default)
     {
-        (await http.DeleteAsync($"{ApiResourceName}/{id}", cancellationToken)).EnsureSuccessStatusCode();
+        (await http.DeleteAsync(ItemPath(id), cancellationToken)).EnsureSuccessStatusCode();
     }
 
     /// <summary>
@@ -96,7 +99,7 @@ public abstract class InventoryApiClientBase<TDto>(HttpClient http, bool hasRefe
             throw new NotImplementedException();
         }
 
-        var response = await Http.PostAsync($"{ApiResourceName}/{id}/refresh-reference", null, cancellationToken);
+        var response = await Http.PostAsync($"{ItemPath(id)}/refresh-reference", null, cancellationToken);
         return (await response.ReadJsonOrThrowAsync<TDto>(cancellationToken))!;
     }
 
@@ -110,7 +113,7 @@ public abstract class InventoryApiClientBase<TDto>(HttpClient http, bool hasRefe
             throw new NotImplementedException();
         }
 
-        var response = await Http.PostAsync($"{ApiResourceName}/{id}/unlink-reference", null, cancellationToken);
+        var response = await Http.PostAsync($"{ItemPath(id)}/unlink-reference", null, cancellationToken);
         return (await response.ReadJsonOrThrowAsync<TDto>(cancellationToken))!;
     }
 }

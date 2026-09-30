@@ -26,7 +26,14 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const file = process.argv[2] ?? path.join(process.cwd(), 'Local.runsettings');
+const root = path.resolve(__dirname, '..');
+const file = path.resolve(process.argv[2] ?? 'Local.runsettings');
+
+// The argument is often typed by an agent, and only a runsettings file inside the repository is ever meant, so nothing else is read.
+if (!file.startsWith(root + path.sep) || path.extname(file) !== '.runsettings') {
+    process.stderr.write(`Not a .runsettings file inside ${root}: ${file}\n`);
+    process.exit(1);
+}
 
 if (!fs.existsSync(file)) {
     process.stderr.write(`No runsettings file at ${file}\n`);
