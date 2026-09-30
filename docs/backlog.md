@@ -2,8 +2,8 @@
 
 ## Code quality
 
-- [ ] Bring the remaining code comments in line with the writing style in `AGENTS.md`, file by file when a file is touched rather than as one sweeping change:
-  spaced hyphens used as dashes, and comments telling history ("used to", "no longer").
+- [ ] Shorten the remaining code comments to the why and the gotchas, in the writing style of `AGENTS.md`, file by file when a file is touched rather than as one sweeping change:
+  spaced hyphens used as dashes, measurements and stories that belong nowhere, and comments telling history ("used to", "no longer").
 - [ ] Decide on the dashes and second person in UI copy (`— Choose an album —` placeholders, "Welcome back —", "across your shows"),
   which the writing rules cover for documentation but not explicitly for product text.
 - [ ] Migrate the `WebApi/Import/` and `WebApi/ReferenceData/` feature folders to the layered shape:

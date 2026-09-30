@@ -1,92 +1,14 @@
 # Code quality findings
 
-The why behind a design and its known gotchas, in more detail than `AGENTS.md` holds, so a later review does not re-report it and a later change does not undo it.
-`AGENTS.md` states the rule each finding produced and links here for the evidence, so a file below is read when a specific question is open, never as background.
+The why behind the code and its known gotchas, in more detail than `AGENTS.md`.
+Read the relevant file when a question comes up, and check it before reporting something as a bug or changing a rule.
+A new finding goes in the file its subject belongs to.
 
-A finding is classified as a confirmed bug (all of which are now fixed), a confirmed by-design behaviour, or a known gap that is not yet implemented.
-Add a new finding to the file its subject belongs to, and add its line here.
-
-## [Reference matching](reference-matching.md)
-
-The alias key, the confirmation rules, and the link surviving an edit.
-
-- [Aliases were stored without the field that identifies the work](reference-matching.md#matched-aliases-were-stored-without-the-field-that-identifies-the-work-so-the-local-match-key-answered-questions-nobody-had-confirmed---and-the-create-path-never-asked-it-anyway)
-- [Four domains resolved on "the provider returned one row"](reference-matching.md#tv-shows-movies-books-and-albums-resolved-on-the-provider-returned-exactly-one-row-which-refused-ordinary-titles-and-linked-unrelated-ones)
-- [Saving any field erased the item's reference link](reference-matching.md#saving-any-field-on-a-detail-page-erased-the-items-reference-link-which-is-what-was-really-behind-it-doesnt-match-but-if-i-click-refresh-it-matches)
-- [The yearless title lookup adopted an arbitrary same-titled work](reference-matching.md#the-yearless-title-only-reference-lookup-returned-whichever-same-titled-document-the-database-handed-back-first-so-an-item-with-no-year-silently-adopted-an-arbitrary-work)
-- [The title-only fallback ignored a year the tenant had recorded](reference-matching.md#title-only-fallback-ignored-a-tenant-recorded-year-so-two-same-titled-but-genuinely-different-items-could-be-silently-linked-to-the-same-reference-document---or-worse-merged-into-one-via-resolveasync)
-
-## [Video game matching](video-game-matching.md)
-
-The hardest matching domain: same-titled works, remakes, editions and DLC.
-
-- [A year is required for any automatic link](video-game-matching.md#a-year-is-required-for-any-automatic-link)
-- [A link is confirmed by name and year, never by counting results](video-game-matching.md#a-link-is-confirmed-by-name-and-year-never-by-counting-results)
-- [Search asks for the exact title, reads a deep pool, and ranks it itself](video-game-matching.md#search-asks-for-the-exact-title-reads-a-deep-pool-and-ranks-it-itself)
-- [Gotchas](video-game-matching.md#gotchas)
-
-## [Third-party providers](providers.md)
-
-Outages, quotas, query quirks, and how a provider failure is reported.
-
-- [Discogs' free-text search returned albums titled something else](providers.md#discogs-free-text-search-returned-albums-whose-title-never-matched-crowding-out-the-real-one-and-blocking-automatic-album-linking)
-- [The RAWG cover-art guard fired against RAWG itself](providers.md#the-guard-protecting-rawg-cover-art-fired-against-rawg-itself-so-an-admin-re-linking-through-rawg-had-the-key-art-it-just-fetched-thrown-away)
-- [A reference the spent OMDb quota skipped was stamped as enriched](providers.md#a-reference-the-spent-omdb-quota-made-the-sync-skip-was-stamped-as-enriched-anyway-so-it-waited-a-full-staleness-window-for-its-next-chance)
-- [An ISBN search had no fallback while Google Books was down](providers.md#a-book-search-by-isbn-had-no-fallback-when-google-books-was-down-and-the-failure-blamed-keeptrack-rather-than-the-provider)
-- [A provider being down reported itself as a 500, and reddened CI](providers.md#a-third-party-provider-being-down-reported-itself-as-a-500-and-reddened-ci)
-- [A slow Open Library discarded every book refresh](providers.md#a-slow-open-library-discarded-every-book-refresh-and-pinned-those-books-at-the-head-of-the-staleness-queue)
-- [An over-quota OMDb key turned linking and Explore "add" into 500s](providers.md#an-over-quota-omdb-key-turned-admin-manual-linking-and-explore-add-into-500s-and-nothing-bounded-the-calls-that-got-it-there)
-- [The IMDb backfill re-bought the same "no rating" answer forever](providers.md#the-imdb-backfill-re-bought-the-same-no-rating-answer-forever-and-the-recompute-still-cost-a-round-trip-per-reference-when-it-had-work-to-do)
-- [BnF's author clause is not a strict intersection](providers.md#bnfs-own-and-bibauthor--cql-combination-is-not-a-strict-intersection---candidates-not-actually-matching-the-requested-author-silently-leaked-into-search-results)
-- [A book refresh only ever checked the default provider](providers.md#refreshbookreferenceasync-only-ever-checked-the-currently-configured-default-providers-key-not-whichever-provider-a-reference-was-actually-linked-through)
-
-## [Sync, Explore and import](sync-explore-and-import.md)
-
-The work that runs on a schedule or in the background.
-
-- [Explore's exclusion depends on every reference carrying the default provider's id](sync-explore-and-import.md#explores-exclusion-depends-on-every-reference-carrying-the-default-providers-id)
-- [Selectable rating sources come from the default provider](sync-explore-and-import.md#selectable-rating-sources-come-from-the-default-provider)
-- [Reference-data import matches by provider id, never by exported `_id`](sync-explore-and-import.md#reference-data-import-matches-by-provider-id-never-by-exported-_id)
-- [Reference-data import is a background job](sync-explore-and-import.md#reference-data-import-is-a-background-job)
-- [Gotchas](sync-explore-and-import.md#gotchas)
-
-## [Blazor UI](blazor-ui.md)
-
-Rendering, polling, and what a missing item looks like.
-
-- [A page rendered itself back over the page it had navigated to](blazor-ui.md#the-home-page-painted-itself-back-over-the-page-it-was-navigated-away-from-seconds-later---the-app-bug-behind-the-playwright-suites-element-not-visible-flake)
-- [A detail page's link poll overwrote what the user had just done](blazor-ui.md#the-poll-that-reveals-a-freshly-created-items-reference-link-overwrote-whatever-the-user-did-while-it-ran-and-resurrected-a-platform-that-had-just-been-removed)
-- [The pending-link watch replaced the model while the item was unlinked](blazor-ui.md#the-pending-link-watch-replaced-the-pages-model-while-the-item-was-still-unlinked-so-removing-a-copy-during-it-removed-nothing)
-- [A missing item, and a malformed id, reached the error page instead of a 404](blazor-ui.md#an-id-that-names-nothing-reached-the-user-as-the-generic-error-page-instead-of-a-404-and-an-id-that-wasnt-a-valid-objectid-reached-it-as-a-500)
-
-## [Persistence and mapping](persistence-and-mapping.md)
-
-MongoDB filters, indexes, and the AutoMapper null behaviour that predated Mapperly.
-
-- [A null collection member was mapped to an empty collection](persistence-and-mapping.md#allownulldestinationvalues--false-also-substitutes-an-empty-collection-for-a-null-reference-type-member-not-just-an-empty-string)
-- [`mapper.Map<T>(null)` returned a fake empty object instead of null](persistence-and-mapping.md#mappermaptnull-returned-a-fake-empty-object-instead-of-null)
-- [`Eq(ReferenceId, null)` never matched, because it was never null](persistence-and-mapping.md#eqx--xreferenceid-null-never-matched-a-document-because-it-was-never-actually-null)
-- [The index script had it backwards, and missed `owner_id` almost everywhere](persistence-and-mapping.md#index-script-had-it-backwards-dead-text-indexes-on-bookmovietvshowvideogame-missing-ones-on-carcarhistory-and-no-plain-owner_id-index-almost-anywhere)
-- [Search was a no-op for Movie and Album](persistence-and-mapping.md#search-was-a-no-op-for-movie-and-album)
-- [CarHistory treated a car id as free text](persistence-and-mapping.md#carhistory-treated-a-car-id-as-free-text-and-carrepositorys-search-never-covered-the-field-that-actually-exists-on-a-car-document)
-
-## [Sonar](sonar.md)
-
-Standing false positives, and the fixes whose reason is worth keeping.
-
-- [S8970 in Razor is a false positive](sonar.md#s8970-in-razor-is-a-false-positive)
-- [S8969 is checked case by case](sonar.md#s8969-is-checked-case-by-case)
-- [The import merge takes one adapter, not six delegates (S107)](sonar.md#the-import-merge-takes-one-adapter-not-six-delegates-s107)
-- [Authorization uses `AddAuthorizationBuilder` (ASP0025)](sonar.md#authorization-uses-addauthorizationbuilder-asp0025)
-- [Known coverage gap](sonar.md#known-coverage-gap)
-
-## [By design, and known gaps](by-design-and-gaps.md)
-
-Nothing here is a bug to fix.
-Read it before re-reporting any of it.
-
-- [Each entity searches its own fields](by-design-and-gaps.md#each-entity-searches-its-own-fields)
-- [Open Library's search noise is left alone, on purpose](by-design-and-gaps.md#open-librarys-book-search-has-the-same-free-text-noise-as-discogs-had-and-is-deliberately-left-alone-decided-2026-08-05---read-this-before-fixing-it)
-- [`CancellationToken` propagation is partial](by-design-and-gaps.md#cancellationtoken-propagation-is-partial)
-- [`PageSize` has no upper bound](by-design-and-gaps.md#pagesize-has-no-upper-bound)
-- [Test coverage gaps](by-design-and-gaps.md#test-coverage-gaps)
+- [Reference matching](reference-matching.md): aliases, what confirms a match, and why a link survives an edit.
+- [Video game matching](video-game-matching.md): the hardest domain, with same-titled works, remakes and DLC.
+- [Third-party providers](providers.md): outages, quotas, query quirks, and how a provider failure is reported.
+- [Sync, Explore and import](sync-explore-and-import.md): the work that runs on a schedule or in the background.
+- [Blazor UI](blazor-ui.md): rendering after navigation, the pending-link watch, and 404s.
+- [Persistence and mapping](persistence-and-mapping.md): MongoDB filters, indexes and null handling.
+- [Sonar](sonar.md): standing false positives, and fixes worth explaining.
+- [By design, and known gaps](by-design-and-gaps.md): what not to "fix", and what is not done yet.

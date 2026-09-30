@@ -1,83 +1,42 @@
 # Blazor UI findings
 
-Bugs found in the Blazor Server app itself: rendering that outlived a navigation, a poll writing over the user, and a missing item reaching the error page instead of a 404.
-Every finding below is fixed.
+Rendering, polling and missing items in the Blazor Server app.
 
-## The home page painted itself back over the page it was navigated away from, seconds later - the app bug behind the Playwright suite's "element not visible" flake
+## A page never renders after the user navigated away
 
-Found on 2026-08-17, from full parallel runs that failed `CarSmokeTest`, `GearSmokeTest`, `HouseSmokeTest`, `ExploreSmokeTest`'s video game add and `HealthSmokeTest` - none of them touching the code those runs were testing.
-This closes the "an inventory list row intermittently isn't visible under a full parallel run" entry triaged on 2026-07-31,
-which named two candidates (read latency, or an enhanced-navigation render race) and said to decide between them before changing anything.
-**It is neither exactly: it is the page being navigated away *from* finishing its load and re-rendering over the page being navigated to.**
+Enhanced navigation swaps the DOM to the new page while the old component is still mounted.
+When the old page's slow load finishes, its render paints it back over the new page, with the address bar and sidebar still showing the new one.
+`Home.razor` hit this through `/api/stats` (eleven Mongo counts), so its `ShouldRender` only renders while the browser is still on its route.
+Any page whose loading can outlast a click needs the same guard.
 
-The traces show it frame by frame.
-In `HealthSmokeTest`: the sidebar click at 0.57s, `GET /health` answered 200, the health page in the DOM at **0.79s** - and at **1.02s** the dashboard is back,
-with the URL still `/health` and the sidebar still marking Health as the active item.
-`CarSmokeTest` shows the same 0.28s after its navigation, `GearSmokeTest` **5.4 seconds** after its own.
-That last number is what rules the other candidates out: nothing about a lost click or a slow read puts a *different* page's content on screen five seconds later.
+This was the cause of the Playwright suite's "element not visible" flake.
 
-The mechanism is ordinary Blazor: a component renders automatically when its asynchronous initialisation completes, and `Home.razor`'s initialisation is a call to `/api/stats` - **eleven sequential Mongo counts**,
-so under a parallel run it is measured in seconds.
-Enhanced navigation swaps the DOM to the destination while that load is still in flight and this component is still mounted, so its completion render paints the dashboard back over the destination,
-and nothing renders after it to undo that.
-It is a user-facing bug, not a test artifact: anyone clicking a sidebar link while the home page is still loading gets thrown back to it, with the address bar and the sidebar both insisting they are somewhere else.
+## The pending-link watch never overwrites the user
 
-Fixed in the page itself - `Home.razor` overrides `ShouldRender` to render only while the browser is still on its own route (the circuit's `NavigationManager` is told about an enhanced navigation,
-which is exactly why the sidebar's active item moved, so it is a reliable test rather than a guess).
-Same rule, and same reason, as the pending-reference poll below: **a component must never paint over a page the user has already moved on to.**
+`PendingReferenceLink` re-reads a just-created item for a few seconds to show its reference link once background resolution lands.
+Replacing the page's model is risky, so it is limited:
 
-Two test-side safety nets were added alongside it, for the two shapes a re-read genuinely cannot be waited out (`PageBase.ExpectWithReloadAsync`, one reload then re-assert, only ever after the assertion has already failed):
+- **It replaces the model only when the fresh read is linked.**
+  Swapping the model swaps the lists a pending action holds, so removing a copy while its confirmation is open would remove nothing and the save would write it back.
+- **It stops at the first save** (`MarkEdited`, called before the PUT).
+- **It discards an answer if a save landed while the read was in flight**, otherwise the pre-save document comes back and the next save writes it.
 
-- a navigation whose destination never renders - the browser is already on the right URL, so a reload re-fetches the page the click asked for;
-- a list showing an item as it was before a detail page's save (`ListPage.ExpectRowThumbnailAsync`, `HouseSmokeTest`'s failure): that PUT is issued by the **server** over its circuit,
-  so the browser has nothing to wait for and the row would never update itself.
+`PendingReferenceLinkTest` and `ReferenceLinkedDetailPageBaseTest` cover this without a browser, since the e2e tests only hit the window by chance.
 
-## The poll that reveals a freshly created item's reference link overwrote whatever the user did while it ran, and resurrected a platform that had just been removed
+## A missing item is a 404, never the error page
 
-Found on 2026-08-17, from `VideoGamePlatformSmokeTest` failing with the removed platform still on screen - and its trace shows why, not a flake: the removal was clicked, confirmed and saved, and the card came back.
+- `InventoryApiClientBase.GetOneAsync` returns null for a 404 only, and every detail page renders its "not found" state from that null.
+  Any other failure still throws, so an outage never looks like an empty page.
+- `MongoDbRepositoryBase` treats an id that isn't a valid ObjectId as naming no document, instead of the driver's `FormatException` becoming a 500.
+  This covers `DeleteAllByParentAsync` too, since the cascade runs on the raw route id.
+- A detail page loads its parent before its children, and stops when the parent is null.
 
-`PendingReferenceLink.WatchAsync` re-reads the item every 1.5s for up to six attempts on any item that is not linked yet, and `FetchAsync` assigns the result to the page's whole model.
-A game created without a year never links, so the poll runs its full nine seconds - which is exactly the window a user spends adding a platform to it.
-A poll issued before a save and answered after it puts the **pre-save** document back into the model: the platform reappears with everything that had been set on it, and the next save writes that resurrected version to the server.
+Known gap: a malformed id passed as a child filter (`GET /api/episodes?TvShowId=not-an-object-id`) still returns a 500.
+No UI path reaches it.
 
-Two guards, because they cover different halves of the window (`VideoGameDetail` sets `_edited` in `SaveGameAsync`, before the PUT):
+## Gotchas
 
-- the loop stops once the page reports changes of its own, so nothing is re-read after the first save - someone editing an item is no longer waiting to see whether a link lands, and the link still shows on the next load;
-- `FetchPendingLinkAsync` throws its own answer away if a save landed while the read was in flight, which is the part the loop's guard cannot see.
+`PageBase.ExpectWithReloadAsync` reloads once, and only after an assertion failed, for two cases where waiting never helps:
 
-Covered by `PendingReferenceLinkTest` (deterministic, no browser), since whether the e2e test hits the window at all depends on timing.
-
-## The pending-link watch replaced the page's model while the item was still unlinked, so removing a copy during it removed nothing
-
-Found on 2026-09-24 when every reference-linked detail page moved onto `ReferenceLinkedDetailPageBase` and so gained the watch that only `VideoGameDetail` had.
-`OwnershipSmokeTest` failed once in a full parallel run and passed alone: it removes a book's only copy, and the book still showed as Owned.
-The watch re-read the item every 1.5s for about nine seconds after the page opened, and replaced the whole model on every read, linked or not.
-A read landing while the removal confirmation was open swapped `Book.OwnedVersions` for a new list, so `Versions.Remove(version)` removed nothing from it and the next save wrote the copy back.
-`VideoGameDetail` had the same exposure through its pending platform removal.
-Fixed by replacing the model only when the fresh read is linked, since an unlinked read has nothing to reveal.
-`ReferenceLinkedDetailPageBaseTest.TheWatch_LeavesTheModelAlone_WhileTheItemIsStillUnlinked` failed before the fix.
-
-## An id that names nothing reached the user as the generic error page instead of a 404, and an id that wasn't a valid ObjectId reached it as a 500
-
-Found on 2026-08-04 while adding a real 404 page to the Blazor app.
-
-Two independent defects on the same path, both ending at the error page for what is only ever a stale bookmark, a hand-edited URL or a deleted item.
-
-- **A 404 from the API threw.**
-  `InventoryApiClientBase.GetOneAsync` used `GetFromJsonAsync`, whose built-in `EnsureSuccessStatusCode` makes a 404 an `HttpRequestException`.
-  Every one of the eleven detail pages already renders a `<type> not found.` state from a null item, and that branch was simply unreachable:
-  the throw killed the circuit on an in-app navigation, and blew up the prerender pass into `/error` on a direct load.
-  Now only a 404 returns null; every other failure still throws, since an outage must not render as an empty detail page.
-- **A malformed id threw deeper down, as a 500.**
-  Every entity behind `MongoDbRepositoryBase` maps `_id` as an ObjectId, so the driver runs the string in an id filter through `ObjectId.Parse` and raises `FormatException` on anything that isn't 24 hex digits,
-  which `ApiExceptionFilterAttribute` turns into a 500.
-  `GET/PUT/DELETE /api/movies/not-an-object-id` all returned 500 (confirmed against a real MongoDB, and reproduced as four failing tests before the fix).
-  `MongoDbRepositoryBase` now answers "names no document" for such an id, exactly as it does for a well-formed id that was never minted.
-  The guard also covers `DeleteAllByParentAsync`: the controller's `OnDeletedAsync` cascade hook runs on the raw route id whether or not the parent delete matched, so the id reaches the child collection's parent-id filter too.
-
-`TvShowDetail` needed one further fix: alone among the detail pages it queried its child collection *before* checking the parent existed,
-so the episode query (filtered on the same id) failed the whole page rather than letting it render "Show not found".
-Car/House/HealthProfile already had the parent-then-children order.
-
-Still open, deliberately: a raw API caller can pass a malformed id as a *filter* (`GET /api/episodes?TvShowId=not-an-object-id`) and get a 500 from the child repository's `GetFilter`.
-No UI path reaches it, and fixing it means touching each of the four child repositories rather than one shared method.
+- the URL changed but enhanced navigation never swapped the content;
+- a list row shows the item before a detail page's save, which the server issues over its circuit, so the browser has nothing to wait for.
