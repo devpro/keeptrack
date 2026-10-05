@@ -38,7 +38,7 @@ public class PagedRequest
     /// documents into memory in one request.
     /// A first pass here capped it at 100 and broke real production traffic: <c>CarDetail</c>,
     /// <c>HealthProfileDetail</c> and <c>HouseDetail</c> read a child collection with <c>pageSize=int.MaxValue</c>
-    /// to fetch every one of a single parent's history rows in one page (see AGENTS.md's "Child entities"
+    /// to fetch every one of a single parent's history rows in one page (see docs/data-model.md's "Child entities"
     /// section, a child collection is expected to be bounded by one real parent's data), and
     /// <c>TvShowDetail</c>/<c>AlbumDetail</c>/<c>PlaylistDetail</c> use 5000 for the same reason.
     /// Only <c>Page</c> is validated for now; a real cap needs a second, purpose-built "fetch everything for

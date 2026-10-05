@@ -208,9 +208,9 @@ ensureIndex(db.wishlist_share, { token: 1 }, { name: "wishlist_share_token", uni
 ensureIndex(db.share, { owner_id: 1 }, { name: "share_owner" });
 ensureIndex(db.share, { recipient_email: 1 }, { name: "share_recipient" });
 
-// tvshow_reference / movie_reference: shared, owner-less lookup tables (see CLAUDE.md) keyed by
+// tvshow_reference / movie_reference: shared, owner-less lookup tables (see docs/reference-data.md) keyed by
 // matched_aliases (every (title, year) combination ever confirmed for that reference, not just its
-// canonical one - see MatchedAliases/ReferenceMatchModel in CLAUDE.md), the primary automatic-match key.
+// canonical one - see MatchedAliases/ReferenceMatchModel in docs/reference-matching.md), the primary automatic-match key.
 // Both sub-fields of the same embedded array element are indexed together (not two separate array fields,
 // which MongoDB disallows combining in one compound index) so an ElemMatch lookup on (title, year) together
 // stays indexed. Non-unique deliberately - two genuinely different real-world titles/years colliding is
@@ -265,7 +265,7 @@ ensureIndex(
 // safe for any document created before this field existed - MongoDB would otherwise treat every one of
 // those "missing external_ids.tmdb" documents as colliding on the same null key.
 // NOTE: if this fails with a duplicate-key error, a duplicate already exists (e.g. from before the
-// ResolveTvShowAsync/ResolveMovieAsync id-first dedup fix - see CLAUDE.md) and must be merged/removed first.
+// ResolveTvShowAsync/ResolveMovieAsync id-first dedup fix - see docs/reference-data.md) and must be merged/removed first.
 ensureIndex(
   db.tvshow_reference,
   { "external_ids.tmdb": 1 },

@@ -11,7 +11,7 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Basic full-cycle CRUD coverage for <c>TvShow</c>, closing the "no dedicated full CRUD test of its own" half of the finding tracked in docs/findings/by-design-and-gaps.md ("Thin test coverage"), same shape as <see cref="AlbumResourceTest"/>.
+/// Basic full-cycle CRUD coverage for <c>TvShow</c>, closing the "no dedicated full CRUD test of its own" half of the finding tracked in docs/backlog.md ("Thin test coverage"), same shape as <see cref="AlbumResourceTest"/>.
 /// The filter and cascade tests below predate this and are left as they were.
 /// </summary>
 public class TvShowResourceTest(KestrelWebAppFactory<Program> factory)
@@ -87,7 +87,7 @@ public class TvShowResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// Episodes are a separate top-level collection referencing their show by id (see CLAUDE.md's "Child
+    /// Episodes are a separate top-level collection referencing their show by id (see docs/data-model.md's "Child
     /// entities" section) - without TvShowController.OnDeletedAsync cascading the delete, a deleted show's
     /// whole watch history would be orphaned in MongoDB forever, only ever reachable via the now-gone show id.
     /// </summary>

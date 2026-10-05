@@ -1,6 +1,6 @@
 // One-off data migration: `TvShowReference`/`MovieReference`'s `PosterUrl` property was renamed to
-// `ImageUrl` (to be shared, generically-named, across all five reference domains - see CLAUDE.md's
-// "Reference data now covers five domains" section), but existing `tvshow_reference`/`movie_reference`
+// `ImageUrl` (to be shared, generically-named, across all five reference domains - see
+// docs/reference-data.md), but existing `tvshow_reference`/`movie_reference`
 // documents created before that rename still carry the old `poster_url` BSON field, not `image_url`.
 // Without this migration, every pre-existing reference document silently loses its cover image (the new
 // entity class only ever reads `image_url`) - confirmed against a real dev database where 72/87 TV show

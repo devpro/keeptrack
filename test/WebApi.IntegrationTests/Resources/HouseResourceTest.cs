@@ -84,7 +84,7 @@ public class HouseResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// HouseHistory is a separate top-level collection referencing its house by id (see CLAUDE.md's "Child
+    /// HouseHistory is a separate top-level collection referencing its house by id (see docs/data-model.md's "Child
     /// entities" section) - without HouseController.OnDeletedAsync cascading the delete, a deleted house's
     /// history would be orphaned in MongoDB forever, only ever reachable via the now-gone house id.
     /// </summary>

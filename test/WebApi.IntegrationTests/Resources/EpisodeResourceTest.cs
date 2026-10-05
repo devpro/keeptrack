@@ -10,7 +10,7 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Basic full-cycle CRUD coverage for <c>Episode</c> over HTTP, complementing <see cref="EpisodeRepositoryTest"/>'s repository-level <c>FindByShowIdsAsync</c> coverage, closing the "no dedicated full CRUD test of its own" half of the finding tracked in docs/findings/by-design-and-gaps.md ("Thin test coverage"), same shape as <see cref="CarHistoryResourceTest"/>.
+/// Basic full-cycle CRUD coverage for <c>Episode</c> over HTTP, complementing <see cref="EpisodeRepositoryTest"/>'s repository-level <c>FindByShowIdsAsync</c> coverage, closing the "no dedicated full CRUD test of its own" half of the finding tracked in docs/backlog.md ("Thin test coverage"), same shape as <see cref="CarHistoryResourceTest"/>.
 /// </summary>
 public class EpisodeResourceTest(KestrelWebAppFactory<Program> factory)
     : ResourceTestBase(factory)

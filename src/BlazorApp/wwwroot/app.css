@@ -222,7 +222,7 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
 }
 
 /* the signed-in user's nav row has no plain-text glyph that reads as "profile" (a person silhouette is a
-   color-emoji-only codepoint - see the Theme section in CLAUDE.md), so it's a small initial-letter avatar
+   color-emoji-only codepoint - see the Theme section in docs/blazor-ui.md), so it's a small initial-letter avatar
    instead of an icon - the same pattern Gmail/Slack use, and it doubles as a personalization touch */
 .kt-nav-avatar {
   width: 20px;
@@ -1375,7 +1375,7 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 }
 
 /* An inline SVG, not a glyph: U+1F50D (the obvious magnifier codepoint) has Emoji_Presentation=Yes and
-   renders in full colour everywhere, which is exactly what the Theme section of CLAUDE.md rules out - and
+   renders in full colour everywhere, which is exactly what the Theme section of docs/blazor-ui.md rules out - and
    it was the one coloured thing on every list page. stroke:currentColor inherits the token below. */
 .kt-search-icon {
   position: absolute;

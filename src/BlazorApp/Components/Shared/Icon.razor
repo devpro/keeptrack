@@ -7,7 +7,7 @@
    half of it renders at a different optical weight to the other half because it comes from whichever font
    happens to have that codepoint.
 
-   This does NOT relax the no-colour-emoji rule in CLAUDE.md's Theme section - that rule bans codepoints
+   This does NOT relax the no-colour-emoji rule in docs/blazor-ui.md's Theme section - that rule bans codepoints
    whose default presentation is a colour glyph, and these are paths. stroke="currentColor" means every
    icon inherits its context's own colour and hover/active states, so there is nothing extra to theme, no
    webfont, and no request a CSP or an offline deployment could fail.

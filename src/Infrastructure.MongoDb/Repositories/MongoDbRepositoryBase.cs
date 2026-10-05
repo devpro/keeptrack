@@ -178,7 +178,7 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
     /// <summary>
     /// Deletes every owner-scoped document whose parent-id field matches - the single implementation behind
     /// each child repository's cascade method (CarHistory/HouseHistory/HealthRecord/Episode). Child entities
-    /// are separate top-level collections referencing their parent by id (see CLAUDE.md's "Child entities"
+    /// are separate top-level collections referencing their parent by id (see docs/data-model.md's "Child entities"
     /// section), so deleting the parent alone would leave them in MongoDB forever, only ever reachable via a
     /// parent id that no longer exists.
     /// The parent field is an expression rather than an element-name string, so the BSON name mapping stays

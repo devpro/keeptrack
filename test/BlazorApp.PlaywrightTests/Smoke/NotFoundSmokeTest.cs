@@ -51,7 +51,7 @@ public class NotFoundSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 
     /// <summary>
     /// The other two tests above both reach <c>/not-found</c> through <c>Page.GotoAsync</c>, a full browser navigation that only ever exercises <c>UseStatusCodePagesWithReExecute</c>.
-    /// AGENTS.md documents a second, genuinely different path: once a page is interactively routed (<c>App.razor</c>'s <c>RenderModeForPage</c> gives every page but this one <c>InteractiveServer</c>), an in-circuit navigation to an unknown route is resolved by the Blazor Web App router over the already-open circuit rather than by the server's status-code middleware.
+    /// docs/blazor-ui.md documents a second, genuinely different path: once a page is interactively routed (<c>App.razor</c>'s <c>RenderModeForPage</c> gives every page but this one <c>InteractiveServer</c>), an in-circuit navigation to an unknown route is resolved by the Blazor Web App router over the already-open circuit rather than by the server's status-code middleware.
     /// That is the same code path a <c>NavLink</c> click to a stale route would take.
     /// <c>Blazor.navigateTo</c> is the documented JS API a <c>NavLink</c> click resolves to internally, so it's the direct way to trigger that path from Playwright without a DOM hack.
     /// <para>

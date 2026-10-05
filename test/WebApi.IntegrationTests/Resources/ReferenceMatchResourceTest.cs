@@ -306,7 +306,7 @@ public class ReferenceMatchResourceTest(KestrelWebAppFactory<Program> factory)
     /// <para>
     /// Books get much longer, and for a measured reason rather than as a hedge: resolving one runs
     /// <c>AddOpenLibraryRatingFallbackAsync</c>, and Open Library's <c>search.json</c> is the slowest endpoint
-    /// any provider here calls - 36 to 41 seconds, already documented in <c>AGENTS.md</c>. A 30-second budget
+    /// any provider here calls - 36 to 41 seconds, already documented in <c>docs/providers.md</c>. A 30-second budget
     /// therefore expired while the resolution was still in flight and reported a failure for a link that did
     /// land, which is a flaky test rather than a real one.
     /// </para>

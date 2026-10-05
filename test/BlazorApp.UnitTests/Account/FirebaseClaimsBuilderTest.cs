@@ -54,7 +54,7 @@ public class FirebaseClaimsBuilderTest
     /// <summary>
     /// The security-relevant path: a token with no "role" custom claim must add no "role" claim at all,
     /// never a default/empty one, since Blazor's AdminOnly/MemberOnly policies key on the claim's mere
-    /// presence (see AGENTS.md's "Free preview tier" section, an account with no role claim gets the free
+    /// presence (see docs/architecture.md's "Free preview tier" section, an account with no role claim gets the free
     /// tier).
     /// </summary>
     [Fact]

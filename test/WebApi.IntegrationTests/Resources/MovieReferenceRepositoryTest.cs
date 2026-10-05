@@ -15,7 +15,7 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 /// <summary>
 /// Exercises <see cref="IMovieReferenceRepository.FindByTitleYearAsync"/>/<see cref="IMovieReferenceRepository.FindByTitleAsync"/> against real MongoDB: same coverage as <see cref="TvShowReferenceRepositoryTest"/>, which this file mirrors case for case.
 /// <see cref="MovieReferenceRatingRepositoryTest"/> covers rating propagation only, not this matching/alias/null-handling behavior, so movies previously had no dedicated test for the alias-array <c>ElemMatch</c> filter, the ambiguity-refusal rule, or the null-Creator BSON round-trip.
-/// This is exactly the kind of hand-written Mongo filter that has hidden real bugs before (see docs/findings/persistence-and-mapping.md).
+/// This is exactly the kind of hand-written Mongo filter that has hidden real bugs before (see docs/data-model.md).
 /// </summary>
 public class MovieReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)
 {

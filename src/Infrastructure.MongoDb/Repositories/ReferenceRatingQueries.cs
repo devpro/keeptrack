@@ -97,7 +97,7 @@ internal static class ReferenceRatingQueries
     {
         var builder = Builders<TEntity>.Filter;
         // "linked" is the inverse of the repositories' UnresolvedFilter - a real id, neither null nor the
-        // legacy empty-string sentinel (see CLAUDE.md). Ne also matches a missing/null source, which is
+        // legacy empty-string sentinel (see docs/data-model.md). Ne also matches a missing/null source, which is
         // exactly the never-stamped case above.
         var filter = builder.Ne(f => f.ReferenceId, null)
                      & builder.Ne(f => f.ReferenceId, string.Empty)

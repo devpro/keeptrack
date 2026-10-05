@@ -28,7 +28,7 @@ public class HealthRecordRepository(IMongoDatabase mongoDatabase, ILogger<Health
     {
         var builder = Builders<HealthRecord>.Filter;
         var filter = builder.Eq(f => f.OwnerId, ownerId);
-        // parent-id filter with Eq, never Text - see CLAUDE.md's CarHistory gotcha
+        // parent-id filter with Eq, never Text - see docs/data-model.md's Search section
         if (!string.IsNullOrEmpty(input.HealthProfileId)) filter &= builder.Eq(f => f.HealthProfileId, input.HealthProfileId);
         if (!string.IsNullOrEmpty(search))
         {

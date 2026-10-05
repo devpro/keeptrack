@@ -15,7 +15,7 @@ namespace Keeptrack.Testing.Shared.Hosting;
 /// </para>
 /// <para>
 /// It's easy to hit by accident rather than by carelessness: the documented way to run a *filtered* subset
-/// (see CLAUDE.md) is to export the runsettings' variables into the shell yourself, because
+/// (see CONTRIBUTING.md) is to export the runsettings' variables into the shell yourself, because
 /// <c>--settings</c> can't be combined with <c>--filter-method</c>. Forget that one step and the run lands
 /// on <c>keeptrack_dev</c>. That is exactly how this repository's dev database ended up holding leftover
 /// <c>test-lease-*</c>, <c>Export Test Actor</c> and <c>E2e Smoke *</c> documents.
@@ -54,7 +54,7 @@ public static class TestDatabaseGuard
                 $"{DatabaseNameVariable} is not set, so this test run would fall back to the host's own " +
                 "appsettings.Development.json database (keeptrack_dev) and create/delete documents in real data. " +
                 "Run the suite with '--settings Local.runsettings', or export the runsettings' environment " +
-                "variables into your shell first when you need to combine a filter with a run (see CLAUDE.md).");
+                "variables into your shell first when you need to combine a filter with a run (see CONTRIBUTING.md).");
         }
 
         if (ProtectedDatabaseMarkers.Any(marker => databaseName.Contains(marker, StringComparison.OrdinalIgnoreCase)))

@@ -7,7 +7,7 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
 /// <c>PagedRequest.Page</c>/<c>PageSize</c> carried no validation, so an out-of-range value reached the
-/// repository unchecked (see AGENTS.md's "No pagination bounds" finding).
+/// repository unchecked (see the PageSize item in docs/backlog.md).
 /// A negative <c>Page</c> produces a negative Mongo <c>Skip</c>, which the driver rejects with an unhandled
 /// exception the caller sees as a bare 500.
 /// A zero <c>PageSize</c> produces <c>Limit(0)</c>, which the Mongo C# driver treats as "no limit" rather

@@ -6,7 +6,7 @@ namespace Keeptrack.Domain.Models;
 /// <summary>
 /// One health-journal entry (an appointment, a sickness, anything else dated), owned by a
 /// <see cref="HealthProfileModel"/> - a separate top-level collection referencing its parent by id, same
-/// deliberate schema choice as CarHistory/Episode (unbounded per-parent growth over years; see CLAUDE.md's
+/// deliberate schema choice as CarHistory/Episode (unbounded per-parent growth over years; see docs/data-model.md's
 /// "Child entities" section). <see cref="HistoryDate"/> is a full <see cref="DateTime"/> (Car's pattern,
 /// not House's DateOnly): an appointment's time of day is real information ("was I there at 9:00 or 17:30").
 /// </summary>

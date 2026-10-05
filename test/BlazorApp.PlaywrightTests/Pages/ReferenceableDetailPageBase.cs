@@ -52,8 +52,8 @@ public abstract class ReferenceableDetailPageBase(IPage page) : DetailPageBase(p
     /// <para>
     /// That check is a local-only lookup (it never calls a provider) and it can succeed by itself, in which
     /// case there is nothing to search for and no panel: these smoke tests link fixed real titles, and the
-    /// reference document a previous run created is deliberately left behind (see the testing section of
-    /// CLAUDE.md), so from the second run onwards the item links on the check alone. Both outcomes leave the
+    /// reference document a previous run created is deliberately left behind (see the cleanup section of
+    /// docs/testing.md), so from the second run onwards the item links on the check alone. Both outcomes leave the
     /// item linked, which is what every caller asserts next. The panel's absence is a reliable signal of the
     /// first outcome rather than a guess, because it is rendered for exactly "admin, and not linked" - and
     /// the e2e identity is always an admin.

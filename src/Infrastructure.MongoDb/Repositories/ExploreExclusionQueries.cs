@@ -24,7 +24,7 @@ internal static class ExploreExclusionQueries
     /// <summary>
     /// Every distinct reference document id this owner's items link to. "Linked" is the inverse of the
     /// repositories' <c>UnresolvedFilter</c>: a real id, neither null nor the legacy empty-string sentinel
-    /// (see CLAUDE.md on why an empty string has to be treated as unset here).
+    /// (see docs/data-model.md on why an empty string has to be treated as unset here).
     /// </summary>
     internal static async Task<IReadOnlyList<string>> FindLinkedReferenceIdsAsync<TEntity>(
         IMongoCollection<TEntity> collection, string ownerId, Expression<Func<TEntity, string?>> referenceIdField)

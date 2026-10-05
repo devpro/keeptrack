@@ -39,7 +39,7 @@ public class HealthProfileController(
     }
 
     /// <summary>
-    /// HealthRecord is a separate top-level collection referencing its profile by id, not an embedded array (see CLAUDE.md's "Child entities" section) -
+    /// HealthRecord is a separate top-level collection referencing its profile by id, not an embedded array (see docs/data-model.md's "Child entities" section) -
     /// without this, deleting a profile would leave its journal orphaned in MongoDB forever, since it's only ever reachable via the profile's own id.
     /// </summary>
     protected override async Task OnDeletedAsync(string id, string ownerId, CancellationToken cancellationToken)

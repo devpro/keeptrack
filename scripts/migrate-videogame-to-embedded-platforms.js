@@ -1,5 +1,5 @@
 // One-off data migration: VideoGame moved from one top-level document per (owner, title, platform) to
-// one document per (owner, title) with an embedded `platforms` array - see CLAUDE.md's video game
+// one document per (owner, title) with an embedded `platforms` array - see docs/collections.md's Ownership
 // section for the full rationale (tracking one game across multiple platforms, with NG+/completion
 // tracking, used to mean duplicating the whole document per platform).
 //

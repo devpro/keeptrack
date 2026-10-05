@@ -1,7 +1,7 @@
 // One-off data cleanup: the `want_to_watch` flag was removed from TV shows. Watch Next drives shows
 // from the tenant's own `State`/episode history (an in-progress show with a confirmed unseen episode),
 // never from a want-to-watch flag - so the flag had no consuming feature for shows and was dropped
-// (it stays a movie-only concept). See CLAUDE.md. The matching `tvshow_want_to_watch` partial index
+// (it stays a movie-only concept). See docs/collections.md. The matching `tvshow_want_to_watch` partial index
 // was removed from scripts/mongodb-create-index.js.
 //
 // This unsets the now-orphaned `want_to_watch` field on existing tvshow documents (populated by earlier

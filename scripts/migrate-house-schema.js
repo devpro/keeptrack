@@ -1,5 +1,5 @@
 // One-off data migration: `House` dropped `address`/`postal_code`/`country` and made `city` mandatory,
-// plus added a new mandatory `property_type` field (see CLAUDE.md's House section). The MongoDB C# driver
+// plus added a new mandatory `property_type` field (see docs/journals.md's House section). The MongoDB C# driver
 // enforces C#'s `required` keyword on deserialization, so any pre-existing `house` document missing
 // `city` or `property_type` would fail to load once this ships - this script backfills both before that
 // happens, then drops the three retired fields.

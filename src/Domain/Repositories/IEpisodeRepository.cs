@@ -18,7 +18,7 @@ public interface IEpisodeRepository : IDataRepository<EpisodeModel>
     /// <summary>
     /// Deletes every episode owned by <paramref name="ownerId"/> for the given show - used to cascade a TV
     /// show deletion, since Episode is a separate top-level collection referencing its parent by id rather
-    /// than an embedded array (see CLAUDE.md's "Child entities" section).
+    /// than an embedded array (see docs/data-model.md's "Child entities" section).
     /// </summary>
     Task<long> DeleteAllForShowAsync(string tvShowId, string ownerId, CancellationToken cancellationToken = default);
 }

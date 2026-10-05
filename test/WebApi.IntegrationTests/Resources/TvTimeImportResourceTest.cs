@@ -90,7 +90,7 @@ public class TvTimeImportResourceTest(KestrelWebAppFactory<Program> factory)
 
     /// <summary>
     /// Registers every show matching a title, plus each show's episodes, for deletion. Episodes live in
-    /// their own collection keyed by show id (see CLAUDE.md's "Child entities"), so they have to be
+    /// their own collection keyed by show id (see docs/data-model.md's "Child entities"), so they have to be
     /// enumerated per show rather than found by the same title search.
     /// </summary>
     private void TrackShowsAndTheirEpisodes(string title)

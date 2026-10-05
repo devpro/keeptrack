@@ -12,7 +12,7 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
 /// Exercises <see cref="IBackgroundJobRepository"/> against real MongoDB - this store is what makes
-/// job polling work across WebApi replicas (see CLAUDE.md's scaling section), so its owner-scoping
+/// job polling work across WebApi replicas (see docs/architecture.md's scaling section), so its owner-scoping
 /// query and update shapes are verified against a real database, not mocks.
 /// <para>
 /// The <c>background_job</c> collection has a TTL index, so a leftover eventually disappears on its own -

@@ -4,7 +4,7 @@
 [![Build Status](https://dev.azure.com/devprofr/open-source/_apis/build/status/keeptrack-ci?branchName=main)](https://dev.azure.com/devprofr/open-source/_build/latest?definitionId=26&branchName=main)
 
 Steps to run, debug and develop the application locally.
-Architecture and conventions are in [AGENTS.md](AGENTS.md), deployment in [docs/operations.md](docs/operations.md).
+The design is in [docs/](docs/README.md), repository conventions in [AGENTS.md](AGENTS.md), deployment in [docs/operations.md](docs/operations.md).
 
 ## License and contribution terms
 
@@ -89,15 +89,14 @@ Template for `src/WebApi/appsettings.Development.json`:
 
 A provider with no credentials is skipped: items of that type stay unlinked instead of failing.
 
-Domain           | Provider                                                                   | Settings                             | How to get them
------------------|----------------------------------------------------------------------------|--------------------------------------|----------------
-TV shows, movies | [TMDB](https://www.themoviedb.org/)                                        | `Tmdb:ApiKey`                        | Free account, then a v3 key at [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api)
-TV shows, movies | [OMDb](https://www.omdbapi.com/) (IMDb ratings, optional)                  | `Omdb:ApiKey`                        | Free key at [omdbapi.com/apikey.aspx](https://www.omdbapi.com/apikey.aspx)
-Video games      | [IGDB](https://api-docs.igdb.com/) (default)                               | `Igdb:ClientId`, `Igdb:ClientSecret` | Register an application at [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps), the token is fetched and renewed by the app
-Video games      | [RAWG](https://rawg.io/apidocs) (admin search only)                        | `Rawg:ApiKey`                        | Free account at [rawg.io/apidocs](https://rawg.io/apidocs)
-Albums           | [Discogs](https://www.discogs.com/developers)                              | `Discogs:Token`                      | Personal access token at [discogs.com/settings/developers](https://www.discogs.com/settings/developers)
-Books            | [Google Books](https://developers.google.com/books) (default)              | `GoogleBooks:ApiKey`                 | Enable the Books API in [Google Cloud Console](https://console.cloud.google.com/) and create an API key
-Books            | [Open Library](https://openlibrary.org/), [BnF](https://catalogue.bnf.fr/) | none                                 | Keyless
+- **TV shows, movies**: [TMDB](https://www.themoviedb.org/), `Tmdb:ApiKey`, a v3 key at [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api) after creating a free account.
+- **TV shows, movies (IMDb ratings, optional)**: [OMDb](https://www.omdbapi.com/), `Omdb:ApiKey`, a free key at [omdbapi.com/apikey.aspx](https://www.omdbapi.com/apikey.aspx).
+- **Video games (default)**: [IGDB](https://api-docs.igdb.com/), `Igdb:ClientId` and `Igdb:ClientSecret`, from an application registered at [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps).
+  The app fetches and renews the token itself.
+- **Video games (admin search only)**: [RAWG](https://rawg.io/apidocs), `Rawg:ApiKey`, from a free account at [rawg.io/apidocs](https://rawg.io/apidocs).
+- **Albums**: [Discogs](https://www.discogs.com/developers), `Discogs:Token`, a personal access token at [discogs.com/settings/developers](https://www.discogs.com/settings/developers).
+- **Books (default)**: [Google Books](https://developers.google.com/books), `GoogleBooks:ApiKey`, an API key in [Google Cloud Console](https://console.cloud.google.com/) with the Books API enabled.
+- **Books**: [Open Library](https://openlibrary.org/) and [BnF](https://catalogue.bnf.fr/), keyless.
 
 ### Blazor app
 
@@ -174,14 +173,23 @@ eval "$(node scripts/load-runsettings.js)"
 dotnet test --project test/WebApi.IntegrationTests/WebApi.IntegrationTests.csproj
 ```
 
-The values are never converted to plain `NAME=value` lines and sourced: shell expansion silently truncates a password containing `$`, which surfaces as Firebase answering `INVALID_PASSWORD`.
+The PowerShell equivalent:
+
+```powershell
+[xml]$rs = Get-Content Local.runsettings
+$rs.RunSettings.RunConfiguration.EnvironmentVariables.ChildNodes | Where-Object { $_.NodeType -eq 'Element' } | ForEach-Object { Set-Item -Path "env:$($_.Name)" -Value $_.InnerText }
+```
+
+**The values are never converted to plain `NAME=value` lines and sourced.**
+Shell expansion silently drops everything from a `$` to the next non-word character, so a password containing `$` surfaces as Firebase answering `INVALID_PASSWORD`.
+The script single-quotes every value, escapes any embedded `'`, decodes XML entities and skips commented-out variables, and `Set-Item -Value` never re-parses what it is given.
 
 ### Integration tests
 
 Required variables:
 
 - `Infrastructure__MongoDB__ConnectionString`.
-  The database defaults to `keeptrack_integrationtests`, and a name containing `dev`, `prod` or `staging` is refused.
+  The database defaults to `keeptrack_integrationtests`, and a name containing `dev`, `prod`, `staging` or `preprod` is refused.
 - `FIREBASE_APIKEY`: **Project settings > General > Web API Key** in the Firebase console.
 - `FIREBASE_USERNAME`, `FIREBASE_PASSWORD`: a dedicated test user, carrying `role: "admin"` so the admin endpoints are covered.
 - `Authentication__JwtBearer__Authority`, `Authentication__JwtBearer__TokenValidation__Issuer`: `https://securetoken.google.com/<firebase-project-id>`.
@@ -287,12 +295,12 @@ istarci daemon start
 task ci:setup   # registers this repository and installs the pre-push hook
 ```
 
-Every commit made afterward runs in the background:
+Every commit made afterward runs in the background, the HEAD at registration excepted, with a dashboard at `http://127.0.0.1:7842`:
 
 ```bash
 task ci        # the runs of the recent commits
 task ci:logs   # the output of the last run
 ```
 
-The image of each job is set in `.istarci.yml`.
+What `.istarci.yml` configures is in [CI and code quality](docs/ci-and-quality.md#istarci).
 When working on IstarCI itself, `task ci:from-clone` runs the pipeline once from a clone in `~/repos/istarci` or `ISTARCI_DIR`, without the package.

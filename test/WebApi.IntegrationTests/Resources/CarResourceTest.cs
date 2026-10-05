@@ -13,7 +13,7 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
 /// Basic full-cycle CRUD coverage for <c>Car</c> - closes the "Car has no controller or Blazor page" /
-/// "no CRUD integration test" findings tracked in docs/findings/by-design-and-gaps.md, same shape as
+/// "no CRUD integration test" findings tracked in docs/backlog.md, same shape as
 /// <see cref="VideoGameResourceTest"/>.
 /// </summary>
 public class CarResourceTest(KestrelWebAppFactory<Program> factory)
@@ -58,7 +58,7 @@ public class CarResourceTest(KestrelWebAppFactory<Program> factory)
     /// <summary>
     /// CarRepository previously had no GetFilter override at all, so search silently fell back to the base
     /// class's $text query against an index that didn't even cover Car's field name (see
-    /// docs/findings/persistence-and-mapping.md) - this proves a name search now actually finds the car.
+    /// docs/data-model.md) - this proves a name search now actually finds the car.
     /// </summary>
     [Fact]
     public async Task CarResourceSearch_FiltersByName_IsOk()
@@ -101,7 +101,7 @@ public class CarResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// CarHistory is a separate top-level collection referencing its car by id (see AGENTS.md's "Child entities" section).
+    /// CarHistory is a separate top-level collection referencing its car by id (see docs/data-model.md's "Child entities" section).
     /// Without CarController.OnDeletedAsync cascading the delete, a deleted car's history would be orphaned in MongoDB forever, only ever reachable via the now-gone car id.
     /// Same shape as <see cref="HouseResourceTest.HouseResourceDelete_CascadesToItsHistory_IsOk"/>.
     /// </summary>

@@ -19,7 +19,7 @@ public static class ReferenceImageHydrator
         where TReference : IHasId
     {
         // distinct, non-empty ids only: unresolved items match both null (Mapperly-era writes) and ""
-        // (pre-Mapperly AutoMapper writes - see the UnresolvedFilter() gotcha in CLAUDE.md).
+        // (pre-Mapperly AutoMapper writes - see the UnresolvedFilter() gotcha in docs/data-model.md).
         var ids = dtos.Select(x => x.ReferenceId).OfType<string>().Where(x => x.Length > 0).Distinct().ToList();
         if (ids.Count == 0) return;
 

@@ -16,7 +16,7 @@ public static class CarStationHydrator
     public static async Task HydrateAsync(IReadOnlyList<CarHistoryDto> entries, ICarStationRepository stationRepository)
     {
         // distinct, non-empty ids only - an entry with no station (every Maintenance/Other one) contributes
-        // nothing, and "" is the pre-Mapperly generation of "unset" (see CLAUDE.md's UnresolvedFilter gotcha)
+        // nothing, and "" is the pre-Mapperly generation of "unset" (see docs/data-model.md's UnresolvedFilter gotcha)
         var ids = entries.Select(x => x.StationId).OfType<string>().Where(x => x.Length > 0).Distinct().ToList();
         if (ids.Count == 0) return;
 

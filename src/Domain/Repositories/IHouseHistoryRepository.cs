@@ -9,7 +9,7 @@ public interface IHouseHistoryRepository : IDataRepository<HouseHistoryModel>
     /// <summary>
     /// Deletes every history entry owned by <paramref name="ownerId"/> for the given house - used to cascade
     /// a house deletion, since HouseHistory is a separate top-level collection referencing its parent by id
-    /// rather than an embedded array (see CLAUDE.md's "Child entities" section).
+    /// rather than an embedded array (see docs/data-model.md's "Child entities" section).
     /// </summary>
     Task<long> DeleteAllForHouseAsync(string houseId, string ownerId, CancellationToken cancellationToken = default);
 }

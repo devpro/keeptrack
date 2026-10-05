@@ -44,7 +44,7 @@ public class HealthSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
         // add an appointment paid 60 with nothing reimbursed yet - it must come back flagged
         await AddEntryAsync();
         // data-testid, not GetByLabel: the modal's label/input pairs have no for/id association (the
-        // documented inventory-form gotcha - see CLAUDE.md's Playwright section)
+        // documented inventory-form gotcha - see docs/testing.md's end-to-end section)
         await Page.GetByTestId("practitioner-input").FillAsync("Dr E2e");
         await Page.GetByTestId("price-input").FillAsync("60");
         await SaveModalAsync();
