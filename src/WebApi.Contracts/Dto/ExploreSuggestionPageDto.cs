@@ -13,7 +13,8 @@ public class ExploreSuggestionPageDto
     /// <summary>
     /// Passed back as <c>after</c> for the next page, and null once the ranking is exhausted, so the client stops offering "load more".
     /// <para>
-    /// A rank cursor rather than a page number, since the caller's exclusions (tracked, dismissed) apply after the ranked read, and a skip and limit page would shift and drop suggestions.
+    /// A rank cursor rather than a page number, since the caller's exclusions (tracked, dismissed) apply after the ranked read,
+    /// and a skip and limit page would shift and drop suggestions.
     /// A page can therefore hold fewer than requested and still have more to come.
     /// </para>
     /// </summary>

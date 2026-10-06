@@ -12,7 +12,8 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Exercises <c>MongoDbRepositoryBase.FindAllAsync</c>'s sort translation against real MongoDB, since the title sort's case-insensitive collation, descending null placement and newest-first _id default are server-side semantics.
+/// Exercises <c>MongoDbRepositoryBase.FindAllAsync</c>'s sort translation against real MongoDB,
+/// since the title sort's case-insensitive collation, descending null placement and newest-first _id default are server-side semantics.
 /// One entity type suffices, the sort switch and collation living once in the shared base, and Book covers both overridable sort fields (title, rating).
 /// Each test run uses its own random owner id, so parallel runs and other tests' data can't interfere with the ordering assertions.
 /// </summary>
@@ -25,7 +26,8 @@ public class ListSortingRepositoryTest(KestrelWebAppFactory<Program> factory) : 
         var repository = scope.ServiceProvider.GetRequiredService<IBookRepository>();
         var ownerId = $"sort-test-{Guid.NewGuid():N}";
 
-        // creation order deliberately differs from every sorted order; "apple" (lowercase) between "Banana" and "Cherry" proves the title collation, the null rating proves nulls sort last
+        // creation order deliberately differs from every sorted order;
+        // "apple" (lowercase) between "Banana" and "Cherry" proves the title collation, the null rating proves nulls sort last
         await CreateBookAsync(repository, NewBook(ownerId, "Banana", rating: 2f));
         await CreateBookAsync(repository, NewBook(ownerId, "apple", rating: null));
         await CreateBookAsync(repository, NewBook(ownerId, "Cherry", rating: 4.5f));

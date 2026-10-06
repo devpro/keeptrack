@@ -20,7 +20,8 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
         if (!string.IsNullOrEmpty(provider)) query += $"&provider={Uri.EscapeDataString(provider)}";
         if (!string.IsNullOrEmpty(isbn)) query += $"&isbn={Uri.EscapeDataString(isbn)}";
 
-        // Not GetFromJsonAsync: this call reaches a live provider, the likeliest to fail for a reason worth reporting, and EnsureSuccessStatusCode would discard the API's explanation (see ApiResponseExtensions).
+        // Not GetFromJsonAsync: this call reaches a live provider, the likeliest to fail for a reason worth reporting,
+        // and EnsureSuccessStatusCode would discard the API's explanation (see ApiResponseExtensions).
         var response = await http.GetAsync(query);
         return await response.ReadJsonOrThrowAsync<List<ReferenceSearchResultDto>>() ?? [];
     }
@@ -95,7 +96,8 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
 
     /// <summary>
     /// Imports a previously exported zip.
-    /// Documents are matched by provider id, not by their exported <c>_id</c>, so it is idempotent and safe against a database already holding some of the same references (see <c>ReferenceDataImportService</c>).
+    /// Documents are matched by provider id, not by their exported <c>_id</c>,
+    /// so it is idempotent and safe against a database already holding some of the same references (see <c>ReferenceDataImportService</c>).
     /// <para>
     /// It runs in the background, and <see cref="GetImportStatusAsync"/> reports progress for the returned job id.
     /// A real export is tens of thousands of documents, far longer than this client's default 100s timeout.
@@ -103,7 +105,8 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
     /// </summary>
     /// <param name="zipStream">
     /// Read to the end before the request is sent, so it should already be in memory.
-    /// <c>IBrowserFile.OpenReadStream()</c> handed straight to <see cref="StreamContent"/> makes the API wait on the browser drip-feeding the file down the SignalR circuit mid-request.
+    /// <c>IBrowserFile.OpenReadStream()</c> handed straight to <see cref="StreamContent"/> makes the API wait on the browser
+    /// drip-feeding the file down the SignalR circuit mid-request.
     /// </param>
     public async Task<Guid> StartImportAsync(Stream zipStream, string fileName)
     {
@@ -127,7 +130,8 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
 
     /// <summary>
     /// Runs the reference sync now instead of waiting for the periodic background one (see <c>ReferenceDataAdminController.SyncNow</c>).
-    /// With <paramref name="force"/> it re-checks every reference document and rebuilds every Explore ranking, and without it, only what is past its staleness window, like the background tick.
+    /// With <paramref name="force"/> it re-checks every reference document and rebuilds every Explore ranking,
+    /// and without it, only what is past its staleness window, like the background tick.
     /// With <paramref name="exploreOnly"/> it rebuilds the Explore rankings alone, the much cheaper half, and the only one an Explore change needs.
     /// It runs in the background, and <see cref="GetSyncStatusAsync"/> reports progress for the returned job id.
     /// </summary>
@@ -147,7 +151,8 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
     }
 
     /// <summary>
-    /// Which video game references lack an id from the current default provider, and which look like duplicates (see <c>ReferenceDataAdminController.GetProviderReconciliation</c>).
+    /// Which video game references lack an id from the current default provider,
+    /// and which look like duplicates (see <c>ReferenceDataAdminController.GetProviderReconciliation</c>).
     /// Database reads only, with no provider call, so it is safe to load with the page.
     /// </summary>
     public async Task<ProviderReconciliationDto> GetProviderReconciliationAsync() =>

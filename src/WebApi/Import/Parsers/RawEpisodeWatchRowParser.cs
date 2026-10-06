@@ -5,7 +5,8 @@ namespace Keeptrack.WebApi.Import.Parsers;
 
 /// <summary>
 /// Shared reader for TV Time files mixing episode watch events with other rows (show summaries, counters) in one CSV.
-/// Each file tells them apart its own way, so the caller supplies the discriminator, and the rest (opening the stream, skipping rows without a season or episode, building the result) is common.
+/// Each file tells them apart its own way, so the caller supplies the discriminator,
+/// and the rest (opening the stream, skipping rows without a season or episode, building the result) is common.
 /// </summary>
 internal static class RawEpisodeWatchRowParser
 {

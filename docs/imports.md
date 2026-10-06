@@ -21,8 +21,14 @@ Video game | `GenericVideoGameImportController`, `GenericVideoGameImportService`
 - Aliases cover real headers: `Product Name` to Title, `ASIN`/`SKU` to `ProductId`, `Total Amount` to Price, `Product Condition` to Condition.
 - `Vendor` becomes the copy's Vendor and `Website` its `Reference`, and `Condition` is kept on the copy's `ProductName` (owner's request).
 
-The Amazon importer keeps only what is Amazon-specific: `FormatOrderReference` (ASIN plus order id) and `BuildAmazonProvenanceNotes`.
+The Amazon importer keeps only what is Amazon-specific: `AmazonImportMergeService.FormatOrderReference` (ASIN plus order id) and `BuildAmazonProvenanceNotes`.
 The video game importer takes `Vendor` as a per-row column, so any store with that shape works.
+
+**Two personal spreadsheet importers live beside the TV Time one in `src/WebApi/Import`.**
+
+- `CarHistoryImportController` and `CarHistoryImportService` import `Voitures.xlsx`, the fuel and maintenance history per car.
+- `HealthImportController` and `HealthImportService` import `Journal_sante.xlsx`, one sheet of health events with every family member in a `Personne` column.
+- Both share `ExcelCellParser`, and the house journal has no importer.
 
 ### Shared engine
 

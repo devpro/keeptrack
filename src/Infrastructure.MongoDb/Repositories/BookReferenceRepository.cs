@@ -79,7 +79,8 @@ public class BookReferenceRepository(IMongoDatabase mongoDatabase, BookReference
     public async Task<BookReferenceModel> UpsertAsync(BookReferenceModel model)
     {
         model.TitleNormalized = TitleNormalizer.Normalize(model.Title);
-        // No canonical-alias safety net: a book is its title and author, or an ISBN, and this model carries only AuthorReferenceId, never the name, so a complete key cannot be built here.
+        // No canonical-alias safety net: a book is its title and author, or an ISBN,
+        // and this model carries only AuthorReferenceId, never the name, so a complete key cannot be built here.
         // The resolve and refresh paths add the alias through ReferenceAliasRule.TitleAndCreatorWithYear before calling this.
         var entity = mapper.ToEntity(model);
 

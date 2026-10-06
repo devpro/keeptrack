@@ -7,7 +7,8 @@ namespace Keeptrack.Domain.Services;
 
 /// <summary>
 /// Pure computation over a health profile's journal, like <see cref="HouseMetricsService"/> and <see cref="CarMetricsService"/>.
-/// It answers three questions the journal does not show at a glance: what health costs per year after reimbursements, when each specialty was last seen, and which paid records still wait on a reimbursement.
+/// It answers three questions the journal does not show at a glance: what health costs per year after reimbursements,
+/// when each specialty was last seen, and which paid records still wait on a reimbursement.
 /// </summary>
 public static class HealthMetricsService
 {

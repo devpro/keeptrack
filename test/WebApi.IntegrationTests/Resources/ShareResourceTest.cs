@@ -13,7 +13,8 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 /// <summary>
 /// End-to-end share lifecycle against the live API.
 /// The recipient is matched by account email, so the single test account self-shares (as the Playwright smoke test does).
-/// Self-share means the recipient already owns everything shared, which is exactly the dedup path: reads flag the items as already-in-collection and a copy returns the existing item instead of duplicating.
+/// Self-share means the recipient already owns everything shared, which is exactly the dedup path:
+/// reads flag the items as already-in-collection and a copy returns the existing item instead of duplicating.
 /// A grant to a different email is invisible to others.
 /// </summary>
 public class ShareResourceTest(KestrelWebAppFactory<Program> factory)

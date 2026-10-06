@@ -6,7 +6,8 @@ namespace Keeptrack.Domain.Services;
 
 /// <summary>
 /// Pure computation over a house's history, like <see cref="CarMetricsService"/>.
-/// Limited to a yearly cost breakdown and the last record per type, with no reminders or due dates (owner's call): recurring bills are tracked elsewhere, and this is an exhaustive record with a yearly cost review.
+/// Limited to a yearly cost breakdown and the last record per type, with no reminders or due dates (owner's call):
+/// recurring bills are tracked elsewhere, and this is an exhaustive record with a yearly cost review.
 /// </summary>
 public static class HouseMetricsService
 {

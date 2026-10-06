@@ -11,7 +11,8 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
 {
     private const int PageSize = 20;
 
-    // Public properties, as [PersistentState] requires: the page loaded during prerender carries over to the interactive circuit, which reuses it rather than re-fetching, like the detail pages.
+    // Public properties, as [PersistentState] requires: the page loaded during prerender carries over to the interactive circuit,
+    // which reuses it rather than re-fetching, like the detail pages.
     // Items is nullable with no initializer, so restoration doesn't fight a default value, and the markup falls back to "Items ?? []".
     // LoadedQuery is the query signature Items and TotalCount were loaded for, so a restore skips the reload only while it matches the current search, filter, sort and page.
     [PersistentState]
@@ -85,7 +86,8 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
     protected virtual string DefaultSort => "";
 
     /// <summary>
-    /// Runs on the initial load and whenever the router supplies new query values (a filter or page click's NavigateTo, browser back or forward), so every list state change takes this one reload path.
+    /// Runs on the initial load and whenever the router supplies new query values (a filter or page click's NavigateTo, browser back or forward),
+    /// so every list state change takes this one reload path.
     /// The signature check keeps unrelated parameter updates (a cascading auth-state refresh) from re-fetching the same query.
     /// </summary>
     protected override async Task OnParametersSetAsync()
@@ -155,7 +157,8 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
 
     /// <summary>
     /// Navigates to the current list URL with the given query-parameter changes applied (a null value removes the parameter).
-    /// The reload happens in <see cref="OnParametersSetAsync"/> once the router supplies the new values, never here, so a button click and browser back or forward take the same path.
+    /// The reload happens in <see cref="OnParametersSetAsync"/> once the router supplies the new values,
+    /// never here, so a button click and browser back or forward take the same path.
     /// </summary>
     protected void ApplyQueryChanges(IReadOnlyDictionary<string, object?> changes) =>
         Navigation.NavigateTo(Navigation.GetUriWithQueryParameters(changes));
@@ -196,12 +199,14 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Matching runs on the server as a detached background task, which can't be awaited there: it chains provider calls, and a slow or dead provider would hold up a create for the resilience timeout, or a bulk import for that timeout per item.
+    /// Matching runs on the server as a detached background task, which can't be awaited there: it chains provider calls,
+    /// and a slow or dead provider would hold up a create for the resilience timeout, or a bulk import for that timeout per item.
     /// Waiting on the client keeps the create fast and reliable, and puts the delay where it can be bounded and shown.
     /// </para>
     /// <para>
     /// Without the wait the detail page opens unmatched, and the cover, rating and synopsis appear a second or two later, or not, depending on the provider.
-    /// A short, predictable wait with a spinner beats a result popping in at an unpredictable moment (owner's call), and removes the window where editing a field could race the match.
+    /// A short, predictable wait with a spinner beats a result popping in at an unpredictable moment (owner's call),
+    /// and removes the window where editing a field could race the match.
     /// </para>
     /// <para>
     /// It gives up quietly, since the item exists either way, most items have no match, and the detail page's own watcher picks up a late arrival.

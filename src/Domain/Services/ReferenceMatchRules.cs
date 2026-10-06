@@ -27,18 +27,21 @@ public interface ICreatorSearchCandidate : IReferenceSearchCandidate
 
 /// <summary>
 /// When a provider's candidate is the work being looked for.
-/// Declared once and read in every reference-linked domain: search policies rank candidates with it, and <c>ReferenceEnrichmentService</c> confirms automatic resolution, the detail page's check and video game adoption with it.
+/// Declared once and read in every reference-linked domain: search policies rank candidates with it,
+/// and <c>ReferenceEnrichmentService</c> confirms automatic resolution, the detail page's check and video game adoption with it.
 /// What a picker puts first and what links unattended therefore never drift apart.
 /// <para>
 /// <b>There are two identity shapes, a real difference between domains rather than an inconsistency.</b>
-/// A film, a show and a game are a title and a <i>year</i>, since namesakes are ordinary: IGDB holds eight games named "Resident Evil 2", TMDB a "Road House" from 1989 and one from 2024, and six shows named "The Office".
+/// A film, a show and a game are a title and a <i>year</i>, since namesakes are ordinary:
+/// IGDB holds eight games named "Resident Evil 2", TMDB a "Road House" from 1989 and one from 2024, and six shows named "The Office".
 /// A book and an album are a title and a <i>creator</i>: Google Books answers <c>intitle:The Hobbit+inauthor:Tolkien</c> with 300 volumes spanning decades, all one book.
 /// Requiring a year there would refuse every edition, so for those domains the year breaks ties and never filters.
 /// </para>
 /// <para>
 /// Both shapes share the rule that matters: a candidate must be <b>named</b> the work before anything else counts.
 /// Trusting that a provider returned exactly one row reads a property of the search as one of the answer, and fails both ways.
-/// <c>search/tv?query=Fallout&amp;first_air_date_year=2025</c> returns one result, "Thirst Trap: The Fame. The Fantasy. The Fallout.", while an ordinary <c>The Bear</c> (2022) returns eight and would link nothing.
+/// <c>search/tv?query=Fallout&amp;first_air_date_year=2025</c> returns one result, "Thirst Trap: The Fame. The Fantasy. The Fallout.",
+/// while an ordinary <c>The Bear</c> (2022) returns eight and would link nothing.
 /// </para>
 /// </summary>
 public static class ReferenceMatchRules
@@ -57,7 +60,8 @@ public static class ReferenceMatchRules
     /// <para>
     /// The middle rung is why this is not a boolean.
     /// Counting <see cref="YearUnknown"/> as a contradiction discards a right answer the provider has no date for.
-    /// Counting it as agreement floats an undated namesake above the real match: IGDB's undated "Resident Evil" above the 2002 remake asked for, and the undated "Resident Evil 2" blocking the 2019 one.
+    /// Counting it as agreement floats an undated namesake above the real match:
+    /// IGDB's undated "Resident Evil" above the 2002 remake asked for, and the undated "Resident Evil 2" blocking the 2019 one.
     /// </para>
     /// <para>
     /// With no year requested every candidate ranks <see cref="YearAgrees"/>, so a caller without a year relies on the title and the provider's order.
@@ -71,7 +75,8 @@ public static class ReferenceMatchRules
     /// <summary>
     /// Candidates ordered by how well they are <paramref name="title"/> (<paramref name="year"/>), best first: a perfect match ahead of everything, then the closest.
     /// <para>
-    /// One ordering for every list of candidates shown to a human, in every domain: provider search results, the admin reconciliation row, and the shortlist substring queries are cut down to.
+    /// One ordering for every list of candidates shown to a human, in every domain:
+    /// provider search results, the admin reconciliation row, and the shortlist substring queries are cut down to.
     /// </para>
     /// <para>
     /// The keys, in order:
@@ -94,7 +99,8 @@ public static class ReferenceMatchRules
     }
 
     /// <summary>
-    /// The candidates confirmed to be <paramref name="title"/> (<paramref name="year"/>) where the year is the identity: named the work under <see cref="TitleNormalizer.LooselyEqual"/>, and agreeing about the year as well as any candidate does.
+    /// The candidates confirmed to be <paramref name="title"/> (<paramref name="year"/>) where the year is the identity:
+    /// named the work under <see cref="TitleNormalizer.LooselyEqual"/>, and agreeing about the year as well as any candidate does.
     /// <para>
     /// Callers act only on a single confirmed match, so this is a shortlist rather than a verdict: several means "do not guess", none means "nothing here is this work".
     /// </para>
@@ -119,8 +125,10 @@ public static class ReferenceMatchRules
     /// The candidates naming <paramref name="title"/>: those spelled exactly so if there are any, and otherwise those matching loosely.
     /// <para>
     /// <b>Two tiers, because loose matching discards real words.</b>
-    /// <see cref="TitleNormalizer.NormalizeLoose"/> drops "the" and parenthesised groups, which lets <c>Mass Effect: Legendary Edition</c> meet <c>Mass Effect Legendary Edition</c>, but also makes different works collide.
-    /// TMDB answers <c>Alien</c> (1979) with <i>Alien</i> and <i>The Alien</i>, two films of that year that loose matching cannot tell apart, although the tenant typed one of them exactly.
+    /// <see cref="TitleNormalizer.NormalizeLoose"/> drops "the" and parenthesised groups,
+    /// which lets <c>Mass Effect: Legendary Edition</c> meet <c>Mass Effect Legendary Edition</c>, but also makes different works collide.
+    /// TMDB answers <c>Alien</c> (1979) with <i>Alien</i> and <i>The Alien</i>,
+    /// two films of that year that loose matching cannot tell apart, although the tenant typed one of them exactly.
     /// </para>
     /// <para>
     /// An exact match is better evidence than a loose one, so a loose-only candidate never displaces it.
@@ -137,11 +145,14 @@ public static class ReferenceMatchRules
     }
 
     /// <summary>
-    /// The candidates confirmed to be <paramref name="title"/> by <paramref name="creator"/> where the creator is the identity (books, albums), best first, so a caller links <c>[0]</c> and refuses an empty list.
+    /// The candidates confirmed to be <paramref name="title"/> by <paramref name="creator"/> where the creator is the identity (books, albums), best first,
+    /// so a caller links <c>[0]</c> and refuses an empty list.
     /// <para>
     /// <b>Several results here are editions, not an ambiguity</b>, the one difference from <see cref="ConfirmedMatches"/>.
-    /// Google Books returns 300 volumes for "The Hobbit" by Tolkien, and Discogs two masters for "Thriller" by Michael Jackson, each the same work, so refusing to choose would link no book and few albums.
-    /// The reference describes the work rather than a printing, so any confirmed candidate is right, and <see cref="OrderByBestMatch"/> only picks the closest: the tenant's year when recorded, and the plain title over a longer variant.
+    /// Google Books returns 300 volumes for "The Hobbit" by Tolkien,
+    /// and Discogs two masters for "Thriller" by Michael Jackson, each the same work, so refusing to choose would link no book and few albums.
+    /// The reference describes the work rather than a printing, so any confirmed candidate is right,
+    /// and <see cref="OrderByBestMatch"/> only picks the closest: the tenant's year when recorded, and the plain title over a longer variant.
     /// </para>
     /// <para>
     /// The candidates must agree with the requested creator, <b>not</b> with each other.
@@ -161,7 +172,8 @@ public static class ReferenceMatchRules
     /// Whether a candidate's creator is the requested one, either being possibly the fuller form of the other.
     /// A tenant records "Tolkien" where Google Books credits "J.R.R. Tolkien", and BnF's parsed "LastName, FirstName" gives only the first name of a multi-author record.
     /// <para>
-    /// Whole-word containment under <see cref="TitleNormalizer.NormalizeLoose"/> both ways, so punctuation and accents do not separate two spellings of one name, while a different person is still rejected.
+    /// Whole-word containment under <see cref="TitleNormalizer.NormalizeLoose"/> both ways,
+    /// so punctuation and accents do not separate two spellings of one name, while a different person is still rejected.
     /// </para>
     /// </summary>
     public static bool CreatorMatches(string? candidateCreator, string requestedCreator) =>

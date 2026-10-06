@@ -4,11 +4,13 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
 /// Builds a small, synthetic Amazon order-history CSV for tests, since a real personal export is never a fixture (as with <see cref="TvTimeFixtureZipBuilder"/>).
-/// Amazon's export has no category column, so the movie, TV show and video game rows are ordinary non-ISBN lines, and the test assigns their media type at commit, as a user does in the review UI.
+/// Amazon's export has no category column, so the movie, TV show and video game rows are ordinary non-ISBN lines,
+/// and the test assigns their media type at commit, as a user does in the review UI.
 /// </summary>
 internal static class AmazonFixtureCsvBuilder
 {
-    // Namespaced "Amazon Import", not the "Keeptrack Integration Test X" of TvTimeFixtureZipBuilder, since a shared title in the test database lets TvTimeImportResourceTest's title matching pick up this fixture's movie.
+    // Namespaced "Amazon Import", not the "Keeptrack Integration Test X" of TvTimeFixtureZipBuilder,
+    // since a shared title in the test database lets TvTimeImportResourceTest's title matching pick up this fixture's movie.
     // Every title here stays distinct from every other fixture's.
     public const string BookTitle = "Keeptrack Amazon Import Test Book";
 

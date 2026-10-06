@@ -10,7 +10,8 @@ namespace Keeptrack.Domain.Models;
 /// An update replaces the whole document, so a client holding a copy fetched before the item was linked would otherwise erase the link by saving anything.
 /// </para>
 /// <para>
-/// Declared once rather than per controller, since the rule and the field names are the same on all five reference-linked types, as <c>IHasReferenceRating</c> is on the entity side.
+/// Declared once rather than per controller, since the rule and the field names are the same on all five reference-linked types,
+/// as <c>IHasReferenceRating</c> is on the entity side.
 /// </para>
 /// </remarks>
 public interface IReferenceLinkedModel

@@ -11,13 +11,15 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Runs alone, like <see cref="WatchNextSmokeTestCollection"/>, since the car record scenario asserts the tenant has exactly one car (the single-parent preselect path), which a parallel class's car traffic (<c>CarSmokeTest</c>, <c>MobileScreenshotTest</c>) would race.
+/// Runs alone, like <see cref="WatchNextSmokeTestCollection"/>, since the car record scenario asserts the tenant has exactly one car (the single-parent preselect path),
+/// which a parallel class's car traffic (<c>CarSmokeTest</c>, <c>MobileScreenshotTest</c>) would race.
 /// </summary>
 [CollectionDefinition(nameof(QuickAddSmokeTest), DisableParallelization = true)]
 public class QuickAddSmokeTestCollection;
 
 /// <summary>
-/// Quick Add's end-to-end coverage: one media type (a movie, with the "I own a copy" toggle sharing OwnedVersionFields) and one record type (a car refuel, with the single-parent preselect and the shared CarHistoryForm).
+/// Quick Add's end-to-end coverage: one media type (a movie, with the "I own a copy" toggle sharing OwnedVersionFields)
+/// and one record type (a car refuel, with the single-parent preselect and the shared CarHistoryForm).
 /// The other six types reuse form components their own detail page smoke tests cover, so this proves only Quick Add's plumbing: picker navigation, single-POST save, landing route.
 /// </summary>
 [Trait("Category", "E2eTests")]

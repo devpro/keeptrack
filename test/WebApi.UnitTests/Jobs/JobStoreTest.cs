@@ -10,8 +10,10 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.Jobs;
 
 /// <summary>
-/// Covers <see cref="JobStore{TStage,TResult}"/>'s own job, the typed enum-name and JSON translation over the string-based <see cref="IBackgroundJobRepository"/>, against an in-memory fake.
-/// <c>BackgroundJobRepositoryTest</c> covers the real MongoDB persistence and owner-scoping query, and the fake mirrors the owner check, so the wrapper's null passthrough is exercised here.
+/// Covers <see cref="JobStore{TStage,TResult}"/>'s own job,
+/// the typed enum-name and JSON translation over the string-based <see cref="IBackgroundJobRepository"/>, against an in-memory fake.
+/// <c>BackgroundJobRepositoryTest</c> covers the real MongoDB persistence and owner-scoping query,
+/// and the fake mirrors the owner check, so the wrapper's null passthrough is exercised here.
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class JobStoreTest

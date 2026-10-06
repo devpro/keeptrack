@@ -39,7 +39,8 @@ public class GenericImportResourceTest(KestrelWebAppFactory<Program> factory)
         videoGameRow.SuggestedMediaType.Should().Be(ImportMediaType.VideoGame);
         videoGameRow.Platform.Should().Be(GenericImportFixtureCsvBuilder.VideoGamePlatform);
 
-        // The commit creates items whose ids this test never sees, so cleanup is keyed on the fixture's synthetic titles, registered before the commit, so a partial commit is cleaned up too.
+        // The commit creates items whose ids this test never sees,
+        // so cleanup is keyed on the fixture's synthetic titles, registered before the commit, so a partial commit is cleaned up too.
         TrackResourcesMatching<BookDto>("/api/books", GenericImportFixtureCsvBuilder.BookTitle);
         TrackResourcesMatching<MovieDto>("/api/movies", GenericImportFixtureCsvBuilder.MovieTitle);
         TrackResourcesMatching<VideoGameDto>("/api/video-games", GenericImportFixtureCsvBuilder.VideoGameTitle);

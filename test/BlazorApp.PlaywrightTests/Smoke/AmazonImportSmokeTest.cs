@@ -24,7 +24,8 @@ public class AmazonImportSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixtu
         var title = $"E2e Amazon Book {Guid.NewGuid():N}";
         var csv = AmazonImportFixtureCsvBuilder.Build(title);
 
-        // The commit creates an item whose id this test never sees, so cleanup is keyed on the fixture's unique title, registered before the upload, so a partial import is cleaned up too.
+        // The commit creates an item whose id this test never sees,
+        // so cleanup is keyed on the fixture's unique title, registered before the upload, so a partial import is cleaned up too.
         TrackItemsMatching("/api/books", $"/api/books?search={Uri.EscapeDataString(title)}");
 
         var home = await new HomePage(Page).OpenAsync();

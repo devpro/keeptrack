@@ -81,7 +81,8 @@
     [CascadingParameter] private Task<AuthenticationState>? AuthenticationState { get; set; }
 
     // A public property, as [PersistentState] requires: the stats fetched during prerender carry over to the interactive circuit, which reuses them rather than re-fetching.
-    // CollectionStatsDto is a handful of counts, well within the Blazor hub's 32 KB message limit, so it follows the detail pages rather than Watch Next and Wishlist's re-fetch (see docs/blazor-ui.md).
+    // CollectionStatsDto is a handful of counts, well within the Blazor hub's 32 KB message limit,
+    // so it follows the detail pages rather than Watch Next and Wishlist's re-fetch (see docs/blazor-ui.md).
     [PersistentState]
     public CollectionStatsDto? Stats { get; set; }
 
@@ -113,7 +114,8 @@
 
     /// <summary>
     /// Whether the browser is still on this page's own route.
-    /// The circuit's <see cref="NavigationManager"/> learns of an enhanced navigation (it re-marks the sidebar's active item), so this reliably tells whether the page is still the one shown.
+    /// The circuit's <see cref="NavigationManager"/> learns of an enhanced navigation (it re-marks the sidebar's active item),
+    /// so this reliably tells whether the page is still the one shown.
     /// </summary>
     private bool IsStillTheCurrentPage =>
         Navigation.ToBaseRelativePath(Navigation.Uri).Split('?')[0].Trim('/').Length == 0;

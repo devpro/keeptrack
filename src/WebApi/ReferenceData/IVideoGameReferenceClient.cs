@@ -10,8 +10,10 @@ public record VideoGameSearchResult(string ExternalId, string Title, int? Year, 
 
 /// <summary>
 /// Full details for one game.
-/// The client builds <paramref name="Ratings"/>, keyed by its <see cref="IVideoGameReferenceClient.SupportedRatingSources"/> with each source's scale, unlike <see cref="BookDetails"/>'s single score.
-/// A game provider reports two scores on scales of its own (RAWG's 0 to 5 beside Metacritic's 0 to 100, IGDB's two 0 to 100), which the provider knows rather than the shared enrichment.
+/// The client builds <paramref name="Ratings"/>, keyed by its <see cref="IVideoGameReferenceClient.SupportedRatingSources"/> with each source's scale,
+/// unlike <see cref="BookDetails"/>'s single score.
+/// A game provider reports two scores on scales of its own (RAWG's 0 to 5 beside Metacritic's 0 to 100, IGDB's two 0 to 100),
+/// which the provider knows rather than the shared enrichment.
 /// </summary>
 public record VideoGameDetails(
     string ExternalId,
@@ -34,14 +36,17 @@ public record VideoGameTopRatedItem(string ExternalId, string Title, int? Year, 
 
 /// <summary>
 /// Video game lookup independent of the provider, for resolution and refresh, the admin search and the Explore refresh.
-/// The default is a deployment choice (<c>ReferenceData:VideoGameProvider</c>), so nothing outside an implementation assumes the provider, as with <see cref="IBookReferenceClient"/>.
+/// The default is a deployment choice (<c>ReferenceData:VideoGameProvider</c>),
+/// so nothing outside an implementation assumes the provider, as with <see cref="IBookReferenceClient"/>.
 /// An interface, so tests use a fake.
 /// </summary>
 public interface IVideoGameReferenceClient : IReferenceProviderClient
 {
     /// <summary>
     /// The rating source keys this provider owns: those it reports and, for games, the orderings it ranks its catalogue by.
-    /// They key the <c>Ratings</c> map, decide which stored ratings a refresh may overwrite (<c>ReferenceEnrichmentService.MergeProviderRatings</c>, so a provider never clears another's), and declare the Explore rankings (<see cref="ExploreRankings.Rankings"/>).
+    /// They key the <c>Ratings</c> map,
+    /// decide which stored ratings a refresh may overwrite (<c>ReferenceEnrichmentService.MergeProviderRatings</c>, so a provider never clears another's),
+    /// and declare the Explore rankings (<see cref="ExploreRankings.Rankings"/>).
     /// The first is the provider's default ordering.
     /// </summary>
     IReadOnlyList<string> SupportedRatingSources { get; }
@@ -52,7 +57,8 @@ public interface IVideoGameReferenceClient : IReferenceProviderClient
     /// Every game this provider holds under exactly <paramref name="title"/>, case-insensitively, rather than what its relevance ranking makes of the phrase.
     /// Empty when there is none.
     /// <para>
-    /// Apart from <see cref="SearchGamesAsync"/>, since relevance is noisy: IGDB puts three "Half-Life 2" mods above the game, and "Resident Evil" returns bundles before either the original or the remake.
+    /// Apart from <see cref="SearchGamesAsync"/>, since relevance is noisy: IGDB puts three "Half-Life 2" mods above the game,
+    /// and "Resident Evil" returns bundles before either the original or the remake.
     /// Adoption asks whether a game is named exactly this, and the query's complete result makes "exactly one candidate" a safe confirmation rather than where a window stopped.
     /// </para>
     /// </summary>
@@ -62,7 +68,8 @@ public interface IVideoGameReferenceClient : IReferenceProviderClient
     /// Every game whose title contains all of <paramref name="words"/> as substrings, in any order: the last resort for a title neither the exact lookup nor relevance reaches.
     /// <para>
     /// It serves a reference spelled without the provider's punctuation.
-    /// "Marvel Avengers" is IGDB's "Marvel's Avengers", which the exact lookup misses and relevance answers with LEGO packs, while <c>name ~ *"marvel"* &amp; name ~ *"avengers"*</c> finds it.
+    /// "Marvel Avengers" is IGDB's "Marvel's Avengers", which the exact lookup misses and relevance answers with LEGO packs,
+    /// while <c>name ~ *"marvel"* &amp; name ~ *"avengers"*</c> finds it.
     /// </para>
     /// <para>
     /// Unranked, so the caller shortlists the result rather than showing it whole (see <c>ReferenceEnrichmentService.FindAdoptionCandidatesAsync</c>).
@@ -74,7 +81,8 @@ public interface IVideoGameReferenceClient : IReferenceProviderClient
     /// The game this provider publishes under <paramref name="identifier"/>: its numeric id, or the slug of its page URL (see <see cref="ProviderWebLinks.TryReadIdentifier"/>).
     /// Null when there is none, never an exception, since a wrong pasted address is an ordinary "no result".
     /// <para>
-    /// The reconciliation screen's escape hatch: no spelling makes IGDB's relevance search return "Marvel's Avengers", while its page, which a human can open and copy, names it exactly.
+    /// The reconciliation screen's escape hatch: no spelling makes IGDB's relevance search return "Marvel's Avengers",
+    /// while its page, which a human can open and copy, names it exactly.
     /// </para>
     /// </summary>
     Task<VideoGameSearchResult?> FindGameByIdentifierAsync(string identifier, CancellationToken cancellationToken = default);

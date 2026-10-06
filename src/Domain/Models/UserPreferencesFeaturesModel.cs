@@ -12,7 +12,8 @@ public class UserPreferencesFeaturesModel
     public bool ShowChasseAuxLivresLink { get; set; }
 
     /// <summary>
-    /// Shows an "open on Amazon" link next to an owned copy's Reference (<c>OwnedVersionFields.razor</c>) when <see cref="Common.System.AmazonReference.TryExtractAsin"/> finds an ASIN in it, meaning the Amazon import created the copy.
+    /// Shows an "open on Amazon" link next to an owned copy's Reference (<c>OwnedVersionFields.razor</c>)
+    /// when <see cref="Common.System.AmazonReference.TryExtractAsin"/> finds an ASIN in it, meaning the Amazon import created the copy.
     /// </summary>
     public bool ShowAmazonProductLink { get; set; }
 }

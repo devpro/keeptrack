@@ -6,7 +6,7 @@ Their detail pages share `JournalDetailPageBase` (see [Blazor UI](blazor-ui.md#p
 ## Car
 
 `CarHistoryModel.DeltaMileage` is user entered (read off the trip computer), not derived, and `CarMetricsService` cross-checks it against consecutive `Mileage` readings to flag typos or skipped entries.
-`CarMetricsService` (consumption across a full refill, cost history, mileage warnings, next maintenance due) is a pure singleton exposed through `CarController.GetMetrics`.
+`CarMetricsService` (consumption across a full refill, cost history, mileage warnings, last records) is a pure singleton exposed through `CarController.GetMetrics`.
 
 ### Stations
 
@@ -23,7 +23,7 @@ Maintenance and Other entries keep their own location and free-text `Garage`, ha
 
 ### Refuel cost check
 
-**The refuel form checks the total against what was pumped, and only warns** (`Common.System/RefuelCostCheck`, shared by `BlazorApp` and `Domain`).
+**The refuel form checks the total against what was pumped, and only warns** (`Common.System/RefuelCostCheck`, used only by `BlazorApp`, in `CarHistoryForm`).
 A receipt legitimately differs from the pump (car wash, loyalty discount), so it never auto-fills or blocks, but a missing cost when one is computable counts as a mismatch.
 The tolerance derives from what the pump display rounds away (volume to 0.01, unit price to 0.001), since a flat constant false-positives on a big tank and misses a real error on a small one.
 
@@ -41,7 +41,7 @@ The parent is a person (`HealthProfileModel.Name`), and both controllers are `Me
 
 The money model is the French reimbursement flow: `Price`, `PublicReimbursement`, `InsuranceReimbursement`, `NotCovered`.
 
-- A record is settled when `price - public - insurance - notCovered == 0` within `HealthMetricsService.BalanceTolerance` (0.005).
+- A record is settled when `price - public - insurance - notCovered == 0` within `HealthMetricsService.BalanceTolerance` (0.05).
   Anything else lands in `HealthMetricsModel.UnbalancedRecords` with the signed missing amount.
 - **The balance rule lives only in `HealthMetricsService`**: the journal's "to check" badges come from the metrics' id list and are never re-derived client side.
   The form's live balance preview is display only.

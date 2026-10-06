@@ -26,7 +26,8 @@ public class ShareController(IShareRepository shareRepository, ShareDtoMapper ma
 
     /// <summary>
     /// Issues a new grant.
-    /// <c>OwnerId</c> and <c>OwnerDisplayName</c> come from the authenticated caller, never the body, and the recipient email is normalized lowercase, as the recipient is looked up.
+    /// <c>OwnerId</c> and <c>OwnerDisplayName</c> come from the authenticated caller,
+    /// never the body, and the recipient email is normalized lowercase, as the recipient is looked up.
     /// </summary>
     [HttpPost]
     [Consumes("application/json", "text/json")]

@@ -7,14 +7,16 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// Which rating sources a domain offers an admin, and which one is effective given the stored choice.
 /// <para>
 /// An injected service rather than a static table, since the video game answer is a deployment fact.
-/// The domain offers the sources its default provider reports (<see cref="IVideoGameReferenceClient.SupportedRatingSources"/>), so switching <c>ReferenceData:VideoGameProvider</c> needs no code or migration, as for <see cref="ExploreRankings"/>.
+/// The domain offers the sources its default provider reports (<see cref="IVideoGameReferenceClient.SupportedRatingSources"/>),
+/// so switching <c>ReferenceData:VideoGameProvider</c> needs no code or migration, as for <see cref="ExploreRankings"/>.
 /// </para>
 /// <para>
 /// <b>A source no registered provider produces is never selectable, and one it produces never stays hidden.</b>
 /// A fixed list would offer Metacritic under IGDB, which cannot produce it, leaving every game linked since without a rating.
 /// </para>
 /// <para>
-/// A stored choice not currently on offer is <b>ignored, never erased</b> (see <see cref="Resolve"/>), which makes a provider change reversible: a Metacritic choice made under RAWG returns as soon as RAWG does.
+/// A stored choice not currently on offer is <b>ignored, never erased</b> (see <see cref="Resolve"/>),
+/// which makes a provider change reversible: a Metacritic choice made under RAWG returns as soon as RAWG does.
 /// </para>
 /// </summary>
 public class RatingSourceOptions(ReferenceClientRegistry<IVideoGameReferenceClient> videoGameClients)

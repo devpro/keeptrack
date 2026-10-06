@@ -14,7 +14,8 @@ public class GenericImportServiceTest
 {
     private static MemoryStream ToStream(string csv) => new(Encoding.UTF8.GetBytes(csv));
 
-    // The header of a real Rakuten export reshaped in a spreadsheet, exercising every alias at once: Product Name to Title, ASIN to Product Id, Product Condition to Condition, Total Amount to Price.
+    // The header of a real Rakuten export reshaped in a spreadsheet, exercising every alias at once:
+    // Product Name to Title, ASIN to Product Id, Product Condition to Condition, Total Amount to Price.
     // Vendor (the store name, to the copy's Vendor) and Website (the item URL, to the copy's Reference) are two columns feeding two fields.
     private const string RakutenCsv = """
                                       Order Date,Order ID,ASIN,Product Name,Product Condition,Total Amount,Vendor,Website,Type,Platform,Author

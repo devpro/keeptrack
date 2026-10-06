@@ -7,7 +7,9 @@ namespace Keeptrack.Testing.Shared.Hosting;
 /// Fail-fast check that a suite hosting the real <c>WebApi</c> in-process is pointed at a dedicated test database rather than the developer's own data.
 /// <para>
 /// The failure it prevents is silent and destructive.
-/// The in-process host runs as <c>Development</c>, so without <c>Infrastructure__MongoDB__DatabaseName</c> it falls back to <c>src/WebApi/appsettings.Development.json</c>, <c>keeptrack_dev</c>, the database the developer browses in the app.
+/// The in-process host runs as <c>Development</c>,
+/// so without <c>Infrastructure__MongoDB__DatabaseName</c> it falls back to <c>src/WebApi/appsettings.Development.json</c>,
+/// <c>keeptrack_dev</c>, the database the developer browses in the app.
 /// Nothing errors, and the suite creates, mutates and deletes documents in real data.
 /// </para>
 /// <para>
@@ -21,7 +23,9 @@ public static class TestDatabaseGuard
 
     /// <summary>
     /// Substrings that mark a database as a real, non-throwaway one.
-    /// Deliberately a denylist of "this is somebody's data" markers rather than an allowlist of blessed test names: a new suite pointing at <c>keeptrack_something_new</c> should just work, while pointing at <c>keeptrack_dev</c> or a production database must never be the accidental default.
+    /// Deliberately a denylist of "this is somebody's data" markers rather than an allowlist of blessed test names:
+    /// a new suite pointing at <c>keeptrack_something_new</c> should just work,
+    /// while pointing at <c>keeptrack_dev</c> or a production database must never be the accidental default.
     /// </summary>
     private static readonly string[] ProtectedDatabaseMarkers = ["dev", "prod", "staging", "preprod"];
 
@@ -33,7 +37,8 @@ public static class TestDatabaseGuard
         => EnsureTestDatabaseName(Environment.GetEnvironmentVariable(DatabaseNameVariable));
 
     /// <summary>
-    /// The same check against a name the caller resolved itself, for a suite that picks its own database rather than inheriting the ambient variable (see <c>End2EndConfiguration.DatabaseName</c>).
+    /// The same check against a name the caller resolved itself, for a suite that picks its own database
+    /// rather than inheriting the ambient variable (see <c>End2EndConfiguration.DatabaseName</c>).
     /// Checking the variable there would vouch for a name the run isn't going to use.
     /// </summary>
     public static void EnsureTestDatabaseName(string? databaseName)

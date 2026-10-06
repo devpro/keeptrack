@@ -10,7 +10,8 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// IGDB (Internet Game Database, part of Twitch) client, the default video game provider.
 /// <para>
 /// It differs from the other clients in three ways.
-/// Two are handled around it, so it stays a plain typed <see cref="HttpClient"/>: a Twitch app token rather than an API key (<see cref="IgdbAuthenticationHandler"/>), and a 4 requests per second ceiling (<see cref="IgdbRateLimitHandler"/>).
+/// Two are handled around it, so it stays a plain typed <see cref="HttpClient"/>:
+/// a Twitch app token rather than an API key (<see cref="IgdbAuthenticationHandler"/>), and a 4 requests per second ceiling (<see cref="IgdbRateLimitHandler"/>).
 /// The third shows here: queries are POST bodies in IGDB's Apicalypse language.
 /// </para>
 /// <para>
@@ -44,7 +45,8 @@ public class IgdbClient(HttpClient http, IgdbSettings settings) : VideoGameRefer
     {
         if (!settings.IsConfigured || string.IsNullOrWhiteSpace(title)) return [];
 
-        // `name ~ "..."` is Apicalypse's case-insensitive equality, not the relevance `search`: it returns the seven games named exactly "Resident Evil", where `search` returns bundles.
+        // `name ~ "..."` is Apicalypse's case-insensitive equality, not the relevance `search`:
+        // it returns the seven games named exactly "Resident Evil", where `search` returns bundles.
         // A larger limit than search, since truncating this complete answer could turn "several candidates" into "exactly one".
         var query = $"{SearchFields} where name ~ \"{EscapeSearchTerm(title)}\"; limit {MaxExactTitleResults};";
         var games = await QueryAsync(query, cancellationToken);
@@ -56,7 +58,8 @@ public class IgdbClient(HttpClient http, IgdbSettings settings) : VideoGameRefer
     {
         if (!settings.IsConfigured || words.Count == 0) return [];
 
-        // `name ~ *"..."*` is Apicalypse's case-insensitive contains, and joining several survives punctuation the reference lacks: each word is a substring of "Marvel's Avengers", where the phrase matches nothing
+        // `name ~ *"..."*` is Apicalypse's case-insensitive contains, and joining several survives punctuation the reference lacks:
+        // each word is a substring of "Marvel's Avengers", where the phrase matches nothing
         var filter = string.Join(" & ", words.Select(word => $"name ~ *\"{EscapeSearchTerm(word)}\"*"));
         var games = await QueryAsync($"{SearchFields} where {filter}; limit {MaxContainsResults};", cancellationToken);
         return games.Select(g => new VideoGameSearchResult(
@@ -112,7 +115,8 @@ public class IgdbClient(HttpClient http, IgdbSettings settings) : VideoGameRefer
         // The vote-count floor makes the ranking trustworthy, since a plain average ranks a single-vote unknown above every classic.
         //
         // It is the only filter.
-        // `game_type = 0` would keep parent titles only, but a DLC or remaster is worth tracking (owner's call): "Shadow of the Erdtree" and "The Last of Us Remastered" are legitimate suggestions.
+        // `game_type = 0` would keep parent titles only, but a DLC or remaster is worth tracking (owner's call):
+        // "Shadow of the Erdtree" and "The Last of Us Remastered" are legitimate suggestions.
         var query = $"{TopRatedFields} where {countField} >= {minCount}; " +
                     $"sort {sortField} desc; limit {TopRatedPageSize}; offset {Math.Max(page - 1, 0) * TopRatedPageSize};";
 
@@ -134,7 +138,8 @@ public class IgdbClient(HttpClient http, IgdbSettings settings) : VideoGameRefer
         "fields name,first_release_date,cover.image_id,rating,rating_count,aggregated_rating,aggregated_rating_count,url;";
 
     /// <summary>
-    /// Bound of <see cref="FindGamesByExactTitleAsync"/>, higher than a search displays: an exact query returns only namesakes, and seeing all of them makes "more than one, leave it to an admin" a real judgement ("Resident Evil" has seven).
+    /// Bound of <see cref="FindGamesByExactTitleAsync"/>, higher than a search displays: an exact query returns only namesakes,
+    /// and seeing all of them makes "more than one, leave it to an admin" a real judgement ("Resident Evil" has seven).
     /// </summary>
     private const int MaxExactTitleResults = 50;
 
@@ -153,7 +158,8 @@ public class IgdbClient(HttpClient http, IgdbSettings settings) : VideoGameRefer
     private const int MinUserRatingCount = 200;
 
     /// <summary>
-    /// Notability floor of the critic ranking, much lower than the user one, since critic counts are about ten times smaller (8 to 27 at the top of the ranking, against thousands of user ratings).
+    /// Notability floor of the critic ranking, much lower than the user one,
+    /// since critic counts are about ten times smaller (8 to 27 at the top of the ranking, against thousands of user ratings).
     /// </summary>
     private const int MinCriticRatingCount = 5;
 
@@ -165,7 +171,8 @@ public class IgdbClient(HttpClient http, IgdbSettings settings) : VideoGameRefer
     /// </para>
     /// <para>
     /// The cover is the only image used.
-    /// IGDB's artworks are contributed rather than curated (Red Dead Redemption 2's first is posterised fan art), and its screenshots are raw frames with the HUD, so neither replaces RAWG's curated key art.
+    /// IGDB's artworks are contributed rather than curated (Red Dead Redemption 2's first is posterised fan art),
+    /// and its screenshots are raw frames with the HUD, so neither replaces RAWG's curated key art.
     /// </para>
     /// </summary>
     private const string CoverUrlTemplate = "https://images.igdb.com/igdb/image/upload/t_1080p/{0}.jpg";

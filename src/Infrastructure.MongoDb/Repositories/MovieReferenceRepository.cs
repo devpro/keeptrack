@@ -39,7 +39,8 @@ public class MovieReferenceRepository(IMongoDatabase mongoDatabase, MovieReferen
         ReferenceRatingQueries.FindRatingsAsync<MovieReference>(Collection, afterId, limit);
 
     /// <summary>
-    /// Matches every (title, year) combination confirmed for a reference, not only its canonical one (see <see cref="ReferenceAliasQueries"/> for why every condition sits in one <c>ElemMatch</c>).
+    /// Matches every (title, year) combination confirmed for a reference,
+    /// not only its canonical one (see <see cref="ReferenceAliasQueries"/> for why every condition sits in one <c>ElemMatch</c>).
     /// </summary>
     public async Task<MovieReferenceModel?> FindByTitleYearAsync(string title, int? year)
     {
@@ -76,7 +77,8 @@ public class MovieReferenceRepository(IMongoDatabase mongoDatabase, MovieReferen
     public async Task<MovieReferenceModel> UpsertAsync(MovieReferenceModel model)
     {
         model.TitleNormalized = TitleNormalizer.Normalize(model.Title);
-        // the canonical (title, year) is always a valid match, but only as a complete key: a film with no year records nothing rather than a title-only alias answering for every year (see ReferenceAliasRule)
+        // the canonical (title, year) is always a valid match, but only as a complete key:
+        // a film with no year records nothing rather than a title-only alias answering for every year (see ReferenceAliasRule)
         ReferenceAliasRule.TitleAndYear.EnsureCanonical(model.MatchedAliases, model.TitleNormalized, model.Year);
         var entity = mapper.ToEntity(model);
 

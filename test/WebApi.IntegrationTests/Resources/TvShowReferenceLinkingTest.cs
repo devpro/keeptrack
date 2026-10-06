@@ -11,8 +11,10 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
 /// Exercises <see cref="ITvShowRepository.SetReferenceLinkAsync"/> and <see cref="ITvShowRepository.FindDistinctUnresolvedTitleYearsAsync"/> against real MongoDB.
-/// They are hand-written queries (a case-insensitive regex, a "don't overwrite an existing link" guard, a $group aggregation), the per-type logic that hides bugs (see docs/data-model.md).
-/// Goes through the repository resolved from the test host's DI container rather than HTTP, since the cross-tenant propagation this proves has nothing to do with the calling user's own identity/role.
+/// They are hand-written queries (a case-insensitive regex, a "don't overwrite an existing link" guard, a $group aggregation),
+/// the per-type logic that hides bugs (see docs/data-model.md).
+/// Goes through the repository resolved from the test host's DI container rather than HTTP,
+/// since the cross-tenant propagation this proves has nothing to do with the calling user's own identity/role.
 /// </summary>
 public class TvShowReferenceLinkingTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)
 {

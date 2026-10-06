@@ -10,7 +10,8 @@ using MongoDB.Driver;
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
 /// <summary>
-/// Both ends of the copied reference rating, written once for the five types: the writes and count over the tenant collections, and the projected read of the reference collections feeding them.
+/// Both ends of the copied reference rating, written once for the five types:
+/// the writes and count over the tenant collections, and the projected read of the reference collections feeding them.
 /// The tenant fields have the same names everywhere (<see cref="IHasReferenceRating"/>), so no per-domain field expressions are needed.
 /// </summary>
 internal static class ReferenceRatingQueries
@@ -19,7 +20,8 @@ internal static class ReferenceRatingQueries
     /// Stamps the copied rating again on every tenant item linked to <paramref name="referenceId"/>.
     /// <para>
     /// <paramref name="source"/> is written even when <paramref name="rating"/> is null, since it records which source the copy was computed from.
-    /// That lets <see cref="CountLinkedOnOtherSourceAsync{TEntity}"/> tell an item on the selected source from one needing a new stamp, where a null would leave every unrated item looking stale forever.
+    /// That lets <see cref="CountLinkedOnOtherSourceAsync{TEntity}"/> tell an item on the selected source from one needing a new stamp,
+    /// where a null would leave every unrated item looking stale forever.
     /// </para>
     /// </summary>
     internal static async Task<long> SetRatingAsync<TEntity>(
@@ -35,7 +37,8 @@ internal static class ReferenceRatingQueries
     /// <see cref="SetRatingAsync{TEntity}"/> for many references, as one unordered bulk write: one round trip per batch rather than per reference.
     /// <para>
     /// That keeps the admin recompute's round trips independent of the number of users.
-    /// Each entry is an <c>UpdateMany</c> stamping the items server side, so a reference tracked by one user or by ten thousand costs one operation, and growth multiplies documents written, never round trips or payload.
+    /// Each entry is an <c>UpdateMany</c> stamping the items server side, so a reference tracked by one user or by ten thousand costs one operation,
+    /// and growth multiplies documents written, never round trips or payload.
     /// Unordered, since the entries are independent, so one failing write does not abandon the rest.
     /// </para>
     /// </summary>
@@ -88,7 +91,8 @@ internal static class ReferenceRatingQueries
     }
 
     /// <summary>
-    /// One page of (id, ratings) from a reference collection, ordered by <c>_id</c> after <paramref name="afterId"/>: the read half of a recompute, feeding <see cref="SetRatingsAsync{TEntity}"/>.
+    /// One page of (id, ratings) from a reference collection, ordered by <c>_id</c> after <paramref name="afterId"/>:
+    /// the read half of a recompute, feeding <see cref="SetRatingsAsync{TEntity}"/>.
     /// <para>
     /// Projected, since the recompute reads two fields of large documents, each with a synopsis, a cast and, for TV, a whole episode guide.
     /// Paged by an <c>_id</c> cursor rather than skip and limit, so memory stays bounded and pages never overlap or skip entries.
@@ -96,7 +100,8 @@ internal static class ReferenceRatingQueries
     /// </summary>
     /// <remarks>
     /// The generic parameter is unconstrained: reference entities share no interface, but all store <c>ratings</c> under the same element, and the projection has its own type.
-    /// <c>afterId</c> is converted to an <see cref="ObjectId"/> first, since a string id in a field-name filter silently matches nothing, which would look like the end of the collection.
+    /// <c>afterId</c> is converted to an <see cref="ObjectId"/> first,
+    /// since a string id in a field-name filter silently matches nothing, which would look like the end of the collection.
     /// </remarks>
     internal static async Task<IReadOnlyList<(string Id, Dictionary<string, ReferenceRatingModel> Ratings)>> FindRatingsAsync<TEntity>(
         IMongoCollection<TEntity> collection, string? afterId, int limit)

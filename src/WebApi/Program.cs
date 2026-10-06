@@ -48,14 +48,16 @@ builder.Services.AddSingleton(configuration.TmdbSettings);
 builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.ITmdbClient, Keeptrack.WebApi.ReferenceData.TmdbClient>(client =>
 {
     client.BaseAddress = new Uri("https://api.themoviedb.org/3/");
-    // The resilience handler's TotalRequestTimeout is the real bound on a call, but HttpClient's own 100s Timeout wraps the whole pipeline with its retries and wins whenever it is shorter.
+    // The resilience handler's TotalRequestTimeout is the real bound on a call,
+    // but HttpClient's own 100s Timeout wraps the whole pipeline with its retries and wins whenever it is shorter.
     // Disabling it makes the resilience timeout authoritative (https://github.com/dotnet/extensions/issues/4770).
     client.Timeout = Timeout.InfiniteTimeSpan;
 }).AddProviderResilienceHandler();
 // OMDb supplies IMDb ratings for movies and TV, keyed by the IMDb id TMDB exposes.
 // Optional: with no Omdb__ApiKey the client does nothing, and movies and TV keep their TMDB rating alone.
 builder.Services.AddSingleton(configuration.OmdbSettings);
-// A singleton, the gate of every OMDb call: the daily count lives in MongoDB, shared by replicas, while the "allowance spent today" shortcut is process state outliving a request scope.
+// A singleton, the gate of every OMDb call: the daily count lives in MongoDB, shared by replicas,
+// while the "allowance spent today" shortcut is process state outliving a request scope.
 // It resolves its own scoped repository per operation.
 builder.Services.AddSingleton<Keeptrack.WebApi.ReferenceData.IOmdbCallBudget, Keeptrack.WebApi.ReferenceData.OmdbCallBudget>();
 builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.IOmdbClient, Keeptrack.WebApi.ReferenceData.OmdbClient>(client =>
@@ -63,7 +65,8 @@ builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.IOmdbClient, Keept
     client.BaseAddress = new Uri("https://www.omdbapi.com/");
     client.Timeout = Timeout.InfiniteTimeSpan;
 }).AddProviderResilienceHandler();
-// Every book provider is registered, and an admin picks one per action (see ReferenceClientRegistry), ReferenceData:BookProvider only selecting the default for automatic resolution.
+// Every book provider is registered, and an admin picks one per action (see ReferenceClientRegistry),
+// ReferenceData:BookProvider only selecting the default for automatic resolution.
 // Each is a typed client bridged to the shared interface with AddTransient, since a singleton would pin its handler and defeat IHttpClientFactory's rotation.
 // Registration order is the admin picker's order: Google Books first as the default, with the best synopses, covers and catalogue, then Open Library and BnF.
 builder.Services.AddSingleton(configuration.GoogleBooksSettings);
@@ -112,7 +115,8 @@ builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.IgdbClient>(client
     client.Timeout = Timeout.InfiniteTimeSpan;
 })
     // The order matters: authentication, then resilience, then rate limiting, outermost first.
-    // The rate limiter sits innermost, so its queue wait counts against TotalRequestTimeout rather than waiting forever, and the 429 it returns on a full queue is retried with backoff rather than failing the caller.
+    // The rate limiter sits innermost, so its queue wait counts against TotalRequestTimeout rather than waiting forever,
+    // and the 429 it returns on a full queue is retried with backoff rather than failing the caller.
     // A retry takes another token, since it is another request against the 4 per second ceiling.
     .AddHttpMessageHandler<Keeptrack.WebApi.ReferenceData.IgdbAuthenticationHandler>()
     .AddProviderResilienceHandler()

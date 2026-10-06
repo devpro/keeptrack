@@ -11,7 +11,8 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Basic full-cycle CRUD coverage for <c>TvShow</c>, closing the "no dedicated full CRUD test of its own" half of the finding tracked in docs/backlog.md ("Thin test coverage"), same shape as <see cref="AlbumResourceTest"/>.
+/// Basic full-cycle CRUD coverage for <c>TvShow</c>,
+/// closing the "no dedicated full CRUD test of its own" half of the finding tracked in docs/backlog.md ("Thin test coverage"), same shape as <see cref="AlbumResourceTest"/>.
 /// The filter and cascade tests below predate this and are left as they were.
 /// </summary>
 public class TvShowResourceTest(KestrelWebAppFactory<Program> factory)
@@ -95,7 +96,8 @@ public class TvShowResourceTest(KestrelWebAppFactory<Program> factory)
     {
         await Authenticate();
 
-        // both are registered even though the delete below is the point of the test: if the cascade is ever broken, the orphaned episode is exactly what would otherwise be left behind.
+        // both are registered even though the delete below is the point of the test:
+        // if the cascade is ever broken, the orphaned episode is exactly what would otherwise be left behind.
         var show = await CreateAsync($"/{ResourceEndpoint}", new TvShowDto { Title = System.Guid.NewGuid().ToString() });
         var episode = await CreateAsync("/api/episodes", new EpisodeDto
         {

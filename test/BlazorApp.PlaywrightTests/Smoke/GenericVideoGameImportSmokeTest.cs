@@ -9,7 +9,8 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Drives the generic video game (PSN-style) transaction import UI end to end (upload, preview, commit, result), the browser coverage the API-only <c>GenericVideoGameImportResourceTest</c> can't provide.
+/// Drives the generic video game (PSN-style) transaction import UI end to end (upload, preview, commit, result),
+/// the browser coverage the API-only <c>GenericVideoGameImportResourceTest</c> can't provide.
 /// A GUID-suffixed title and fresh transaction and order ids make every run import a new game it then deletes.
 /// </summary>
 [Trait("Category", "E2eTests")]
@@ -24,7 +25,8 @@ public class GenericVideoGameImportSmokeTest(End2EndFixture fixture) : SmokeTest
         var title = $"E2e VideoGame Import {Guid.NewGuid():N}";
         var csv = GenericVideoGameImportFixtureCsvBuilder.Build(title);
 
-        // The commit creates an item whose id this test never sees, so cleanup is keyed on the fixture's unique title, registered before the upload, so a partial import is cleaned up too.
+        // The commit creates an item whose id this test never sees,
+        // so cleanup is keyed on the fixture's unique title, registered before the upload, so a partial import is cleaned up too.
         TrackItemsMatching("/api/video-games", $"/api/video-games?search={Uri.EscapeDataString(title)}");
 
         var home = await new HomePage(Page).OpenAsync();

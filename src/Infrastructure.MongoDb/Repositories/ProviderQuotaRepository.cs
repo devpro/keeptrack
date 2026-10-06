@@ -11,7 +11,8 @@ namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 /// <summary>
 /// One document per (provider, UTC day), reserved with one atomic upsert.
 /// The filter matches only while the day's count is below the caller's ceiling, so a spent allowance turns the upsert into an insert colliding on _id.
-/// The uniqueness of _id holds the ceiling across replicas, like <see cref="LeaseRepository"/>, with no transaction and no race where two replicas both see "999 used" and spend the last call.
+/// The uniqueness of _id holds the ceiling across replicas, like <see cref="LeaseRepository"/>,
+/// with no transaction and no race where two replicas both see "999 used" and spend the last call.
 /// </summary>
 public class ProviderQuotaRepository(IMongoDatabase mongoDatabase) : IProviderQuotaRepository
 {
@@ -37,7 +38,8 @@ public class ProviderQuotaRepository(IMongoDatabase mongoDatabase) : IProviderQu
         }
         catch (MongoWriteException ex) when (ex.WriteError.Category == ServerErrorCategory.DuplicateKey)
         {
-            // the day's document is at the ceiling: the filter matched nothing, so the upsert tried a second document with the same _id, and that collision means the allowance is spent
+            // the day's document is at the ceiling: the filter matched nothing,
+            // so the upsert tried a second document with the same _id, and that collision means the allowance is spent
             return false;
         }
     }

@@ -7,7 +7,8 @@ namespace Keeptrack.Domain.Repositories;
 public interface IVideoGameRepository : IDataRepository<VideoGameModel>, IExploreSourceRepository
 {
     /// <summary>
-    /// Sets <see cref="VideoGameModel.ReferenceId"/>, <see cref="VideoGameModel.Title"/> and <see cref="VideoGameModel.Year"/> to the reference's values on the records <paramref name="target"/> names (see <see cref="ITvShowRepository.SetReferenceLinkAsync"/>).
+    /// Sets <see cref="VideoGameModel.ReferenceId"/>, <see cref="VideoGameModel.Title"/>
+    /// and <see cref="VideoGameModel.Year"/> to the reference's values on the records <paramref name="target"/> names (see <see cref="ITvShowRepository.SetReferenceLinkAsync"/>).
     /// </summary>
     Task<long> SetReferenceLinkAsync(ReferenceLinkTarget target, string referenceId, string canonicalTitle, int? canonicalYear = null, double? canonicalRating = null, double? canonicalRatingScale = null, string? canonicalRatingSource = null);
 
@@ -29,7 +30,8 @@ public interface IVideoGameRepository : IDataRepository<VideoGameModel>, IExplor
 
     /// <summary>
     /// Moves every tenant's game linked to <paramref name="fromReferenceId"/> onto <paramref name="toReferenceId"/>, returning how many moved.
-    /// The admin merge of two reference documents describing one work deletes the absorbed one, and an item still pointing at it would silently lose its cover, rating and Explore exclusion.
+    /// The admin merge of two reference documents describing one work deletes the absorbed one,
+    /// and an item still pointing at it would silently lose its cover, rating and Explore exclusion.
     /// <para>
     /// Across every tenant by design, since a reference is shared, so repairing it repairs it for everyone who linked it.
     /// The controller makes it admin only.

@@ -17,13 +17,15 @@ public class ReferenceSyncService(
 {
     /// <summary>
     /// The most documents one pass refreshes per domain.
-    /// The cap is safe because the stalest documents come first (<c>FindStaleAsync</c>), so what a pass misses leads the next one, and a larger collection rotates over several passes.
+    /// The cap is safe because the stalest documents come first (<c>FindStaleAsync</c>),
+    /// so what a pass misses leads the next one, and a larger collection rotates over several passes.
     /// It bounds provider traffic per pass, which matters most after a bulk import, when every document is unenriched at once.
     /// </summary>
     private const int MaxDocumentsPerDomainPerPass = 500;
 
     /// <summary>
-    /// Refreshes the references whose <c>LastEnrichedAt</c> is unset or older than <paramref name="staleAfter"/>, oldest first, up to <see cref="MaxDocumentsPerDomainPerPass"/> per domain.
+    /// Refreshes the references whose <c>LastEnrichedAt</c> is unset or older than <paramref name="staleAfter"/>,
+    /// oldest first, up to <see cref="MaxDocumentsPerDomainPerPass"/> per domain.
     /// A failing document is logged and skipped, never aborting the run.
     /// </summary>
     public async Task<ReferenceSyncResultDto> SyncStaleReferencesAsync(TimeSpan staleAfter, Func<ReferenceSyncStage, Task>? onStageChanged = null,

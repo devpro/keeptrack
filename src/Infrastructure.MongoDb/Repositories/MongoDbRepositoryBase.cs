@@ -188,7 +188,8 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
     }
 
     /// <summary>
-    /// Every distinct non-empty value this owner used in one string field, sorted case-insensitively, behind each suggestion endpoint (<c>GearController.GetCategories</c>, <c>CarHistoryController.GetFuelCategories</c>).
+    /// Every distinct non-empty value this owner used in one string field, sorted case-insensitively,
+    /// behind each suggestion endpoint (<c>GearController.GetCategories</c>, <c>CarHistoryController.GetFuelCategories</c>).
     /// The field is an expression like <see cref="SortTitleField"/>, the only form that works for a nested field.
     /// </summary>
     protected async Task<IReadOnlyList<string>> FindDistinctValuesAsync(Expression<Func<TEntity, string?>> field, string ownerId, CancellationToken cancellationToken = default)

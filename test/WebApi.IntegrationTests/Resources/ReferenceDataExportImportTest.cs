@@ -13,7 +13,8 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Exercises the reference repositories' <c>FindAllAsync</c>, behind the admin zip export, against real MongoDB, since a missing document would silently ship an incomplete dataset.
+/// Exercises the reference repositories' <c>FindAllAsync</c>, behind the admin zip export, against real MongoDB,
+/// since a missing document would silently ship an incomplete dataset.
 /// <see cref="ReferenceDataImportResourceTest"/> covers the import and its matching rules over HTTP, and this keeps the repository guarantee they build on.
 /// </summary>
 public class ReferenceDataExportImportTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)

@@ -55,7 +55,8 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// "Check for reference match" for video games: an established local match first, else the default provider under the rule of automatic resolution (see <see cref="LinkTvShowReferenceAsync"/>).
+    /// "Check for reference match" for video games: an established local match first,
+    /// else the default provider under the rule of automatic resolution (see <see cref="LinkTvShowReferenceAsync"/>).
     /// <para>
     /// It links exactly what <see cref="TryAutoResolveVideoGameAsync"/> would have on create, so a title with namesakes and no year still resolves to nothing.
     /// What it adds is a second chance once the tenant has supplied the year, otherwise only available by creating the item again.
@@ -92,7 +93,8 @@ public partial class ReferenceEnrichmentService
 
     /// <summary>
     /// Best-effort automatic match for video games (see <see cref="TryAutoResolveTvShowAsync"/>).
-    /// It always searches the deployment's default provider (<see cref="ReferenceClientRegistry{TClient}.Resolve"/> with a null key), since no admin picks a provider on this unattended path.
+    /// It always searches the deployment's default provider (<see cref="ReferenceClientRegistry{TClient}.Resolve"/> with a null key),
+    /// since no admin picks a provider on this unattended path.
     /// <para>
     /// Confident means <see cref="ReferenceMatchRules.ConfirmedMatches"/>: a single candidate actually named this game and agreeing about the year.
     /// It is <b>not</b> "the provider returned exactly one result", which reads a property of the search as a property of the answer, and is wrong both ways.
@@ -132,7 +134,8 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// Resolves a title and year to a provider's game id, upserts the reference document, and links the records <paramref name="target"/> names (see <see cref="ResolveTvShowAsync"/>).
+    /// Resolves a title and year to a provider's game id, upserts the reference document,
+    /// and links the records <paramref name="target"/> names (see <see cref="ResolveTvShowAsync"/>).
     /// <paramref name="providerKey"/> names the registered <see cref="IVideoGameReferenceClient"/> that issued <paramref name="externalId"/>.
     /// The admin's manual link passes it, since an id means nothing without its provider, and the automatic path falls back to the deployment default.
     /// </summary>
@@ -190,12 +193,14 @@ public partial class ReferenceEnrichmentService
     /// <para>
     /// <b>Only the default provider is called</b>, unlike <see cref="RefreshBookReferenceAsync"/>, which refreshes through whichever provider linked it.
     /// That suits books, where every registered provider is reachable.
-    /// Video games have a second provider because the first went down, so falling back would make every unadopted reference pay a retry-and-timeout cycle against a dead host on every pass.
+    /// Video games have a second provider because the first went down,
+    /// so falling back would make every unadopted reference pay a retry-and-timeout cycle against a dead host on every pass.
     /// An operator who selects a provider should not see traffic to another one.
     /// </para>
     /// <para>
     /// A reference that can't be adopted keeps the data it has and is stamped as checked.
-    /// <c>FindStaleAsync</c> serves the least recently enriched first under a per-pass cap, so a document whose <see cref="VideoGameReferenceModel.LastEnrichedAt"/> never moves would sit at the head of the queue and starve everything behind it.
+    /// <c>FindStaleAsync</c> serves the least recently enriched first under a per-pass cap,
+    /// so a document whose <see cref="VideoGameReferenceModel.LastEnrichedAt"/> never moves would sit at the head of the queue and starve everything behind it.
     /// </para>
     /// </summary>
     public async Task<(VideoGameReferenceModel Model, bool DataChanged)> RefreshVideoGameReferenceAsync(VideoGameReferenceModel reference, CancellationToken cancellationToken = default)
@@ -287,7 +292,8 @@ public partial class ReferenceEnrichmentService
     /// </para>
     /// <para>
     /// It widens when nothing <i>matched</i>, not when nothing came back, since a relevance search answers too easily.
-    /// IGDB answers <c>NieR:Automata</c> with a single unrelated "Untitled NieR:Automata Project" and <c>Marvel Avengers</c> with three LEGO expansion packs, and stopping there never asks the rung that finds the game.
+    /// IGDB answers <c>NieR:Automata</c> with a single unrelated "Untitled NieR:Automata Project" and <c>Marvel Avengers</c> with three LEGO expansion packs,
+    /// and stopping there never asks the rung that finds the game.
     /// Candidates accumulate across rungs, so an admin sees everything asked for rather than whatever the final query said.
     /// </para>
     /// <para>
@@ -295,14 +301,18 @@ public partial class ReferenceEnrichmentService
     /// the title as stored, then without a parenthesised disambiguator, then the punctuation-folded form.
     /// <c>GoldenEye 007 (1997)</c> makes IGDB return nothing at all, which no loose comparison can fix, having no candidate to compare.
     /// The folded form rescues a title whose punctuation the provider's search cannot parse.
-    /// Last, and only while nothing has matched, the folded form with trailing words dropped: IGDB answers nothing to <c>NieR Replicant v1.22474487139</c> but finds the game for <c>NieR Replicant</c>.
+    /// Last, and only while nothing has matched, the folded form with trailing words dropped:
+    /// IGDB answers nothing to <c>NieR Replicant v1.22474487139</c> but finds the game for <c>NieR Replicant</c>.
     /// That candidate does not confirm, the catalogues spelling it differently, but putting it in front of an admin is the point of the reconciliation queue.
     /// </para>
     /// <para>
-    /// Confirmation is <see cref="TitleNormalizer.NormalizeLoose"/> against the <b>reference's</b> own title plus a compatible year, never against the query that found the candidate.
+    /// Confirmation is <see cref="TitleNormalizer.NormalizeLoose"/> against the <b>reference's</b> own title plus a compatible year,
+    /// never against the query that found the candidate.
     /// That keeps a widened or admin-typed query from confirming what the strict rule would refuse.
-    /// Exact normalized equality would reject <c>Mass Effect: Legendary Edition</c> against IGDB's <c>Mass Effect Legendary Edition</c>, and every RAWG title with a <c>(1997)</c> suffix.
-    /// Loose comparison is safe here because nothing else loosens: the reference's title and year are canonical provider data, the year must still agree, and anything but a single match is left for a human.
+    /// Exact normalized equality would reject <c>Mass Effect: Legendary Edition</c> against IGDB's <c>Mass Effect Legendary Edition</c>,
+    /// and every RAWG title with a <c>(1997)</c> suffix.
+    /// Loose comparison is safe here because nothing else loosens:
+    /// the reference's title and year are canonical provider data, the year must still agree, and anything but a single match is left for a human.
     /// </para>
     /// </summary>
     /// <param name="searchTitle">
@@ -379,7 +389,8 @@ public partial class ReferenceEnrichmentService
     private const int MaxShortlistedCandidates = 8;
 
     /// <summary>
-    /// The full-title queries a provider is asked, in order and without repeats: the title as stored, without a parenthesised disambiguator, and punctuation-folded (<see cref="TitleNormalizer.ToProviderQuery"/>).
+    /// The full-title queries a provider is asked, in order and without repeats: the title as stored,
+    /// without a parenthesised disambiguator, and punctuation-folded (<see cref="TitleNormalizer.ToProviderQuery"/>).
     /// At most three, and a single one for the common title with no punctuation.
     /// </summary>
     private static List<string> AdoptionQueryForms(string title) =>
@@ -390,7 +401,8 @@ public partial class ReferenceEnrichmentService
 
     /// <summary>
     /// The last-resort queries: the folded title with trailing words dropped, longest first.
-    /// Bounded by <see cref="MaxTruncatedQueries"/> and never shorter than <see cref="MinTruncatedQueryWords"/> words, so a stuck reference costs a few extra calls once per <see cref="ProviderAdoptionReattemptAfter"/>, not one per word.
+    /// Bounded by <see cref="MaxTruncatedQueries"/> and never shorter than <see cref="MinTruncatedQueryWords"/> words,
+    /// so a stuck reference costs a few extra calls once per <see cref="ProviderAdoptionReattemptAfter"/>, not one per word.
     /// <para>
     /// Both bounds were measured against the real IGDB API on stuck rows.
     /// Dropping one word turns "Pokemon Lets Go Pikachu and Eevee" into an answer, and dropping two does it for "NieR Replicant v1 22474487139".
@@ -434,12 +446,14 @@ public partial class ReferenceEnrichmentService
     /// What the default provider offers for one reference, flagging the subset the automatic path would accept.
     /// It is the per-row detail of the queue above, fetched on demand, since each row costs a provider call or two.
     /// <para>
-    /// It ignores <see cref="ProviderAdoptionReattemptAfter"/>, since an admin looking at the row is waiting on the answer, as the interactive rating paths ignore their own window.
+    /// It ignores <see cref="ProviderAdoptionReattemptAfter"/>,
+    /// since an admin looking at the row is waiting on the answer, as the interactive rating paths ignore their own window.
     /// </para>
     /// </summary>
     /// <param name="query">
     /// Optional text the admin typed instead of the reference's stored title, for rows no automatic query reaches.
-    /// IGDB's relevance search answers "Marvel's Avengers" with three LEGO expansion packs however it is spelled, and only an exact-name lookup for the provider's own string finds the game.
+    /// IGDB's relevance search answers "Marvel's Avengers" with three LEGO expansion packs however it is spelled,
+    /// and only an exact-name lookup for the provider's own string finds the game.
     /// <para>
     /// A pasted provider page URL or a bare numeric id is resolved directly instead of searched (<see cref="IVideoGameReferenceClient.FindGameByIdentifierAsync"/>).
     /// It is the escape hatch for a game no query finds, since a human can always copy the address from the provider's site.
@@ -511,7 +525,8 @@ public partial class ReferenceEnrichmentService
     /// A provider change leaves them behind, and a reference-data import creates them: it matches by provider id, so IGDB-linked games land beside RAWG-linked copies.
     /// <para>
     /// A duplicate is not cosmetic.
-    /// Tenants' items point at whichever document existed when they linked, so a work's ratings, cover and provider ids are split across two records, and Explore excludes on only one.
+    /// Tenants' items point at whichever document existed when they linked,
+    /// so a work's ratings, cover and provider ids are split across two records, and Explore excludes on only one.
     /// </para>
     /// </summary>
     public async Task<IReadOnlyList<IReadOnlyList<VideoGameReferenceModel>>> FindDuplicateVideoGameReferencesAsync()
@@ -612,7 +627,8 @@ public partial class ReferenceEnrichmentService
             : null;
 
     /// <summary>
-    /// The image a video game reference keeps: whatever <paramref name="providerKey"/> just returned, except that a provider other than RAWG may not overwrite a stored image on a reference carrying a RAWG id.
+    /// The image a video game reference keeps: whatever <paramref name="providerKey"/> just returned,
+    /// except that a provider other than RAWG may not overwrite a stored image on a reference carrying a RAWG id.
     /// <para>
     /// RAWG's <c>background_image</c> is curated landscape key art, and its CDN still serves those URLs though its API does not.
     /// IGDB has no equivalent: its cover is portrait box art, its artwork is contributed and unreliable, and its screenshots are raw frames with HUD.
@@ -624,8 +640,11 @@ public partial class ReferenceEnrichmentService
     /// </para>
     /// <para>
     /// <b>RAWG itself is exempt.</b>
-    /// "Carries a RAWG id" is only a proxy for "the stored image is a RAWG image", and the two diverge once a document holds both ids, the normal state after <see cref="TryAdoptDefaultVideoGameProviderAsync"/>.
-    /// Without the exemption, an admin re-linking through RAWG (<see cref="ReferenceDataAdminController"/> passes the picked provider to <see cref="ResolveVideoGameAsync"/>) would have the fresh key art discarded for the stored IGDB cover.
+    /// "Carries a RAWG id" is only a proxy for "the stored image is a RAWG image",
+    /// and the two diverge once a document holds both ids, the normal state after <see cref="TryAdoptDefaultVideoGameProviderAsync"/>.
+    /// Without the exemption, an admin re-linking through RAWG
+    /// (<see cref="ReferenceDataAdminController"/> passes the picked provider to <see cref="ResolveVideoGameAsync"/>)
+    /// would have the fresh key art discarded for the stored IGDB cover.
     /// A dead RAWG URL would also be repairable only by unlinking, which deletes the shared reference document.
     /// </para>
     /// </summary>

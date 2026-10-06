@@ -52,12 +52,14 @@ public class TitleNormalizerTest
         TitleNormalizer.StripDisambiguator(title).Should().Be(expected);
 
     [Theory]
-    // the rows a provider's search could not parse, all confirmed against the live IGDB API: it answers the left-hand string with nothing (or with unrelated games) and the right-hand one with the game itself
+    // the rows a provider's search could not parse, all confirmed against the live IGDB API:
+    // it answers the left-hand string with nothing (or with unrelated games) and the right-hand one with the game itself
     [InlineData("NieR:Automata", "NieR Automata")]
     [InlineData("Pokémon: Let's Go, Pikachu! and Eevee!", "Pokemon Lets Go Pikachu and Eevee")]
     [InlineData("NieR Replicant v1.22474487139", "NieR Replicant v1 22474487139")]
     [InlineData("Marvel's Avengers", "Marvels Avengers")]
-    // unlike NormalizeLoose this is a query, not a key: every word survives (including "the") and so does the casing, because the result still has to read as a title the provider could hold
+    // unlike NormalizeLoose this is a query, not a key: every word survives (including "the") and so does the casing,
+    // because the result still has to read as a title the provider could hold
     [InlineData("Disco Elysium: The Final Cut", "Disco Elysium The Final Cut")]
     [InlineData("GoldenEye 007 (1997)", "GoldenEye 007 1997")]
     public void ToProviderQuery_ReducesATitleToWordsAProviderSearchCanParse(string title, string expected) =>
@@ -96,7 +98,8 @@ public class TitleNormalizerTest
     [Fact]
     public void Normalize_StaysStrict_SoTenantTypedTextIsNotConflated()
     {
-        // The stored alias and TitleNormalized key are matched against what a tenant typed, where losing this much would merge different items, so only provider-to-provider matching goes loose.
+        // The stored alias and TitleNormalized key are matched against what a tenant typed,
+        // where losing this much would merge different items, so only provider-to-provider matching goes loose.
         TitleNormalizer.Normalize("Mass Effect: Legendary Edition").Should().Be("mass effect: legendary edition");
         TitleNormalizer.Normalize("  Portal 2 ").Should().Be("portal 2");
     }

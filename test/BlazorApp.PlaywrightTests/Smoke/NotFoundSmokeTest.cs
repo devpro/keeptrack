@@ -48,13 +48,20 @@ public class NotFoundSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
     }
 
     /// <summary>
-    /// The other two tests above both reach <c>/not-found</c> through <c>Page.GotoAsync</c>, a full browser navigation that only ever exercises <c>UseStatusCodePagesWithReExecute</c>. docs/blazor-ui.md documents a second, genuinely different path: once a page is interactively routed (<c>App.razor</c>'s <c>RenderModeForPage</c> gives every page but this one <c>InteractiveServer</c>), an in-circuit navigation to an unknown route is resolved by the Blazor Web App router over the already-open circuit rather than by the server's status-code middleware.
+    /// The other two tests above both reach <c>/not-found</c> through <c>Page.GotoAsync</c>,
+    /// a full browser navigation that only ever exercises <c>UseStatusCodePagesWithReExecute</c>. docs/blazor-ui.md documents a second, genuinely different path:
+    /// once a page is interactively routed (<c>App.razor</c>'s <c>RenderModeForPage</c> gives every page but this one <c>InteractiveServer</c>),
+    /// an in-circuit navigation to an unknown route is resolved by the Blazor Web App router over the already-open circuit rather than by the server's status-code middleware.
     /// That is the same code path a <c>NavLink</c> click to a stale route would take.
-    /// <c>Blazor.navigateTo</c> is the documented JS API a <c>NavLink</c> click resolves to internally, so it's the direct way to trigger that path from Playwright without a DOM hack.
+    /// <c>Blazor.navigateTo</c> is the documented JS API a <c>NavLink</c> click resolves to internally,
+    /// so it's the direct way to trigger that path from Playwright without a DOM hack.
     /// <para>
-    /// Two things confirmed only by actually running this test, not by reasoning about it: <c>Page.FrameNavigated</c> is not a valid "no full page load" signal, since it fires for a plain <c>history.pushState</c> URL change too, and it fired here even on a genuine in-circuit navigation.
-    /// And "in-circuit" does not mean zero network traffic: enhanced navigation still issues a background <c>fetch</c> for the new route (a <c>ResourceType</c> of <c>fetch</c>, confirmed via <c>Page.Request</c>) to retrieve the content it patches into the existing document.
-    /// The one signal that actually distinguishes the two paths is <see cref="IRequest.IsNavigationRequest"/>: true for the real document load <c>Page.GotoAsync</c> causes above, false for enhanced navigation's own fetch.
+    /// Two things confirmed only by actually running this test, not by reasoning about it: <c>Page.FrameNavigated</c> is not a valid "no full page load" signal,
+    /// since it fires for a plain <c>history.pushState</c> URL change too, and it fired here even on a genuine in-circuit navigation.
+    /// And "in-circuit" does not mean zero network traffic: enhanced navigation still issues a background <c>fetch</c> for the new route
+    /// (a <c>ResourceType</c> of <c>fetch</c>, confirmed via <c>Page.Request</c>) to retrieve the content it patches into the existing document.
+    /// The one signal that actually distinguishes the two paths is <see cref="IRequest.IsNavigationRequest"/>:
+    /// true for the real document load <c>Page.GotoAsync</c> causes above, false for enhanced navigation's own fetch.
     /// </para>
     /// </summary>
     [Fact]

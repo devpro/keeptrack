@@ -7,7 +7,8 @@ namespace Keeptrack.Domain.Repositories;
 public interface IAlbumRepository : IDataRepository<AlbumModel>
 {
     /// <summary>
-    /// Sets <see cref="AlbumModel.ReferenceId"/>, <see cref="AlbumModel.Title"/>, <see cref="AlbumModel.Year"/>, <see cref="AlbumModel.Artist"/> and <see cref="AlbumModel.Genre"/> to the reference's values on the records <paramref name="target"/> names (see <see cref="ITvShowRepository.SetReferenceLinkAsync"/>).
+    /// Sets <see cref="AlbumModel.ReferenceId"/>, <see cref="AlbumModel.Title"/>, <see cref="AlbumModel.Year"/>, <see cref="AlbumModel.Artist"/>
+    /// and <see cref="AlbumModel.Genre"/> to the reference's values on the records <paramref name="target"/> names (see <see cref="ITvShowRepository.SetReferenceLinkAsync"/>).
     /// An admin's match also requires the artist it names.
     /// </summary>
     Task<long> SetReferenceLinkAsync(ReferenceLinkTarget target, string referenceId, string canonicalTitle, int? canonicalYear = null, string? canonicalArtist = null, string? canonicalGenre = null, double? canonicalRating = null, double? canonicalRatingScale = null, string? canonicalRatingSource = null);

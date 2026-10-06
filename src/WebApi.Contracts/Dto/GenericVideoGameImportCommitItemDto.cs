@@ -29,7 +29,8 @@ public class GenericVideoGameImportCommitItemDto
     public string? ProductName { get; set; }
 
     /// <summary>
-    /// The store's transaction id and, with <see cref="OrderId"/>, the source of the copy's <c>Reference</c> and exact dedup key (<c>GenericVideoGameImportService.FormatReference</c>).
+    /// The store's transaction id and, with <see cref="OrderId"/>,
+    /// the source of the copy's <c>Reference</c> and exact dedup key (<c>GenericVideoGameImportService.FormatReference</c>).
     /// Echoed from the preview row rather than a client-built reference, so the format matches what a later preview checks.
     /// </summary>
     public required string TransactionId { get; set; }

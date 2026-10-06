@@ -5,7 +5,8 @@ namespace Keeptrack.WebApi.Mappers;
 
 /// <summary>
 /// Model to DTO only (see <see cref="TvShowReferenceDtoMapper"/>).
-/// <see cref="BookReferenceDto.AuthorName"/> and <see cref="BookReferenceDto.AuthorImageUrl"/> are hydrated by <see cref="ReferenceData.ReferenceDataController"/>, since the model carries only an <c>AuthorReferenceId</c> and the name comes from <c>person_reference</c>.
+/// <see cref="BookReferenceDto.AuthorName"/> and <see cref="BookReferenceDto.AuthorImageUrl"/> are hydrated by <see cref="ReferenceData.ReferenceDataController"/>,
+/// since the model carries only an <c>AuthorReferenceId</c> and the name comes from <c>person_reference</c>.
 /// </summary>
 [Mapper]
 public partial class BookReferenceDtoMapper

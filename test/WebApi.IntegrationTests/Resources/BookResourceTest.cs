@@ -33,7 +33,8 @@ public class BookResourceTest(KestrelWebAppFactory<Program> factory)
             {
                 o.Author = f.Random.AlphaNumeric(8);
                 o.Title = f.Random.AlphaNumeric(14);
-                // Round-trips Language, CustomImageUrl and Isbn through the real Mapperly mappers and MongoDB, plain scalars, since only a real integration test catches a missed [BsonElement] or mapper ignore.
+                // Round-trips Language, CustomImageUrl and Isbn through the real Mapperly mappers and MongoDB, plain scalars,
+                // since only a real integration test catches a missed [BsonElement] or mapper ignore.
                 o.Language = f.Random.AlphaNumeric(3);
                 o.CustomImageUrl = f.Internet.Url();
                 o.Isbn = f.Random.Replace("##########");
@@ -81,7 +82,8 @@ public class BookResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// <c>BookController.OnListMappedAsync</c> applies <see cref="BookDto.CustomImageUrl"/> over the linked reference's cover on every list read, beside the generic <see cref="IReferenceLinkedDto"/> image hydration.
+    /// <c>BookController.OnListMappedAsync</c> applies <see cref="BookDto.CustomImageUrl"/> over the linked reference's cover on every list read,
+    /// beside the generic <see cref="IReferenceLinkedDto"/> image hydration.
     /// </summary>
     [Fact]
     public async Task BookResourceList_CustomImageUrlOverridesTheLinkedReferencesCover()

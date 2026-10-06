@@ -23,7 +23,8 @@ public class MovieReferenceModel : IHasExternalIds
     public required Dictionary<string, string> ExternalIds { get; set; }
 
     /// <summary>
-    /// Every (title, year) combination confirmed to mean this movie, beyond <see cref="TitleNormalized"/> and <see cref="Year"/> (see <see cref="TvShowReferenceModel.MatchedAliases"/>).
+    /// Every (title, year) combination confirmed to mean this movie,
+    /// beyond <see cref="TitleNormalized"/> and <see cref="Year"/> (see <see cref="TvShowReferenceModel.MatchedAliases"/>).
     /// </summary>
     public List<ReferenceMatchModel> MatchedAliases { get; set; } = [];
 

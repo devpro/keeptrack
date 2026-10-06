@@ -23,7 +23,8 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 /// A test feeding candidates in by hand sees neither, which is also why <c>VideoGameReferenceMatchSmokeTest</c> exists for the fifth domain.
 /// </para>
 /// <para>
-/// Each case means something only while no local reference answers it, and by passing it creates one, so every reference created here is deleted (see <see cref="ClearReferencesTitledAsync"/> and <c>TrackDocument</c>).
+/// Each case means something only while no local reference answers it, and by passing it creates one,
+/// so every reference created here is deleted (see <see cref="ClearReferencesTitledAsync"/> and <c>TrackDocument</c>).
 /// This is the deliberate exception to "reference documents from a real provider are left in place": here their absence is the premise.
 /// </para>
 /// </summary>
@@ -58,7 +59,8 @@ public class ReferenceMatchResourceTest(KestrelWebAppFactory<Program> factory)
 
     /// <summary>
     /// The other half, and the dangerous one: a provider returning a single row is a fact about the <i>search</i>, never about the answer.
-    /// Measured live, <c>search/tv?query=Fallout&amp;first_air_date_year=2025</c> returns exactly one result, <i>"Thirst Trap: The Fame. The Fantasy. The Fallout."</i>, since the year is a hard filter for TV and excludes the 2024 show.
+    /// Measured live, <c>search/tv?query=Fallout&amp;first_air_date_year=2025</c> returns exactly one result,
+    /// <i>"Thirst Trap: The Fame. The Fantasy. The Fallout."</i>, since the year is a hard filter for TV and excludes the 2024 show.
     /// Linking that is silent data loss, since nothing in the app says a wrong reference was chosen.
     /// <para>
     /// Asserted through the button rather than through the create journey, because "nothing happened" has no observable moment to wait for.
@@ -69,7 +71,8 @@ public class ReferenceMatchResourceTest(KestrelWebAppFactory<Program> factory)
     public async Task RefreshReference_LeavesATvShowUnresolved_WhenTheProvidersOnlyAnswerIsNotThatShow()
     {
         await Authenticate();
-        // the premise is that nothing local answers, and this case is unusually easy to poison: the pre-fix rule *did* link this pair, so a run against a database that still holds that document finds the wrong reference locally and never reaches the rule being tested
+        // the premise is that nothing local answers, and this case is unusually easy to poison: the pre-fix rule *did* link this pair,
+        // so a run against a database that still holds that document finds the wrong reference locally and never reaches the rule being tested
         await ClearLocalTvShowReferenceAsync("Fallout", 2025);
         var created = await CreateAsync("/api/tv-shows", new TvShowDto { Title = "Fallout", Year = 2025 });
 
@@ -120,12 +123,14 @@ public class ReferenceMatchResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// A book's identity is its title and author, never its year: Google Books answers <c>intitle:The Hobbit+inauthor:Tolkien</c> with 300 volumes, the first page alone holding editions from 1981, 1999, 2011 and 2012.
+    /// A book's identity is its title and author, never its year:
+    /// Google Books answers <c>intitle:The Hobbit+inauthor:Tolkien</c> with 300 volumes, the first page alone holding editions from 1981, 1999, 2011 and 2012.
     /// Every one of them is the same book, so a rule waiting for a single result could never link a book.
     /// <para>
     /// The titles are ones no other class uses.
     /// This class <b>clears</b> a title before exercising it, the absence of a local reference being its premise.
-    /// <c>BookProviderSearchAndLinkResourceTest</c> links "The Hobbit" through the real providers in parallel, so sharing a title would make the two delete each other's references.
+    /// <c>BookProviderSearchAndLinkResourceTest</c> links "The Hobbit" through the real providers in parallel,
+    /// so sharing a title would make the two delete each other's references.
     /// </para>
     /// </summary>
     [Theory]
@@ -186,7 +191,8 @@ public class ReferenceMatchResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// The album equivalent of the "Thirst Trap" case above, measured on the same query: a year Discogs filters hard on can leave one unrelated master as the only answer, and it must not be linked.
+    /// The album equivalent of the "Thirst Trap" case above, measured on the same query:
+    /// a year Discogs filters hard on can leave one unrelated master as the only answer, and it must not be linked.
     /// </summary>
     [Fact]
     public async Task RefreshReference_LeavesAnAlbumUnresolved_WhenNothingTheProviderReturnsIsTitledThat()
@@ -201,7 +207,9 @@ public class ReferenceMatchResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// The journey the detail page's button promises in all four domains: <i>"Not right? Edit the title or year below, then check again."</i> An item created before its year or author was known writes no reference at all, so a local-only re-check has nothing to find however correct the fields later become, and the button silently does nothing forever.
+    /// The journey the detail page's button promises in all four domains:
+    /// <i>"Not right? Edit the title or year below, then check again."</i> An item created before its year or author was known writes no reference at all,
+    /// so a local-only re-check has nothing to find however correct the fields later become, and the button silently does nothing forever.
     /// Only video games escalated to the provider; these four did not.
     /// <para>
     /// Created bare and completed afterwards, which is the journey that reaches this button and the one that leaves nothing local behind.
@@ -294,15 +302,19 @@ public class ReferenceMatchResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// Clears any reference document for this title before the case runs, since <b>its absence is the premise</b>: every case proves the provider was reached, observable only while nothing local answers.
+    /// Clears any reference document for this title before the case runs, since <b>its absence is the premise</b>:
+    /// every case proves the provider was reached, observable only while nothing local answers.
     /// A leftover turns the test green through the cheap local path while proving nothing.
     /// <para>
     /// Deleting data the test did not create is normally forbidden here.
-    /// This is the sanctioned exception, the one <c>ExploreSmokeTest</c> takes for the same reason: the precondition is "nothing tracked yet", which a database already holding the document can't satisfy.
-    /// It is only safe because <c>TestDatabaseGuard</c> refuses any database whose name looks like a real one, and because these are shared provider facts that cost one call to re-earn.
+    /// This is the sanctioned exception, the one <c>ExploreSmokeTest</c> takes for the same reason:
+    /// the precondition is "nothing tracked yet", which a database already holding the document can't satisfy.
+    /// It is only safe because <c>TestDatabaseGuard</c> refuses any database whose name looks like a real one,
+    /// and because these are shared provider facts that cost one call to re-earn.
     /// </para>
     /// <para>
-    /// Matched on title alone, wider than the lookup tested, since anything the local path could answer with must be absent, including a document reached through an alias with another year or creator.
+    /// Matched on title alone, wider than the lookup tested,
+    /// since anything the local path could answer with must be absent, including a document reached through an alias with another year or creator.
     /// </para>
     /// </summary>
     private async Task ClearReferencesTitledAsync(string collection, string title)

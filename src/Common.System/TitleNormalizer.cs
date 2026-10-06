@@ -17,7 +17,8 @@ public static class TitleNormalizer
     /// It folds diacritics, drops a <c>(1997)</c>-style disambiguator, removes punctuation and the article "the", and collapses whitespace.
     /// <para>
     /// Two catalogues name the same work differently in small, systematic ways, as real RAWG and IGDB records show.
-    /// <c>Mass Effect: Legendary Edition</c> and <c>Mass Effect Legendary Edition</c> are one game, and so are <c>Disco Elysium: Final Cut</c> and <c>Disco Elysium: The Final Cut</c>.
+    /// <c>Mass Effect: Legendary Edition</c> and <c>Mass Effect Legendary Edition</c> are one game,
+    /// and so are <c>Disco Elysium: Final Cut</c> and <c>Disco Elysium: The Final Cut</c>.
     /// RAWG also disambiguates a remake by appending the original's year (<c>GoldenEye 007 (1997)</c>, <c>Resident Evil 2 (1998)</c>).
     /// Exact equality rejects every one of those, so the references cannot adopt the default provider's id, and Explore keeps suggesting games the user already has.
     /// </para>
@@ -105,12 +106,14 @@ public static class TitleNormalizer
     /// Unlike <see cref="NormalizeLoose"/> it keeps every word, "the" included, and the original casing, because the result is a query, not a matching key.
     /// <para>
     /// A provider's free-text search is far less forgiving about punctuation than its catalogue.
-    /// IGDB answers <c>search "NieR:Automata"</c>, spelled as RAWG spells it, with only "Untitled NieR:Automata Project", while <c>search "NieR Automata"</c> returns the game as the top hit.
+    /// IGDB answers <c>search "NieR:Automata"</c>, spelled as RAWG spells it,
+    /// with only "Untitled NieR:Automata Project", while <c>search "NieR Automata"</c> returns the game as the top hit.
     /// The same form rescues a title carrying <c>!</c>, <c>,</c> or an accent.
     /// </para>
     /// <para>
     /// Asking with this form is safe because confirmation does not loosen.
-    /// The candidates it brings back are still checked against the reference's own title with <see cref="LooselyEqual"/> and a compatible year, and anything but a single match is left for a human.
+    /// The candidates it brings back are still checked against the reference's own title with <see cref="LooselyEqual"/> and a compatible year,
+    /// and anything but a single match is left for a human.
     /// </para>
     /// </summary>
     public static string ToProviderQuery(string title)
@@ -140,7 +143,8 @@ public static class TitleNormalizer
     /// That tells a genuine candidate ("Nevermind (Demo &amp; Outtakes)" for "Nevermind") from a result the provider returned for another reason.
     /// <para>
     /// A provider's free-text parameter also matches fields other than the title.
-    /// Discogs answers <c>q=Discovery&amp;artist=Daft Punk</c> with "Live @ Rex Club, Paris" and "MP3 Collection" alongside the album, and <c>q=Sabbath</c> with releases naming the word only in the artist.
+    /// Discogs answers <c>q=Discovery&amp;artist=Daft Punk</c> with "Live @ Rex Club, Paris" and "MP3 Collection" alongside the album,
+    /// and <c>q=Sabbath</c> with releases naming the word only in the artist.
     /// See <c>DiscogsClient.SearchAlbumsCoreAsync</c>.
     /// </para>
     /// <para>

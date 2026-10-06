@@ -16,7 +16,8 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Explore controller coverage: authentication, the domain guard (books and albums have no discovery ranking), the dismiss and undo round trip in each domain's provider id space, and the listing.
+/// Explore controller coverage: authentication, the domain guard (books and albums have no discovery ranking),
+/// the dismiss and undo round trip in each domain's provider id space, and the listing.
 /// <para>
 /// The listing is testable here because the read path pages the stored <c>explore_catalogue</c> rather than calling a provider per request.
 /// These tests passing against a host with the reference sync disabled proves no provider is reached.
@@ -71,7 +72,8 @@ public class ExploreResourceTest(KestrelWebAppFactory<Program> factory) : Resour
         var first = await GetAsync<ExploreSuggestionPageDto>($"/api/explore/Movie?count=2&after={SeedRankBase}");
         var second = await GetAsync<ExploreSuggestionPageDto>($"/api/explore/Movie?count=2&after={first.NextCursor}");
 
-        // that this returns anything at all is the point: the host has no provider credentials in play here and the reference sync is disabled, so every one of these titles came from the local catalogue.
+        // that this returns anything at all is the point: the host has no provider credentials in play here and the reference sync is disabled,
+        // so every one of these titles came from the local catalogue.
         first.Items.Select(i => i.ExternalId).Should().Equal([seeded[0], seeded[1]]);
         first.NextCursor.Should().Be(SeedRankBase + 2);
         second.Items.Select(i => i.ExternalId).Should().Equal([seeded[2], seeded[3]]);
@@ -95,7 +97,8 @@ public class ExploreResourceTest(KestrelWebAppFactory<Program> factory) : Resour
 
     /// <summary>
     /// Rank offset the seeded entries start above.
-    /// Paging from it makes these tests independent of what else the shared <c>explore_catalogue</c> holds, since a real ranking built by running the app sits far below, and this cursor skips it.
+    /// Paging from it makes these tests independent of what else the shared <c>explore_catalogue</c> holds,
+    /// since a real ranking built by running the app sits far below, and this cursor skips it.
     /// </summary>
     private const int SeedRankBase = 900_000;
 
@@ -132,7 +135,8 @@ public class ExploreResourceTest(KestrelWebAppFactory<Program> factory) : Resour
 
     /// <summary>
     /// Dismissing and registering the undo together.
-    /// The undo is also what each test asserts on, but a dismissal recorded before an assertion fails would otherwise stay in <c>explore_dismissal</c> and silently hide that title from the owner's real Explore feed.
+    /// The undo is also what each test asserts on,
+    /// but a dismissal recorded before an assertion fails would otherwise stay in <c>explore_dismissal</c> and silently hide that title from the owner's real Explore feed.
     /// </summary>
     private async Task DismissAsync(string itemType, string externalId)
     {

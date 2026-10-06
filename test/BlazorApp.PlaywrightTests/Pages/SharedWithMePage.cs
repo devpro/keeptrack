@@ -28,7 +28,8 @@ public class SharedWithMePage(IPage page) : PageBase(page)
 
     /// <summary>
     /// Opens a specific shared collection by id.
-    /// The list rows show only the sharer's display name (identical for every self-share grant), so a test that created its grant to its own email navigates by the grant id it read back from the API rather than by an ambiguous row match.
+    /// The list rows show only the sharer's display name (identical for every self-share grant),
+    /// so a test that created its grant to its own email navigates by the grant id it read back from the API rather than by an ambiguous row match.
     /// </summary>
     public async Task<SharedCollectionViewPage> OpenCollectionByIdAsync(string shareId)
     {

@@ -8,7 +8,8 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Drives the admin reference-data page's provider-free, deterministic surfaces end to end: the page loads for an admin (through the Admin nav link), its System status panel resolves, and the unresolved queue switches type.
+/// Drives the admin reference-data page's provider-free, deterministic surfaces end to end:
+/// the page loads for an admin (through the Admin nav link), its System status panel resolves, and the unresolved queue switches type.
 /// The export and import round trip works through the real UI, and re-importing changes nothing, since the import matches by provider id.
 /// The per-type detail page smoke tests cover the provider search and link, and a full sync-now poll is not driven, since it flakes on provider latency.
 /// </summary>

@@ -16,7 +16,8 @@ namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 /// OMDb's rating and vote fields are strings ("8.7", "1,950,000", "N/A"), and it signals an unknown id with <c>Response:"False"</c>.
 /// This pins the parsing of each shape, and the no-op without a key, IMDb enrichment being optional for movies and TV.
 /// <para>
-/// It also pins the two behaviours the hard 1000/day free tier forces: every call is reserved against the shared budget first, and nothing the provider or network does escapes as an exception.
+/// It also pins the two behaviours the hard 1000/day free tier forces:
+/// every call is reserved against the shared budget first, and nothing the provider or network does escapes as an exception.
 /// An exhausted key answers 401, which must not surface as a 500 from admin linking or Explore's add.
 /// The <see cref="OmdbLookupResult.Attempted"/> flag is asserted throughout, because callers use it to decide whether a title may be written off as "OMDb has nothing for this".
 /// </para>

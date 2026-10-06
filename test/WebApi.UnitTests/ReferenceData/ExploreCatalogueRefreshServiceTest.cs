@@ -16,7 +16,8 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
 /// <summary>
-/// The pass that materializes each provider's ranking into <c>explore_catalogue</c>: rank assignment across provider pages, the staleness gate, the deliberate refusal to prune when a pass didn't complete, and the bounded IMDb rating backfill.
+/// The pass that materializes each provider's ranking into <c>explore_catalogue</c>: rank assignment across provider pages,
+/// the staleness gate, the deliberate refusal to prune when a pass didn't complete, and the bounded IMDb rating backfill.
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class ExploreCatalogueRefreshServiceTest
@@ -91,7 +92,8 @@ public class ExploreCatalogueRefreshServiceTest
 
         var result = await CreateService().RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
 
-        // Rank is the position in the whole ranking, not within a page, since it is the read path's paging cursor, and a per-page restart would re-serve the same titles on every later page.
+        // Rank is the position in the whole ranking, not within a page, since it is the read path's paging cursor,
+        // and a per-page restart would re-serve the same titles on every later page.
         _upserted.Select(e => (e.ExternalId, e.Rank)).Should().Equal([("a", 1), ("b", 2), ("c", 3)]);
         result.EntriesRefreshed.Should().Be(3);
         result.RankingsRefreshed.Should().Be(1);
@@ -174,7 +176,8 @@ public class ExploreCatalogueRefreshServiceTest
 
         await CreateService().RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
 
-        // a game provider puts every number it has on each listing entry, so storing all of them costs nothing and means switching the admin's selected source never needs a provider call
+        // a game provider puts every number it has on each listing entry,
+        // so storing all of them costs nothing and means switching the admin's selected source never needs a provider call
         _upserted.Should().ContainSingle();
         _upserted[0].Ratings.Should().BeEquivalentTo(new Dictionary<string, double> { ["igdb"] = 92, ["igdbcritic"] = 96 });
     }
@@ -243,7 +246,8 @@ public class ExploreCatalogueRefreshServiceTest
 
         var result = await service.RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
 
-        // without stamping the fruitless attempt, the same handful of unrated titles would consume the whole per-pass budget every week and coverage would never move down the ranking.
+        // without stamping the fruitless attempt,
+        // the same handful of unrated titles would consume the whole per-pass budget every week and coverage would never move down the ranking.
         result.ImdbRatingsBackfilled.Should().Be(0);
         _catalogueRepository.Verify(r => r.RecordRatingAttemptAsync(ExploreItemType.Movie, "tmdb", "42", "imdb", null), Times.Once);
     }
@@ -377,7 +381,8 @@ public class ExploreCatalogueRefreshServiceTest
 
         await service.RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
 
-        // the link depends on the TMDB id alone; withholding it because a *different*, budgeted call failed would throw away a fact already in hand and leave the card linking nowhere for another week.
+        // the link depends on the TMDB id alone;
+        // withholding it because a *different*, budgeted call failed would throw away a fact already in hand and leave the card linking nowhere for another week.
         _catalogueRepository.Verify(
             r => r.SetWebUrlAsync(ExploreItemType.Movie, "tmdb", "42", "imdb", "https://www.imdb.com/title/tt0042/"), Times.Once);
     }

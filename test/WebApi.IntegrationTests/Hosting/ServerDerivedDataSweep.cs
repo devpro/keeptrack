@@ -14,22 +14,28 @@ namespace Keeptrack.WebApi.IntegrationTests.Hosting;
 /// <summary>
 /// Removes, once the run is over, the documents a test made the <i>server</i> write on its own schedule, the one leftover <c>DatabaseTestBase.TrackCleanup</c> can't cover.
 /// <para>
-/// A background pass writes minutes after the test that started it, so nothing can be registered at creation: at cleanup time those documents don't exist yet, and the pass stops only with the host.
-/// Real TMDB ranking entries left in <c>keeptrack_integrationtests</c> are anything but inert, being the shared ranking every caller reads, and they break <c>ExploreSmokeTest</c>, whose premise is that a seeded ranking is the ranking.
+/// A background pass writes minutes after the test that started it, so nothing can be registered at creation:
+/// at cleanup time those documents don't exist yet, and the pass stops only with the host.
+/// Real TMDB ranking entries left in <c>keeptrack_integrationtests</c> are anything but inert, being the shared ranking every caller reads,
+/// and they break <c>ExploreSmokeTest</c>, whose premise is that a seeded ranking is the ranking.
 /// </para>
 /// <para>
 /// The endpoint-contract tests that start a sync job run on <see cref="ProviderlessWebAppFactory"/> and write nothing, so a normal run leaves this sweep nothing to do.
-/// It is the backstop for the one test wanting a live pass (<c>ReferenceSyncPollingResourceTest</c>, opt-in) and any future one, since "no leftovers, even on failure" can't rest on every such test remembering.
+/// It is the backstop for the one test wanting a live pass (<c>ReferenceSyncPollingResourceTest</c>, opt-in) and any future one,
+/// since "no leftovers, even on failure" can't rest on every such test remembering.
 /// </para>
 /// <para>
 /// An assembly fixture is the only airtight place.
-/// It disposes after every test class and every <see cref="KestrelWebAppFactory{TEntryPoint}"/>, so the passes still writing (cancelled by <c>ApplicationStopping</c> when their host goes down) have stopped, and nothing writes behind the sweep.
+/// It disposes after every test class and every <see cref="KestrelWebAppFactory{TEntryPoint}"/>,
+/// so the passes still writing (cancelled by <c>ApplicationStopping</c> when their host goes down) have stopped, and nothing writes behind the sweep.
 /// A per-test wait would block on a pass whose only end is that shutdown.
 /// </para>
 /// <para>
-/// Deleting rather than restoring is safe for these collections only: they hold derived state the server rebuilds on its own schedule (a weekly ranking, a mutual-exclusion lease), and no tenant data points at them.
+/// Deleting rather than restoring is safe for these collections only:
+/// they hold derived state the server rebuilds on its own schedule (a weekly ranking, a mutual-exclusion lease), and no tenant data points at them.
 /// <see cref="TestDatabaseGuard"/> has already refused anything but a dedicated test database.
-/// <c>provider_quota</c> is <i>not</i> swept, being the ledger of OMDb calls spent against a real 1000/day allowance, so wiping it would let the next run overspend, and its TTL index expires it anyway.
+/// <c>provider_quota</c> is <i>not</i> swept, being the ledger of OMDb calls spent against a real 1000/day allowance,
+/// so wiping it would let the next run overspend, and its TTL index expires it anyway.
 /// </para>
 /// </summary>
 public sealed class ServerDerivedDataSweep : IAsyncLifetime
@@ -77,7 +83,8 @@ public sealed class ServerDerivedDataSweep : IAsyncLifetime
 
     /// <summary>
     /// The same connection the in-process host uses, falling back to the local default every other component here does.
-    /// The database name is never guessed but comes from <see cref="IntegrationTestDatabase"/>, the one place this suite resolves it, so the sweep only empties the database the tests filled.
+    /// The database name is never guessed but comes from <see cref="IntegrationTestDatabase"/>,
+    /// the one place this suite resolves it, so the sweep only empties the database the tests filled.
     /// </summary>
     private static string ConnectionString =>
         Environment.GetEnvironmentVariable("Infrastructure__MongoDB__ConnectionString") is { Length: > 0 } value

@@ -22,8 +22,10 @@ public interface IBookReferenceClient : IReferenceProviderClient
 {
     /// <summary>
     /// <paramref name="author"/> narrows the query when known, since a common title returns dozens of unrelated results.
-    /// <paramref name="year"/> is a hint no implementation sends as a filter (see <see cref="BookReferenceClientBase.SearchByTitleAsync"/>), and each candidate still reports its year for picking.
-    /// <paramref name="isbn"/>, when given, is tried first as the sole query, since it identifies an edition, and a catalogue not indexing that edition widens to the title search rather than answering nothing.
+    /// <paramref name="year"/> is a hint no implementation sends as a filter (see <see cref="BookReferenceClientBase.SearchByTitleAsync"/>),
+    /// and each candidate still reports its year for picking.
+    /// <paramref name="isbn"/>, when given, is tried first as the sole query, since it identifies an edition,
+    /// and a catalogue not indexing that edition widens to the title search rather than answering nothing.
     /// <para>
     /// The order and fallbacks are written once in <see cref="BookReferenceClientBase"/>, an implementation supplying only its query shapes.
     /// </para>

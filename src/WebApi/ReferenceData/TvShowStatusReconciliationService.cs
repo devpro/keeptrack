@@ -9,14 +9,16 @@ namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
 /// Reopens finished TV shows once a new episode airs.
-/// A tenant marking a show <see cref="TvShowStatus.Finished"/> cannot know whether another season will come, so "finished" holds as of now and a regular pass checks it against the episode guide.
+/// A tenant marking a show <see cref="TvShowStatus.Finished"/> cannot know whether another season will come,
+/// so "finished" holds as of now and a regular pass checks it against the episode guide.
 /// When the linked reference lists an aired episode after the last one watched, the show goes back to <see cref="TvShowStatus.Current"/> and reappears in Watch Next.
 ///
 /// It runs right after <see cref="ReferenceSyncService"/>, in the same tick or "sync now", so it checks the freshly updated guides.
 /// It works on tenant data, kept apart from the reference refresh, whose only charter is the shared collections.
 ///
 /// Only finished shows are touched.
-/// <see cref="TvShowStatus.Stopped"/> and unset both mean the tenant stopped tracking on purpose, so the query (<see cref="ITvShowRepository.FindFinishedLinkedShowsAsync"/>) never returns them.
+/// <see cref="TvShowStatus.Stopped"/> and unset both mean the tenant stopped tracking on purpose,
+/// so the query (<see cref="ITvShowRepository.FindFinishedLinkedShowsAsync"/>) never returns them.
 /// </summary>
 public class TvShowStatusReconciliationService(
     ITvShowRepository tvShowRepository,
@@ -25,7 +27,8 @@ public class TvShowStatusReconciliationService(
     ILogger<TvShowStatusReconciliationService> logger)
 {
     /// <summary>
-    /// Checks every finished, linked show of every tenant again, and reopens as <see cref="TvShowStatus.Current"/> those whose guide lists an aired episode after the last one watched.
+    /// Checks every finished, linked show of every tenant again,
+    /// and reopens as <see cref="TvShowStatus.Current"/> those whose guide lists an aired episode after the last one watched.
     /// Returns how many shows were reopened.
     /// A failing show is logged and skipped, like a document in <see cref="ReferenceSyncService"/>.
     /// </summary>

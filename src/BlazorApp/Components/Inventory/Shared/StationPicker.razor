@@ -3,7 +3,8 @@
    Typing something the catalogue doesn't hold creates it on the spot, so a member refuelling somewhere new never waits on an admin.
    The API's create is find-or-create, so a name already on file resolves to that document instead of a duplicate. *@
 
-@* MaxSuggestions well above the default, since the catalogue runs to hundreds of stations, and eight matches for "carrefour" read as "it doesn't have mine" rather than "keep typing". *@
+@* MaxSuggestions well above the default, since the catalogue runs to hundreds of stations,
+   and eight matches for "carrefour" read as "it doesn't have mine" rather than "keep typing". *@
 @* InputCssClass is full-size, matching the rest of the car history form. *@
 <SuggestInput Value="@_displayName" ValueChanged="ResolveAsync" Suggestions="@_suggestions"
               MaxSuggestions="20" InputCssClass="form-control" Placeholder="e.g. TotalEnergies - Rennes"/>
@@ -67,7 +68,8 @@
         }
 
         // Nothing matched: create it with the typed text as the brand name and no location.
-        // Splitting that text into a brand and a city is guesswork ("Total Access A11" is one brand, "Avia Rennes" two things), and the admin screen gives a station its real city and coordinates.
+        // Splitting that text into a brand and a city is guesswork ("Total Access A11" is one brand, "Avia Rennes" two things),
+        // and the admin screen gives a station its real city and coordinates.
         var created = await StationApi.FindOrCreateAsync(new CarStationDto { BrandName = text.Trim() });
         if (created is null) return;
         _displayName = created.DisplayName;

@@ -8,7 +8,8 @@ namespace Keeptrack.Domain.Repositories;
 public interface ICarHistoryRepository : IDataRepository<CarHistoryModel>
 {
     /// <summary>
-    /// Deletes every history entry of <paramref name="ownerId"/> for the car, cascading its deletion, since entries reference their car by id rather than being embedded (see docs/data-model.md's "Child entities" section).
+    /// Deletes every history entry of <paramref name="ownerId"/> for the car, cascading its deletion,
+    /// since entries reference their car by id rather than being embedded (see docs/data-model.md's "Child entities" section).
     /// </summary>
     Task<long> DeleteAllForCarAsync(string carId, string ownerId, CancellationToken cancellationToken = default);
 

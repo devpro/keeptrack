@@ -45,7 +45,8 @@ public class GenericImportCommitItemDto
     public string? Condition { get; set; }
 
     /// <summary>
-    /// The order number and product id, echoed from the preview row, from which the server builds the copy's <c>Reference</c> and exact dedup key (<c>GenericImportService.FormatReference</c>).
+    /// The order number and product id, echoed from the preview row,
+    /// from which the server builds the copy's <c>Reference</c> and exact dedup key (<c>GenericImportService.FormatReference</c>).
     /// Echoed rather than a client-built reference, so the format matches what a later preview checks, and several items of one order stay distinct.
     /// </summary>
     public string? OrderId { get; set; }

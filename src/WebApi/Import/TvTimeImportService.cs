@@ -8,7 +8,8 @@ using Keeptrack.WebApi.ReferenceData;
 namespace Keeptrack.WebApi.Import;
 
 /// <summary>
-/// Imports a TV Time GDPR export (a zip of CSV files) as an upsert: followed shows, episode watch history, ratings, favorite and want-to-watch status, comments, and movies found through votes and tracking events.
+/// Imports a TV Time GDPR export (a zip of CSV files) as an upsert: followed shows, episode watch history,
+/// ratings, favorite and want-to-watch status, comments, and movies found through votes and tracking events.
 /// Every record is stamped with the authenticated caller's owner id, never with anything from the file, TV Time's own user id included.
 /// </summary>
 public class TvTimeImportService(
@@ -35,7 +36,8 @@ public class TvTimeImportService(
         // followed_tv_show.csv is one signal among several, not the complete list of shows: shows with watch history in the tracking files can be absent from it
         var followedShows = ReadCsvEntry(archive, "followed_tv_show.csv", FollowedShowsCsvParser.Parse) ?? [];
 
-        // Three overlapping sources of episode watch dates, least complete first: seen_episode_source.csv only holds episode screen taps, while the two tracking logs capture every other way.
+        // Three overlapping sources of episode watch dates, least complete first:
+        // seen_episode_source.csv only holds episode screen taps, while the two tracking logs capture every other way.
         // ImportEpisodesAsync merges them and deduplicates per (show, season, episode).
         var seenEpisodes = (ReadCsvEntry(archive, "seen_episode_source.csv", SeenEpisodesCsvParser.Parse) ?? [])
             .Concat(ReadCsvEntry(archive, "tracking-prod-records.csv", LegacyEpisodeWatchCsvParser.Parse) ?? [])
@@ -103,7 +105,8 @@ public class TvTimeImportService(
     }
 
     /// <summary>
-    /// The stable TV Time id stamped on a record and matched on: the export's id for that title, or else a deterministic one derived from it (<c>tvtime_title:&lt;normalized&gt;</c>).
+    /// The stable TV Time id stamped on a record and matched on: the export's id for that title,
+    /// or else a deterministic one derived from it (<c>tvtime_title:&lt;normalized&gt;</c>).
     /// The fallback is stable across re-imports, derived from the export title, which reference resolution never touches, unlike the record's title.
     /// </summary>
     private static string ResolveTvTimeId(string title, Dictionary<string, string> idByTitle)
@@ -253,7 +256,8 @@ public class TvTimeImportService(
     /// <summary>
     /// A movie exists when it appears in the vote files or in the tracking events, as no single file lists every show either.
     /// The earliest <see cref="MovieTrackingEventType.Watched"/> event sets <see cref="MovieModel.FirstSeenAt"/>.
-    /// A <see cref="MovieTrackingEventType.WantToWatch"/> event sets <see cref="MovieModel.WantToWatch"/> only without a watched event, so a movie seen since is not left on the list.
+    /// A <see cref="MovieTrackingEventType.WantToWatch"/> event sets <see cref="MovieModel.WantToWatch"/> only without a watched event,
+    /// so a movie seen since is not left on the list.
     /// </summary>
     private async Task ImportMoviesAsync(
         string ownerId,
@@ -336,7 +340,8 @@ public class TvTimeImportService(
         string.Join('\n', comments.OrderBy(c => c.CreatedAt).Select(c => $"{c.CreatedAt:yyyy-MM-dd}: {c.Comment}"));
 
     /// <summary>
-    /// A best-effort background reference match for an imported show, started on its own DI scope rather than awaited, so a bulk import does not wait on a chain of TMDB calls per item.
+    /// A best-effort background reference match for an imported show, started on its own DI scope rather than awaited,
+    /// so a bulk import does not wait on a chain of TMDB calls per item.
     /// Like <c>TvShowController.OnCreatedAsync</c>.
     /// One show's failed lookup never fails the rest of the import.
     /// </summary>

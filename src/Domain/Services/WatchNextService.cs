@@ -11,7 +11,8 @@ namespace Keeptrack.Domain.Services;
 public static class WatchNextService
 {
     /// <summary>
-    /// A show appears only when marked <see cref="Domain.Models.TvShowStatus.Current"/> <b>and</b> its TMDB episode guide (<paramref name="referencesByShowId"/>) confirms an aired episode after the last one watched.
+    /// A show appears only when marked <see cref="Domain.Models.TvShowStatus.Current"/> <b>and</b>
+    /// its TMDB episode guide (<paramref name="referencesByShowId"/>) confirms an aired episode after the last one watched.
     /// Without a reference there is no guide to tell whether another episode exists, so an unlinked show is excluded rather than guessed at.
     /// </summary>
     public static List<InProgressShowModel> ComputeInProgressShows(
@@ -57,7 +58,8 @@ public static class WatchNextService
     }
 
     /// <summary>
-    /// The first episode of the guide after <paramref name="lastWatchedSeason"/> and <paramref name="lastWatchedEpisode"/> that has aired (<see cref="ReferenceEpisodeModel.AirDate"/> unset or before <paramref name="today"/>), or null.
+    /// The first episode of the guide after <paramref name="lastWatchedSeason"/>
+    /// and <paramref name="lastWatchedEpisode"/> that has aired (<see cref="ReferenceEpisodeModel.AirDate"/> unset or before <paramref name="today"/>), or null.
     /// Ordered by (season, episode), not by title or air date.
     /// <see cref="ComputeInProgressShows"/> shows it as the next episode, and the sync reopens a finished show as current when there is one.
     /// </summary>

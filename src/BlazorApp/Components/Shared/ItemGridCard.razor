@@ -2,7 +2,8 @@
    Shared by the inventory list pages, Wishlist and Watch Next, so the markup and its model (a stretched link opens the detail, actions sit above it by z-index) exist once. *@
 
 <div class="kt-grid-card">
-    @* Without an Href (a read-only shared card the recipient can't open) there is no stretched link, so the card isn't a dead link and its action overlay stays the only clickable thing. *@
+    @* Without an Href (a read-only shared card the recipient can't open) there is no stretched link,
+       so the card isn't a dead link and its action overlay stays the only clickable thing. *@
     @if (!string.IsNullOrEmpty(Href))
     {
         @* rel is set only with target, since it matters only on a new-tab link and every in-app card navigates in the same tab. *@

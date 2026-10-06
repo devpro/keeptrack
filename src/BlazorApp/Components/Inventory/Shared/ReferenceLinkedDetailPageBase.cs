@@ -10,7 +10,8 @@ namespace Keeptrack.BlazorApp.Components.Inventory.Shared;
 /// Loading, saving and reference linking shared by the detail pages of the five reference-linked types.
 /// </summary>
 /// <remarks>
-/// A concrete page keeps its own <c>[PersistentState]</c> properties and exposes them through <see cref="Item"/> and <see cref="ItemReference"/>, since persisted prerender state is keyed by the component that declares it.
+/// A concrete page keeps its own <c>[PersistentState]</c> properties and exposes them through <see cref="Item"/> and <see cref="ItemReference"/>,
+/// since persisted prerender state is keyed by the component that declares it.
 /// </remarks>
 public abstract class ReferenceLinkedDetailPageBase<TDto, TReferenceDto> : ComponentBase
     where TDto : class, IHasId, IReferenceLinkedDto
@@ -122,7 +123,8 @@ public abstract class ReferenceLinkedDetailPageBase<TDto, TReferenceDto> : Compo
 
     /// <summary>
     /// The watch's own read, which replaces the page's model only when it reveals a link.
-    /// Replacing it otherwise swaps the objects a pending action holds, such as a copy awaiting its removal confirmation, which then removes nothing from the new list and is written back by the next save.
+    /// Replacing it otherwise swaps the objects a pending action holds, such as a copy awaiting its removal confirmation,
+    /// which then removes nothing from the new list and is written back by the next save.
     /// The answer is also thrown away when a save landed while the read was in flight, since it describes the item before that save.
     /// </summary>
     private async Task FetchPendingLinkAsync()

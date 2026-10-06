@@ -19,7 +19,8 @@ internal static class GenericVideoGameImportFixtureCsvBuilder
     private const string SecondGameOrderId = "999888777004";
 
     /// <summary>
-    /// Reproduces a real PSN export shape: a single order bundled three different DLC packs for the same game under one shared Transaction Id/Order Id, distinguishable only by Product Name.
+    /// Reproduces a real PSN export shape:
+    /// a single order bundled three different DLC packs for the same game under one shared Transaction Id/Order Id, distinguishable only by Product Name.
     /// </summary>
     public const string BundleTitle = "Keeptrack Video Game Import Test Bundle Game";
     private const string BundleTransactionId = "999888777005";

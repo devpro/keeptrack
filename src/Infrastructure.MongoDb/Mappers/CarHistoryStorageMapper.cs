@@ -6,7 +6,8 @@ using Keeptrack.Infrastructure.MongoDb.Entities;
 namespace Keeptrack.Infrastructure.MongoDb.Mappers;
 
 /// <summary>
-/// Hand-written rather than a Mapperly <c>[Mapper]</c>: the model's flat location and fuel fields fan out into the entity's Location and Fuel sub-documents and back, which reads better as plain C# than as attributes.
+/// Hand-written rather than a Mapperly <c>[Mapper]</c>:
+/// the model's flat location and fuel fields fan out into the entity's Location and Fuel sub-documents and back, which reads better as plain C# than as attributes.
 /// </summary>
 public class CarHistoryStorageMapper : IStorageMapper<CarHistoryModel, CarHistory>
 {

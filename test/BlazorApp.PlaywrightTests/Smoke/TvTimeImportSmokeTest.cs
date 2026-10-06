@@ -9,7 +9,8 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Drives the TV Time GDPR-export import UI end to end (upload the zip, the background job's progress bar, the result banner), the browser coverage the API-only <c>TvTimeImportResourceTest</c> can't provide.
+/// Drives the TV Time GDPR-export import UI end to end (upload the zip, the background job's progress bar, the result banner),
+/// the browser coverage the API-only <c>TvTimeImportResourceTest</c> can't provide.
 /// A GUID-suffixed show title and a fresh TV Time show id make every run import a new show it then deletes.
 /// </summary>
 [Trait("Category", "E2eTests")]
@@ -25,7 +26,8 @@ public class TvTimeImportSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixtu
         var zip = TvTimeImportFixtureZipBuilder.Build(showTitle);
 
         // registered before the upload, so a partial import is cleaned up too.
-        // Deleting the show takes its imported episodes with it (TvShowController.OnDeletedAsync), which is the only way to reach them: an episode is a separate top-level document keyed by show id, not something a title search finds.
+        // Deleting the show takes its imported episodes with it (TvShowController.OnDeletedAsync), which is the only way to reach them:
+        // an episode is a separate top-level document keyed by show id, not something a title search finds.
         TrackCleanup(async () =>
         {
             foreach (var showId in await Fixture.GetItemIdsAsync($"/api/tv-shows?search={Uri.EscapeDataString(showTitle)}"))

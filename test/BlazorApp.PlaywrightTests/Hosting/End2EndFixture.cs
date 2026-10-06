@@ -32,8 +32,10 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Hosting;
 
 /// <summary>
-/// Assembly-wide setup for the whole e2e run (xunit v3 <c>[assembly: AssemblyFixture(typeof(End2EndFixture))]</c>): resolves the run mode, hosts both apps in-process (or targets a live deployment), signs in exactly once, and seeds deterministic reference data.
-/// Every smoke test class takes this as a constructor parameter and reuses the single instance, so the whole run performs at most one real Firebase sign-in and one ephemeral-user creation.
+/// Assembly-wide setup for the whole e2e run (xunit v3 <c>[assembly: AssemblyFixture(typeof(End2EndFixture))]</c>):
+/// resolves the run mode, hosts both apps in-process (or targets a live deployment), signs in exactly once, and seeds deterministic reference data.
+/// Every smoke test class takes this as a constructor parameter and reuses the single instance,
+/// so the whole run performs at most one real Firebase sign-in and one ephemeral-user creation.
 /// </summary>
 public sealed class End2EndFixture : IAsyncLifetime
 {
@@ -92,12 +94,15 @@ public sealed class End2EndFixture : IAsyncLifetime
                 WebApiKestrelUrlOverride,
                 new KeyValuePair<string, string?>("Features:IsReferenceSyncEnabled", "false"),
                 new KeyValuePair<string, string?>("Infrastructure:MongoDB:DatabaseName", End2EndConfiguration.DatabaseName),
-                // Pinned to igdb rather than inherited from appsettings.Development.json, so the suite doesn't drift with an unrelated deployment choice: IGDB is the more stable provider and is what VideoGameReferenceMatchSmokeTest is written against (it hard-requires Igdb__ClientId/ Igdb__ClientSecret but deliberately not Rawg__ApiKey).
+                // Pinned to igdb rather than inherited from appsettings.Development.json, so the suite doesn't drift with an unrelated deployment choice:
+                // IGDB is the more stable provider
+                // and is what VideoGameReferenceMatchSmokeTest is written against (it hard-requires Igdb__ClientId/ Igdb__ClientSecret but deliberately not Rawg__ApiKey).
                 new KeyValuePair<string, string?>("ReferenceData:VideoGameProvider", "igdb"));
             _webApiBaseUrl = _webApiFactory.ServerAddress;
 
             // The hosted Blazor app needs WebApi:BaseUrl set to the WebApi host's dynamic address.
-            // BlazorApp's Program.cs reads it through builder.Configuration.TryGetSection(...) before WebApplicationBuilder.Build(), earlier than WebApplicationFactory's ConfigureWebHost or ConfigureAppConfiguration override reaches.
+            // BlazorApp's Program.cs reads it through builder.Configuration.TryGetSection(...) before WebApplicationBuilder.Build(),
+            // earlier than WebApplicationFactory's ConfigureWebHost or ConfigureAppConfiguration override reaches.
             // Passed like the WebApi factory's Features:IsReferenceSyncEnabled override below, the Blazor host would dial its appsettings.Development.json WebApi:BaseUrl instead.
             // WebApplication.CreateBuilder reads a process environment variable synchronously, so it is visible in time.
             Environment.SetEnvironmentVariable("WebApi__BaseUrl", _webApiBaseUrl);
@@ -132,7 +137,8 @@ public sealed class End2EndFixture : IAsyncLifetime
     {
         var configuration = _webApiFactory!.Services.GetRequiredService<IConfiguration>();
         // the video game entry is IGDB's Twitch pair, not RAWG's key: what a smoke test links through is whichever provider is the *default*, and RAWG stopped being it.
-        // RAWG is still registered (references linked through it keep their stored ratings), but no e2e path reaches it unless a test picks it explicitly, so requiring its key would fail runs for a provider they never call.
+        // RAWG is still registered (references linked through it keep their stored ratings),
+        // but no e2e path reaches it unless a test picks it explicitly, so requiring its key would fail runs for a provider they never call.
         var missingVariables = new (string ConfigKey, string EnvVarName)[]
             {
                 ("Tmdb:ApiKey", "Tmdb__ApiKey"),
@@ -152,7 +158,8 @@ public sealed class End2EndFixture : IAsyncLifetime
 
     /// <summary>
     /// An explicit E2E_USERNAME always wins (works in every mode).
-    /// Otherwise integration mode creates its own ephemeral admin user, while live and read-only modes require an explicit account, since neither creates or cleans up a throwaway Firebase user.
+    /// Otherwise integration mode creates its own ephemeral admin user,
+    /// while live and read-only modes require an explicit account, since neither creates or cleans up a throwaway Firebase user.
     /// </summary>
     private async Task<(string Username, string Password)> ResolveCredentialsAsync()
     {
@@ -174,7 +181,8 @@ public sealed class End2EndFixture : IAsyncLifetime
                 "E2E_READONLY requires an existing E2E_USERNAME/E2E_PASSWORD account - no ephemeral user is created in read-only mode.");
         }
 
-        // The Blazor host started above initialized FirebaseApp.DefaultInstance from its Firebase:ServiceAccount configuration (see src/BlazorApp/Program.cs), reused rather than parsing the credential again.
+        // The Blazor host started above initialized FirebaseApp.DefaultInstance from its Firebase:ServiceAccount configuration (see src/BlazorApp/Program.cs),
+        // reused rather than parsing the credential again.
         var email = $"e2e-{Guid.NewGuid():N}@keeptrack.test";
         var password2 = $"E2e-{Guid.NewGuid():N}!Aa1";
         var user = await FirebaseAuth.DefaultInstance.CreateUserAsync(new UserRecordArgs { Email = email, Password = password2, EmailVerified = true });
@@ -204,7 +212,8 @@ public sealed class End2EndFixture : IAsyncLifetime
     /// The deterministic "look for a ref" path: imports a synthetic reference document through the admin endpoint a real export and import use.
     /// <c>ReferenceSmokeTest</c>'s "check for reference match" click then queries MongoDB only, never a real provider.
     /// <para>
-    /// Re-seeding adds no second copy of the synthetic book, since the import matches on the fixture's Open Library id and updates the document carrying it (see <c>ReferenceDataImportService</c>).
+    /// Re-seeding adds no second copy of the synthetic book,
+    /// since the import matches on the fixture's Open Library id and updates the document carrying it (see <c>ReferenceDataImportService</c>).
     /// The first insert lands under the fixed <see cref="ReferenceFixtureZipBuilder.ReferenceId"/>, which is how <see cref="RemoveSeededReferenceDataAsync"/> knows what to delete.
     /// </para>
     /// </summary>
@@ -246,7 +255,8 @@ public sealed class End2EndFixture : IAsyncLifetime
     }
 
     /// <summary>
-    /// Removes the documents the run's throwaway identity owns that no test can reach: its preferences (written the first time a page reads them) and its background-job rows (an import smoke test starts a job through the UI and never learns its id).
+    /// Removes the documents the run's throwaway identity owns that no test can reach:
+    /// its preferences (written the first time a page reads them) and its background-job rows (an import smoke test starts a job through the UI and never learns its id).
     /// Neither collection has a delete endpoint, and both are owner-scoped, so they're removed straight from MongoDB.
     /// <para>
     /// Deliberately guarded on <see cref="_ephemeralUserUid"/>: only an ephemeral user's documents are ever deleted here.
@@ -277,7 +287,8 @@ public sealed class End2EndFixture : IAsyncLifetime
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Reference documents resolved from a real provider are normally left in place on purpose: they are shared canonical facts, deduplicated by provider id, so a re-run reuses them and deleting only forces a re-fetch.
+    /// Reference documents resolved from a real provider are normally left in place on purpose:
+    /// they are shared canonical facts, deduplicated by provider id, so a re-run reuses them and deleting only forces a re-fetch.
     /// This is the deliberate exception, and it is not tidiness.
     /// A test proving that matching reaches the <b>provider</b> can only observe it while nothing local answers, and by passing it creates such a local answer.
     /// Left behind, it would make the next run take the cheap local path, still green and no longer testing anything.
@@ -313,7 +324,8 @@ public sealed class End2EndFixture : IAsyncLifetime
     }
 
     /// <summary>
-    /// Whether this run may write to MongoDB directly, in self-hosted mode only, since live mode (<c>E2E_TARGET_URL</c>) drives a remote deployment whose database this process can't reach.
+    /// Whether this run may write to MongoDB directly, in self-hosted mode only,
+    /// since live mode (<c>E2E_TARGET_URL</c>) drives a remote deployment whose database this process can't reach.
     /// A test that needs it self-skips when it is false.
     /// </summary>
     public bool CanSeedDatabaseDirectly => _webApiFactory is not null;
@@ -322,11 +334,13 @@ public sealed class End2EndFixture : IAsyncLifetime
     /// Writes entries into the shared, owner-less <c>explore_catalogue</c> so the Explore page has a deterministic ranking to render.
     /// <para>
     /// Straight through the hosted <see cref="IExploreCatalogueRepository"/>, unlike the reference seed above, which goes over HTTP.
-    /// Only <c>ExploreCatalogueRefreshService</c> writes the catalogue, which this host never runs (<c>Features:IsReferenceSyncEnabled</c> is false), and which would call the real provider rankings.
+    /// Only <c>ExploreCatalogueRefreshService</c> writes the catalogue,
+    /// which this host never runs (<c>Features:IsReferenceSyncEnabled</c> is false), and which would call the real provider rankings.
     /// No admin endpoint writes one entry, and one only for test seeding would be the wrong trade, as with <see cref="RemoveSeededReferenceDataAsync"/>.
     /// </para>
     /// <para>
-    /// The sync never running here is also what makes low ranks safe to seed: nothing else writes this collection, so a seeded ranking is the whole ranking and the page's first fetch shows it.
+    /// The sync never running here is also what makes low ranks safe to seed: nothing else writes this collection,
+    /// so a seeded ranking is the whole ranking and the page's first fetch shows it.
     /// </para>
     /// </summary>
     public async Task SeedExploreCatalogueAsync(IReadOnlyList<ExploreCatalogueEntryModel> entries)
@@ -336,10 +350,13 @@ public sealed class End2EndFixture : IAsyncLifetime
     }
 
     /// <summary>
-    /// Every ordering a domain's catalogue is maintained under, asked of the hosted app rather than hardcoded, since an entry filed under another ranking key is invisible to the page.
-    /// Resolved from the API's container, since it depends on the deployment's discovery provider: movies and TV have one ordering, video games one per rating source IGDB supports.
+    /// Every ordering a domain's catalogue is maintained under, asked of the hosted app rather than hardcoded,
+    /// since an entry filed under another ranking key is invisible to the page.
+    /// Resolved from the API's container, since it depends on the deployment's discovery provider:
+    /// movies and TV have one ordering, video games one per rating source IGDB supports.
     /// <para>
-    /// All of them, not only the effective one: the page follows the admin-selected primary rating source, a stored setting no test controls, so a guessed seed would break where someone picked the other.
+    /// All of them, not only the effective one: the page follows the admin-selected primary rating source,
+    /// a stored setting no test controls, so a guessed seed would break where someone picked the other.
     /// </para>
     /// </summary>
     public IReadOnlyList<string> ExploreRankingsFor(ExploreItemType type)
@@ -349,7 +366,8 @@ public sealed class End2EndFixture : IAsyncLifetime
     }
 
     /// <summary>
-    /// How many entries the shared catalogue holds, the premise every Explore smoke test rests on, a seeded ranking being the whole ranking (see <see cref="SeedExploreCatalogueAsync"/>).
+    /// How many entries the shared catalogue holds, the premise every Explore smoke test rests on,
+    /// a seeded ranking being the whole ranking (see <see cref="SeedExploreCatalogueAsync"/>).
     /// It breaks when the run shares its database with a suite whose <c>sync-now</c> tests rebuild the real TMDB ranking, and the symptom is a card count nobody can explain.
     /// </summary>
     public async Task<long> CountExploreCatalogueEntriesAsync()
@@ -361,7 +379,8 @@ public sealed class End2EndFixture : IAsyncLifetime
 
     /// <summary>
     /// Removes seeded catalogue entries by their provider ids.
-    /// The repository only exposes the refresh pass's own "delete what I didn't rewrite" sweep, which would take the whole ranking with it, so this deletes exactly what the test created and nothing else.
+    /// The repository only exposes the refresh pass's own "delete what I didn't rewrite" sweep,
+    /// which would take the whole ranking with it, so this deletes exactly what the test created and nothing else.
     /// Best-effort like <see cref="DeleteItemAsync"/>: a teardown error shouldn't turn a green run red.
     /// </summary>
     public async Task RemoveExploreCatalogueEntriesAsync(IEnumerable<string> externalIds)
@@ -381,8 +400,10 @@ public sealed class End2EndFixture : IAsyncLifetime
     private HttpClient? _apiHttpClient;
 
     /// <summary>
-    /// <see cref="End2EndFixture"/> is one instance shared by every parallel smoke test class, several of which call <see cref="DeleteItemAsync"/> from their cleanup, so a plain <c>??=</c> lazy init would race.
-    /// <see cref="LazyInitializer.EnsureInitialized{T}(ref T?, Func{T})"/> is the thread-safe pattern <c>Testing.Shared</c>'s <c>AccountRepository.AuthenticateAsync</c> uses for the same kind of shared resource.
+    /// <see cref="End2EndFixture"/> is one instance shared by every parallel smoke test class,
+    /// several of which call <see cref="DeleteItemAsync"/> from their cleanup, so a plain <c>??=</c> lazy init would race.
+    /// <see cref="LazyInitializer.EnsureInitialized{T}(ref T?, Func{T})"/> is the thread-safe pattern
+    /// <c>Testing.Shared</c>'s <c>AccountRepository.AuthenticateAsync</c> uses for the same kind of shared resource.
     /// Public, so a test needing signed-in API access beyond <see cref="DeleteItemAsync"/> (<c>MobileScreenshotTest</c>'s seeding) reuses the run's one identity.
     /// Re-deriving credentials would break in ephemeral-user mode, where no E2E_USERNAME exists.
     /// </summary>
@@ -411,7 +432,8 @@ public sealed class End2EndFixture : IAsyncLifetime
     }
 
     /// <summary>
-    /// Reads the ids of the items a paged list query returns (<c>"/api/books?search=..."</c>, <c>"/api/episodes?TvShowId=..."</c>), so an import smoke test can find what the commit created and delete it through <see cref="DeleteItemAsync"/>.
+    /// Reads the ids of the items a paged list query returns (<c>"/api/books?search=..."</c>, <c>"/api/episodes?TvShowId=..."</c>),
+    /// so an import smoke test can find what the commit created and delete it through <see cref="DeleteItemAsync"/>.
     /// Every list endpoint shares the one <c>PagedResult</c> shape, so this single helper serves all of them rather than a per-type variant.
     /// </summary>
     public async Task<IReadOnlyList<string>> GetItemIdsAsync(string listQueryUrl)
@@ -425,8 +447,10 @@ public sealed class End2EndFixture : IAsyncLifetime
     private sealed record ItemId(string? Id);
 
     /// <summary>
-    /// Forges a Blazor auth cookie whose principal is a fully-authorized member but whose stored Firebase token is a value WebApi rejects (a malformed JWT), reproducing a live session whose Firebase ID token has gone stale (expired or revoked) while the 8h auth cookie is still valid.
-    /// The next server-rendered page's API call then answers 401, driving <c>AuthenticationTokenHandler.RedirectToLogin</c> during prerender, a path that must not throw "RemoteNavigationManager has not been initialized".
+    /// Forges a Blazor auth cookie whose principal is a fully-authorized member but whose stored Firebase token is a value WebApi rejects (a malformed JWT),
+    /// reproducing a live session whose Firebase ID token has gone stale (expired or revoked) while the 8h auth cookie is still valid.
+    /// The next server-rendered page's API call then answers 401, driving <c>AuthenticationTokenHandler.RedirectToLogin</c> during prerender,
+    /// a path that must not throw "RemoteNavigationManager has not been initialized".
     /// Returns <c>null</c> in live mode (E2E_TARGET_URL), since forging the ticket needs the in-process Blazor host's data-protection keys, and the test self-skips there.
     /// </summary>
     public Cookie? ForgeStaleTokenMemberCookie()
@@ -469,9 +493,11 @@ public sealed class End2EndFixture : IAsyncLifetime
     }
 
     /// <summary>
-    /// A second, genuinely different Firebase identity's valid ID token, for the one test that proves <c>AuthenticationController.Refresh</c> refuses a token that verifies but belongs to someone else's session.
+    /// A second, genuinely different Firebase identity's valid ID token,
+    /// for the one test that proves <c>AuthenticationController.Refresh</c> refuses a token that verifies but belongs to someone else's session.
     /// Created once per run on first call and reused, the same lazy-and-cached shape as <see cref="ApiHttpClient"/>.
-    /// Returns <c>null</c> for the same reason <see cref="ForgeStaleTokenMemberCookie"/> does: minting a user needs the in-process Blazor host's own Firebase Admin SDK access, which live and read-only mode don't have.
+    /// Returns <c>null</c> for the same reason <see cref="ForgeStaleTokenMemberCookie"/> does:
+    /// minting a user needs the in-process Blazor host's own Firebase Admin SDK access, which live and read-only mode don't have.
     /// </summary>
     public async Task<string?> GetAnotherUsersIdTokenAsync()
     {
@@ -523,7 +549,8 @@ public sealed class End2EndFixture : IAsyncLifetime
 
     /// <summary>
     /// Shared by both ephemeral users this fixture can create (the run's own signed-in identity, and the second one <see cref="GetAnotherUsersIdTokenAsync"/> mints on demand).
-    /// A failure here must never fail the run: a leftover throwaway Firebase user is untidy, not a test failure, so it is reported and swallowed the same way <see cref="RemoveSeededReferenceDataAsync"/> treats its own best-effort cleanup.
+    /// A failure here must never fail the run: a leftover throwaway Firebase user is untidy, not a test failure,
+    /// so it is reported and swallowed the same way <see cref="RemoveSeededReferenceDataAsync"/> treats its own best-effort cleanup.
     /// </summary>
     private static async Task DeleteEphemeralUserAsync(string? uid)
     {

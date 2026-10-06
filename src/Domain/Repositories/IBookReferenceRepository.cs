@@ -19,7 +19,8 @@ public interface IBookReferenceRepository
     Task<List<BookReferenceModel>> FindByIdsAsync(IReadOnlyCollection<string> ids);
 
     /// <summary>
-    /// <paramref name="author"/> is part of the key, not a search hint: two different books easily share a generic title and a year, so title and year alone could link an unrelated book.
+    /// <paramref name="author"/> is part of the key, not a search hint:
+    /// two different books easily share a generic title and a year, so title and year alone could link an unrelated book.
     /// See <see cref="Domain.Models.ReferenceMatchModel.Creator"/>.
     /// </summary>
     Task<BookReferenceModel?> FindByTitleYearAsync(string title, int? year, string author);
@@ -52,7 +53,8 @@ public interface IBookReferenceRepository
     Task<List<BookReferenceModel>> FindAllAsync();
 
     /// <summary>
-    /// The stalest <paramref name="limit"/> documents the periodic sync refreshes next, among those untouched since <paramref name="cutoff"/>: never enriched first, then least recently enriched.
+    /// The stalest <paramref name="limit"/> documents the periodic sync refreshes next,
+    /// among those untouched since <paramref name="cutoff"/>: never enriched first, then least recently enriched.
     /// The ordering makes the cap safe, since what a pass does not reach leads the next one rather than the same head of the collection being walked forever.
     /// </summary>
     Task<List<BookReferenceModel>> FindStaleAsync(DateTime cutoff, int limit);

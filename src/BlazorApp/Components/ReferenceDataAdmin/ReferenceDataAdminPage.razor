@@ -88,7 +88,8 @@
                                 @foreach (var candidate in _searchResults)
                                 {
                                     <div class="kt-form-card mb-2">
-                                        @* Link sits top-right and the synopsis is clamped (.kt-ref-synopsis), or a long TMDB synopsis pushes the only action below the fold on mobile. *@
+                                        @* Link sits top-right and the synopsis is clamped (.kt-ref-synopsis),
+                                           or a long TMDB synopsis pushes the only action below the fold on mobile. *@
                                         <div class="d-flex gap-3 align-items-start">
                                             @if (!string.IsNullOrEmpty(candidate.ImageUrl))
                                             {
@@ -228,7 +229,8 @@
                     {
                         <tr>
                             <td colspan="4">
-                                @* The provider's search has real dead ends, answering a title with nothing or with unrelated games, so the row always offers a way to ask differently. *@
+                                @* The provider's search has real dead ends, answering a title with nothing or with unrelated games,
+                                   so the row always offers a way to ask differently. *@
                                 <div class="d-flex gap-2 align-items-center mb-2" style="max-width:640px">
                                     <input class="form-control form-control-sm" placeholder="@($"Search {_reconciliation.ProviderDisplayName} with different text, or paste the game's page URL")"
                                            @bind="_candidateQuery" @bind:event="oninput" @onkeydown="@(e => { if (e.Key == "Enter") return SearchCandidatesAsync(gap); return Task.CompletedTask; })"/>

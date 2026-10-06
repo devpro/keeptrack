@@ -18,7 +18,8 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.Import;
 
 /// <summary>
-/// Reference enrichment rewrites a stored Title to the provider's canonical name after the first import, so title matching would make a re-import create duplicates, and duplicated episodes under the new show id.
+/// Reference enrichment rewrites a stored Title to the provider's canonical name after the first import,
+/// so title matching would make a re-import create duplicates, and duplicated episodes under the new show id.
 /// Every imported record carries a stable TvTimeId that enrichment never touches, and matching uses it.
 /// </summary>
 [Trait("Category", "UnitTests")]
@@ -90,7 +91,8 @@ public class TvTimeImportServiceIdempotencyTest
         new(shows, episodes, movies, new ThrowingScopeFactory(), NullLogger<TvTimeImportService>.Instance);
 
     /// <summary>
-    /// A minimal but realistic export: a followed show carrying its TV Time id, two of its episodes in the id-less seen_episode_source.csv (which must still resolve to that show), and a movie discovered through a tracking watch event carrying its stable per-movie uuid.
+    /// A minimal but realistic export: a followed show carrying its TV Time id, two of its episodes in the id-less seen_episode_source.csv (which must still resolve to that show),
+    /// and a movie discovered through a tracking watch event carrying its stable per-movie uuid.
     /// </summary>
     private static byte[] BuildZip()
     {
@@ -119,7 +121,8 @@ public class TvTimeImportServiceIdempotencyTest
         return zipStream.ToArray();
     }
 
-    /// <summary>The import fires a best-effort reference match on a background DI scope; this stands in for the scope factory and makes that fire-and-forget path a caught no-op, which the import tolerates.</summary>
+    /// <summary>The import fires a best-effort reference match on a background DI scope;
+    /// this stands in for the scope factory and makes that fire-and-forget path a caught no-op, which the import tolerates.</summary>
     private sealed class ThrowingScopeFactory : IServiceScopeFactory
     {
         public IServiceScope CreateScope() => throw new InvalidOperationException("No DI scope in unit tests.");

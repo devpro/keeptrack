@@ -33,7 +33,8 @@
     protected override void OnInitialized()
     {
         // The feature reports the original status whatever the re-executed pipeline does to the response afterwards.
-        // Anything below 400 means the page was opened through its own /not-found route, or rendered by the Router with no request behind it, both meaning 404, never the 200 the response carries.
+        // Anything below 400 means the page was opened through its own /not-found route,
+        // or rendered by the Router with no request behind it, both meaning 404, never the 200 the response carries.
         var status = HttpContext?.Features.Get<IStatusCodeReExecuteFeature>()?.OriginalStatusCode
                      ?? HttpContext?.Response.StatusCode
                      ?? StatusCodes.Status404NotFound;

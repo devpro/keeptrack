@@ -13,9 +13,11 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
 /// <summary>
-/// Exercises the <c>AddStandardResilienceHandler()</c> wiring every provider client gets (<c>ProviderResilienceExtensions</c>), once, against <see cref="RawgClient"/>, since the wiring is identical for all.
+/// Exercises the <c>AddStandardResilienceHandler()</c> wiring every provider client gets (<c>ProviderResilienceExtensions</c>),
+/// once, against <see cref="RawgClient"/>, since the wiring is identical for all.
 /// A transient provider failure is retried and recovered rather than surfacing to the caller.
-/// A provider that stays down fails cleanly with an <see cref="HttpRequestException"/>, a 502 through <see cref="Keeptrack.WebApi.Filters.ApiExceptionFilterAttribute"/>, instead of hanging.
+/// A provider that stays down fails cleanly with an <see cref="HttpRequestException"/>,
+/// a 502 through <see cref="Keeptrack.WebApi.Filters.ApiExceptionFilterAttribute"/>, instead of hanging.
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class ExternalProviderResilienceTest
@@ -67,7 +69,8 @@ public class ExternalProviderResilienceTest
             callCount < 3 ? new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) : SuccessResponse());
         var client = BuildClient(handler);
 
-        // FindGamesByExactTitleAsync rather than SearchGamesAsync: the subject here is how many HTTP attempts the resilience pipeline makes for *one* request, and SearchGamesAsync is a two-request policy (see VideoGameReferenceClientBase), which would make CallCount measure the policy instead.
+        // FindGamesByExactTitleAsync rather than SearchGamesAsync: the subject here is how many HTTP attempts the resilience pipeline makes for *one* request,
+        // and SearchGamesAsync is a two-request policy (see VideoGameReferenceClientBase), which would make CallCount measure the policy instead.
         var results = await client.FindGamesByExactTitleAsync("Nioh 3", TestContext.Current.CancellationToken);
 
         results.Should().ContainSingle(r => r.Title == "Nioh 3");

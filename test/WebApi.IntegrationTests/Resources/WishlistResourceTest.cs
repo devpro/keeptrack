@@ -15,7 +15,8 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
 /// The wishlist aggregates several media types into one payload and hydrates each item's cover the same way the individual list endpoints do.
-/// Book and video game carry a tenant-owned <c>CustomImageUrl</c> that overrides the linked reference's own cover here too, since the wishlist and its shared view are read far more often than the per-type lists.
+/// Book and video game carry a tenant-owned <c>CustomImageUrl</c> that overrides the linked reference's own cover here too,
+/// since the wishlist and its shared view are read far more often than the per-type lists.
 /// </summary>
 public class WishlistResourceTest(KestrelWebAppFactory<Program> factory)
     : ResourceTestBase(factory)

@@ -10,7 +10,8 @@ namespace Keeptrack.BlazorApp.UnitTests.Components.Shared;
 
 /// <summary>
 /// The client half of surfacing a provider outage honestly.
-/// <c>EnsureSuccessStatusCode</c> throws with only the status line and discards the body, so the API's <c>{ error }</c> would never reach a user, every upstream failure reading as an unexplained "502 (Bad Gateway)".
+/// <c>EnsureSuccessStatusCode</c> throws with only the status line and discards the body,
+/// so the API's <c>{ error }</c> would never reach a user, every upstream failure reading as an unexplained "502 (Bad Gateway)".
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class ApiResponseExtensionsTest

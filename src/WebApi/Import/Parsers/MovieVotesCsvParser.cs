@@ -15,7 +15,8 @@ public class MovieVoteRecord
 /// <summary>
 /// Parses TV Time's rating/emotion vote files (ratings-v2-prod-votes.csv, ratings-live-votes.csv, emotions-v2-prod-votes.csv, emotions-live-votes.csv).
 /// These files mix movie and episode votes; only rows carrying a movie_name are kept.
-/// The <c>uuid</c> is the vote's own id, matching the favorite movies list, not a stable movie id, which is the tracking uuid of tracking-prod-records.csv (see <see cref="MovieTrackingEventRecord"/>).
+/// The <c>uuid</c> is the vote's own id, matching the favorite movies list, not a stable movie id,
+/// which is the tracking uuid of tracking-prod-records.csv (see <see cref="MovieTrackingEventRecord"/>).
 /// A movie known only from these files therefore gets a title-derived id.
 /// The emotion or rating code is not read, being an undocumented internal enum rather than a linear scale.
 /// </summary>

@@ -18,7 +18,8 @@ public interface IProviderQuotaRepository
     /// Atomically reserves one call against <paramref name="provider"/>'s allowance for <paramref name="day"/>.
     /// False when the count already reached <paramref name="ceiling"/>, and the caller must then not make the call.
     /// <para>
-    /// The ceiling is passed per call rather than stored, so part of the allowance is held back for higher-priority work: a background consumer passes a lower ceiling than a user-facing one against the same counter.
+    /// The ceiling is passed per call rather than stored, so part of the allowance is held back for higher-priority work:
+    /// a background consumer passes a lower ceiling than a user-facing one against the same counter.
     /// </para>
     /// </summary>
     Task<bool> TryConsumeAsync(string provider, DateOnly day, int ceiling, CancellationToken cancellationToken = default);

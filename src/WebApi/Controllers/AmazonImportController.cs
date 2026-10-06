@@ -73,7 +73,8 @@ public class AmazonImportController(
 
     /// <summary>
     /// Creates or updates items from the selected rows, grouped by the type each row was given.
-    /// A row whose normalized title matches an item of its type, existing or created earlier in the request, adds a copy rather than a duplicate (see <see cref="OwnedItemImportCommitCoordinator.CommitAsync"/>).
+    /// A row whose normalized title matches an item of its type, existing or created earlier in the request,
+    /// adds a copy rather than a duplicate (see <see cref="OwnedItemImportCommitCoordinator.CommitAsync"/>).
     /// </summary>
     [HttpPost("commit")]
     [ProducesResponseType(200)]

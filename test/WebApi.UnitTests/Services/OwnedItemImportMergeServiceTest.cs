@@ -133,7 +133,8 @@ public class OwnedItemImportMergeServiceTest
     [Fact]
     public void ComputeCommitPlan_SkipsARow_WhenItsOrderReferenceMatchesAnExistingBook_EvenUnderADifferentTitleNow()
     {
-        // A book renamed after a first import (by reference linking) must still match when the same order is re-imported under its original Amazon title, rather than creating a duplicate.
+        // A book renamed after a first import (by reference linking) must still match when the same order is re-imported under its original Amazon title,
+        // rather than creating a duplicate.
         var reference = AmazonImportMergeService.FormatOrderReference(SomeOrderId, SomeAsin);
         var existing = Book("The Secret: Jack Reacher, Book 28", new OwnedVersionModel { Reference = reference });
         existing.Title = "No Plan B"; // renamed after the first import, as reference linking does

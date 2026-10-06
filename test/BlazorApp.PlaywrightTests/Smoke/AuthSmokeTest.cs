@@ -33,7 +33,8 @@ public class AuthSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
     }
 
     /// <summary>
-    /// <c>AuthenticationController.Callback</c> itself has no test below the browser: every other test here reaches it only through the fixture's own sign-in setup with a genuinely valid token.
+    /// <c>AuthenticationController.Callback</c> itself has no test below the browser:
+    /// every other test here reaches it only through the fixture's own sign-in setup with a genuinely valid token.
     /// These three exercise its own validation, over a direct POST rather than a page navigation.
     /// </summary>
     [Fact]
@@ -55,7 +56,8 @@ public class AuthSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
     }
 
     /// <summary>
-    /// The shared context's storage state is a signed-in session, so this needs its own anonymous one to prove the "must already be signed in" check, same reasoning as the anonymous-visit test above.
+    /// The shared context's storage state is a signed-in session,
+    /// so this needs its own anonymous one to prove the "must already be signed in" check, same reasoning as the anonymous-visit test above.
     /// </summary>
     [Fact]
     public async Task Refresh_WhenNotSignedIn_Answers401()
@@ -69,7 +71,8 @@ public class AuthSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
     }
 
     /// <summary>
-    /// The core guard in <c>AuthenticationController.Refresh</c>: a token that verifies fine but belongs to a different Firebase user must never be allowed to swap the identity behind an existing session.
+    /// The core guard in <c>AuthenticationController.Refresh</c>:
+    /// a token that verifies fine but belongs to a different Firebase user must never be allowed to swap the identity behind an existing session.
     /// </summary>
     [Fact]
     public async Task Refresh_WithAnotherUsersValidToken_Answers401()

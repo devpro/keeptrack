@@ -8,8 +8,10 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 /// Sidebar navigation locators and typed <c>Open&lt;X&gt;Async()</c> helpers that return the next page object.
 /// </summary>
 /// <remarks>
-/// <see cref="PageTitle"/> is null by default, since only <c>Home.razor</c>, <c>Login.razor</c> and <c>Error.razor</c> set their own <c>&lt;PageTitle&gt;</c>, and list and detail pages have no title to assert.
-/// A link clicked inside an interactive component (a list row's title link) navigates differently from a sidebar <c>NavLink</c>, and blanks <c>document.title</c> when the destination has no <c>PageTitle</c>.
+/// <see cref="PageTitle"/> is null by default, since only <c>Home.razor</c>, <c>Login.razor</c> and <c>Error.razor</c> set their own <c>&lt;PageTitle&gt;</c>,
+/// and list and detail pages have no title to assert.
+/// A link clicked inside an interactive component (a list row's title link) navigates differently from a sidebar <c>NavLink</c>,
+/// and blanks <c>document.title</c> when the destination has no <c>PageTitle</c>.
 /// Sidebar navigation leaves the last title untouched, so only the three pages owning a title override this.
 /// </remarks>
 public abstract class PageBase(IPage page)
@@ -22,7 +24,8 @@ public abstract class PageBase(IPage page)
     /// The page's own route, for a page whose content alone can't prove the browser got there.
     /// <para>
     /// The import sub-pages are why this exists.
-    /// <c>/import</c> is a hub rendering a section per importer, each with its own level-1 heading and a link to the sub-page, so "the Amazon heading is visible" holds on the hub too.
+    /// <c>/import</c> is a hub rendering a section per importer, each with its own level-1 heading and a link to the sub-page,
+    /// so "the Amazon heading is visible" holds on the hub too.
     /// A sub-page object waiting only for that would consider itself ready on the hub, and the next steps would run against the hub's DOM, which has three file inputs.
     /// Waiting for the URL asserts the navigation happened, and costs nothing on a page already there.
     /// </para>
@@ -32,8 +35,10 @@ public abstract class PageBase(IPage page)
     /// <summary>
     /// Waits for this page to be up, <b>re-issuing the navigation once</b> if it never rendered.
     /// <para>
-    /// A click can change the URL without ever swapping the content, which is not slowness: <c>GET /cars</c> answers 200 in about 200ms, the URL becomes <c>/cars</c>, and the DOM still shows Home seconds later.
-    /// It happens when the circuit's WebSocket connects just before the click, the prerender-to-interactive gap <see cref="ClickUntilAsync(ILocator, ILocator, int)"/> exists for, reached through enhanced navigation rather than an <c>@onclick</c>.
+    /// A click can change the URL without ever swapping the content, which is not slowness:
+    /// <c>GET /cars</c> answers 200 in about 200ms, the URL becomes <c>/cars</c>, and the DOM still shows Home seconds later.
+    /// It happens when the circuit's WebSocket connects just before the click,
+    /// the prerender-to-interactive gap <see cref="ClickUntilAsync(ILocator, ILocator, int)"/> exists for, reached through enhanced navigation rather than an <c>@onclick</c>.
     /// </para>
     /// <para>
     /// A reload is the honest retry: the browser is on the right URL, so it re-fetches the page the click asked for rather than clicking again and hoping.
@@ -61,7 +66,8 @@ public abstract class PageBase(IPage page)
     /// <para>
     /// For the two things a browser can't wait for.
     /// A navigation the client lost renders nothing however long the assertion waits (see <see cref="WaitForReadyAsync"/>).
-    /// A detail page's save is a PUT the <i>server</i> issues over its circuit, invisible to the browser, so a list rendered while one is in flight shows the pre-save item and never updates.
+    /// A detail page's save is a PUT the <i>server</i> issues over its circuit, invisible to the browser,
+    /// so a list rendered while one is in flight shows the pre-save item and never updates.
     /// Re-reading is the only way to see it land, where a longer timeout would wait on a page that never changes.
     /// </para>
     /// </summary>
@@ -81,7 +87,8 @@ public abstract class PageBase(IPage page)
     /// <summary>
     /// Waits for <paramref name="expectedResult"/> to appear, re-clicking <paramref name="trigger"/> if it hasn't within a short window.
     /// Blazor Server prerenders (static SSR) before its SignalR circuit connects and wires up <c>@onclick</c> handlers.
-    /// The first <c>@onclick</c> click after a page becomes interactive can land in that gap and do nothing, while the page's "loading resolved" signal, baked into the prerendered payload, already reads ready.
+    /// The first <c>@onclick</c> click after a page becomes interactive can land in that gap and do nothing,
+    /// while the page's "loading resolved" signal, baked into the prerendered payload, already reads ready.
     /// This is a bounded mitigation with no blind sleep.
     /// Link navigation (<see cref="NavigateAsync{TPage}"/>) doesn't need it, since enhanced navigation intercepts anchor clicks independently of the circuit.
     /// </summary>
@@ -89,12 +96,14 @@ public abstract class PageBase(IPage page)
         => ClickUntilAsync(trigger, () => Assertions.Expect(expectedResult).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 2000 }), maxAttempts);
 
     /// <summary>
-    /// The same mitigation for an effect a "wait until this locator is visible" check can't express (a card disappearing, a query-string navigation), supplied as the assertion itself.
+    /// The same mitigation for an effect a "wait until this locator is visible" check can't express (a card disappearing, a query-string navigation),
+    /// supplied as the assertion itself.
     /// <para>
     /// Two things the caller owns, and both matter.
     /// The trigger must be safe to click twice, since it may be.
     /// And <paramref name="expected"/>'s own timeout must comfortably exceed how long the action takes.
-    /// A re-click while a successful click is in flight lands on a control the page has disabled (Explore's busy guard) or removed (the exhausted ranking's "Load more"), failing on the click rather than on anything under test.
+    /// A re-click while a successful click is in flight lands on a control the page has disabled (Explore's busy guard) or removed (the exhausted ranking's "Load more"),
+    /// failing on the click rather than on anything under test.
     /// Wait longer, retry fewer times.
     /// </para>
     /// </summary>

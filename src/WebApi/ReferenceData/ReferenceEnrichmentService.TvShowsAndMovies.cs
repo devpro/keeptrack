@@ -33,12 +33,14 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// Adds an <c>imdb</c> entry (IMDb's 0 to 10 rating through OMDb, keyed by the IMDb id TMDB exposes) to <paramref name="ratings"/>, and stamps the attempt on <paramref name="ratingsCheckedAt"/>.
+    /// Adds an <c>imdb</c> entry (IMDb's 0 to 10 rating through OMDb, keyed by the IMDb id TMDB exposes) to <paramref name="ratings"/>,
+    /// and stamps the attempt on <paramref name="ratingsCheckedAt"/>.
     /// Nothing is added without an IMDb id, an OMDb key, budget for <paramref name="priority"/>, or a rating, IMDb being best effort.
     /// The id stays in <c>ExternalIds["imdb"]</c>, so the sync backfills a missing rating with one OMDb call (see <see cref="RefreshMovieReferenceAsync"/>).
     /// <para>
     /// The attempt is stamped whenever OMDb answered, with or without a value, so the backfill does not buy the same answer every pass.
-    /// A call that never happened leaves no stamp (<see cref="OmdbLookupResult.Attempted"/>), and the result is returned whole since callers need that distinction (<see cref="RebuildRatingsAsync"/>).
+    /// A call that never happened leaves no stamp (<see cref="OmdbLookupResult.Attempted"/>),
+    /// and the result is returned whole since callers need that distinction (<see cref="RebuildRatingsAsync"/>).
     /// </para>
     /// </summary>
     private async Task<OmdbLookupResult> AddImdbRatingAsync(
@@ -61,11 +63,13 @@ public partial class ReferenceEnrichmentService
     /// <summary>
     /// Rebuilds a reference's <c>Ratings</c> from a fresh TMDB fetch: TMDB's vote plus a new IMDb lookup, for both full-fetch refresh paths.
     /// <para>
-    /// It keeps the known IMDb value when OMDb was never asked (no key, spent budget, failed request), or the rebuild would discard a rating that cost a call, on the very days the budget is tight.
+    /// It keeps the known IMDb value when OMDb was never asked (no key, spent budget, failed request),
+    /// or the rebuild would discard a rating that cost a call, on the very days the budget is tight.
     /// An answer of "OMDb has nothing" clears it.
     /// </para>
     /// <para>
-    /// Unlike the no-change shortcut, a spent budget does not hold <c>LastEnrichedAt</c> back here (see <see cref="ImdbBackfillOutcome.Deferred"/>): details, cast and people were refreshed, and paying all of it again to retry one OMDb call is the wrong trade.
+    /// Unlike the no-change shortcut, a spent budget does not hold <c>LastEnrichedAt</c> back here (see <see cref="ImdbBackfillOutcome.Deferred"/>):
+    /// details, cast and people were refreshed, and paying all of it again to retry one OMDb call is the wrong trade.
     /// The reference keeps its TMDB rating, so next time it takes the cheap shortcut, retrying IMDb for one <c>/changes</c> call.
     /// </para>
     /// </summary>
@@ -87,7 +91,8 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// The cheap IMDb backfill of the no-change shortcut (see <see cref="RefreshMovieReferenceAsync"/>), adding a rating only when the reference has none, so a rated one makes no OMDb call.
+    /// The cheap IMDb backfill of the no-change shortcut (see <see cref="RefreshMovieReferenceAsync"/>),
+    /// adding a rating only when the reference has none, so a rated one makes no OMDb call.
     /// A missing IMDb id comes from TMDB's external ids (<paramref name="fetchImdbId"/>), not the full fetch the shortcut avoids, and is stored on <paramref name="externalIds"/>.
     /// <para>
     /// The guards run cheapest first, each ruling out a different waste.
@@ -117,7 +122,8 @@ public partial class ReferenceEnrichmentService
         if (lookup.Rating is not null) return ImdbBackfillOutcome.Backfilled;
 
         // The allowance can also run out during this call, through another replica or OMDb's "Request limit reached!" (see OmdbClient.HandleRejectedKeyAsync).
-        // Reading the budget again tells that apart from the other empty answers: a missing key would pin every reference at the head of the queue forever, and a transport failure is left to the next pass.
+        // Reading the budget again tells that apart from the other empty answers:
+        // a missing key would pin every reference at the head of the queue forever, and a transport failure is left to the next pass.
         return !lookup.Attempted && omdbCallBudget.IsExhausted(OmdbCallPriority.Background)
             ? ImdbBackfillOutcome.Deferred
             : ImdbBackfillOutcome.Complete;
@@ -139,9 +145,11 @@ public partial class ReferenceEnrichmentService
 
         /// <summary>
         /// The day's OMDb allowance was spent, so the lookup never happened and the reference still needs one.
-        /// <c>LastEnrichedAt</c> is left untouched, since stamping a skipped document would hide it from <c>FindStaleAsync</c> for a whole window, with an IMDb id, no rating and no record of being asked.
+        /// <c>LastEnrichedAt</c> is left untouched, since stamping a skipped document would hide it from <c>FindStaleAsync</c> for a whole window,
+        /// with an IMDb id, no rating and no record of being asked.
         /// <para>
-        /// This case limits itself: the allowance renews at UTC midnight, so holding these at the head costs one <c>/changes</c> call each per pass, and the next affordable calls go to references missing a rating.
+        /// This case limits itself: the allowance renews at UTC midnight, so holding these at the head costs one <c>/changes</c> call each per pass,
+        /// and the next affordable calls go to references missing a rating.
         /// That bound is why it is not the starvation the <c>StampsItAsChecked_WhenNoProviderIdCouldBeResolved</c> rule prevents.
         /// </para>
         /// </summary>
@@ -159,7 +167,8 @@ public partial class ReferenceEnrichmentService
     /// <summary>
     /// The (value, scale, source) copied onto tenant items: the primary source's value, or none (see <see cref="GetPrimaryRatingSourceAsync"/>).
     /// <para>
-    /// The source is returned even without a value, since it records which source the copy came from, which lets the recompute tell an item on the selected source from one needing a new stamp.
+    /// The source is returned even without a value, since it records which source the copy came from,
+    /// which lets the recompute tell an item on the selected source from one needing a new stamp.
     /// Without it every unrated item would look stale forever.
     /// </para>
     /// </summary>
@@ -167,10 +176,14 @@ public partial class ReferenceEnrichmentService
         ratings.TryGetValue(source, out var r) ? (r.Value, r.Scale, source) : (null, null, source);
 
     /// <summary>
-    /// The local half of "check for reference match": the local references only (by title and year, else title alone, against every confirmed alias, see <see cref="TvShowReferenceModel.MatchedAliases"/>), never TMDB, one indexed lookup.
+    /// The local half of "check for reference match":
+    /// the local references only (by title and year, else title alone, against every confirmed alias, see <see cref="TvShowReferenceModel.MatchedAliases"/>),
+    /// never TMDB, one indexed lookup.
     /// It does not stop at an existing link, so a tenant unhappy with a match fixes the title or year and checks again.
-    /// It updates this tenant's document only (see <see cref="ReferenceLinkTarget"/>), and a match also sets <see cref="TvShowModel.Year"/> to the reference's year, still editable.
-    /// Without a match, an existing link is cleared, since the edit says it is wrong, which also returns the item to the admin queue (<see cref="ITvShowRepository.FindDistinctUnresolvedTitleYearsAsync"/>).
+    /// It updates this tenant's document only (see <see cref="ReferenceLinkTarget"/>),
+    /// and a match also sets <see cref="TvShowModel.Year"/> to the reference's year, still editable.
+    /// Without a match, an existing link is cleared, since the edit says it is wrong,
+    /// which also returns the item to the admin queue (<see cref="ITvShowRepository.FindDistinctUnresolvedTitleYearsAsync"/>).
     /// </summary>
     public async Task<TvShowModel> TryLinkExistingTvShowReferenceAsync(TvShowModel model)
     {
@@ -302,7 +315,8 @@ public partial class ReferenceEnrichmentService
     /// Counting would refuse ordinary shows, since TMDB's search is fuzzy: <c>The Bear</c> (2022) returns eight results and <c>Dark</c> (2017) fifteen, the show first in both.
     /// </para>
     /// <para>
-    /// It would also link unrelated ones: <c>search/tv?query=Fallout&amp;first_air_date_year=2025</c> returns only "Thirst Trap: The Fame. The Fantasy. The Fallout.", and a wrong link is silent data loss.
+    /// It would also link unrelated ones: <c>search/tv?query=Fallout&amp;first_air_date_year=2025</c> returns only "Thirst Trap: The Fame. The Fantasy. The Fallout.",
+    /// and a wrong link is silent data loss.
     /// </para>
     /// </summary>
     public async Task TryAutoResolveTvShowAsync(TvShowModel item)
@@ -513,7 +527,8 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// Fetches a TV show reference again when TMDB changed it since <see cref="TvShowReferenceModel.LastEnrichedAt"/>, skipping the per-season fetches otherwise, and stamps <c>LastEnrichedAt</c> so the sync moves on.
+    /// Fetches a TV show reference again when TMDB changed it since <see cref="TvShowReferenceModel.LastEnrichedAt"/>,
+    /// skipping the per-season fetches otherwise, and stamps <c>LastEnrichedAt</c> so the sync moves on.
     /// Unchanged for a reference without a TMDB id or one TMDB no longer holds.
     /// </summary>
     public async Task<(TvShowReferenceModel Model, bool DataChanged)> RefreshTvShowReferenceAsync(TvShowReferenceModel reference, CancellationToken cancellationToken = default)

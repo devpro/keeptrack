@@ -7,7 +7,8 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// Declared beside the clients rather than where a link is rendered, so a host is never spelled twice.
 /// <para>
 /// Only pages derivable from a stored id live here.
-/// IGDB and RAWG key their pages on a slug, so those come from the provider itself (IGDB's <c>url</c>, RAWG's <c>slug</c>) and are stored with the entry (see <see cref="Keeptrack.Domain.Models.ExploreCatalogueEntryModel.WebUrls"/>).
+/// IGDB and RAWG key their pages on a slug, so those come from the provider itself (IGDB's <c>url</c>, RAWG's <c>slug</c>)
+/// and are stored with the entry (see <see cref="Keeptrack.Domain.Models.ExploreCatalogueEntryModel.WebUrls"/>).
 /// </para>
 /// </summary>
 public static class ProviderWebLinks
@@ -27,7 +28,8 @@ public static class ProviderWebLinks
     public static string Rawg(string slug) => $"https://rawg.io/games/{slug}";
 
     /// <summary>
-    /// Reads back the identifier a provider keys a page on, the last path segment of a pasted URL or a bare numeric id, so an admin names a title by address when no search reaches it.
+    /// Reads back the identifier a provider keys a page on, the last path segment of a pasted URL or a bare numeric id,
+    /// so an admin names a title by address when no search reaches it.
     /// The inverse of the builders above, kept beside them.
     /// <para>
     /// Nothing else counts as an identifier.

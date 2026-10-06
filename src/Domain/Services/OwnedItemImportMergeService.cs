@@ -9,7 +9,8 @@ namespace Keeptrack.Domain.Services;
 /// <summary>
 /// Computes what to create and update when committing reviewed import rows, for any trackable type.
 /// Pure: it takes the owner's items and the selected rows and returns a plan, the caller doing all repository access.
-/// Matching is by normalized title (<see cref="TitleNormalizer"/>), also within the batch: two rows sharing a title become one item with two copies, even when neither existed before.
+/// Matching is by normalized title (<see cref="TitleNormalizer"/>), also within the batch:
+/// two rows sharing a title become one item with two copies, even when neither existed before.
 ///
 /// Generic over the model and its request-item shape through an <see cref="OwnedItemImportAdapter{TModel,TRequestItem}"/> of delegates rather than a shared interface.
 /// The <c>OwnedVersions</c> of most types and the differently shaped <c>Platforms</c> of video games thus share one algorithm, with no change to the models.
@@ -18,14 +19,16 @@ public static class OwnedItemImportMergeService
 {
     /// <summary>
     /// Every reference recorded on an existing owned copy, so the preview flags rows imported before and a newer export does not duplicate them.
-    /// Compared by exact equality with the importer's own reference format (such as <see cref="AmazonImportMergeService.FormatOrderReference"/>), which gives line-item rather than order precision.
+    /// Compared by exact equality with the importer's own reference format (such as <see cref="AmazonImportMergeService.FormatOrderReference"/>),
+    /// which gives line-item rather than order precision.
     /// <paramref name="getReferences"/> reads the collection holding <typeparamref name="TModel"/>'s copies (<c>OwnedVersions</c> or <c>Platforms</c>).
     /// </summary>
     public static HashSet<string> FindImportedReferences<TModel>(IEnumerable<TModel> existingItems, Func<TModel, IEnumerable<string?>> getReferences) =>
         existingItems.SelectMany(getReferences).Where(reference => reference is not null).ToHashSet()!;
 
     /// <summary>
-    /// <paramref name="adapter"/>'s <c>GetExistingReferences</c> and <c>GetItemReference</c> make the importer's reference (see <see cref="FindImportedReferences{TModel}"/>) the primary dedup key, not only a preview flag.
+    /// <paramref name="adapter"/>'s <c>GetExistingReferences</c>
+    /// and <c>GetItemReference</c> make the importer's reference (see <see cref="FindImportedReferences{TModel}"/>) the primary dedup key, not only a preview flag.
     /// A row whose reference already exists on an item, under any title, even one reference linking renamed, is skipped rather than matched by title.
     /// Title matching alone would add the same copy again on every re-commit, and would create a duplicate item once linking renamed the first one.
     /// Title matching remains the fallback for a new order of an item already owned, a second copy bought separately.
@@ -42,7 +45,8 @@ public static class OwnedItemImportMergeService
         var byReference = new Dictionary<string, TModel>();
         IndexExistingItems(existingItems, adapter, byNormalizedTitle, byReference);
 
-        // Items created earlier in this batch are tracked apart from existing ones: a later row matching one only appends its copy, already part of ItemsToCreate, and never queues an update for an item with no id yet.
+        // Items created earlier in this batch are tracked apart from existing ones:
+        // a later row matching one only appends its copy, already part of ItemsToCreate, and never queues an update for an item with no id yet.
         var createdThisBatch = new HashSet<TModel>();
 
         foreach (var item in items)

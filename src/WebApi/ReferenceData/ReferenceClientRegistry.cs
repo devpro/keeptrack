@@ -1,7 +1,8 @@
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// Resolves a domain's provider client by key, or else the default (<c>ReferenceData:BookProvider</c>, <c>ReferenceData:VideoGameProvider</c>), passed as <paramref name="defaultProviderKey"/>.
+/// Resolves a domain's provider client by key,
+/// or else the default (<c>ReferenceData:BookProvider</c>, <c>ReferenceData:VideoGameProvider</c>), passed as <paramref name="defaultProviderKey"/>.
 /// One generic registry, since books and video games differ only in their interface, and the single-client domains (TMDB, Discogs) inject their client directly.
 /// <para>
 /// It takes the one string it needs rather than <see cref="AppConfiguration"/>, so a unit test builds one without unrelated configuration sections.
@@ -17,7 +18,8 @@ public class ReferenceClientRegistry<TClient>(IEnumerable<TClient> clients, stri
     public string DefaultProviderKey { get; } = defaultProviderKey;
 
     /// <summary>
-    /// <paramref name="providerKey"/> is matched case-insensitively, so a setting such as "OpenLibrary" resolves to the lowercase <see cref="IReferenceProviderClient.ProviderKey"/> "openlibrary".
+    /// <paramref name="providerKey"/> is matched case-insensitively,
+    /// so a setting such as "OpenLibrary" resolves to the lowercase <see cref="IReferenceProviderClient.ProviderKey"/> "openlibrary".
     /// </summary>
     public TClient Resolve(string? providerKey)
     {

@@ -38,7 +38,8 @@
         <button class="btn btn-sm kt-toggle-btn @(OwnedFilter ? "active" : "")" @onclick='() => ToggleFilter("owned", OwnedFilter)'><Icon Name="owned" Size="13"/> Owned</button>
         @if (Categories.Count > 0)
         {
-            @* A closed-choice dropdown rather than SuggestInput's free text, since this filters over existing categories, unlike the detail page, where typing a new one is the point.
+            @* A closed-choice dropdown rather than SuggestInput's free text,
+               since this filters over existing categories, unlike the detail page, where typing a new one is the point.
                The "All categories" option doubles as the clear action. *@
             <select class="form-select form-select-sm kt-category-select" title="Category" aria-label="Category"
                     value="@CategoryFilter" @onchange="OnCategoryFilterChanged">

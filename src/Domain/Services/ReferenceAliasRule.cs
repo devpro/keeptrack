@@ -6,7 +6,8 @@ using Keeptrack.Domain.Models;
 namespace Keeptrack.Domain.Services;
 
 /// <summary>
-/// What a <see cref="ReferenceMatchModel"/> must carry to be stored, declared once per domain and read by everything writing one: the enrichment merge and each reference repository's canonical-alias safety net.
+/// What a <see cref="ReferenceMatchModel"/> must carry to be stored, declared once per domain and read by everything writing one:
+/// the enrichment merge and each reference repository's canonical-alias safety net.
 /// <para>
 /// An alias is <b>the local match key</b>: a title someone already resolved is found again without a provider call.
 /// That only works while every stored entry names exactly one work.
@@ -29,18 +30,22 @@ public sealed class ReferenceAliasRule
 
     /// <summary>
     /// Albums: a title <b>plus an artist</b>, and no year.
-    /// One release exists as many pressings under many years, so the year narrows nothing the artist has not settled, and carrying it would mint one alias per year typed for the same record.
+    /// One release exists as many pressings under many years, so the year narrows nothing the artist has not settled,
+    /// and carrying it would mint one alias per year typed for the same record.
     /// </summary>
     public static readonly ReferenceAliasRule TitleAndCreator = new(carriesYear: false, requiresYear: false, requiresCreator: true, carriesIsbn: false);
 
     /// <summary>
     /// Books: a title <b>plus an author</b>, like an album.
-    /// Unlike an album, the year travels with it when known, since a book is republished as revisions the year tells apart, so an alias records the printing it was confirmed under.
+    /// Unlike an album, the year travels with it when known, since a book is republished as revisions the year tells apart,
+    /// so an alias records the printing it was confirmed under.
     /// An ISBN, which names one printing outright, is enough on its own.
     /// <para>
     /// The year is <b>recorded, not required</b>, and that distinction matters.
-    /// Requiring it, a book whose provider reports no year would store no alias, and the next "check for reference match" would then unlink it, since finding nothing clears a link.
-    /// Nor would it disambiguate anything: two works sharing a title and an author's name are the case the lookup ignoring the year already refuses, and every other case is one work under several years.
+    /// Requiring it, a book whose provider reports no year would store no alias,
+    /// and the next "check for reference match" would then unlink it, since finding nothing clears a link.
+    /// Nor would it disambiguate anything: two works sharing a title and an author's name are the case the lookup ignoring the year already refuses,
+    /// and every other case is one work under several years.
     /// </para>
     /// </summary>
     public static readonly ReferenceAliasRule TitleAndCreatorWithYear = new(carriesYear: true, requiresYear: false, requiresCreator: true, carriesIsbn: true);
@@ -54,7 +59,8 @@ public sealed class ReferenceAliasRule
     private readonly bool _carriesIsbn;
 
     /// <summary>
-    /// "Carries" and "requires" differ: a field can be worth recording without identifying the work (a book's edition year), and one identifying nothing is dropped (an album's pressing year).
+    /// "Carries" and "requires" differ: a field can be worth recording without identifying the work (a book's edition year),
+    /// and one identifying nothing is dropped (an album's pressing year).
     /// A creator is only recorded where it is required.
     /// </summary>
     private ReferenceAliasRule(bool carriesYear, bool requiresYear, bool requiresCreator, bool carriesIsbn)
@@ -110,7 +116,8 @@ public sealed class ReferenceAliasRule
     /// It is the repositories' safety net for a caller upserting without the enrichment merge.
     /// <para>
     /// It adds nothing for a domain whose key needs a creator.
-    /// A book or album reference carries only its author's or artist's reference id, never the name, so a complete alias cannot be built here, and a creator-less one is the half key this class refuses.
+    /// A book or album reference carries only its author's or artist's reference id, never the name,
+    /// so a complete alias cannot be built here, and a creator-less one is the half key this class refuses.
     /// </para>
     /// </summary>
     public void EnsureCanonical(List<ReferenceMatchModel> aliases, string title, int? year)

@@ -45,7 +45,8 @@ public interface IAlbumReferenceRepository
     Task<List<AlbumReferenceModel>> FindAllAsync();
 
     /// <summary>
-    /// The stalest <paramref name="limit"/> documents the periodic sync refreshes next, among those untouched since <paramref name="cutoff"/>: never enriched first, then least recently enriched.
+    /// The stalest <paramref name="limit"/> documents the periodic sync refreshes next,
+    /// among those untouched since <paramref name="cutoff"/>: never enriched first, then least recently enriched.
     /// The ordering makes the cap safe, since what a pass does not reach leads the next one rather than the same head of the collection being walked forever.
     /// </summary>
     Task<List<AlbumReferenceModel>> FindStaleAsync(DateTime cutoff, int limit);

@@ -59,7 +59,8 @@ public static class GenericVideoGameImportService
 
         return records.Select(record => new GenericVideoGameImportPreviewRow
         {
-            // a bundled transaction has several lines sharing one transaction id (see FormatReference), so the row id adds the product, like AmazonOrderPreviewRow.RowId's "{OrderId}:{Asin}"
+            // a bundled transaction has several lines sharing one transaction id (see FormatReference),
+            // so the row id adds the product, like AmazonOrderPreviewRow.RowId's "{OrderId}:{Asin}"
             RowId = $"{record.TransactionId}:{record.ProductName ?? record.GameName}",
             Title = CleanTitle(record.GameName, record.Platform),
             Platform = record.Platform,
@@ -84,11 +85,13 @@ public static class GenericVideoGameImportService
     }
 
     /// <summary>
-    /// Formats an imported transaction line's owned copy <c>Reference</c>, which is human-readable and also the exact dedup key <see cref="OwnedItemImportMergeService.FindImportedReferences{TModel}"/> looks for on a re-import.
+    /// Formats an imported transaction line's owned copy <c>Reference</c>,
+    /// which is human-readable and also the exact dedup key <see cref="OwnedItemImportMergeService.FindImportedReferences{TModel}"/> looks for on a re-import.
     /// It carries no vendor, which <see cref="VideoGamePlatformModel.Vendor"/> holds.
     ///
     /// It appends <paramref name="productName"/>, or <paramref name="fallbackTitle"/> when blank, since the transaction and order ids are not unique per line.
-    /// One PSN transaction bundled three "Far Cry 4" DLC packs, each a line with its own product name but the same ids, and without it they would be skipped as re-imports of each other.
+    /// One PSN transaction bundled three "Far Cry 4" DLC packs, each a line with its own product name but the same ids,
+    /// and without it they would be skipped as re-imports of each other.
     /// This export has no product id like Amazon's ASIN, so the product text is the best disambiguator.
     /// </summary>
     public static string FormatReference(string transactionId, string orderId, string? productName, string fallbackTitle)

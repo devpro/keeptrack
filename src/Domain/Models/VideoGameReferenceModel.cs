@@ -35,14 +35,16 @@ public class VideoGameReferenceModel : IHasExternalIds
     public List<string> Genres { get; set; } = [];
 
     /// <summary>
-    /// Aggregate ratings keyed by source: "igdb" and "igdbcritic" (0 to 100), and "rawg" (0 to 5) and "metacritic" (0 to 100) on RAWG-linked games, see <see cref="ReferenceRatingModel"/>.
+    /// Aggregate ratings keyed by source: "igdb" and "igdbcritic" (0 to 100),
+    /// and "rawg" (0 to 5) and "metacritic" (0 to 100) on RAWG-linked games, see <see cref="ReferenceRatingModel"/>.
     /// </summary>
     public Dictionary<string, ReferenceRatingModel> Ratings { get; set; } = [];
 
     public string? ImageUrl { get; set; }
 
     /// <summary>
-    /// When this document last had a provider id looked up, keyed by provider, whether or not one was found (see <c>ReferenceEnrichmentService.TryAdoptDefaultVideoGameProviderAsync</c>).
+    /// When this document last had a provider id looked up, keyed by provider,
+    /// whether or not one was found (see <c>ReferenceEnrichmentService.TryAdoptDefaultVideoGameProviderAsync</c>).
     /// <para>
     /// Like <see cref="TvShowReferenceModel.RatingsCheckedAt"/>, it stops every pass paying the same two calls again for a reference the provider has no unambiguous match for.
     /// It also lets the admin reconciliation queue show what was tried, not only what is missing.

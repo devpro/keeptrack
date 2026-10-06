@@ -16,7 +16,8 @@ public static class RatingSourceCatalog
 {
     /// <summary>
     /// RAWG's 0 to 5 user score.
-    /// Not offered while IGDB is the default video game provider, but still declared: <see cref="ScaleOf"/> throws on an unknown source, and references linked through RAWG keep and render this value.
+    /// Not offered while IGDB is the default video game provider, but still declared:
+    /// <see cref="ScaleOf"/> throws on an unknown source, and references linked through RAWG keep and render this value.
     /// It becomes selectable again if a deployment returns to RAWG (see <see cref="RatingSourceOptions"/>).
     /// </summary>
     public const string Rawg = "rawg";
@@ -25,7 +26,8 @@ public static class RatingSourceCatalog
     /// Metacritic's 0 to 100 critic score, republished by RAWG and absent from IGDB, whose own critic aggregate is <see cref="IgdbCritic"/>.
     /// Offered only while the default provider reports it, as <see cref="RatingSourceOptions"/> decides.
     /// <para>
-    /// Offering it regardless fails quietly: <c>MergeProviderRatings</c> keeps a RAWG-era value through an IGDB refresh, so old games show a rating while every game linked since shows none.
+    /// Offering it regardless fails quietly: <c>MergeProviderRatings</c> keeps a RAWG-era value through an IGDB refresh,
+    /// so old games show a rating while every game linked since shows none.
     /// </para>
     /// </summary>
     public const string Metacritic = "metacritic";

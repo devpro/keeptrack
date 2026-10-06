@@ -27,7 +27,8 @@ public class GenericVideoGameImportResourceTest(KestrelWebAppFactory<Program> fa
         gameRow.ProductName.Should().Be(GenericVideoGameImportFixtureCsvBuilder.GameProductName);
         gameRow.AlreadyImported.Should().BeFalse();
 
-        // The commit creates an item whose id this test never sees, so cleanup is keyed on the fixture's synthetic title, registered before the commit, so a partial commit is cleaned up too.
+        // The commit creates an item whose id this test never sees,
+        // so cleanup is keyed on the fixture's synthetic title, registered before the commit, so a partial commit is cleaned up too.
         TrackResourcesMatching<VideoGameDto>("/api/video-games", GenericVideoGameImportFixtureCsvBuilder.GameTitle);
 
         // a row with no platform must be rejected before anything is persisted
@@ -48,7 +49,8 @@ public class GenericVideoGameImportResourceTest(KestrelWebAppFactory<Program> fa
         videoGame.Platforms[0].CopyType.Should().Be(CopyType.Digital);
         videoGame.Platforms[0].Price.Should().Be(14.99m);
         videoGame.Platforms[0].Reference.Should().Contain(GenericVideoGameImportFixtureCsvBuilder.GameTransactionId);
-        // SourceTitle is echoed from the preview row's already-cleaned Title (platform suffix already stripped by CleanTitle during parsing), not the raw "Game Name (PS4)" CSV cell.
+        // SourceTitle is echoed from the preview row's already-cleaned Title (platform suffix already stripped by CleanTitle during parsing),
+        // not the raw "Game Name (PS4)" CSV cell.
         videoGame.Notes.Should().Be($"Title from {GenericVideoGameImportFixtureCsvBuilder.GameVendor}: {GenericVideoGameImportFixtureCsvBuilder.GameTitle}");
 
         // re-preview after commit: the just-imported transaction must now be flagged, so re-uploading a newer export later doesn't silently duplicate it

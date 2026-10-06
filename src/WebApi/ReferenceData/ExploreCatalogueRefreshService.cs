@@ -113,14 +113,16 @@ public class ExploreCatalogueRefreshService(
     }
 
     /// <summary>
-    /// Fills the IMDb half of movie and TV entries, top of the ranking first: the missing ratings, within the day's shared OMDb allowance (see <see cref="OmdbCallBudget"/>), and the IMDb page link.
+    /// Fills the IMDb half of movie and TV entries, top of the ranking first:
+    /// the missing ratings, within the day's shared OMDb allowance (see <see cref="OmdbCallBudget"/>), and the IMDb page link.
     /// The link costs no allowance, made from the id the rating lookup resolves anyway.
     /// <para>
     /// It runs only for a domain showing IMDb, the value being display only, since ranking by partial OMDb data would float unrated titles up.
     /// The admin's "force TMDB" flag skips it.
     /// </para>
     /// <para>
-    /// The remaining allowance, read once per domain, only sizes the query, and each call is reserved in the client, so another replica spending meanwhile cannot push the pass over the limit.
+    /// The remaining allowance, read once per domain, only sizes the query, and each call is reserved in the client,
+    /// so another replica spending meanwhile cannot push the pass over the limit.
     /// </para>
     /// </summary>
     private async Task<int> BackfillImdbAsync(CancellationToken cancellationToken)

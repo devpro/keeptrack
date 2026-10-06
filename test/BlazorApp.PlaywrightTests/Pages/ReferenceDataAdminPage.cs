@@ -6,8 +6,10 @@ using Microsoft.Playwright;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 
 /// <summary>
-/// The admin-only <c>/admin/reference-data</c> page: the unresolved-title queue (per reference type), the sync-now control, the export/import round-trip, and the System status panel.
-/// The smoke test drives only the provider-free, deterministic surfaces, since the per-type detail page smoke tests cover the provider search and link, and a full sync-now poll flakes on provider latency.
+/// The admin-only <c>/admin/reference-data</c> page: the unresolved-title queue (per reference type),
+/// the sync-now control, the export/import round-trip, and the System status panel.
+/// The smoke test drives only the provider-free, deterministic surfaces,
+/// since the per-type detail page smoke tests cover the provider search and link, and a full sync-now poll flakes on provider latency.
 /// </summary>
 public class ReferenceDataAdminPage(IPage page) : PageBase(page)
 {

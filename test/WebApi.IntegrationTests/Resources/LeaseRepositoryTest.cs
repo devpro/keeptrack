@@ -10,7 +10,8 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Exercises <see cref="ILeaseRepository"/> against real MongoDB, since the mutual exclusion rests on the server's _id uniqueness under a filtered upsert, which a mock would only restate.
+/// Exercises <see cref="ILeaseRepository"/> against real MongoDB,
+/// since the mutual exclusion rests on the server's _id uniqueness under a filtered upsert, which a mock would only restate.
 /// Each test uses its own lease name, so parallel test runs can't contend with each other.
 /// <para>
 /// <see cref="ILeaseRepository"/> has no release or delete method, since a lease is released by expiring, safe when a holder dies.

@@ -14,7 +14,8 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
 /// Exercises <see cref="ITvShowReferenceRepository.FindByTitleYearAsync"/> and <see cref="ITvShowReferenceRepository.FindByTitleAsync"/> against real MongoDB.
-/// Both match every entry in <c>MatchedAliases</c> (an <c>ElemMatch</c> over the embedded (title, year) array, backed by a compound multikey index), not only the canonical <c>TitleNormalized</c> and <c>Year</c>.
+/// Both match every entry in <c>MatchedAliases</c> (an <c>ElemMatch</c> over the embedded (title, year) array, backed by a compound multikey index),
+/// not only the canonical <c>TitleNormalized</c> and <c>Year</c>.
 /// A hand-written Mongo filter of this kind hides bugs (see docs/data-model.md), so it is verified against a real database, not mocks.
 /// </summary>
 public class TvShowReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)

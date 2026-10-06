@@ -148,7 +148,8 @@ public class ExploreService(
     // The second half of the exclusion: an item never linked has no provider id to exclude by, so normalized titles catch it.
     // Two works can share a title, but hiding one card costs far less than suggesting what the owner has.
     //
-    // Matched loosely (TitleNormalizer.NormalizeLoose), since a linked item carries the linking provider's title and the catalogue the discovery provider's, spelled differently ("Mass Effect: Legendary Edition", "Mass Effect Legendary Edition").
+    // Matched loosely (TitleNormalizer.NormalizeLoose), since a linked item carries the linking provider's title and the catalogue the discovery provider's,
+    // spelled differently ("Mass Effect: Legendary Edition", "Mass Effect Legendary Edition").
     // Exact equality would miss the very references that could not adopt the discovery provider's id, failing both halves on the same games.
     private async Task<HashSet<string>> BuildExcludedTitlesAsync(ExploreItemType type, string ownerId) =>
         [.. (await SourceRepository(type).FindDistinctTitlesAsync(ownerId)).Select(TitleNormalizer.NormalizeLoose)];

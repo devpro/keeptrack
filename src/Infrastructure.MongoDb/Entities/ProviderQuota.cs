@@ -5,7 +5,8 @@ namespace Keeptrack.Infrastructure.MongoDb.Entities;
 
 /// <summary>
 /// One day's call count for one rate-limited provider (see <see cref="Repositories.ProviderQuotaRepository"/>).
-/// Like <see cref="Lease"/>, the _id is the coordination: "&lt;provider&gt;:&lt;yyyy-MM-dd&gt;" is unique, so another replica's concurrent reservation increments this document or collides with it, never creating a second counter for the day.
+/// Like <see cref="Lease"/>, the _id is the coordination: "&lt;provider&gt;:&lt;yyyy-MM-dd&gt;" is unique,
+/// so another replica's concurrent reservation increments this document or collides with it, never creating a second counter for the day.
 /// </summary>
 public class ProviderQuota
 {

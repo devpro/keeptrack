@@ -13,7 +13,12 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Real-MongoDB coverage for the reference-rating feature's repository behaviors, which mocks can't prove: the <see cref="ListSort.ReferenceRating"/> sort ordering (with unrated items last), the two denormalized-copy propagation paths (<c>SetReferenceLinkAsync</c> on link, <c>SetReferenceRatingAsync</c> on refresh and the batched <c>SetReferenceRatingsAsync</c> the admin recompute writes through), the projected, id-cursor-paged <c>FindRatingsAsync</c> that feeds it, and that the reference document's <c>Ratings</c>/<c>RatingsCheckedAt</c> dictionaries round-trip through BSON.
+/// Real-MongoDB coverage for the reference-rating feature's repository behaviors, which mocks can't prove:
+/// the <see cref="ListSort.ReferenceRating"/> sort ordering (with unrated items last),
+/// the two denormalized-copy propagation paths
+/// (<c>SetReferenceLinkAsync</c> on link, <c>SetReferenceRatingAsync</c> on refresh and the batched <c>SetReferenceRatingsAsync</c> the admin recompute writes through),
+/// the projected, id-cursor-paged <c>FindRatingsAsync</c> that feeds it,
+/// and that the reference document's <c>Ratings</c>/<c>RatingsCheckedAt</c> dictionaries round-trip through BSON.
 /// Each test uses its own random owner id so parallel runs can't interfere.
 /// </summary>
 public class MovieReferenceRatingRepositoryTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)
@@ -40,7 +45,8 @@ public class MovieReferenceRatingRepositoryTest(KestrelWebAppFactory<Program> fa
         using var scope = Factory.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IMovieRepository>();
         var ownerId = $"refrating-link-{Guid.NewGuid():N}";
-        // SetReferenceLinkAsync matches by (title, year) across every owner, so a fixed title would rewrite anyone's movie of that name in the shared test database, where a random owner id alone can't isolate the test.
+        // SetReferenceLinkAsync matches by (title, year) across every owner,
+        // so a fixed title would rewrite anyone's movie of that name in the shared test database, where a random owner id alone can't isolate the test.
         var title = $"The Matrix {Guid.NewGuid():N}";
 
         var unlinked = await CreateMovieAsync(repository, NewMovie(ownerId, title, year: 1999));
@@ -65,7 +71,8 @@ public class MovieReferenceRatingRepositoryTest(KestrelWebAppFactory<Program> fa
         using var scope = Factory.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IMovieRepository>();
         var ownerId = $"refrating-refresh-{Guid.NewGuid():N}";
-        // unique per run: SetReferenceRatingAsync propagates by reference id across every owner, so a fixed literal would also hit leftovers from an earlier run and break the exact modified-count assertion.
+        // unique per run: SetReferenceRatingAsync propagates by reference id across every owner,
+        // so a fixed literal would also hit leftovers from an earlier run and break the exact modified-count assertion.
         var referenceId = $"reference-{Guid.NewGuid():N}";
 
         var linkedA = await CreateMovieAsync(repository, NewMovie(ownerId, "Alien", referenceId: referenceId, referenceRating: 7.0));
@@ -152,7 +159,8 @@ public class MovieReferenceRatingRepositoryTest(KestrelWebAppFactory<Program> fa
         using var scope = Factory.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IMovieRepository>();
         var ownerId = $"refrating-bulk-{Guid.NewGuid():N}";
-        // unique per run for the same reason as SetReferenceRatingAsync's test: propagation is by reference id across every owner, so a fixed literal would also catch leftovers and break the exact counts
+        // unique per run for the same reason as SetReferenceRatingAsync's test: propagation is by reference id across every owner,
+        // so a fixed literal would also catch leftovers and break the exact counts
         var firstReferenceId = $"reference-{Guid.NewGuid():N}";
         var secondReferenceId = $"reference-{Guid.NewGuid():N}";
         var untouchedReferenceId = $"reference-{Guid.NewGuid():N}";

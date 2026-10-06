@@ -4,7 +4,8 @@ namespace Keeptrack.Domain.Models;
 /// One physical fuel station, shared by every tenant rather than owned by one.
 /// </summary>
 /// <remarks>
-/// The same exception to "every collection has an owner_id" as the <c>*_reference</c> collections, for the same reason: a station at an address is a public fact, not one account's data.
+/// The same exception to "every collection has an owner_id" as the <c>*_reference</c> collections, for the same reason:
+/// a station at an address is a public fact, not one account's data.
 /// Car history entries point at it by id rather than each carrying the brand, city, postal code and coordinates, so a station's location is typed and stored once.
 /// </remarks>
 public class CarStationModel
@@ -26,7 +27,8 @@ public class CarStationModel
 
     /// <summary>
     /// Lower-cased, trimmed <see cref="BrandName"/>, written by the repository on every upsert.
-    /// With <see cref="CityNormalized"/> and <see cref="PostalCode"/> it forms the natural key of a unique index, so "Total" and "total " created inline by two members land on one document.
+    /// With <see cref="CityNormalized"/> and <see cref="PostalCode"/> it forms the natural key of a unique index,
+    /// so "Total" and "total " created inline by two members land on one document.
     /// </summary>
     public string BrandNameNormalized { get; set; } = "";
 

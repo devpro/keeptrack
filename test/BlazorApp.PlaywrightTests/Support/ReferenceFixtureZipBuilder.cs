@@ -9,16 +9,19 @@ using Keeptrack.Domain.Models;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Support;
 
 /// <summary>
-/// Builds a small, synthetic reference-data export zip for <c>ReferenceSmokeTest</c>: a single book, in the shape <see cref="Keeptrack.WebApi.ReferenceData.ReferenceDataAdminController.Export"/> produces and <c>.Import</c> reads.
+/// Builds a small, synthetic reference-data export zip for <c>ReferenceSmokeTest</c>:
+/// a single book, in the shape <see cref="Keeptrack.WebApi.ReferenceData.ReferenceDataAdminController.Export"/> produces and <c>.Import</c> reads.
 /// Like <c>TvTimeFixtureZipBuilder</c>, it never uses real provider data.
 /// Only the <c>book_reference.json</c> entry is included, since the import treats a missing entry as an empty list.
-/// The entry is serialized with default <see cref="JsonSerializerOptions"/> (no camelCase), as the controller applies no naming policy on either side, and anything else would silently fail to round-trip.
+/// The entry is serialized with default <see cref="JsonSerializerOptions"/> (no camelCase),
+/// as the controller applies no naming policy on either side, and anything else would silently fail to round-trip.
 /// </summary>
 public static class ReferenceFixtureZipBuilder
 {
     /// <summary>
     /// A fixed, valid ObjectId for the seeded document, so <c>End2EndFixture</c> can remove exactly this document afterwards.
-    /// Re-seeding replaces rather than duplicates through the fixture's Open Library id, since the import matches on provider ids (see <c>ReferenceDataImportService</c>), and the first insert lands under this <c>_id</c>.
+    /// Re-seeding replaces rather than duplicates through the fixture's Open Library id,
+    /// since the import matches on provider ids (see <c>ReferenceDataImportService</c>), and the first insert lands under this <c>_id</c>.
     /// The value is arbitrary but recognizable rather than random.
     /// </summary>
     public const string ReferenceId = "e2e0e2e0e2e0e2e0e2e0e2e0";

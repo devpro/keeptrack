@@ -9,7 +9,8 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
 /// Add, edit and delete coverage for collectibles, the shape of <see cref="CarSmokeTest"/>.
-/// Opening the detail page proves the API client is registered in BlazorApp's DI container (AddWebApiHttpClient), which the build and unit tests can't, an unregistered client throwing InvalidOperationException at render.
+/// Opening the detail page proves the API client is registered in BlazorApp's DI container (AddWebApiHttpClient),
+/// which the build and unit tests can't, an unregistered client throwing InvalidOperationException at render.
 /// It also covers the cover image round trip: the detail banner and the list's wide thumbnail both pick up the filled URL.
 /// </summary>
 [Trait("Category", "E2eTests")]

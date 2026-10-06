@@ -32,7 +32,8 @@ public static class CarMetricsService
 
     /// <summary>
     /// The trip-computer algorithm, shared by fuel (liters) and electric (kWh) consumption.
-    /// A data point only spans full refills (<see cref="CarHistoryModel.IsFullRefill"/>): the quantity of every refill since the last full one accumulates, and a full refill divides it by the distance since the previous full one.
+    /// A data point only spans full refills (<see cref="CarHistoryModel.IsFullRefill"/>):
+    /// the quantity of every refill since the last full one accumulates, and a full refill divides it by the distance since the previous full one.
     /// A partial refill alone never produces a data point.
     /// </summary>
     private static List<ConsumptionPointModel> ComputeConsumption(

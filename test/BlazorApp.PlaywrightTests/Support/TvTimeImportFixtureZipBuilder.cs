@@ -7,8 +7,10 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Support;
 
 /// <summary>
 /// Builds a minimal synthetic TV Time GDPR export zip for the import smoke test: one followed show and one seen episode.
-/// The importer tolerates every other export file being absent (<c>ReadCsvEntry</c> returns null for a missing entry), so a two-file zip is enough to create one show + one episode.
-/// A per-call unique show title and TV Time show id keep every run's imported show distinct (the id drives the importer's idempotency), so the test always creates a fresh show it then deletes.
+/// The importer tolerates every other export file being absent (<c>ReadCsvEntry</c> returns null for a missing entry),
+/// so a two-file zip is enough to create one show + one episode.
+/// A per-call unique show title and TV Time show id keep every run's imported show distinct (the id drives the importer's idempotency),
+/// so the test always creates a fresh show it then deletes.
 /// Never use a real personal export as a fixture (same rule as the integration suite's own builder).
 /// </summary>
 internal static class TvTimeImportFixtureZipBuilder

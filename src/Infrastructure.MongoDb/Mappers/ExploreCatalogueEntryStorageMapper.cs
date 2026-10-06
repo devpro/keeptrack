@@ -6,7 +6,8 @@ using Riok.Mapperly.Abstractions;
 namespace Keeptrack.Infrastructure.MongoDb.Mappers;
 
 /// <summary>
-/// Injected directly into <see cref="Repositories.ExploreCatalogueRepository"/>, since an owner-less collection never goes through <see cref="Repositories.MongoDbRepositoryBase{TModel, TEntity}"/> (see <see cref="TvShowReferenceStorageMapper"/>).
+/// Injected directly into <see cref="Repositories.ExploreCatalogueRepository"/>,
+/// since an owner-less collection never goes through <see cref="Repositories.MongoDbRepositoryBase{TModel, TEntity}"/> (see <see cref="TvShowReferenceStorageMapper"/>).
 /// </summary>
 [Mapper]
 public partial class ExploreCatalogueEntryStorageMapper

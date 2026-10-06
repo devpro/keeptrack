@@ -7,7 +7,8 @@ namespace Keeptrack.BlazorApp.Components.Sharing;
 public sealed record SharedListQuery(string Search, int Page, int PageSize, string Sort, IReadOnlyDictionary<string, string> Filters);
 
 /// <summary>
-/// The recipient side of sharing (<c>/api/shared-with-me</c>): browses the collections others shared with the caller, with the search, filter and sort of the caller's own lists, and copies media items into the caller's collection.
+/// The recipient side of sharing (<c>/api/shared-with-me</c>): browses the collections others shared with the caller,
+/// with the search, filter and sort of the caller's own lists, and copies media items into the caller's collection.
 /// Authenticated like every other client, since the server matches the caller's email against each grant.
 /// </summary>
 public sealed class SharedWithMeApiClient(HttpClient http)

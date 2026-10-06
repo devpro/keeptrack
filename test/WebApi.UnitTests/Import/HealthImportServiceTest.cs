@@ -15,7 +15,9 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.Import;
 
 /// <summary>
-/// Exercises <see cref="HealthImportService"/> against an in-memory workbook shaped exactly like the real "Journal_sante.xlsx" (verified against the actual file): the duplicate "Personne" header (first = who was treated, second = practitioner), two-line headers like "Rbrst\nAmeli", Excel-native dates and time fractions, formula-backed amounts, and the derived "Reste à charge" column that must NOT be imported.
+/// Exercises <see cref="HealthImportService"/> against an in-memory workbook shaped exactly like the real "Journal_sante.xlsx" (verified against the actual file):
+/// the duplicate "Personne" header (first = who was treated, second = practitioner), two-line headers like "Rbrst\nAmeli",
+/// Excel-native dates and time fractions, formula-backed amounts, and the derived "Reste à charge" column that must NOT be imported.
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class HealthImportServiceTest

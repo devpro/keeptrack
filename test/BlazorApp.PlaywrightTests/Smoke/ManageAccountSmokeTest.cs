@@ -10,7 +10,8 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Covers the account-management page - previously the only walkthrough with no test at any level - and, with it, the user-preferences UI: the signed-in identity renders, and toggling a preference checkbox round-trips through the real UI (toggle → persisted → a fresh page load reflects it).
+/// Covers the account-management page - previously the only walkthrough with no test at any level - and, with it, the user-preferences UI:
+/// the signed-in identity renders, and toggling a preference checkbox round-trips through the real UI (toggle → persisted → a fresh page load reflects it).
 /// The preference is restored to its original value via the API so the shared test account is left unchanged.
 /// </summary>
 [Trait("Category", "E2eTests")]
@@ -49,7 +50,8 @@ public class ManageAccountSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixt
     }
 
     /// <summary>
-    /// Toggles the preference checkbox through the prerender-to-interactive gap, where the first <c>@onchange</c> after a load can land before the circuit is live, as <see cref="PageBase.ClickUntilAsync"/> handles for buttons.
+    /// Toggles the preference checkbox through the prerender-to-interactive gap,
+    /// where the first <c>@onchange</c> after a load can land before the circuit is live, as <see cref="PageBase.ClickUntilAsync"/> handles for buttons.
     /// It re-clicks until the change reaches the server, seen as the stored value flipping from its original.
     /// The first click that registers server-side flips it to <c>!original</c>, so extra pre-connection DOM-only flips don't affect the final persisted value.
     /// </summary>

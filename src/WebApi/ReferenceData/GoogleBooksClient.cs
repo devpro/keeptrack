@@ -31,7 +31,8 @@ public partial class GoogleBooksClient(HttpClient http, GoogleBooksSettings sett
 
     /// <summary>
     /// Google's <c>fields=</c> partial response (https://developers.google.com/books/docs/v1/performance), restricted to what <see cref="BookSearchResult"/> reads.
-    /// The unfiltered response is about 75KB for 20 results, each with a whole <c>volumeInfo</c>, against 14KB for a TMDB movie search, which made Google Books the slowest provider.
+    /// The unfiltered response is about 75KB for 20 results, each with a whole <c>volumeInfo</c>,
+    /// against 14KB for a TMDB movie search, which made Google Books the slowest provider.
     /// </summary>
     private const string SearchFields = "fields=items(id,volumeInfo(title,authors,publishedDate,imageLinks/thumbnail))";
 
@@ -94,7 +95,8 @@ public partial class GoogleBooksClient(HttpClient http, GoogleBooksSettings sett
     }
 
     /// <summary>
-    /// Matches a standalone 4-digit token, since <c>volumeInfo.publishedDate</c> has no fixed format (a bare year, "YYYY-MM" or "YYYY-MM-DD"), as <see cref="OpenLibraryClient"/> parses years.
+    /// Matches a standalone 4-digit token, since <c>volumeInfo.publishedDate</c> has no fixed format (a bare year, "YYYY-MM" or "YYYY-MM-DD"),
+    /// as <see cref="OpenLibraryClient"/> parses years.
     /// </summary>
     [GeneratedRegex(@"\b\d{4}\b", RegexOptions.Compiled)]
     private static partial Regex YearRegex();

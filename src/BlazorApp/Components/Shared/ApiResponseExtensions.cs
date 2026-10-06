@@ -7,7 +7,8 @@ namespace Keeptrack.BlazorApp.Components.Shared;
 /// A failed API call, carrying the message the API itself reported rather than a framework-generated one.
 /// </summary>
 /// <remarks>
-/// <see cref="HttpResponseMessage.EnsureSuccessStatusCode"/> throws with only the status line ("Response status code does not indicate success: 502 (Bad Gateway).") and discards the body.
+/// <see cref="HttpResponseMessage.EnsureSuccessStatusCode"/> throws with only the status line ("Response status code does not indicate success: 502 (Bad Gateway).")
+/// and discards the body.
 /// The <c>{ error }</c> the API writes (see <c>ApiExceptionFilterAttribute</c>) would never reach a user, and a provider outage would surface as an unexplained 502.
 /// </remarks>
 public sealed class ApiRequestException(string message, HttpStatusCode statusCode) : Exception(message)

@@ -9,7 +9,8 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// <summary>
 /// RAWG client, a typed <see cref="HttpClient"/> with the API key as a query parameter, like <see cref="TmdbClient"/>.
 /// <para>
-/// Not the default game provider (see <see cref="IgdbClient"/>), but registered so an admin can search and link with it, and its <c>rawg</c> and <c>metacritic</c> ratings keep rendering.
+/// Not the default game provider (see <see cref="IgdbClient"/>), but registered so an admin can search and link with it,
+/// and its <c>rawg</c> and <c>metacritic</c> ratings keep rendering.
 /// The background refresh never calls it (see <c>ReferenceEnrichmentService.RefreshVideoGameReferenceAsync</c>).
 /// </para>
 /// </summary>
@@ -24,7 +25,8 @@ public class RawgClient(HttpClient http, RawgSettings settings) : VideoGameRefer
 
     protected override async Task<IReadOnlyList<VideoGameSearchResult>> SearchByRelevanceAsync(string title, int limit, CancellationToken cancellationToken)
     {
-        // no `&dates=`, a hard filter on RAWG's release date that would drop a game recorded a year off rather than rank it lower (see VideoGameReferenceClientBase.SearchByRelevanceAsync)
+        // no `&dates=`, a hard filter on RAWG's release date that would drop a game recorded a year off
+        // rather than rank it lower (see VideoGameReferenceClientBase.SearchByRelevanceAsync)
         var query = $"games?key={ApiKey}&search={Encode(title)}&page_size={limit}";
         var response = await http.GetFromJsonAsync<RawgSearchResponse>(query, cancellationToken);
         return response?.Results.Select(r => new VideoGameSearchResult(
@@ -122,7 +124,8 @@ public class RawgClient(HttpClient http, RawgSettings settings) : VideoGameRefer
 
     /// <summary>
     /// Notability floor of the discovery pool: only games Metacritic rates "generally favorable" or better, whatever score orders the list.
-    /// RAWG has no curated top-rated list like TMDB's, and its <c>rating</c> is a plain average with no vote-count filter, so ordering by it would rank a game with a single 5-star vote above every classic.
+    /// RAWG has no curated top-rated list like TMDB's, and its <c>rating</c> is a plain average with no vote-count filter,
+    /// so ordering by it would rank a game with a single 5-star vote above every classic.
     /// Requiring a press score is the closest server-side equivalent of TMDB's vote threshold, at no extra call.
     /// </summary>
     private const int MinMetacritic = 60;

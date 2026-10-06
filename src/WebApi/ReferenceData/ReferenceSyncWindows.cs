@@ -1,7 +1,8 @@
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// How stale something must be for a sync pass to take it, declared once for both callers: the periodic tick (<see cref="ReferenceSyncBackgroundService"/>) and the admin's <c>POST /api/reference-data/sync-now</c>.
+/// How stale something must be for a sync pass to take it, declared once for both callers:
+/// the periodic tick (<see cref="ReferenceSyncBackgroundService"/>) and the admin's <c>POST /api/reference-data/sync-now</c>.
 /// <para>
 /// The windows are the only difference between them: an unforced "sync now" runs exactly the background pass.
 /// </para>

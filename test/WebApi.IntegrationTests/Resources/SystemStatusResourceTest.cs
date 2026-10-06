@@ -10,9 +10,11 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
 /// Covers the admin "System" panel's endpoint.
-/// Admin-gating is exercised the same way as <see cref="ReferenceDataAdminResourceTest"/> (the standard test user carries the admin claim; there is no non-admin account to prove the rejection side).
+/// Admin-gating is exercised the same way as <see cref="ReferenceDataAdminResourceTest"/>
+/// (the standard test user carries the admin claim; there is no non-admin account to prove the rejection side).
 /// <para>
-/// Hosted through <see cref="ProviderlessWebAppFactory"/> for the same reason as that class: the recent-jobs assertion below starts a real sync job, whose pass would otherwise run on against the live providers and leave a rewritten Explore ranking behind, long after this test has finished.
+/// Hosted through <see cref="ProviderlessWebAppFactory"/> for the same reason as that class: the recent-jobs assertion below starts a real sync job,
+/// whose pass would otherwise run on against the live providers and leave a rewritten Explore ranking behind, long after this test has finished.
 /// </para>
 /// </summary>
 public class SystemStatusResourceTest(ProviderlessWebAppFactory factory)

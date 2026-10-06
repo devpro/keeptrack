@@ -15,7 +15,8 @@ public class AppConfiguration(IConfiguration configuration)
     public bool IsScalarEnabled => configuration.TryGetSection<bool>("Features:IsScalarEnabled");
 
     /// <summary>
-    /// Gates <see cref="ReferenceSyncBackgroundService"/>: on by default, off in the integration test host (<c>KestrelWebAppFactory</c>), which would otherwise call real providers on every start.
+    /// Gates <see cref="ReferenceSyncBackgroundService"/>: on by default, off in the integration test host (<c>KestrelWebAppFactory</c>),
+    /// which would otherwise call real providers on every start.
     /// </summary>
     public bool IsReferenceSyncEnabled => configuration.TryGetSection<bool>("Features:IsReferenceSyncEnabled");
 
@@ -53,7 +54,8 @@ public class AppConfiguration(IConfiguration configuration)
     public GoogleBooksSettings GoogleBooksSettings { get; } = configuration.TryGetSection<GoogleBooksSettings>("GoogleBooks");
 
     /// <summary>
-    /// The book provider (<see cref="ReferenceData.IReferenceProviderClient.ProviderKey"/>) used for automatic resolution and when an admin picks none (see <see cref="ReferenceData.ReferenceClientRegistry{TClient}"/>).
+    /// The book provider (<see cref="ReferenceData.IReferenceProviderClient.ProviderKey"/>) used for automatic resolution
+    /// and when an admin picks none (see <see cref="ReferenceData.ReferenceClientRegistry{TClient}"/>).
     /// Every registered provider stays available to an admin whatever this value.
     /// </summary>
     public string BookReferenceProvider => configuration.TryGetSection<string>("ReferenceData:BookProvider");

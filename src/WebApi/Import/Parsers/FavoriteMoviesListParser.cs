@@ -15,7 +15,8 @@ internal class ListRowRecord
 
 /// <summary>
 /// Parses TV Time's lists-prod-lists.csv to find the movie ids in the built-in "Favorite Movies" list.
-/// That row's `objects` column is neither CSV nor JSON but a Go fmt dump of a slice of maps, such as "[map[created_at:... type:movie uuid:1be8d227-...] map[... type:series id:71663]]".
+/// That row's `objects` column is neither CSV nor JSON but a Go fmt dump of a slice of maps,
+/// such as "[map[created_at:... type:movie uuid:1be8d227-...] map[... type:series id:71663]]".
 /// </summary>
 public static partial class FavoriteMoviesListParser
 {

@@ -5,7 +5,8 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 
 /// <summary>
 /// The <c>/import</c> landing page.
-/// The TV Time zip upload (and the car/health spreadsheet uploads) live directly on it, while the Amazon and generic-video-game importers are separate sub-pages reached via the links below.
+/// The TV Time zip upload (and the car/health spreadsheet uploads) live directly on it,
+/// while the Amazon and generic-video-game importers are separate sub-pages reached via the links below.
 /// </summary>
 public class ImportPage(IPage page) : PageBase(page)
 {
@@ -17,7 +18,8 @@ public class ImportPage(IPage page) : PageBase(page)
     }
 
     /// <summary>
-    /// The TV Time upload accepts <c>.zip</c>; the car/health dropzones on the same page accept <c>.xlsx</c>, so the <c>accept</c> attribute is what disambiguates the three file inputs.
+    /// The TV Time upload accepts <c>.zip</c>; the car/health dropzones on the same page accept <c>.xlsx</c>,
+    /// so the <c>accept</c> attribute is what disambiguates the three file inputs.
     /// </summary>
     private ILocator TvTimeFileInput => Page.Locator("input[type='file'][accept='.zip']");
 

@@ -86,7 +86,8 @@ public abstract class InventoryApiClientBase<TDto>(HttpClient http, bool hasRefe
 
     /// <summary>
     /// User-triggered re-check of the item's reference match (POST api/{type}/{id}/refresh-reference on WebApi), escalating to the provider when nothing local matches.
-    /// Returns the item, linked or not, so the caller can tell whether a match was found, and throws <see cref="ApiRequestException"/> with the API's own message, which the page shows.
+    /// Returns the item, linked or not, so the caller can tell whether a match was found,
+    /// and throws <see cref="ApiRequestException"/> with the API's own message, which the page shows.
     /// </summary>
     public async Task<TDto> RefreshReferenceAsync(string id, CancellationToken cancellationToken = default)
     {

@@ -15,7 +15,8 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
 /// <see cref="IExploreCatalogueRepository"/> against real MongoDB.
-/// Everything asserted here is storage semantics a mocked repository cannot prove: that the rank cursor really pages, that an upsert merges ratings key by key instead of replacing the map, that the prune deletes by "older than this pass", and that one ordering's entries never collide with another's.
+/// Everything asserted here is storage semantics a mocked repository cannot prove: that the rank cursor really pages, that an upsert merges ratings key by key
+/// instead of replacing the map, that the prune deletes by "older than this pass", and that one ordering's entries never collide with another's.
 /// </summary>
 public class ExploreCatalogueRepositoryTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)
 {
@@ -66,7 +67,8 @@ public class ExploreCatalogueRepositoryTest(KestrelWebAppFactory<Program> factor
         TrackRanking(ranking);
         var now = DateTime.UtcNow;
 
-        // deliberately inserted out of order: the sort has to come from the query, not from insertion order (an unsorted skip/limit read is exactly what duplicates and drops entries across pages).
+        // deliberately inserted out of order: the sort has to come from the query,
+        // not from insertion order (an unsorted skip/limit read is exactly what duplicates and drops entries across pages).
         await repository.UpsertManyAsync([Entry(ranking, "c", 3, now), Entry(ranking, "a", 1, now), Entry(ranking, "b", 2, now)]);
 
         var first = await repository.FindRankedAsync(ExploreItemType.Movie, ranking, 0, 2);
@@ -138,8 +140,10 @@ public class ExploreCatalogueRepositoryTest(KestrelWebAppFactory<Program> factor
 
         var pending = await repository.FindMissingRatingOrLinkAsync(ExploreItemType.Movie, ranking, "imdb", now.AddDays(-90), 10);
 
-        // the finished one is done; the fruitless attempt is stamped and must not be retried this soon, or it would hold a slot of the budget every pass and coverage would never reach the entries below it.
-        // That the stamped-but-linkless "attempted" entry stays out is also what proves the link half can't loop: a title with no provider id has no rating and no link, and only the windowed branch takes it.
+        // the finished one is done; the fruitless attempt is stamped and must not be retried this soon,
+        // or it would hold a slot of the budget every pass and coverage would never reach the entries below it.
+        // That the stamped-but-linkless "attempted" entry stays out is also what proves the link half can't loop:
+        // a title with no provider id has no rating and no link, and only the windowed branch takes it.
         pending.Select(e => e.ExternalId).Should().Equal(["pending-high", "pending-low"]);
     }
 
@@ -158,7 +162,8 @@ public class ExploreCatalogueRepositoryTest(KestrelWebAppFactory<Program> factor
 
         var pending = await repository.FindMissingRatingOrLinkAsync(ExploreItemType.Movie, ranking, "imdb", now.AddDays(-90), 10);
 
-        // Exempt from the re-attempt window, since it was attempted seconds ago, and waiting 90 days for a link one lookup produces today would leave the top of the ranking linking to the wrong site.
+        // Exempt from the re-attempt window, since it was attempted seconds ago,
+        // and waiting 90 days for a link one lookup produces today would leave the top of the ranking linking to the wrong site.
         pending.Should().ContainSingle().Which.ExternalId.Should().Be("a");
     }
 
@@ -178,7 +183,8 @@ public class ExploreCatalogueRepositoryTest(KestrelWebAppFactory<Program> factor
 
         var entries = await repository.FindRankedAsync(ExploreItemType.Movie, ranking, 0, 10);
 
-        // same rule as the ratings map: replacing it wholesale would discard the IMDb link every single week, and the entry would then never be picked up again for it (it has a rating, so nothing looks pending).
+        // same rule as the ratings map: replacing it wholesale would discard the IMDb link every single week,
+        // and the entry would then never be picked up again for it (it has a rating, so nothing looks pending).
         entries[0].WebUrls.Should().BeEquivalentTo(new Dictionary<string, string>
         {
             ["tmdb"] = "https://www.themoviedb.org/movie/9",
@@ -273,7 +279,8 @@ public class ExploreCatalogueRepositoryTest(KestrelWebAppFactory<Program> factor
         var unknownProvider = await repository.FindExternalIdsAsync([reference.Id!], "rawg");
 
         externalIds.Should().Equal([tmdbId]);
-        // A reference resolved through another provider has no id in this id space and contributes nothing, never an empty string, which would match an entry whose id failed to parse.
+        // A reference resolved through another provider has no id in this id space and contributes nothing,
+        // never an empty string, which would match an entry whose id failed to parse.
         unknownProvider.Should().BeEmpty();
     }
 
@@ -298,7 +305,8 @@ public class ExploreCatalogueRepositoryTest(KestrelWebAppFactory<Program> factor
         TrackRanking(second);
         var now = DateTime.UtcNow;
 
-        // The same provider id appears in both of a domain's orderings (a game ranked by user score and by critic score), at different positions, and they must not collide on the unique key.
+        // The same provider id appears in both of a domain's orderings (a game ranked by user score and by critic score), at different positions,
+        // and they must not collide on the unique key.
         await repository.UpsertManyAsync([Entry(first, "same-id", 1, now)]);
         await repository.UpsertManyAsync([Entry(second, "same-id", 9, now)]);
 

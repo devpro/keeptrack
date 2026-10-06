@@ -11,7 +11,8 @@ namespace Keeptrack.WebApi.ReferenceData;
 public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
 {
     /// <summary>
-    /// <c>first_air_date_year</c> is a <b>hard</b> filter, so the search runs with and without the year and unions the answers, as an optional narrowing must never hide what a broader search finds.
+    /// <c>first_air_date_year</c> is a <b>hard</b> filter, so the search runs with and without the year and unions the answers,
+    /// as an optional narrowing must never hide what a broader search finds.
     /// <para>
     /// <c>Severance</c> + 2021, <c>Squid Game</c> + 2020, <c>The Wire</c> + 2003 and <c>Adolescence</c> + 2024 each return <b>zero</b> results.
     /// A show whose first-air year is one off would be absent rather than ranked lower, and a wrong year must cost a place, never the result.
@@ -40,7 +41,8 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
     /// Unlike TV, the movie <c>year</c> is <b>not</b> a hard filter: <c>Road House</c> + 2024 still returns the 1989 film, and <c>Dune</c> + 2020 the 1984 one.
     /// It narrows without excluding, so one call is enough.
     /// <para>
-    /// The results are still ranked: TMDB's search is fuzzy (<c>Heat</c> + 1995 returns fourteen), and its relevance can be wrong, <c>Sinners</c> + 2024 putting "In the Land of Saints and Sinners" first.
+    /// The results are still ranked: TMDB's search is fuzzy (<c>Heat</c> + 1995 returns fourteen),
+    /// and its relevance can be wrong, <c>Sinners</c> + 2024 putting "In the Land of Saints and Sinners" first.
     /// </para>
     /// </summary>
     public async Task<IReadOnlyList<TmdbSearchResult>> SearchMovieAsync(string title, int? year, CancellationToken cancellationToken = default)
@@ -148,7 +150,8 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
     }
 
     /// <summary>
-    /// TMDB's "changes" endpoint per id, unlike the bulk ones limited to the last days, reports changes since any date, one cheap call rather than fetching the details and every season again.
+    /// TMDB's "changes" endpoint per id, unlike the bulk ones limited to the last days,
+    /// reports changes since any date, one cheap call rather than fetching the details and every season again.
     /// </summary>
     private async Task<bool> HasChangedSinceAsync(string resourceType, string tmdbId, DateTime since, CancellationToken cancellationToken)
     {

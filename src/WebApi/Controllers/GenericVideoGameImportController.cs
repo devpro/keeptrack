@@ -50,7 +50,8 @@ public class GenericVideoGameImportController(
 
     /// <summary>
     /// Creates or updates video games from the selected rows.
-    /// A row whose normalized title matches a game, existing or created earlier in the request, adds a platform entry rather than a duplicate (see <see cref="OwnedItemImportMergeService.ComputeCommitPlan{TModel,TRequestItem}"/>).
+    /// A row whose normalized title matches a game, existing or created earlier in the request,
+    /// adds a platform entry rather than a duplicate (see <see cref="OwnedItemImportMergeService.ComputeCommitPlan{TModel,TRequestItem}"/>).
     /// </summary>
     [HttpPost("commit")]
     [ProducesResponseType(200)]
@@ -116,7 +117,8 @@ public class GenericVideoGameImportController(
             Price = item.Price,
             Vendor = item.Vendor,
             AcquiredAt = item.AcquiredAt,
-            // built from the transaction id, order id and product name, never client text: the product name tells apart products bundled in one transaction, and the whole is the exact dedup key on a re-import
+            // built from the transaction id, order id and product name, never client text:
+            // the product name tells apart products bundled in one transaction, and the whole is the exact dedup key on a re-import
             Reference = GenericVideoGameImportService.FormatReference(item.TransactionId, item.OrderId, item.ProductName, item.SourceTitle)
         }
     };

@@ -35,7 +35,8 @@ public class VideoGameResourceTest(KestrelWebAppFactory<Program> factory)
             {
                 o.Title = f.Random.AlphaNumeric(14);
                 o.Platforms = [new VideoGamePlatformDto { Platform = "PC", CopyType = CopyType.Physical, State = "Current" }];
-                // Round-trips CustomImageUrl through the real Mapperly mappers and MongoDB, a plain scalar, since only a real integration test catches a missed [BsonElement] or mapper ignore.
+                // Round-trips CustomImageUrl through the real Mapperly mappers and MongoDB, a plain scalar,
+                // since only a real integration test catches a missed [BsonElement] or mapper ignore.
                 o.CustomImageUrl = f.Internet.Url();
             })
             .Generate();
@@ -107,7 +108,8 @@ public class VideoGameResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// <see cref="VideoGameDto.CustomImageUrl"/> follows <see cref="BookDto.CustomImageUrl"/>'s shape: <c>VideoGameController.OnListMappedAsync</c> applies it over the linked reference's cover on every list read.
+    /// <see cref="VideoGameDto.CustomImageUrl"/> follows <see cref="BookDto.CustomImageUrl"/>'s shape:
+    /// <c>VideoGameController.OnListMappedAsync</c> applies it over the linked reference's cover on every list read.
     /// </summary>
     [Fact]
     public async Task VideoGameResourceList_CustomImageUrlOverridesTheLinkedReferencesCover()

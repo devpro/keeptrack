@@ -9,7 +9,8 @@ namespace Keeptrack.WebApi.Import;
 /// One-off personal import of the "Journal_sante.xlsx" spreadsheet: one sheet of health events kept by hand in French, every family member in one "Personne" column.
 /// Rows go to one <see cref="HealthProfileModel"/> per person, created when needed.
 /// Not idempotent, like <see cref="CarHistoryImportService"/>: profiles are matched by name, but uploading the file again duplicates the entries.
-/// The "Reste à charge" column is not imported: it is a formula (paid minus ameli and mutuelle), and importing it as <see cref="HealthRecordModel.NotCovered"/> would mark every past row settled.
+/// The "Reste à charge" column is not imported: it is a formula (paid minus ameli and mutuelle),
+/// and importing it as <see cref="HealthRecordModel.NotCovered"/> would mark every past row settled.
 /// The rows the balance check flags are those the owner wants to verify.
 /// </summary>
 public class HealthImportService(IHealthProfileRepository healthProfileRepository, IHealthRecordRepository healthRecordRepository)

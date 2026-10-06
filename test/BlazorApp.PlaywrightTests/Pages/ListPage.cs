@@ -9,7 +9,8 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 public class ListPage(IPage page, string route, string title) : PageBase(page)
 {
     /// <summary>
-    /// Direct navigation for a test that needn't start from Home, where every other page object is reached through a <see cref="PageBase"/> nav-link <c>Open&lt;X&gt;Async()</c> helper.
+    /// Direct navigation for a test that needn't start from Home,
+    /// where every other page object is reached through a <see cref="PageBase"/> nav-link <c>Open&lt;X&gt;Async()</c> helper.
     /// </summary>
     public async Task<ListPage> OpenAsync()
     {
@@ -33,7 +34,8 @@ public class ListPage(IPage page, string route, string title) : PageBase(page)
     /// <summary>
     /// Asserts a row's wide thumbnail carries <paramref name="src"/>, the cover a detail page was just given, seen from the list.
     /// <para>
-    /// Re-read rather than waited for (see <see cref="PageBase.ExpectWithReloadAsync"/>): the detail page saves by having the <i>server</i> PUT the item over its circuit, which the browser never sees.
+    /// Re-read rather than waited for (see <see cref="PageBase.ExpectWithReloadAsync"/>):
+    /// the detail page saves by having the <i>server</i> PUT the item over its circuit, which the browser never sees.
     /// A list rendered while that save is in flight shows the item as it was and never updates, so waiting longer is only a timeout, a row stuck on its letter placeholder.
     /// </para>
     /// </summary>
@@ -48,19 +50,22 @@ public class ListPage(IPage page, string route, string title) : PageBase(page)
 
     /// <summary>
     /// <paramref name="testId"/> is the field's <c>data-testid</c> ("title-input", "author-input").
-    /// The add form's fields are plain sibling <c>&lt;label&gt;</c> and <c>&lt;input&gt;</c> pairs with no <c>for</c> and <c>id</c> association, which <c>GetByLabel</c> can't resolve.
+    /// The add form's fields are plain sibling <c>&lt;label&gt;</c> and <c>&lt;input&gt;</c> pairs with no <c>for</c> and <c>id</c> association,
+    /// which <c>GetByLabel</c> can't resolve.
     /// </summary>
     public async Task FillAsync(string testId, string value) => await Page.GetByTestId(testId).FillAsync(value);
 
     /// <summary>
-    /// The video game and playlist Add forms use a bare <c>placeholder="Title"</c> input with no <c>&lt;label&gt;</c>, which <c>GetByPlaceholder</c> resolves uniquely without a <c>data-testid</c>.
+    /// The video game and playlist Add forms use a bare <c>placeholder="Title"</c> input with no <c>&lt;label&gt;</c>,
+    /// which <c>GetByPlaceholder</c> resolves uniquely without a <c>data-testid</c>.
     /// </summary>
     public async Task FillByPlaceholderAsync(string placeholder, string value) => await Page.GetByPlaceholder(placeholder).FillAsync(value);
 
     public async Task SaveNewAsync() => await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Save", Exact = true }).ClickAsync();
 
     /// <summary>
-    /// Clicks a <c>kt-toggle-btn</c> filter button until it reads back as active, the first-click-after-load prerender gap <see cref="ClickAddAsync"/> handles through <see cref="PageBase.ClickUntilAsync"/>.
+    /// Clicks a <c>kt-toggle-btn</c> filter button until it reads back as active,
+    /// the first-click-after-load prerender gap <see cref="ClickAddAsync"/> handles through <see cref="PageBase.ClickUntilAsync"/>.
     /// </summary>
     public async Task ClickFilterUntilActiveAsync(ILocator filterButton)
         => await ClickUntilAsync(filterButton, Page.Locator("button.kt-toggle-btn.active"));
@@ -83,7 +88,8 @@ public class ListPage(IPage page, string route, string title) : PageBase(page)
 
     /// <summary>
     /// Navigates to an item's detail page by clicking its title link.
-    /// The caller constructs the typed detail page object it needs (<see cref="BookDetailPage"/>), since a generic list page doesn't know which detail page belongs to which item type.
+    /// The caller constructs the typed detail page object it needs (<see cref="BookDetailPage"/>),
+    /// since a generic list page doesn't know which detail page belongs to which item type.
     /// </summary>
     public async Task OpenItemAsync(string itemTitle)
         => await Page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = itemTitle, Exact = true }).ClickAsync();

@@ -15,7 +15,8 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Shared setup for every smoke test class: the E2E_ENABLED skip guard, a pre-authenticated browser context (<see cref="End2EndFixture"/>'s storage state, captured once per run), headless, slowmo and browser selection from <see cref="End2EndConfiguration"/>, and failure diagnostics.
+/// Shared setup for every smoke test class: the E2E_ENABLED skip guard, a pre-authenticated browser context (<see cref="End2EndFixture"/>'s storage state, captured once per run),
+/// headless, slowmo and browser selection from <see cref="End2EndConfiguration"/>, and failure diagnostics.
 /// <para>
 /// Every Playwright test class derives from here, so each failure leaves a full-page screenshot of each open page, plus the Playwright trace unless <c>E2E_TRACE=off</c>.
 /// They land in <c>test/BlazorApp.PlaywrightTests/bin/&lt;config&gt;/net10.0/e2e-diagnostics</c>.
@@ -39,7 +40,9 @@ public abstract partial class SmokeTestBase : PageTest
     protected SmokeTestBase(End2EndFixture fixture)
     {
         Fixture = fixture;
-        // BrowserType selection (Microsoft.Playwright.Xunit.v3's own PlaywrightSettingsProvider.BrowserName) has no supported extension point beyond the native BROWSER environment variable it reads live on every InitializeAsync, so E2E_BROWSER is translated into it here rather than duplicating browser-selection logic.
+        // BrowserType selection (Microsoft.Playwright.Xunit.v3's own PlaywrightSettingsProvider.BrowserName) has no supported extension point
+        // beyond the native BROWSER environment variable it reads live on every InitializeAsync,
+        // so E2E_BROWSER is translated into it here rather than duplicating browser-selection logic.
         Environment.SetEnvironmentVariable("BROWSER", End2EndConfiguration.Browser);
     }
 
@@ -87,10 +90,13 @@ public abstract partial class SmokeTestBase : PageTest
     });
 
     /// <summary>
-    /// Opens a page in a brand-new context carrying none of the run's signed-in storage state: an anonymous visitor, a share recipient, or a browser supplying its own forged cookie.
+    /// Opens a page in a brand-new context carrying none of the run's signed-in storage state:
+    /// an anonymous visitor, a share recipient, or a browser supplying its own forged cookie.
     /// <para>
-    /// Four tests each built that context by hand and disposed it at the end of the test body, which put the very page under test out of reach of the failure diagnostics: on a failure they screenshotted the untouched shared page instead, and traced only the context nothing had happened in.
-    /// Opening it here keeps it alive until <see cref="DisposeAsync"/> (Playwright's own <c>NewContext</c> closes it afterward) and registers it for capture, so an anonymous-page test is diagnosed like every other one.
+    /// Four tests each built that context by hand and disposed it at the end of the test body, which put the very page under test out of reach of the failure diagnostics:
+    /// on a failure they screenshotted the untouched shared page instead, and traced only the context nothing had happened in.
+    /// Opening it here keeps it alive until <see cref="DisposeAsync"/> (Playwright's own <c>NewContext</c> closes it afterward) and registers it for capture,
+    /// so an anonymous-page test is diagnosed like every other one.
     /// </para>
     /// </summary>
     /// <param name="label">Distinguishes this page's diagnostics files from the shared page's.</param>
@@ -116,7 +122,8 @@ public abstract partial class SmokeTestBase : PageTest
     /// <summary>
     /// Registers an undo action to run when the test ends, whether it passed or failed.
     /// <para>
-    /// A smoke test drives the real UI, so its data is created several assertions before its delete step, and every assertion in between can stop the test early, leaving the item behind.
+    /// A smoke test drives the real UI, so its data is created several assertions before its delete step,
+    /// and every assertion in between can stop the test early, leaving the item behind.
     /// Registering at creation closes the window, and a test that also deletes through the UI is unaffected, since deleting twice is a no-op.
     /// </para>
     /// </summary>
@@ -246,7 +253,8 @@ public abstract partial class SmokeTestBase : PageTest
     }
 
     /// <summary>
-    /// Capturing diagnostics may never replace the test's own failure, nor cost the trace that would explain it: a page that is mid-navigation or already crashed throws here, and that exception would become the reported result of a test that failed for an entirely different reason.
+    /// Capturing diagnostics may never replace the test's own failure, nor cost the trace that would explain it: a page that is mid-navigation or already crashed throws here,
+    /// and that exception would become the reported result of a test that failed for an entirely different reason.
     /// </summary>
     private static async Task<bool> TryCaptureAsync(Func<Task> capture, string what)
     {

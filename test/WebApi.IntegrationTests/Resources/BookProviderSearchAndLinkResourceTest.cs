@@ -16,7 +16,8 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 /// <para>
 /// It runs against two providers, since whether a third party is up is the one thing this test can't control.
 /// Google Books is the deployment default (<c>ReferenceData:BookProvider</c>), the provider a real search reaches, and BnF is keyless and quota-free.
-/// A case whose provider is unreachable skips (see the 502 helpers below) instead of failing the build, so this stays green when a provider is down and proves the path whenever one is up.
+/// A case whose provider is unreachable skips (see the 502 helpers below) instead of failing the build,
+/// so this stays green when a provider is down and proves the path whenever one is up.
 /// Open Library is not a case, being the slowest endpoint here even when healthy (see docs/providers.md), and covering the registry twice is enough.
 /// </para>
 /// </summary>

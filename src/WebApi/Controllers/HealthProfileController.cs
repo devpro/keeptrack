@@ -19,7 +19,8 @@ public class HealthProfileController(
     : DataCrudControllerBase<HealthProfileDto, HealthProfileModel>(mapper, dataRepository)
 {
     /// <summary>
-    /// Computed metrics for this profile: yearly costs after reimbursements, the last visit per specialty, and paid records still waiting on a reimbursement (see <see cref="HealthMetricsService"/>).
+    /// Computed metrics for this profile: yearly costs after reimbursements, the last visit per specialty,
+    /// and paid records still waiting on a reimbursement (see <see cref="HealthMetricsService"/>).
     /// </summary>
     [HttpGet("{id}/metrics")]
     [ProducesResponseType(200)]
@@ -38,7 +39,8 @@ public class HealthProfileController(
     }
 
     /// <summary>
-    /// Cascades to the profile's journal, a separate collection reachable only through the profile's id, which would otherwise be orphaned forever (see docs/data-model.md's "Child entities" section).
+    /// Cascades to the profile's journal, a separate collection reachable only through the profile's id,
+    /// which would otherwise be orphaned forever (see docs/data-model.md's "Child entities" section).
     /// </summary>
     protected override async Task OnDeletedAsync(string id, string ownerId, CancellationToken cancellationToken)
     {

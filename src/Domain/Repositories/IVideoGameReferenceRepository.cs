@@ -50,7 +50,8 @@ public interface IVideoGameReferenceRepository
     Task<List<VideoGameReferenceModel>> FindAllAsync();
 
     /// <summary>
-    /// The stalest <paramref name="limit"/> documents the periodic sync refreshes next, among those untouched since <paramref name="cutoff"/>: never enriched first, then least recently enriched.
+    /// The stalest <paramref name="limit"/> documents the periodic sync refreshes next,
+    /// among those untouched since <paramref name="cutoff"/>: never enriched first, then least recently enriched.
     /// The ordering makes the cap safe, since what a pass does not reach leads the next one rather than the same head of the collection being walked forever.
     /// </summary>
     Task<List<VideoGameReferenceModel>> FindStaleAsync(DateTime cutoff, int limit);
@@ -58,7 +59,8 @@ public interface IVideoGameReferenceRepository
     /// <summary>
     /// Every reference with no id from <paramref name="provider"/>: the admin reconciliation backlog, and exactly the set the Explore exclusion by provider id cannot see.
     /// <para>
-    /// Whole documents rather than a projection, since the queue shows the title, year, every id held and the last adoption attempt, and a game reference has no episode guide to make that expensive.
+    /// Whole documents rather than a projection, since the queue shows the title, year, every id held and the last adoption attempt,
+    /// and a game reference has no episode guide to make that expensive.
     /// Unpaged like <see cref="FindAllAsync"/>, since the backlog is a fraction of a small collection.
     /// </para>
     /// </summary>

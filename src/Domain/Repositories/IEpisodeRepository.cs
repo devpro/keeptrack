@@ -15,7 +15,8 @@ public interface IEpisodeRepository : IDataRepository<EpisodeModel>
     Task<List<EpisodeModel>> FindByShowIdsAsync(string ownerId, IReadOnlyCollection<string> tvShowIds);
 
     /// <summary>
-    /// Deletes every episode of <paramref name="ownerId"/> for the show, cascading its deletion, since episodes reference their show by id rather than being embedded (see docs/data-model.md's "Child entities" section).
+    /// Deletes every episode of <paramref name="ownerId"/> for the show, cascading its deletion,
+    /// since episodes reference their show by id rather than being embedded (see docs/data-model.md's "Child entities" section).
     /// </summary>
     Task<long> DeleteAllForShowAsync(string tvShowId, string ownerId, CancellationToken cancellationToken = default);
 }

@@ -43,7 +43,8 @@ public class PendingReferenceLinkTest
     }
 
     /// <summary>
-    /// The regression this guard exists for: a platform removed on a just-created game reappeared, with everything that had been set on it, because a poll issued before the save was answered after it.
+    /// The regression this guard exists for: a platform removed on a just-created game reappeared,
+    /// with everything that had been set on it, because a poll issued before the save was answered after it.
     /// </summary>
     [Fact]
     public async Task WatchAsync_StopsReading_OnceThePageHasChangesOfItsOwn()
@@ -74,7 +75,8 @@ public class PendingReferenceLinkTest
         reads.Should().Be(0);
     }
 
-    // The "no link ever lands" case is deliberately not tested here: it would sit through the whole attempt budget in real time (nine seconds) to assert a bound the for loop already guarantees by construction.
+    // The "no link ever lands" case is deliberately not tested here:
+    // it would sit through the whole attempt budget in real time (nine seconds) to assert a bound the for loop already guarantees by construction.
 
     private static Task Count(ref int reads)
     {

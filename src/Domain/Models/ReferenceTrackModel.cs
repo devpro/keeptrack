@@ -1,7 +1,8 @@
 namespace Keeptrack.Domain.Models;
 
 /// <summary>
-/// One track's reference metadata (position, title, duration), embedded in an <see cref="AlbumReferenceModel"/> like <see cref="ReferenceEpisodeModel"/>: bounded by the real tracklist and always fetched whole.
+/// One track's reference metadata (position, title, duration), embedded in an <see cref="AlbumReferenceModel"/> like <see cref="ReferenceEpisodeModel"/>:
+/// bounded by the real tracklist and always fetched whole.
 /// </summary>
 public class ReferenceTrackModel
 {

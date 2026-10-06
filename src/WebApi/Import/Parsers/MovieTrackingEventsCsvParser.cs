@@ -11,7 +11,8 @@ public enum MovieTrackingEventType
 
 /// <summary>
 /// A single movie event.
-/// <paramref name="Uuid"/> is TV Time's tracking id per movie: every event (follow, watch, towatch) of one movie shares it, and two movies sharing a title differ, so it is a stable key independent of the title.
+/// <paramref name="Uuid"/> is TV Time's tracking id per movie: every event (follow, watch, towatch) of one movie shares it,
+/// and two movies sharing a title differ, so it is a stable key independent of the title.
 /// </summary>
 public sealed record MovieTrackingEventRecord(string MovieName, MovieTrackingEventType EventType, DateTime CreatedAt, string? Uuid);
 

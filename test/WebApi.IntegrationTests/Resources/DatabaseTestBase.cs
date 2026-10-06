@@ -11,7 +11,8 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Base for every test in this suite writing to the shared test database, holding what all of them need: a registry of "undo this" actions run when the test ends, passed or failed.
+/// Base for every test in this suite writing to the shared test database, holding what all of them need:
+/// a registry of "undo this" actions run when the test ends, passed or failed.
 /// <para>
 /// The suite runs against a real, long-lived MongoDB rather than a throwaway one per test, so a leftover is not only untidy.
 /// The natural-key and external-id unique indexes (<c>scripts/mongodb-create-index.js</c>) make yesterday's leftover fail today's run with a duplicate-key error.
@@ -39,10 +40,12 @@ public abstract class DatabaseTestBase(KestrelWebAppFactory<Program> factory)
     protected void TrackCleanup(Func<Task> cleanup) => _cleanups.Add(cleanup);
 
     /// <summary>
-    /// Registers a raw MongoDB document for deletion by <c>_id</c>, for collections reached through a purpose-built repository with no delete method (the owner-less reference collections, <c>lease</c>, <c>background_job</c>).
+    /// Registers a raw MongoDB document for deletion by <c>_id</c>,
+    /// for collections reached through a purpose-built repository with no delete method (the owner-less reference collections, <c>lease</c>, <c>background_job</c>).
     /// <para>
     /// The filter is built over <see cref="BsonDocument"/>, with the <c>_id</c> converted to an <see cref="ObjectId"/> when the string is one, since getting this wrong is silent.
-    /// Filtering a mapped entity collection by the string field name <c>"_id"</c> compares a BSON string against an ObjectId: it matches nothing, deletes nothing, and reports success.
+    /// Filtering a mapped entity collection by the string field name <c>"_id"</c> compares a BSON string against an ObjectId:
+    /// it matches nothing, deletes nothing, and reports success.
     /// Collections whose id is a real string (<c>lease</c>, <c>background_job</c>) don't parse as an ObjectId and are filtered as strings, so one helper covers both.
     /// </para>
     /// </summary>
@@ -76,12 +79,14 @@ public abstract class DatabaseTestBase(KestrelWebAppFactory<Program> factory)
     /// <summary>
     /// Runs every registered cleanup in reverse order of registration, so a child is removed before the parent it references.
     /// <para>
-    /// The list is drained rather than indexed over a cached count, since a cleanup may register more: <c>TrackResourcesMatching</c> discovers what a bulk import created by querying at cleanup time, then registers each id found.
+    /// The list is drained rather than indexed over a cached count, since a cleanup may register more:
+    /// <c>TrackResourcesMatching</c> discovers what a bulk import created by querying at cleanup time, then registers each id found.
     /// Draining runs those too, still last-in-first-out.
     /// </para>
     /// <para>
     /// Two further deliberate choices.
-    /// Cleanups run under <see cref="CancellationToken.None"/>, never <c>TestContext.Current.CancellationToken</c>, which is cancelled exactly when a test times out or the run is interrupted, when cleanup matters most.
+    /// Cleanups run under <see cref="CancellationToken.None"/>, never <c>TestContext.Current.CancellationToken</c>,
+    /// which is cancelled exactly when a test times out or the run is interrupted, when cleanup matters most.
     /// One failing cleanup never skips the rest: failures are collected and reported together, so a broken cleanup surfaces as a test error instead of quietly leaving data behind.
     /// </para>
     /// </summary>

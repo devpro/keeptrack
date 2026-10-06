@@ -41,7 +41,8 @@ public class AmazonImportResourceTest(KestrelWebAppFactory<Program> factory)
         gearRow.LooksLikeBook.Should().BeFalse();
         collectibleRow.LooksLikeBook.Should().BeFalse();
 
-        // The commit creates items whose ids this test never sees, so cleanup is keyed on the fixture's synthetic titles, registered before the commit, so a partial commit is cleaned up too.
+        // The commit creates items whose ids this test never sees,
+        // so cleanup is keyed on the fixture's synthetic titles, registered before the commit, so a partial commit is cleaned up too.
         TrackResourcesMatching<BookDto>("/api/books", AmazonFixtureCsvBuilder.BookTitle);
         TrackResourcesMatching<MovieDto>("/api/movies", AmazonFixtureCsvBuilder.MovieTitle);
         TrackResourcesMatching<TvShowDto>("/api/tv-shows", AmazonFixtureCsvBuilder.TvShowTitle);
@@ -114,7 +115,8 @@ public class AmazonImportResourceTest(KestrelWebAppFactory<Program> factory)
         collectible.OwnedVersions.Should().ContainSingle();
         collectible.OwnedVersions[0].Reference.Should().Contain(AmazonFixtureCsvBuilder.CollectibleOrderId);
 
-        // re-preview after commit: every just-imported order must now be flagged, regardless of which type it was imported as, so re-uploading a newer export later doesn't silently duplicate any of them
+        // re-preview after commit: every just-imported order must now be flagged, regardless of which type it was imported as,
+        // so re-uploading a newer export later doesn't silently duplicate any of them
         var secondPreview = await PostFileAsync<List<AmazonOrderPreviewRowDto>>("/api/import/amazon/preview", "file", csv, "orders.csv");
         secondPreview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.BookTitle && r.AlreadyImported);
         secondPreview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.MovieTitle && r.AlreadyImported);

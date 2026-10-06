@@ -5,7 +5,8 @@ namespace Keeptrack.WebApi.Mappers;
 
 /// <summary>
 /// Model to DTO only: admins submit a <c>LinkReferenceRequestDto</c>, never a whole <see cref="TvShowReferenceDto"/>.
-/// <see cref="TvShowReferenceDto.Cast"/> is hydrated by <see cref="ReferenceData.ReferenceDataController"/>, since the model carries only a <c>PersonReferenceId</c> and the name and photo come from <c>person_reference</c>.
+/// <see cref="TvShowReferenceDto.Cast"/> is hydrated by <see cref="ReferenceData.ReferenceDataController"/>,
+/// since the model carries only a <c>PersonReferenceId</c> and the name and photo come from <c>person_reference</c>.
 /// </summary>
 [Mapper]
 public partial class TvShowReferenceDtoMapper

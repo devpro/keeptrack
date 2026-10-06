@@ -6,7 +6,8 @@ namespace Keeptrack.Domain.Models;
 /// One line item parsed from a generic CSV import, any store export reshaped into the canonical columns, before the user reviews and selects it.
 /// Never persisted.
 /// Produced by <see cref="Services.GenericImportService"/> and mapped to <c>GenericImportPreviewRowDto</c> for the review UI.
-/// What the Amazon import hardcodes (the vendor, the "is this a book" heuristic) is read from columns here, such as <see cref="SuggestedMediaType"/> from "Type" and <see cref="Vendor"/> per row.
+/// What the Amazon import hardcodes (the vendor, the "is this a book" heuristic) is read from columns here,
+/// such as <see cref="SuggestedMediaType"/> from "Type" and <see cref="Vendor"/> per row.
 /// </summary>
 public class GenericImportPreviewRow
 {
@@ -43,7 +44,8 @@ public class GenericImportPreviewRow
     public string? Vendor { get; set; }
 
     /// <summary>
-    /// The "Website" column, a free-text label per item (product or order URL, seller) that becomes the owned copy's Reference, independent of Vendor (see <see cref="Services.GenericImportService.FormatReference"/>).
+    /// The "Website" column, a free-text label per item (product or order URL, seller) that becomes the owned copy's Reference,
+    /// independent of Vendor (see <see cref="Services.GenericImportService.FormatReference"/>).
     /// </summary>
     public string? Website { get; set; }
 

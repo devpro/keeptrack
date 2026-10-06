@@ -7,7 +7,8 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// <summary>
 /// Resolves a tracked item's identity to a shared reference document and links the records a link reaches (see <see cref="ReferenceLinkTarget"/>).
 /// The automatic path and the admin's manual link share it, differing only in how the provider id is picked.
-/// One partial file per domain (<c>.TvShowsAndMovies.cs</c>, <c>.Books.cs</c>, <c>.VideoGames.cs</c>, <c>.Albums.cs</c>), each with its TryLinkExisting, TryAutoResolve, Resolve and Refresh methods, and this file with the shared helpers.
+/// One partial file per domain (<c>.TvShowsAndMovies.cs</c>, <c>.Books.cs</c>, <c>.VideoGames.cs</c>, <c>.Albums.cs</c>),
+/// each with its TryLinkExisting, TryAutoResolve, Resolve and Refresh methods, and this file with the shared helpers.
 /// <para>
 /// <see cref="ReferenceAliasRule"/> decides which combinations a resolve may remember, one declaration per domain.
 /// </para>
@@ -47,7 +48,8 @@ public partial class ReferenceEnrichmentService(
     }
 
     /// <summary>
-    /// Applies the current primary rating source (<see cref="GetPrimaryRatingSourceAsync"/>) to every linked item of a domain, stamping the rating copy from each reference's <c>Ratings</c>.
+    /// Applies the current primary rating source (<see cref="GetPrimaryRatingSourceAsync"/>) to every linked item of a domain,
+    /// stamping the rating copy from each reference's <c>Ratings</c>.
     /// The admin recompute after a source change, with no provider call, run synchronously since the reference collection is small.
     /// <para>
     /// It first asks whether any linked item is on another source, and does nothing otherwise, the common case since the button sits beside the picker.
@@ -198,7 +200,8 @@ public partial class ReferenceEnrichmentService(
     }
 
     /// <summary>
-    /// A person reference's <see cref="PersonReferenceModel.Name"/> by id, the inverse of <see cref="ResolvePersonReferenceIdAsync"/>, for copying a book's author or an album's artist onto the tenant's item.
+    /// A person reference's <see cref="PersonReferenceModel.Name"/> by id, the inverse of <see cref="ResolvePersonReferenceIdAsync"/>,
+    /// for copying a book's author or an album's artist onto the tenant's item.
     /// </summary>
     private async Task<string?> ResolvePersonNameAsync(string? personReferenceId)
     {

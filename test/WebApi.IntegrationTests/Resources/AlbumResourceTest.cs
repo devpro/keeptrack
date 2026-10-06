@@ -16,7 +16,8 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Basic full-cycle CRUD coverage for the renamed <c>Album</c> type (formerly <c>MusicAlbum</c>) - closes a gap flagged in docs/backlog.md ("MusicAlbum...still has none"), same shape as <see cref="BookResourceTest"/>.
+/// Basic full-cycle CRUD coverage for the renamed <c>Album</c> type (formerly <c>MusicAlbum</c>) - closes a gap flagged in docs/backlog.md ("MusicAlbum...still has none"),
+/// same shape as <see cref="BookResourceTest"/>.
 /// </summary>
 public class AlbumResourceTest(KestrelWebAppFactory<Program> factory)
     : ResourceTestBase(factory)
@@ -35,7 +36,8 @@ public class AlbumResourceTest(KestrelWebAppFactory<Program> factory)
             {
                 o.Artist = f.Random.AlphaNumeric(8);
                 o.Title = f.Random.AlphaNumeric(14);
-                // Round-trips CustomImageUrl through the real Mapperly mappers and MongoDB, a plain scalar, since only a real integration test catches a missed [BsonElement] or mapper ignore.
+                // Round-trips CustomImageUrl through the real Mapperly mappers and MongoDB, a plain scalar,
+                // since only a real integration test catches a missed [BsonElement] or mapper ignore.
                 o.CustomImageUrl = f.Internet.Url();
             })
             .Generate();
@@ -106,7 +108,8 @@ public class AlbumResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// <see cref="AlbumDto.CustomImageUrl"/> follows <see cref="BookDto.CustomImageUrl"/>'s shape: <c>AlbumController.OnListMappedAsync</c> applies it over the linked reference's cover on every list read.
+    /// <see cref="AlbumDto.CustomImageUrl"/> follows <see cref="BookDto.CustomImageUrl"/>'s shape:
+    /// <c>AlbumController.OnListMappedAsync</c> applies it over the linked reference's cover on every list read.
     /// </summary>
     [Fact]
     public async Task AlbumResourceList_CustomImageUrlOverridesTheLinkedReferencesCover()

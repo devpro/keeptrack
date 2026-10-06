@@ -36,7 +36,8 @@ public class AuthenticationController : ControllerBase
 
     /// <summary>
     /// Re-issues the cookie with a freshly rotated Firebase ID token.
-    /// Firebase tokens expire after about 1h while the auth cookie lives 8h, so the client (<c>FirebaseSessionRefresh</c>) posts each refreshed token here, or API calls would answer 401 mid-session.
+    /// Firebase tokens expire after about 1h while the auth cookie lives 8h,
+    /// so the client (<c>FirebaseSessionRefresh</c>) posts each refreshed token here, or API calls would answer 401 mid-session.
     /// It only refreshes an established session, and establishing one stays on <c>/auth/callback</c>.
     /// </summary>
     [HttpPost("refresh")]

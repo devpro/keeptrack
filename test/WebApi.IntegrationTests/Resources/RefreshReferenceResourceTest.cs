@@ -27,7 +27,8 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
         using var scope = Factory.Services.CreateScope();
         var referenceRepository = scope.ServiceProvider.GetRequiredService<ITvShowReferenceRepository>();
         var title = $"Refresh Reference Test Show {Guid.NewGuid()}";
-        // unique per test, like the searched title: creating the show links it in the background, which rewrites its title to the canonical one, so the refresh below looks the *canonical* title up.
+        // unique per test, like the searched title: creating the show links it in the background,
+        // which rewrites its title to the canonical one, so the refresh below looks the *canonical* title up.
         // A canonical title two tests share would let that lookup answer with the other test's document.
         var canonicalTitle = $"Canonical Refresh Show {Guid.NewGuid()}";
         const int year = 2019;
@@ -115,7 +116,8 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
             TitleNormalized = TitleNormalizer.Normalize(canonicalTitle),
             Year = year,
             ExternalIds = new Dictionary<string, string> { ["openlibrary"] = TestExternalId.New() },
-            // Book and album aliases also carry the normalized creator, part of the identity, and a creator-less alias is refused (see ReferenceAliasRule), so the canonical one is seeded rather than left to the repository.
+            // Book and album aliases also carry the normalized creator, part of the identity,
+            // and a creator-less alias is refused (see ReferenceAliasRule), so the canonical one is seeded rather than left to the repository.
             MatchedAliases =
             [
                 new ReferenceMatchModel { Title = TitleNormalizer.Normalize(canonicalTitle), Year = year, Creator = TitleNormalizer.Normalize("Some Author") },

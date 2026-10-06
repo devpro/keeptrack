@@ -13,7 +13,8 @@ namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
 /// <summary>
 /// <see cref="BnfClient"/> parses SRU/XML (Dublin Core), unlike every other provider here (JSON).
-/// The sample responses below are trimmed but otherwise verbatim from the real API (searched "Killing Floor" by Lee Child, then re-fetched by <c>bib.persistentid</c>), not guessed from documentation.
+/// The sample responses below are trimmed but otherwise verbatim from the real API (searched "Killing Floor" by Lee Child, then re-fetched by <c>bib.persistentid</c>),
+/// not guessed from documentation.
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class BnfClientTest
@@ -175,7 +176,8 @@ public class BnfClientTest
     [Fact]
     public async Task SearchBooksAsync_FiltersOutCandidatesWhoseAuthorDoesNotActuallyMatch()
     {
-        // BnF's "and (bib.author ...)" combination is not a strict intersection: title "La Peste" with author "Victor Hugo", who wrote no such book, returns several Victor Hugo anthologies instead of zero.
+        // BnF's "and (bib.author ...)" combination is not a strict intersection:
+        // title "La Peste" with author "Victor Hugo", who wrote no such book, returns several Victor Hugo anthologies instead of zero.
         // The client must not trust the server's filtering here.
         var client = BuildClient(_ => RecordsResponse(
             ("ark:/12148/cb1", "La peste", "Camus, Albert (1913-1960). Auteur du texte", "1947", "fre"),
@@ -209,7 +211,8 @@ public class BnfClientTest
     }
 
     /// <summary>
-    /// BnF's catalogue is far narrower than Google Books' for an arbitrary edition (no record for 9782265002104), so an ISBN miss is routine and widens to the title search rather than a false "not found".
+    /// BnF's catalogue is far narrower than Google Books' for an arbitrary edition (no record for 9782265002104),
+    /// so an ISBN miss is routine and widens to the title search rather than a false "not found".
     /// It is <c>BookReferenceClientBase</c>'s shared policy, proven here over real wire parsing, since an empty SRU response and a failed one look nothing alike.
     /// </summary>
     [Fact]

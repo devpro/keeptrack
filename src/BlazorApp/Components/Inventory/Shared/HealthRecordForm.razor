@@ -30,7 +30,8 @@
         <div class="col-md-6">
             <label class="form-label">Practitioner</label>
             @* data-testid, since the label and input have no for/id association and GetByLabel can't resolve them in e2e tests, as in every inventory Add form *@
-            @* More matches than the default 8, since a household accumulates a practitioner per specialty per person, and a short list reads as "it doesn't know mine", as in StationPicker. *@
+            @* More matches than the default 8, since a household accumulates a practitioner per specialty per person,
+               and a short list reads as "it doesn't know mine", as in StationPicker. *@
             <SuggestInput Value="@Entry.Practitioner" ValueChanged="v => Entry.Practitioner = v"
                           Suggestions="@_practitioners" InputCssClass="form-control" MaxSuggestions="15"
                           Placeholder="Dr …" data-testid="practitioner-input"/>

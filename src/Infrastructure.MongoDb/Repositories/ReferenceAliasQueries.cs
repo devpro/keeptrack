@@ -9,7 +9,8 @@ namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 /// Every lookup against <c>matched_aliases</c>, written once for the five reference collections over <see cref="IHasMatchedAliases"/>.
 /// The domains differ only in which alias fields make their identity, so each repository picks a method here.
 /// <para>
-/// Every condition sits in one <c>ElemMatch</c>, since the fields must hold on the <b>same</b> element, or a title from one alias and a year from another would satisfy a query neither confirmed.
+/// Every condition sits in one <c>ElemMatch</c>, since the fields must hold on the <b>same</b> element,
+/// or a title from one alias and a year from another would satisfy a query neither confirmed.
 /// It also keeps the queries indexed by the compound <c>matched_aliases.*</c> indexes in <c>scripts/mongodb-create-index.js</c>, one per domain lookup.
 /// </para>
 /// </summary>
@@ -19,7 +20,8 @@ internal static class ReferenceAliasQueries
     /// The reference confirmed under this exact (title, year), the identity of films, shows and games.
     /// </summary>
     /// <remarks>
-    /// <c>FirstOrDefault</c>, not <see cref="FindSingleMatchAsync{TEntity}"/>: two documents sharing a title <i>and</i> a year are one work duplicated, so either answers, and refusing would break linking until an admin merged them.
+    /// <c>FirstOrDefault</c>, not <see cref="FindSingleMatchAsync{TEntity}"/>: two documents sharing a title <i>and</i> a year are one work duplicated,
+    /// so either answers, and refusing would break linking until an admin merged them.
     /// </remarks>
     internal static Task<TEntity?> FindByTitleYearAsync<TEntity>(IMongoCollection<TEntity> collection, string title, int? year)
         where TEntity : class, IHasMatchedAliases =>
@@ -39,13 +41,15 @@ internal static class ReferenceAliasQueries
 
     /// <summary>
     /// The reference confirmed under this (title, creator), whatever year either side records.
-    /// It is an album's whole identity, and a book's fallback when the tenant's year names an edition nobody confirmed, the ordinary case since a work is reprinted under many years.
+    /// It is an album's whole identity, and a book's fallback when the tenant's year names an edition nobody confirmed,
+    /// the ordinary case since a work is reprinted under many years.
     /// </summary>
     /// <param name="collection"></param>
     /// <param name="title"></param>
     /// <param name="creator"></param>
     /// <param name="refuseAmbiguous">
-    /// Whether several matches leave the item unresolved (books, since two works can share a title and an author's name) or either will do (albums, where title and artist are the identity, so two matches are a duplicate to merge).
+    /// Whether several matches leave the item unresolved (books, since two works can share a title and an author's name)
+    /// or either will do (albums, where title and artist are the identity, so two matches are a duplicate to merge).
     /// </param>
     internal static Task<TEntity?> FindByTitleCreatorAsync<TEntity>(IMongoCollection<TEntity> collection, string title, string creator, bool refuseAmbiguous)
         where TEntity : class, IHasMatchedAliases

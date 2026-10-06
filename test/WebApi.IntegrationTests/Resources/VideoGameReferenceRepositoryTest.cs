@@ -12,7 +12,8 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Exercises <see cref="IVideoGameReferenceRepository.FindByTitleYearAsync"/> and <see cref="IVideoGameReferenceRepository.FindByTitleAsync"/> against real MongoDB, the <c>ElemMatch</c> over <c>MatchedAliases</c> of <c>TvShowReferenceRepositoryTest</c>, for video games.
+/// Exercises <see cref="IVideoGameReferenceRepository.FindByTitleYearAsync"/> and <see cref="IVideoGameReferenceRepository.FindByTitleAsync"/> against real MongoDB,
+/// the <c>ElemMatch</c> over <c>MatchedAliases</c> of <c>TvShowReferenceRepositoryTest</c>, for video games.
 /// </summary>
 public class VideoGameReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)
 {
@@ -82,7 +83,8 @@ public class VideoGameReferenceRepositoryTest(KestrelWebAppFactory<Program> fact
     }
 
     /// <summary>
-    /// A game is identified by its title <i>and</i> year, so a document with no year has no complete key to record, and a title-only alias would answer every later lookup for that title, whatever its year.
+    /// A game is identified by its title <i>and</i> year, so a document with no year has no complete key to record,
+    /// and a title-only alias would answer every later lookup for that title, whatever its year.
     /// IGDB holds eight games named exactly "Resident Evil 2".
     /// </summary>
     [Fact]

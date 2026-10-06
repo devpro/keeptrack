@@ -13,7 +13,8 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 /// Opt-in through REFERENCE_SYNC_POLL_ENABLED=true (see CONTRIBUTING.md), run on demand when touching the sync pipeline.
 /// Forced, since it drives the whole pipeline against the live providers, and the default pass can find nothing to do.
 /// <para>
-/// It is the one test wanting the real pass, so it has its own class on the ordinary <see cref="KestrelWebAppFactory{TEntryPoint}"/>, while <see cref="ReferenceDataAdminResourceTest"/> runs on <see cref="ProviderlessWebAppFactory"/>.
+/// It is the one test wanting the real pass, so it has its own class on the ordinary <see cref="KestrelWebAppFactory{TEntryPoint}"/>,
+/// while <see cref="ReferenceDataAdminResourceTest"/> runs on <see cref="ProviderlessWebAppFactory"/>.
 /// A live pass rewrites the shared Explore ranking after the test ends, which nothing can register for cleanup, so <see cref="ServerDerivedDataSweep"/> removes it.
 /// </para>
 /// </summary>

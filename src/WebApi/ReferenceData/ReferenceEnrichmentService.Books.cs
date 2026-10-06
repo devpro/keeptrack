@@ -31,7 +31,8 @@ public partial class ReferenceEnrichmentService
     private const string OpenLibraryProviderKey = "openlibrary";
 
     /// <summary>
-    /// The rating fallback for books: when the linking provider gave no rating (Google Books gives none) and an ISBN is known, Open Library's rating by ISBN is stored under its own key.
+    /// The rating fallback for books: when the linking provider gave no rating (Google Books gives none) and an ISBN is known,
+    /// Open Library's rating by ISBN is stored under its own key.
     /// Nothing happens when a rating exists, the linking provider is Open Library, or there is no ISBN.
     /// <para>
     /// <b>It runs on the background refresh only</b> (<see cref="RefreshBookReferenceAsync"/>), never while someone waits.
@@ -39,7 +40,8 @@ public partial class ReferenceEnrichmentService
     /// </para>
     /// <para>
     /// It never throws: a secondary provider adding an optional number must not discard what the linking provider returned.
-    /// A slow Open Library would otherwise fail every book refresh, leaving <c>LastEnrichedAt</c> unstamped, so the same books would lead every pass and time out again, as <see cref="IOmdbClient"/> avoids.
+    /// A slow Open Library would otherwise fail every book refresh, leaving <c>LastEnrichedAt</c> unstamped,
+    /// so the same books would lead every pass and time out again, as <see cref="IOmdbClient"/> avoids.
     /// </para>
     /// <para>
     /// <paramref name="knownRating"/> matters since the refresh rebuilds <c>Ratings</c> from the linking provider, which never carries this value.
@@ -93,7 +95,8 @@ public partial class ReferenceEnrichmentService
 
     /// <summary>
     /// The local half of "check for reference match" for books (see <see cref="TryLinkExistingTvShowReferenceAsync"/>), against <c>book_reference</c>.
-    /// A match also sets <see cref="BookModel.Year"/>, <see cref="BookModel.Author"/> (the name of <see cref="BookReferenceModel.AuthorReferenceId"/>'s person), <see cref="BookModel.Genre"/>, <see cref="BookModel.Language"/> and <see cref="BookModel.Isbn"/> to the reference's values.
+    /// A match also sets <see cref="BookModel.Year"/>, <see cref="BookModel.Author"/> (the name of <see cref="BookReferenceModel.AuthorReferenceId"/>'s person),
+    /// <see cref="BookModel.Genre"/>, <see cref="BookModel.Language"/> and <see cref="BookModel.Isbn"/> to the reference's values.
     /// </summary>
     public async Task<BookModel> TryLinkExistingBookReferenceAsync(BookModel model)
     {
@@ -198,7 +201,8 @@ public partial class ReferenceEnrichmentService
     /// The year breaks ties (<see cref="ReferenceMatchRules.OrderByBestMatch"/>), and an author is required.
     /// </para>
     /// <para>
-    /// <b>Several confirmed candidates are editions, not an ambiguity</b>, so the best is linked (see <see cref="ReferenceMatchRules.ConfirmedCreatorMatches"/>), where waiting for one row would link no book.
+    /// <b>Several confirmed candidates are editions, not an ambiguity</b>,
+    /// so the best is linked (see <see cref="ReferenceMatchRules.ConfirmedCreatorMatches"/>), where waiting for one row would link no book.
     /// </para>
     /// </summary>
     public async Task TryAutoResolveBookAsync(BookModel item)
@@ -243,8 +247,10 @@ public partial class ReferenceEnrichmentService
 
     /// <summary>
     /// Resolves a title to a book provider id, upserts the reference and links the records <paramref name="target"/> names (see <see cref="ResolveTvShowAsync"/>).
-    /// <paramref name="providerKey"/> names the client <paramref name="externalId"/> came from, required for an admin's link since an id means nothing without its provider, and the default for the automatic path.
-    /// <paramref name="isbn"/> is the ISBN searched with, if any, feeding only the alias of what was searched, never the canonical one, which uses the provider's <see cref="BookDetails.Isbn"/> (see <see cref="ReferenceAliasRule.TitleAndCreatorWithYear"/>).
+    /// <paramref name="providerKey"/> names the client <paramref name="externalId"/> came from,
+    /// required for an admin's link since an id means nothing without its provider, and the default for the automatic path.
+    /// <paramref name="isbn"/> is the ISBN searched with, if any, feeding only the alias of what was searched, never the canonical one,
+    /// which uses the provider's <see cref="BookDetails.Isbn"/> (see <see cref="ReferenceAliasRule.TitleAndCreatorWithYear"/>).
     /// </summary>
     public async Task<BookReferenceModel> ResolveBookAsync(string title, int? year, string externalId, ReferenceLinkTarget target, string? providerKey = null, string? isbn = null)
     {
@@ -255,7 +261,8 @@ public partial class ReferenceEnrichmentService
                       ?? throw new InvalidOperationException($"Book {externalId} could not be fetched from {client.ProviderKey}.");
 
         // The provider id is checked first and is authoritative (see ResolveTvShowAsync).
-        // The fallback is the identity ladder of the local match path (FindKnownBookReferenceAsync), since a document under another printing's year is still this work and must not be duplicated.
+        // The fallback is the identity ladder of the local match path (FindKnownBookReferenceAsync),
+        // since a document under another printing's year is still this work and must not be duplicated.
         // It only reuses a document the ladder is sure of, since its last tier refuses to choose.
         var existing = await bookReferenceRepository.FindByExternalIdAsync(client.ProviderKey, externalId)
                        ?? (details.Author is not null ? await FindKnownBookReferenceAsync(title, year, details.Author, isbn ?? details.Isbn) : null);
@@ -296,7 +303,8 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// Fetches a book reference again, in full, from the provider it was linked through, since no book provider has a "changed since" endpoint (see <see cref="RefreshTvShowReferenceAsync"/>).
+    /// Fetches a book reference again, in full, from the provider it was linked through,
+    /// since no book provider has a "changed since" endpoint (see <see cref="RefreshTvShowReferenceAsync"/>).
     /// It checks <see cref="BookReferenceModel.ExternalIds"/> against every registered provider, not only the default, so a book linked through another provider keeps refreshing.
     /// Unchanged when no registered provider's id is present, or the provider no longer holds it.
     /// </summary>

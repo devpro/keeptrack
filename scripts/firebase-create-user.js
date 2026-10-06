@@ -2,24 +2,23 @@
 /*
  * Creates a new Firebase user via the public accounts:signUp REST endpoint.
  *
- * Why this exists: the repository already has scripts/firebase-user-role.js to grant a role to an
- * *existing* user, but nothing creates one.
- * A second test account (e.g. FIREBASE_USERNAME2/FIREBASE_PASSWORD2, for a test that needs two distinct
- * signed-in identities) currently has to be created by hand in the Firebase console.
+ * scripts/firebase-user-role.js grants a role to an *existing* user, and nothing else creates one.
+ * A second test account (for example FIREBASE_USERNAME2/FIREBASE_PASSWORD2, for a test that needs two distinct signed-in identities)
+ * would otherwise be created by hand in the Firebase console.
  *
- * Deliberately needs only the Web API key (FIREBASE_APIKEY), never a service account.
- * accounts:signUp is the same public endpoint a real "create account" form calls, so creating a user needs
- * no elevated privilege - only granting a role afterward does, which is why that stays a separate script
- * over a service account (scripts/firebase-user-role.js).
+ * It needs only the Web API key (FIREBASE_APIKEY), never a service account.
+ * accounts:signUp is the same public endpoint a real "create account" form calls, so creating a user needs no elevated privilege.
+ * Only granting a role afterward does, which is why that stays a separate script over a service account (scripts/firebase-user-role.js).
  *
  * Usage:
  *   FIREBASE_APIKEY=<web-api-key> node scripts/firebase-create-user.js
  *   FIREBASE_APIKEY=<web-api-key> node scripts/firebase-create-user.js someone@example.com
  *   FIREBASE_APIKEY=<web-api-key> node scripts/firebase-create-user.js someone@example.com "a specific password"
  *
- * Email and password are both optional - omitted, a random test address and a strong random password are
- * generated, the same shape End2EndFixture already uses for its own ephemeral e2e users.
+ * Email and password are both optional.
+ * When omitted, a random test address and a strong random password are generated, the same shape End2EndFixture uses for its ephemeral e2e users.
  *
+ * Reference: https://cloud.google.com/identity-platform/docs/reference/rest/v1/accounts/signUp
  * Reference: https://cloud.google.com/identity-platform/docs/reference/rest/v1/accounts/signUp
  */
 
@@ -44,9 +43,8 @@ async function main() {
     const body = await response.json();
 
     if (!response.ok) {
-        // Firebase's own error carries the actual reason (EMAIL_EXISTS, WEAK_PASSWORD, ...) - report that
-        // rather than the bare HTTP status, the same "describe what the provider actually did" rule this
-        // repository applies to every other third-party call.
+        // Firebase's own error carries the actual reason (EMAIL_EXISTS, WEAK_PASSWORD, ...).
+        // It is reported instead of the bare HTTP status, like every other third-party call in the repository.
         process.stderr.write(`Firebase rejected the sign-up: ${body.error?.message ?? response.statusText}\n`);
         process.exit(1);
     }

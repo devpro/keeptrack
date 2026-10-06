@@ -9,8 +9,10 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.Controllers;
 
 /// <summary>
-/// The "unlink-reference" action on each reference-linked controller deletes shared data (the reference document), unlike the harmless "refresh-reference" beside it, so it carries its own method-level <c>AdminOnly</c> policy.
-/// A reflection guard, like <c>FreeTierTest.Controller_CarriesTheExpectedAuthorizationPolicy</c> at the method level, makes removing the attribute a failing test rather than a silent privilege escalation.
+/// The "unlink-reference" action on each reference-linked controller deletes shared data (the reference document),
+/// unlike the harmless "refresh-reference" beside it, so it carries its own method-level <c>AdminOnly</c> policy.
+/// A reflection guard, like <c>FreeTierTest.Controller_CarriesTheExpectedAuthorizationPolicy</c> at the method level,
+/// makes removing the attribute a failing test rather than a silent privilege escalation.
 /// The integration suite can't exercise the 403, its one Firebase test user being an admin (see <c>FreeTierTest</c>).
 /// </summary>
 [Trait("Category", "UnitTests")]

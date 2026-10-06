@@ -34,7 +34,8 @@ public class BookSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 
         await DetailPageBase.SetFieldAsync(detail.SeriesInput, Series);
 
-        // Round-tripping through the list proves the edit persisted server-side as well as a reload, since BookDetail.razor re-fetches on every navigation, while staying on enhanced navigation.
+        // Round-tripping through the list proves the edit persisted server-side as well as a reload,
+        // since BookDetail.razor re-fetches on every navigation, while staying on enhanced navigation.
         list = await detail.OpenBooksAsync();
         await list.OpenItemAsync(title);
         await detail.WaitForReadyAsync();

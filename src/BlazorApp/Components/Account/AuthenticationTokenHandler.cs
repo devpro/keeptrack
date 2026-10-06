@@ -42,7 +42,8 @@ public class AuthenticationTokenHandler(
     private static void RedirectToLogin(HttpContext httpContext)
     {
         // The NavigationManager comes from the request's DI scope, not the constructor.
-        // IHttpClientFactory builds this handler in its own scope, whose RemoteNavigationManager the renderer never initialized, so .Uri and .NavigateTo throw "RemoteNavigationManager has not been initialized" during prerender.
+        // IHttpClientFactory builds this handler in its own scope, whose RemoteNavigationManager the renderer never initialized,
+        // so .Uri and .NavigateTo throw "RemoteNavigationManager has not been initialized" during prerender.
         // The endpoint renderer initializes the request scope's NavigationManager before OnInitializedAsync, so it is safe here.
         var navigationManager = httpContext.RequestServices.GetRequiredService<NavigationManager>();
         var returnUrl = Uri.EscapeDataString(navigationManager.Uri);

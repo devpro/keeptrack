@@ -15,7 +15,9 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 /// <summary>
 /// Real-MongoDB coverage for the two queries the provider-reconciliation feature rests on, neither of which a mocked repository can prove.
 /// <para>
-/// <c>FindWithoutExternalIdAsync</c> asks for the *absence* of a key inside an embedded document, which is the same family of trap as the sync's staleness query and the <c>ReferenceId</c> null/empty one: a filter that matches nothing looks exactly like a filter that found nothing wrong, and here it would report a clean catalogue while every one of those references stayed invisible to the Explore exclusion.
+/// <c>FindWithoutExternalIdAsync</c> asks for the *absence* of a key inside an embedded document, which is the same family of trap as the sync's staleness query
+/// and the <c>ReferenceId</c> null/empty one: a filter that matches nothing looks exactly like a filter that found nothing wrong,
+/// and here it would report a clean catalogue while every one of those references stayed invisible to the Explore exclusion.
 /// <c>RepointReferenceAsync</c> is a cross-tenant <c>UpdateMany</c> whose whole purpose is that the items actually move before the document they point at is deleted.
 /// </para>
 /// </summary>

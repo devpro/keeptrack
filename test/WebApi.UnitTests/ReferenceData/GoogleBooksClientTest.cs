@@ -66,7 +66,8 @@ public class GoogleBooksClientTest
     [Fact]
     public async Task GetBookDetailsAsync_ConvertsPlainNewlinesToBreakTags()
     {
-        // In real descriptions paragraph breaks are sometimes plain "\n", not <br>, and HTML collapses bare newlines, so a description with only bold and italic markup would render as one undivided paragraph.
+        // In real descriptions paragraph breaks are sometimes plain "\n", not <br>, and HTML collapses bare newlines,
+        // so a description with only bold and italic markup would render as one undivided paragraph.
         var client = BuildClient(_ => """{"id":"abc123","volumeInfo":{"title":"The Hobbit","description":"Bilbo Baggins is a hobbit.\r\n\r\nA wizard visits."}}""");
 
         var details = await client.GetBookDetailsAsync("abc123", TestContext.Current.CancellationToken);
@@ -99,7 +100,8 @@ public class GoogleBooksClientTest
     [Fact]
     public async Task GetBookDetailsAsync_DecodesEntitiesBeforeStrippingTags_SoAnEncodedTagCannotSurvive()
     {
-        // if entities were decoded AFTER stripping, an entity-encoded "<script>" (harmless text at that point) would decode into a live tag only after the safety filter already ran
+        // if entities were decoded AFTER stripping,
+        // an entity-encoded "<script>" (harmless text at that point) would decode into a live tag only after the safety filter already ran
         var client = BuildClient(_ => """{"id":"abc123","volumeInfo":{"title":"Killing Floor","description":"&lt;script&gt;alert(1)&lt;/script&gt; caf&eacute;"}}""");
 
         var details = await client.GetBookDetailsAsync("abc123", TestContext.Current.CancellationToken);

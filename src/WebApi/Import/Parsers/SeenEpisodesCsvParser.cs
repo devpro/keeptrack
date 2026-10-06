@@ -5,7 +5,8 @@ namespace Keeptrack.WebApi.Import.Parsers;
 
 /// <summary>
 /// One episode watch event.
-/// Column names differ slightly across the files carrying it (<see cref="SeenEpisodesCsvParser"/>, <see cref="LegacyEpisodeWatchCsvParser"/>, <see cref="EpisodeWatchCsvParser"/>), so both variants are accepted.
+/// Column names differ slightly across the files carrying it (<see cref="SeenEpisodesCsvParser"/>, <see cref="LegacyEpisodeWatchCsvParser"/>, <see cref="EpisodeWatchCsvParser"/>),
+/// so both variants are accepted.
 /// </summary>
 public class SeenEpisodeRecord
 {

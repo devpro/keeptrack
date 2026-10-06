@@ -20,7 +20,8 @@ internal static class ReferenceStalenessQueries
     /// </para>
     /// </summary>
     /// <remarks>
-    /// The null half cannot be folded into the comparison: MongoDB compares within a type, so <c>$lte</c> on a date never matches a null or missing field, and a reference never enriched would never be returned.
+    /// The null half cannot be folded into the comparison: MongoDB compares within a type,
+    /// so <c>$lte</c> on a date never matches a null or missing field, and a reference never enriched would never be returned.
     /// <c>Eq(field, null)</c> matches null and missing alike.
     /// Ascending order puts those first, since BSON sorts null ahead of every date.
     /// </remarks>

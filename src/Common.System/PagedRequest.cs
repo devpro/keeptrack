@@ -24,7 +24,8 @@ public class PagedRequest
     /// </summary>
     /// <remarks>
     /// Deliberately unbounded, although a very large value loads that many documents in one request.
-    /// Detail pages fetch all of a parent's children in one page: <c>CarDetail</c>, <c>HealthProfileDetail</c> and <c>HouseDetail</c> ask for <c>int.MaxValue</c>, and <c>TvShowDetail</c>, <c>AlbumDetail</c> and <c>PlaylistDetail</c> for 5000.
+    /// Detail pages fetch all of a parent's children in one page: <c>CarDetail</c>, <c>HealthProfileDetail</c> and <c>HouseDetail</c> ask for <c>int.MaxValue</c>,
+    /// and <c>TvShowDetail</c>, <c>AlbumDetail</c> and <c>PlaylistDetail</c> for 5000.
     /// A cap needs a dedicated "all children of this parent" endpoint first (see docs/backlog.md).
     /// </remarks>
     [Range(1, int.MaxValue)]

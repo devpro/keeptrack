@@ -17,7 +17,8 @@ public class DiscogsClient(HttpClient http, DiscogsSettings settings) : IDiscogs
         if (results.Count == 0 && !string.IsNullOrEmpty(artist))
         {
             // No result includes nothing titled as searched, which SearchAlbumsCoreAsync discards.
-            // Discogs' artist must match its index closely (spelling, a suffix like "Artist (2)"), and a mismatch returns nothing although the title alone finds the album, so the search retries without it.
+            // Discogs' artist must match its index closely (spelling, a suffix like "Artist (2)"),
+            // and a mismatch returns nothing although the title alone finds the album, so the search retries without it.
             results = await SearchWithoutZeroingOutTheYearAsync(title, year, null, cancellationToken);
         }
 
@@ -49,7 +50,8 @@ public class DiscogsClient(HttpClient http, DiscogsSettings settings) : IDiscogs
     /// <c>q=</c> is Discogs' free-text parameter, not a title field: it also matches the artist, label, credits and tracklist, so unrelated releases come back as hits.
     /// <c>q=Discovery&amp;artist=Daft Punk</c> returns "Live @ Rex Club, Paris" beside the album, and <c>q=Sabbath</c> releases naming the word only in "Black Sabbath".
     /// <para>
-    /// Every candidate's release title is therefore checked (<see cref="TitleNormalizer.LooselyContains"/>) and mismatches discarded, as <c>BnfClient.AuthorMatches</c> does for authors.
+    /// Every candidate's release title is therefore checked (<see cref="TitleNormalizer.LooselyContains"/>) and mismatches discarded,
+    /// as <c>BnfClient.AuthorMatches</c> does for authors.
     /// The check reads the album half parsed by <see cref="SplitArtistTitle"/>, so a word found only in the artist half does not count.
     /// </para>
     /// <para>
@@ -109,7 +111,8 @@ public class DiscogsClient(HttpClient http, DiscogsSettings settings) : IDiscogs
     private static string Encode(string value) => HttpUtility.UrlEncode(value);
 
     /// <summary>
-    /// Discogs titles a search result "Artist - Album Title" rather than separating them, so it is split on the first " - ", falling back to the searched title when the shape differs.
+    /// Discogs titles a search result "Artist - Album Title" rather than separating them,
+    /// so it is split on the first " - ", falling back to the searched title when the shape differs.
     /// </summary>
     private static (string? Artist, string Title) SplitArtistTitle(string? rawTitle, string fallbackTitle)
     {

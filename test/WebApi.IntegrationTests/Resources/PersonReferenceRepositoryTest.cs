@@ -12,7 +12,8 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Exercises <see cref="IPersonReferenceRepository"/> against real MongoDB, since the dictionary-key filter behind <c>FindByExternalIdAsync</c> is a hand-written query of the kind that hides bugs.
+/// Exercises <see cref="IPersonReferenceRepository"/> against real MongoDB,
+/// since the dictionary-key filter behind <c>FindByExternalIdAsync</c> is a hand-written query of the kind that hides bugs.
 /// It is a string field-path filter, not an expression indexer (see <c>PersonReferenceRepository</c>).
 /// </summary>
 public class PersonReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)

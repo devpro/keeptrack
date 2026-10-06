@@ -14,7 +14,8 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 /// <summary>
 /// The shared, owner-less <c>car_station</c> catalogue, over real HTTP and real MongoDB.
 /// <para>
-/// A mocked repository could prove none of this: the find-or-create's whole job is to keep the collection's unique natural-key index from firing, the delete guard and the merge are about what other documents point at, and the display hydration is a batched read layered onto a real list response.
+/// A mocked repository could prove none of this: the find-or-create's whole job is to keep the collection's unique natural-key index from firing,
+/// the delete guard and the merge are about what other documents point at, and the display hydration is a batched read layered onto a real list response.
 /// </para>
 /// <para>
 /// The test account carries the admin role (see <c>ReferenceDataAdminResourceTest</c>), so the admin-gated half is reachable with the same single account.
@@ -172,7 +173,8 @@ public class CarStationResourceTest(KestrelWebAppFactory<Program> factory)
     {
         await Authenticate();
 
-        // Both documents describe one station, so a field only one has is new information, but the survivor's values win, like SetReferenceLinkAsync's "never overwrite with nothing".
+        // Both documents describe one station, so a field only one has is new information,
+        // but the survivor's values win, like SetReferenceLinkAsync's "never overwrite with nothing".
         var absorbed = await CreateStationAsync(UniqueBrand(), "Rennes", "35000");
         absorbed.Country = "FR";
         absorbed.Latitude = 48.1173;

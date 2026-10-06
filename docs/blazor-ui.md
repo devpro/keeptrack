@@ -98,7 +98,7 @@ System-ui fonts only, no webfonts.
 **Icons are Unicode with text presentation** (`◈ ✓ ✕ ★ ▶ ↻ ⌂ ⚙ ♪ ◼ ▭ ▬ ◆`), never a codepoint with `Emoji_Presentation=Yes` (`⭐`, `👁`), never with U+FE0F.
 A symbol that would only be a semantic near-match is dropped when the label carries the meaning.
 
-**Inline SVG is how to grow past a glyph** (`Components/Layout/NavIcon.razor`, `stroke="currentColor"`), used by the sidebar and by `InventoryList`'s search icon, since geometric glyphs are indistinguishable at 16px.
+**Inline SVG is how to grow past a glyph** (`Components/Shared/Icon.razor`, `stroke="currentColor"`), used by the sidebar and by `InventoryList`'s search icon, since geometric glyphs are indistinguishable at 16px.
 Nav rows sit under three `.kt-nav-group` labels, and **Manage** is inside the `MemberOnly` block so a free account never sees an empty group.
 
 `.kt-icon-spin` stays `display: inline-flex`, never `inline-block`, or the wrapped `<svg>` sits on the text baseline and orbits instead of spinning.

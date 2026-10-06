@@ -15,11 +15,13 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Exercises POST /api/{tv-shows,movies,books,video-games,albums}/{id}/unlink-reference, the admin action clearing a tenant's <c>ReferenceId</c> and permanently deleting the shared reference document behind a wrong match.
+/// Exercises POST /api/{tv-shows,movies,books,video-games,albums}/{id}/unlink-reference,
+/// the admin action clearing a tenant's <c>ReferenceId</c> and permanently deleting the shared reference document behind a wrong match.
 /// The suite's Firebase test user is an admin (see <c>FreeTierTest</c>), so <see cref="ResourceTestBase.Authenticate"/> satisfies the <c>AdminOnly</c> policy.
 /// A reflection unit test covers the policy attribute, since an HTTP 403 test would need a non-admin Firebase account this suite lacks.
 /// <para>
-/// Each reference document is registered for deletion although the endpoint should delete it, since the registration covers the run where it doesn't, the regression these tests catch.
+/// Each reference document is registered for deletion although the endpoint should delete it,
+/// since the registration covers the run where it doesn't, the regression these tests catch.
 /// Deleting an already-deleted document is a no-op.
 /// </para>
 /// </summary>

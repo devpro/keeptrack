@@ -15,7 +15,8 @@ public class WatchNextSmokeTestCollection;
 
 /// <summary>
 /// Watch Next needs real, reference-linked, partially-watched data to assert anything meaningful (an empty state is already covered by <c>NavigationSmokeTest</c>).
-/// Real-world airing status doesn't matter for "Current", since <c>WatchNextService</c> checks the tenant's <c>State</c> field, so a long-finished show stays deterministic, its episode list never changing.
+/// Real-world airing status doesn't matter for "Current", since <c>WatchNextService</c> checks the tenant's <c>State</c> field,
+/// so a long-finished show stays deterministic, its episode list never changing.
 /// Its titles differ from <see cref="MovieSmokeTest"/>'s, since every smoke test shares the tenant and a fixed real-world title would collide.
 /// See <see cref="WatchNextSmokeTestCollection"/> for why this class never runs in parallel with others.
 /// </summary>

@@ -8,7 +8,8 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Walks the health journal end to end: create a profile, add an appointment through the modal (a price, no reimbursement), and check the balance surfaces as the row's "to check" badge.
+/// Walks the health journal end to end: create a profile, add an appointment through the modal (a price, no reimbursement),
+/// and check the balance surfaces as the row's "to check" badge.
 /// The journal table is the only warning surface, with no summary panel above it.
 /// </summary>
 [Trait("Category", "E2eTests")]
@@ -34,7 +35,8 @@ public class HealthSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
         TrackOpenItem("/api/health-profiles");
         await Assertions.Expect(detail.TitleInput).ToHaveValueAsync(name);
 
-        // Cover image: a health profile keeps the default portrait shape (a person's photo, unlike the "wide" car, house, collectible and gear), so only the detail banner round trip.
+        // Cover image: a health profile keeps the default portrait shape (a person's photo, unlike the "wide" car, house, collectible and gear),
+        // so only the detail banner round trip.
         const string imageUrl = "https://picsum.photos/seed/e2e-health/300/400";
         await DetailPageBase.SetFieldAsync(detail.ImageUrlInput, imageUrl);
         await Assertions.Expect(detail.CoverImage).ToHaveAttributeAsync("src", imageUrl);
@@ -56,7 +58,8 @@ public class HealthSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
     }
 
     /// <summary>
-    /// Takes a specialty and a practitioner from their suggestion dropdowns rather than typing them out, each way a user can: clicking an item, and pressing Enter on the match typing highlighted by itself.
+    /// Takes a specialty and a practitioner from their suggestion dropdowns rather than typing them out, each way a user can:
+    /// clicking an item, and pressing Enter on the match typing highlighted by itself.
     /// It also pins the rule keeping that automatic highlight safe: Tab leaves a half-typed value alone.
     /// A test that only fills the input, like the one above, exercises a plain text field and proves nothing about the dropdown.
     /// It would miss a click on a suggestion doing nothing, the click blurring the input and the focusout handler tearing the menu down before Blazor dispatches the click.
@@ -126,7 +129,8 @@ public class HealthSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 
     /// <summary>
     /// Journal cells holding exactly this text.
-    /// Counting page-wide text instead would double-count a specialty: the "Last seen" list above the journal renders it too (as a &lt;span&gt;, not a cell), once per distinct specialty rather than once per entry.
+    /// Counting page-wide text instead would double-count a specialty:
+    /// the "Last seen" list above the journal renders it too (as a &lt;span&gt;, not a cell), once per distinct specialty rather than once per entry.
     /// </summary>
     private ILocator JournalCell(string text) =>
         Page.GetByRole(AriaRole.Cell, new PageGetByRoleOptions { Name = text, Exact = true });

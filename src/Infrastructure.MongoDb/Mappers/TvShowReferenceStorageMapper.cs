@@ -5,7 +5,8 @@ using Riok.Mapperly.Abstractions;
 namespace Keeptrack.Infrastructure.MongoDb.Mappers;
 
 /// <summary>
-/// Injected directly into <see cref="Repositories.TvShowReferenceRepository"/>: the reference repositories are purpose-built and need no shared <see cref="IStorageMapper{TModel, TEntity}"/>.
+/// Injected directly into <see cref="Repositories.TvShowReferenceRepository"/>:
+/// the reference repositories are purpose-built and need no shared <see cref="IStorageMapper{TModel, TEntity}"/>.
 /// </summary>
 [Mapper]
 [UseStaticMapper(typeof(CommonStorageMappings))]

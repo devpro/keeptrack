@@ -9,7 +9,8 @@ namespace Keeptrack.Domain.Services;
 public static class AmazonImportMergeService
 {
     /// <summary>
-    /// Formats an imported order line's owned copy <c>Reference</c>, which is human-readable and also the exact dedup key <see cref="OwnedItemImportMergeService.FindImportedReferences{TModel}"/> looks for on a re-import.
+    /// Formats an imported order line's owned copy <c>Reference</c>,
+    /// which is human-readable and also the exact dedup key <see cref="OwnedItemImportMergeService.FindImportedReferences{TModel}"/> looks for on a re-import.
     /// It includes the ASIN, not only the order id, since one order often holds several items.
     /// With the order id alone, a second item of the same order would be skipped as a duplicate of the first, and flagged "already imported" in the preview.
     /// The ASIN is Amazon's stable product id, unlike the title, which the user can edit before commit.

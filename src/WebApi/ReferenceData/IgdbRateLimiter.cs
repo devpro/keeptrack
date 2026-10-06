@@ -6,7 +6,8 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// <summary>
 /// Paces IGDB requests to the documented 4 per second, queueing rather than failing when callers come faster.
 /// <para>
-/// A singleton apart from its handler, since <see cref="IHttpClientFactory"/> rebuilds a <see cref="DelegatingHandler"/> on every rotation, which would reset a budget the handler owned.
+/// A singleton apart from its handler, since <see cref="IHttpClientFactory"/> rebuilds a <see cref="DelegatingHandler"/> on every rotation,
+/// which would reset a budget the handler owned.
 /// </para>
 /// <para>
 /// The bucket is per process, so several replicas can exceed the limit together, and the resilience handler retries the occasional 429.

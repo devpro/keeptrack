@@ -10,7 +10,9 @@ namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
 /// <summary>
 /// Stand-in for a video game provider.
-/// Parameterized by provider key and rating sources rather than fixed to one, so a test can register two of them and exercise the multi-provider behaviour (which client a refresh picks, whose ratings a merge is allowed to replace) without a second fake class.
+/// Parameterized by provider key and rating sources rather than fixed to one,
+/// so a test can register two of them
+/// and exercise the multi-provider behaviour (which client a refresh picks, whose ratings a merge is allowed to replace) without a second fake class.
 /// </summary>
 internal sealed class FakeVideoGameReferenceClient : IVideoGameReferenceClient
 {
@@ -61,7 +63,9 @@ internal sealed class FakeVideoGameReferenceClient : IVideoGameReferenceClient
 
     /// <summary>
     /// What the provider answers to one *specific* query, for the tests about the adoption ladder's widening.
-    /// A real provider's relevance search is punctuation-sensitive in ways that decide whether a game is found at all (IGDB answers "NieR:Automata" with one unrelated project and "NieR Automata" with the game), which a fake returning the same list whatever it is asked cannot express.
+    /// A real provider's relevance search is punctuation-sensitive in ways that decide whether a game is found at all
+    /// (IGDB answers "NieR:Automata" with one unrelated project and "NieR Automata" with the game),
+    /// which a fake returning the same list whatever it is asked cannot express.
     /// Anything not listed here falls back to the fixed results, so every test that predates this behaves exactly as before.
     /// </summary>
     public Dictionary<string, List<VideoGameSearchResult>> SearchResultsByQuery { get; } = new(StringComparer.Ordinal);

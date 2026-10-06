@@ -14,7 +14,8 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Not a regression test: a visual-review harness that seeds representative items via the API (including reference-linked movies/shows/albums/games with real cover art), captures full-page screenshots of every page at a phone viewport (390x844), then deletes everything it created.
+/// Not a regression test: a visual-review harness that seeds representative items via the API (including reference-linked movies/shows/albums/games with real cover art),
+/// captures full-page screenshots of every page at a phone viewport (390x844), then deletes everything it created.
 /// Assertion-free by design, its output is the screenshots, reviewed by a human (or an AI assistant) after UI changes.
 /// Doubly gated: besides the usual E2E_ENABLED, it also skips unless E2E_MOBILE_CHECK=true, so a normal full e2e run doesn't pay for the slow walkthrough.
 /// Output directory: E2E_MOBILE_DIR.
@@ -105,7 +106,8 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             await CaptureFirstDetailAsync("/cars", "car-detail");
             await CaptureFirstDetailAsync("/books", "book-detail");
             await CaptureFirstDetailAsync("/health", "health-detail");
-            // targeted by title (not "first") so these two land on the CustomImageUrl-seeded items specifically, not whichever item happens to sort first in a list that grows over time
+            // targeted by title (not "first") so these two land on the CustomImageUrl-seeded items specifically,
+            // not whichever item happens to sort first in a list that grows over time
             await CaptureDetailByTitleAsync("/video-games", "Hades", "video-game-detail");
             await CaptureDetailByTitleAsync("/video-games", "Half-Life 2", "video-game-detail-provider-art");
             await CaptureDetailByTitleAsync("/albums", "Nevermind", "album-detail");
@@ -237,7 +239,8 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
         });
         await CreateAsync(api, created, "api/tv-shows", new TvShowDto { Title = "The Wire", Year = 2002, State = TvShowStatus.Stopped, LastEpisodeSeen = "S03E01" });
 
-        // A realistic long unresolved queue: gibberish titles that no provider can match, so they all land in the admin queue alongside The Wire (whose two real TMDB candidates keep it unresolved too).
+        // A realistic long unresolved queue: gibberish titles that no provider can match,
+        // so they all land in the admin queue alongside The Wire (whose two real TMDB candidates keep it unresolved too).
         for (var i = 1; i <= 12; i++)
         {
             await CreateAsync(api, created, "api/tv-shows", new TvShowDto { Title = $"Zzq Unmatchable Show {i:00}", Year = 1990 + i });
@@ -262,7 +265,8 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             Year = 1991,
             Rating = 4.5f,
             IsFavorite = true,
-            // proves the CustomImageUrl override shows up on both the list thumbnail and the detail cover, taking priority over the linked Discogs cover it's about to be linked to below
+            // proves the CustomImageUrl override shows up on both the list thumbnail and the detail cover,
+            // taking priority over the linked Discogs cover it's about to be linked to below
             CustomImageUrl = "https://picsum.photos/seed/nevermind-custom-cover/400/400"
         });
         await CreateAsync(api, created, "api/video-games", new VideoGameDto
@@ -272,7 +276,8 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             Rating = 4.5f,
             // a game's copies are its platform entries, with no separate owned flag
             Platforms = [new VideoGamePlatformDto { Platform = "PC", CopyType = CopyType.Digital, State = "Current" }],
-            // proves the CustomImageUrl override shows up on both the list thumbnail and the detail cover, taking priority over the linked RAWG cover it's about to be linked to below
+            // proves the CustomImageUrl override shows up on both the list thumbnail and the detail cover,
+            // taking priority over the linked RAWG cover it's about to be linked to below
             CustomImageUrl = "https://picsum.photos/seed/hades-custom-cover/600/300"
         });
         // The same, with no CustomImageUrl, so the captures include a game showing the provider's own artwork.
@@ -334,7 +339,8 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             IsWishlisted = true
         });
 
-        // Thumbnail/grid-view showcase: several items per shape carrying a deterministic CustomImageUrl (portrait book covers, square album art, wide game art) so the grid captures below show a full wall of cover art without depending on a live provider link winning a race.
+        // Thumbnail/grid-view showcase: several items per shape carrying a deterministic CustomImageUrl (portrait book covers, square album art, wide game art)
+        // so the grid captures below show a full wall of cover art without depending on a live provider link winning a race.
         await SeedGridShowcaseAsync(api, created);
 
         var carId = await CreateAsync(api, created, "api/cars", new CarDto
@@ -363,7 +369,8 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
                     FuelUnitPrice = 1.78,
                     Cost = Math.Round((38.2 + i) * 1.78, 2),
                     IsFullRefill = true,
-                    // No station: a refuel's location lives on the shared car_station document, and a screenshot pass over one tenant's pages has no business writing into a catalogue every account sees.
+                    // No station: a refuel's location lives on the shared car_station document,
+                    // and a screenshot pass over one tenant's pages has no business writing into a catalogue every account sees.
                     StationId = null
                 });
         }
@@ -382,7 +389,8 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
     }
 
     /// <summary>
-    /// Seeds a wall of cover-art items (portrait books, square albums, wide games) via CustomImageUrl so the thumbnail/grid-view captures show a populated grid deterministically, independent of provider linking.
+    /// Seeds a wall of cover-art items (portrait books, square albums, wide games) via CustomImageUrl
+    /// so the thumbnail/grid-view captures show a populated grid deterministically, independent of provider linking.
     /// </summary>
     private static async Task SeedGridShowcaseAsync(HttpClient api, List<string> created)
     {
@@ -477,7 +485,8 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
 
     /// <summary>
     /// Sets (or clears, when null) the per-device list-view preference in localStorage.
-    /// Each subsequent full navigation re-seeds a fresh circuit from it, so this deterministically drives grid vs list for the captures without depending on the (removed) ?view= URL parameter.
+    /// Each subsequent full navigation re-seeds a fresh circuit from it,
+    /// so this deterministically drives grid vs list for the captures without depending on the (removed) ?view= URL parameter.
     /// </summary>
     private async Task SetListViewPreferenceAsync(string? view)
     {

@@ -9,7 +9,8 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Proves list state (search, filters) lives in the URL and survives leaving the list: opening an item's detail page and navigating back must restore the exact filtered position instead of resetting to an unfiltered page 1.
+/// Proves list state (search, filters) lives in the URL and survives leaving the list:
+/// opening an item's detail page and navigating back must restore the exact filtered position instead of resetting to an unfiltered page 1.
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]

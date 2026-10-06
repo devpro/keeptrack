@@ -98,7 +98,8 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IDtoMapper<TDto, TMod
     /// Hook reacting to a created item, such as starting background reference resolution.
     /// </summary>
     /// <remarks>
-    /// It takes no <see cref="CancellationToken"/>: an override starts detached background work on its own scope, which must outlive the request and never be cancelled because the response was sent.
+    /// It takes no <see cref="CancellationToken"/>: an override starts detached background work on its own scope,
+    /// which must outlive the request and never be cancelled because the response was sent.
     /// </remarks>
     protected virtual Task OnCreatedAsync(TModel model) => Task.CompletedTask;
 

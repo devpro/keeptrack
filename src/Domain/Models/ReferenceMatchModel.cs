@@ -2,7 +2,8 @@ namespace Keeptrack.Domain.Models;
 
 /// <summary>
 /// One combination confirmed to mean a specific work, by automatic resolution or an admin's pick, embedded in its reference document.
-/// Two tenants, or a tenant and the provider, can record different years for one work, so the year travels with the title variant it was confirmed under (see <see cref="TvShowReferenceModel.MatchedAliases"/>).
+/// Two tenants, or a tenant and the provider, can record different years for one work,
+/// so the year travels with the title variant it was confirmed under (see <see cref="TvShowReferenceModel.MatchedAliases"/>).
 /// <para>
 /// <see cref="Domain.Services.ReferenceAliasRule"/> decides which members a domain's alias carries, and whether a combination identifies a work at all.
 /// Nothing builds one for storage by hand.
@@ -28,7 +29,8 @@ public class ReferenceMatchModel
     public string? Isbn { get; set; }
 
     /// <summary>
-    /// Whether this alias is the combination the arguments describe: the single definition of "already recorded", shared by every path merging aliases (<c>MergeMatchedAliases</c> and the reference-data import).
+    /// Whether this alias is the combination the arguments describe: the single definition of "already recorded",
+    /// shared by every path merging aliases (<c>MergeMatchedAliases</c> and the reference-data import).
     /// All four members take part, since a title and year mean a different work with another creator, and an ISBN match is a separate alias from a title match.
     /// <paramref name="title"/> and <paramref name="creator"/> arrive normalized, as aliases are stored, so this does no normalizing.
     /// A wrong comparison appends a duplicate alias on every re-resolve.

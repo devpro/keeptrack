@@ -9,7 +9,8 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Hosted through <see cref="RawgDefaultVideoGameWebAppFactory"/> so the video game default provider is RAWG while DI registration order (IGDB first) stays untouched, proving the admin provider picker's default follows <c>ReferenceData:VideoGameProvider</c> rather than <c>ReferenceClientRegistry.All</c>'s order.
+/// Hosted through <see cref="RawgDefaultVideoGameWebAppFactory"/> so the video game default provider is RAWG while DI registration order (IGDB first) stays untouched,
+/// proving the admin provider picker's default follows <c>ReferenceData:VideoGameProvider</c> rather than <c>ReferenceClientRegistry.All</c>'s order.
 /// </summary>
 public class ReferenceDataAdminProviderDefaultResourceTest(RawgDefaultVideoGameWebAppFactory factory)
     : ResourceTestBase(factory), IClassFixture<RawgDefaultVideoGameWebAppFactory>

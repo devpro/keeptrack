@@ -27,12 +27,15 @@ public class SharingOwnerPage(IPage page) : PageBase(page)
 
     /// <summary>
     /// Toggles a category button.
-    /// The buttons share <c>data-testid="share-category"</c>, so they're picked by visible text, scoped to the new-share card, since the category name appears elsewhere too (the sidebar).
-    /// Health opens a confirmation instead of toggling (see <see cref="ConfirmHealthShareAsync"/>), so unlike every other category its click isn't retried against an "active" result.
+    /// The buttons share <c>data-testid="share-category"</c>, so they're picked by visible text,
+    /// scoped to the new-share card, since the category name appears elsewhere too (the sidebar).
+    /// Health opens a confirmation instead of toggling (see <see cref="ConfirmHealthShareAsync"/>),
+    /// so unlike every other category its click isn't retried against an "active" result.
     /// <para>
     /// The first call doubles as the page's circuit warm-up, like <see cref="ReferenceDataAdminPage.SelectUnresolvedTypeAsync"/>.
     /// A plain <c>ClickAsync</c> could land between Blazor Server's static prerender and its SignalR circuit connecting, silently doing nothing.
-    /// A <c>FillAsync</c> issued through <see cref="FillRecipientEmailAsync"/> or <see cref="FillLabelAsync"/> before the circuit connects changes only the DOM, and Blazor's first interactive render wipes it.
+    /// A <c>FillAsync</c> issued through <see cref="FillRecipientEmailAsync"/> or <see cref="FillLabelAsync"/> before the circuit connects changes only the DOM,
+    /// and Blazor's first interactive render wipes it.
     /// Callers must toggle a category before filling the text fields, not after.
     /// </para>
     /// </summary>

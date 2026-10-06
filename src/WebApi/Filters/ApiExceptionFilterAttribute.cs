@@ -21,7 +21,8 @@ public sealed class ApiExceptionFilterAttribute(ILogger<ApiExceptionFilterAttrib
         {
             ArgumentNullException ex => (ex.Message, StatusCodes.Status400BadRequest),
             ArgumentException ex => (ex.Message, StatusCodes.Status400BadRequest),
-            // A provider that timed out, exhausted its retries or tripped its circuit breaker is an upstream failure, not a defect here, so 502 says who failed where a 500 would read as a bug.
+            // A provider that timed out, exhausted its retries or tripped its circuit breaker is an upstream failure,
+            // not a defect here, so 502 says who failed where a 500 would read as a bug.
             // The only outbound HTTP an action makes is to those providers.
             TimeoutRejectedException or BrokenCircuitException or HttpRequestException =>
                 (DescribeUpstreamFailure(context.Exception), StatusCodes.Status502BadGateway),
@@ -42,7 +43,8 @@ public sealed class ApiExceptionFilterAttribute(ILogger<ApiExceptionFilterAttrib
     /// <summary>
     /// Says what the provider actually did, in place of the raw framework message.
     /// <para>
-    /// The default <see cref="HttpRequestException"/> text describes an exchange the reader cannot see, and once wrapped in this API's 502, the admin would only read "502 (Bad Gateway)", the provider's own status lost.
+    /// The default <see cref="HttpRequestException"/> text describes an exchange the reader cannot see,
+    /// and once wrapped in this API's 502, the admin would only read "502 (Bad Gateway)", the provider's own status lost.
     /// A Google Books search outage, every <c>volumes?q=</c> answering 503, would then read as a bug here.
     /// The cases below are those that change what an operator does next: wait, retry, or switch provider.
     /// </para>

@@ -4,7 +4,8 @@ using Keeptrack.Domain.Services;
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// The search policy of every <see cref="IVideoGameReferenceClient"/>, written once like <see cref="BookReferenceClientBase"/>: each provider supplies its query shapes, and the order and handling of answers live here.
+/// The search policy of every <see cref="IVideoGameReferenceClient"/>, written once like <see cref="BookReferenceClientBase"/>:
+/// each provider supplies its query shapes, and the order and handling of answers live here.
 /// <para>
 /// A relevance search alone is no answer in this domain.
 /// IGDB's <c>search "Code Vein"</c> ranks the 2019 game sixth, behind its sequel and DLC, so a list of five never holds it.
@@ -12,8 +13,10 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// </para>
 /// <para>
 /// Two rules follow.
-/// A game named exactly so is fetched directly (<see cref="IVideoGameReferenceClient.FindGamesByExactTitleAsync"/>), so a perfect match is always a candidate, however deep relevance buries it.
-/// The relevance query reads a <see cref="RelevancePoolSize"/> pool, and <see cref="ReferenceMatchRules.OrderByBestMatch"/> picks what is shown, since truncating before ranking loses the right candidate.
+/// A game named exactly so is fetched directly (<see cref="IVideoGameReferenceClient.FindGamesByExactTitleAsync"/>),
+/// so a perfect match is always a candidate, however deep relevance buries it.
+/// The relevance query reads a <see cref="RelevancePoolSize"/> pool,
+/// and <see cref="ReferenceMatchRules.OrderByBestMatch"/> picks what is shown, since truncating before ranking loses the right candidate.
 /// </para>
 /// </summary>
 public abstract class VideoGameReferenceClientBase : IVideoGameReferenceClient
@@ -43,7 +46,8 @@ public abstract class VideoGameReferenceClientBase : IVideoGameReferenceClient
     /// <summary>
     /// One page of the provider's relevance search for <paramref name="title"/>, up to <paramref name="limit"/> results, in its own order.
     /// <para>
-    /// It takes no year, like <see cref="BookReferenceClientBase.SearchByTitleAsync"/>: a provider's date is the earliest worldwide release, while a tenant types the year of their own release, so a filter would drop a good match.
+    /// It takes no year, like <see cref="BookReferenceClientBase.SearchByTitleAsync"/>: a provider's date is the earliest worldwide release,
+    /// while a tenant types the year of their own release, so a filter would drop a good match.
     /// <see cref="ReferenceMatchRules.YearRank"/> uses the year instead, where a wrong one costs a place rather than the result.
     /// </para>
     /// </summary>

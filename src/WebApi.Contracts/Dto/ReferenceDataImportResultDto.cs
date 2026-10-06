@@ -4,7 +4,8 @@ namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
 /// What a reference-data zip import (POST /api/reference-data/import) did, per collection.
-/// Documents match by provider id (TMDB, IGDB, Google Books), never by their exported <c>_id</c>, so "updated" means the target already knew the work under its own id, which the import keeps.
+/// Documents match by provider id (TMDB, IGDB, Google Books), never by their exported <c>_id</c>,
+/// so "updated" means the target already knew the work under its own id, which the import keeps.
 /// </summary>
 public class ReferenceDataImportResultDto
 {

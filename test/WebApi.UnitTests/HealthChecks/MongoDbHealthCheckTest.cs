@@ -31,7 +31,8 @@ public class MongoDbHealthCheckTest
     }
 
     /// <summary>
-    /// Covers a transport failure (server unreachable) and a command failure (a database the connection string's user isn't authorized for), both surfacing as an exception out of RunCommandAsync.
+    /// Covers a transport failure (server unreachable) and a command failure (a database the connection string's user isn't authorized for),
+    /// both surfacing as an exception out of RunCommandAsync.
     /// </summary>
     [Fact]
     public async Task CheckHealthAsync_ReturnsUnhealthy_WhenThePingCommandThrows()

@@ -15,8 +15,10 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
 /// <summary>
-/// IGDB is the one provider authenticating with a token rather than an api key, so the token's two pieces get their own coverage: the cache in front of Twitch, and the handler attaching it and recovering from a rejection.
-/// The client's tests can't exercise either, and getting either wrong is silent: an over-eager cache fetches on every call, and a missing 401 retry breaks every IGDB request until a restart.
+/// IGDB is the one provider authenticating with a token rather than an api key, so the token's two pieces get their own coverage:
+/// the cache in front of Twitch, and the handler attaching it and recovering from a rejection.
+/// The client's tests can't exercise either, and getting either wrong is silent:
+/// an over-eager cache fetches on every call, and a missing 401 retry breaks every IGDB request until a restart.
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class IgdbAuthenticationTest
@@ -79,7 +81,8 @@ public class IgdbAuthenticationTest
     public async Task GetTokenAsync_FetchesAgain_WhenTheCachedTokenIsAlreadyPastItsRenewalPoint()
     {
         // an already-expired token must never be served from the cache.
-        // The renewal margin is capped at half the token's lifetime for the same reason in reverse: a fixed margin longer than the lifetime would make *every* token look expired on arrival and turn the cache into an extra round trip per call.
+        // The renewal margin is capped at half the token's lifetime for the same reason in reverse:
+        // a fixed margin longer than the lifetime would make *every* token look expired on arrival and turn the cache into an extra round trip per call.
         var handler = new StubHandler(call => TokenResponse($"t{call}", 0));
         var provider = CreateProvider(handler);
 

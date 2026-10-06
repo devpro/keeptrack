@@ -10,10 +10,12 @@ using Keeptrack.Domain.Repositories;
 namespace Keeptrack.Domain.Services;
 
 /// <summary>
-/// Imports a reference-data export (<c>ReferenceDataAdminController.Export</c>) into what the target database holds, matching each document by its <b>provider id</b>, never by its exported <c>_id</c>.
+/// Imports a reference-data export (<c>ReferenceDataAdminController.Export</c>) into what the target database holds,
+/// matching each document by its <b>provider id</b>, never by its exported <c>_id</c>.
 /// <para>
 /// A MongoDB <c>_id</c> is local to the database that minted it.
-/// Upserting by it would land a work the target already resolved (TMDB 1396) as a second document, which the unique indexes on <c>external_ids.*</c> reject, failing the import partway.
+/// Upserting by it would land a work the target already resolved (TMDB 1396) as a second document,
+/// which the unique indexes on <c>external_ids.*</c> reject, failing the import partway.
 /// A provider id is the same fact everywhere, and the key <c>Resolve&lt;X&gt;Async</c> deduplicates on.
 /// Matching on it keeps the target's <c>_id</c>, so every tenant's <c>ReferenceId</c> and every <see cref="CastMemberModel.PersonReferenceId"/> still resolves.
 /// </para>
@@ -23,7 +25,8 @@ namespace Keeptrack.Domain.Services;
 /// </para>
 /// <para>
 /// A match <b>merges</b> rather than replaces.
-/// An export is a snapshot of one environment, and the target may know more: aliases its own tenants confirmed, and ratings from a provider the exporter never called (an IMDb value costs a metered OMDb call).
+/// An export is a snapshot of one environment, and the target may know more: aliases its own tenants confirmed,
+/// and ratings from a provider the exporter never called (an IMDb value costs a metered OMDb call).
 /// Accumulated values are unioned, and a value the import lacks leaves the target's, never overwriting with nothing.
 /// </para>
 /// </summary>
@@ -141,7 +144,8 @@ public static class ReferenceDataImportService
             else
             {
                 counts.Created++;
-                // a new document naming a work the target already knew means the two use different provider ids and could not match (see ReferenceDataImportSummary.PossibleDuplicates)
+                // a new document naming a work the target already knew means the two use different provider ids
+                // and could not match (see ReferenceDataImportSummary.PossibleDuplicates)
                 if (identityOf is not null)
                 {
                     var (title, year) = identityOf(saved);
@@ -206,7 +210,8 @@ public static class ReferenceDataImportService
 
     /// <summary>
     /// The "same work" key for reporting duplicates only, never for matching, which is by provider id.
-    /// Loose normalization notices a work two catalogues spell differently ("Mass Effect: Legendary Edition" and "Mass Effect Legendary Edition"), and the year keeps a remake apart from its original.
+    /// Loose normalization notices a work two catalogues spell differently ("Mass Effect: Legendary Edition" and "Mass Effect Legendary Edition"),
+    /// and the year keeps a remake apart from its original.
     /// </summary>
     private static string TitleKey((string Title, int? Year) identity) =>
         $"{TitleNormalizer.NormalizeLoose(identity.Title)}|{identity.Year}";

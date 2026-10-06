@@ -13,7 +13,9 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
 /// <summary>
-/// The sample responses below are trimmed but otherwise verbatim in shape from the real Discogs API, including the noise this client exists to filter: <c>q=</c> is free text over the artist name, label, credits and tracklist, so a search returns ordinary-looking hits whose release title never contained the searched words at all.
+/// The sample responses below are trimmed but otherwise verbatim in shape from the real Discogs API, including the noise this client exists to filter:
+/// <c>q=</c> is free text over the artist name, label, credits and tracklist,
+/// so a search returns ordinary-looking hits whose release title never contained the searched words at all.
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class DiscogsClientTest

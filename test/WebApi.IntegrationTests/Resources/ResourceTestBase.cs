@@ -41,9 +41,11 @@ public abstract class ResourceTestBase(KestrelWebAppFactory<Program> factory)
 
     /// <summary>
     /// Registers a resource created over the API for deletion when the test ends.
-    /// Prefer <see cref="CreateAsync{T}"/>, which does this itself, and use this directly for the endpoints whose create response isn't the resource itself (an import commit, a share grant read back from a list).
+    /// Prefer <see cref="CreateAsync{T}"/>, which does this itself,
+    /// and use this directly for the endpoints whose create response isn't the resource itself (an import commit, a share grant read back from a list).
     /// <para>
-    /// The delete is status-agnostic on purpose: plenty of tests delete their own subject as part of what they assert (revoking a share, the cascade-delete cases), and a cleanup that insisted on 204 would turn that correct behavior into a failure.
+    /// The delete is status-agnostic on purpose: plenty of tests delete their own subject as part of what they assert (revoking a share, the cascade-delete cases),
+    /// and a cleanup that insisted on 204 would turn that correct behavior into a failure.
     /// </para>
     /// </summary>
     protected void TrackResource(string resourceEndpoint, string? id)
@@ -128,7 +130,8 @@ public abstract class ResourceTestBase(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// For endpoints whose request and response bodies differ in type (a create request DTO answered with the created resource), the single-type overload above covering the common CRUD case.
+    /// For endpoints whose request and response bodies differ in type (a create request DTO answered with the created resource),
+    /// the single-type overload above covering the common CRUD case.
     /// </summary>
     protected async Task<TResult> PostAsync<TBody, TResult>(string url, TBody body, HttpStatusCode httpStatusCode = HttpStatusCode.OK)
     {
@@ -145,7 +148,8 @@ public abstract class ResourceTestBase(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// For POST endpoints returning no body (204 No Content, like <c>POST /api/reference-data/link</c>), since the other <c>PostAsync</c> overloads assume a JSON body and would throw on an empty one.
+    /// For POST endpoints returning no body (204 No Content, like <c>POST /api/reference-data/link</c>),
+    /// since the other <c>PostAsync</c> overloads assume a JSON body and would throw on an empty one.
     /// The status-check-only shape of <see cref="PutAsync{T}"/>, over POST.
     /// </summary>
     protected async Task PostNoContentAsync<T>(string url, T body, HttpStatusCode httpStatusCode = HttpStatusCode.NoContent)
@@ -168,7 +172,8 @@ public abstract class ResourceTestBase(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// The no-body POST counterpart of <see cref="GetThroughLiveProviderAsync{T}"/>, for the actions that reach the provider again after a search (linking re-fetches the chosen candidate's details).
+    /// The no-body POST counterpart of <see cref="GetThroughLiveProviderAsync{T}"/>,
+    /// for the actions that reach the provider again after a search (linking re-fetches the chosen candidate's details).
     /// </summary>
     protected async Task PostNoContentThroughLiveProviderAsync<T>(string url, T body, string provider)
     {

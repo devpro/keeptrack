@@ -16,7 +16,8 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 /// Real-MongoDB coverage for the periodic sync's "what to refresh next" query, which a mocked repository can't prove.
 /// <para>
 /// Two server-side behaviours carry the whole design.
-/// A never-enriched document comes first, which the date comparison alone can't give: MongoDB compares within a type, so <c>$lte</c> against a date matches neither null nor an absent field.
+/// A never-enriched document comes first, which the date comparison alone can't give:
+/// MongoDB compares within a type, so <c>$lte</c> against a date matches neither null nor an absent field.
 /// The ordering makes the per-pass cap safe, since what a pass doesn't reach leads the next, or a collection larger than the cap would never refresh its tail.
 /// </para>
 /// <para>
@@ -68,7 +69,8 @@ public class ReferenceStalenessRepositoryTest(KestrelWebAppFactory<Program> fact
         await CreateAsync(repository, marker, "b", now.AddDays(-20));
         await CreateAsync(repository, marker, "c", now.AddDays(-10));
 
-        // asserted over the whole page rather than this test's own documents: the cap applies to the collection, which is shared and owner-less, so a parallel class's stale documents legitimately occupy part of it
+        // asserted over the whole page rather than this test's own documents: the cap applies to the collection,
+        // which is shared and owner-less, so a parallel class's stale documents legitimately occupy part of it
         var page = await repository.FindStaleAsync(now.AddDays(-3), 2);
 
         page.Should().HaveCountLessThanOrEqualTo(2);

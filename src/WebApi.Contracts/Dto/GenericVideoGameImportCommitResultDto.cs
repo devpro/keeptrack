@@ -17,7 +17,8 @@ public class GenericVideoGameImportCommitResultDto
 
     /// <summary>
     /// The rows that got a platform entry added, on a new game or an existing one.
-    /// <see cref="VideoGamesCreated"/> and <see cref="VideoGamesMergedInto"/> count distinct games, so rows sharing a title make them add up to less than the rows, without any loss.
+    /// <see cref="VideoGamesCreated"/> and <see cref="VideoGamesMergedInto"/> count distinct games,
+    /// so rows sharing a title make them add up to less than the rows, without any loss.
     /// <c>RowsImported + VideoGamesSkipped</c> always equals the rows submitted, which shows the user nothing was silently dropped.
     /// </summary>
     public int RowsImported { get; set; }

@@ -21,7 +21,8 @@ public partial class ReferenceEnrichmentService
 
     /// <summary>
     /// The local half of "check for reference match" for albums (see <see cref="TryLinkExistingTvShowReferenceAsync"/>), against <c>album_reference</c>.
-    /// A match also sets <see cref="AlbumModel.Year"/>, <see cref="AlbumModel.Artist"/> (the name from <see cref="AlbumReferenceModel.ArtistReferenceId"/>'s person) and <see cref="AlbumModel.Genre"/> to the reference's values.
+    /// A match also sets <see cref="AlbumModel.Year"/>,
+    /// <see cref="AlbumModel.Artist"/> (the name from <see cref="AlbumReferenceModel.ArtistReferenceId"/>'s person) and <see cref="AlbumModel.Genre"/> to the reference's values.
     /// </summary>
     public async Task<AlbumModel> TryLinkExistingAlbumReferenceAsync(AlbumModel model)
     {
@@ -85,10 +86,12 @@ public partial class ReferenceEnrichmentService
     /// Best-effort automatic match for albums (see <see cref="TryAutoResolveTvShowAsync"/>).
     /// <para>
     /// <b>An album is its title and its artist</b>, like a book: one release exists as many records, so the year breaks ties, and an artist is required (owner's rule).
-    /// Several confirmed candidates are pressings of one release, Discogs returning two masters for "Thriller" by Michael Jackson, so the best is linked (see <see cref="ReferenceMatchRules.ConfirmedCreatorMatches"/>).
+    /// Several confirmed candidates are pressings of one release, Discogs returning two masters for "Thriller" by Michael Jackson,
+    /// so the best is linked (see <see cref="ReferenceMatchRules.ConfirmedCreatorMatches"/>).
     /// </para>
     /// <para>
-    /// Counting rows fails both ways here too: "Kid A" comes back beside "Kid A (The World Premier Broadcast)", and <c>q=Kid A&amp;artist=Radiohead&amp;year=2001</c> returns only <i>Amnesiac</i>.
+    /// Counting rows fails both ways here too: "Kid A" comes back beside "Kid A (The World Premier Broadcast)",
+    /// and <c>q=Kid A&amp;artist=Radiohead&amp;year=2001</c> returns only <i>Amnesiac</i>.
     /// </para>
     /// </summary>
     public async Task TryAutoResolveAlbumAsync(AlbumModel item)
@@ -117,7 +120,8 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// "Check for reference match" for albums (see <see cref="LinkTvShowReferenceAsync"/>), the missing field being the artist, as the author is for books (<see cref="LinkBookReferenceAsync"/>).
+    /// "Check for reference match" for albums (see <see cref="LinkTvShowReferenceAsync"/>), the missing field being the artist,
+    /// as the author is for books (<see cref="LinkBookReferenceAsync"/>).
     /// </summary>
     public async Task<AlbumModel> LinkAlbumReferenceAsync(AlbumModel model)
     {

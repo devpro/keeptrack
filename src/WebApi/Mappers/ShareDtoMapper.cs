@@ -6,7 +6,8 @@ namespace Keeptrack.WebApi.Mappers;
 /// <summary>
 /// Maps the <see cref="ShareModel"/> grant to and from its public DTOs.
 /// The Domain and Contracts <c>ShareCategory</c> enums map by name, so drift is a build error.
-/// <see cref="Controllers.ShareController"/> sets <c>OwnerId</c> and <c>OwnerDisplayName</c> from the authenticated caller after <see cref="ToModel"/>, never from the request body.
+/// <see cref="Controllers.ShareController"/> sets <c>OwnerId</c> and <c>OwnerDisplayName</c> from the authenticated caller after <see cref="ToModel"/>,
+/// never from the request body.
 /// </summary>
 [Mapper(EnumMappingStrategy = EnumMappingStrategy.ByName)]
 public partial class ShareDtoMapper

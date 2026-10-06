@@ -4,8 +4,10 @@ using MongoDB.Driver;
 namespace Keeptrack.WebApi.HealthChecks;
 
 /// <summary>
-/// Runs a <c>ping</c> against the configured <see cref="IMongoDatabase"/>, checking this instance's connection string, credentials and database name, not only that a server is reachable.
-/// A database the user is not authorized on, such as an Atlas user scoped to another database, fails at command level, so a socket check would report healthy until the first real query.
+/// Runs a <c>ping</c> against the configured <see cref="IMongoDatabase"/>,
+/// checking this instance's connection string, credentials and database name, not only that a server is reachable.
+/// A database the user is not authorized on, such as an Atlas user scoped to another database, fails at command level,
+/// so a socket check would report healthy until the first real query.
 /// </summary>
 public sealed class MongoDbHealthCheck(IMongoDatabase database) : IHealthCheck
 {

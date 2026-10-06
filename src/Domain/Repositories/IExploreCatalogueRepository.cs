@@ -22,11 +22,13 @@ public interface IExploreCatalogueRepository
     /// Ordered by rank, so coverage fills from the top of the list down.
     /// An entry qualifies when either:
     /// <list type="bullet">
-    /// <item>its rating is missing and was not attempted since <paramref name="notAttemptedSince"/>, which stops titles the source has nothing for spending the budget on every pass;</item>
+    /// <item>its rating is missing and was not attempted since <paramref name="notAttemptedSince"/>,
+    /// which stops titles the source has nothing for spending the budget on every pass;</item>
     /// <item>its <see cref="ExploreCatalogueEntryModel.WebUrls"/> link is missing although it has a rating.</item>
     /// </list>
     /// A rated entry without a link had its provider id resolved before links were stored, so one lookup closes it for good.
-    /// That half carries no window, which would delay a link available now, and still terminates: an entry with no provider id never gets a rating either, so only the first half, with its window, can match it.
+    /// That half carries no window, which would delay a link available now, and still terminates:
+    /// an entry with no provider id never gets a rating either, so only the first half, with its window, can match it.
     /// </summary>
     Task<IReadOnlyList<ExploreCatalogueEntryModel>> FindMissingRatingOrLinkAsync(
         ExploreItemType type, string ranking, string source, DateTime notAttemptedSince, int take);
@@ -39,7 +41,8 @@ public interface IExploreCatalogueRepository
 
     /// <summary>
     /// Records the entry's page on <paramref name="source"/>'s website.
-    /// Separate from <see cref="RecordRatingAttemptAsync"/>, since a link is worth keeping once the provider id resolves, even when the rating lookup never happened (no key, spent budget, failed request).
+    /// Separate from <see cref="RecordRatingAttemptAsync"/>, since a link is worth keeping once the provider id resolves,
+    /// even when the rating lookup never happened (no key, spent budget, failed request).
     /// </summary>
     Task SetWebUrlAsync(ExploreItemType type, string ranking, string externalId, string source, string webUrl);
 

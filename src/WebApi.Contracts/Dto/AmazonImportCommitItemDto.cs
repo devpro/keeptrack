@@ -13,7 +13,8 @@ public class AmazonImportCommitItemDto
     public required string RowId { get; set; }
 
     /// <summary>
-    /// The order number and, with <see cref="Asin"/>, Amazon's product id: the server builds the owned copy's <c>Reference</c> and exact dedup key from them (<c>AmazonImportMergeService.FormatOrderReference</c>).
+    /// The order number and, with <see cref="Asin"/>, Amazon's product id:
+    /// the server builds the owned copy's <c>Reference</c> and exact dedup key from them (<c>AmazonImportMergeService.FormatOrderReference</c>).
     /// They are echoed from the preview row rather than a client-built reference, so the format matches what a later preview checks, and several items of one order stay distinct.
     /// </summary>
     public required string OrderId { get; set; }
@@ -30,7 +31,8 @@ public class AmazonImportCommitItemDto
 
     /// <summary>
     /// Which trackable type to create or merge this row as.
-    /// Nullable and required by the server, like <see cref="Platform"/> for a video game, rather than defaulting to <see cref="AmazonImportMediaType.Book"/>, so a row is never committed as a book because the reviewer forgot to pick a type.
+    /// Nullable and required by the server, like <see cref="Platform"/> for a video game,
+    /// rather than defaulting to <see cref="AmazonImportMediaType.Book"/>, so a row is never committed as a book because the reviewer forgot to pick a type.
     /// </summary>
     public AmazonImportMediaType? MediaType { get; set; }
 

@@ -131,6 +131,12 @@ The book default: synopses, covers, language, and the widest catalogue, manga in
 It queries `intitle:`/`inauthor:`, with an `isbn` as the sole query when given, and serves no ratings (see [Ratings](reference-data.md#ratings)).
 
 - Its `volumes?q=` endpoint can be down for days while `volumes/{id}` answers, so a "book search is broken" report starts with a `curl` of the search endpoint.
+- **`volumes?q=` can also answer 200 with `totalItems: 0` for `intitle:` queries, with a valid key.**
+  `intitle:Dune`, `intitle:Hamlet` and `intitle:Neuromancer` returned nothing while `intitle:Harry Potter` returned 22 results, and the plain `Dune` and `inauthor:Frank Herbert` kept answering.
+  The `isbn:` and `subject:` operators returned nothing as well, and one call answered 503.
+  Nothing announced a change, so it reads as a degraded search index and not a quota or key problem (a keyless call answers 429 for quota).
+  Book matching then links nothing, and `ReferenceMatchResourceTest`'s book cases fail with "linked null" after their 90 second poll.
+  The check is a `curl` of `intitle:Dune` against the plain `Dune` with the same key: when only the first is empty, the provider is at fault and the repository is not.
 - `CleanDescription` decodes entities **first**, converts newlines to `<br/>`, then rebuilds only bare `b`/`i`/`br` tags and strips everything else, which is what makes `BookDetail.razor`'s `MarkupString` safe:
   **a `MarkupString` is never rendered from text that has not been through it.**
 - Thumbnails are upgraded to `https://` against mixed-content blocking.

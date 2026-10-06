@@ -31,7 +31,8 @@ public class SharedWishlistSmokeTest(End2EndFixture fixture) : SmokeTestBase(fix
         var shareResponse = await api.PostAsJsonAsync("api/wishlist/shares", new CreateWishlistShareRequestDto { Label = "E2e recipient" }, TestContext.Current.CancellationToken);
         shareResponse.EnsureSuccessStatusCode();
         var share = (await shareResponse.Content.ReadFromJsonAsync<WishlistShareDto>(TestContext.Current.CancellationToken))!;
-        // the revoke below is part of what this test asserts; registering the share as well covers the run where an assertion before it fails (deleting an already-revoked share is a no-op)
+        // the revoke below is part of what this test asserts;
+        // registering the share as well covers the run where an assertion before it fails (deleting an already-revoked share is a no-op)
         TrackCleanup(() => Fixture.DeleteItemAsync($"api/wishlist/shares/{share.Id}"));
 
         // a brand-new context with no cookies and no storage state, a share recipient's browser

@@ -15,7 +15,8 @@ public static class SharingLabels
         _ => category.ToString()
     };
 
-    // The categories' display order, matching the nav menu (NavMenu.razor), so tabs and summaries read the same everywhere, whatever order the owner clicked them in when creating the share.
+    // The categories' display order, matching the nav menu (NavMenu.razor),
+    // so tabs and summaries read the same everywhere, whatever order the owner clicked them in when creating the share.
     // Any category missing here sorts last.
     private static readonly ShareCategory[] s_displayOrder =
     [

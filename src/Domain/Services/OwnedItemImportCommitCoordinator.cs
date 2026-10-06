@@ -9,8 +9,10 @@ namespace Keeptrack.Domain.Services;
 
 /// <summary>
 /// Creates or merges reviewed import rows across the six owned-item types, written once.
-/// Both multi-type importers (<c>AmazonImportController</c>, <c>GenericImportController</c>) hand it a list of <see cref="OwnedItemImportInput"/> and get per-type <see cref="OwnedItemImportCommitCounts"/> back, so neither repeats the per-type branching.
-/// The merge decision comes from <see cref="OwnedItemImportMergeService.ComputeCommitPlan{TModel,TRequestItem}"/>: this only splits the inputs by <see cref="ImportMediaType"/>, supplies each type's construction delegates and persists the plan.
+/// Both multi-type importers (<c>AmazonImportController</c>, <c>GenericImportController</c>) hand it a list of <see cref="OwnedItemImportInput"/>
+/// and get per-type <see cref="OwnedItemImportCommitCounts"/> back, so neither repeats the per-type branching.
+/// The merge decision comes from <see cref="OwnedItemImportMergeService.ComputeCommitPlan{TModel,TRequestItem}"/>:
+/// this only splits the inputs by <see cref="ImportMediaType"/>, supplies each type's construction delegates and persists the plan.
 /// Repository access lives here rather than in a controller so the two controllers share it.
 /// </summary>
 public static class OwnedItemImportCommitCoordinator
@@ -117,7 +119,8 @@ public static class OwnedItemImportCommitCoordinator
     }
 
     /// <summary>
-    /// A video game's owned copy is a <see cref="VideoGamePlatformModel"/> with a required platform, not an <see cref="OwnedVersionModel"/>, so the purchase fields are copied onto a new platform entry.
+    /// A video game's owned copy is a <see cref="VideoGamePlatformModel"/> with a required platform,
+    /// not an <see cref="OwnedVersionModel"/>, so the purchase fields are copied onto a new platform entry.
     /// </summary>
     private static VideoGamePlatformModel ToPlatform(OwnedItemImportInput input) => new()
     {

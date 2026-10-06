@@ -13,7 +13,8 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
 /// <summary>
-/// The Explore read path, which pages a stored provider ranking rather than calling a provider: exclusions, the rank cursor, and which stored ordering/rating a domain's admin setting selects.
+/// The Explore read path, which pages a stored provider ranking rather than calling a provider:
+/// exclusions, the rank cursor, and which stored ordering/rating a domain's admin setting selects.
 /// The catalogue mock honours the cursor exactly as the repository does, so the paging assertions here are about real behaviour and not about a stub returning a fixed list.
 /// </summary>
 [Trait("Category", "UnitTests")]
@@ -55,7 +56,8 @@ public class ExploreServiceTest
         };
 
     /// <summary>
-    /// Stands the stored ranking up behind the repository mock, honouring the service's rank cursor and page size, so a test asserts paging continues from the right place rather than only that a call was made.
+    /// Stands the stored ranking up behind the repository mock, honouring the service's rank cursor and page size,
+    /// so a test asserts paging continues from the right place rather than only that a call was made.
     /// </summary>
     private void Catalogue(ExploreItemType type, string ranking, params ExploreCatalogueEntryModel[] entries)
     {
@@ -152,7 +154,8 @@ public class ExploreServiceTest
     public async Task GetSuggestionsAsync_AdvancesTheCursorPastExcludedEntries_SoTheyAreNeverReExamined()
     {
         NoExclusions(ExploreItemType.Movie);
-        // the whole tail after the single survivor is dismissed: the cursor must still reach the end of it, or the next page would re-read and re-filter the same run of titles forever.
+        // the whole tail after the single survivor is dismissed: the cursor must still reach the end of it,
+        // or the next page would re-read and re-filter the same run of titles forever.
         _dismissalRepository.Setup(r => r.FindDismissedExternalIdsAsync("owner", ExploreItemType.Movie, "tmdb"))
             .ReturnsAsync(["m2", "m3", "m4"]);
         Catalogue(ExploreItemType.Movie, "tmdb",
@@ -289,7 +292,8 @@ public class ExploreServiceTest
         var service = CreateService();
         _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync()).ReturnsAsync(new Dictionary<string, string> { ["VideoGame"] = "igdbcritic" });
         NoExclusions(ExploreItemType.VideoGame);
-        // Unlike TMDB, a game provider sorts differently per source, so each source is a separately stored ordering, and reading the wrong one would show the right numbers in the wrong order.
+        // Unlike TMDB, a game provider sorts differently per source, so each source is a separately stored ordering,
+        // and reading the wrong one would show the right numbers in the wrong order.
         Catalogue(ExploreItemType.VideoGame, "igdbcritic",
             Entry(ExploreItemType.VideoGame, "igdbcritic", "g9", 1, ("igdb", 84), ("igdbcritic", 98)));
 

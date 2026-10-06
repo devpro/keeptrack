@@ -16,12 +16,14 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Drives the Explore page against a seeded <c>explore_catalogue</c>: the ranking renders, dismissing a suggestion drops its card for good, a short list tops itself back up (from the button and on its own), and the domain tabs each show their own ranking.
+/// Drives the Explore page against a seeded <c>explore_catalogue</c>: the ranking renders, dismissing a suggestion drops its card for good,
+/// a short list tops itself back up (from the button and on its own), and the domain tabs each show their own ranking.
 /// The API-level <c>ExploreResourceTest</c> proves the cursor paging and the exclusion rules.
 /// Only a browser proves the page's state machine (per-tab cache, busy guard, top-up, <c>?tab=</c> navigation) is wired to it.
 /// <para>
 /// Seeding the catalogue makes this deterministic and provider-free, since a pass this host never runs writes the real ranking weekly from TMDB and IGDB.
-/// The two add tests are the exception: adding resolves the reference from the suggestion's exact provider id, so those entries carry a real one, as <see cref="MovieSmokeTest"/> and <see cref="VideoGameSmokeTest"/> link real titles.
+/// The two add tests are the exception: adding resolves the reference from the suggestion's exact provider id,
+/// so those entries carry a real one, as <see cref="MovieSmokeTest"/> and <see cref="VideoGameSmokeTest"/> link real titles.
 /// </para>
 /// <para>
 /// The list behaviours run over two domains, since more than the page differs between them.
@@ -55,7 +57,8 @@ public partial class ExploreSmokeTest(End2EndFixture fixture) : SmokeTestBase(fi
     /// <para>
     /// Every displayable source carries the same seeded value, so a card shows a rating whichever one the admin setting resolves to.
     /// A domain's sources share a scale (TMDB and IMDb out of 10, IGDB's two out of 100), so the number on screen is the same either way.
-    /// The video game entry names IGDB's sources, since this suite runs against IGDB (<c>End2EndFixture</c> requires its credentials), and a RAWG deployment would rank under other keys.
+    /// The video game entry names IGDB's sources, since this suite runs against IGDB (<c>End2EndFixture</c> requires its credentials),
+    /// and a RAWG deployment would rank under other keys.
     /// </para>
     /// </summary>
     private sealed record Domain(ExploreItemType Type, string TabName, Regex TabUrl, IReadOnlyList<string> RatingSources, double Rating);
@@ -76,7 +79,8 @@ public partial class ExploreSmokeTest(End2EndFixture fixture) : SmokeTestBase(fi
         _ => s_movies
     };
 
-    /// <summary>One seeded suggestion as the test refers to it, written as one catalogue document per ranking (see <see cref="SeedAsync(Domain, IReadOnlyList{Suggestion})"/>).</summary>
+    /// <summary>One seeded suggestion as the test refers to it,
+    /// written as one catalogue document per ranking (see <see cref="SeedAsync(Domain, IReadOnlyList{Suggestion})"/>).</summary>
     private sealed record Suggestion(ExploreItemType Type, string ExternalId, string Title, int Rank, int Year);
 
     [Theory]
@@ -99,7 +103,8 @@ public partial class ExploreSmokeTest(End2EndFixture fixture) : SmokeTestBase(fi
         await Assertions.Expect(explore.Card(seeded[0].Title)).ToBeVisibleAsync();
         await Assertions.Expect(explore.Card(seeded[2].Title)).ToBeVisibleAsync();
 
-        // Refresh drops the page's cached tab and re-fetches: the dismissal only survives that if it was recorded server-side, which is the half a "card disappeared" assertion on its own can't tell apart from the client simply having removed it from a list.
+        // Refresh drops the page's cached tab and re-fetches: the dismissal only survives that if it was recorded server-side,
+        // which is the half a "card disappeared" assertion on its own can't tell apart from the client simply having removed it from a list.
         await explore.RefreshAsync(seeded[0].Title);
         await Assertions.Expect(explore.Card(seeded[1].Title)).ToBeHiddenAsync();
         await Assertions.Expect(explore.ErrorAlert).ToBeHiddenAsync();
@@ -131,7 +136,8 @@ public partial class ExploreSmokeTest(End2EndFixture fixture) : SmokeTestBase(fi
 
     /// <summary>
     /// The other half of "load more": nobody clicks anything.
-    /// Removing a card takes the list below a full page, and the page continues from its cursor on its own so the user is never left with a thinning list they have to ask to refill.
+    /// Removing a card takes the list below a full page,
+    /// and the page continues from its cursor on its own so the user is never left with a thinning list they have to ask to refill.
     /// </summary>
     [Theory]
     [InlineData(ExploreItemType.Movie)]
@@ -150,7 +156,8 @@ public partial class ExploreSmokeTest(End2EndFixture fixture) : SmokeTestBase(fi
 
         await DismissAsync(explore, seeded[0]);
 
-        // back to a full page, with the next-ranked title appended at the end rather than the list being re-fetched from the top: a top-up that re-requested page one would put seeded[1] first and could only ever backfill from titles already shown.
+        // back to a full page, with the next-ranked title appended at the end rather than the list being re-fetched from the top:
+        // a top-up that re-requested page one would put seeded[1] first and could only ever backfill from titles already shown.
         await Assertions.Expect(explore.Card(seeded[PageCount].Title)).ToBeVisibleAsync();
         await Assertions.Expect(explore.Cards).ToHaveCountAsync(PageCount);
         await Assertions.Expect(explore.Cards.Last).ToContainTextAsync(seeded[PageCount].Title);
@@ -189,7 +196,8 @@ public partial class ExploreSmokeTest(End2EndFixture fixture) : SmokeTestBase(fi
     }
 
     /// <summary>
-    /// What an add has to resolve against a real provider, per domain: a title with an unambiguous entry in that provider's catalogue, its id there, and where the item lands once it exists.
+    /// What an add has to resolve against a real provider, per domain:
+    /// a title with an unambiguous entry in that provider's catalogue, its id there, and where the item lands once it exists.
     /// </summary>
     private sealed record AddCase(
         Domain Domain,
@@ -222,7 +230,8 @@ public partial class ExploreSmokeTest(End2EndFixture fixture) : SmokeTestBase(fi
     public Task Add_CreatesTheSuggestedVideoGame_LinkedToItsReference() => AddResolvesTheSuggestionAsync(s_portal2);
 
     /// <summary>
-    /// One add, end to end: the card's provider id has to become a created item linked to a reference document, which is the whole reason this path exists instead of the ordinary create (whose title search only links on a single candidate).
+    /// One add, end to end: the card's provider id has to become a created item linked to a reference document,
+    /// which is the whole reason this path exists instead of the ordinary create (whose title search only links on a single candidate).
     /// </summary>
     private async Task AddResolvesTheSuggestionAsync(AddCase test)
     {
@@ -262,7 +271,8 @@ public partial class ExploreSmokeTest(End2EndFixture fixture) : SmokeTestBase(fi
         // A shared canonical fact deduplicated by provider id is reused by a re-run, and deleting it would only force a re-fetch.
         TrackOpenItem(test.ApiRoute);
 
-        // a cover is only rendered from a hydrated reference image, so it is the detail page's own evidence that Explore's add resolved the reference by provider id rather than just creating a bare item.
+        // a cover is only rendered from a hydrated reference image,
+        // so it is the detail page's own evidence that Explore's add resolved the reference by provider id rather than just creating a bare item.
         await Assertions.Expect(detail.CoverImage.First).ToBeVisibleAsync();
     }
 
@@ -285,7 +295,8 @@ public partial class ExploreSmokeTest(End2EndFixture fixture) : SmokeTestBase(fi
     /// Seeding writes straight to MongoDB, which only self-hosted mode can reach; every test here needs it.
     /// <para>
     /// It also checks the premise of the whole class, that a seeded ranking is the whole ranking, and says so when it doesn't hold.
-    /// Sharing a database with a suite whose <c>sync-now</c> tests rebuild the real TMDB ranking breaks it, with real films (The Godfather, Parasite) interleaved with the seeded ones by rank.
+    /// Sharing a database with a suite whose <c>sync-now</c> tests rebuild the real TMDB ranking breaks it,
+    /// with real films (The Godfather, Parasite) interleaved with the seeded ones by rank.
     /// The only symptom would be a card count that matches nothing, so naming the cause costs one count and saves the hunt.
     /// </para>
     /// </summary>
@@ -318,10 +329,12 @@ public partial class ExploreSmokeTest(End2EndFixture fixture) : SmokeTestBase(fi
     }
 
     /// <summary>
-    /// Writes one catalogue document per suggestion <em>per ordering the domain maintains</em>, since which of them the page reads follows an admin setting no test controls (see <see cref="End2EndFixture.ExploreRankingsFor"/>).
+    /// Writes one catalogue document per suggestion <em>per ordering the domain maintains</em>,
+    /// since which of them the page reads follows an admin setting no test controls (see <see cref="End2EndFixture.ExploreRankingsFor"/>).
     /// Movies and TV have a single ordering and so a single document each; video games have one per IGDB rating source.
     /// <para>
-    /// The removal is registered <em>before</em> writing: a partially-written batch is exactly the case a cleanup registered afterwards would miss, and synthetic entries left behind under the collection's unique natural key are what fails tomorrow's run.
+    /// The removal is registered <em>before</em> writing: a partially-written batch is exactly the case a cleanup registered afterwards would miss,
+    /// and synthetic entries left behind under the collection's unique natural key are what fails tomorrow's run.
     /// </para>
     /// </summary>
     private async Task SeedAsync(Domain domain, IReadOnlyList<Suggestion> suggestions)

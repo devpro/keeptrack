@@ -6,7 +6,8 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Proves every page loads with its header and no error boundary, reached as a user does, through the sidebar from Home rather than a direct URL (each <c>Open&lt;X&gt;Async()</c> asserts it through <see cref="PageBase.WaitForReadyAsync"/>).
+/// Proves every page loads with its header and no error boundary, reached as a user does, through the sidebar from Home
+/// rather than a direct URL (each <c>Open&lt;X&gt;Async()</c> asserts it through <see cref="PageBase.WaitForReadyAsync"/>).
 /// Read-only safe, it also runs under <c>E2E_READONLY</c>.
 /// </summary>
 [Trait("Category", "E2eTests")]

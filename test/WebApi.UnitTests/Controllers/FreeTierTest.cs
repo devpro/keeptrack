@@ -21,7 +21,8 @@ namespace Keeptrack.WebApi.UnitTests.Controllers;
 
 /// <summary>
 /// Covers the free preview tier's two enforcement mechanisms.
-/// The creation quota in <see cref="DataCrudControllerBase{TDto,TModel}.Post"/> is exercised directly with a non-member principal, since the integration suite's Firebase account is an admin, which the quota never counts.
+/// The creation quota in <see cref="DataCrudControllerBase{TDto,TModel}.Post"/> is exercised directly with a non-member principal,
+/// since the integration suite's Firebase account is an admin, which the quota never counts.
 /// The "MemberOnly" policy attribute on every restricted controller has a reflection guard, so removing one fails a test rather than silently opening the controller.
 /// </summary>
 [Trait("Category", "UnitTests")]

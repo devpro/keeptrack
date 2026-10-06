@@ -8,7 +8,8 @@ namespace Keeptrack.WebApi.Controllers;
 
 /// <summary>
 /// The shared fuel station catalogue.
-/// Not a <see cref="DataCrudControllerBase{TDto, TModel}"/>, which scopes every query to the caller and stamps an <c>OwnerId</c> this collection does not have (see <see cref="CarStationModel"/>).
+/// Not a <see cref="DataCrudControllerBase{TDto, TModel}"/>,
+/// which scopes every query to the caller and stamps an <c>OwnerId</c> this collection does not have (see <see cref="CarStationModel"/>).
 /// </summary>
 /// <remarks>
 /// Reading and creating are open to any member, curating is admin only.
@@ -153,7 +154,8 @@ public class CarStationController(
     }
 
     /// <summary>
-    /// Admin only: folds <paramref name="id"/> into <paramref name="targetId"/>, re-pointing every entry before deleting the absorbed document, as the video game reference merge does.
+    /// Admin only: folds <paramref name="id"/> into <paramref name="targetId"/>,
+    /// re-pointing every entry before deleting the absorbed document, as the video game reference merge does.
     /// </summary>
     [HttpPost("{id}/merge/{targetId}")]
     [Authorize(Policy = "AdminOnly")]

@@ -27,7 +27,8 @@ public class VideoGameRepository(IMongoDatabase mongoDatabase, ILogger<VideoGame
     protected override Expression<Func<VideoGame, object>> SortReferenceRatingField => x => x.ReferenceRating!;
 
     /// <summary>
-    /// "Last completed" sorts by the latest <c>CompletedAt</c> across <see cref="VideoGame.Platforms"/>, not a single field, so it cannot use the <c>SortSecondaryDateField</c> hook.
+    /// "Last completed" sorts by the latest <c>CompletedAt</c> across <see cref="VideoGame.Platforms"/>,
+    /// not a single field, so it cannot use the <c>SortSecondaryDateField</c> hook.
     /// A descending sort on a dotted array field compares by its maximum element, so no aggregation pipeline is needed.
     /// </summary>
     protected override SortDefinition<VideoGame> GetSort(string? sort) =>

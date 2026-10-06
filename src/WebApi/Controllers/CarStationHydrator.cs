@@ -4,7 +4,8 @@ using Keeptrack.WebApi.Contracts.Dto;
 namespace Keeptrack.WebApi.Controllers;
 
 /// <summary>
-/// Fills <see cref="CarHistoryDto.StationBrandName"/> and <see cref="CarHistoryDto.StationCity"/> on a page of history entries from <c>car_station</c>, in one batched lookup like <see cref="ReferenceImageHydrator"/>.
+/// Fills <see cref="CarHistoryDto.StationBrandName"/> and <see cref="CarHistoryDto.StationCity"/> on a page of history entries from <c>car_station</c>,
+/// in one batched lookup like <see cref="ReferenceImageHydrator"/>.
 /// Shared by <see cref="CarHistoryController"/> and the shared car read.
 /// </summary>
 public static class CarStationHydrator

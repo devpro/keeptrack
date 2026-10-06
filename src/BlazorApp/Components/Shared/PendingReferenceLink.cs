@@ -5,7 +5,8 @@ namespace Keeptrack.BlazorApp.Components.Shared;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Creating an item returns once it is stored, and its reference resolves afterwards on a detached task (<c>DataCrudControllerBase.OnCreatedAsync</c>), so a slow provider never holds up a create or a bulk import.
+/// Creating an item returns once it is stored, and its reference resolves afterwards on a detached task (<c>DataCrudControllerBase.OnCreatedAsync</c>),
+/// so a slow provider never holds up a create or a bulk import.
 /// The Add form navigates straight to the detail page, whose first read can precede the link, so a matched item would render unmatched until something re-read it.
 /// </para>
 /// <para>
@@ -17,7 +18,8 @@ public static class PendingReferenceLink
 {
     /// <summary>With <see cref="MaxAttempts"/>, how long to keep watching before accepting that there is no match to show.</summary>
     /// <remarks>
-    /// Comfortably past a normal resolve (two IGDB searches plus a details call), and short of the provider clients' 30s resilience ceiling, where the answer would be "the provider is down" rather than "no match".
+    /// Comfortably past a normal resolve (two IGDB searches plus a details call),
+    /// and short of the provider clients' 30s resilience ceiling, where the answer would be "the provider is down" rather than "no match".
     /// </remarks>
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1.5);
 

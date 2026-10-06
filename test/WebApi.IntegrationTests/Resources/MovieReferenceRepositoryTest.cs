@@ -13,8 +13,10 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Exercises <see cref="IMovieReferenceRepository.FindByTitleYearAsync"/>/<see cref="IMovieReferenceRepository.FindByTitleAsync"/> against real MongoDB: same coverage as <see cref="TvShowReferenceRepositoryTest"/>, which this file mirrors case for case.
-/// <see cref="MovieReferenceRatingRepositoryTest"/> covers rating propagation only, not this matching/alias/null-handling behavior, so movies previously had no dedicated test for the alias-array <c>ElemMatch</c> filter, the ambiguity-refusal rule, or the null-Creator BSON round-trip.
+/// Exercises <see cref="IMovieReferenceRepository.FindByTitleYearAsync"/>/<see cref="IMovieReferenceRepository.FindByTitleAsync"/> against real MongoDB:
+/// same coverage as <see cref="TvShowReferenceRepositoryTest"/>, which this file mirrors case for case.
+/// <see cref="MovieReferenceRatingRepositoryTest"/> covers rating propagation only, not this matching/alias/null-handling behavior,
+/// so movies previously had no dedicated test for the alias-array <c>ElemMatch</c> filter, the ambiguity-refusal rule, or the null-Creator BSON round-trip.
 /// This is exactly the kind of hand-written Mongo filter that has hidden real bugs before (see docs/data-model.md).
 /// </summary>
 public class MovieReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)
@@ -46,7 +48,8 @@ public class MovieReferenceRepositoryTest(KestrelWebAppFactory<Program> factory)
     [Fact]
     public async Task FindByTitleYearAsync_MatchesAnAliasWhoseConfirmedYearDiffersFromTheDocumentsOwnCanonicalYear()
     {
-        // regression: a single top-level Year scalar AND-ed against the title-array-contains filter would reject a tenant whose recorded year genuinely differs from whichever year happens to be this document's own canonical one.
+        // regression: a single top-level Year scalar AND-ed against the title-array-contains filter would reject a tenant
+        // whose recorded year genuinely differs from whichever year happens to be this document's own canonical one.
         // Year now travels with its specific title variant instead.
         using var scope = Factory.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IMovieReferenceRepository>();
@@ -93,7 +96,8 @@ public class MovieReferenceRepositoryTest(KestrelWebAppFactory<Program> factory)
     public async Task UpsertAsync_PersistsANullCreator_AsAnActualBsonNullNotAnEmptyString()
     {
         // Regression: a null Creator (TV show/movie/video game have no creator dimension) has to round-trip as a real null, not "".
-        // Getting this wrong once let a null Creator silently become "" on save, which broke MergeMatchedAliases' in-memory dedup comparison and duplicated an alias on every re-resolve/re-refresh.
+        // Getting this wrong once let a null Creator silently become "" on save,
+        // which broke MergeMatchedAliases' in-memory dedup comparison and duplicated an alias on every re-resolve/re-refresh.
         // Mapperly (the current mapper) preserves nulls by default, so this now guards a structural property rather than a configuration one.
         // Only a real MongoDB round-trip can check it at all, since a mocked repository never exercises the actual mapper/BSON serialization behavior.
         using var scope = Factory.Services.CreateScope();
@@ -137,7 +141,8 @@ public class MovieReferenceRepositoryTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// The yearless title lookup refuses to choose between same-titled works here too, not only for video games or TV shows where it was reported: the rule lives once in <c>ReferenceTitleQueries.FindSingleMatchAsync</c>, and movies reach it through the same title-only fallback.
+    /// The yearless title lookup refuses to choose between same-titled works here too, not only for video games or TV shows where it was reported:
+    /// the rule lives once in <c>ReferenceTitleQueries.FindSingleMatchAsync</c>, and movies reach it through the same title-only fallback.
     /// Two movies sharing a name is ordinary (a remake), and with no year there is nothing to tell them apart with.
     /// </summary>
     [Fact]

@@ -79,7 +79,8 @@
 
     /// <summary>
     /// The book's ISBN, when known, for books only.
-    /// Every book provider searches by it (see <see cref="IBookReferenceClient.SearchBooksAsync"/>), so switching provider is a real fallback rather than a silent downgrade to a title match.
+    /// Every book provider searches by it (see <see cref="IBookReferenceClient.SearchBooksAsync"/>),
+    /// so switching provider is a real fallback rather than a silent downgrade to a title match.
     /// It is edited in <c>BookDetail.razor</c>'s own ISBN field, not here, like <see cref="Creator"/>.
     /// </summary>
     [Parameter] public string? Isbn { get; set; }
@@ -159,7 +160,8 @@
     /// <summary>
     /// Names the provider, says what it actually did, and points at the way out.
     /// <para>
-    /// <c>ApiRequestException</c> carries the API's own explanation, where the client's <c>ex.Message</c> would only give this API's 502 and make a provider outage read as a Keeptrack defect.
+    /// <c>ApiRequestException</c> carries the API's own explanation,
+    /// where the client's <c>ex.Message</c> would only give this API's 502 and make a provider outage read as a Keeptrack defect.
     /// </para>
     /// Another provider is suggested only when the failure was upstream and the domain has one: books and video games do, TV shows, movies and albums have a single provider each.
     /// Anything unidentified falls back to the plain retry hint, rather than sending an admin to a picker for a failure unrelated to the provider.

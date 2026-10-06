@@ -12,7 +12,8 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Exercises <see cref="IBookReferenceRepository.FindByTitleYearAsync"/> and <see cref="IBookReferenceRepository.FindByTitleAsync"/> against real MongoDB, the <c>ElemMatch</c> over <c>MatchedAliases</c> of <c>TvShowReferenceRepositoryTest</c>, for books.
+/// Exercises <see cref="IBookReferenceRepository.FindByTitleYearAsync"/> and <see cref="IBookReferenceRepository.FindByTitleAsync"/> against real MongoDB,
+/// the <c>ElemMatch</c> over <c>MatchedAliases</c> of <c>TvShowReferenceRepositoryTest</c>, for books.
 /// </summary>
 public class BookReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)
 {
@@ -62,7 +63,8 @@ public class BookReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) 
 
     /// <summary>
     /// <see cref="BookReferenceModel.ExternalIds"/> can carry several providers' ids (linked through Open Library, then confirmed through BnF for another tenant).
-    /// Both keys keep resolving to the same document, which <c>ReferenceEnrichmentService.RefreshBookReferenceAsync</c>'s multi-provider refresh depends on (see docs/providers.md).
+    /// Both keys keep resolving to the same document,
+    /// which <c>ReferenceEnrichmentService.RefreshBookReferenceAsync</c>'s multi-provider refresh depends on (see docs/providers.md).
     /// </summary>
     [Fact]
     public async Task FindByExternalIdAsync_FindsTheSameDocument_ByEitherOfTwoCoexistingProviderKeys()

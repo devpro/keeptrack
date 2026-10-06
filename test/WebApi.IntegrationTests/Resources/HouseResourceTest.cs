@@ -92,7 +92,8 @@ public class HouseResourceTest(KestrelWebAppFactory<Program> factory)
     {
         await Authenticate();
 
-        // both are registered even though the delete below is the point of the test: if the cascade is ever broken, the orphaned history entry is exactly what would otherwise be left behind.
+        // both are registered even though the delete below is the point of the test:
+        // if the cascade is ever broken, the orphaned history entry is exactly what would otherwise be left behind.
         var house = await CreateAsync($"/{ResourceEndpoint}", new HouseDto { Name = Guid.NewGuid().ToString() });
         var entry = await CreateAsync("/api/house-history", new HouseHistoryDto
         {

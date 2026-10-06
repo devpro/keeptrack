@@ -10,7 +10,8 @@ using DomainShareCategory = Keeptrack.Domain.Models.ShareCategory;
 namespace Keeptrack.WebApi.Controllers;
 
 /// <summary>
-/// The recipient side of sharing: browsing collections shared with the caller, read-only with the search, filters and sort of the caller's own lists, and copying a media item into the caller's collection.
+/// The recipient side of sharing: browsing collections shared with the caller, read-only with the search,
+/// filters and sort of the caller's own lists, and copying a media item into the caller's collection.
 /// Every read and copy verifies server side that the grant is addressed to the caller's email and includes the category, so a share id alone never grants access.
 /// Member only, since sharing is outside the free preview tier.
 /// </summary>

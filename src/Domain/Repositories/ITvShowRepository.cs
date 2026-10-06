@@ -7,7 +7,8 @@ namespace Keeptrack.Domain.Repositories;
 public interface ITvShowRepository : IDataRepository<TvShowModel>, IExploreSourceRepository
 {
     /// <summary>
-    /// Sets <see cref="TvShowModel.ReferenceId"/> and <see cref="TvShowModel.Title"/> to the reference's values on the records <paramref name="target"/> names (see <see cref="ReferenceLinkTarget"/>).
+    /// Sets <see cref="TvShowModel.ReferenceId"/>
+    /// and <see cref="TvShowModel.Title"/> to the reference's values on the records <paramref name="target"/> names (see <see cref="ReferenceLinkTarget"/>).
     /// It also sets <see cref="TvShowModel.Year"/> when the reference has one, so a linked show starts with a trustworthy year, still editable.
     /// The tenant's own rating, notes and episodes are never touched.
     /// </summary>
@@ -37,7 +38,8 @@ public interface ITvShowRepository : IDataRepository<TvShowModel>, IExploreSourc
     /// <summary>
     /// Every tenant's linked shows marked <see cref="TvShowStatus.Finished"/>, which the sync re-checks against their refreshed episode guide.
     /// Not owner-scoped, since a background pass drives it, not an owner's request.
-    /// Only finished shows are returned, never <see cref="TvShowStatus.Stopped"/> or unset ones, which the tenant stopped tracking on purpose, so a new season does not reopen them.
+    /// Only finished shows are returned, never <see cref="TvShowStatus.Stopped"/> or unset ones,
+    /// which the tenant stopped tracking on purpose, so a new season does not reopen them.
     /// </summary>
     Task<IReadOnlyList<TvShowModel>> FindFinishedLinkedShowsAsync();
 }

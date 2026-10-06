@@ -4,7 +4,8 @@ namespace Keeptrack.BlazorApp.Components.Wishlist;
 
 /// <summary>
 /// The projection all four wishlisted item types share, so one row loop replaces four near-identical markup blocks.
-/// The owner's tabbed page (<c>WishlistPage.razor</c>) links rows to detail pages, and the anonymous shared view (<c>SharedWishlistPage.razor</c>) ignores <see cref="Href"/>, since a recipient has no account to open one with.
+/// The owner's tabbed page (<c>WishlistPage.razor</c>) links rows to detail pages,
+/// and the anonymous shared view (<c>SharedWishlistPage.razor</c>) ignores <see cref="Href"/>, since a recipient has no account to open one with.
 /// </summary>
 public sealed record WishlistRow(string Href, string? ImageUrl, string? Shape, string? Title, int? Year, string? Subtitle = null)
 {

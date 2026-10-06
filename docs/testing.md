@@ -90,4 +90,8 @@ Cleanup is verified with a document-count diff across a run, never by exit statu
 - **Reference documents linked from a real provider title are left in place** (shared, deduplicated by provider id), while synthetic ones are always removed and use a per-test external id (`TestExternalId.New()`).
 - Deleting a TV show cascades to its episodes.
 - **A document with no list page is the easiest to leak**: `explore_dismissal` appears in no UI, so tests register the undo (`DELETE /api/explore/{type}/dismiss/{externalId}`) as they dismiss.
+- **A reference created by the server in the background is not tracked by the test that triggered it.**
+  Creating a book starts a background match (`BookController.OnCreatedAsync`), which can insert the same Google Books reference as the test's own explicit link.
+  The unique index then rejects one insert and the link answers 500 before the test reaches `TrackDocument`, so that reference stays in the test database.
+  A leftover Google Books id in `book_reference` therefore points at this race, and the next run tolerates it since the link reuses the document.
 - `ServerDerivedDataSweep` (`[assembly: AssemblyFixture]`) empties `explore_catalogue` and `lease` after the run, never `provider_quota`, the ledger of OMDb calls really spent.

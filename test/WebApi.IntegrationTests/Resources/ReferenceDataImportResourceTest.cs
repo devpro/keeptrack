@@ -23,7 +23,8 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 /// The unique partial indexes on <c>external_ids.*</c> are real, so a second copy of a work produces a failed write rather than a duplicate.
 /// <para>
 /// Each test seeds a synthetic reference document through its repository, then uploads a zip in exactly the shape <c>Export</c> produces.
-/// The entry names and default <see cref="JsonSerializerOptions"/> match, since the controller applies no naming policy on either side, and anything else silently fails to round-trip.
+/// The entry names and default <see cref="JsonSerializerOptions"/> match,
+/// since the controller applies no naming policy on either side, and anything else silently fails to round-trip.
 /// </para>
 /// </summary>
 public class ReferenceDataImportResourceTest(KestrelWebAppFactory<Program> factory) : ResourceTestBase(factory)
@@ -72,7 +73,8 @@ public class ReferenceDataImportResourceTest(KestrelWebAppFactory<Program> facto
 
     /// <summary>
     /// Both branches in one run over the same collection, the shape of every real import, which the per-branch tests above can't cover alone.
-    /// "0 new + N updated" is a claim about the database, so this asserts it: an updated document keeps the target's original <c>_id</c> and is the only one carrying its provider id, while the created one is new.
+    /// "0 new + N updated" is a claim about the database, so this asserts it:
+    /// an updated document keeps the target's original <c>_id</c> and is the only one carrying its provider id, while the created one is new.
     /// </summary>
     [Fact]
     public async Task Import_WhenOneDocumentIsKnownAndOneIsNot_CountsEachAgainstWhatItActuallyDid()
@@ -109,7 +111,8 @@ public class ReferenceDataImportResourceTest(KestrelWebAppFactory<Program> facto
     }
 
     /// <summary>
-    /// An export is one environment's snapshot, and the target legitimately knows things it doesn't: aliases its own tenants' searches confirmed, and ratings from a provider the exporting environment never called (an IMDb value costs a metered OMDb call).
+    /// An export is one environment's snapshot, and the target legitimately knows things it doesn't: aliases its own tenants' searches confirmed,
+    /// and ratings from a provider the exporting environment never called (an IMDb value costs a metered OMDb call).
     /// A replace would throw all of that away.
     /// </summary>
     [Fact]
@@ -167,7 +170,8 @@ public class ReferenceDataImportResourceTest(KestrelWebAppFactory<Program> facto
 
     /// <summary>
     /// Cast is stored as a <c>person_reference</c> <c>_id</c>, and that id is local to the database that minted it.
-    /// Matching people by their provider id is only half the job: every document citing them has to be re-pointed at the id the target stores them under, or an imported show's cast references documents that aren't there.
+    /// Matching people by their provider id is only half the job: every document citing them has to be re-pointed at the id the target stores them under,
+    /// or an imported show's cast references documents that aren't there.
     /// </summary>
     [Fact]
     public async Task Import_RepointsCastAtTheTargetsOwnPersonDocuments()
@@ -247,7 +251,8 @@ public class ReferenceDataImportResourceTest(KestrelWebAppFactory<Program> facto
 
     /// <summary>
     /// The matching rule is provider-agnostic, walking whatever keys a document carries, so every domain and provider behaves the same.
-    /// This pins what a single-provider test would miss: a video game under IGDB (the default), an album under Discogs, and a book under Google Books (the default book provider, with its own unique index).
+    /// This pins what a single-provider test would miss: a video game under IGDB (the default), an album under Discogs,
+    /// and a book under Google Books (the default book provider, with its own unique index).
     /// </summary>
     [Fact]
     public async Task Import_MatchesEveryDomainThroughItsOwnProvider()
@@ -359,7 +364,8 @@ public class ReferenceDataImportResourceTest(KestrelWebAppFactory<Program> facto
     }
 
     /// <summary>
-    /// The real cross-environment case for video games: an export taken while a game was still only RAWG-linked, imported into a database that has since adopted IGDB for the same game.
+    /// The real cross-environment case for video games:
+    /// an export taken while a game was still only RAWG-linked, imported into a database that has since adopted IGDB for the same game.
     /// It matches on the one id they share, so nothing duplicates, and the IGDB id and IGDB ratings survive, since the import speaks only for what it carries.
     /// The descriptive fields it carries (RAWG title, synopsis, cover) win, since an import updates the data.
     /// What it can't reach through IGDB again is protected, and the next sync re-fetches the rest through the default provider.
@@ -454,7 +460,8 @@ public class ReferenceDataImportResourceTest(KestrelWebAppFactory<Program> facto
     }
 
     /// <summary>
-    /// Uploads the zip and waits for the background job it starts (see <c>ReferenceDataAdminController.Import</c>), the endpoint answering 202 with a job id, since a real export outlasts one request.
+    /// Uploads the zip and waits for the background job it starts (see <c>ReferenceDataAdminController.Import</c>),
+    /// the endpoint answering 202 with a job id, since a real export outlasts one request.
     /// </summary>
     private async Task<ReferenceDataImportResultDto> ImportAsync(ReferenceDataImportPayload payload)
     {
@@ -514,7 +521,8 @@ public class ReferenceDataImportResourceTest(KestrelWebAppFactory<Program> facto
     private static string NewObjectId() => ObjectId.GenerateNewId().ToString();
 
     /// <summary>
-    /// The six entry names and default serializer options <c>Export</c> writes, since the controller applies no naming policy on either side, and a camelCase zip would deserialize into empty documents.
+    /// The six entry names and default serializer options <c>Export</c> writes,
+    /// since the controller applies no naming policy on either side, and a camelCase zip would deserialize into empty documents.
     /// </summary>
     private static byte[] BuildZip(ReferenceDataImportPayload payload)
     {

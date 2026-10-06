@@ -54,7 +54,9 @@ public class CarResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// CarRepository previously had no GetFilter override at all, so search silently fell back to the base class's $text query against an index that didn't even cover Car's field name (see docs/data-model.md) - this proves a name search now actually finds the car.
+    /// CarRepository has a GetFilter override.
+    /// Without it, search silently fell back to the base class's $text query against an index that did not even cover Car's field name (see docs/data-model.md).
+    /// This proves a name search finds the car.
     /// </summary>
     [Fact]
     public async Task CarResourceSearch_FiltersByName_IsOk()
@@ -103,7 +105,8 @@ public class CarResourceTest(KestrelWebAppFactory<Program> factory)
     {
         await Authenticate();
 
-        // both are registered even though the delete below is the point of the test: if the cascade is ever broken, the orphaned history entry is exactly what would otherwise be left behind.
+        // both are registered even though the delete below is the point of the test:
+        // if the cascade is ever broken, the orphaned history entry is exactly what would otherwise be left behind.
         var car = await CreateAsync($"/{ResourceEndpoint}", new CarDto { Name = Guid.NewGuid().ToString() });
         var entry = await CreateAsync("/api/car-history", new CarHistoryDto
         {

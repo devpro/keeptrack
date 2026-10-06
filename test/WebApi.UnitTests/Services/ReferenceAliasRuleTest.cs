@@ -134,7 +134,8 @@ public class ReferenceAliasRuleTest
     }
 
     /// <summary>
-    /// Documents written before Mapperly store a null creator as <c>""</c> (see <c>scripts/dedupe-matched-aliases.js</c>), and reading those as a different creator would append a duplicate on every re-resolve.
+    /// Documents written before Mapperly store a null creator as <c>""</c> (see <c>scripts/dedupe-matched-aliases.js</c>),
+    /// and reading those as a different creator would append a duplicate on every re-resolve.
     /// </summary>
     [Fact]
     public void Merge_TreatsAnEmptyStoredCreator_AsNoCreator()
@@ -178,7 +179,8 @@ public class ReferenceAliasRuleTest
     }
 
     /// <summary>
-    /// A book or album reference document carries only its author or artist <i>reference id</i>, never the name, so a repository can't build a complete alias, and a creator-less one is the junk key this rule refuses.
+    /// A book or album reference document carries only its author or artist <i>reference id</i>, never the name,
+    /// so a repository can't build a complete alias, and a creator-less one is the junk key this rule refuses.
     /// </summary>
     [Fact]
     public void EnsureCanonical_AddsNothing_WhenTheDomainNeedsACreatorTheDocumentCannotSupply()

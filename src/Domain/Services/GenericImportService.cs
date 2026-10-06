@@ -16,7 +16,8 @@ namespace Keeptrack.Domain.Services;
 /// Pure: bytes in, rows out, with no repository access, the caller computing <c>alreadyImportedReferences</c> so this tests without a database.
 ///
 /// The store-agnostic counterpart of <see cref="AmazonOrderPreviewService"/>.
-/// Rather than hardcoding a vendor, columns and a "is this a book" guess, it reads a canonical, case-insensitive column set, all optional except the title, that the user reshapes an export into.
+/// Rather than hardcoding a vendor, columns and a "is this a book" guess, it reads a canonical,
+/// case-insensitive column set, all optional except the title, that the user reshapes an export into.
 /// A "Type" column, when present, sets each row's media type, which prefills the per-row picker.
 /// </summary>
 public static class GenericImportService
@@ -124,10 +125,12 @@ public static class GenericImportService
     }
 
     /// <summary>
-    /// Formats an imported row's owned copy <c>Reference</c>, which is human-readable and also the exact dedup key <see cref="OwnedItemImportMergeService.FindImportedReferences{TModel}"/> looks for on a re-import.
+    /// Formats an imported row's owned copy <c>Reference</c>,
+    /// which is human-readable and also the exact dedup key <see cref="OwnedItemImportMergeService.FindImportedReferences{TModel}"/> looks for on a re-import.
     /// The leading label is the <paramref name="website"/> column, never the vendor, so the reference stays independent of the Vendor field.
     /// Uniqueness comes from the order id plus the product id, or the title when the file has none, never from the label.
-    /// One order often holds several items, and the order id alone would skip every other item once one was imported, as the ASIN and the PSN product name prevent in the other importers.
+    /// One order often holds several items, and the order id alone would skip every other item once one was imported,
+    /// as the ASIN and the PSN product name prevent in the other importers.
     /// </summary>
     public static string FormatReference(string? website, string? orderId, string? productId, string title)
     {

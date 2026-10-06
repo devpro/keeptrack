@@ -4,7 +4,8 @@ using Keeptrack.Domain.Services;
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// How an Explore domain maps onto a provider, declared once: which provider discovers for it, and so the space of its ids, which stored orderings build its catalogue, and which rating source its cards can show.
+/// How an Explore domain maps onto a provider, declared once: which provider discovers for it,
+/// and so the space of its ids, which stored orderings build its catalogue, and which rating source its cards can show.
 /// Shared by the refresh that writes the catalogue and the read path that pages it, so they always agree.
 /// <para>
 /// An injected service, since the video game answers come from the default provider, a deployment choice.
@@ -13,7 +14,8 @@ namespace Keeptrack.WebApi.ReferenceData;
 public class ExploreRankings(ReferenceClientRegistry<IVideoGameReferenceClient> videoGameClients)
 {
     /// <summary>
-    /// The provider a domain's suggestions, their ids and their dismissals come from: the discovery provider, distinct from the selected rating source, so a movie shown with IMDb is still a TMDB id.
+    /// The provider a domain's suggestions, their ids and their dismissals come from:
+    /// the discovery provider, distinct from the selected rating source, so a movie shown with IMDb is still a TMDB id.
     /// It is stored on a dismissal, since provider ids are plain integers, which also keeps a provider change safe: records made under the old one stay attributed to it.
     /// </summary>
     public string DiscoverySource(ExploreItemType type) => type switch
@@ -26,7 +28,8 @@ public class ExploreRankings(ReferenceClientRegistry<IVideoGameReferenceClient> 
     /// <summary>
     /// The stored orderings a domain's catalogue holds.
     /// <para>
-    /// Movies and TV have one whatever the source: TMDB publishes a single top-rated list, and IMDb has no catalogue API, so a list shown with IMDb is TMDB's ordering with IMDb's number.
+    /// Movies and TV have one whatever the source: TMDB publishes a single top-rated list,
+    /// and IMDb has no catalogue API, so a list shown with IMDb is TMDB's ordering with IMDb's number.
     /// A game provider sorts by each of its scores, so video games get one ranking per supported source.
     /// </para>
     /// </summary>

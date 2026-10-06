@@ -5,14 +5,16 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 
 /// <summary>
 /// Shared shape of the five reference-linked detail pages (book, movie, TV show, video game, album).
-/// All five render the same "check for reference match" icon button and toast, and the same admin-only <c>InlineReferenceLinker</c> (search the real provider, pick a candidate, click "Link").
+/// All five render the same "check for reference match" icon button and toast,
+/// and the same admin-only <c>InlineReferenceLinker</c> (search the real provider, pick a candidate, click "Link").
 /// <see cref="CoverImage"/> is inherited from <see cref="DetailPageBase"/>, shared with the other types.
 /// </summary>
 public abstract class ReferenceableDetailPageBase(IPage page) : DetailPageBase(page)
 {
     /// <summary>
     /// Located by accessible name rather than by <c>.kt-icon-btn</c>.
-    /// Once an item is linked an admin also sees the unlink button, which carries the same class, so the plain class selector resolves to two elements and Playwright refuses to click either.
+    /// Once an item is linked an admin also sees the unlink button, which carries the same class,
+    /// so the plain class selector resolves to two elements and Playwright refuses to click either.
     /// </summary>
     private ILocator RefreshReferenceButton => Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Check for reference match" });
 
@@ -24,7 +26,8 @@ public abstract class ReferenceableDetailPageBase(IPage page) : DetailPageBase(p
     /// <remarks>
     /// All five domains escalate to the provider when nothing local answers, which lets an item created before its identity field was known be matched.
     /// The toast can then take as long as the provider, so the wait clears a healthy provider's slowest honest answer.
-    /// Every provider client chains <c>AddStandardResilienceHandler</c> with its own total-request-timeout ceiling (30s for TMDB, RAWG and Discogs, 40s for the book providers, see <c>ProviderResilienceExtensions</c>).
+    /// Every provider client chains <c>AddStandardResilienceHandler</c> with its own total-request-timeout ceiling
+    /// (30s for TMDB, RAWG and Discogs, 40s for the book providers, see <c>ProviderResilienceExtensions</c>).
     /// A transient failure spends retries up to that ceiling before returning.
     /// </remarks>
     public async Task ClickCheckReferenceMatchAsync()
@@ -48,12 +51,14 @@ public abstract class ReferenceableDetailPageBase(IPage page) : DetailPageBase(p
     /// </para>
     /// <para>
     /// The check can succeed by itself, leaving nothing to search for and no panel.
-    /// These smoke tests link fixed real titles, and a previous run's reference document is left in place (see the cleanup section of docs/testing.md), so from the second run the item links on the check alone.
+    /// These smoke tests link fixed real titles, and a previous run's reference document is left in place (see the cleanup section of docs/testing.md),
+    /// so from the second run the item links on the check alone.
     /// Both outcomes leave the item linked, which every caller asserts next.
     /// The panel's absence reliably signals the first outcome, since it renders for exactly "admin, and not linked", and the e2e identity is an admin.
     /// </para>
     /// <para>
-    /// The button is relabelled rather than swapped after the first search ("Search" to "Search again"), so this finds only the pre-search "Search" label (see <c>InlineReferenceLinker.razor</c>).
+    /// The button is relabelled rather than swapped after the first search ("Search" to "Search again"),
+    /// so this finds only the pre-search "Search" label (see <c>InlineReferenceLinker.razor</c>).
     /// </para>
     /// <para>
     /// The wait for search results must exceed the server's worst case: each provider client's resilience ceiling (see <see cref="ClickCheckReferenceMatchAsync"/>).

@@ -4,7 +4,8 @@ using System.Text.RegularExpressions;
 namespace Keeptrack.Common.System;
 
 /// <summary>
-/// Reads back the <c>Reference</c> text of an owned copy imported from Amazon, which <c>AmazonImportMergeService.FormatOrderReference</c> writes as <c>"Amazon order {orderId} (ASIN {asin})"</c>.
+/// Reads back the <c>Reference</c> text of an owned copy imported from Amazon,
+/// which <c>AmazonImportMergeService.FormatOrderReference</c> writes as <c>"Amazon order {orderId} (ASIN {asin})"</c>.
 /// It lives here rather than next to the writer because BlazorApp, which cannot reference Domain, builds the "open on Amazon" link from it.
 /// </summary>
 public static partial class AmazonReference

@@ -14,7 +14,8 @@ public record DiscogsSearchResult(string ExternalId, string Title, int? Year, st
 public record DiscogsAlbumDetails(string ExternalId, string Title, int? Year, string? Synopsis, string? Artist, string? ArtistExternalId, List<string> Genres, string? ImageUrl, List<DiscogsTrack> Tracks, double? Rating = null, int? RatingCount = null);
 
 /// <summary>
-/// One tracklist entry of Discogs' <c>/masters/{id}</c>: <paramref name="Position"/> is not always numeric (vinyl uses side and track, like "A1"), and <paramref name="Duration"/> is Discogs' "M:SS" text, often absent.
+/// One tracklist entry of Discogs' <c>/masters/{id}</c>: <paramref name="Position"/> is not always numeric (vinyl uses side and track, like "A1"),
+/// and <paramref name="Duration"/> is Discogs' "M:SS" text, often absent.
 /// </summary>
 public record DiscogsTrack(string Position, string Title, string? Duration);
 

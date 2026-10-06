@@ -5,7 +5,9 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
 /// <summary>
-/// Reading an identifier back out of a provider page address is the admin reconciliation screen's escape hatch for a game no search query reaches, so what it accepts matters in both directions: a URL it fails to read leaves that row stuck, and ordinary search text it mistakes for an address turns "look this up" into "look nothing up".
+/// Reading an identifier back out of a provider page address is the admin reconciliation screen's escape hatch for a game no search query reaches,
+/// so what it accepts matters in both directions: a URL it fails to read leaves that row stuck,
+/// and ordinary search text it mistakes for an address turns "look this up" into "look nothing up".
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class ProviderWebLinksTest

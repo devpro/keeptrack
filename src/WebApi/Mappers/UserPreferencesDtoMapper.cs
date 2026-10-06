@@ -4,7 +4,8 @@ using Riok.Mapperly.Abstractions;
 namespace Keeptrack.WebApi.Mappers;
 
 /// <summary>
-/// <see cref="ToModel"/> only builds a model for <c>UpsertAsync</c>, which upserts by <c>OwnerId</c>, so a null <c>Id</c> is harmless: MongoDB keeps the existing <c>_id</c> on a matched replace.
+/// <see cref="ToModel"/> only builds a model for <c>UpsertAsync</c>, which upserts by <c>OwnerId</c>,
+/// so a null <c>Id</c> is harmless: MongoDB keeps the existing <c>_id</c> on a matched replace.
 /// </summary>
 [Mapper]
 public partial class UserPreferencesDtoMapper : IDtoMapper<UserPreferencesDto, UserPreferencesModel>

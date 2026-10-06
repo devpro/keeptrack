@@ -7,7 +7,8 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// <summary>
 /// Keeps reference data fresh with no external scheduler: an in-process <see cref="PeriodicTimer"/> loop, each tick on its own DI scope, since the hosted service is a singleton.
 /// An admin can run it at once through <c>POST /api/reference-data/sync-now</c>, which calls the same <see cref="ReferenceSyncService"/>, so this loop only decides when.
-/// Every replica runs the loop, but only the one winning the <see cref="ILeaseRepository"/> lease syncs, so scaling out neither multiplies provider traffic nor races on the same documents.
+/// Every replica runs the loop, but only the one winning the <see cref="ILeaseRepository"/> lease syncs,
+/// so scaling out neither multiplies provider traffic nor races on the same documents.
 /// </summary>
 public class ReferenceSyncBackgroundService(
     IServiceScopeFactory scopeFactory, IConfiguration configuration, ILogger<ReferenceSyncBackgroundService> logger) : BackgroundService
@@ -25,7 +26,8 @@ public class ReferenceSyncBackgroundService(
     // declared once in ReferenceSyncWindows, since an unforced "sync now" runs this same pass
     private static readonly ReferenceSyncWindows s_windows = ReferenceSyncWindows.Periodic;
 
-    // longer than any sync and much shorter than the 24h tick: a replica dying with the lease delays the next pass by this much, and a new pod finding the old pod's lease live yields until its next tick
+    // longer than any sync and much shorter than the 24h tick: a replica dying with the lease delays the next pass by this much,
+    // and a new pod finding the old pod's lease live yields until its next tick
     private static readonly TimeSpan s_leaseDuration = TimeSpan.FromHours(1);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

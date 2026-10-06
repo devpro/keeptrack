@@ -143,7 +143,8 @@ else
                                 }
                                 else if (DetailHref is not null)
                                 {
-                                    @* Read-only but navigable: shared personal items (cars, houses, health) open a read-only detail page, unlike shared media rows, which link nowhere. *@
+                                    @* Read-only but navigable: shared personal items (cars, houses, health) open a read-only detail page,
+                                       unlike shared media rows, which link nowhere. *@
                                     <a class="kt-item-title stretched-link" href="@DetailHref(item)">@ItemTitle(item)</a>
                                 }
                                 else
@@ -242,7 +243,8 @@ else
     private string _lastSearchSent = "";
 
     // Adopts an externally changed Search parameter (URL navigation, browser back or forward) without clobbering typing in progress.
-    // A value reported through OnSearchChanged comes straight back as an equal parameter and is ignored, or a re-render racing fast typing would revert characters entered since the last keyup.
+    // A value reported through OnSearchChanged comes straight back as an equal parameter and is ignored,
+    // or a re-render racing fast typing would revert characters entered since the last keyup.
     protected override void OnParametersSet()
     {
         if (Search == _lastSearchParam) return;
@@ -311,7 +313,8 @@ else
 
     /// <summary>
     /// True once a load (fresh or restored from prerender state) has finished, unlike <see cref="Loading"/>, which is delay-gated and turns on only for a slow load.
-    /// Until then only a delayed <see cref="Loading"/> spinner renders, so the render Blazor forces after OnParametersSetAsync's synchronous prefix is blank rather than a flash of the empty state.
+    /// Until then only a delayed <see cref="Loading"/> spinner renders,
+    /// so the render Blazor forces after OnParametersSetAsync's synchronous prefix is blank rather than a flash of the empty state.
     /// Defaults to true, so a caller that never sets it renders the list directly.
     /// </summary>
     [Parameter] public bool Loaded { get; set; } = true;
@@ -368,7 +371,8 @@ else
     [Parameter] public RenderFragment? Filters { get; set; }
     [Parameter] public EventCallback OnSave { get; set; }
 
-    /// <summary>Whether the just-saved item is still being matched to reference data, so the form stays rather than opening a detail page that fills itself in a moment later.</summary>
+    /// <summary>Whether the just-saved item is still being matched to reference data,
+    /// so the form stays rather than opening a detail page that fills itself in a moment later.</summary>
     [Parameter] public bool Matching { get; set; }
     [Parameter] public EventCallback OnCancelForm { get; set; }
     [Parameter] public EventCallback OnShowAddForm { get; set; }

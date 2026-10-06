@@ -33,7 +33,8 @@ public class AlbumReferenceRepository(IMongoDatabase mongoDatabase, AlbumReferen
 
     /// <summary>
     /// Matches every (title, artist) combination confirmed for a reference, not only its canonical one (see <see cref="ReferenceAliasQueries"/>).
-    /// The year takes no part, being outside an album's identity (see <see cref="ReferenceAliasRule.TitleAndCreator"/>), so one pressing's alias answers a tenant who recorded another.
+    /// The year takes no part, being outside an album's identity (see <see cref="ReferenceAliasRule.TitleAndCreator"/>),
+    /// so one pressing's alias answers a tenant who recorded another.
     /// </summary>
     public async Task<AlbumReferenceModel?> FindByTitleCreatorAsync(string title, string artist)
     {

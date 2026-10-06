@@ -38,7 +38,8 @@ public class VideoGameReferenceRepository(IMongoDatabase mongoDatabase, VideoGam
         ReferenceRatingQueries.FindRatingsAsync<VideoGameReference>(Collection, afterId, limit);
 
     /// <summary>
-    /// Matches every (title, year) combination confirmed for a reference, not only its canonical one (see <see cref="ReferenceAliasQueries"/> for why every condition sits in one <c>ElemMatch</c>).
+    /// Matches every (title, year) combination confirmed for a reference,
+    /// not only its canonical one (see <see cref="ReferenceAliasQueries"/> for why every condition sits in one <c>ElemMatch</c>).
     /// </summary>
     public async Task<VideoGameReferenceModel?> FindByTitleYearAsync(string title, int? year)
     {
@@ -83,7 +84,8 @@ public class VideoGameReferenceRepository(IMongoDatabase mongoDatabase, VideoGam
     {
         model.TitleNormalized = TitleNormalizer.Normalize(model.Title);
         // The canonical (title, year) is always a valid match, but only as a complete key.
-        // A game with no year records nothing, since a title-only alias would answer every later lookup of that title, whatever its year, and IGDB holds eight games named "Resident Evil 2" (see ReferenceAliasRule).
+        // A game with no year records nothing, since a title-only alias would answer every later lookup of that title, whatever its year,
+        // and IGDB holds eight games named "Resident Evil 2" (see ReferenceAliasRule).
         ReferenceAliasRule.TitleAndYear.EnsureCanonical(model.MatchedAliases, model.TitleNormalized, model.Year);
         var entity = mapper.ToEntity(model);
 

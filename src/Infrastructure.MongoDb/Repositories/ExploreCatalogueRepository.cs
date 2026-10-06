@@ -40,7 +40,8 @@ public class ExploreCatalogueRepository(IMongoDatabase mongoDatabase, ExploreCat
                             & (builder.Exists(AttemptField(source), false)
                                | builder.Lt<DateTime>(AttemptField(source), notAttemptedSince));
 
-        // a rating without a link: one lookup fixes it for good, so no window is needed, and it cannot loop, since a title with no provider id has no rating either (see IExploreCatalogueRepository)
+        // a rating without a link: one lookup fixes it for good, so no window is needed, and it cannot loop,
+        // since a title with no provider id has no rating either (see IExploreCatalogueRepository)
         var linkPending = builder.Exists(WebUrlField(source), false) & builder.Exists(RatingField(source));
 
         var entities = await Collection
@@ -66,7 +67,8 @@ public class ExploreCatalogueRepository(IMongoDatabase mongoDatabase, ExploreCat
                 .Set(e => e.ImageUrl, entity.ImageUrl)
                 .Set(e => e.RefreshedAt, entity.RefreshedAt);
 
-            // one $set per rating key rather than replacing "ratings": a refresh only knows its listing's ratings, and replacing would discard backfilled IMDb values that cost a provider call
+            // one $set per rating key rather than replacing "ratings": a refresh only knows its listing's ratings,
+            // and replacing would discard backfilled IMDb values that cost a provider call
             update = entity.Ratings.Aggregate(update, (current, rating) => current.Set(RatingField(rating.Key), rating.Value));
 
             // same for links: a listing carries only its provider's page, so replacing the map would drop the backfilled IMDb link on every refresh

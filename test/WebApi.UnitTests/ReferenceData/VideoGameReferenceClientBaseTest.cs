@@ -10,7 +10,8 @@ namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
 /// <summary>
 /// The search policy every video game provider shares: which queries are asked, and how their answers rank into the handful a picker shows.
-/// Tested once against a recording fake rather than per provider, like <see cref="BookReferenceClientBaseTest"/>, since the ordering is the shared algorithm and each client only builds the query.
+/// Tested once against a recording fake rather than per provider, like <see cref="BookReferenceClientBaseTest"/>,
+/// since the ordering is the shared algorithm and each client only builds the query.
 /// <para>
 /// The fixtures are real IGDB responses, verbatim in content and order.
 /// </para>
@@ -87,7 +88,8 @@ public class VideoGameReferenceClientBaseTest
     }
 
     /// <summary>
-    /// The half that does not depend on the exact-name query answering: even when the provider only offers its relevance ranking, reading a pool deeper than the five that are displayed is what puts the match in front of the user.
+    /// The half that does not depend on the exact-name query answering: even when the provider only offers its relevance ranking,
+    /// reading a pool deeper than the five that are displayed is what puts the match in front of the user.
     /// </summary>
     [Fact]
     public async Task SearchGamesAsync_RanksAMatchOutOfTheRelevanceOrderingAlone()
@@ -121,7 +123,8 @@ public class VideoGameReferenceClientBaseTest
     /// <summary>
     /// What the year is actually for: IGDB holds seven games named exactly "Resident Evil", and the requested year is the only thing that says which of them the tenant means.
     /// <para>
-    /// The dateless entry (102722, real) is what makes this more than a boolean: it arrives ahead of the 2002 remake in IGDB's own ordering, so treating "no year" as agreement put it first for a search that plainly asked for 2002.
+    /// The dateless entry (102722, real) is what makes this more than a boolean: it arrives ahead of the 2002 remake in IGDB's own ordering,
+    /// so treating "no year" as agreement put it first for a search that plainly asked for 2002.
     /// </para>
     /// </summary>
     [Fact]

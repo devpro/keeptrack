@@ -5,7 +5,8 @@ namespace Keeptrack.WebApi.Mappers;
 
 /// <summary>
 /// Model to DTO only (see <see cref="TvShowReferenceDtoMapper"/>).
-/// <see cref="AlbumReferenceDto.ArtistName"/> and <see cref="AlbumReferenceDto.ArtistImageUrl"/> are hydrated by <see cref="ReferenceData.ReferenceDataController"/>, as in <see cref="BookReferenceDtoMapper"/>.
+/// <see cref="AlbumReferenceDto.ArtistName"/> and <see cref="AlbumReferenceDto.ArtistImageUrl"/> are hydrated by <see cref="ReferenceData.ReferenceDataController"/>,
+/// as in <see cref="BookReferenceDtoMapper"/>.
 /// </summary>
 [Mapper]
 public partial class AlbumReferenceDtoMapper

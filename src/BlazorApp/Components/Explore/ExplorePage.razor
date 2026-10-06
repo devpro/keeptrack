@@ -65,7 +65,8 @@ else if (Current is { } state)
             <div class="kt-item-grid">
                 @foreach (var item in items)
                 {
-                    @* The card opens the title's provider page in a new tab, since a suggestion has no detail page yet, and reading up on it shouldn't lose the list being worked through. *@
+                    @* The card opens the title's provider page in a new tab, since a suggestion has no detail page yet,
+                       and reading up on it shouldn't lose the list being worked through. *@
                     <ItemGridCard Href="@item.ProviderUrl" Target="_blank" LinkLabel="@LinkLabel(item)"
                                   Title="@item.Title" ImageUrl="@item.ImageUrl">
                         <Actions>
@@ -213,7 +214,8 @@ else if (Current is { } state)
 
     /// <summary>
     /// What one tab has loaded so far and where to carry on from.
-    /// The cursor is the server's, not a page number: tracked suggestions are filtered out after the ranking is read, so positions shift and only the server knows where the next page starts.
+    /// The cursor is the server's, not a page number: tracked suggestions are filtered out after the ranking is read,
+    /// so positions shift and only the server knows where the next page starts.
     /// </summary>
     private sealed class TabState
     {

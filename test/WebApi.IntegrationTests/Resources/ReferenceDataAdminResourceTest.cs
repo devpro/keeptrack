@@ -12,7 +12,8 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// The standard test user carries the Firebase <c>role: admin</c> custom claim (see CONTRIBUTING.md's "Admin role" section), so admin-gated endpoints run end to end over HTTP with the single test account.
+/// The standard test user carries the Firebase <c>role: admin</c> custom claim (see CONTRIBUTING.md's "Admin role" section),
+/// so admin-gated endpoints run end to end over HTTP with the single test account.
 /// There is no separate non-admin account to prove the "AdminOnly" policy rejects a non-admin caller.
 /// <para>
 /// Hosted through <see cref="ProviderlessWebAppFactory"/>: nothing here asserts what a provider returns, but three tests start a real <c>sync-now</c> job.
@@ -31,7 +32,8 @@ public class ReferenceDataAdminResourceTest(ProviderlessWebAppFactory factory)
     }
 
     /// <summary>
-    /// Registration order in Program.cs is the admin picker's display order (<c>ReferenceClientRegistry.All</c> preserves it): Google Books is the default, then Open Library and BnF.
+    /// Registration order in Program.cs is the admin picker's display order (<c>ReferenceClientRegistry.All</c> preserves it):
+    /// Google Books is the default, then Open Library and BnF.
     /// This pins the contract, so a reordering in Program.cs fails a test instead of silently changing the picker.
     /// </summary>
     [Fact]
@@ -74,8 +76,10 @@ public class ReferenceDataAdminResourceTest(ProviderlessWebAppFactory factory)
     }
 
     /// <summary>
-    /// Exercises the "sync now" job start over HTTP: POST returns at once (202 and a job id) rather than blocking on every reference document, and the status endpoint reports the job it started.
-    /// The poll-to-completion half is <see cref="SyncNow_PollingReachesACompletedResult"/>, opt-in, since it re-checks every reference against the live providers and grows with the shared database.
+    /// Exercises the "sync now" job start over HTTP: POST returns at once (202 and a job id) rather than blocking on every reference document,
+    /// and the status endpoint reports the job it started.
+    /// The poll-to-completion half is <see cref="SyncNow_PollingReachesACompletedResult"/>, opt-in,
+    /// since it re-checks every reference against the live providers and grows with the shared database.
     /// No <c>force</c> here, so this is the default incremental pass, the documents the periodic tick would take.
     /// </summary>
     [Fact]
@@ -94,7 +98,8 @@ public class ReferenceDataAdminResourceTest(ProviderlessWebAppFactory factory)
     }
 
     /// <summary>
-    /// The forced variant: <c>?force=true</c> re-checks every document regardless of age, where the default takes only what the periodic pass would (see <c>ReferenceSyncWindows</c>).
+    /// The forced variant: <c>?force=true</c> re-checks every document regardless of age,
+    /// where the default takes only what the periodic pass would (see <c>ReferenceSyncWindows</c>).
     /// Both are the same job over the same endpoint, so this only pins that the parameter is accepted and starts a real job.
     /// What each mode selects is covered by <c>ReferenceSyncWindowsTest</c>, and the query itself by <c>ReferenceStalenessRepositoryTest</c>.
     /// </summary>

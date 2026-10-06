@@ -1,6 +1,7 @@
 // Idempotent: safe to run against a fresh database or one that already has these indexes, and safe to re-run after this file changes.
-// Plain createIndex() is already a no-op when an identical index exists, but throws IndexOptionsConflict/IndexKeySpecsConflict (codes 85/86) if an index with the same name
-// exists with a different definition - ensureIndex() drops and recreates in that case instead of failing.
+// Plain createIndex() is already a no-op when an identical index exists.
+// It throws IndexOptionsConflict/IndexKeySpecsConflict (codes 85/86) if an index with the same name exists with a different definition.
+// ensureIndex() drops and recreates in that case instead of failing.
 function ensureIndex(collection, keys, options) {
   try {
     collection.createIndex(keys, options);
@@ -14,7 +15,8 @@ function ensureIndex(collection, keys, options) {
   }
 }
 
-// Removes an index this file no longer declares - a renamed or re-keyed one would otherwise stay behind forever, since createIndex only ever adds.
+// Removes an index this file no longer declares.
+// A renamed or re-keyed one would otherwise stay behind forever, since createIndex only ever adds.
 // Idempotent: "index not found" (code 27) is the expected answer on every run after the first, and on a fresh database.
 function dropIndexIfExists(collection, name) {
   try {
@@ -44,14 +46,13 @@ ensureIndex(db.videogame, { owner_id: 1 }, { name: "videogame_owner" });
 ensureIndex(db.song, { owner_id: 1 }, { name: "song_owner" });
 ensureIndex(db.playlist, { owner_id: 1 }, { name: "playlist_owner" });
 
-// car / car_history: both repositories now search via builder.Where(f => f.Name/Description.Contains(...)), the same regex-filter approach as Album/Book/Movie/TvShow/VideoGame,
-// none of which use a text index either - a "text" index never accelerates a regex filter, so one isn't declared here.
-// car/car_history previously had a car_text/car_history_text index (`{ title: "text" }`), but Car's/CarHistory's BSON documents have no `title` field at all
-// (Car's searchable field is `commercial_name`; CarHistory's is `description`) - that index never covered anything and CarRepository/CarHistoryRepository no longer fall back to
-// $text, so it was removed rather than repointed.
+// car / car_history: both repositories search via builder.Where(f => f.Name/Description.Contains(...)).
+// It is the same regex-filter approach as Album/Book/Movie/TvShow/VideoGame, none of which use a text index either.
+// A "text" index never accelerates a regex filter, so none is declared here.
+// A `{ title: "text" }` index would never cover anything: Car's/CarHistory's BSON documents have no `title` field at all.
+// Car's searchable field is `commercial_name` and CarHistory's is `description`, and the repositories do not fall back to $text.
 
-// house / house_history: same regex-filter search shape as car/car_history above - no text index needed here
-// either, for the same reason.
+// house / house_history: same regex-filter search shape as car/car_history above, so no text index is needed here either.
 
 // episode: enforces the (show, season, episode) natural key and makes re-imports idempotent at the database level
 ensureIndex(
@@ -67,8 +68,9 @@ ensureIndex(
 );
 
 // movie / tvshow: partial indexes over the sparse favorite/want-to-watch flags (most documents are false).
-// These do NOT serve a plain "all movies/shows for this owner" query (a partial index only accelerates queries the planner can prove only match documents inside the partial
-// filter) - that's what the plain owner_id indexes above are for.
+// These do NOT serve a plain "all movies/shows for this owner" query.
+// A partial index only accelerates queries the planner can prove only match documents inside the partial filter.
+// The plain owner_id indexes above are for that query.
 ensureIndex(
   db.movie,
   { owner_id: 1, is_favorite: 1 },
@@ -84,8 +86,9 @@ ensureIndex(
   { owner_id: 1, is_favorite: 1 },
   { name: "tvshow_favorite", partialFilterExpression: { is_favorite: true } }
 );
-// tvshow has no want_to_watch index: the flag was removed (Watch Next drives shows from State/episodes,
-// not a want-to-watch flag - that's a movie-only concept). See scripts/unset-tvshow-want-to-watch.js.
+// tvshow has no want_to_watch index, since the flag was removed.
+// Watch Next drives shows from State/episodes, and a want-to-watch flag is a movie-only concept.
+// See scripts/unset-tvshow-want-to-watch.js.
 // album / book: same sparse-flag partial-index rationale as movie/tvshow above.
 ensureIndex(
   db.album,
@@ -174,47 +177,46 @@ ensureIndex(
   { name: "gear_owned", partialFilterExpression: { "owned_versions.0": { $exists: true } } }
 );
 
-// background_job: transient job-progress documents (TV Time import, reference-data "sync now") polled by
-// job id - MongoDB-backed (instead of in-memory) so any WebApi replica can answer a poll. TTL cleanup
-// after 7 days; reads are by _id + owner check, so no other index is needed. The "lease" collection
-// (single-runner election for the periodic reference sync) needs no index at all: one tiny document per
-// lease name, keyed by _id.
+// background_job: transient job-progress documents (TV Time import, reference-data "sync now") polled by job id.
+// They are MongoDB-backed instead of in-memory, so any WebApi replica can answer a poll.
+// TTL cleanup after 7 days.
+// Reads are by _id + owner check, so no other index is needed.
+// The "lease" collection (single-runner election for the periodic reference sync) needs no index at all: one tiny document per lease name, keyed by _id.
 ensureIndex(
   db.background_job,
   { created_at: 1 },
   { name: "background_job_ttl", expireAfterSeconds: 604800 }
 );
 
-// provider_quota: one tiny document per (rate-limited provider, UTC day), holding the shared daily call
-// count every replica reserves against (OMDb's 1000/day free tier - see OmdbCallBudget). Reads and writes
-// are by _id, so no query index is needed; the TTL only sweeps counters up once their day is well past,
-// keeping a few days of history readable for diagnosing a run that ran out of budget.
+// provider_quota: one tiny document per (rate-limited provider, UTC day), holding the shared daily call count every replica reserves against.
+// The first user is OMDb's 1000/day free tier, see OmdbCallBudget.
+// Reads and writes are by _id, so no query index is needed.
+// The TTL only sweeps counters up once their day is well past, keeping a few days of history readable for diagnosing a run that ran out of budget.
 ensureIndex(
   db.provider_quota,
   { created_at: 1 },
   { name: "provider_quota_ttl", expireAfterSeconds: 604800 }
 );
 
-// wishlist_share: one document per issued share link - an owner can hold several at once (one per
-// recipient, individually revocable), so owner_id is deliberately NOT unique. The token lookup is the
-// anonymous shared-view read path and stays unique (a collision is astronomically unlikely with 128
-// random bits, but the invariant belongs in the database regardless).
+// wishlist_share: one document per issued share link.
+// An owner can hold several at once (one per recipient, individually revocable), so owner_id is deliberately NOT unique.
+// The token lookup is the anonymous shared-view read path and stays unique.
+// A collision is astronomically unlikely with 128 random bits, but the invariant belongs in the database regardless.
 ensureIndex(db.wishlist_share, { owner_id: 1 }, { name: "wishlist_share_owner" });
 ensureIndex(db.wishlist_share, { token: 1 }, { name: "wishlist_share_token", unique: true });
 
-// share: one document per (owner -> recipient email) directed grant of whole collection categories - an
-// owner holds several at once (one per person, individually revocable), so owner_id is NOT unique. The
-// recipient looks their grants up by their own authenticated email, so recipient_email gets its own index.
+// share: one document per (owner -> recipient email) directed grant of whole collection categories.
+// An owner holds several at once (one per person, individually revocable), so owner_id is NOT unique.
+// The recipient looks their grants up by their own authenticated email, so recipient_email gets its own index.
 ensureIndex(db.share, { owner_id: 1 }, { name: "share_owner" });
 ensureIndex(db.share, { recipient_email: 1 }, { name: "share_recipient" });
 
-// tvshow_reference / movie_reference: shared, owner-less lookup tables (see docs/reference-data.md) keyed by
-// matched_aliases (every (title, year) combination ever confirmed for that reference, not just its
-// canonical one - see MatchedAliases/ReferenceMatchModel in docs/reference-matching.md), the primary automatic-match key.
-// Both sub-fields of the same embedded array element are indexed together (not two separate array fields,
-// which MongoDB disallows combining in one compound index) so an ElemMatch lookup on (title, year) together
-// stays indexed. Non-unique deliberately - two genuinely different real-world titles/years colliding is
-// exactly what the admin curation queue is for.
+// tvshow_reference / movie_reference: shared, owner-less lookup tables (see docs/reference-data.md).
+// They are keyed by matched_aliases, the primary automatic-match key.
+// It holds every (title, year) combination ever confirmed for that reference, not just its canonical one (see MatchedAliases/ReferenceMatchModel in docs/reference-matching.md).
+// Both sub-fields of the same embedded array element are indexed together, since MongoDB disallows combining two separate array fields in one compound index.
+// An ElemMatch lookup on (title, year) together then stays indexed.
+// Non-unique deliberately: two genuinely different real-world titles/years colliding is exactly what the admin curation queue is for.
 ensureIndex(
   db.tvshow_reference,
   { "matched_aliases.title": 1, "matched_aliases.year": 1 },
@@ -231,10 +233,12 @@ ensureIndex(
   { "matched_aliases.title": 1, "matched_aliases.year": 1 },
   { name: "videogame_reference_title_year" }
 );
-// book_reference / album_reference: their identity is a title plus a *creator*, not a title plus a year (see ReferenceAliasRule), and the index has to match the lookup or the ElemMatch scans the collection.
-// Books query (title, creator, year) and then (title, creator), so one compound index over the three in that order serves both - a prefix of a compound index is itself usable, which is why creator comes before year.
+// book_reference / album_reference: their identity is a title plus a *creator*, not a title plus a year (see ReferenceAliasRule).
+// The index has to match the lookup, or the ElemMatch scans the collection.
+// Books query (title, creator, year) and then (title, creator), so one compound index over the three in that order serves both.
+// A prefix of a compound index is itself usable, which is why creator comes before year.
 // Albums never query a year at all, so theirs stops at the creator.
-// Both replace an earlier (title, year) index that indexed neither query's second field.
+// Both replace a (title, year) index that indexed neither query's second field.
 dropIndexIfExists(db.book_reference, "book_reference_title_year");
 dropIndexIfExists(db.album_reference, "album_reference_title_year");
 ensureIndex(
@@ -247,25 +251,24 @@ ensureIndex(
   { "matched_aliases.title": 1, "matched_aliases.creator": 1 },
   { name: "album_reference_title_creator" }
 );
-// book_reference: the ISBN tier of the same lookup - an exact identifier, asked before any title text is.
-// Partial rather than sparse, and on the alias's own isbn rather than the document's: only an alias genuinely confirmed under an ISBN carries one, so most entries have no such key at all.
+// book_reference: the ISBN tier of the same lookup: an exact identifier, asked before any title text is.
+// Partial rather than sparse, and on the alias's own isbn rather than the document's.
+// Only an alias genuinely confirmed under an ISBN carries one, so most entries have no such key at all.
 ensureIndex(
   db.book_reference,
   { "matched_aliases.isbn": 1 },
   { name: "book_reference_alias_isbn", partialFilterExpression: { "matched_aliases.isbn": { $exists: true } } }
 );
 
-// tvshow_reference / movie_reference: also looked up by external provider id (e.g. TMDB id) when resolving
-// a title - checked first and authoritative, since two tenants resolving the exact same TMDB entry under
-// different title text must reuse the same reference document, not create a duplicate (title/year matching
-// alone can't guarantee that). Same shape as person_reference_tmdb_id below.
-// unique + partialFilterExpression (rather than a legacy sparse index): a real TMDB id must never be
-// claimed by two different reference documents (ResolveTvShowAsync/ResolveMovieAsync already look this
-// up first specifically to prevent that), and the partial filter is what makes the uniqueness constraint
-// safe for any document created before this field existed - MongoDB would otherwise treat every one of
-// those "missing external_ids.tmdb" documents as colliding on the same null key.
-// NOTE: if this fails with a duplicate-key error, a duplicate already exists (e.g. from before the
-// ResolveTvShowAsync/ResolveMovieAsync id-first dedup fix - see docs/reference-data.md) and must be merged/removed first.
+// tvshow_reference / movie_reference: also looked up by external provider id (for example TMDB id) when resolving a title.
+// That lookup is checked first and is authoritative.
+// Two tenants resolving the exact same TMDB entry under different title text must reuse the same reference document, and title/year matching alone cannot guarantee that.
+// Same shape as person_reference_tmdb_id below.
+// unique + partialFilterExpression (rather than a legacy sparse index): a real TMDB id must never be claimed by two different reference documents.
+// ResolveTvShowAsync/ResolveMovieAsync look it up first specifically to prevent that.
+// The partial filter makes the uniqueness constraint safe for any document created before this field existed.
+// MongoDB would otherwise treat every one of those "missing external_ids.tmdb" documents as colliding on the same null key.
+// NOTE: if this fails with a duplicate-key error, a duplicate already exists (see docs/reference-data.md) and must be merged or removed first.
 ensureIndex(
   db.tvshow_reference,
   { "external_ids.tmdb": 1 },
@@ -277,13 +280,12 @@ ensureIndex(
   { name: "movie_reference_tmdb_id", unique: true, partialFilterExpression: { "external_ids.tmdb": { $exists: true } } }
 );
 
-// person_reference: actors/cast are deduplicated across every show/movie that credits them, looked up
-// by external provider id (e.g. their TMDB person id), never by name - same uniqueness rationale as above.
-// One index per provider that can create a person: TMDB for cast, and a book author / album artist through
-// whichever provider linked their work (ResolvePersonReferenceIdAsync is handed the linking client's own
-// ProviderKey). A person is "a named individual or group identified by a provider id", so every one of those
-// id spaces needs the same guarantee - only the TMDB one existed before, which left an author or artist
-// reachable through a duplicate document with nothing but the application check standing in the way.
+// person_reference: actors/cast are deduplicated across every show/movie that credits them.
+// They are looked up by external provider id (for example their TMDB person id), never by name, with the same uniqueness rationale as above.
+// One index per provider that can create a person: TMDB for cast, and a book author / album artist through whichever provider linked their work.
+// ResolvePersonReferenceIdAsync is handed the linking client's own ProviderKey.
+// A person is "a named individual or group identified by a provider id", so every one of those id spaces needs the same guarantee.
+// Without it, an author or artist is reachable through a duplicate document with only the application check standing in the way.
 ["tmdb", "discogs", "googlebooks", "openlibrary", "bnf"].forEach((provider) =>
   ensureIndex(
     db.person_reference,
@@ -296,13 +298,12 @@ ensureIndex(
   )
 );
 
-// book_reference / videogame_reference / album_reference: same external-provider-id dedup rationale as
-// tvshow_reference/movie_reference above. Books and video games carry one index per provider rather than one
-// overall: a reference can legitimately hold ids from several of them (a book linked through Open Library and
-// later refreshed through Google Books keeps both; IGDB replaced RAWG as the default but a game can hold the
-// RAWG id that linked it alongside the IGDB one adopted later), and each id space needs its own guarantee.
-// Google Books is the *default* book provider, so its index is the one that matters most - it was missing
-// entirely while Open Library, a fallback, had one.
+// book_reference / videogame_reference / album_reference: same external-provider-id dedup rationale as tvshow_reference/movie_reference above.
+// Books and video games carry one index per provider rather than one overall.
+// A reference can legitimately hold ids from several of them: a book linked through Open Library and later refreshed through Google Books keeps both.
+// IGDB replaced RAWG as the default, but a game can hold the RAWG id that linked it alongside the IGDB one adopted later.
+// Each id space needs its own guarantee.
+// Google Books is the *default* book provider, so its index matters most, and Open Library is a fallback.
 ["googlebooks", "openlibrary", "bnf"].forEach((provider) =>
   ensureIndex(
     db.book_reference,
@@ -330,66 +331,60 @@ ensureIndex(
   { name: "album_reference_discogs_id", unique: true, partialFilterExpression: { "external_ids.discogs": { $exists: true } } }
 );
 
-// every *_reference collection: the periodic sync's own query shape. It asks for the stalest documents
-// first (never enriched, then least recently enriched) so a capped pass rotates through the collection
-// instead of re-walking its head, and that ordering is a sort the server has to do on every tick - which is
-// exactly what an index is for. Not partial and not sparse: "has no last_enriched_at at all" is the most
-// important half of the query, since a never-enriched document is the one most in need of a pass.
+// every *_reference collection: the periodic sync's own query shape.
+// It asks for the stalest documents first (never enriched, then least recently enriched), so a capped pass rotates through the collection instead of re-walking its head.
+// That ordering is a sort the server has to do on every tick, which is what an index is for.
+// Not partial and not sparse: "has no last_enriched_at at all" is the most important half of the query, since a never-enriched document is the one most in need of a pass.
 [db.tvshow_reference, db.movie_reference, db.book_reference, db.videogame_reference, db.album_reference].forEach(
   (collection) => ensureIndex(collection, { last_enriched_at: 1 }, { name: `${collection.getName()}_last_enriched` })
 );
 
-// user_preference: exactly one document per owner (upserted by owner_id, never listed) - the unique
-// index is what actually guarantees that, the same way the application-level upsert-by-owner-id logic in
-// UserPreferencesRepository is only "supposed to" prevent a second document.
+// user_preference: exactly one document per owner (upserted by owner_id, never listed).
+// The unique index is what guarantees that, since the application-level upsert-by-owner-id logic in UserPreferencesRepository is only "supposed to" prevent a second document.
 ensureIndex(db.user_preference, { owner_id: 1 }, { name: "user_preference_owner", unique: true });
 
-// explore_dismissal: one document per (owner, item type, provider, provider external id) a user hid from
-// their Explore list. Explore suggests *provider* titles (TMDB top-rated for movies/TV, RAWG for video
-// games), not local reference documents - a suggestion is by definition something nobody tracks yet - so the
-// key carries the provider's own id plus the provider it belongs to, never a reference_id. Read by
-// (owner_id, item_type, external_source) to build the exclusion set; unique on the full natural key so a
-// double-dismiss (the application also upserts idempotently) can never create a duplicate.
+// explore_dismissal: one document per (owner, item type, provider, provider external id) a user hid from their Explore list.
+// Explore suggests *provider* titles (TMDB top-rated for movies/TV, RAWG for video games), not local reference documents.
+// A suggestion is by definition something nobody tracks yet.
+// So the key carries the provider's own id plus the provider it belongs to, never a reference_id.
+// Read by (owner_id, item_type, external_source) to build the exclusion set.
+// Unique on the full natural key, so a double-dismiss (the application also upserts idempotently) can never create a duplicate.
 ensureIndex(db.explore_dismissal, { owner_id: 1, item_type: 1, external_source: 1, external_id: 1 }, { name: "explore_dismissal_key", unique: true });
 
-// explore_catalogue: the locally materialized copy of each provider's "best of" ranking, rebuilt weekly by
-// ExploreCatalogueRefreshService and read (never written) by the Explore page. Shared and owner-less like the
-// *_reference collections - the ranking is a public fact identical for every tenant; only the "do I already
-// track this?" exclusions are per-user, and those are applied at read time over this list. Storing it is what
-// lets Explore page deep into the ranking at all: the old per-request provider calls could only ever afford
-// the first few pages.
+// explore_catalogue: the locally materialized copy of each provider's "best of" ranking.
+// It is rebuilt weekly by ExploreCatalogueRefreshService and read (never written) by the Explore page.
+// Shared and owner-less like the *_reference collections.
+// The ranking is a public fact identical for every tenant, and only the "do I already track this?" exclusions are per-user, applied at read time over this list.
+// Storing it is what lets Explore page deep into the ranking, since per-request provider calls could only afford the first few pages.
 //
-// A "ranking" is a domain plus an ordering, not a domain plus a displayed rating: TMDB publishes one
-// top-rated list whether movies are shown with TMDB or IMDb numbers (IMDb has no catalogue API), while RAWG
-// genuinely sorts differently by each of its own sources - so movies/TV have one ranking each and video games
-// have two. The unique natural key is what stops a refresh pass from inserting a second copy of a title it
-// re-reads across pages.
+// A "ranking" is a domain plus an ordering, not a domain plus a displayed rating.
+// TMDB publishes one top-rated list whether movies are shown with TMDB or IMDb numbers (IMDb has no catalogue API).
+// RAWG genuinely sorts differently by each of its own sources, so movies/TV have one ranking each and video games have two.
+// The unique natural key stops a refresh pass from inserting a second copy of a title it re-reads across pages.
 ensureIndex(db.explore_catalogue, { item_type: 1, ranking: 1, external_id: 1 }, { name: "explore_catalogue_key", unique: true });
 // the read path: entries of one ranking after a given rank, in rank order (the paging cursor).
 ensureIndex(db.explore_catalogue, { item_type: 1, ranking: 1, rank: 1 }, { name: "explore_catalogue_rank" });
-// the refresh pass: the oldest stamp in a ranking (its staleness signal) and the "delete what this pass
-// didn't rewrite" prune, both filtering item_type + ranking and ordering/comparing on refreshed_at.
+// the refresh pass: the oldest stamp in a ranking (its staleness signal) and the "delete what this pass didn't rewrite" prune.
+// Both filter item_type + ranking and order or compare on refreshed_at.
 ensureIndex(db.explore_catalogue, { item_type: 1, ranking: 1, refreshed_at: 1 }, { name: "explore_catalogue_refreshed" });
 
-// car_station: the shared, owner-less fuel-station catalogue. Like the *_reference collections it is a
-// deliberate exception to "every collection has an owner_id" - a station at an address is a public fact
-// pointed at by every tenant's car_history entries, not one account's data.
+// car_station: the shared, owner-less fuel-station catalogue.
+// Like the *_reference collections it is a deliberate exception to "every collection has an owner_id".
+// A station at an address is a public fact pointed at by every tenant's car_history entries, not one account's data.
 //
-// The natural key is the normalized brand name + normalized city + postal code, and it is unique because
-// members create stations inline from the refuel form: the application's find-or-create is what is
-// *supposed* to prevent duplicates, this index is what guarantees it when two members type the same
-// station at the same moment. city_normalized is "" (never null/missing) for a station with no city yet,
-// so the key compares as a value rather than collapsing every cityless station onto one another - the same
-// null-or-empty trap as the reference collections' unresolved filters.
+// The natural key is the normalized brand name + normalized city + postal code.
+// It is unique because members create stations inline from the refuel form.
+// The application's find-or-create is *supposed* to prevent duplicates, and this index guarantees it when two members type the same station at the same moment.
+// city_normalized is "" (never null/missing) for a station with no city yet.
+// The key then compares as a value rather than collapsing every cityless station onto one another, the same null-or-empty trap as the reference collections' unresolved filters.
 ensureIndex(
   db.car_station,
   { brand_name_normalized: 1, city_normalized: 1, postal_code: 1 },
   { name: "car_station_key", unique: true }
 );
 
-// car_history.station_id: backs the "is this station still in use" delete guard, the admin catalogue's
-// per-station entry counts (one grouped aggregation) and the merge's re-point. Partial, since only refuels
-// carry a station and a full index would be mostly empty.
+// car_history.station_id: backs the "is this station still in use" delete guard, the admin catalogue's per-station entry counts (one grouped aggregation) and the merge's re-point.
+// Partial, since only refuels carry a station and a full index would be mostly empty.
 ensureIndex(
   db.car_history,
   { station_id: 1 },

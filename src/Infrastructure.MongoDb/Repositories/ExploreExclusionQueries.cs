@@ -9,9 +9,11 @@ using MongoDB.Driver;
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
 /// <summary>
-/// The projections behind Explore's exclusion of what the caller already has: two owner-scoped reads of the caller's collection, and the id lookup over the reference documents they link to.
+/// The projections behind Explore's exclusion of what the caller already has:
+/// two owner-scoped reads of the caller's collection, and the id lookup over the reference documents they link to.
 /// Each is the same query in every domain but for the field it reads, so it is written once here.
-/// They are not hooks on <c>MongoDbRepositoryBase</c>, whose entities may have no reference id or title, and passing the field keeps its declaration next to its entity, like <c>SortTitleField</c>.
+/// They are not hooks on <c>MongoDbRepositoryBase</c>, whose entities may have no reference id or title,
+/// and passing the field keeps its declaration next to its entity, like <c>SortTitleField</c>.
 /// </summary>
 internal static class ExploreExclusionQueries
 {

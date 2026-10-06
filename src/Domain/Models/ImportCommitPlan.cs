@@ -3,7 +3,8 @@ using System.Collections.Generic;
 namespace Keeptrack.Domain.Models;
 
 /// <summary>
-/// What <see cref="Services.OwnedItemImportMergeService.ComputeCommitPlan{TModel,TRequestItem}"/> decided: new items to create, and existing items (or ones created earlier in this batch) to update.
+/// What <see cref="Services.OwnedItemImportMergeService.ComputeCommitPlan{TModel,TRequestItem}"/> decided:
+/// new items to create, and existing items (or ones created earlier in this batch) to update.
 /// Each already carries its appended owned copy, an <see cref="OwnedVersionModel"/> or a <see cref="VideoGamePlatformModel"/> depending on <typeparamref name="TModel"/>.
 /// </summary>
 public class ImportCommitPlan<TModel>

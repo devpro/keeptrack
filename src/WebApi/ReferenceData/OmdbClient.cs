@@ -50,7 +50,8 @@ public class OmdbClient(HttpClient http, OmdbSettings settings, IOmdbCallBudget 
 
             return OmdbLookupResult.Rated(new OmdbRating(value, ParseVotes(payload.ImdbVotes)));
         }
-        // what OMDb, the network or the resilience pipeline can raise, listed rather than caught blindly so a real bug still surfaces: connection failures, timeouts, an open circuit, and a non-JSON page from a proxy
+        // what OMDb, the network or the resilience pipeline can raise, listed rather than caught blindly so a real bug still surfaces:
+        // connection failures, timeouts, an open circuit, and a non-JSON page from a proxy
         catch (Exception ex) when (ex is HttpRequestException or TimeoutRejectedException or BrokenCircuitException or JsonException or NotSupportedException)
         {
             logger.LogWarning(ex, "OMDb lookup failed for imdb id {ImdbId}; skipping the IMDb rating.", imdbId);

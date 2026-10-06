@@ -10,7 +10,8 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// Two consumers spend the key on the same tick, the reference sync's IMDb backfill then Explore's, and this lets each see what the other spent.
 /// </para>
 /// <para>
-/// The count lives in MongoDB (<see cref="IProviderQuotaRepository"/>), since interactive resolves land on any replica, and a counter in the process would let each spend the whole allowance.
+/// The count lives in MongoDB (<see cref="IProviderQuotaRepository"/>), since interactive resolves land on any replica,
+/// and a counter in the process would let each spend the whole allowance.
 /// A call is reserved before it is made, so an over-count is possible and an under-count is not, the safe direction against a hard limit.
 /// </para>
 /// </summary>
@@ -27,7 +28,8 @@ public sealed class OmdbCallBudget(IServiceScopeFactory scopeFactory, OmdbSettin
     private int _backgroundExhaustedDay;
 
     /// <summary>
-    /// How many of the day's calls <paramref name="priority"/> may reach: the whole allowance for interactive work, all but <see cref="OmdbSettings.InteractiveReserve"/> for batch work.
+    /// How many of the day's calls <paramref name="priority"/> may reach:
+    /// the whole allowance for interactive work, all but <see cref="OmdbSettings.InteractiveReserve"/> for batch work.
     /// </summary>
     public int Ceiling(OmdbCallPriority priority) => priority == OmdbCallPriority.Interactive
         ? settings.DailyCallBudget

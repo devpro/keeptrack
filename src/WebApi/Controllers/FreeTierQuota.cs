@@ -3,7 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace Keeptrack.WebApi.Controllers;
 
 /// <summary>
-/// The free preview creation quota, written once so every creation path enforces it: the CRUD create (<see cref="DataCrudControllerBase{TDto, TModel}.Post"/>), the shared item copy (<see cref="SharedWithMeController"/>) and Explore's add.
+/// The free preview creation quota, written once so every creation path enforces it:
+/// the CRUD create (<see cref="DataCrudControllerBase{TDto, TModel}.Post"/>), the shared item copy (<see cref="SharedWithMeController"/>) and Explore's add.
 /// Enforced server side, since hiding UI is not security.
 /// Members and admins are never counted.
 /// </summary>

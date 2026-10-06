@@ -6,7 +6,8 @@ using Microsoft.Playwright;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 
 /// <summary>
-/// The Explore discovery page (<c>/explore</c>): one suggestion card per stored catalogue entry, a tab per discovery domain, per-card add/dismiss actions and an explicit "Load more".
+/// The Explore discovery page (<c>/explore</c>): one suggestion card per stored catalogue entry,
+/// a tab per discovery domain, per-card add/dismiss actions and an explicit "Load more".
 /// </summary>
 public class ExplorePage(IPage page) : PageBase(page)
 {
@@ -19,7 +20,8 @@ public class ExplorePage(IPage page) : PageBase(page)
 
     /// <summary>
     /// One suggestion row.
-    /// The detailed list is the default view and the only one these tests drive, since the thumbnail card is covered by an empty Bootstrap <c>stretched-link</c>, which has no size and can't be clicked.
+    /// The detailed list is the default view and the only one these tests drive,
+    /// since the thumbnail card is covered by an empty Bootstrap <c>stretched-link</c>, which has no size and can't be clicked.
     /// </summary>
     public ILocator Card(string title) => Cards.Filter(new LocatorFilterOptions { HasText = title });
 
@@ -40,7 +42,8 @@ public class ExplorePage(IPage page) : PageBase(page)
 
     /// <summary>
     /// Switches domain tab.
-    /// Confirmed on the query string rather than a card: selecting a tab is a real navigation, so the URL changes when the handler runs, the "did this click register?" signal the retry needs.
+    /// Confirmed on the query string rather than a card: selecting a tab is a real navigation,
+    /// so the URL changes when the handler runs, the "did this click register?" signal the retry needs.
     /// It can't be confused with a slow fetch after it, where a second click would push a second history entry and break back-navigation.
     /// </summary>
     public async Task SelectTabAsync(string name, Regex expectedUrl)
@@ -48,7 +51,8 @@ public class ExplorePage(IPage page) : PageBase(page)
 
     /// <summary>
     /// Dismisses a suggestion and waits for its card to go.
-    /// Safe to re-click, dismissing being idempotent server-side, but the wait is long and the attempts few, since the button disables itself while the call is in flight (see <see cref="PageBase.ClickUntilAsync(ILocator, Func{Task}, int)"/>).
+    /// Safe to re-click, dismissing being idempotent server-side, but the wait is long and the attempts few,
+    /// since the button disables itself while the call is in flight (see <see cref="PageBase.ClickUntilAsync(ILocator, Func{Task}, int)"/>).
     /// </summary>
     public async Task DismissAsync(string title)
         => await ClickUntilAsync(
@@ -58,7 +62,8 @@ public class ExplorePage(IPage page) : PageBase(page)
 
     /// <summary>
     /// Adds a suggestion to the collection.
-    /// Deliberately a plain click, never a retrying one: a second add would create a second item, which is precisely what <see cref="PageBase.ClickUntilAsync(ILocator, ILocator, int)"/> must not be pointed at.
+    /// Deliberately a plain click, never a retrying one: a second add would create a second item,
+    /// which is precisely what <see cref="PageBase.ClickUntilAsync(ILocator, ILocator, int)"/> must not be pointed at.
     /// </summary>
     public async Task AddAsync(string title)
         => await Card(title).GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "Add to my collection" }).ClickAsync();

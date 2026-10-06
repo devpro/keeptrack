@@ -12,7 +12,8 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Basic full-cycle CRUD coverage for <c>Collectible</c>, same shape as <see cref="AlbumResourceTest"/> minus reference-linking (Collectible has no external reference-data provider).
+/// Basic full-cycle CRUD coverage for <c>Collectible</c>,
+/// same shape as <see cref="AlbumResourceTest"/> minus reference-linking (Collectible has no external reference-data provider).
 /// </summary>
 public class CollectibleResourceTest(KestrelWebAppFactory<Program> factory)
     : ResourceTestBase(factory)

@@ -60,7 +60,8 @@ public interface ITmdbClient
     Task<bool> HasMovieChangedSinceAsync(string tmdbId, DateTime since, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// A show's IMDb id through <c>/tv/{id}/external_ids</c>, one cheap call, so a reference missing it backfills the id and then its rating without the full fetch the no-change shortcut avoids.
+    /// A show's IMDb id through <c>/tv/{id}/external_ids</c>, one cheap call,
+    /// so a reference missing it backfills the id and then its rating without the full fetch the no-change shortcut avoids.
     /// </summary>
     Task<string?> GetTvShowImdbIdAsync(string tmdbId, CancellationToken cancellationToken = default);
 

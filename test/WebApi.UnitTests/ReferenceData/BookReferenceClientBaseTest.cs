@@ -9,7 +9,8 @@ namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
 /// <summary>
 /// The search policy every book provider shares: which query is attempted, in what order, and what happens when one comes back empty.
-/// Tested once against a recording fake rather than over three wire formats, since the ordering is the shared algorithm, and each provider's test proves only its query string (see <c>OpenLibraryClientTest</c>, <c>BnfClientTest</c>).
+/// Tested once against a recording fake rather than over three wire formats, since the ordering is the shared algorithm,
+/// and each provider's test proves only its query string (see <c>OpenLibraryClientTest</c>, <c>BnfClientTest</c>).
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class BookReferenceClientBaseTest
@@ -61,7 +62,8 @@ public class BookReferenceClientBaseTest
     [Fact]
     public async Task SearchBooksAsync_WidensToTheTitleSearch_WhenTheIsbnMatchesNothing()
     {
-        // A catalogue missing an edition (BnF has no record for 9782265002104) must not report "no results" for a book it finds by title, so an ISBN is never worse than leaving it blank.
+        // A catalogue missing an edition (BnF has no record for 9782265002104) must not report "no results" for a book it finds by title,
+        // so an ISBN is never worse than leaving it blank.
         var client = new RecordingBookClient(isbnResults: [], titleWithAuthorResults: OneResult("by-title"));
 
         var results = await client.SearchBooksAsync("A Book", 1997, "An Author", "9782265002104", TestContext.Current.CancellationToken);

@@ -15,7 +15,8 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 /// A filtered upsert makes the ceiling check and increment one atomic operation, with _id uniqueness turning "at the ceiling" into a duplicate key rather than a second counter.
 /// A read-then-write implementation would pass a mocked test and hand out the same last call to every replica that asked at once.
 /// <para>
-/// Each test uses its own provider name, so parallel classes can't contend, and registers the day's document for cleanup, <c>provider_quota</c> ids being strings (like <c>lease</c>), not ObjectIds.
+/// Each test uses its own provider name, so parallel classes can't contend,
+/// and registers the day's document for cleanup, <c>provider_quota</c> ids being strings (like <c>lease</c>), not ObjectIds.
 /// </para>
 /// </summary>
 public class ProviderQuotaRepositoryTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)

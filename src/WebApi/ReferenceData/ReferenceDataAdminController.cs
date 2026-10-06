@@ -132,7 +132,8 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// Runs the import on a background task with its own DI scope, since the request that started it has completed and its scoped services (the six repositories, its JobStore) are unusable.
+    /// Runs the import on a background task with its own DI scope,
+    /// since the request that started it has completed and its scoped services (the six repositories, its JobStore) are unusable.
     /// <para>
     /// It runs on <see cref="IHostApplicationLifetime.ApplicationStopping"/>, like <see cref="RunSyncJobAsync"/>.
     /// A shutdown mid-import would otherwise leave it writing against a disposed Mongo client, and the job reading "Running" forever.
@@ -258,8 +259,10 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// Runs the periodic background sync (see <see cref="ReferenceSyncBackgroundService"/>) now instead of at its next tick, with the same logic and only the staleness windows differing.
-    /// It runs in the background, and <see cref="GetSyncStatus"/> reports progress for the returned job id, since a re-check across five domains easily exceeds a request's timeout.
+    /// Runs the periodic background sync (see <see cref="ReferenceSyncBackgroundService"/>) now instead of at its next tick,
+    /// with the same logic and only the staleness windows differing.
+    /// It runs in the background, and <see cref="GetSyncStatus"/> reports progress for the returned job id,
+    /// since a re-check across five domains easily exceeds a request's timeout.
     /// </summary>
     /// <param name="force">
     /// <c>true</c> re-checks every reference document and rebuilds every Explore ranking, however recently enriched.
@@ -302,7 +305,8 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// Runs the sync on a background task with its own DI scope, since the request that started it has completed and its scoped services (<see cref="ReferenceSyncService"/>, its JobStore) are unusable.
+    /// Runs the sync on a background task with its own DI scope,
+    /// since the request that started it has completed and its scoped services (<see cref="ReferenceSyncService"/>, its JobStore) are unusable.
     /// <para>
     /// It runs on <see cref="IHostApplicationLifetime.ApplicationStopping"/>, not an unbounded token.
     /// A pass takes minutes, and on shutdown the singletons it uses (the Mongo client, the HTTP clients, IGDB's rate limiter) are disposed under it.
@@ -489,14 +493,16 @@ public class ReferenceDataAdminController(
     /// Live external-provider search, for an admin to pick the right candidate for an unresolved title.
     /// TV show and movie candidates also carry top-billed cast names, to tell apart near-identical results (remakes, regional variants, sequels sharing a title).
     /// <para>
-    /// <paramref name="creator"/> is a book's author or an album's artist, passed to the provider's own author or artist field, since a common title alone returns many unrelated candidates.
+    /// <paramref name="creator"/> is a book's author or an album's artist, passed to the provider's own author or artist field,
+    /// since a common title alone returns many unrelated candidates.
     /// TV shows, movies and video games ignore it.
     /// </para>
     /// <para>
     /// <paramref name="provider"/> picks the provider for the domains with more than one (see <see cref="GetProviders"/>), null meaning the deployment default.
     /// </para>
     /// <para>
-    /// <paramref name="isbn"/> is for books only: every book provider tries it first and widens to the title search when its catalogue lacks the edition (see <see cref="BookReferenceClientBase"/>).
+    /// <paramref name="isbn"/> is for books only:
+    /// every book provider tries it first and widens to the title search when its catalogue lacks the edition (see <see cref="BookReferenceClientBase"/>).
     /// </para>
     /// </summary>
     [HttpGet("search")]

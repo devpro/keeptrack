@@ -8,7 +8,8 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.Services;
 
 /// <summary>
-/// The one rule saying when a provider's candidate is the work looked for, read by every domain's search ranking, automatic resolution and video game provider adoption, so it is tested once here.
+/// The one rule saying when a provider's candidate is the work looked for, read by every domain's search ranking,
+/// automatic resolution and video game provider adoption, so it is tested once here.
 /// <para>
 /// The fixtures are the providers' real catalogues.
 /// IGDB holds <b>eight</b> games named "Resident Evil 2" (three of them 1998) and seven named "Resident Evil", which makes the year part of the identity in that domain.
@@ -157,9 +158,11 @@ public class ReferenceMatchRulesTest
 
     /// <summary>
     /// The whole reason books need their own shape.
-    /// Google Books answers "The Hobbit" by Tolkien with 300 volumes, and treating that as an ambiguity would leave every book unlinkable, so the printings confirm together and the closest leads.
+    /// Google Books answers "The Hobbit" by Tolkien with 300 volumes,
+    /// and treating that as an ambiguity would leave every book unlinkable, so the printings confirm together and the closest leads.
     /// <para>
-    /// The "(Enhanced Edition)" volume is set aside, since two candidates are spelled exactly as asked and an exact spelling beats a loose one, the tier that keeps <i>Alien</i> and <i>The Alien</i> apart.
+    /// The "(Enhanced Edition)" volume is set aside,
+    /// since two candidates are spelled exactly as asked and an exact spelling beats a loose one, the tier that keeps <i>Alien</i> and <i>The Alien</i> apart.
     /// It costs nothing here, being the same work, and only the first match is linked.
     /// </para>
     /// </summary>
@@ -179,7 +182,8 @@ public class ReferenceMatchRulesTest
 
     /// <summary>
     /// The three spellings Google Books credits one author under must not read as three authors.
-    /// Requiring the candidates to agree with <i>each other</i> about the creator would refuse the very case this exists for; they only have to agree with what the tenant supplied.
+    /// Requiring the candidates to agree with <i>each other</i> about the creator would refuse the very case this exists for;
+    /// they only have to agree with what the tenant supplied.
     /// </summary>
     [Fact]
     public void ConfirmedCreatorMatches_AcceptsOneAuthorSpelledSeveralWays()
@@ -231,7 +235,8 @@ public class ReferenceMatchRulesTest
     }
 
     /// <summary>
-    /// Loose matching drops "the", which is right across catalogues and wrong against tenant-typed text: measured live, TMDB answers "Alien" (1979) with both <i>Alien</i> and <i>The Alien</i>, two different films of the same year.
+    /// Loose matching drops "the", which is right across catalogues and wrong against tenant-typed text:
+    /// measured live, TMDB answers "Alien" (1979) with both <i>Alien</i> and <i>The Alien</i>, two different films of the same year.
     /// The exactly-spelled candidate wins rather than the pair being reported as an ambiguity the tenant had already resolved by typing one of them.
     /// </summary>
     [Fact]

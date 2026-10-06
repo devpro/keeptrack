@@ -10,7 +10,8 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Exercises <see cref="IBookRepository.FindDistinctUnresolvedTitleYearsAsync"/>'s creator dimension against real MongoDB, since a mocked test can't validate the $group and $first translation (as in <see cref="TvShowReferenceLinkingTest"/>).
+/// Exercises <see cref="IBookRepository.FindDistinctUnresolvedTitleYearsAsync"/>'s creator dimension against real MongoDB,
+/// since a mocked test can't validate the $group and $first translation (as in <see cref="TvShowReferenceLinkingTest"/>).
 /// </summary>
 public class BookUnresolvedQueueTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)
 {

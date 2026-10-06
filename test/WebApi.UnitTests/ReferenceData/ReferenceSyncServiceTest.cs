@@ -130,7 +130,8 @@ public class ReferenceSyncServiceTest
     }
 
     /// <summary>
-    /// Backs the admin "sync now" progress bar (<c>ReferenceDataAdminController.SyncNow</c>, <c>ReferenceDataAdminPage.razor</c>'s polling loop), the stage callback firing once per domain in the order the UI's progress mapping assumes.
+    /// Backs the admin "sync now" progress bar (<c>ReferenceDataAdminController.SyncNow</c>, <c>ReferenceDataAdminPage.razor</c>'s polling loop),
+    /// the stage callback firing once per domain in the order the UI's progress mapping assumes.
     /// </summary>
     [Fact]
     public async Task SyncStaleReferencesAsync_InvokesOnStageChanged_OncePerDomainInOrder()

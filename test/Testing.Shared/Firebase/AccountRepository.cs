@@ -16,11 +16,14 @@ namespace Keeptrack.Testing.Shared.Firebase;
 public static class AccountRepository
 {
     /// <summary>
-    /// Every resource test class authenticates independently, and xunit v3 runs them in parallel, so dozens of concurrent sign-ins for one Firebase account would trip Google Identity Platform's abuse protection and fail the run with 400s.
-    /// The token is valid for an hour (see ExpiresIn below), longer than a run, so each username's sign-in is cached behind its own Lazy, and concurrent callers for one identity share one task.
+    /// Every resource test class authenticates independently, and xunit v3 runs them in parallel,
+    /// so dozens of concurrent sign-ins for one Firebase account would trip Google Identity Platform's abuse protection and fail the run with 400s.
+    /// The token is valid for an hour (see ExpiresIn below), longer than a run,
+    /// so each username's sign-in is cached behind its own Lazy, and concurrent callers for one identity share one task.
     /// </summary>
     /// <remarks>
-    /// Keyed by username, not one field, or a second identity's sign-in (<see cref="Keeptrack.BlazorApp.PlaywrightTests.Hosting.End2EndFixture"/>'s second ephemeral user) would get the first identity's cached token.
+    /// Keyed by username, not one field, or a second identity's sign-in
+    /// (<see cref="Keeptrack.BlazorApp.PlaywrightTests.Hosting.End2EndFixture"/>'s second ephemeral user) would get the first identity's cached token.
     /// <c>AuthSmokeTest</c>'s identity-swap test would then pass for the wrong reason, both tokens being one identity's.
     /// </remarks>
     private static readonly ConcurrentDictionary<string, Lazy<Task<string?>>> s_cachedTokensByUsername = new();

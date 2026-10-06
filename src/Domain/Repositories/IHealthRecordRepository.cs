@@ -19,7 +19,8 @@ public interface IHealthRecordRepository : IDataRepository<HealthRecordModel>
     Task<IReadOnlyList<string>> FindDistinctPractitionersAsync(string ownerId);
 
     /// <summary>
-    /// Deletes every record of <paramref name="ownerId"/> for the profile, cascading its deletion, since records reference their profile by id rather than being embedded (see docs/data-model.md's "Child entities" section).
+    /// Deletes every record of <paramref name="ownerId"/> for the profile, cascading its deletion,
+    /// since records reference their profile by id rather than being embedded (see docs/data-model.md's "Child entities" section).
     /// </summary>
     Task<long> DeleteAllForProfileAsync(string healthProfileId, string ownerId, CancellationToken cancellationToken = default);
 }

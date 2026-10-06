@@ -39,7 +39,8 @@ public class TvShowReferenceRepository(IMongoDatabase mongoDatabase, TvShowRefer
         ReferenceRatingQueries.FindRatingsAsync<TvShowReference>(Collection, afterId, limit);
 
     /// <summary>
-    /// Matches every (title, year) combination confirmed for a reference, not only its canonical one (see <see cref="ReferenceAliasQueries"/> for why every condition sits in one <c>ElemMatch</c>).
+    /// Matches every (title, year) combination confirmed for a reference,
+    /// not only its canonical one (see <see cref="ReferenceAliasQueries"/> for why every condition sits in one <c>ElemMatch</c>).
     /// </summary>
     public async Task<TvShowReferenceModel?> FindByTitleYearAsync(string title, int? year)
     {
@@ -76,7 +77,8 @@ public class TvShowReferenceRepository(IMongoDatabase mongoDatabase, TvShowRefer
     public async Task<TvShowReferenceModel> UpsertAsync(TvShowReferenceModel model)
     {
         model.TitleNormalized = TitleNormalizer.Normalize(model.Title);
-        // the canonical (title, year) is always a valid match, but only as a complete key: a show with no year records nothing rather than a title-only alias answering for every year (see ReferenceAliasRule)
+        // the canonical (title, year) is always a valid match, but only as a complete key:
+        // a show with no year records nothing rather than a title-only alias answering for every year (see ReferenceAliasRule)
         ReferenceAliasRule.TitleAndYear.EnsureCanonical(model.MatchedAliases, model.TitleNormalized, model.Year);
         var entity = mapper.ToEntity(model);
 

@@ -101,7 +101,8 @@ public class ApiExceptionFilterAttributeTest
 
     /// <summary>
     /// The provider's own status is the most useful fact about an upstream failure.
-    /// Without it, the admin sees only this API's 502 through the Blazor client's EnsureSuccessStatusCode, and a Google Books search outage (volumes?q= answering 503) reads as a Keeptrack defect.
+    /// Without it, the admin sees only this API's 502 through the Blazor client's EnsureSuccessStatusCode,
+    /// and a Google Books search outage (volumes?q= answering 503) reads as a Keeptrack defect.
     /// </summary>
     [Fact]
     public void OnException_ReportsTheProvidersOwnStatus_WhenTheProviderAnswered()

@@ -117,7 +117,8 @@ public partial class QuickAddPage : ComponentBase
     };
 
     /// <summary>
-    /// Rebuilds the draft only on a real type change, since this also fires on unrelated parameter updates (a cascading auth-state refresh), which must not wipe a half-filled form.
+    /// Rebuilds the draft only on a real type change,
+    /// since this also fires on unrelated parameter updates (a cascading auth-state refresh), which must not wipe a half-filled form.
     /// </summary>
     protected override async Task OnParametersSetAsync()
     {

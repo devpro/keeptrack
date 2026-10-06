@@ -18,7 +18,8 @@ public class OpenLibraryClient(HttpClient http) : BookReferenceClientBase, IBook
     private static readonly TimeSpan s_regexTimeout = TimeSpan.FromSeconds(1);
 
     /// <summary>
-    /// The search index answers an <c>isbn:</c> query with the work the edition belongs to, in one call like <see cref="GetRatingByIsbnAsync"/>, reading the display fields instead.
+    /// The search index answers an <c>isbn:</c> query with the work the edition belongs to,
+    /// in one call like <see cref="GetRatingByIsbnAsync"/>, reading the display fields instead.
     /// <c>q=isbn:9782265002104</c> returns one work with title, year, authors and cover, a French edition BnF does not hold.
     /// </summary>
     protected override Task<IReadOnlyList<BookSearchResult>> SearchByIsbnAsync(string isbn, CancellationToken cancellationToken) =>
@@ -26,9 +27,11 @@ public class OpenLibraryClient(HttpClient http) : BookReferenceClientBase, IBook
 
     /// <summary>
     /// A relevance query (<c>q=</c>), not <c>title=</c>, which only matches a work's canonical title and misses regional variants.
-    /// <c>title=</c> finds only empty stubs for "Harry Potter and the Sorcerer's Stone", the canonical work being "Harry Potter and the Philosopher's Stone", which <c>q=</c> ranks first.
+    /// <c>title=</c> finds only empty stubs for "Harry Potter and the Sorcerer's Stone",
+    /// the canonical work being "Harry Potter and the Philosopher's Stone", which <c>q=</c> ranks first.
     /// <para>
-    /// No year is sent, since <c>first_publish_year</c> is the work's original year, which differs from the edition a tenant records (a 1997 first edition, a 2016 reprint), so filtering would drop the real match.
+    /// No year is sent, since <c>first_publish_year</c> is the work's original year,
+    /// which differs from the edition a tenant records (a 1997 first edition, a 2016 reprint), so filtering would drop the real match.
     /// </para>
     /// </summary>
     protected override Task<IReadOnlyList<BookSearchResult>> SearchByTitleAsync(string title, string? author, CancellationToken cancellationToken) =>
@@ -38,7 +41,8 @@ public class OpenLibraryClient(HttpClient http) : BookReferenceClientBase, IBook
             cancellationToken);
 
     /// <summary>
-    /// <paramref name="titleFallback"/> is the searched text, used when a match has no title, only on the title path, so an ISBN search drops a titleless stub rather than labelling it with the ISBN.
+    /// <paramref name="titleFallback"/> is the searched text, used when a match has no title,
+    /// only on the title path, so an ISBN search drops a titleless stub rather than labelling it with the ISBN.
     /// </summary>
     private async Task<IReadOnlyList<BookSearchResult>> RunSearchAsync(string query, string? titleFallback, CancellationToken cancellationToken)
     {
@@ -83,7 +87,8 @@ public class OpenLibraryClient(HttpClient http) : BookReferenceClientBase, IBook
     }
 
     /// <summary>
-    /// The rating fallback (see <see cref="IBookRatingByIsbnLookup"/>): the search index carries <c>ratings_average</c> and <c>ratings_count</c>, so an <c>isbn:</c> query returns the rating in one call.
+    /// The rating fallback (see <see cref="IBookRatingByIsbnLookup"/>):
+    /// the search index carries <c>ratings_average</c> and <c>ratings_count</c>, so an <c>isbn:</c> query returns the rating in one call.
     /// The first hit only, since a resolved ISBN maps to one work.
     /// A zero or absent average means no rating.
     /// </summary>
@@ -117,7 +122,8 @@ public class OpenLibraryClient(HttpClient http) : BookReferenceClientBase, IBook
     }
 
     /// <summary>
-    /// A work's <c>description</c> is a plain string or an object <c>{ "type": "/type/text", "value": "..." }</c>, both read here, so the wire model stays a <see cref="JsonElement"/> rather than needing a converter.
+    /// A work's <c>description</c> is a plain string or an object <c>{ "type": "/type/text", "value": "..." }</c>, both read here,
+    /// so the wire model stays a <see cref="JsonElement"/> rather than needing a converter.
     /// </summary>
     private static string? ExtractDescription(JsonElement? description) => description?.ValueKind switch
     {

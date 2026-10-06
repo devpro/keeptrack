@@ -9,7 +9,8 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// SRU client of the BnF (Bibliothèque nationale de France) "Catalogue général", free and keyless.
 /// Unlike the other providers, it answers XML: each hit is a <c>srw:record</c> whose <c>srw:recordData</c> embeds a Dublin Core (<c>oai_dc:dc</c>) document.
 /// The element and namespace shape below comes from real responses, not documentation prose.
-/// It never fills <see cref="BookSearchResult.ImageUrl"/> or <see cref="BookDetails.ImageUrl"/>, since catalogue records carry no cover (only a digitized Gallica item would, through another API).
+/// It never fills <see cref="BookSearchResult.ImageUrl"/> or <see cref="BookDetails.ImageUrl"/>,
+/// since catalogue records carry no cover (only a digitized Gallica item would, through another API).
 /// </summary>
 public class BnfClient(HttpClient http) : BookReferenceClientBase
 {
@@ -150,7 +151,8 @@ public class BnfClient(HttpClient http) : BookReferenceClientBase
     }
 
     /// <summary>
-    /// <c>dc:date</c> is usually a bare year, but catalogue dates can carry uncertainty markers or ranges, so the last 4-digit token is read, as in <see cref="OpenLibraryClient"/>.
+    /// <c>dc:date</c> is usually a bare year, but catalogue dates can carry uncertainty markers or ranges,
+    /// so the last 4-digit token is read, as in <see cref="OpenLibraryClient"/>.
     /// </summary>
     private static readonly Regex s_yearRegex = new(@"\b\d{4}\b", RegexOptions.Compiled, s_regexTimeout);
 
