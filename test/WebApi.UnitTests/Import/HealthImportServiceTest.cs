@@ -15,9 +15,7 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.Import;
 
 /// <summary>
-/// Exercises <see cref="HealthImportService"/> against an in-memory workbook shaped exactly like the real "Journal_sante.xlsx" (verified against the actual file):
-/// the duplicate "Personne" header (first = who was treated, second = practitioner), two-line headers like "Rbrst\nAmeli", Excel-native dates
-/// and time fractions, formula-backed amounts, and the derived "Reste à charge" column that must NOT be imported.
+/// Exercises <see cref="HealthImportService"/> against an in-memory workbook shaped exactly like the real "Journal_sante.xlsx" (verified against the actual file): the duplicate "Personne" header (first = who was treated, second = practitioner), two-line headers like "Rbrst\nAmeli", Excel-native dates and time fractions, formula-backed amounts, and the derived "Reste à charge" column that must NOT be imported.
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class HealthImportServiceTest
@@ -66,7 +64,7 @@ public class HealthImportServiceTest
         sheet.Cell(4, 4).Value = "Bertrand";
         sheet.Cell(4, 10).FormulaA1 = "=17.5+18.55";
 
-        // an unreadable date and a missing person - both skipped with a warning, never guessed at
+        // an unreadable date and a missing person, both skipped with a warning, never guessed
         sheet.Cell(5, 2).Value = "pas une date";
         sheet.Cell(5, 4).Value = "Bertrand";
         sheet.Cell(6, 2).Value = new DateTime(2023, 1, 5);
@@ -105,7 +103,7 @@ public class HealthImportServiceTest
         consultation.Price.Should().Be(60);
         consultation.PublicReimbursement.Should().Be(0);
         consultation.InsuranceReimbursement.Should().Be(60);
-        // the derived "Reste à charge" column is never imported - the app recomputes the balance
+        // the derived "Reste à charge" column is never imported, since the app recomputes the balance
         consultation.NotCovered.Should().BeNull();
     }
 

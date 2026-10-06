@@ -4,8 +4,7 @@ using Keeptrack.Common.System;
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// Shared movie metadata (synopsis) - read-only, fetched separately from <see cref="MovieDto"/> since
-/// it isn't the tenant's own data.
+/// Shared movie metadata (synopsis, cast), read-only and fetched apart from <see cref="MovieDto"/>, since it is not the tenant's own data.
 /// </summary>
 public class MovieReferenceDto : IHasId
 {
@@ -21,7 +20,7 @@ public class MovieReferenceDto : IHasId
 
     public List<CastMemberDto> Cast { get; set; } = [];
 
-    /// <summary>Aggregate ratings keyed by source name (e.g. "tmdb") - see <see cref="ReferenceRatingDto"/>.</summary>
+    /// <summary>Aggregate ratings keyed by source ("tmdb", "imdb"), see <see cref="ReferenceRatingDto"/>.</summary>
     public Dictionary<string, ReferenceRatingDto> Ratings { get; set; } = [];
 
     public string? ImageUrl { get; set; }

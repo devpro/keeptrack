@@ -11,8 +11,8 @@ public class HouseMetricsModel
 }
 
 /// <summary>
-/// "When did I last log each kind of house event" - one line per <see cref="HouseEventType"/>. Same shape
-/// as <see cref="CarLastRecordModel"/>/<see cref="HealthLastVisitModel"/>.
+/// When each kind of house event was last logged, one line per <see cref="HouseEventType"/>.
+/// Same shape as <see cref="CarLastRecordModel"/> and <see cref="HealthLastVisitModel"/>.
 /// </summary>
 public class HouseLastRecordModel
 {

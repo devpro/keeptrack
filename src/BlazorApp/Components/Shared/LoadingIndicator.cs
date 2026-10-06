@@ -2,9 +2,8 @@ namespace Keeptrack.BlazorApp.Components.Shared;
 
 /// <summary>
 /// Gates a page's loading-spinner flag behind a short delay.
-/// Blazor's async lifecycle rendering (render once before the first await, once after) flashes the spinner for a single frame even when the load is fast -
-/// the common case for an in-circuit navigation between two already-connected pages, which is usually faster than <see cref="s_delay"/>.
-/// The spinner only actually appears when the load is still running once that delay elapses.
+/// Blazor renders once before the first await and once after, which flashes the spinner for a frame even when the load is fast.
+/// An in-circuit navigation is usually faster than <see cref="s_delay"/>, so the spinner appears only when the load is still running after it.
 /// </summary>
 public static class LoadingIndicator
 {

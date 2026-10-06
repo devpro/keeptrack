@@ -9,8 +9,7 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Covers the Home page's collection-overview endpoint - and, through it, the shared
-/// <c>MongoDbRepositoryBase.CountAsync</c> every repository inherits.
+/// Covers the Home page's collection-overview endpoint, and through it the shared <c>MongoDbRepositoryBase.CountAsync</c> every repository inherits.
 /// </summary>
 public class StatsResourceTest(KestrelWebAppFactory<Program> factory)
     : ResourceTestBase(factory)

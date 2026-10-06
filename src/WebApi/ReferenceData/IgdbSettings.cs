@@ -1,14 +1,10 @@
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// The Twitch application credentials IGDB authenticates with (IGDB is part of Twitch, and its API has no key
-/// of its own: an application is registered at dev.twitch.tv and the pair is exchanged for an app access token,
-/// see <see cref="IgdbTokenProvider"/>).
+/// The Twitch application credentials IGDB authenticates with: IGDB has no key of its own, so an application registered at dev.twitch.tv exchanges them for an app access token (see <see cref="IgdbTokenProvider"/>).
 /// <para>
-/// Both are nullable and a missing <c>Igdb</c> section is a supported state, the same shape as
-/// <see cref="OmdbSettings"/>: a deployment with no credentials still boots, and <see cref="IgdbClient"/>
-/// short-circuits to empty results rather than failing every request. That matters because IGDB is the
-/// *default* video game provider - a hard requirement here would take the whole API down on a missing setting.
+/// Both are nullable and a missing <c>Igdb</c> section is supported, like <see cref="OmdbSettings"/>, so a deployment without credentials boots and <see cref="IgdbClient"/> returns empty results.
+/// IGDB being the default game provider, a hard requirement would take the whole API down on a missing setting.
 /// </para>
 /// </summary>
 public class IgdbSettings
@@ -17,6 +13,6 @@ public class IgdbSettings
 
     public string? ClientSecret { get; set; }
 
-    /// <summary>Whether both credentials are present - the one check every IGDB call path leads with.</summary>
+    /// <summary>Whether both credentials are present, which every IGDB call checks first.</summary>
     public bool IsConfigured => !string.IsNullOrWhiteSpace(ClientId) && !string.IsNullOrWhiteSpace(ClientSecret);
 }

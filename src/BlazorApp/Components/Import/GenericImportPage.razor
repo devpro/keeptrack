@@ -191,7 +191,7 @@
     private List<EditableRow>? _rows;
 
     /// <summary>
-    /// Defaults on - a re-uploaded file is mostly already-imported rows, and hiding them by default is what keeps the review list short.
+    /// On by default, since a re-uploaded file is mostly already-imported rows, and hiding them keeps the review list short.
     /// </summary>
     private bool _hideAlreadyImported = true;
 
@@ -253,8 +253,7 @@
             {
                 RowId = row.Preview.RowId,
                 Title = row.Title,
-                // The original, unedited parsed title - kept separate from the editable row.Title so it can be
-                // recorded verbatim in the created item's notes and used as the reference's product-id fallback.
+                // The unedited parsed title, kept apart from the editable row.Title so the created item's notes record it verbatim, and the copy's Reference falls back to it when there is no product id.
                 SourceTitle = row.Preview.Title,
                 MediaType = row.MediaType,
                 Year = row.Year,
@@ -262,9 +261,8 @@
                 Isbn = row.MediaType == ImportMediaType.Book ? row.Preview.Isbn : null,
                 Platform = row.MediaType == ImportMediaType.VideoGame ? row.Platform : null,
                 Condition = row.Preview.Condition,
-                // Echoed back rather than trusting a client-computed Reference string - the server derives the
-                // actual owned-copy Reference (and dedup key) from these itself. Website feeds the Reference,
-                // Vendor feeds the Vendor field.
+                // Echoed back rather than a client-computed Reference string: the server derives the owned copy's Reference and dedup key from these.
+                // Website feeds the Reference, Vendor the Vendor field.
                 OrderId = row.Preview.OrderId,
                 ProductId = row.Preview.ProductId,
                 Vendor = row.Preview.Vendor,
@@ -289,8 +287,8 @@
     private static EditableRow ToEditableRow(GenericImportPreviewRowDto preview) => new()
     {
         Preview = preview,
-        // Pre-select rows that already know their type (from the "Type" column) and aren't already imported -
-        // a row with no type needs an explicit pick first, so leaving it unselected is the safe default.
+        // Rows that know their type (from the "Type" column) and aren't imported yet start selected.
+        // A row with no type needs an explicit pick first, so it starts unselected.
         Selected = preview.SuggestedMediaType is not null && !preview.AlreadyImported,
         MediaType = preview.SuggestedMediaType,
         Title = preview.Title,

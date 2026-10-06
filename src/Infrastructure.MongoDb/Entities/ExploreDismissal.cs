@@ -5,8 +5,8 @@ using MongoDB.Bson.Serialization.Attributes;
 namespace Keeptrack.Infrastructure.MongoDb.Entities;
 
 /// <summary>
-/// One owner's "don't suggest this again" record for the Explore feature (<c>explore_dismissal</c>). The
-/// natural key is (owner_id, item_type, external_source, external_id); see <see cref="ExploreDismissalModel"/>.
+/// One owner's "do not suggest this again" record (<c>explore_dismissal</c>).
+/// The natural key is (owner_id, item_type, external_source, external_id), see <see cref="ExploreDismissalModel"/>.
 /// </summary>
 public class ExploreDismissal
 {
@@ -17,7 +17,7 @@ public class ExploreDismissal
     [BsonElement("owner_id")]
     public required string OwnerId { get; set; }
 
-    // stored as its enum member name via the registered EnumRepresentationConvention(BsonType.String).
+    // stored as the enum member name through the registered EnumRepresentationConvention(BsonType.String)
     [BsonElement("item_type")]
     public required ExploreItemType ItemType { get; set; }
 

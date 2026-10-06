@@ -39,7 +39,7 @@ public class HouseHistoryDto : IHasId
     public double? Cost { get; set; }
 
     /// <summary>
-    /// Contractor/technician/utility company/store name.
+    /// Contractor, technician, utility company or store name.
     /// </summary>
     public string? Provider { get; set; }
 }

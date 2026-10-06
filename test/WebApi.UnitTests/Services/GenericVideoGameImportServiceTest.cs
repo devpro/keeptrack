@@ -97,8 +97,7 @@ public class GenericVideoGameImportServiceTest
     [Fact]
     public void FormatReference_Disambiguates_WhenTwoLinesShareTheSameTransactionAndOrder()
     {
-        // reproduces a real bug: a single PSN transaction can bundle several different DLC packs under the
-        // exact same Transaction Id/Order Id, distinguishable only by Product Name
+        // one PSN transaction can bundle several DLC packs under the same Transaction Id and Order Id, told apart only by Product Name
         var first = GenericVideoGameImportService.FormatReference("786966888755333", "399229990555", "FAR CRY 4 Vallée des Yétis", "FAR CRY 4");
         var second = GenericVideoGameImportService.FormatReference("786966888755333", "399229990555", "Pack Hurk Deluxe", "FAR CRY 4");
 

@@ -81,23 +81,21 @@ public class TvShowResourceTest(KestrelWebAppFactory<Program> factory)
         var owned = await GetAsync<PagedResult<TvShowDto>>($"/{ResourceEndpoint}?IsOwned=true&search={title}");
         owned.Items.Should().ContainSingle(s => s.Id == created.Id);
 
-        // this is the WishlistController filter-probe, not a list-page UI filter (removed) - still real API behavior
+        // the WishlistController filter probe, not a list-page UI filter, still real API behaviour
         var wishlisted = await GetAsync<PagedResult<TvShowDto>>($"/{ResourceEndpoint}?IsWishlisted=true&search={title}");
         wishlisted.Items.Should().ContainSingle(s => s.Id == created.Id);
     }
 
     /// <summary>
-    /// Episodes are a separate top-level collection referencing their show by id (see docs/data-model.md's "Child
-    /// entities" section) - without TvShowController.OnDeletedAsync cascading the delete, a deleted show's
-    /// whole watch history would be orphaned in MongoDB forever, only ever reachable via the now-gone show id.
+    /// Episodes are a separate top-level collection referencing their show by id (see docs/data-model.md's "Child entities" section).
+    /// Without TvShowController.OnDeletedAsync cascading the delete, a deleted show's watch history would be orphaned, reachable only through the gone show id.
     /// </summary>
     [Fact]
     public async Task TvShowResourceDelete_CascadesToItsEpisodes_IsOk()
     {
         await Authenticate();
 
-        // both are registered even though the delete below is the point of the test: if the cascade is ever
-        // broken, the orphaned episode is exactly what would otherwise be left behind.
+        // both are registered even though the delete below is the point of the test: if the cascade is ever broken, the orphaned episode is exactly what would otherwise be left behind.
         var show = await CreateAsync($"/{ResourceEndpoint}", new TvShowDto { Title = System.Guid.NewGuid().ToString() });
         var episode = await CreateAsync("/api/episodes", new EpisodeDto
         {

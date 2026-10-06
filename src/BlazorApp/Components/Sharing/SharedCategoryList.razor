@@ -1,9 +1,8 @@
 @using Keeptrack.BlazorApp.Components.Inventory
 @typeparam TDto where TDto : class, IHasId
 
-@* A read-only, full-featured list of one shared category: the same InventoryList the owner's own pages use
-   (search / sort / favourites+owned filters / thumbnails / grid), but with an "add to my collection" icon per
-   row instead of edit/delete, and a badge for items the recipient already owns. *@
+@* A read-only list of one shared category, on the same InventoryList the owner's pages use (search, sort, favourites and owned filters, thumbnails, grid).
+   Each row has an "add to my collection" icon instead of delete, and a badge for items the recipient already owns. *@
 
 <InventoryList TDto="TDto"
                ReadOnly="true"
@@ -52,7 +51,7 @@
         }
         @if (Copy is null)
         {
-            @* View-only category (collectibles/gear): a read-only list with no "add to my collection" action. *@
+            @* View-only category (collectibles, gear): a read-only list with no "add to my collection" action. *@
         }
         else if (inCollection)
         {
@@ -77,15 +76,15 @@
 
     [Inject] private ListViewPreference ViewPreference { get; set; } = null!;
 
-    /// <summary>The category label shown as the list heading (e.g. "Movies").</summary>
+    /// <summary>The category label shown as the list heading ("Movies").</summary>
     [Parameter] public required string Title { get; set; }
 
     /// <summary>Fetches one page for the current query.</summary>
     [Parameter] public required Func<SharedListQuery, Task<SharedCategoryPageDto<TDto>?>> Fetch { get; set; }
 
     /// <summary>
-    /// Copies the item with the given id into the caller's own collection. Null for view-only categories
-    /// (collectibles/gear) that have no shared reference to copy - the list then renders no per-row action.
+    /// Copies the item with the given id into the caller's own collection.
+    /// Null for view-only categories (collectibles, gear), which have no shared reference to copy, and the list then renders no per-row action.
     /// </summary>
     [Parameter] public Func<string, Task<CopyResultDto<TDto>?>>? Copy { get; set; }
 

@@ -11,9 +11,8 @@ namespace Keeptrack.WebApi.Import;
 public class HealthImportController(HealthImportService importService) : ControllerBase
 {
     /// <summary>
-    /// Imports the personal "Journal_sante.xlsx" spreadsheet
-    /// (one sheet of health events, every family member mixed in one "Personne" column - profiles are created/matched by name).
-    /// Runs synchronously, same as the car import: no external API call in the loop, so a few hundred rows complete well within a normal request.
+    /// Imports the personal "Journal_sante.xlsx" spreadsheet: one sheet of health events, every family member in one "Personne" column, profiles matched or created by name.
+    /// Synchronous like the car import, since no external call runs in the loop.
     /// </summary>
     [HttpPost("health")]
     [RequestSizeLimit(10_000_000)]

@@ -4,11 +4,9 @@ using Keeptrack.Common.System;
 namespace Keeptrack.Domain.Models;
 
 /// <summary>
-/// One health-journal entry (an appointment, a sickness, anything else dated), owned by a
-/// <see cref="HealthProfileModel"/> - a separate top-level collection referencing its parent by id, same
-/// deliberate schema choice as CarHistory/Episode (unbounded per-parent growth over years; see docs/data-model.md's
-/// "Child entities" section). <see cref="HistoryDate"/> is a full <see cref="DateTime"/> (Car's pattern,
-/// not House's DateOnly): an appointment's time of day is real information ("was I there at 9:00 or 17:30").
+/// One health journal entry (an appointment, a sickness, anything else dated) of a <see cref="HealthProfileModel"/>.
+/// A separate collection referencing its parent by id, since it grows without bound over the years (see docs/data-model.md's "Child entities" section).
+/// <see cref="HistoryDate"/> is a full <see cref="DateTime"/> like Car's, not a DateOnly like House's, since an appointment's time of day is real information.
 /// </summary>
 public class HealthRecordModel : IHasIdAndOwnerId
 {
@@ -22,10 +20,10 @@ public class HealthRecordModel : IHasIdAndOwnerId
 
     public required HealthEventType EventType { get; set; }
 
-    /// <summary>Medical specialty ("généraliste", "dentiste", "dermatologue", ...) - free text.</summary>
+    /// <summary>Medical specialty ("généraliste", "dentiste", "dermatologue"), free text.</summary>
     public string? Specialty { get; set; }
 
-    /// <summary>The practitioner's name - what "when did I last see Dr X" is answered from.</summary>
+    /// <summary>The practitioner's name.</summary>
     public string? Practitioner { get; set; }
 
     public string? Description { get; set; }
@@ -38,14 +36,13 @@ public class HealthRecordModel : IHasIdAndOwnerId
     /// <summary>Reimbursement from the public health system (assurance maladie), filled in later.</summary>
     public double? PublicReimbursement { get; set; }
 
-    /// <summary>Reimbursement from the private/complementary insurer (mutuelle), filled in later.</summary>
+    /// <summary>Reimbursement from the complementary insurer (mutuelle), filled in later.</summary>
     public double? InsuranceReimbursement { get; set; }
 
     /// <summary>
-    /// The accepted remainder (reste à charge): the part of the price no one will ever reimburse.
-    /// Recording it is what lets the balance check close: a record is settled exactly when
-    /// price - public - insurance - leftover == 0, and anything else is flagged for the owner to chase
-    /// (see <see cref="Services.HealthMetricsService"/>).
+    /// The accepted remainder (reste à charge): the part of the price nobody will reimburse.
+    /// Recording it lets the balance close: a record is settled exactly when price minus public, insurance and not covered is zero.
+    /// Anything else is flagged for the owner to chase (see <see cref="Services.HealthMetricsService"/>).
     /// </summary>
     public double? NotCovered { get; set; }
 }

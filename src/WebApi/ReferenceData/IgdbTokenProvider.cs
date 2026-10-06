@@ -11,52 +11,45 @@ public interface IIgdbTokenProvider
     string? ClientId { get; }
 
     /// <summary>
-    /// A currently valid token, fetching one if needed. Null when IGDB isn't configured or the token request
-    /// failed - callers treat that as "IGDB is unavailable", never as an exception to propagate.
+    /// A valid token, fetched if needed.
+    /// Null when IGDB is not configured or the request failed, which callers treat as IGDB being unavailable.
     /// </summary>
     Task<string?> GetTokenAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>Drops the cached token so the next call fetches a fresh one (used when IGDB rejects it).</summary>
+    /// <summary>Drops the cached token, when IGDB rejects it, so the next call fetches a fresh one.</summary>
     void Invalidate();
 }
 
 /// <summary>
 /// Fetches and caches the Twitch <c>client_credentials</c> app access token IGDB requires.
 /// <para>
-/// Registered as a singleton holding plain in-process state - deliberately unlike <see cref="OmdbCallBudget"/>,
-/// which needs MongoDB because a *quota* is a shared fact every replica spends from. A token is not: Twitch
-/// issues one per request and several remain valid at once, so each replica holding its own costs nothing and
-/// coordinating them would buy nothing.
+/// A singleton with state in the process, unlike <see cref="OmdbCallBudget"/>, whose quota is shared by every replica.
+/// Twitch issues a token per request and several stay valid, so each replica holding its own costs nothing.
 /// </para>
 /// <para>
-/// It resolves its HTTP client from <see cref="IHttpClientFactory"/> by name rather than taking a typed
-/// <see cref="HttpClient"/>, because capturing one in a singleton pins its handler forever and defeats the
-/// factory's handler rotation (the same reason the book providers are bridged with <c>AddTransient</c>).
-/// A separate client from the IGDB one, since this is the call that has nothing to authenticate with yet.
+/// It resolves a named client from <see cref="IHttpClientFactory"/>, since a typed <see cref="HttpClient"/> captured in a singleton would pin its handler and defeat rotation.
+/// That client is apart from IGDB's, having nothing to authenticate with yet.
 /// </para>
 /// </summary>
 public class IgdbTokenProvider(IHttpClientFactory httpClientFactory, IgdbSettings settings, ILogger<IgdbTokenProvider> logger) : IIgdbTokenProvider
 {
-    /// <summary>Name of the token-endpoint <see cref="HttpClient"/> registered in Program.cs.</summary>
+    /// <summary>Name of the token endpoint's <see cref="HttpClient"/>, registered in Program.cs.</summary>
     public const string TokenHttpClientName = "igdb-token";
 
     /// <summary>
-    /// How long before the stated expiry a token is renewed. Twitch app tokens last around 60 days, so this is
-    /// generous by design: it only has to cover a request already in flight when the token turns over.
+    /// How long before its expiry a token is renewed, generous since a Twitch app token lasts about 60 days, and only a request in flight at the turnover needs covering.
     /// </summary>
     private static readonly TimeSpan s_renewBefore = TimeSpan.FromHours(1);
 
     /// <summary>
-    /// The margin actually applied, never more than half the token's own lifetime. A fixed margin longer than
-    /// the lifetime would put the renewal point in the past the instant the token arrived, so every single
-    /// call would fetch a new one - caching nothing while doubling the traffic to Twitch.
+    /// The margin applied, never more than half the token's lifetime.
+    /// A margin longer than the lifetime would place the renewal in the past as the token arrives, so every call would fetch a new one.
     /// </summary>
     private static TimeSpan RenewMargin(TimeSpan lifetime) => lifetime / 2 < s_renewBefore ? lifetime / 2 : s_renewBefore;
 
     private readonly SemaphoreSlim _gate = new(1, 1);
 
-    // token and expiry travel together as one immutable record, so the fast path below reads both with a
-    // single atomic reference read instead of two fields that could be seen half-updated
+    // token and expiry travel as one immutable record, read atomically, rather than two fields seen half updated
     private CachedToken? _cached;
 
     public string? ClientId => settings.ClientId;
@@ -71,7 +64,7 @@ public class IgdbTokenProvider(IHttpClientFactory httpClientFactory, IgdbSetting
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            // whoever was holding the gate may already have fetched one
+            // the previous holder of the gate may have fetched one
             if (Volatile.Read(ref _cached) is { } current && current.IsUsable) return current.Token;
 
             var fetched = await FetchTokenAsync(cancellationToken);
@@ -94,8 +87,7 @@ public class IgdbTokenProvider(IHttpClientFactory httpClientFactory, IgdbSetting
     }
 
     /// <summary>
-    /// Never throws: a failed token request means IGDB is unavailable for this call, which every caller
-    /// already handles, and throwing here would turn a transient Twitch outage into a 500 from an admin search.
+    /// Never throws: a failed request makes IGDB unavailable for this call, which callers handle, where a throw would turn a Twitch outage into a 500.
     /// </summary>
     private async Task<(string Token, TimeSpan Lifetime)?> FetchTokenAsync(CancellationToken cancellationToken)
     {

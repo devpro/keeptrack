@@ -5,7 +5,7 @@ namespace Keeptrack.Infrastructure.MongoDb.Entities;
 
 public class BackgroundJob
 {
-    /// <summary>The job's Guid as a plain string - avoids BSON Guid-representation configuration entirely.</summary>
+    /// <summary>The job's Guid as a plain string, which avoids configuring the BSON Guid representation.</summary>
     [BsonId]
     public required string Id { get; set; }
 
@@ -22,7 +22,7 @@ public class BackgroundJob
     [BsonElement("error_message")]
     public string? ErrorMessage { get; set; }
 
-    /// <summary>Backs the TTL cleanup index (see scripts/mongodb-create-index.js) - jobs are transient.</summary>
+    /// <summary>Drives the TTL index that purges finished jobs (see <c>scripts/mongodb-create-index.js</c>).</summary>
     [BsonElement("created_at")]
     public DateTime CreatedAt { get; set; }
 }

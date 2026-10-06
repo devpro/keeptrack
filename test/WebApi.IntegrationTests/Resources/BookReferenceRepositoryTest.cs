@@ -12,9 +12,7 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Exercises <see cref="IBookReferenceRepository.FindByTitleYearAsync"/>/<see cref="IBookReferenceRepository.FindByTitleAsync"/>
-/// against real MongoDB - same <c>ElemMatch</c>/<c>MatchedAliases</c> shape already verified for
-/// <see cref="ITvShowReferenceRepository"/> (see <c>TvShowReferenceRepositoryTest</c>), applied to books.
+/// Exercises <see cref="IBookReferenceRepository.FindByTitleYearAsync"/> and <see cref="IBookReferenceRepository.FindByTitleAsync"/> against real MongoDB, the <c>ElemMatch</c> over <c>MatchedAliases</c> of <c>TvShowReferenceRepositoryTest</c>, for books.
 /// </summary>
 public class BookReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)
 {
@@ -63,10 +61,8 @@ public class BookReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) 
     }
 
     /// <summary>
-    /// <see cref="BookReferenceModel.ExternalIds"/> can carry more than one provider's id at once (e.g. a
-    /// reference first linked via Open Library, then also confirmed via BnF for a different tenant) - both
-    /// keys must keep resolving to the same document, which is what <c>ReferenceEnrichmentService.RefreshBookReferenceAsync</c>'s
-    /// multi-provider refresh fix (see docs/providers.md) depends on.
+    /// <see cref="BookReferenceModel.ExternalIds"/> can carry several providers' ids (linked through Open Library, then confirmed through BnF for another tenant).
+    /// Both keys keep resolving to the same document, which <c>ReferenceEnrichmentService.RefreshBookReferenceAsync</c>'s multi-provider refresh depends on (see docs/providers.md).
     /// </summary>
     [Fact]
     public async Task FindByExternalIdAsync_FindsTheSameDocument_ByEitherOfTwoCoexistingProviderKeys()
@@ -94,7 +90,8 @@ public class BookReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) 
     }
 
     /// <summary>
-    /// A reference document carries its author as a <see cref="BookReferenceModel.AuthorReferenceId"/>, never as text, so the repository has nothing to build a complete alias from - and a creator-less one is exactly the half-key this collection must never hold, since it would answer for every author at once.
+    /// A reference document carries its author as a <see cref="BookReferenceModel.AuthorReferenceId"/>, never as text, so the repository can't build a complete alias.
+    /// A creator-less one is the half-key this collection must never hold, since it would answer for every author at once.
     /// </summary>
     [Fact]
     public async Task UpsertAsync_AddsNoCanonicalAlias_BecauseItCannotKnowTheAuthor()
@@ -155,7 +152,8 @@ public class BookReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) 
     }
 
     /// <summary>
-    /// The same work is published again every few years, so a tenant's year routinely names an edition no alias was ever confirmed under - the title+author lookup is what still finds the work, and <c>FindSingleMatchAsync</c> is what keeps it from choosing between two genuinely different books.
+    /// The same work is republished every few years, so a tenant's year often names an edition no alias was confirmed under.
+    /// The title and author lookup still finds the work, and <c>FindSingleMatchAsync</c> keeps it from choosing between two different books.
     /// </summary>
     [Fact]
     public async Task FindByTitleAsync_MatchesAWorkWhoseOnlyAliasCarriesADifferentEditionYear()

@@ -5,10 +5,9 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Support;
 
 /// <summary>
 /// Builds a minimal one-row Amazon order-history CSV for the import smoke test.
-/// The row carries a real, checksum-valid ISBN-10 so it trips the "looks like a book" heuristic and is auto-selected as a Book,
-/// and a per-call unique title plus a fresh order id so every run imports a genuinely new book the test then deletes -
-/// never a dedup-hidden "already imported" row from a previous run.
-/// Never use a real personal export as a fixture (same rule as the integration suite's own builders).
+/// The row carries a real, checksum-valid ISBN-10, so the "looks like a book" heuristic selects it as a Book.
+/// A per-call unique title and fresh order id make every run import a new book the test deletes, never an "already imported" row from a previous run.
+/// A real personal export is never a fixture, as in the integration suite's builders.
 /// </summary>
 internal static class AmazonImportFixtureCsvBuilder
 {

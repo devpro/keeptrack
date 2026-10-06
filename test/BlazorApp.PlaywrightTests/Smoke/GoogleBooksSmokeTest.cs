@@ -8,12 +8,8 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Verifies the Google Books provider specifically (Book's own add/edit/delete flow is already covered by
-/// <see cref="BookSmokeTest"/>, which never links to any provider). Opt-in via
-/// <c>GOOGLE_BOOKS_SMOKE_ENABLED</c>, unlike TMDB/RAWG/Discogs (hard-required for their own always-on smoke
-/// tests) - Google Books has been observed to occasionally return a transient 503 (see
-/// docs/providers.md), and it's the newest/least-proven of the three registered book providers,
-/// so this stays a deliberate, on-demand check rather than part of the default run.
+/// Verifies the Google Books provider, the book add, edit and delete flow being <see cref="BookSmokeTest"/>'s, which links to no provider.
+/// Opt-in through <c>GOOGLE_BOOKS_SMOKE_ENABLED</c>, unlike the providers required by always-on smoke tests, since Google Books' search can answer transient 503s (see docs/providers.md).
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]
@@ -45,8 +41,7 @@ public class GoogleBooksSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixtur
 
         await detail.ClickCheckReferenceMatchAsync();
 
-        // Google Books is already the registered default (first in Program.cs), but select it
-        // explicitly so this test still proves the right thing if that ever changes.
+        // Google Books is already the registered default (first in Program.cs), but select it explicitly so this test still proves the right thing if that ever changes.
         await detail.SelectProviderAsync("Google Books");
         await detail.SearchAndLinkFirstResultAsync();
 

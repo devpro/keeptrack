@@ -3,8 +3,7 @@ using System.Text;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Builds a small, synthetic video game transaction-history CSV for tests - never use a real personal
-/// export as a test fixture (same rule as <see cref="AmazonFixtureCsvBuilder"/>).
+/// Builds a small, synthetic video game transaction-history CSV, since a real personal export is never a fixture (as with <see cref="AmazonFixtureCsvBuilder"/>).
 /// </summary>
 internal static class GenericVideoGameImportFixtureCsvBuilder
 {
@@ -20,8 +19,7 @@ internal static class GenericVideoGameImportFixtureCsvBuilder
     private const string SecondGameOrderId = "999888777004";
 
     /// <summary>
-    /// Reproduces a real PSN export shape: a single order bundled three different DLC packs for the same
-    /// game under one shared Transaction Id/Order Id, distinguishable only by Product Name.
+    /// Reproduces a real PSN export shape: a single order bundled three different DLC packs for the same game under one shared Transaction Id/Order Id, distinguishable only by Product Name.
     /// </summary>
     public const string BundleTitle = "Keeptrack Video Game Import Test Bundle Game";
     private const string BundleTransactionId = "999888777005";

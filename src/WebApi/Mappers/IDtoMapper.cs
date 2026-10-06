@@ -1,12 +1,9 @@
 namespace Keeptrack.WebApi.Mappers;
 
 /// <summary>
-/// Maps between a public REST DTO and its Domain model counterpart. Implemented per CRUD pair by a
-/// Mapperly <c>[Mapper]</c> partial class (e.g. <c>BookDtoMapper</c>) and injected into
-/// <see cref="Controllers.DataCrudControllerBase{TDto, TModel}"/> instead of AutoMapper's untyped
-/// <c>IMapper</c>. Read-only feature controllers (WatchNext, Wishlist, Car/House metrics,
-/// reference-data) use a small one-directional Model-to-DTO mapper class instead - they have no DTO ->
-/// Model direction at all, so this bidirectional interface doesn't fit them.
+/// Maps between a public REST DTO and its Domain model.
+/// Implemented per CRUD pair by a Mapperly <c>[Mapper]</c> partial class (<c>BookDtoMapper</c>) and injected into <see cref="Controllers.DataCrudControllerBase{TDto, TModel}"/>.
+/// Read-only controllers (Watch Next, Wishlist, metrics, reference data) use a one-directional mapper class instead, having no DTO to model direction.
 /// </summary>
 public interface IDtoMapper<TDto, TModel>
 {

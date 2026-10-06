@@ -1,8 +1,7 @@
 @using static Keeptrack.BlazorApp.Components.Shared.SvgChartHelpers
-@*
-    A stacked bar chart of fuel and maintenance cost per month, each segment carrying a native tooltip with the exact figure.
-    A thin gap separates the two segments of a bar so they read as two marks rather than one solid bar.
-*@
+@* 
+   A stacked bar chart of fuel and maintenance cost per month, each segment carrying a native tooltip with the exact figure.
+   A thin gap separates the two segments of a bar so they read as two marks rather than one solid bar. *@
 
 <svg viewBox="0 0 @ToSvgDimension(Geometry.ViewWidth) @ToSvgDimension(Geometry.ViewHeight)" class="kt-chart-svg">
     <ChartAxes Geometry="Geometry" MarkerId="kt-chart-arrow-cost" XAxisLabel="Month" YAxisLabel="€" YTicks="YTicks" XTicks="XTicks"/>

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// Total cost of ownership for one calendar year, both as a single total and broken down by event category.
+/// Total cost of ownership for one calendar year, as a total and broken down by event category.
 /// </summary>
 public class HouseCostHistoryPointDto
 {

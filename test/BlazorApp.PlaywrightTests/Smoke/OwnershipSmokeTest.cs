@@ -8,10 +8,8 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Proves the owned-versions flow end-to-end on a book (the editor is one shared component across
-/// movie/TV show/book/album, so one type suffices): adding a version with purchase details persists,
-/// the list row derives its "Owned" badge from it, and removing the version un-owns the item -
-/// there is no stored owned flag anywhere in this flow.
+/// Proves the owned-versions flow end to end on a book, one type sufficing since the editor is shared by movie, TV show, book and album.
+/// Adding a version with purchase details persists, the list row derives its "Owned" badge from it, and removing the version un-owns the item, with no stored owned flag.
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]
@@ -36,7 +34,7 @@ public class OwnershipSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
         // registered as soon as the item exists, so an assertion failure below still removes it
         TrackOpenItem("/api/books");
 
-        // a new version is a draft until its Save button - cancelling discards it without owning the item
+        // a new version is a draft until its Save button, and cancelling discards it without owning the item
         await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "+ Add version" }).ClickAsync();
         await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Cancel" }).ClickAsync();
         await Assertions.Expect(Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "+ Add version" })).ToBeVisibleAsync();
@@ -49,8 +47,7 @@ public class OwnershipSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
         await DetailPageBase.SetFieldAsync(Page.GetByTestId("version-reference-input"), "Paperback 2nd edition");
         await Page.GetByTestId("version-save-button").ClickAsync();
 
-        // round-trip via the list: the row must show the derived Owned badge, and reopening the
-        // detail page must show the persisted version fields
+        // round-trip via the list: the row must show the derived Owned badge, and reopening the detail page must show the persisted version fields
         list = await detail.OpenBooksAsync();
         await list.SearchAsync(title);
         await Assertions.Expect(list.Row(title).Locator(".kt-flag-badge", new LocatorLocatorOptions { HasText = "Owned" })).ToBeVisibleAsync();
@@ -62,7 +59,7 @@ public class OwnershipSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
         await Assertions.Expect(Page.GetByTestId("version-vendor-input")).ToHaveValueAsync("E2e Bookshop");
         await Assertions.Expect(Page.GetByTestId("version-reference-input")).ToHaveValueAsync("Paperback 2nd edition");
 
-        // removing the only version un-owns the item - the copy has details, so a confirmation is asked
+        // removing the only version un-owns the item, and the copy has details, so a confirmation is asked
         await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Remove this copy" }).ClickAsync();
         await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Remove", Exact = true }).ClickAsync();
         list = await detail.OpenBooksAsync();

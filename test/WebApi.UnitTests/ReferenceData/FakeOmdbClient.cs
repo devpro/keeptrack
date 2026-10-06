@@ -6,11 +6,9 @@ using Keeptrack.WebApi.ReferenceData;
 namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
 /// <summary>
-/// Test double for OMDb (IMDb ratings): returns a rating for any imdb id seeded in <see cref="Ratings"/>,
-/// and records which ids were queried so a test can assert the cheap backfill did or didn't call the
-/// provider. An id with no seeded rating answers <see cref="OmdbLookupResult.NoRating"/> ("OMDb was asked and
-/// has nothing"); set <see cref="Unavailable"/> for the other kind of empty answer - no key, no budget left,
-/// a failed request - which callers must treat as "never asked".
+/// Test double for OMDb (IMDb ratings): returns a rating for any imdb id seeded in <see cref="Ratings"/>, and records the ids queried, so a test asserts whether the cheap backfill called the provider.
+/// An id with no seeded rating answers <see cref="OmdbLookupResult.NoRating"/> ("OMDb was asked and has nothing").
+/// <see cref="Unavailable"/> gives the other empty answer (no key, no budget left, a failed request), which callers treat as "never asked".
 /// </summary>
 internal sealed class FakeOmdbClient : IOmdbClient
 {
@@ -24,16 +22,14 @@ internal sealed class FakeOmdbClient : IOmdbClient
     public bool Unavailable { get; set; }
 
     /// <summary>
-    /// The shared allowance this client spends from, when a test cares about it. Only
-    /// <see cref="ReportsLimitReached"/> uses it.
+    /// The shared allowance this client spends from, when a test cares about it.
+    /// Only <see cref="ReportsLimitReached"/> uses it.
     /// </summary>
     public IOmdbCallBudget? Budget { get; set; }
 
     /// <summary>
-    /// When true a lookup answers the way OMDb's "Request limit reached!" 401 does: the day is written off on
-    /// <see cref="Budget"/> and the call comes back not-attempted. That is the case a caller's own pre-call
-    /// budget guard cannot catch - the allowance was still open when the call started (another replica had
-    /// spent it, or this was the call that hit the ceiling), so exhaustion is only observable afterwards.
+    /// When true a lookup answers the way OMDb's "Request limit reached!" 401 does: the day is written off on <see cref="Budget"/> and the call comes back not-attempted.
+    /// A caller's pre-call budget guard can't catch it, the allowance being open when the call started (another replica spent it, or this call hit the ceiling), so exhaustion shows only afterwards.
     /// </summary>
     public bool ReportsLimitReached { get; set; }
 
@@ -57,9 +53,8 @@ internal sealed class FakeOmdbClient : IOmdbClient
 }
 
 /// <summary>
-/// Test double for the daily OMDb allowance. Defaults to "plenty left" so the many tests that don't care
-/// about quota read as if it didn't exist; <see cref="Remaining"/> and <see cref="Exhausted"/> let the ones
-/// that do care pin the budget-aware behaviour.
+/// Test double for the daily OMDb allowance.
+/// Defaults to "plenty left" so the many tests that don't care about quota read as if it didn't exist; <see cref="Remaining"/> and <see cref="Exhausted"/> let the ones that do care pin the budget-aware behaviour.
 /// </summary>
 internal sealed class FakeOmdbCallBudget : IOmdbCallBudget
 {

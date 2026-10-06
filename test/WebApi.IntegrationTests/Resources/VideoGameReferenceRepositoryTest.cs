@@ -12,9 +12,7 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Exercises <see cref="IVideoGameReferenceRepository.FindByTitleYearAsync"/>/<see cref="IVideoGameReferenceRepository.FindByTitleAsync"/>
-/// against real MongoDB - same <c>ElemMatch</c>/<c>MatchedAliases</c> shape already verified for
-/// <see cref="ITvShowReferenceRepository"/> (see <c>TvShowReferenceRepositoryTest</c>), applied to video games.
+/// Exercises <see cref="IVideoGameReferenceRepository.FindByTitleYearAsync"/> and <see cref="IVideoGameReferenceRepository.FindByTitleAsync"/> against real MongoDB, the <c>ElemMatch</c> over <c>MatchedAliases</c> of <c>TvShowReferenceRepositoryTest</c>, for video games.
 /// </summary>
 public class VideoGameReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)
 {
@@ -84,7 +82,7 @@ public class VideoGameReferenceRepositoryTest(KestrelWebAppFactory<Program> fact
     }
 
     /// <summary>
-    /// A game is identified by its title <i>and</i> its year, so a document with no year has no complete key to record - and the title-only alias that used to be written for it answered every later lookup for that title, whatever year it carried.
+    /// A game is identified by its title <i>and</i> year, so a document with no year has no complete key to record, and a title-only alias would answer every later lookup for that title, whatever its year.
     /// IGDB holds eight games named exactly "Resident Evil 2".
     /// </summary>
     [Fact]
@@ -110,9 +108,8 @@ public class VideoGameReferenceRepositoryTest(KestrelWebAppFactory<Program> fact
     [Fact]
     public async Task FindByExternalIdAsync_FindsAReferenceByEitherProvidersId()
     {
-        // video games are the one domain where a single reference legitimately carries two providers' ids: it
-        // was linked through RAWG and later adopted an IGDB one. Both must resolve to the same document, or a
-        // re-resolve through the other provider would create a duplicate instead of updating this one.
+        // video games are the one domain where a single reference legitimately carries two providers' ids: it was linked through RAWG and later adopted an IGDB one.
+        // Both must resolve to the same document, or a re-resolve through the other provider would create a duplicate instead of updating this one.
         using var scope = Factory.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IVideoGameReferenceRepository>();
         var rawgId = TestExternalId.New();
@@ -129,23 +126,15 @@ public class VideoGameReferenceRepositoryTest(KestrelWebAppFactory<Program> fact
 
         (await repository.FindByExternalIdAsync("rawg", rawgId))!.Id.Should().Be(created.Id);
         (await repository.FindByExternalIdAsync("igdb", igdbId))!.Id.Should().Be(created.Id);
-        // and an id belonging to the other provider's number space must not match: they are both plain
-        // integers, so nothing but the provider key tells them apart
+        // and an id belonging to the other provider's number space must not match: they are both plain integers, so nothing but the provider key tells them apart
         (await repository.FindByExternalIdAsync("igdb", rawgId)).Should().BeNull();
     }
 
     /// <summary>
-    /// <b>Desired behaviour, reported from the running app on 2026-08-16 and not yet implemented.</b>
+    /// A tenant recording "Resident Evil 2" with <b>no year</b> must not be linked to whichever same-titled reference document the database returns first.
     /// <para>
-    /// A tenant recording "Resident Evil 2" with <b>no year</b> must not be linked to whichever same-titled
-    /// reference document the database happens to return first. Today it is: <c>FindByTitleAsync</c> is a
-    /// <c>FirstOrDefaultAsync</c> over an unsorted, unbounded match, so the owner saw a yearless "Resident Evil
-    /// 2" silently adopt the 2019 remake's reference - and then, after deleting that link, adopt it again.
-    /// </para>
-    /// <para>
-    /// The rule: with no year there is nothing to choose between same-titled works with, so nothing is chosen.
-    /// This is the half of the "Road House" finding that was never closed - that fix stopped a *known* year
-    /// being ignored, and left the yearless case guessing.
+    /// The rule: with no year nothing chooses between same-titled works, so nothing is chosen.
+    /// It is the yearless half of the "Road House" rule, which stops a known year being ignored.
     /// </para>
     /// </summary>
     [Fact]
@@ -164,9 +153,8 @@ public class VideoGameReferenceRepositoryTest(KestrelWebAppFactory<Program> fact
     }
 
     /// <summary>
-    /// The exception that keeps the rule above useful: one candidate for the title is not a guess, it is the
-    /// answer. A yearless tenant item must still link when the database holds exactly one work by that name -
-    /// which is the ordinary case and the reason the title-only lookup exists at all.
+    /// The exception that keeps the rule above useful: one candidate for the title is not a guess, it is the answer.
+    /// A yearless tenant item still links when the database holds exactly one work by that name, the ordinary case and the reason the title-only lookup exists.
     /// </summary>
     [Fact]
     public async Task FindByTitleAsync_StillMatches_WhenOnlyOneReferenceCarriesTheTitle()
@@ -184,9 +172,8 @@ public class VideoGameReferenceRepositoryTest(KestrelWebAppFactory<Program> fact
     }
 
     /// <summary>
-    /// The other half of what the owner reported: a tenant who <i>did</i> supply the year must get the game
-    /// from that year, not whichever same-titled document sorts first. This is what makes "a supplied year gets
-    /// an immediate match" a real contract rather than luck.
+    /// The other half of what the owner reported: a tenant who <i>did</i> supply the year must get the game from that year, not whichever same-titled document sorts first.
+    /// This is what makes "a supplied year gets an immediate match" a real contract rather than luck.
     /// </summary>
     [Fact]
     public async Task FindByTitleYearAsync_PicksTheReferenceFromTheRequestedYear_WhenSeveralShareTheTitle()
@@ -212,13 +199,9 @@ public class VideoGameReferenceRepositoryTest(KestrelWebAppFactory<Program> fact
         ExternalIds = new Dictionary<string, string> { ["igdb"] = TestExternalId.New() }
     };
 
-    // There is deliberately no "a duplicate external id is rejected" test here, for igdb or for rawg - and
-    // none on the other four reference collections either. The uniqueness guarantee is real (a unique partial
-    // index per provider key, declared in scripts/mongodb-create-index.js), but nothing in this suite creates
-    // indexes: they are applied by running that script against the database out of band. A test asserting the
-    // constraint therefore passes or fails on whether someone remembered to re-run the script, which tests the
-    // environment rather than the code and fails every fresh database for a reason unrelated to the change
-    // being made.
+    // No "a duplicate external id is rejected" test here, for igdb or rawg, nor on the other four reference collections.
+    // The guarantee is real (a unique partial index per provider key in scripts/mongodb-create-index.js), but this suite creates no indexes, which that script applies out of band.
+    // Such a test would pass or fail on whether someone re-ran the script, testing the environment rather than the code, and failing every fresh database.
     private async Task<VideoGameReferenceModel> CreateReferenceAsync(IVideoGameReferenceRepository repository, VideoGameReferenceModel model)
     {
         var created = await repository.UpsertAsync(model);

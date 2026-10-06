@@ -4,15 +4,13 @@ using System.Collections.Generic;
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// Operational snapshot for the admin "System" panel: how the instance answering this request is
-/// configured, plus the cluster-wide (MongoDB-backed) view of the reference-sync lease and recent
-/// background jobs.
+/// Operational snapshot for the admin "System" panel: how the answering instance is configured, plus the shared view of the reference sync lease and recent background jobs.
 /// </summary>
 public class SystemStatusDto
 {
     /// <summary>
-    /// Name of the instance (the pod, under Kubernetes) that answered this request. With multiple
-    /// replicas behind a load balancer, refreshing may legitimately show a different name each time.
+    /// Name of the instance (the Kubernetes pod) that answered this request.
+    /// With several replicas behind a load balancer, each refresh can show another name.
     /// </summary>
     public required string InstanceName { get; set; }
 
@@ -26,12 +24,11 @@ public class SystemStatusDto
     public required string VideoGameProvider { get; set; }
 
     /// <summary>
-    /// The reference-sync single-runner lease, or null when no sync pass has ever been elected.
-    /// Shared state (MongoDB), identical from every instance.
+    /// The reference sync lease, or null when no pass was ever elected, the same from every instance.
     /// </summary>
     public SystemLeaseDto? ReferenceSyncLease { get; set; }
 
-    /// <summary>Most recent background jobs (imports, syncs), newest first. Shared state (MongoDB).</summary>
+    /// <summary>The most recent background jobs (imports, syncs), newest first.</summary>
     public List<SystemJobDto> RecentJobs { get; set; } = [];
 }
 
@@ -40,13 +37,13 @@ public class SystemStatusDto
 /// </summary>
 public class SystemLeaseDto
 {
-    /// <summary>The instance (pod) holding or last holding the lease.</summary>
+    /// <summary>The instance holding the lease, or the last one that did.</summary>
     public required string Holder { get; set; }
 
     /// <summary>When the lease expires or expired (UTC).</summary>
     public DateTime ExpiresAt { get; set; }
 
-    /// <summary>True while the lease is unexpired - the holder ran (or is running) a sync pass recently.</summary>
+    /// <summary>True while the lease is unexpired, the holder running or having just run a sync pass.</summary>
     public bool IsLive { get; set; }
 }
 
@@ -58,7 +55,7 @@ public class SystemJobDto
     /// <summary>Which feature the job belongs to ("Import", "ReferenceSync").</summary>
     public required string Kind { get; set; }
 
-    /// <summary>The job's current (or terminal) stage name.</summary>
+    /// <summary>The job's current or final stage name.</summary>
     public required string Stage { get; set; }
 
     /// <summary>The failure message, when the job failed.</summary>

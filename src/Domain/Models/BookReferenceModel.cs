@@ -5,7 +5,7 @@ using Keeptrack.Common.System;
 namespace Keeptrack.Domain.Models;
 
 /// <summary>
-/// Shared, tenant-agnostic book metadata sourced from an external provider (Open Library).
+/// Book metadata from a book provider (Google Books, Open Library or BnF), shared by every tenant.
 /// See <see cref="TvShowReferenceModel"/> for why this deliberately has no <c>OwnerId</c>.
 /// </summary>
 public class BookReferenceModel : IHasExternalIds
@@ -21,41 +21,36 @@ public class BookReferenceModel : IHasExternalIds
     public string? Synopsis { get; set; }
 
     /// <summary>
-    /// Points at the shared, deduplicated <see cref="PersonReferenceModel"/> for this book's author
-    /// (keyed by the author's Open Library id) - the same dedup mechanism as TV/movie cast, just for a
-    /// single credited individual instead of a list. Null when Open Library's response didn't carry an
-    /// author id to dedupe by.
+    /// The author's shared <see cref="PersonReferenceModel"/>, deduplicated by the linking provider's author id like TV and movie cast.
+    /// Null when the provider reported no author id to deduplicate by.
     /// </summary>
     public string? AuthorReferenceId { get; set; }
 
     public required Dictionary<string, string> ExternalIds { get; set; }
 
     /// <summary>
-    /// Every (title, year) combination that has ever been confirmed to mean this book - see
-    /// <see cref="TvShowReferenceModel.MatchedAliases"/> for the full rationale.
+    /// Every combination confirmed to mean this book (see <see cref="TvShowReferenceModel.MatchedAliases"/>).
     /// </summary>
     public List<ReferenceMatchModel> MatchedAliases { get; set; } = [];
 
     public List<string> Genres { get; set; } = [];
 
     /// <summary>
-    /// Aggregate ratings keyed by the linking provider's key ("googlebooks"/"openlibrary"; BnF reports
-    /// none) - see <see cref="ReferenceRatingModel"/>.
+    /// Aggregate ratings keyed by provider ("googlebooks", "openlibrary"; BnF reports none), see <see cref="ReferenceRatingModel"/>.
     /// </summary>
     public Dictionary<string, ReferenceRatingModel> Ratings { get; set; } = [];
 
     public string? ImageUrl { get; set; }
 
     /// <summary>
-    /// The book's language, when the linking provider reports one (BnF's Dublin Core reliably does; Open
-    /// Library's client doesn't populate this today - see <see cref="BookDetails.Language"/>).
+    /// The book's language, when the linking provider reports one.
+    /// BnF's Dublin Core always does, and Open Library's client never fills it (see <see cref="BookDetails.Language"/>).
     /// </summary>
     public string? Language { get; set; }
 
     /// <summary>
-    /// The book's ISBN, when the linking provider reports one (Google Books' industry identifiers and
-    /// BnF's Dublin Core both can; Open Library's client doesn't populate this today, same reason as
-    /// <see cref="Language"/> - see <see cref="BookDetails.Isbn"/>).
+    /// The book's ISBN, when the linking provider reports one.
+    /// Google Books and BnF can, and Open Library's client never fills it (see <see cref="BookDetails.Isbn"/>).
     /// </summary>
     public string? Isbn { get; set; }
 

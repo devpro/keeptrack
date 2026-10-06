@@ -13,10 +13,7 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
 /// <summary>
-/// The sample responses below are trimmed but otherwise verbatim in shape from the real Discogs API,
-/// including the noise this client exists to filter: <c>q=</c> is free text over the artist name, label,
-/// credits and tracklist, so a search returns ordinary-looking hits whose release title never contained the
-/// searched words at all.
+/// The sample responses below are trimmed but otherwise verbatim in shape from the real Discogs API, including the noise this client exists to filter: <c>q=</c> is free text over the artist name, label, credits and tracklist, so a search returns ordinary-looking hits whose release title never contained the searched words at all.
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class DiscogsClientTest
@@ -57,8 +54,7 @@ public class DiscogsClientTest
     [Fact]
     public async Task SearchAlbumsAsync_DiscardsResultsWhoseReleaseTitleNeverMatchedTheSearchedTitle()
     {
-        // verbatim from the real API for q=Discovery&artist=Daft Punk: the last two are genuine Daft Punk
-        // releases that free-text matched on something other than their title
+        // verbatim from the real API for q=Discovery&artist=Daft Punk: the last two are genuine Daft Punk releases that free-text matched on something other than their title
         var (client, _) = BuildClient(_ => SearchResponse(
             (1, "Daft Punk - Discovery", 2001),
             (2, "Daft Punk - Homework / Discovery", 2001),
@@ -99,8 +95,7 @@ public class DiscogsClientTest
     }
 
     /// <summary>
-    /// The pre-existing widening step - see the comment in <c>SearchAlbumsAsync</c> - now also covers a
-    /// response whose every hit fails the title check, which for this purpose is the same as no response.
+    /// The widening step (see <c>SearchAlbumsAsync</c>) also covers a response whose every hit fails the title check, the same as no response here.
     /// </summary>
     [Fact]
     public async Task SearchAlbumsAsync_RetriesWithoutTheArtist_WhenNothingTheArtistQueryReturnedIsActuallyTitledThat()

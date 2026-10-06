@@ -13,12 +13,12 @@ public class CarCostHistoryPointDto
     public required DateOnly Period { get; set; }
 
     /// <summary>
-    /// Fuel/electric spend for the month.
+    /// Fuel and electric spend for the month.
     /// </summary>
     public required double FuelCost { get; set; }
 
     /// <summary>
-    /// Maintenance/other spend for the month.
+    /// Maintenance and other spend for the month.
     /// </summary>
     public required double MaintenanceCost { get; set; }
 

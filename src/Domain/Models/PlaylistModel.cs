@@ -12,8 +12,7 @@ public class PlaylistModel : IHasIdAndOwnerId
     public required string Title { get; set; }
 
     /// <summary>
-    /// Ids of <see cref="SongModel"/> documents, in playback order - the list's own order is the
-    /// playlist order, there's no separate position field.
+    /// Ids of <see cref="SongModel"/> documents in playback order: the list order is the playlist order, with no position field.
     /// </summary>
     public List<string> SongIds { get; set; } = [];
 }

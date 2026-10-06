@@ -4,9 +4,6 @@ namespace Keeptrack.WebApi.Controllers;
 
 internal static class ControllerBaseExtensions
 {
-    /// <summary>
-    /// Get authenticated user id.
-    /// </summary>
     internal static string GetUserId(this ControllerBase controller)
     {
         var userId = controller.User.Claims.FirstOrDefault(x => x.Type == "user_id")?.Value;
@@ -14,11 +11,9 @@ internal static class ControllerBaseExtensions
     }
 
     /// <summary>
-    /// The caller's account email, normalized lowercase, or null when the token carries none - the key
-    /// that matches share grants addressed to them. Read verbatim because WebApi sets
-    /// <c>MapInboundClaims = false</c> (see Program.cs), so the Firebase <c>email</c> claim keeps its own
-    /// name. Nullable (unlike <see cref="GetUserId"/>): a provider can legitimately yield no email (e.g. a
-    /// GitHub account with a private email), and such a user simply can't be a share recipient.
+    /// The caller's account email, normalized lowercase, or null when the token has none: the key matching share grants addressed to them.
+    /// <c>MapInboundClaims = false</c> (Program.cs) keeps the Firebase <c>email</c> claim's name.
+    /// Nullable, since a provider can yield no email (a GitHub account with a private email), and such a user cannot receive a share.
     /// </summary>
     internal static string? GetEmail(this ControllerBase controller)
     {
@@ -26,14 +21,12 @@ internal static class ControllerBaseExtensions
         return string.IsNullOrEmpty(email) ? null : email.Trim().ToLowerInvariant();
     }
 
-    /// <summary>The caller's display name, or null when the token carries none - denormalized onto a share grant.</summary>
+    /// <summary>The caller's display name, or null when the token has none, copied onto a share grant.</summary>
     internal static string? GetDisplayName(this ControllerBase controller) =>
         controller.User.Claims.FirstOrDefault(x => x.Type == "name")?.Value;
 
     /// <summary>
-    /// Whether the caller holds a membership (or is an admin, which always implies one) - the same
-    /// role values the "MemberOnly" policy accepts, for code paths that adjust behavior instead of
-    /// denying access outright (the free-tier creation quota).
+    /// Whether the caller is a member or an admin, the roles the "MemberOnly" policy accepts, for code that adjusts behavior rather than denying access (the free-tier quota).
     /// </summary>
     internal static bool IsMember(this ControllerBase controller) =>
         controller.User.HasClaim("role", "member") || controller.User.HasClaim("role", "admin");

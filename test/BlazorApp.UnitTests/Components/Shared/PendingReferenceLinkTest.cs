@@ -7,7 +7,8 @@ namespace Keeptrack.BlazorApp.UnitTests.Components.Shared;
 
 /// <summary>
 /// The poll that shows a freshly created item's reference link once the server's background resolution lands.
-/// Its stopping conditions are the whole of its behaviour: it must stop when the link arrives, stop when the page has changes of its own, and stop eventually either way - a re-read replaces the page's whole model, so one issued at the wrong moment puts the pre-edit item back on screen and back into the model.
+/// Its stopping conditions are its whole behaviour: it stops when the link arrives, when the page has changes of its own, and eventually either way.
+/// A re-read replaces the page's whole model, so one at the wrong moment puts the pre-edit item back on screen and into the model.
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class PendingReferenceLinkTest

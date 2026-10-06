@@ -11,9 +11,8 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Basic full-cycle CRUD coverage for <c>Song</c>, same shape as <see cref="AlbumResourceTest"/>. Song
-/// has no dedicated list page in the UI - it's created/managed only from within a playlist - but still
-/// gets full CRUD via the API so the same song can be created once and reused across playlists.
+/// Full-cycle CRUD coverage for <c>Song</c>, the shape of <see cref="AlbumResourceTest"/>.
+/// A song has no list page, being managed from a playlist, but has full CRUD through the API, so one song is created once and reused across playlists.
 /// </summary>
 public class SongResourceTest(KestrelWebAppFactory<Program> factory)
     : ResourceTestBase(factory)
@@ -57,9 +56,8 @@ public class SongResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// Backs <c>SongApiClient.GetOrCreateForTrackAsync</c>'s dedupe lookup - picking the same track twice
-    /// must find the one already-created song for it, not create a duplicate. Two songs share an
-    /// <c>AlbumId</c> here specifically to prove the filter matches on both fields together, not either alone.
+    /// Backs <c>SongApiClient.GetOrCreateForTrackAsync</c>'s dedupe lookup, so picking the same track twice finds the song already created rather than a duplicate.
+    /// Two songs share an <c>AlbumId</c> to prove the filter matches both fields together, not either alone.
     /// </summary>
     [Fact]
     public async Task SongResourceSearch_FiltersToMatchingAlbumIdAndTrackPosition_IsOk()

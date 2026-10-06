@@ -13,14 +13,11 @@ public class MovieVoteRecord
 }
 
 /// <summary>
-/// Parses TV Time's rating/emotion vote files (ratings-v2-prod-votes.csv, ratings-live-votes.csv,
-/// emotions-v2-prod-votes.csv, emotions-live-votes.csv). These files mix movie and episode votes;
-/// only rows carrying a movie_name are kept. The <c>uuid</c> here is the vote's own id (used to match
-/// the favorite-movies list), NOT a stable movie id - a movie's stable id is its per-movie tracking
-/// uuid in tracking-prod-records.csv (see <see cref="MovieTrackingEventRecord"/>). A movie known only
-/// from these vote files therefore falls back to a title-derived id at import time.
-/// The vote's own emotion/rating code is intentionally not read here: it's an undocumented internal
-/// enum, not a linear rating scale.
+/// Parses TV Time's rating/emotion vote files (ratings-v2-prod-votes.csv, ratings-live-votes.csv, emotions-v2-prod-votes.csv, emotions-live-votes.csv).
+/// These files mix movie and episode votes; only rows carrying a movie_name are kept.
+/// The <c>uuid</c> is the vote's own id, matching the favorite movies list, not a stable movie id, which is the tracking uuid of tracking-prod-records.csv (see <see cref="MovieTrackingEventRecord"/>).
+/// A movie known only from these files therefore gets a title-derived id.
+/// The emotion or rating code is not read, being an undocumented internal enum rather than a linear scale.
 /// </summary>
 public static class MovieVotesCsvParser
 {

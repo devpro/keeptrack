@@ -10,43 +10,32 @@ using Keeptrack.Domain.Repositories;
 namespace Keeptrack.Domain.Services;
 
 /// <summary>
-/// Re-imports a reference-data export (see <c>ReferenceDataAdminController.Export</c>) into whatever the target
-/// database already holds, matching each document by its <b>provider id</b> - never by the <c>_id</c> it was
-/// exported with.
+/// Imports a reference-data export (<c>ReferenceDataAdminController.Export</c>) into what the target database holds, matching each document by its <b>provider id</b>, never by its exported <c>_id</c>.
 /// <para>
-/// That distinction is the whole feature. A Mongo <c>_id</c> is local to the database that minted it, so
-/// upserting by it means the same real work (TMDB 1396) lands as a *second* document in any environment that
-/// had already resolved it on its own - which the unique partial indexes on <c>external_ids.*</c> reject
-/// outright, failing the import partway through. A provider id, by contrast, is the same fact in every
-/// environment, and is exactly the key <c>Resolve&lt;X&gt;Async</c> already dedupes on. Matching on it means
-/// the target's own <c>_id</c> is preserved, so every tenant's <c>ReferenceId</c> - and every
-/// <see cref="CastMemberModel.PersonReferenceId"/> - still resolves after an import.
+/// A MongoDB <c>_id</c> is local to the database that minted it.
+/// Upserting by it would land a work the target already resolved (TMDB 1396) as a second document, which the unique indexes on <c>external_ids.*</c> reject, failing the import partway.
+/// A provider id is the same fact everywhere, and the key <c>Resolve&lt;X&gt;Async</c> deduplicates on.
+/// Matching on it keeps the target's <c>_id</c>, so every tenant's <c>ReferenceId</c> and every <see cref="CastMemberModel.PersonReferenceId"/> still resolves.
 /// </para>
 /// <para>
-/// The same algorithm covers all six collections and every provider: matching walks whatever keys a document
-/// carries in <see cref="IHasExternalIds.ExternalIds"/>, so a book linked through Google Books, a game that
-/// gained an IGDB id on top of its RAWG one, and a person known by a Discogs id all match without the
-/// algorithm naming a single provider. An <c>_id</c> match is kept only as the fallback for a document with no
-/// provider id at all (hand-created or pre-dating the field), which is what keeps re-importing idempotent for it.
+/// One algorithm covers the six collections and every provider, walking whatever keys <see cref="IHasExternalIds.ExternalIds"/> holds, without naming a provider.
+/// The <c>_id</c> is the fallback only for a document with no provider id, which keeps re-importing it idempotent.
 /// </para>
 /// <para>
-/// A match <b>merges</b> rather than replaces. An export is a snapshot of one environment, and the target may
-/// legitimately know things it doesn't: aliases confirmed by its own tenants' searches, and ratings earned from
-/// a provider the exporting environment never called (an IMDb value costs a metered OMDb call - see
-/// <c>OmdbCallBudget</c>). Anything accumulated is unioned; anything the import has no value for leaves the
-/// target's alone, the same "never overwrite with nothing" rule <c>SetReferenceLinkAsync</c> follows.
+/// A match <b>merges</b> rather than replaces.
+/// An export is a snapshot of one environment, and the target may know more: aliases its own tenants confirmed, and ratings from a provider the exporter never called (an IMDb value costs a metered OMDb call).
+/// Accumulated values are unioned, and a value the import lacks leaves the target's, never overwriting with nothing.
 /// </para>
 /// </summary>
 public static class ReferenceDataImportService
 {
     /// <param name="onCollectionStarted">
-    /// Called as each collection starts, so the caller can report progress. An import is a long-running
-    /// background job (a full export runs to tens of thousands of documents), never a blocking request.
+    /// Called as each collection starts, so the caller reports progress.
+    /// An import runs as a background job, since a full export holds tens of thousands of documents.
     /// </param>
     /// <param name="cancellationToken">
-    /// Checked per document. A cancelled import stops partway and stays partly applied, which is safe
-    /// precisely because the whole thing is idempotent: re-running the same zip matches what already landed
-    /// by provider id and updates it in place a second time.
+    /// Checked per document.
+    /// A cancelled import stays partly applied, which is safe because it is idempotent: re-running the zip matches what landed by provider id and updates it in place.
     /// </param>
     public static async Task<ReferenceDataImportSummary> ImportAsync(
         ReferenceDataImportPayload payload,
@@ -56,9 +45,8 @@ public static class ReferenceDataImportService
     {
         var summary = new ReferenceDataImportSummary();
 
-        // People first, and not just for tidiness: the other five collections cite them by id, so a person who
-        // already exists in the target under a different _id has to be discovered - and mapped - before any
-        // document naming them is written, or every imported cast row would point at an id that isn't there.
+        // People first: the other collections cite them by id, so a person the target holds under another _id is mapped before any document naming them is written.
+        // Otherwise an imported cast row would point at an id that does not exist.
         await onCollectionStarted(ReferenceDataImportCollection.People);
         var personIds = await ImportCollectionAsync(
             payload.People, repositories.People.FindAllAsync, repositories.People.UpsertAsync,
@@ -98,9 +86,8 @@ public static class ReferenceDataImportService
     }
 
     /// <summary>
-    /// The one import algorithm, run once per collection. The repositories share no common base interface
-    /// (each is purpose-built for its owner-less collection), so the two operations it needs are passed as
-    /// delegates rather than the whole repository.
+    /// The import algorithm, run once per collection.
+    /// The repositories share no base interface, so the two operations it needs are passed as delegates.
     /// </summary>
     /// <returns>Exported <c>_id</c> to the <c>_id</c> the document actually landed under, so documents citing this collection can be remapped.</returns>
     private static async Task<Dictionary<string, string>> ImportCollectionAsync<T>(
@@ -119,8 +106,7 @@ public static class ReferenceDataImportService
         var idMap = new Dictionary<string, string>(StringComparer.Ordinal);
         if (imported.Count == 0) return idMap;
 
-        // One read of the whole collection rather than a lookup per imported document: this is the same data
-        // volume the export itself already reads, and an import walks all of it anyway.
+        // one read of the whole collection rather than a lookup per document, the volume the export reads anyway
         var existing = await findAllAsync();
         var byExternalId = new Dictionary<string, T>(StringComparer.Ordinal);
         var byId = new Dictionary<string, T>(StringComparer.Ordinal);
@@ -155,8 +141,7 @@ public static class ReferenceDataImportService
             else
             {
                 counts.Created++;
-                // a *new* document naming a work the target already knew means the two are in different
-                // provider id spaces and could not be matched - see ReferenceDataImportSummary.PossibleDuplicates
+                // a new document naming a work the target already knew means the two use different provider ids and could not match (see ReferenceDataImportSummary.PossibleDuplicates)
                 if (identityOf is not null)
                 {
                     var (title, year) = identityOf(saved);
@@ -168,7 +153,7 @@ public static class ReferenceDataImportService
             }
 
             if (!string.IsNullOrEmpty(exportedId) && !string.IsNullOrEmpty(saved.Id)) idMap[exportedId] = saved.Id;
-            // keep the index current, so two documents inside the same archive can't both claim one id
+            // kept current, so two documents of one archive cannot both claim an id
             Index(saved, byExternalId, byId);
             if (identityOf is not null) knownTitles.Add(TitleKey(identityOf(saved)));
         }
@@ -200,9 +185,8 @@ public static class ReferenceDataImportService
     }
 
     /// <summary>
-    /// Removes any provider id that a *different* target document already holds. Without this the write hits
-    /// the unique partial index on that key and takes the whole import down with it (a zip is not a
-    /// transaction - everything before the failure has already been written).
+    /// Removes any provider id another target document already holds.
+    /// The write would otherwise hit that key's unique index and fail the import, with everything before the failure already written, since an import is not a transaction.
     /// </summary>
     private static void DropConflictingExternalIds<T>(T document, Dictionary<string, T> byExternalId, List<string> skipped)
         where T : class, IHasExternalIds
@@ -221,10 +205,8 @@ public static class ReferenceDataImportService
     private static string ExternalKey(string provider, string externalId) => $"{provider}:{externalId}";
 
     /// <summary>
-    /// The "is this the same work?" key for duplicate *reporting* only - never for matching, which is by
-    /// provider id. Loose title normalization plus the year, because the whole point is to notice a work two
-    /// catalogues spell differently ("Mass Effect: Legendary Edition" against "Mass Effect Legendary Edition"),
-    /// while the year keeps a remake from being reported as its original.
+    /// The "same work" key for reporting duplicates only, never for matching, which is by provider id.
+    /// Loose normalization notices a work two catalogues spell differently ("Mass Effect: Legendary Edition" and "Mass Effect Legendary Edition"), and the year keeps a remake apart from its original.
     /// </summary>
     private static string TitleKey((string Title, int? Year) identity) =>
         $"{TitleNormalizer.NormalizeLoose(identity.Title)}|{identity.Year}";
@@ -308,8 +290,8 @@ public static class ReferenceDataImportService
     }
 
     /// <summary>
-    /// Union, import wins on a shared key: a target that adopted a second provider (an IGDB id on a
-    /// RAWG-linked game) keeps it, since dropping it would make that reference re-adopt on the next sync.
+    /// Union, the import winning on a shared key.
+    /// A target that adopted a second provider (an IGDB id on a RAWG-linked game) keeps it, or the next sync would adopt it again.
     /// </summary>
     private static void MergeExternalIds(IHasExternalIds existing, IHasExternalIds imported)
     {
@@ -320,8 +302,8 @@ public static class ReferenceDataImportService
     }
 
     /// <summary>
-    /// Union - an alias is a fact someone confirmed, and the target's were confirmed by its own tenants'
-    /// searches. Same rule (and same equality) as enrichment's <c>MergeMatchedAliases</c>.
+    /// Union, since an alias is a fact someone confirmed, and the target's were confirmed by its own tenants.
+    /// Same rule and equality as enrichment's <c>MergeMatchedAliases</c>.
     /// </summary>
     private static void MergeAliases(List<ReferenceMatchModel> existing, List<ReferenceMatchModel> imported)
     {
@@ -332,8 +314,8 @@ public static class ReferenceDataImportService
     }
 
     /// <summary>
-    /// Per source, import wins - but a source only the target has is kept. An "imdb" value the exporting
-    /// environment never had a key to fetch must not be thrown away by an import that simply doesn't mention it.
+    /// The import wins per source, but a source only the target has is kept.
+    /// An "imdb" value the exporter had no key to fetch is not discarded by an import that does not mention it.
     /// </summary>
     private static void MergeRatings(Dictionary<string, ReferenceRatingModel> existing, Dictionary<string, ReferenceRatingModel> imported)
     {
@@ -344,8 +326,7 @@ public static class ReferenceDataImportService
     }
 
     /// <summary>
-    /// The later attempt per source wins: this marker exists to stop a source being re-asked, so an older
-    /// stamp arriving in an import must never move the re-attempt window backwards.
+    /// The later attempt per source wins, since an older stamp in an import must never move the re-attempt window backwards.
     /// </summary>
     private static void MergeRatingsCheckedAt(Dictionary<string, DateTime> existing, Dictionary<string, DateTime> imported)
     {

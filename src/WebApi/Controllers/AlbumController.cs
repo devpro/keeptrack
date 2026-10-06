@@ -21,16 +21,14 @@ public class AlbumController(
     : DataCrudControllerBase<AlbumDto, AlbumModel>(mapper, dataRepository)
 {
     /// <summary>
-    /// Hydrates each page item's cover image from its linked reference document - one batched lookup per
-    /// page (see <see cref="ReferenceImageHydrator"/>), keyed by the id-bearing documents only. An album with
-    /// its own <see cref="AlbumDto.CustomImageUrl"/> set overrides that afterward - see
-    /// <see cref="BookController.OnListMappedAsync"/>.
+    /// Hydrates each item's cover from its linked reference, one batched lookup per page (see <see cref="ReferenceImageHydrator"/>).
+    /// An album's own <see cref="AlbumDto.CustomImageUrl"/> then overrides it (see <see cref="BookController.OnListMappedAsync"/>).
     /// </summary>
     protected override Task OnListMappedAsync(List<AlbumDto> dtos, CancellationToken cancellationToken) =>
         ReferenceImageHydrator.HydrateWithCustomOverrideAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl, x => x.CustomImageUrl);
 
     /// <summary>
-    /// Fires a best-effort background Discogs match for the new album - see <see cref="TvShowController.OnCreatedAsync"/>.
+    /// Starts a best-effort background Discogs match for the new album (see <see cref="TvShowController.OnCreatedAsync"/>).
     /// </summary>
     protected override Task OnCreatedAsync(AlbumModel model)
     {
@@ -52,8 +50,7 @@ public class AlbumController(
     }
 
     /// <summary>
-    /// User-triggered, exact-match-only re-check against the local reference collection - see
-    /// <see cref="TvShowController.RefreshReference"/>.
+    /// "Check for reference match" (see <see cref="TvShowController.RefreshReference"/>).
     /// </summary>
     [HttpPost("{id}/refresh-reference")]
     [ProducesResponseType(200)]
@@ -68,8 +65,7 @@ public class AlbumController(
     }
 
     /// <summary>
-    /// Admin-only: clears this album's reference link and permanently deletes the shared reference
-    /// document - see <see cref="TvShowController.UnlinkReference"/>.
+    /// Admin only: clears this album's link and deletes the shared reference document (see <see cref="TvShowController.UnlinkReference"/>).
     /// </summary>
     [HttpPost("{id}/unlink-reference")]
     [Authorize(Policy = "AdminOnly")]

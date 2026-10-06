@@ -1,10 +1,11 @@
 namespace Keeptrack.Domain.Models;
 
 /// <summary>
-/// One (title, year) combination ever confirmed - via TMDB resolution, automatic or admin-picked - to mean a specific show/movie, embedded within a <see cref="TvShowReferenceModel"/>/<see cref="MovieReferenceModel"/>.
-/// See <see cref="TvShowReferenceModel.MatchedAliases"/> for the full rationale: a title-only match isn't enough because two tenants (or a tenant and TMDB's own canonical data) can legitimately record different years for the exact same show/movie, so year has to travel with the specific title variant it was confirmed under, not live as a single scalar on the reference document.
+/// One combination confirmed to mean a specific work, by automatic resolution or an admin's pick, embedded in its reference document.
+/// Two tenants, or a tenant and the provider, can record different years for one work, so the year travels with the title variant it was confirmed under (see <see cref="TvShowReferenceModel.MatchedAliases"/>).
 /// <para>
-/// Which members a given domain's alias must carry is <see cref="Domain.Services.ReferenceAliasRule"/>, the single place that decides whether a combination identifies a work at all - nothing constructs one of these for storage by hand.
+/// <see cref="Domain.Services.ReferenceAliasRule"/> decides which members a domain's alias carries, and whether a combination identifies a work at all.
+/// Nothing builds one for storage by hand.
 /// </para>
 /// </summary>
 public class ReferenceMatchModel
@@ -14,40 +15,30 @@ public class ReferenceMatchModel
     public int? Year { get; set; }
 
     /// <summary>
-    /// Normalized book author / album artist this (title, year) combination was confirmed under - null
-    /// for domains with no creator concept (TV show, movie, video game). Required for Book/Album matching
-    /// specifically: two different tenants' different books/albums can easily share a common (title, year)
-    /// (e.g. two different novels both titled "Echoes" published the same year) - without creator in the
-    /// match key, the second tenant's item would incorrectly latch onto the first tenant's reference
-    /// document. Deliberately generic name, not "Author"/"Artist" - see <see cref="TvShowReferenceModel.MatchedAliases"/>'s
-    /// own naming rationale, which this follows.
+    /// Normalized book author or album artist this combination was confirmed under, null for the domains without a creator.
+    /// Books and albums need it: two different novels titled "Echoes" can share a year, and without the creator the second would link to the first's reference.
+    /// The name is generic rather than "Author" or "Artist", since it serves both domains.
     /// </summary>
     public string? Creator { get; set; }
 
     /// <summary>
-    /// The ISBN this (title, year) combination was confirmed under, when one was actually used to make the
-    /// match - null for every domain but Book, and null even for Book whenever the match wasn't ISBN-driven
-    /// (an exact-identifier match must only ever record the identifier that was genuinely used, never
-    /// backfilled from the provider's own canonical value onto an alias that didn't actually rely on it).
+    /// The ISBN the match was made with, books only.
+    /// Null when the match did not use an ISBN: an alias records only the identifier really used, never the provider's own ISBN.
     /// </summary>
     public string? Isbn { get; set; }
 
     /// <summary>
-    /// Whether this alias is the exact same confirmed combination as the one described by the arguments -
-    /// the single definition of "already recorded" for <see cref="TvShowReferenceModel.MatchedAliases"/>,
-    /// shared by every path that merges aliases (enrichment's <c>MergeMatchedAliases</c> and the
-    /// reference-data import). All four members take part: a title+year pair means a different work
-    /// depending on its creator, and an ISBN-driven match is deliberately a separate alias from the
-    /// title-driven one. <paramref name="title"/>/<paramref name="creator"/> are expected already
-    /// normalized (aliases are only ever stored normalized), so this does no normalizing of its own.
-    /// Getting the comparison wrong duplicated an alias on every single re-resolve once already - see
-    /// <c>scripts/dedupe-matched-aliases.js</c>.
+    /// Whether this alias is the combination the arguments describe: the single definition of "already recorded", shared by every path merging aliases (<c>MergeMatchedAliases</c> and the reference-data import).
+    /// All four members take part, since a title and year mean a different work with another creator, and an ISBN match is a separate alias from a title match.
+    /// <paramref name="title"/> and <paramref name="creator"/> arrive normalized, as aliases are stored, so this does no normalizing.
+    /// A wrong comparison appends a duplicate alias on every re-resolve.
     /// </summary>
     public bool Matches(string title, int? year, string? creator, string? isbn) =>
         Title == title && Year == year && SameOptional(Creator, creator) && SameOptional(Isbn, isbn);
 
     /// <summary>
-    /// Null and <c>""</c> are the same absence here: documents written under AutoMapper stored an absent creator as an empty string (see <c>scripts/dedupe-matched-aliases.js</c>), and reading one of those as a <i>different</i> creator appended an exact duplicate on every re-resolve.
+    /// Null and <c>""</c> are the same absence, since older documents store an absent creator as an empty string.
+    /// Reading one as a different creator would append a duplicate on every re-resolve.
     /// </summary>
     private static bool SameOptional(string? recorded, string? candidate) =>
         string.IsNullOrEmpty(recorded) ? string.IsNullOrEmpty(candidate) : recorded == candidate;

@@ -15,17 +15,12 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Exercises POST /api/{tv-shows,movies,books,video-games,albums}/{id}/unlink-reference - the admin
-/// action that clears a tenant's own <c>ReferenceId</c> and permanently deletes the shared reference
-/// document behind a wrong match. The integration suite's shared Firebase test user is an admin (see
-/// <c>FreeTierTest</c>'s own doc comment), so <see cref="ResourceTestBase.Authenticate"/> already
-/// satisfies the endpoint's <c>AdminOnly</c> policy - the policy attribute itself is covered by a
-/// reflection unit test instead (an HTTP 403 test would need a second, non-admin Firebase account this
-/// suite doesn't have configured).
+/// Exercises POST /api/{tv-shows,movies,books,video-games,albums}/{id}/unlink-reference, the admin action clearing a tenant's <c>ReferenceId</c> and permanently deleting the shared reference document behind a wrong match.
+/// The suite's Firebase test user is an admin (see <c>FreeTierTest</c>), so <see cref="ResourceTestBase.Authenticate"/> satisfies the <c>AdminOnly</c> policy.
+/// A reflection unit test covers the policy attribute, since an HTTP 403 test would need a non-admin Firebase account this suite lacks.
 /// <para>
-/// Each reference document is registered for deletion even though the endpoint under test is supposed to
-/// delete it: the registration is what covers the run where the endpoint *doesn't*, which is the
-/// regression these tests exist to catch. Deleting an already-deleted document is a no-op.
+/// Each reference document is registered for deletion although the endpoint should delete it, since the registration covers the run where it doesn't, the regression these tests catch.
+/// Deleting an already-deleted document is a no-op.
 /// </para>
 /// </summary>
 public class UnlinkReferenceResourceTest(KestrelWebAppFactory<Program> factory)
@@ -37,8 +32,8 @@ public class UnlinkReferenceResourceTest(KestrelWebAppFactory<Program> factory)
         using var scope = Factory.Services.CreateScope();
         var referenceRepository = scope.ServiceProvider.GetRequiredService<ITvShowReferenceRepository>();
         var title = $"Unlink Reference Test Show {Guid.NewGuid()}";
-        // unique per test, like the searched title: creating the item links it in the background, which rewrites its title to the canonical one, so the refresh below looks the *canonical* title up.
-        // A canonical title two tests share would let that lookup answer with the other test's document - and this test would then delete that one and report its own as undeleted.
+        // Unique per test, like the searched title: creating the item links it in the background, rewriting its title to the canonical one, which the refresh below looks up.
+        // A canonical title two tests share would let that lookup answer with the other test's document, which this test would delete while reporting its own as undeleted.
         var canonicalTitle = $"Canonical Unlink Show {Guid.NewGuid()}";
         const int year = 2019;
 

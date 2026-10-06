@@ -6,20 +6,15 @@ using Keeptrack.Domain.Services;
 using Keeptrack.WebApi.Mappers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-// Both Domain.Models (imported above) and Contracts.Dto (a global using) declare ImportMediaType/CopyType.
-// The DTOs the request carries use the Contracts ones; these aliases keep the mapping below unambiguous.
+// Domain.Models and Contracts.Dto both declare ImportMediaType and CopyType, so aliases keep the mapping unambiguous
 using AmazonMediaType = Keeptrack.WebApi.Contracts.Dto.AmazonImportMediaType;
 
 namespace Keeptrack.WebApi.Controllers;
 
 /// <summary>
-/// Previews an Amazon.fr order-history export and commits the rows the user selected/edited in the review
-/// UI as books, movies, TV shows, video games, gear, or collectibles (picked per row - see <see cref="AmazonImportMediaType"/>).
-/// Synchronous on both ends: unlike the TV Time import, there is no external API call in the loop, so even
-/// a multi-year export completes well within a normal request.
-/// The create/merge/dedup work is delegated to the shared <see cref="OwnedItemImportCommitCoordinator"/> (the
-/// same engine the generic store/CSV importer uses); this controller only parses Amazon's specific export and
-/// builds the reference/provenance text that is genuinely Amazon-specific.
+/// Previews an Amazon.fr order-history export, then commits the rows selected in the review UI, each as the type picked for it (<see cref="AmazonImportMediaType"/>).
+/// Synchronous, since no external call runs in the loop, so even a multi-year export completes within a request.
+/// <see cref="OwnedItemImportCommitCoordinator"/> creates and merges, and this controller only parses the export and builds the Amazon-specific reference and provenance text.
 /// </summary>
 [ApiController]
 [Authorize(Policy = "MemberOnly")]
@@ -34,9 +29,8 @@ public class AmazonImportController(
     AmazonOrderPreviewRowDtoMapper previewMapper) : ControllerBase
 {
     /// <summary>
-    /// Parses the uploaded order-history CSV and returns every line item for review - nothing is persisted
-    /// by this call. Amazon's export carries no category column, so every row is returned; the review UI
-    /// defaults to showing only <see cref="AmazonOrderPreviewRowDto.LooksLikeBook"/> rows.
+    /// Parses the uploaded order-history CSV and returns every line item for review, persisting nothing.
+    /// The export has no category column, so every row is returned, and the review UI first shows only <see cref="AmazonOrderPreviewRowDto.LooksLikeBook"/> rows.
     /// </summary>
     [HttpPost("preview")]
     [RequestSizeLimit(20_000_000)]
@@ -55,8 +49,7 @@ public class AmazonImportController(
 
         var ownerId = this.GetUserId();
 
-        // "Already imported" must be checked across every type, not just books - a row previously imported
-        // as a movie must still be flagged when the same export is uploaded again.
+        // checked across every type, so a row imported earlier as a movie is still flagged
         var existingBooks = await FindAllAsync(bookRepository, ownerId, new BookModel { OwnerId = ownerId, Title = string.Empty, Author = string.Empty });
         var existingMovies = await FindAllAsync(movieRepository, ownerId, new MovieModel { OwnerId = ownerId, Title = string.Empty });
         var existingTvShows = await FindAllAsync(tvShowRepository, ownerId, new TvShowModel { OwnerId = ownerId, Title = string.Empty });
@@ -79,10 +72,8 @@ public class AmazonImportController(
     }
 
     /// <summary>
-    /// Creates/updates items from the rows the user selected in the review UI, grouped by the media type
-    /// each row was assigned. A row whose (normalized) title matches an existing item of the same type - or
-    /// one created earlier in this same request - gets an additional owned copy instead of a duplicate
-    /// item; see <see cref="OwnedItemImportCommitCoordinator.CommitAsync"/>.
+    /// Creates or updates items from the selected rows, grouped by the type each row was given.
+    /// A row whose normalized title matches an item of its type, existing or created earlier in the request, adds a copy rather than a duplicate (see <see cref="OwnedItemImportCommitCoordinator.CommitAsync"/>).
     /// </summary>
     [HttpPost("commit")]
     [ProducesResponseType(200)]
@@ -142,11 +133,10 @@ public class AmazonImportController(
         {
             MediaType = Enum.Parse<Keeptrack.Domain.Models.ImportMediaType>(item.MediaType!.Value.ToString()),
             Title = item.Title,
-            // The original, unedited Amazon listing text - kept in the created item's notes since reference-data
-            // linking is expected to overwrite Title (and, for a book, ISBN) with canonical values later.
+            // Amazon's original listing text, kept in the notes since reference linking may overwrite the title and a book's ISBN
             ProvenanceNotes = AmazonImportMergeService.BuildAmazonProvenanceNotes(item.AmazonTitle, isBook ? item.Isbn : null),
             Year = item.Year,
-            // Amazon's export has no author column; books are created author-less (the coordinator stores "").
+            // the export has no author column, so books are created without one
             Author = null,
             Isbn = isBook ? item.Isbn : null,
             Platform = isVideoGame ? item.Platform : null,
@@ -156,9 +146,7 @@ public class AmazonImportController(
                 Price = item.Price,
                 Vendor = item.Vendor,
                 AcquiredAt = item.AcquiredAt,
-                // Derived server-side from the order id + ASIN the preview row reported, never from a
-                // client-supplied Reference string - this is what disambiguates two different items sharing one
-                // Amazon order and what a later re-preview dedups against.
+                // built from the order id and ASIN, never from client text, which tells apart two items of one order and is what a later preview checks
                 Reference = AmazonImportMergeService.FormatOrderReference(item.OrderId, item.Asin)
             }
         };

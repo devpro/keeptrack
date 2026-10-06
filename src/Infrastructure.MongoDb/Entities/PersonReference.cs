@@ -5,8 +5,8 @@ using MongoDB.Bson.Serialization.Attributes;
 namespace Keeptrack.Infrastructure.MongoDb.Entities;
 
 /// <summary>
-/// Shared, owner-less person/actor metadata collection (<c>person_reference</c>). See
-/// <see cref="Keeptrack.Domain.Models.PersonReferenceModel"/> for why this has no <c>owner_id</c>.
+/// Shared person metadata (<c>person_reference</c>).
+/// See <see cref="Keeptrack.Domain.Models.PersonReferenceModel"/> for why it has no <c>owner_id</c>.
 /// </summary>
 public class PersonReference
 {

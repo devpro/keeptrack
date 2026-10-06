@@ -11,23 +11,14 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Runs alone, same rationale as <see cref="WatchNextSmokeTestCollection"/>: the car-record scenario
-/// below asserts the shared tenant has exactly one car (the single-parent silent-preselect path), which
-/// a parallel class's own car create/delete traffic (e.g. <c>CarSmokeTest</c>, <c>MobileScreenshotTest</c>)
-/// would otherwise race.
+/// Runs alone, like <see cref="WatchNextSmokeTestCollection"/>, since the car record scenario asserts the tenant has exactly one car (the single-parent preselect path), which a parallel class's car traffic (<c>CarSmokeTest</c>, <c>MobileScreenshotTest</c>) would race.
 /// </summary>
 [CollectionDefinition(nameof(QuickAddSmokeTest), DisableParallelization = true)]
 public class QuickAddSmokeTestCollection;
 
 /// <summary>
-/// Quick Add's own end-to-end coverage: one media type (Movie, exercising the "I own a copy" toggle that
-/// shares OwnedVersionFields with OwnedVersionsEditor) and one record type (a car refuel, exercising the
-/// single-parent silent-preselect path and the shared CarHistoryForm). The other six types reuse the same
-/// shared form components already covered from their own detail pages
-/// (TvShowSmokeTest/BookSmokeTest/AlbumSmokeTest/VideoGamePlatformSmokeTest/HouseSmokeTest/HealthSmokeTest),
-/// so this class doesn't repeat one scenario per type - it only needs to prove Quick Add's own plumbing
-/// (picker navigation, single-POST save, landing route) works, which one media type and one record type
-/// already demonstrate.
+/// Quick Add's end-to-end coverage: one media type (a movie, with the "I own a copy" toggle sharing OwnedVersionFields) and one record type (a car refuel, with the single-parent preselect and the shared CarHistoryForm).
+/// The other six types reuse form components their own detail page smoke tests cover, so this proves only Quick Add's plumbing: picker navigation, single-POST save, landing route.
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]
@@ -72,7 +63,7 @@ public class QuickAddSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
         var quickAdd = await home.OpenQuickAddAsync();
         await quickAdd.SelectTypeAsync("car");
 
-        // the tenant now has exactly one car - it's preselected silently, no segmented picker to click
+        // the tenant has exactly one car, preselected with no segmented picker to click
         await DetailPageBase.SetFieldAsync(Page.GetByTestId("mileage-input"), mileage.ToString());
         await DetailPageBase.SetFieldAsync(Page.GetByTestId("cost-input"), "65.40");
         await quickAdd.SaveButton.ClickAsync();

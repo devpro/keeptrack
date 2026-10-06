@@ -21,16 +21,14 @@ public class VideoGameController(
     : DataCrudControllerBase<VideoGameDto, VideoGameModel>(mapper, dataRepository)
 {
     /// <summary>
-    /// Hydrates each page item's cover image from its linked reference document - one batched lookup per
-    /// page (see <see cref="ReferenceImageHydrator"/>), keyed by the id-bearing documents only. A game with
-    /// its own <see cref="VideoGameDto.CustomImageUrl"/> set overrides that afterward - see
-    /// <see cref="BookController.OnListMappedAsync"/>.
+    /// Hydrates each item's cover from its linked reference, one batched lookup per page (see <see cref="ReferenceImageHydrator"/>).
+    /// A game's own <see cref="VideoGameDto.CustomImageUrl"/> then overrides it (see <see cref="BookController.OnListMappedAsync"/>).
     /// </summary>
     protected override Task OnListMappedAsync(List<VideoGameDto> dtos, CancellationToken cancellationToken) =>
         ReferenceImageHydrator.HydrateWithCustomOverrideAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl, x => x.CustomImageUrl);
 
     /// <summary>
-    /// Fires a best-effort background RAWG match for the new game - see <see cref="TvShowController.OnCreatedAsync"/>.
+    /// Starts a best-effort background match through the default game provider (see <see cref="TvShowController.OnCreatedAsync"/>).
     /// </summary>
     protected override Task OnCreatedAsync(VideoGameModel model)
     {
@@ -52,11 +50,8 @@ public class VideoGameController(
     }
 
     /// <summary>
-    /// User-triggered re-check for this game's reference - see <see cref="TvShowController.RefreshReference"/>
-    /// for the shared shape. Unlike the other four domains this one falls back to the provider when nothing
-    /// local matches, so a game that was created before its year was known can still be linked once the year
-    /// is filled in - see <see cref="ReferenceEnrichmentService.LinkVideoGameReferenceAsync"/> for why the
-    /// local-only version could not keep the button's own promise.
+    /// "Check for reference match" (see <see cref="TvShowController.RefreshReference"/>).
+    /// A game created before its year was known links once the year is filled in (see <see cref="ReferenceEnrichmentService.LinkVideoGameReferenceAsync"/>).
     /// </summary>
     [HttpPost("{id}/refresh-reference")]
     [ProducesResponseType(200)]
@@ -71,8 +66,7 @@ public class VideoGameController(
     }
 
     /// <summary>
-    /// Admin-only: clears this game's reference link and permanently deletes the shared reference
-    /// document - see <see cref="TvShowController.UnlinkReference"/>.
+    /// Admin only: clears this game's link and deletes the shared reference document (see <see cref="TvShowController.UnlinkReference"/>).
     /// </summary>
     [HttpPost("{id}/unlink-reference")]
     [Authorize(Policy = "AdminOnly")]

@@ -7,17 +7,15 @@ using System.Text;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Builds a small, synthetic TV Time GDPR export zip for tests: representative rows of each file
-/// shape the importer reads, for a single fake show/movie. Never use the real personal export in tests.
+/// Builds a small, synthetic TV Time GDPR export zip for tests: representative rows of each file shape the importer reads, for a single fake show/movie.
+/// Never use the real personal export in tests.
 /// </summary>
 internal static class TvTimeFixtureZipBuilder
 {
     public const string ShowTitle = "Keeptrack Integration Test Show";
 
     /// <summary>
-    /// A show with genuine watch history and a rating, but that never appears in followed_tv_show.csv -
-    /// this is exactly the real-world case ("The Pitt" in the user's own export) that was silently
-    /// dropped before: the importer must still create it and import its episode, not skip it.
+    /// A show with watch history and a rating that never appears in followed_tv_show.csv, a real export's case, which the importer still creates with its episode.
     /// </summary>
     public const string OrphanShowTitle = "Keeptrack Orphan Show";
 
@@ -40,8 +38,7 @@ internal static class TvTimeFixtureZipBuilder
                                            2020-01-03 00:00:00,{ShowTitle},1,2,999,2,episode-detail,2020-01-03 00:00:00
 
                                            """,
-            // covers episodes marked watched other ways, which seen_episode_source.csv alone misses (the real bug
-            // this fixture guards against): one extra episode each from the legacy and current tracking exports.
+            // Episodes marked watched other ways, which seen_episode_source.csv alone misses: one extra episode each from the legacy and current tracking exports.
             ["tracking-prod-records.csv"] = BuildCsv(
                 ["series_name", "uuid", "type-uuid-n", "watch_count", "type", "updated_at", "created_at", "series_id", "user_id",
                     "watches", "movie_name", "runtime", "entity_type", "alpha_range_key", "follow_date_range_key", "release_date",
@@ -71,8 +68,7 @@ internal static class TvTimeFixtureZipBuilder
                     ["season_number"] = "1",
                     ["episode_number"] = "3"
                 },
-                // movie watch event: the only source of a movie's watched date (confirmed against a real
-                // export - the rating/emotion vote files never carry one)
+                // movie watch event, the only source of a movie's watched date, since a real export's rating and emotion vote files never carry one
                 new Dictionary<string, string>
                 {
                     ["uuid"] = "movie-watch-1",
@@ -196,8 +192,7 @@ internal static class TvTimeFixtureZipBuilder
     }
 
     /// <summary>
-    /// Builds a CSV from an explicit header list and one dictionary of column values per row (columns
-    /// not present in a row default to empty) - avoids manually counting commas for wide, mostly-empty rows.
+    /// Builds a CSV from a header list and one dictionary of column values per row (a missing column defaults to empty), rather than counting commas for wide, mostly empty rows.
     /// </summary>
     private static string BuildCsv(string[] headers, params Dictionary<string, string>[] rows)
     {

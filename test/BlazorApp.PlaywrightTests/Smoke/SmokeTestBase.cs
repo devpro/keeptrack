@@ -15,13 +15,10 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Shared setup for every smoke test class: the E2E_ENABLED skip guard,
-/// a pre-authenticated browser context (via <see cref="End2EndFixture"/>'s storage state, captured once for the whole run),
-/// headless/slowmo/browser selection from <see cref="End2EndConfiguration"/>, and failure diagnostics (trace + screenshot).
+/// Shared setup for every smoke test class: the E2E_ENABLED skip guard, a pre-authenticated browser context (<see cref="End2EndFixture"/>'s storage state, captured once per run), headless, slowmo and browser selection from <see cref="End2EndConfiguration"/>, and failure diagnostics.
 /// <para>
-/// Every Playwright test class in this suite derives from here, so every one of them leaves a full-page screenshot
-/// of each open page - plus the Playwright trace, unless <c>E2E_TRACE=off</c> - in <c>e2e-diagnostics</c> under the
-/// test output directory (<c>test/BlazorApp.PlaywrightTests/bin/&lt;config&gt;/net10.0/e2e-diagnostics</c>) whenever it fails.
+/// Every Playwright test class derives from here, so each failure leaves a full-page screenshot of each open page, plus the Playwright trace unless <c>E2E_TRACE=off</c>.
+/// They land in <c>test/BlazorApp.PlaywrightTests/bin/&lt;config&gt;/net10.0/e2e-diagnostics</c>.
 /// The paths are printed to the failing test's output, so a CI log names the files rather than only the assertion.
 /// </para>
 /// </summary>
@@ -32,9 +29,8 @@ public abstract partial class SmokeTestBase : PageTest
     private readonly List<Func<Task>> _cleanups = [];
 
     /// <summary>
-    /// Every browser context this test drives: the shared signed-in one first, then any opened through
-    /// <see cref="NewAnonymousPageAsync"/>. The failure diagnostics walk this list rather than only
-    /// <see cref="PageTest.Page"/>, so a test whose subject is an anonymous page is diagnosed from *that* page.
+    /// Every browser context this test drives: the shared signed-in one first, then any opened through <see cref="NewAnonymousPageAsync"/>.
+    /// The failure diagnostics walk this list rather than only <see cref="PageTest.Page"/>, so a test whose subject is an anonymous page is diagnosed from *that* page.
     /// </summary>
     private readonly List<(string? Label, IBrowserContext Context)> _trackedContexts = [];
 
@@ -43,9 +39,7 @@ public abstract partial class SmokeTestBase : PageTest
     protected SmokeTestBase(End2EndFixture fixture)
     {
         Fixture = fixture;
-        // BrowserType selection (Microsoft.Playwright.Xunit.v3's own PlaywrightSettingsProvider.BrowserName)
-        // has no supported extension point beyond the native BROWSER environment variable it reads live on every InitializeAsync,
-        // so E2E_BROWSER is translated into it here rather than duplicating browser-selection logic.
+        // BrowserType selection (Microsoft.Playwright.Xunit.v3's own PlaywrightSettingsProvider.BrowserName) has no supported extension point beyond the native BROWSER environment variable it reads live on every InitializeAsync, so E2E_BROWSER is translated into it here rather than duplicating browser-selection logic.
         Environment.SetEnvironmentVariable("BROWSER", End2EndConfiguration.Browser);
     }
 
@@ -93,14 +87,10 @@ public abstract partial class SmokeTestBase : PageTest
     });
 
     /// <summary>
-    /// Opens a page in a brand-new context carrying none of the run's signed-in storage state: an anonymous visitor, a share recipient,
-    /// or a browser supplying its own forged cookie.
+    /// Opens a page in a brand-new context carrying none of the run's signed-in storage state: an anonymous visitor, a share recipient, or a browser supplying its own forged cookie.
     /// <para>
-    /// Four tests each built that context by hand and disposed it at the end of the test body,
-    /// which put the very page under test out of reach of the failure diagnostics:
-    /// on a failure they screenshotted the untouched shared page instead, and traced only the context nothing had happened in.
-    /// Opening it here keeps it alive until <see cref="DisposeAsync"/> (Playwright's own <c>NewContext</c> closes it afterward)
-    /// and registers it for capture, so an anonymous-page test is diagnosed like every other one.
+    /// Four tests each built that context by hand and disposed it at the end of the test body, which put the very page under test out of reach of the failure diagnostics: on a failure they screenshotted the untouched shared page instead, and traced only the context nothing had happened in.
+    /// Opening it here keeps it alive until <see cref="DisposeAsync"/> (Playwright's own <c>NewContext</c> closes it afterward) and registers it for capture, so an anonymous-page test is diagnosed like every other one.
     /// </para>
     /// </summary>
     /// <param name="label">Distinguishes this page's diagnostics files from the shared page's.</param>
@@ -126,19 +116,15 @@ public abstract partial class SmokeTestBase : PageTest
     /// <summary>
     /// Registers an undo action to run when the test ends, whether it passed or failed.
     /// <para>
-    /// A smoke test drives the real UI, so its data is created several assertions before the test's own
-    /// delete step at the end - and every assertion in between is a place the test can stop early, leaving
-    /// the item behind. That isn't hypothetical: <c>E2e Smoke Collectible</c> and <c>E2e Smoke Gear</c>
-    /// documents from abandoned runs were found in a real database. Registering at creation time closes the
-    /// window; a test that also deletes through the UI is unaffected, since deleting twice is a no-op.
+    /// A smoke test drives the real UI, so its data is created several assertions before its delete step, and every assertion in between can stop the test early, leaving the item behind.
+    /// Registering at creation closes the window, and a test that also deletes through the UI is unaffected, since deleting twice is a no-op.
     /// </para>
     /// </summary>
     protected void TrackCleanup(Func<Task> cleanup) => _cleanups.Add(cleanup);
 
     /// <summary>
-    /// Registers the item whose detail page is currently open, by reading its id out of the page URL - the
-    /// only place a UI-driven test can learn it (see <see cref="ExtractIdFromUrl"/>). Call it as soon as
-    /// the detail page is ready, not at the end of the test.
+    /// Registers the item whose detail page is open, reading its id out of the page URL, the only place a UI-driven test can learn it (see <see cref="ExtractIdFromUrl"/>).
+    /// Call it as soon as the detail page is ready, not at the end of the test.
     /// </summary>
     protected void TrackOpenItem(string apiRoute)
     {
@@ -147,12 +133,9 @@ public abstract partial class SmokeTestBase : PageTest
     }
 
     /// <summary>
-    /// Creates an item straight through the API - for the setup a test needs but isn't itself testing (a
-    /// movie to share, a show for Watch Next to pick up) - and registers it for deletion in one step.
+    /// Creates an item through the API, for setup a test needs but isn't testing (a movie to share, a show for Watch Next), and registers it for deletion in one step.
     /// <para>
-    /// Several smoke tests had grown their own copy of this POST-and-deserialize helper; it lives here once
-    /// so seeding through the API always tracks what it created, rather than depending on each test
-    /// remembering to.
+    /// It lives here once, so seeding through the API always tracks what it created rather than each test remembering to.
     /// </para>
     /// </summary>
     protected async Task<T> CreateItemAsync<T>(string apiRoute, T body)
@@ -167,22 +150,18 @@ public abstract partial class SmokeTestBase : PageTest
     }
 
     /// <summary>
-    /// Registers everything a list query returns at cleanup time - for the import smoke tests, whose commit
-    /// creates items the test never sees the ids of.
+    /// Registers everything a list query returns at cleanup time, for the import smoke tests, whose commit creates items the test never sees the ids of.
     /// </summary>
     protected void TrackItemsMatching(string apiRoute, string listQueryUrl)
         => TrackCleanup(() => RemoveItemsMatchingAsync(apiRoute, listQueryUrl));
 
     /// <summary>
-    /// The immediate form of <see cref="TrackItemsMatching"/>, for a test that needs the tenant in a known
-    /// state *before* it starts rather than after it finishes.
+    /// The immediate form of <see cref="TrackItemsMatching"/>, for a test needing the tenant in a known state before it starts rather than after it finishes.
     /// <para>
-    /// Deleting something the test didn't create is normally forbidden here, and this is the one narrow
-    /// exception: a scenario whose precondition is "the tenant does not already hold this item" cannot be set
-    /// up any other way (Explore's add, where the feature's whole contract is to hide what the tenant already tracks).
-    /// It is safe only because <see cref="TestDatabaseGuard"/> refuses to let the suite run against anything
-    /// but a dedicated test database - never <c>keeptrack_dev</c> or a real one. Match as narrowly as the list
-    /// query allows, and never reach for this to paper over a missing cleanup.
+    /// Deleting what the test didn't create is normally forbidden, and this is the one narrow exception.
+    /// A precondition of "the tenant doesn't hold this item" can't be set up otherwise (Explore's add, whose contract is to hide what the tenant tracks).
+    /// It is safe only because <see cref="TestDatabaseGuard"/> refuses anything but a dedicated test database, never <c>keeptrack_dev</c> or a real one.
+    /// Match as narrowly as the list query allows, and never reach for this to paper over a missing cleanup.
     /// </para>
     /// </summary>
     protected async Task RemoveItemsMatchingAsync(string apiRoute, string listQueryUrl)
@@ -194,8 +173,7 @@ public abstract partial class SmokeTestBase : PageTest
     }
 
     /// <summary>
-    /// A detail page's own URL (e.g. "/movies/{id}") is the only place a smoke test can read the id it needs
-    /// for direct-API cleanup, since the Add form's response body isn't surfaced anywhere in the UI.
+    /// A detail page's URL ("/movies/{id}") is the only place a smoke test can read the id for direct-API cleanup, since the UI never surfaces the Add form's response body.
     /// </summary>
     protected static string ExtractIdFromUrl(string url) => new Uri(url).Segments[^1].TrimEnd('/');
 
@@ -268,9 +246,7 @@ public abstract partial class SmokeTestBase : PageTest
     }
 
     /// <summary>
-    /// Capturing diagnostics may never replace the test's own failure, nor cost the trace that would explain it:
-    /// a page that is mid-navigation or already crashed throws here,
-    /// and that exception would become the reported result of a test that failed for an entirely different reason.
+    /// Capturing diagnostics may never replace the test's own failure, nor cost the trace that would explain it: a page that is mid-navigation or already crashed throws here, and that exception would become the reported result of a test that failed for an entirely different reason.
     /// </summary>
     private static async Task<bool> TryCaptureAsync(Func<Task> capture, string what)
     {

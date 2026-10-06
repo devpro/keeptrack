@@ -4,10 +4,9 @@ namespace Keeptrack.BlazorApp.Components.Account;
 
 /// <summary>
 /// Circuit-scoped cache of the caller's own <see cref="UserPreferencesDto"/> (registered <c>AddScoped</c>).
-/// Preference checks now happen in more than one place per page (e.g. every owned copy's <c>OwnedVersionFields</c> instance on a detail page),
-/// so each consumer fetching independently would fire one HTTP request per instance;
-/// this fetches once per circuit and every consumer shares the same in-flight/completed <see cref="Task{TResult}"/> instead.
-/// <see cref="UpdateAsync"/> (only called from Manage.razor) refreshes the cache immediately, so a page navigated to afterward sees the new value without a second round trip.
+/// Several consumers on one page read preferences (every owned copy's <c>OwnedVersionFields</c>), and fetching independently would cost one HTTP request each.
+/// It fetches once per circuit, and every consumer shares the same <see cref="Task{TResult}"/>.
+/// <see cref="UpdateAsync"/> (called from Manage.razor) refreshes the cache at once, so a page navigated to afterwards sees the new value without a round trip.
 /// </summary>
 public sealed class UserPreferencesState(UserPreferencesApiClient api)
 {

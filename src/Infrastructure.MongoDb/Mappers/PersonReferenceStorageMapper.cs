@@ -5,8 +5,7 @@ using Riok.Mapperly.Abstractions;
 namespace Keeptrack.Infrastructure.MongoDb.Mappers;
 
 /// <summary>
-/// Injected directly by <see cref="Repositories.PersonReferenceRepository"/> - see
-/// <see cref="TvShowReferenceStorageMapper"/> for why this has no shared interface.
+/// Injected directly into <see cref="Repositories.PersonReferenceRepository"/> (see <see cref="TvShowReferenceStorageMapper"/> for why there is no shared interface).
 /// </summary>
 [Mapper]
 public partial class PersonReferenceStorageMapper

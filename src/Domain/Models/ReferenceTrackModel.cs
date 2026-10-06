@@ -1,21 +1,19 @@
 namespace Keeptrack.Domain.Models;
 
 /// <summary>
-/// One track's reference metadata (position, title, duration), embedded within an
-/// <see cref="AlbumReferenceModel"/> - same embedding rationale as
-/// <see cref="ReferenceEpisodeModel"/>: bounded to one album's real tracklist and always fetched as a whole.
+/// One track's reference metadata (position, title, duration), embedded in an <see cref="AlbumReferenceModel"/> like <see cref="ReferenceEpisodeModel"/>: bounded by the real tracklist and always fetched whole.
 /// </summary>
 public class ReferenceTrackModel
 {
     /// <summary>
-    /// Discogs' own position label - not always numeric (vinyl releases use side+track like "A1"/"B2").
+    /// Discogs' position label, not always numeric: vinyl releases use side and track, like "A1" or "B2".
     /// </summary>
     public required string Position { get; set; }
 
     public required string Title { get; set; }
 
     /// <summary>
-    /// Discogs' own "M:SS" text, often absent - carried through as display text, not parsed.
+    /// Discogs' "M:SS" text, often absent, kept as display text rather than parsed.
     /// </summary>
     public string? Duration { get; set; }
 }

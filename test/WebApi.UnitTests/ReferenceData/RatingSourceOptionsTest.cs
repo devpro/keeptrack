@@ -25,9 +25,8 @@ public class RatingSourceOptionsTest
     [Fact]
     public void VideoGames_OfferRawgAndMetacriticAgain_OnADeploymentConfiguredBackToRawg()
     {
-        // the property that makes a provider change reversible: what the domain offers is read from whichever
-        // client is registered as its default, not from a list in the code. Pointing
-        // ReferenceData:VideoGameProvider back at RAWG brings its two sources back with no code change.
+        // the property that makes a provider change reversible: what the domain offers is read from whichever client is registered as its default, not from a list in the code.
+        // Pointing ReferenceData:VideoGameProvider back at RAWG brings its two sources back with no code change.
         var options = OptionsFor(RatingSourceCatalog.Rawg);
 
         options.AvailableSources(ReferenceItemType.VideoGame)
@@ -38,9 +37,9 @@ public class RatingSourceOptionsTest
     [Fact]
     public void AStoredChoiceSurvivesAProviderChange_AndComesBackWhenThatProviderDoes()
     {
-        // the admin picked Metacritic while RAWG was the default. It is ignored - not erased - while IGDB is
-        // in charge, because IGDB cannot produce that number and offering it left every game linked since the
-        // switch with no rating at all. Configure RAWG back and the same stored choice is honoured again.
+        // The admin picked Metacritic with RAWG as the default.
+        // It is ignored, not erased, while IGDB is the default, since IGDB can't produce that number, and honouring it would leave every IGDB-linked game with no rating.
+        // With RAWG configured back, the same stored choice is honoured again.
         var overrides = new Dictionary<string, string> { ["VideoGame"] = RatingSourceCatalog.Metacritic };
 
         OptionsFor(RatingSourceCatalog.Igdb).Resolve(overrides, ReferenceItemType.VideoGame).Should().Be(RatingSourceCatalog.Igdb);
@@ -48,9 +47,8 @@ public class RatingSourceOptionsTest
     }
 
     [Theory]
-    // both keys stay declared with their scales however the deployment is configured: references linked
-    // through either provider keep those values on record, and ScaleOf throws on a source it doesn't know -
-    // so dropping a declaration turns every stored value into an exception rather than a stale number.
+    // Both keys stay declared with their scales however the deployment is configured, since references linked through either provider keep those values.
+    // ScaleOf throws on a source it doesn't know, so dropping a declaration would turn every stored value into an exception rather than a stale number.
     [InlineData(RatingSourceCatalog.Rawg, 5)]
     [InlineData(RatingSourceCatalog.Metacritic, 100)]
     [InlineData(RatingSourceCatalog.Igdb, 100)]
@@ -66,8 +64,7 @@ public class RatingSourceOptionsTest
     [InlineData(ReferenceItemType.TvShow)]
     public void MoviesAndTvShows_OfferTmdbAndImdb_WithTmdbAsTheDefault(ReferenceItemType domain)
     {
-        // fixed rather than provider-derived, and rightly so: IMDb isn't a second provider for this domain,
-        // it's an extra per-title lookup layered on TMDB's own data.
+        // fixed rather than provider-derived, and rightly so: IMDb isn't a second provider for this domain, it's an extra per-title lookup layered on TMDB's own data.
         var options = OptionsFor(RatingSourceCatalog.Igdb);
 
         options.AvailableSources(domain).Should().Equal(RatingSourceCatalog.Tmdb, RatingSourceCatalog.Imdb);
@@ -81,8 +78,7 @@ public class RatingSourceOptionsTest
     [InlineData(ReferenceItemType.Album)]
     public void SingleSourceDomains_AreNotAdminSelectable(ReferenceItemType domain)
     {
-        // these have only one source today, so there's nothing to choose - they join the picker when they
-        // gain a second source, the same way movies/TV did once IMDb landed.
+        // These have one source, so nothing to choose, and they join the picker on gaining a second, as movies and TV did with IMDb.
         var options = OptionsFor(RatingSourceCatalog.Igdb);
 
         options.IsSelectable(domain).Should().BeFalse();

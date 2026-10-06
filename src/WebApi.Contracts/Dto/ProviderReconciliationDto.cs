@@ -4,19 +4,15 @@ using System.Collections.Generic;
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// The admin's provider-reconciliation view of a domain: how far its reference documents have caught up with
-/// the provider that is currently the default, and which ones haven't.
+/// The admin's provider reconciliation view of a domain: how many reference documents carry the default provider's id, and which do not.
 /// <para>
-/// A reference document is written under whichever provider linked it, so changing a domain's default leaves
-/// the ones linked earlier in the previous provider's number space until they adopt an id in the new one.
-/// That backlog is not cosmetic - the Explore feature recognises "the caller already has this" by the
-/// discovery provider's id, so a reference stuck on the old provider is a game the owner tracks and keeps
-/// being suggested anyway.
+/// A reference is written under the provider that linked it, so after a default changes, older ones stay in the previous provider's number space until they adopt an id.
+/// That backlog matters, since Explore recognises what the caller has by the discovery provider's id, so a stuck reference is a tracked game that keeps being suggested.
 /// </para>
 /// </summary>
 public class ProviderReconciliationDto
 {
-    /// <summary>The domain's current default provider - the number space every reference is expected to carry an id in.</summary>
+    /// <summary>The domain's default provider, whose id every reference should carry.</summary>
     public required string Provider { get; set; }
 
     /// <summary>That provider's display name, for the admin UI's prose.</summary>
@@ -25,10 +21,10 @@ public class ProviderReconciliationDto
     /// <summary>Reference documents in the domain, in total.</summary>
     public int TotalReferences { get; set; }
 
-    /// <summary>The ones carrying no id in <see cref="Provider"/>'s number space, worst case first.</summary>
+    /// <summary>The references with no id from <see cref="Provider"/>, worst case first.</summary>
     public List<ProviderGapDto> Gaps { get; set; } = [];
 
-    /// <summary>Sets of documents that look like the same work - see <see cref="DuplicateReferenceGroupDto"/>.</summary>
+    /// <summary>Sets of documents that look like the same work (see <see cref="DuplicateReferenceGroupDto"/>).</summary>
     public List<DuplicateReferenceGroupDto> Duplicates { get; set; } = [];
 }
 
@@ -45,17 +41,15 @@ public class ProviderGapDto
     public List<string> Providers { get; set; } = [];
 
     /// <summary>
-    /// When the background pass last searched the default provider for this title, if ever. A recent stamp
-    /// with the gap still open means the provider has no unambiguous match for it - the case this queue
-    /// exists to resolve by hand.
+    /// When the background pass last searched the default provider for this title, if ever.
+    /// A recent stamp with the gap still open means the provider has no unambiguous match, the case this queue resolves by hand.
     /// </summary>
     public DateTime? LastAttemptedAt { get; set; }
 }
 
 /// <summary>
-/// Two or more reference documents describing what looks like one work. Every tenant item points at whichever
-/// of them existed when it was linked, so the work's provider ids, ratings and cover are split across the set
-/// and only one of them is ever recognised by Explore.
+/// Two or more reference documents describing what looks like one work.
+/// Every tenant item points at whichever existed when it linked, so the work's ids, ratings and cover are split across the set, and Explore recognises only one.
 /// </summary>
 public class DuplicateReferenceGroupDto
 {
@@ -76,7 +70,7 @@ public class DuplicateReferenceDto
     /// <summary>Provider key to that provider's own id for this work.</summary>
     public Dictionary<string, string> ExternalIds { get; set; } = [];
 
-    /// <summary>Rating source keys this document holds a value for - the knowledge a merge would otherwise lose.</summary>
+    /// <summary>Rating source keys this document holds a value for, which a careless merge would lose.</summary>
     public List<string> RatingSources { get; set; } = [];
 
     public string? ImageUrl { get; set; }

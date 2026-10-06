@@ -5,11 +5,11 @@ using Keeptrack.Domain.Services;
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// Resolves a tracked item's title+year to a shared reference document and propagates its id to every tenant's matching document.
-/// Shared by both the automatic (best-effort, background) path and the admin manual-linking path so the "resolve and propagate" logic is never duplicated between them - only how an external id gets picked differs.
-/// Split into one partial-class file per domain (<c>.TvShowsAndMovies.cs</c>, <c>.Books.cs</c>, <c>.VideoGames.cs</c>, <c>.Albums.cs</c>) since each domain's five-method template (TryLinkExisting/TryAutoResolve/Resolve/Refresh) is sizeable on its own; this file holds the shared constructor and the cross-domain helpers.
+/// Resolves a tracked item's identity to a shared reference document and links the records a link reaches (see <see cref="ReferenceLinkTarget"/>).
+/// The automatic path and the admin's manual link share it, differing only in how the provider id is picked.
+/// One partial file per domain (<c>.TvShowsAndMovies.cs</c>, <c>.Books.cs</c>, <c>.VideoGames.cs</c>, <c>.Albums.cs</c>), each with its TryLinkExisting, TryAutoResolve, Resolve and Refresh methods, and this file with the shared helpers.
 /// <para>
-/// Which (title, year, creator, isbn) combinations a resolve is allowed to remember is not decided here: it is <see cref="ReferenceAliasRule"/>, one declaration per domain, read by every path that writes an alias.
+/// <see cref="ReferenceAliasRule"/> decides which combinations a resolve may remember, one declaration per domain.
 /// </para>
 /// </summary>
 public partial class ReferenceEnrichmentService(
@@ -36,11 +36,9 @@ public partial class ReferenceEnrichmentService(
     ILogger<ReferenceEnrichmentService> logger)
 {
     /// <summary>
-    /// The primary rating source for <paramref name="domain"/> - the source whose value/scale is denormalized
-    /// onto tenant items as the list pill / sort value. The admin's stored override (see
-    /// <see cref="IAppSettingRepository"/>) when it names a source the domain currently offers, otherwise the
-    /// code default (<see cref="RatingSourceOptions.DefaultSource"/>). An override naming a source that is not
-    /// on offer is ignored rather than trusted - and left stored, so a provider change is reversible.
+    /// The primary rating source of <paramref name="domain"/>, whose value is copied onto tenant items for display and sorting.
+    /// The admin's choice (<see cref="IAppSettingRepository"/>) while on offer, else the default (<see cref="RatingSourceOptions.DefaultSource"/>).
+    /// A choice not on offer is ignored but kept, so a provider change is reversible.
     /// </summary>
     public async Task<string> GetPrimaryRatingSourceAsync(ReferenceItemType domain)
     {
@@ -49,25 +47,15 @@ public partial class ReferenceEnrichmentService(
     }
 
     /// <summary>
-    /// Re-applies the current primary rating source (see <see cref="GetPrimaryRatingSourceAsync"/>) to every
-    /// already-linked tenant item across a domain, re-stamping the denormalized
-    /// <c>ReferenceRating</c>/<c>ReferenceRatingScale</c>/<c>ReferenceRatingSource</c> from each reference
-    /// document's <c>Ratings</c> dict. Backs the admin "recompute" action after switching a domain's source -
-    /// one bulk <c>SetReferenceRatingAsync</c> pass per reference, no provider calls (unlike the full sync).
-    /// Small, shared reference collection, so this runs synchronously rather than as a background job.
+    /// Applies the current primary rating source (<see cref="GetPrimaryRatingSourceAsync"/>) to every linked item of a domain, stamping the rating copy from each reference's <c>Ratings</c>.
+    /// The admin recompute after a source change, with no provider call, run synchronously since the reference collection is small.
     /// <para>
-    /// It starts by asking whether any linked item is still on a different source, and does nothing at all
-    /// when none is - the common case, since the action is right next to the source picker and gets clicked
-    /// again "just in case". Without the stamp there was nothing to ask: the pass had to read the whole
-    /// reference collection and fire an <c>UpdateMany</c> per document, every one of them setting values that
-    /// were already correct. Items linked before the stamp existed count as mismatched, so the first
-    /// recompute backfills them and no migration script is needed.
+    /// It first asks whether any linked item is on another source, and does nothing otherwise, the common case since the button sits beside the picker.
+    /// An item never stamped counts as different, so the first recompute backfills it, with no migration script.
     /// </para>
     /// </summary>
     /// <remarks>
-    /// A value that drifted while the source stayed the same is deliberately not what this repairs - that's
-    /// the periodic sync's job, which re-propagates through the same <c>SetReferenceRatingAsync</c> whenever
-    /// it refreshes a reference.
+    /// It does not repair a value that drifted under the same source, which the periodic sync does when it refreshes a reference.
     /// </remarks>
     public async Task<(int ReferencesChecked, long ItemsUpdated)> RecomputeReferenceRatingsAsync(ReferenceItemType domain)
     {
@@ -94,22 +82,16 @@ public partial class ReferenceEnrichmentService(
     }
 
     /// <summary>
-    /// How many references one round trip carries, in both directions: the size of a projected read page and
-    /// of the bulk write it produces. One knob rather than two that would have to agree, and it is what keeps
-    /// a recompute's memory flat no matter how large the reference collection or the user base gets.
+    /// How many references one round trip carries each way: the projected read page and its bulk write.
+    /// One knob, which keeps a recompute's memory flat however large the collection or the user base.
     /// </summary>
     private const int RecomputeBatchSize = 500;
 
     /// <summary>
-    /// Domain-agnostic recompute loop - each domain only differs in which reference collection it reads and
-    /// which tenant collection it re-propagates through, so the iteration itself lives once here (adding
-    /// books/albums later is a one-line switch arm above, never a copy of this loop).
+    /// The recompute loop of every domain, which differ only in the reference collection read and the tenant collection written.
     /// <para>
-    /// A batch is one projected read and one bulk write, so the whole pass costs two round trips per 500
-    /// references and none per tenant item: the items are re-stamped server-side inside each entry's
-    /// <c>UpdateMany</c>. That is the property that matters as the app grows - more users mean more documents
-    /// written per reference, but not more round trips, more payload, or more memory here. It used to be one
-    /// <c>UpdateMany</c> round trip per reference, on top of reading every reference document whole.
+    /// A batch is one projected read and one bulk write: two round trips per 500 references and none per tenant item, stamped server side in each <c>UpdateMany</c>.
+    /// More users mean more documents written, never more round trips, payload or memory.
     /// </para>
     /// </summary>
     private static async Task<(int ReferencesChecked, long ItemsUpdated)> RecomputeReferenceRatingsAsync(
@@ -118,7 +100,7 @@ public partial class ReferenceEnrichmentService(
         Func<IReadOnlyList<(string ReferenceId, double? Rating, double? RatingScale, string? Source)>, Task<long>> setRatings,
         string source)
     {
-        // one counted query decides whether there is any work; nothing is read or written when there isn't
+        // one count decides whether there is any work, and nothing is read or written otherwise
         if (await countOnOtherSource(source) == 0) return (0, 0);
 
         var referencesChecked = 0;
@@ -141,7 +123,7 @@ public partial class ReferenceEnrichmentService(
             referencesChecked += batch.Count;
             afterId = batch[^1].Id;
 
-            // a short page is the last one - stop rather than pay for a query that can only come back empty
+            // a short page is the last, so no query that can only come back empty
             if (batch.Count < RecomputeBatchSize) break;
         }
 
@@ -149,14 +131,13 @@ public partial class ReferenceEnrichmentService(
     }
 
     /// <summary>
-    /// Reuses a reference document the local collection already holds, if any, and reports whether it did - the first thing every <c>TryAutoResolve*Async</c> does, before a provider is contacted.
+    /// Reuses a reference the local collection holds, if any, and reports whether it did: the first step of every <c>TryAutoResolve*Async</c>, before any provider.
     /// <para>
-    /// A stored alias <b>is</b> the answer: someone already established that this title (and year, or creator) means that work, so re-deriving it from a provider is at best a slower way to the same document and at worst a different one - these searches are fuzzy, and the rule that reads them deliberately refuses anything it cannot confirm.
-    /// The item then waits for a human instead of linking to a fact the database was holding all along.
+    /// A stored alias <b>is</b> the answer: someone established that this title (and year or creator) means that work.
+    /// Asking a fuzzy provider again is at best slower and at worst different, and its strict confirmation could leave the item waiting for a human.
     /// </para>
     /// <para>
-    /// It matters most exactly where the collection is most useful: a tenant adding a film someone else already tracks, and every row of a bulk import of them.
-    /// Creating an item used to go straight to the provider every time.
+    /// It matters most for a film someone else already tracks, and for every row of a bulk import.
     /// </para>
     /// </summary>
     private static async Task<bool> TryLinkKnownReferenceAsync<TReference>(Func<Task<TReference?>> findKnown, Func<TReference, Task> propagate)
@@ -170,19 +151,13 @@ public partial class ReferenceEnrichmentService(
     }
 
     /// <summary>
-    /// Merges a fresh fetch's ratings into whatever a reference document already carries, replacing only the
-    /// sources <paramref name="providerSources"/> says this provider speaks for.
+    /// Merges a fetch's ratings into a reference's, replacing only the sources <paramref name="providerSources"/> says this provider owns.
     /// <para>
-    /// A domain with more than one provider needs this, and video games are the case: a reference linked
-    /// through RAWG and later refreshed through IGDB must keep its <c>rawg</c>/<c>metacritic</c> values, and
-    /// vice versa. Assigning the fetched map wholesale - which every domain used to do, back when each had
-    /// exactly one provider - would silently discard scores that are still perfectly good and still displayed
-    /// on the detail page. Same reasoning as <c>RebuildRatingsAsync</c> keeping a known IMDb value when OMDb
-    /// was never asked, just generalized from one source to a provider's whole set.
+    /// A multi-provider domain needs it: a game linked through RAWG and refreshed through IGDB keeps its <c>rawg</c> and <c>metacritic</c> values, and the reverse.
+    /// Replacing the map whole would discard good scores still shown on the detail page, as <c>RebuildRatingsAsync</c> avoids for IMDb.
     /// </para>
     /// <para>
-    /// A source the provider *does* own but no longer reports is correctly dropped: that is this provider
-    /// saying it has no value, which is an answer, not an absence.
+    /// A source the provider owns but no longer reports is dropped, since that is the provider answering it has no value.
     /// </para>
     /// </summary>
     private static Dictionary<string, ReferenceRatingModel> MergeProviderRatings(
@@ -205,11 +180,8 @@ public partial class ReferenceEnrichmentService(
     }
 
     /// <summary>
-    /// Dedupes a single credited individual/group into the shared, owner-less <c>person_reference</c>
-    /// collection by external provider id, returning the id of the (possibly just-created) document.
-    /// Shared by TV/movie cast (<see cref="ResolveCastAsync"/>, one call per credited member), book authors,
-    /// and album artists - "Person" already meant "a named individual or group identified by an external
-    /// provider id", not "actor" specifically, so extending its use here needed no rename, just reuse.
+    /// Deduplicates a credited person or group into the shared <c>person_reference</c> collection by provider id, returning the id of the document, created if needed.
+    /// Shared by TV and movie cast (<see cref="ResolveCastAsync"/>, one call per member), book authors and album artists.
     /// </summary>
     private async Task<string> ResolvePersonReferenceIdAsync(string provider, string externalId, string name, string? imageUrl)
     {
@@ -226,10 +198,7 @@ public partial class ReferenceEnrichmentService(
     }
 
     /// <summary>
-    /// Looks up a person_reference document's <see cref="PersonReferenceModel.Name"/> by id - the inverse
-    /// of <see cref="ResolvePersonReferenceIdAsync"/>, used when propagating a book's author/album's artist
-    /// name onto the tenant's own document (see <see cref="TryLinkExistingBookReferenceAsync"/>/
-    /// <see cref="TryLinkExistingAlbumReferenceAsync"/>).
+    /// A person reference's <see cref="PersonReferenceModel.Name"/> by id, the inverse of <see cref="ResolvePersonReferenceIdAsync"/>, for copying a book's author or an album's artist onto the tenant's item.
     /// </summary>
     private async Task<string?> ResolvePersonNameAsync(string? personReferenceId)
     {
@@ -239,12 +208,8 @@ public partial class ReferenceEnrichmentService(
     }
 
     /// <summary>
-    /// Joins a reference document's <c>Genres</c> list into the single free-text <c>Genre</c> field Book/Album
-    /// tenants own (there's no equivalent list on those two models - Genre there is a plain user-editable
-    /// string, same shape as <see cref="BookModel.Author"/>/<see cref="AlbumModel.Artist"/> before linking).
-    /// Null (not overwritten) when the reference has no genres, same "don't overwrite with nothing" rule
-    /// <see cref="TryLinkExistingBookReferenceAsync"/>/<see cref="TryLinkExistingAlbumReferenceAsync"/> already
-    /// apply to Author/Artist/Year.
+    /// Joins a reference's <c>Genres</c> into the single free-text <c>Genre</c> of a book or album.
+    /// Null when the reference has none, so nothing is overwritten with nothing.
     /// </summary>
     private static string? JoinGenres(List<string> genres) => genres.Count > 0 ? string.Join(", ", genres) : null;
 }

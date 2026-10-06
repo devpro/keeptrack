@@ -6,8 +6,8 @@ using Keeptrack.Domain.Models;
 namespace Keeptrack.Domain.Services;
 
 /// <summary>
-/// Computes fuel/electric consumption, cost history, mileage-consistency warnings and a last-record-per-type readout from a car's full intervention history.
-/// Pure computation over an in-memory list, same shape as WatchNextService - nothing here is persisted, so a car's metrics are always derived fresh from its history.
+/// Computes consumption, cost history, mileage warnings and the last record per type from a car's whole history.
+/// Pure computation over an in-memory list: nothing is persisted, so the metrics always derive fresh from the history.
 /// </summary>
 public static class CarMetricsService
 {
@@ -31,11 +31,9 @@ public static class CarMetricsService
     }
 
     /// <summary>
-    /// Shared trip-computer algorithm for both fuel (liters) and electric (kWh) consumption - a data point is
-    /// only ever emitted across a full refill/recharge (<see cref="CarHistoryModel.IsFullRefill"/>): the
-    /// quantity added by every refill since the last full one is accumulated, and once a full refill closes
-    /// that window, the accumulated quantity is divided by the mileage covered since the previous full refill.
-    /// A partial refill on its own never produces a data point.
+    /// The trip-computer algorithm, shared by fuel (liters) and electric (kWh) consumption.
+    /// A data point only spans full refills (<see cref="CarHistoryModel.IsFullRefill"/>): the quantity of every refill since the last full one accumulates, and a full refill divides it by the distance since the previous full one.
+    /// A partial refill alone never produces a data point.
     /// </summary>
     private static List<ConsumptionPointModel> ComputeConsumption(
         IReadOnlyList<CarHistoryModel> history, Func<CarHistoryModel, double?> quantitySelector, out double? average)
@@ -90,12 +88,9 @@ public static class CarMetricsService
             .ToList();
 
     /// <summary>
-    /// The automated version of the manual Excel cross-check the user used to do by hand: a regression check
-    /// (the odometer can never go backwards) plus a delta cross-check between the user-entered
-    /// <see cref="CarHistoryModel.DeltaMileage"/> (typically read off the car's trip computer at refuel time)
-    /// and the computed mileage difference between consecutive entries. A mismatch means either number was
-    /// mistyped, or - if the computed delta is larger than the entered one - an entry was never logged at all.
-    /// Advisory only: nothing here excludes an entry from the metrics above or corrects it automatically.
+    /// Two checks: the odometer never goes backwards, and the entered <see cref="CarHistoryModel.DeltaMileage"/> matches the difference between consecutive mileages.
+    /// A mismatch means a number was mistyped, or, when the computed difference is larger, an entry was never logged.
+    /// Advisory only: no entry is excluded from the metrics or corrected.
     /// </summary>
     private static List<CarMileageWarningModel> ComputeMileageWarnings(IReadOnlyList<CarHistoryModel> history)
     {
@@ -142,9 +137,7 @@ public static class CarMetricsService
     }
 
     /// <summary>
-    /// "When did I last log each kind of event" - one line per <see cref="CarHistoryType"/>, most recent
-    /// first. Same shape as HealthMetricsService.ComputeLastVisits, simpler (an enum key needs no
-    /// whitespace/Trim() handling a free-text specialty does).
+    /// When each kind of event was last logged, one line per <see cref="CarHistoryType"/>, most recent first.
     /// </summary>
     private static List<CarLastRecordModel> ComputeLastRecords(IReadOnlyList<CarHistoryModel> history) =>
         history

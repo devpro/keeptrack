@@ -15,9 +15,7 @@ public class GearController(IDtoMapper<GearDto, GearModel> mapper, IGearReposito
     : DataCrudControllerBase<GearDto, GearModel>(mapper, dataRepository)
 {
     /// <summary>
-    /// Distinct categories already used across this tenant's gear - feeds the list page's category
-    /// filter buttons and the detail page's suggested values. See
-    /// <see cref="IGearRepository.FindDistinctCategoriesAsync"/>.
+    /// Distinct categories of this tenant's gear, for the list page's filters and the detail page's suggestions (see <see cref="IGearRepository.FindDistinctCategoriesAsync"/>).
     /// </summary>
     [HttpGet("categories")]
     [ProducesResponseType(200)]

@@ -6,15 +6,14 @@ using Microsoft.AspNetCore.Mvc;
 namespace Keeptrack.WebApi.Import;
 
 [ApiController]
-// MemberOnly like CarController itself: this import creates cars/history through the repositories,
-// which would otherwise let a free-preview account bypass the controller-level policy entirely
+// member only like CarController, since this import writes cars through the repositories and would otherwise bypass that policy
 [Authorize(Policy = "MemberOnly")]
 [Route("api/import")]
 public class CarHistoryImportController(CarHistoryImportService importService) : ControllerBase
 {
     /// <summary>
-    /// Imports the personal "Voitures.xlsx" spreadsheet (fuel/maintenance history per car).
-    /// Runs synchronously - unlike the TV Time import, there's no external API call in the loop, so a few hundred rows complete well within a normal request.
+    /// Imports the personal "Voitures.xlsx" spreadsheet, the fuel and maintenance history per car.
+    /// Synchronous, since no external call runs in the loop, so a few hundred rows complete within a request.
     /// </summary>
     [HttpPost("car-history")]
     [RequestSizeLimit(10_000_000)]

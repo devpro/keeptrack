@@ -20,12 +20,9 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.Controllers;
 
 /// <summary>
-/// Covers the free preview tier's two enforcement mechanisms: the creation quota in
-/// <see cref="DataCrudControllerBase{TDto,TModel}.Post"/> (exercised directly with a non-member
-/// principal - the integration suite's shared Firebase account is an admin, which the quota must
-/// never count, so an HTTP-level test can't reach this path), and the "MemberOnly" policy attribute
-/// on every restricted controller (a reflection guard, so removing one is a failing test rather
-/// than a silent public giveaway).
+/// Covers the free preview tier's two enforcement mechanisms.
+/// The creation quota in <see cref="DataCrudControllerBase{TDto,TModel}.Post"/> is exercised directly with a non-member principal, since the integration suite's Firebase account is an admin, which the quota never counts.
+/// The "MemberOnly" policy attribute on every restricted controller has a reflection guard, so removing one fails a test rather than silently opening the controller.
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class FreeTierTest
@@ -141,8 +138,7 @@ public class FreeTierTest
     }
 
     /// <summary>
-    /// The restricted controllers must all require the membership policy - and the free-tier ones must
-    /// not, or free accounts would be locked out of the preview itself.
+    /// The restricted controllers all require the membership policy, and the free-tier ones don't, or free accounts would be locked out of the preview.
     /// </summary>
     [Theory]
     [InlineData(typeof(BookController), "MemberOnly")]
@@ -165,8 +161,7 @@ public class FreeTierTest
     [InlineData(typeof(MovieController), null)]
     [InlineData(typeof(TvShowController), null)]
     [InlineData(typeof(EpisodeController), null)]
-    // Sharing (both issuing grants and browsing what was shared) is a members-only feature, not part of the
-    // free preview tier.
+    // Sharing (both issuing grants and browsing what was shared) is a members-only feature, not part of the free preview tier.
     [InlineData(typeof(ShareController), "MemberOnly")]
     [InlineData(typeof(SharedWithMeController), "MemberOnly")]
     public void Controller_CarriesTheExpectedAuthorizationPolicy(Type controllerType, string? expectedPolicy)

@@ -7,7 +7,7 @@ namespace Keeptrack.WebApi.Mappers;
 [UseStaticMapper(typeof(CommonDtoMappings))]
 public partial class HealthProfileDtoMapper : IDtoMapper<HealthProfileDto, HealthProfileModel>
 {
-    // see BookDtoMapper.ToModel for why MapValue (not MapperIgnoreTarget) is required here
+    // MapValue rather than MapperIgnoreTarget, since OwnerId is required (see BookDtoMapper)
     [MapValue(nameof(HealthProfileModel.OwnerId), "")]
     public partial HealthProfileModel ToModel(HealthProfileDto dto);
 

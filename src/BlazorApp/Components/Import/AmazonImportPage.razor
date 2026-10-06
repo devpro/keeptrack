@@ -168,8 +168,8 @@
     private bool _showAll;
 
     /// <summary>
-    /// Defaults on - a re-uploaded export is mostly already-imported rows, and hiding them by default is what actually keeps the review list short;
-    /// "Show all order items" above is a separate, orthogonal filter (books vs. everything).
+    /// On by default, since a re-uploaded export is mostly already-imported rows, and hiding them keeps the review list short.
+    /// "Show all order items" above is a separate filter (books or everything).
     /// </summary>
     private bool _hideAlreadyImported = true;
 
@@ -186,13 +186,12 @@
     private static bool IsMissingPlatform(EditableRow row) => row.MediaType == AmazonImportMediaType.VideoGame && string.IsNullOrEmpty(row.Platform);
 
     /// <summary>
-    /// Drives the header checkbox: checked only once every currently-shown row is selected.
+    /// Drives the header checkbox, checked only once every shown row is selected.
     /// </summary>
     private bool AllDisplayedSelected => DisplayedRows.Any() && DisplayedRows.All(r => r.Selected);
 
-    /// <summary>Applies to whatever <see cref="_showAll"/>
-    /// currently shows, not the whole underlying list -
-    /// e.g. selecting all while only likely-books are shown never touches the hidden non-book rows.
+    /// <summary>
+    /// Applies to what <see cref="_showAll"/> currently shows, not the whole list, so selecting all while only likely books show never touches the hidden rows.
     /// </summary>
     private void SetAllDisplayedSelected(bool selected)
     {
@@ -237,24 +236,19 @@
             var items = SelectedRows.Select(row => new AmazonImportCommitItemDto
             {
                 RowId = row.Preview.RowId,
-                // Echoed back rather than trusting a client-computed Reference string - the server derives
-                // the actual owned-copy Reference (and dedup key) from these two itself, which is what makes
-                // two different items sharing one Amazon order distinguishable from each other.
+                // Echoed back rather than a client-computed Reference string: the server derives the owned copy's Reference and dedup key from these two.
+                // That keeps two items sharing one Amazon order distinguishable.
                 OrderId = row.Preview.OrderId,
                 Asin = row.Preview.Asin,
                 Title = row.Title,
-                // The original, unedited title from the parsed preview - kept separate from the editable
-                // row.Title above so it can be recorded verbatim in the created item's notes, regardless of
-                // whatever the user typed over it here.
+                // The parsed preview's unedited title, kept apart from the editable row.Title so the created item's notes record it verbatim, whatever the user typed over it.
                 AmazonTitle = row.Preview.Title,
                 MediaType = row.MediaType,
-                // Amazon's export has no publication year (only the purchase date), so it's never pre-filled -
-                // but worth entering by hand here if known, since it sharpens the deferred reference-lookup
-                // pass's match precision later (an ambiguous multi-candidate title+year search is left
-                // unresolved for manual review rather than guessed, same as everywhere else in the app).
+                // Amazon's export has no publication year, only the purchase date, so it is never prefilled.
+                // A year entered by hand sharpens the later reference lookup, which leaves an ambiguous match unresolved rather than guessing.
                 Year = row.Year,
                 Isbn = row.Isbn,
-                // Only meaningful (and only validated server-side) for a VideoGame row.
+                // Meaningful, and validated server-side, only for a VideoGame row.
                 Platform = row.MediaType == AmazonImportMediaType.VideoGame ? row.Platform : null,
                 AcquiredAt = row.AcquiredAt,
                 Price = row.Price,
@@ -278,8 +272,8 @@
     {
         Preview = preview,
         Selected = preview.LooksLikeBook && !preview.AlreadyImported,
-        // Empty (forcing an explicit choice) unless the ISBN heuristic suggested a book -
-        // there's no equivalent signal for the other three types, so guessing one of them would be worse than asking.
+        // Empty, forcing an explicit choice, unless the ISBN heuristic suggested a book.
+        // The other three types have no such signal, and guessing one would be worse than asking.
         MediaType = preview.LooksLikeBook ? AmazonImportMediaType.Book : null,
         Title = preview.Title,
         Isbn = preview.SuggestedIsbn,
@@ -294,18 +288,17 @@
         public bool Selected { get; set; }
 
         /// <summary>
-        /// The one field worth editing at import time - everything else below is read-only, order-derived info.
+        /// The one field worth editing at import time, everything else below being read-only order data.
         /// </summary>
         public string Title { get; set; } = "";
 
         /// <summary>
-        /// Never pre-filled (Amazon's export has no publication year) - worth entering by hand if known, see <see cref="CommitAsync"/>.
+        /// Never prefilled, since Amazon's export has no publication year, but worth entering by hand (see <see cref="CommitAsync"/>).
         /// </summary>
         public int? Year { get; set; }
 
         /// <summary>
-        /// Null (forcing an explicit pick, see <see cref="AllDisplayedSelected"/>'s sibling commit-button guard) unless the ISBN heuristic suggested Book -
-        /// see <see cref="ToEditableRow"/>.
+        /// Null, forcing an explicit pick before commit, unless the ISBN heuristic suggested Book (see <see cref="ToEditableRow"/>).
         /// </summary>
         public AmazonImportMediaType? MediaType { get; set; }
 
@@ -315,12 +308,12 @@
         public string? Vendor { get; set; }
 
         /// <summary>
-        /// The other field worth a decision - Amazon's export can't reliably tell physical from digital.
+        /// The other field worth a decision, since Amazon's export can't reliably tell physical from digital.
         /// </summary>
         public CopyType CopyType { get; set; }
 
         /// <summary>
-        /// PS5/Xbox/PC/Switch... - only relevant (and only sent) when <see cref="MediaType"/> is VideoGame.
+        /// PS5, Xbox, PC, Switch..., relevant and sent only when <see cref="MediaType"/> is VideoGame.
         /// </summary>
         public string? Platform { get; set; }
     }

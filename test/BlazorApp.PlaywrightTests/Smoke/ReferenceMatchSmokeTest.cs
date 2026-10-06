@@ -15,17 +15,16 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <see cref="VideoGameReferenceMatchSmokeTest"/> covers the fifth, and exists for the reason this one does: every regression the owner reported in this area was in the journey rather than the rule, and a test that feeds candidates into the rule can see none of it.
-/// These four had the same defects and were fixed in the same pass, so they get the same coverage rather than being trusted to a green unit suite.
+/// <see cref="VideoGameReferenceMatchSmokeTest"/> covers the fifth, for the same reason: the regressions in this area live in the journey rather than the rule, and a test feeding candidates into the rule sees none of them.
 /// </para>
 /// <para>
 /// Three things are pinned per domain, all the owner's rules.
-/// An identity field is required for any automatic link - a year for a film or a show, a creator for a book or an album - and until it is supplied nothing is linked.
+/// An identity field is required for any automatic link (a year for a film or show, a creator for a book or album), and nothing links until it is supplied.
 /// Editing a field never searches by itself: the button is the only thing that re-resolves.
 /// And a link must be <i>cleared</i> when the title it was based on stops naming that work, because a link outliving its title renders a cover and a rating for something else with nothing saying so.
 /// </para>
 /// <para>
-/// The titles are real and chosen to be unambiguous to a human while being exactly what the old rule got wrong: TMDB answers "The Bear" (2022) with eight results and "Heat" (1995) with fourteen, and Google Books answers "Dune" by Frank Herbert with hundreds of editions.
+/// The titles are real, unambiguous to a human, and hard for a row-counting rule: TMDB answers "The Bear" (2022) with eight results and "Heat" (1995) with fourteen, and Google Books answers "Dune" by Frank Herbert with hundreds of editions.
 /// None is shared with another test class, since these tests need no local reference to exist and delete the ones they create.
 /// </para>
 /// </remarks>
@@ -76,7 +75,7 @@ public class ReferenceMatchSmokeTest(End2EndFixture fixture) : SmokeTestBase(fix
     }
 
     /// <summary>
-    /// A film created before its year is known links nothing, and links as soon as the year is supplied and checked - the journey that has no local reference to fall back on, so it proves the button reaches TMDB.
+    /// A film created before its year is known links nothing, and links once the year is supplied and checked, a journey with no local reference to fall back on, proving the button reaches TMDB.
     /// </summary>
     [Fact]
     public async Task AMovieCreatedWithoutAYear_LinksNothingUntilTheYearIsSuppliedAndChecked()
@@ -98,7 +97,7 @@ public class ReferenceMatchSmokeTest(End2EndFixture fixture) : SmokeTestBase(fix
     }
 
     /// <summary>
-    /// A book, where the identity is the author rather than the year and hundreds of editions are one work - so this fails in the opposite direction from the domains above if the rules are confused.
+    /// A book, whose identity is the author rather than the year, with hundreds of editions as one work, so it fails the opposite way from the domains above if the rules are confused.
     /// </summary>
     [Fact]
     public async Task ABook_LinksNothingWithoutAnAuthor_ThenLinksOnceTheAuthorIsSuppliedAndChecked()
@@ -144,7 +143,7 @@ public class ReferenceMatchSmokeTest(End2EndFixture fixture) : SmokeTestBase(fix
     /// The step claimed in prose everywhere and easy to lose: editing a field must neither search by itself nor disturb the link.
     /// </summary>
     /// <remarks>
-    /// Waits for the edit to reach the server rather than sleeping, so the assertion happens at a known point instead of a hoped-for one - a negative has nothing of its own to wait for.
+    /// Waits for the edit to reach the server rather than sleeping, so the assertion happens at a known point, since a negative has nothing of its own to wait for.
     /// </remarks>
     private async Task AssertEditAloneChangesNothingAsync<TDto>(string route, string id, ReferenceableDetailPageBase detail, string newTitle, string? linked)
         where TDto : IReferenceLinkedDto

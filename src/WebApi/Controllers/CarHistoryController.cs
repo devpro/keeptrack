@@ -17,8 +17,7 @@ public class CarHistoryController(
     : DataCrudControllerBase<CarHistoryDto, CarHistoryModel>(mapper, dataRepository)
 {
     /// <summary>
-    /// Fuel grades this account has already recorded, feeding the history form's suggestion list - the same
-    /// "suggest what has already been typed" shape as <c>GearController.GetCategories</c>.
+    /// Fuel grades this account already recorded, for the history form's suggestions, like <c>GearController.GetCategories</c>.
     /// </summary>
     [HttpGet("fuel-categories")]
     [ProducesResponseType(200)]
@@ -29,8 +28,7 @@ public class CarHistoryController(
     }
 
     /// <summary>
-    /// Fills each Refuel entry's station name and city from the shared station catalogue, one batched
-    /// lookup per page.
+    /// Fills each refuel's station name and city from the shared catalogue, one batched lookup per page.
     /// </summary>
     protected override Task OnListMappedAsync(List<CarHistoryDto> dtos, CancellationToken cancellationToken)
         => CarStationHydrator.HydrateAsync(dtos, stationRepository);

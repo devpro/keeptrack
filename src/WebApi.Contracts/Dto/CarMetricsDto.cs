@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// Computed metrics for one car: consumption, cost history, mileage warnings and last-record-per-type readout.
+/// Computed metrics for one car: consumption, cost history, mileage warnings and the last record per type.
 /// </summary>
 public class CarMetricsDto
 {
@@ -14,7 +14,7 @@ public class CarMetricsDto
     public required List<ConsumptionPointDto> FuelConsumption { get; set; }
 
     /// <summary>
-    /// Average fuel consumption (L/100km), or null if there isn't enough data yet.
+    /// Average fuel consumption (L/100km), or null without enough data.
     /// </summary>
     public double? AverageFuelConsumptionPer100Km { get; set; }
 
@@ -24,7 +24,7 @@ public class CarMetricsDto
     public required List<ConsumptionPointDto> ElectricConsumption { get; set; }
 
     /// <summary>
-    /// Average electric consumption (kWh/100km), or null if there isn't enough data yet.
+    /// Average electric consumption (kWh/100km), or null without enough data.
     /// </summary>
     public double? AverageElectricConsumptionPer100Km { get; set; }
 
@@ -39,7 +39,7 @@ public class CarMetricsDto
     public required double TotalCost { get; set; }
 
     /// <summary>
-    /// Entries whose recorded mileage doesn't reconcile with their neighbors.
+    /// Entries whose recorded mileage does not reconcile with their neighbors.
     /// </summary>
     public required List<CarMileageWarningDto> MileageWarnings { get; set; }
 

@@ -3,8 +3,7 @@ using System.Collections.Generic;
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// Result of importing the personal "Journal_sante.xlsx" spreadsheet (one health journal, every family
-/// member mixed in one sheet).
+/// Result of importing the personal "Journal_sante.xlsx" spreadsheet, one health journal mixing every family member in one sheet.
 /// </summary>
 public class HealthImportResultDto
 {
@@ -18,7 +17,7 @@ public class HealthImportResultDto
     public int RecordsCreated { get; set; }
 
     /// <summary>
-    /// Rows that couldn't be parsed (an unreadable date, no person) and were skipped rather than guessed at.
+    /// Rows that could not be parsed (an unreadable date, no person), skipped rather than guessed.
     /// </summary>
     public List<string> Warnings { get; set; } = [];
 }

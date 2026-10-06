@@ -4,7 +4,7 @@ using MongoDB.Bson.Serialization.Attributes;
 namespace Keeptrack.Infrastructure.MongoDb.Entities;
 
 /// <summary>
-/// Embedded within <see cref="TvShowReference"/> - see that class for why embedding is the right call here.
+/// Embedded in <see cref="TvShowReference"/> (see <see cref="Keeptrack.Domain.Models.ReferenceEpisodeModel"/> for why).
 /// </summary>
 public class ReferenceEpisode
 {

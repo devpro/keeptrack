@@ -5,11 +5,8 @@ using Microsoft.Playwright;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 
 /// <summary>
-/// Shared shape for every item's own detail page (Book/Movie/TvShow/VideoGame/Album/Playlist/Car/House/
-/// HealthProfile/Collectible/Gear) - every one of them renders its title/name in an
-/// <c>&lt;input class="kt-title-input"&gt;</c>, a class unique enough on the page to locate without any
-/// <c>data-testid</c> (unlike the list pages' Add-form fields, which needed one since multiple plain
-/// <c>.form-control</c> inputs share no distinguishing class).
+/// Shared shape of every item's detail page (book, movie, TV show, video game, album, playlist, car, house, health profile, collectible, gear).
+/// Each renders its title in an <c>&lt;input class="kt-title-input"&gt;</c>, unique enough to locate without a <c>data-testid</c>, unlike the list pages' Add-form fields, plain <c>.form-control</c> inputs.
 /// </summary>
 public abstract partial class DetailPageBase(IPage page) : PageBase(page)
 {
@@ -19,17 +16,14 @@ public abstract partial class DetailPageBase(IPage page) : PageBase(page)
     public ILocator TitleInput => Page.Locator(".kt-title-input");
 
     /// <summary>
-    /// The cover-image banner, when the page has one - every detail page's own image element ends its
-    /// <c>alt</c> text in "cover" (reference-hydrated types) or "poster" by the same convention. Not every
-    /// subclass renders one (Playlist has no cover concept), so this simply never resolves on those.
+    /// The cover-image banner, when the page has one, every detail page's image ending its <c>alt</c> text in "cover" or "poster".
+    /// A page without one (a playlist) never resolves it.
     /// </summary>
     public ILocator CoverImage => Page.GetByRole(AriaRole.Img, new PageGetByRoleOptions { NameRegex = CoverRegex() });
 
     /// <summary>
-    /// The plain "Cover image URL" field on the five non-reference-linked types (Car/House/HealthProfile/
-    /// Collectible/Gear) - <c>data-testid="image-url-input"</c>, since the label/input pair has no
-    /// <c>for</c>/<c>id</c> association. Book/Movie/TvShow/VideoGame/Album's reference-hydrated equivalent
-    /// (<c>CustomImageUrl</c>) is a separate, not-yet-testid'd field, out of scope here.
+    /// The plain "Cover image URL" field of the five types not reference-linked (car, house, health profile, collectible, gear), <c>data-testid="image-url-input"</c>, since its label has no <c>for</c>/<c>id</c> association.
+    /// The reference-linked types' equivalent (<c>CustomImageUrl</c>) is a separate field with no test id.
     /// </summary>
     public ILocator ImageUrlInput => Page.GetByTestId("image-url-input");
 
@@ -41,9 +35,8 @@ public abstract partial class DetailPageBase(IPage page) : PageBase(page)
     }
 
     /// <summary>
-    /// Fills a detail-page field bound via <c>@onchange</c> (not <c>@bind</c>) and blurs it - Blazor's
-    /// <c>@onchange</c> listens for the native "change" event, which only fires on blur once the value has
-    /// actually changed, not on Playwright's <c>FillAsync</c> alone (that only dispatches "input").
+    /// Fills a detail-page field bound through <c>@onchange</c> (not <c>@bind</c>) and blurs it.
+    /// <c>@onchange</c> listens for the native "change" event, which fires on blur once the value changed, not on Playwright's <c>FillAsync</c> alone, which dispatches only "input".
     /// </summary>
     public static async Task SetFieldAsync(ILocator input, string value)
     {

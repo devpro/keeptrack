@@ -23,7 +23,7 @@ public class CollectibleRepository(IMongoDatabase mongoDatabase, ILogger<Collect
         if (!string.IsNullOrEmpty(search)) filter &= builder.Where(f => f.Title.Contains(search, StringComparison.CurrentCultureIgnoreCase)
                                                                          || (f.Brand != null && f.Brand.Contains(search, StringComparison.CurrentCultureIgnoreCase)));
         if (input.IsFavorite) filter &= builder.Eq(f => f.IsFavorite, true);
-        // "owned" means at least one owned version - see MovieRepository.GetFilter
+        // owned means at least one owned version (see MovieRepository.GetFilter)
         if (input.IsOwned) filter &= builder.SizeGt(f => f.OwnedVersions, 0);
         return filter;
     }

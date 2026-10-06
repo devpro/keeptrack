@@ -12,9 +12,8 @@ using MongoDB.Driver;
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
 /// <summary>
-/// Purpose-built repository for the shared, owner-less <c>car_station</c> collection - it deliberately
-/// doesn't extend <see cref="MongoDbRepositoryBase{TModel, TEntity}"/>, which is hard-constrained to
-/// owner-scoped paged CRUD, the same way the <c>*_reference</c> repositories don't.
+/// Repository for the shared <c>car_station</c> collection.
+/// Like the <c>*_reference</c> repositories, it does not extend <see cref="MongoDbRepositoryBase{TModel, TEntity}"/>, which is constrained to owner-scoped paged CRUD.
 /// </summary>
 public class CarStationRepository(IMongoDatabase mongoDatabase, IStorageMapper<CarStationModel, CarStation> mapper)
     : ICarStationRepository
@@ -25,11 +24,10 @@ public class CarStationRepository(IMongoDatabase mongoDatabase, IStorageMapper<C
 
     public async Task<CarStationModel?> FindByIdAsync(string id)
     {
-        // an id that isn't a valid ObjectId names no document rather than raising FormatException from the
-        // driver's ObjectId.Parse - same contract as MongoDbRepositoryBase.FindOneAsync
+        // an invalid ObjectId names no document, rather than the driver throwing FormatException, as in MongoDbRepositoryBase.FindOneAsync
         if (!ObjectId.TryParse(id, out _)) return null;
         var entity = await Collection.Find(x => x.Id == id).FirstOrDefaultAsync();
-        // Find can legitimately match nothing, and the mapper throws on a null source
+        // the mapper throws on a null source, so a missing document is checked first
         return entity is null ? null : mapper.ToModel(entity);
     }
 
@@ -89,10 +87,8 @@ public class CarStationRepository(IMongoDatabase mongoDatabase, IStorageMapper<C
     }
 
     /// <summary>
-    /// A missing city is part of the natural key, so it has to normalize to a value the index can compare -
-    /// an empty string, never null. A key field that is sometimes null and sometimes "" is the same
-    /// null-or-empty trap <c>TvShowRepository.UnresolvedFilter</c> exists for, and here it would let two
-    /// documents share a key the unique index was supposed to reject.
+    /// A missing city is part of the natural key, so it normalizes to a value the index compares: an empty string, never null.
+    /// A key field sometimes null and sometimes "" would let two documents share a key the unique index should reject.
     /// </summary>
     private static string NormalizeCity(string? city) => string.IsNullOrWhiteSpace(city) ? "" : TitleNormalizer.Normalize(city);
 

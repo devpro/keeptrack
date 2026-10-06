@@ -10,11 +10,9 @@ using DomainShareCategory = Keeptrack.Domain.Models.ShareCategory;
 namespace Keeptrack.WebApi.Controllers;
 
 /// <summary>
-/// The recipient side of sharing: browse the collections other users have shared with the caller, read-only
-/// - with the same search/filter/sort the caller's own lists have - and copy a media item into the caller's
-/// own collection. Every read/copy re-verifies, server-side, that the grant is addressed to the caller's own
-/// email and that the requested category is in scope; the share id alone never grants access. MemberOnly:
-/// sharing is not part of the free preview tier.
+/// The recipient side of sharing: browsing collections shared with the caller, read-only with the search, filters and sort of the caller's own lists, and copying a media item into the caller's collection.
+/// Every read and copy verifies server side that the grant is addressed to the caller's email and includes the category, so a share id alone never grants access.
+/// Member only, since sharing is outside the free preview tier.
 /// </summary>
 [ApiController]
 [Authorize(Policy = "MemberOnly")]
@@ -58,7 +56,7 @@ public class SharedWithMeController(
     HouseMetricsDtoMapper houseMetricsMapper,
     HealthMetricsDtoMapper healthMetricsMapper) : ControllerBase
 {
-    /// <summary>Every collection shared with the caller (matched by their account email), oldest first.</summary>
+    /// <summary>Every collection shared with the caller, matched by account email, oldest first.</summary>
     [HttpGet]
     [ProducesResponseType(200)]
     public async Task<ActionResult<List<SharedCollectionSummaryDto>>> Get()
@@ -66,7 +64,7 @@ public class SharedWithMeController(
         var email = this.GetEmail();
         if (email is null)
         {
-            // a caller with no email claim can't be anyone's recipient - an empty list, not an error
+            // a caller with no email claim cannot be a recipient, which is an empty list, not an error
             return Ok(new List<SharedCollectionSummaryDto>());
         }
 
@@ -74,7 +72,7 @@ public class SharedWithMeController(
         return Ok(grants.ConvertAll(shareMapper.ToSummaryDto));
     }
 
-    // ---- reads (one per media category; personal categories are a later phase) ----
+    // ---- media reads, one per category ----
 
     [HttpGet("{shareId}/movies")]
     [ProducesResponseType(200)]
@@ -111,8 +109,7 @@ public class SharedWithMeController(
         ReadAsync(shareId, DomainShareCategory.VideoGames, videoGameRepository, videoGameMapper, filter, paging, VideoGameKey,
             items => ReferenceImageHydrator.HydrateWithCustomOverrideAsync(items, videoGameReferenceRepository.FindByIdsAsync, x => x.ImageUrl, x => x.CustomImageUrl));
 
-    // ---- collection reads (collectibles/gear: same read-only list as media, but view-only - no shared
-    //      reference to hydrate a cover from and no copy, so a leaner paged read than the media path) ----
+    // ---- collection reads (collectibles, gear): a read-only list with no reference cover and no copy ----
 
     [HttpGet("{shareId}/collectibles")]
     [ProducesResponseType(200)]
@@ -163,7 +160,7 @@ public class SharedWithMeController(
     public Task<ActionResult<CopyResultDto<VideoGameDto>>> CopyVideoGame(string shareId, string itemId) =>
         CopyAsync(shareId, DomainShareCategory.VideoGames, itemId, videoGameRepository, videoGameMapper, SharedItemCopyService.CopyVideoGame, VideoGameKey);
 
-    // ---- personal reads (cars/houses/health: list + full read-only detail, never copyable) ----
+    // ---- personal reads (cars, houses, health): a list and a read-only detail, never copyable ----
 
     [HttpGet("{shareId}/cars")]
     [ProducesResponseType(200)]
@@ -185,8 +182,7 @@ public class SharedWithMeController(
 
         var (car, history, ownerName) = loaded.Value;
         var entries = history.ConvertAll(carHistoryMapper.ToDto);
-        // a recipient sees the same station names as the owner - the catalogue is shared and owner-less,
-        // so this is the one hydration that needs no ownership check of its own
+        // the station catalogue is shared, so the recipient sees the owner's station names with no ownership check
         await CarStationHydrator.HydrateAsync(entries, carStationRepository);
         return Ok(new SharedDetailDto<CarDto, CarHistoryDto, CarMetricsDto>
         {
@@ -253,7 +249,7 @@ public class SharedWithMeController(
         });
     }
 
-    // ---- match keys (creator is the book author / album artist, null for the rest) ----
+    // ---- match keys (the creator is the book author or album artist, null for the rest) ----
 
     private static ItemMatchKey MovieKey(MovieModel m) => new(m.ReferenceId, m.Title, m.Year, null);
     private static ItemMatchKey TvShowKey(TvShowModel m) => new(m.ReferenceId, m.Title, m.Year, null);
@@ -264,9 +260,8 @@ public class SharedWithMeController(
     // ---- shared plumbing ----
 
     /// <summary>
-    /// Loads the grant and verifies it is genuinely addressed to the caller and that the category is in
-    /// scope. Returns null (caller sees a 404) for any failure, so a probing recipient can't distinguish
-    /// "no such grant", "not yours" and "category not shared".
+    /// Loads the grant and verifies it is addressed to the caller and includes the category.
+    /// Null, a 404 to the caller, for any failure, so a probing recipient cannot tell "no such grant", "not yours" and "category not shared" apart.
     /// </summary>
     private async Task<ShareModel?> ResolveGrantAsync(string shareId, DomainShareCategory category)
     {
@@ -315,11 +310,9 @@ public class SharedWithMeController(
     }
 
     /// <summary>
-    /// A view-only shared list (collectibles/gear): the same paged read as the media path - honouring the
-    /// recipient's search/sort/favourite/owned query - but with no reference-image hydration (these types
-    /// carry their own tenant image) and no copy dedup (they're never copyable), so
-    /// <see cref="SharedCategoryPageDto{TDto}.AlreadyInCollectionIds"/> stays empty. Unlike
-    /// <see cref="ReadAsync{TModel,TDto}"/> the DTO need not be an <see cref="IReferenceLinkedDto"/>.
+    /// A view-only shared list (collectibles, gear): the media path's paged read with the recipient's search, sort and filters.
+    /// It has no cover hydration, these types carrying their own image, and no copy, so <see cref="SharedCategoryPageDto{TDto}.AlreadyInCollectionIds"/> stays empty.
+    /// Unlike <see cref="ReadAsync{TModel,TDto}"/>, the DTO need not be an <see cref="IReferenceLinkedDto"/>.
     /// </summary>
     private async Task<ActionResult<SharedCategoryPageDto<TDto>>> ReadOwnedListAsync<TModel, TDto>(
         string shareId, DomainShareCategory category,
@@ -360,7 +353,7 @@ public class SharedWithMeController(
             return NotFound();
         }
 
-        // defense in depth: personal categories are never routed here, but the copyable rule lives in one place
+        // defense in depth: no other category is routed here, but the copyable rule lives in one place
         if (!ShareCategoryClassifier.IsCopyable(category))
         {
             return StatusCode(StatusCodes.Status403Forbidden, new { error = "This category can't be copied." });
@@ -372,7 +365,7 @@ public class SharedWithMeController(
             return NotFound();
         }
 
-        // idempotent: if the caller already owns an equivalent item, return it instead of duplicating
+        // idempotent: an equivalent item the caller already has is returned rather than duplicated
         var mine = await LoadOwnCollectionAsync(repository, mapper);
         var existing = SharedItemMatcher.FindMatch(keyOf(source), mine, keyOf);
         if (existing is not null)
@@ -403,8 +396,7 @@ public class SharedWithMeController(
             .ToList();
     }
 
-    // The caller's entire collection of this type, for dedup matching. Personal collections are small enough
-    // that one unpaged read is cheaper than a per-item existence query - the same call shape Wishlist uses.
+    // the caller's whole collection of this type, for matching, one unpaged read being cheaper than a query per item
     private async Task<List<TModel>> LoadOwnCollectionAsync<TModel, TDto>(IDataRepository<TModel> repository, IDtoMapper<TDto, TModel> mapper)
         where TModel : class, IHasIdAndOwnerId
         where TDto : new()
@@ -414,8 +406,7 @@ public class SharedWithMeController(
     }
 
     /// <summary>
-    /// A personal category's parent items (cars/houses/health profiles), read-only, scoped to the sharer.
-    /// Small collections, so an unpaged read is fine - the same call shape the media dedup path uses.
+    /// A personal category's parent items (cars, houses, health profiles), read-only and scoped to the sharer, in one unpaged read since they are few.
     /// </summary>
     private async Task<ActionResult<List<TDto>>> ReadPersonalListAsync<TModel, TDto>(
         string shareId, DomainShareCategory category, IDataRepository<TModel> repository, IDtoMapper<TDto, TModel> mapper)
@@ -433,9 +424,9 @@ public class SharedWithMeController(
     }
 
     /// <summary>
-    /// Resolves the grant, then loads one parent item plus its full child history, both scoped to the sharer.
-    /// Returns null (caller sees a 404) for any grant/ownership failure, same as <see cref="ResolveGrantAsync"/>.
-    /// The metrics computation stays in the caller so each type uses its own (static) metrics service.
+    /// Resolves the grant, then loads one parent item and its whole history, scoped to the sharer.
+    /// Null, a 404, for any grant or ownership failure, like <see cref="ResolveGrantAsync"/>.
+    /// The caller computes the metrics, each type with its own service.
     /// </summary>
     private async Task<(TParent Parent, List<TChild> Children, string? OwnerName)?> LoadSharedParentAsync<TParent, TChild>(
         string shareId, DomainShareCategory category, string parentId,

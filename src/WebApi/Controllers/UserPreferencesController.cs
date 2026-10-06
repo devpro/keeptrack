@@ -9,10 +9,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace Keeptrack.WebApi.Controllers;
 
 /// <summary>
-/// The caller's own opt-in/opt-out feature toggles - a singleton-per-owner resource (no id in the route,
-/// never listed), so a plain <see cref="ControllerBase"/> like <see cref="StatsController"/> rather than
-/// <see cref="DataCrudControllerBase{TDto, TModel}"/>. Available to every authenticated user (no
-/// "MemberOnly" policy) - these are UI preferences, not a quota-relevant feature.
+/// The caller's opt-in toggles, one resource per owner with no id in the route, so a plain <see cref="ControllerBase"/>.
+/// Open to every authenticated user, since these are UI preferences.
 /// </summary>
 [ApiController]
 [Authorize]
@@ -20,7 +18,7 @@ namespace Keeptrack.WebApi.Controllers;
 public class UserPreferencesController(IUserPreferencesRepository repository, IDtoMapper<UserPreferencesDto, UserPreferencesModel> mapper) : ControllerBase
 {
     /// <summary>
-    /// The caller's preferences, defaulting to all-off when nothing has been saved yet.
+    /// The caller's preferences, all off when nothing was saved yet.
     /// </summary>
     [HttpGet]
     [ProducesResponseType(200)]

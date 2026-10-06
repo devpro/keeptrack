@@ -7,9 +7,8 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.Services;
 
 /// <summary>
-/// A copied media item carries only its identity and reference link into the recipient's collection -
-/// everything personal to the sharer (rating, notes, favorite/wishlist flags, owned copies, dates) is
-/// dropped, and the new owner id is stamped.
+/// A copied media item carries only its identity and reference link into the recipient's collection.
+/// Everything personal to the sharer (rating, notes, favorite and wishlist flags, owned copies, dates) is dropped, and the new owner id is stamped.
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class SharedItemCopyServiceTest

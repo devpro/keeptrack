@@ -7,9 +7,9 @@ using MongoDB.Bson.Serialization.Attributes;
 namespace Keeptrack.Infrastructure.MongoDb.Entities;
 
 /// <summary>
-/// One entry of a materialized provider ranking (<c>explore_catalogue</c>). Shared and owner-less, like the
-/// <c>*_reference</c> collections - see <see cref="ExploreCatalogueEntryModel"/> for why. Natural key is
-/// (item_type, ranking, external_id), unique in the database.
+/// One entry of a stored provider ranking (<c>explore_catalogue</c>).
+/// Shared like the <c>*_reference</c> collections (see <see cref="ExploreCatalogueEntryModel"/> for why).
+/// The natural key (item_type, ranking, external_id) is unique.
 /// </summary>
 public class ExploreCatalogueEntry
 {
@@ -17,7 +17,7 @@ public class ExploreCatalogueEntry
     [BsonRepresentation(BsonType.ObjectId)]
     public string? Id { get; set; }
 
-    // stored as its enum member name via the registered EnumRepresentationConvention(BsonType.String).
+    // stored as the enum member name through the registered EnumRepresentationConvention(BsonType.String)
     [BsonElement("item_type")]
     public required ExploreItemType ItemType { get; set; }
 
@@ -42,15 +42,15 @@ public class ExploreCatalogueEntry
     [BsonElement("image_url")]
     public string? ImageUrl { get; set; }
 
-    /// <summary>Rating value per source key ("tmdb"/"imdb", "rawg"/"metacritic") - merged per key on refresh, never replaced.</summary>
+    /// <summary>Rating per source key ("tmdb", "imdb", "igdb", "igdbcritic"), merged per key on refresh, never replaced.</summary>
     [BsonElement("ratings")]
     public Dictionary<string, double> Ratings { get; set; } = [];
 
-    /// <summary>When each rating source was last attempted, successful or not - see <see cref="ExploreCatalogueEntryModel.RatingsCheckedAt"/>.</summary>
+    /// <summary>When each rating source was last attempted, successful or not (see <see cref="ExploreCatalogueEntryModel.RatingsCheckedAt"/>).</summary>
     [BsonElement("ratings_checked_at")]
     public Dictionary<string, DateTime> RatingsCheckedAt { get; set; } = [];
 
-    /// <summary>The provider page a card links out to, per source key - see <see cref="ExploreCatalogueEntryModel.WebUrls"/>.</summary>
+    /// <summary>The provider page a card links to, per source key (see <see cref="ExploreCatalogueEntryModel.WebUrls"/>).</summary>
     [BsonElement("web_urls")]
     public Dictionary<string, string> WebUrls { get; set; } = [];
 

@@ -6,10 +6,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace Keeptrack.WebApi.Controllers;
 
 /// <summary>
-/// Day-2 operational visibility for admins: this instance's own configuration plus the shared
-/// (MongoDB-backed) reference-sync lease and recent background jobs. Per-instance fields describe
-/// whichever replica answered the request - deliberately so, since seeing different instance names on
-/// refresh is itself evidence that load balancing across replicas works.
+/// Operational visibility for admins: this instance's configuration plus the shared reference sync lease and recent background jobs.
+/// Per-instance fields describe the replica that answered, so other names on refresh show that load balancing works.
 /// </summary>
 [ApiController]
 [Authorize(Policy = "AdminOnly")]
@@ -20,7 +18,7 @@ public class SystemStatusController(
     IBackgroundJobRepository backgroundJobRepository) : ControllerBase
 {
     /// <summary>
-    /// Matches ReferenceSyncBackgroundService's lease name - the one lease this app has today.
+    /// The lease name of ReferenceSyncBackgroundService.
     /// </summary>
     private const string ReferenceSyncLeaseName = "reference-sync";
 
@@ -41,8 +39,7 @@ public class SystemStatusController(
         {
             InstanceName = Environment.MachineName,
             IsReferenceSyncEnabled = appConfiguration.IsReferenceSyncEnabled,
-            // the *default* provider used for automatic/background resolution - see ReferenceClientRegistry.
-            // an admin can search/link with any registered provider regardless of this value (GET providers?type=Book)
+            // the default provider of automatic resolution, an admin still searching with any registered provider (see ReferenceClientRegistry)
             BookProvider = string.IsNullOrEmpty(appConfiguration.BookReferenceProvider) ? "googlebooks" : appConfiguration.BookReferenceProvider,
             VideoGameProvider = appConfiguration.VideoGameReferenceProvider,
             ReferenceSyncLease = lease is null

@@ -1,5 +1,5 @@
-@* The video game list row's second line - year, per-platform badges (the game's copies), rating. Shared by
-   the owner list page and the shared-collection view. *@
+@* The video game list row's second line: year, per-platform badges (the game's copies), rating.
+   Shared by the owner list page and the shared-collection view. *@
 
 @if (Item.Year > 0)
 {
@@ -19,7 +19,7 @@
 {
     <span class="kt-stars"><StarRating Rating="Item.Rating"/></span>
 }
-@* no Owned badge here - the per-platform badges above already are the game's copies *@
+@* no Owned badge, since the per-platform badges above are the game's copies *@
 @if (Item.IsWishlisted)
 {
     <span class="kt-flag-badge wishlist">Wishlist</span>

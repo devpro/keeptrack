@@ -9,16 +9,14 @@ public class ShowActivityRecord
     public required string TvShowId { get; set; }
 
     /// <summary>
-    /// TV Time's own count of episodes seen for this show, including ones marked via bulk/season
-    /// actions that never get an individual row in seen_episode_source.csv.
+    /// TV Time's count of episodes seen for this show, including those marked by bulk or season actions, which get no row in seen_episode_source.csv.
     /// </summary>
     [Name("nb_episodes_seen")]
     public required int EpisodesSeenCount { get; set; }
 }
 
 /// <summary>
-/// Parses TV Time's user_tv_show_data.csv: per-show aggregate activity, notably a total episode
-/// count that can be higher than what seen_episode_source.csv captures in detail.
+/// Parses TV Time's user_tv_show_data.csv: activity totals per show, notably an episode count that can exceed what seen_episode_source.csv details.
 /// </summary>
 public static class ShowActivityCsvParser
 {

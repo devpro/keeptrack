@@ -38,7 +38,7 @@ public class OmdbCallBudgetTest
             (await budget.TryReserveAsync(OmdbCallPriority.Background, TestContext.Current.CancellationToken)).Should().BeTrue();
         }
 
-        // background's ceiling (10 - 3) is now spent
+        // background's ceiling (10 minus 3) is spent
         (await budget.TryReserveAsync(OmdbCallPriority.Background, TestContext.Current.CancellationToken)).Should().BeFalse();
         // interactive's ceiling (the full 10) still has headroom against the very same shared counter
         (await budget.TryReserveAsync(OmdbCallPriority.Interactive, TestContext.Current.CancellationToken)).Should().BeTrue();

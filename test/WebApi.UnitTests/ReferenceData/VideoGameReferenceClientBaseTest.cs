@@ -9,12 +9,10 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
 /// <summary>
-/// The search policy every video game provider shares - which queries are asked and how their answers are
-/// ranked into the handful a picker shows. Tested once here against a recording fake rather than per provider,
-/// the same split as <see cref="BookReferenceClientBaseTest"/>: the ordering IS the shared algorithm, and each
-/// client's own job is only to build the right query.
+/// The search policy every video game provider shares: which queries are asked, and how their answers rank into the handful a picker shows.
+/// Tested once against a recording fake rather than per provider, like <see cref="BookReferenceClientBaseTest"/>, since the ordering is the shared algorithm and each client only builds the query.
 /// <para>
-/// The fixtures are the real IGDB responses that motivated this, verbatim in both content and order.
+/// The fixtures are real IGDB responses, verbatim in content and order.
 /// </para>
 /// </summary>
 [Trait("Category", "UnitTests")]
@@ -61,9 +59,8 @@ public class VideoGameReferenceClientBaseTest
     private static VideoGameSearchResult Game(string id, string title, int? year) => new(id, title, year, null);
 
     /// <summary>
-    /// IGDB's live answer to <c>search "Code Vein"</c>, in its own relevance order. The 2019 game the tenant is
-    /// looking for is sixth - so the five results the picker used to show were its sequel, three DLC packs and
-    /// a season pass, and never the game itself.
+    /// IGDB's live answer to <c>search "Code Vein"</c>, in its own relevance order.
+    /// The 2019 game the tenant is looking for is sixth, so the top five are its sequel, three DLC packs and a season pass, never the game.
     /// </summary>
     private static IReadOnlyList<VideoGameSearchResult> CodeVeinRelevanceResults() =>
     [
@@ -90,9 +87,7 @@ public class VideoGameReferenceClientBaseTest
     }
 
     /// <summary>
-    /// The half that does not depend on the exact-name query answering: even when the provider only offers its
-    /// relevance ranking, reading a pool deeper than the five that are displayed is what puts the match in
-    /// front of the user.
+    /// The half that does not depend on the exact-name query answering: even when the provider only offers its relevance ranking, reading a pool deeper than the five that are displayed is what puts the match in front of the user.
     /// </summary>
     [Fact]
     public async Task SearchGamesAsync_RanksAMatchOutOfTheRelevanceOrderingAlone()
@@ -106,8 +101,8 @@ public class VideoGameReferenceClientBaseTest
     }
 
     /// <summary>
-    /// A candidate that merely shares the requested year is a coincidence ("Code Vein: Season Pass" is a 2019
-    /// release too); a title match is the thing being looked for. Title therefore outranks year.
+    /// A candidate that merely shares the requested year is a coincidence ("Code Vein: Season Pass" is a 2019 release too); a title match is the thing being looked for.
+    /// Title therefore outranks year.
     /// </summary>
     [Fact]
     public async Task SearchGamesAsync_RanksATitleMatchAboveAMereYearMatch()
@@ -124,12 +119,9 @@ public class VideoGameReferenceClientBaseTest
     }
 
     /// <summary>
-    /// What the year is actually for: IGDB holds seven games named exactly "Resident Evil", and the requested
-    /// year is the only thing that says which of them the tenant means.
+    /// What the year is actually for: IGDB holds seven games named exactly "Resident Evil", and the requested year is the only thing that says which of them the tenant means.
     /// <para>
-    /// The dateless entry (102722, real) is what makes this more than a boolean: it arrives ahead of the 2002
-    /// remake in IGDB's own ordering, so treating "no year" as agreement put it first for a search that plainly
-    /// asked for 2002.
+    /// The dateless entry (102722, real) is what makes this more than a boolean: it arrives ahead of the 2002 remake in IGDB's own ordering, so treating "no year" as agreement put it first for a search that plainly asked for 2002.
     /// </para>
     /// </summary>
     [Fact]
@@ -151,10 +143,8 @@ public class VideoGameReferenceClientBaseTest
     }
 
     /// <summary>
-    /// The year narrows the order, never the result set - the "an optional narrowing parameter must never
-    /// silently zero out results a broader search would find" rule. Two catalogues routinely disagree by a year
-    /// over a regional or platform release, so a title match with the "wrong" year is still the best answer
-    /// there is.
+    /// The year narrows the order, never the result set, since an optional narrowing parameter never silently zeroes out results a broader search would find.
+    /// Two catalogues routinely disagree by a year over a regional or platform release, so a title match with the "wrong" year is still the best answer there is.
     /// </summary>
     [Fact]
     public async Task SearchGamesAsync_StillReportsTheTitleMatch_WhenTheProvidersYearDisagrees()
@@ -186,10 +176,8 @@ public class VideoGameReferenceClientBaseTest
     }
 
     /// <summary>
-    /// Behind the match, candidates are ordered by how close they are to what was asked for rather than by the
-    /// provider's relevance - which is the opinion that buried the answer at rank six to begin with. IGDB's own
-    /// order for these puts the Collector's Edition first; "Elden Ring GB" is by far the nearest thing to
-    /// "Elden Ring".
+    /// Behind the match, candidates are ordered by closeness to what was asked rather than by the provider's relevance, which buries the answer at rank six.
+    /// IGDB's own order for these puts the Collector's Edition first; "Elden Ring GB" is by far the nearest thing to "Elden Ring".
     /// </summary>
     [Fact]
     public async Task SearchGamesAsync_OrdersTheRestByHowCloseTheyAreToWhatWasAskedFor()
@@ -208,8 +196,8 @@ public class VideoGameReferenceClientBaseTest
     }
 
     /// <summary>
-    /// The order is total - no key is ever left to the provider's relevance - so the same request twice puts
-    /// the same card first. Both of these are equally far from the title asked for.
+    /// The order is total, no key being left to the provider's relevance, so the same request twice puts the same card first.
+    /// Both of these are equally far from the title asked for.
     /// </summary>
     [Fact]
     public async Task SearchGamesAsync_OrdersCandidatesTheOtherKeysCannotSeparate()
@@ -239,8 +227,7 @@ public class VideoGameReferenceClientBaseTest
     }
 
     /// <summary>
-    /// The exact-name query and the relevance search overlap by construction, and the same game must not
-    /// occupy two of the five places.
+    /// The exact-name query and the relevance search overlap by construction, and the same game must not occupy two of the five places.
     /// </summary>
     [Fact]
     public async Task SearchGamesAsync_ReportsAGameFoundByBothQueriesOnce()

@@ -23,8 +23,8 @@ public class CarMetricsModel
 }
 
 /// <summary>
-/// "When did I last log each kind of car event" - one line per <see cref="CarHistoryType"/>. Same shape as
-/// <see cref="HealthLastVisitModel"/>, keyed by the discriminated event-type enum instead of a free-text specialty.
+/// When each kind of car event was last logged, one line per <see cref="CarHistoryType"/>.
+/// Same shape as <see cref="HealthLastVisitModel"/>, keyed by event type instead of a free-text specialty.
 /// </summary>
 public class CarLastRecordModel
 {

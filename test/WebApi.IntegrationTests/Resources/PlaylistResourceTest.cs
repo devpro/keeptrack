@@ -11,9 +11,8 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Basic full-cycle CRUD coverage for <c>Playlist</c>, same shape as <see cref="AlbumResourceTest"/>,
-/// plus a check that <see cref="PlaylistDto.SongIds"/> round-trips its order through a PUT - this is the
-/// field that actually encodes playback order, so a bug here would silently scramble every playlist.
+/// Full-cycle CRUD coverage for <c>Playlist</c>, the shape of <see cref="AlbumResourceTest"/>, plus <see cref="PlaylistDto.SongIds"/> keeping its order through a PUT.
+/// That field encodes playback order, so a bug here would silently scramble every playlist.
 /// </summary>
 public class PlaylistResourceTest(KestrelWebAppFactory<Program> factory)
     : ResourceTestBase(factory)

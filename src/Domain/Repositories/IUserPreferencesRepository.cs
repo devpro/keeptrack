@@ -4,20 +4,15 @@ using Keeptrack.Domain.Models;
 namespace Keeptrack.Domain.Repositories;
 
 /// <summary>
-/// A single per-user preferences document, not a full owner-scoped CRUD collection (there's exactly one
-/// document per owner, never listed/paged) - a small purpose-built repository like
-/// <see cref="ILeaseRepository"/>, rather than forced through <see cref="IDataRepository{TModel}"/>.
+/// One preferences document per user, never listed or paged, so a small purpose-built repository rather than an <see cref="IDataRepository{TModel}"/>.
 /// </summary>
 public interface IUserPreferencesRepository
 {
     /// <summary>
-    /// The owner's preferences, or null if they've never saved any - callers should fall back to an
-    /// all-default instance rather than writing one on read.
+    /// The owner's preferences, or null if never saved, in which case callers use default values rather than writing a document on read.
     /// </summary>
     Task<UserPreferencesModel?> FindByOwnerIdAsync(string ownerId);
 
-    /// <summary>
-    /// Creates or fully replaces the owner's preferences document.
-    /// </summary>
+    /// <summary>Creates or replaces the owner's preferences document.</summary>
     Task UpsertAsync(UserPreferencesModel model);
 }

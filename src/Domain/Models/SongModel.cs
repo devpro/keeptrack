@@ -13,23 +13,19 @@ public class SongModel : IHasIdAndOwnerId
     public string? Artist { get; set; }
 
     /// <summary>
-    /// Optional link to the tenant's own <see cref="AlbumModel.Id"/> - a soft reference, like
-    /// <c>ReferenceId</c> elsewhere in the codebase: no cascade-delete or enforcement if the album is
-    /// later removed.
+    /// Optional link to the tenant's own album, a soft reference like <c>ReferenceId</c>: nothing enforces or cascades it when the album is removed.
     /// </summary>
     public string? AlbumId { get; set; }
 
     /// <summary>
-    /// Discogs' own "M:SS" text, usually filled in by picking a track from the linked album's reference
-    /// tracklist (see <see cref="ReferenceTrackModel.Duration"/>) rather than typed by hand.
+    /// Discogs' "M:SS" text, usually filled by picking a track from the linked album's tracklist (see <see cref="ReferenceTrackModel.Duration"/>) rather than typed.
     /// </summary>
     public string? Duration { get; set; }
 
     /// <summary>
-    /// The <see cref="ReferenceTrackModel.Position"/> this song was created from - combined with
-    /// <see cref="AlbumId"/>, this is a track-based song's real identity: picking the same track twice
-    /// must reuse the same <see cref="SongModel"/>, not create a duplicate (see
-    /// <c>SongApiClient.GetOrCreateForTrackAsync</c>). Null for a song not tied to a specific tracklist entry.
+    /// The <see cref="ReferenceTrackModel.Position"/> this song was created from.
+    /// With <see cref="AlbumId"/> it is a track-based song's identity, so picking the same track twice reuses the song (see <c>SongApiClient.GetOrCreateForTrackAsync</c>).
+    /// Null for a song not tied to a specific tracklist entry.
     /// </summary>
     public string? TrackPosition { get; set; }
 }

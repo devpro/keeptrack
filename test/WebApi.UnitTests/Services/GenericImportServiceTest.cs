@@ -14,10 +14,8 @@ public class GenericImportServiceTest
 {
     private static MemoryStream ToStream(string csv) => new(Encoding.UTF8.GetBytes(csv));
 
-    // The header shape from a real Rakuten export the user reshapes in a spreadsheet - exercises every canonical
-    // alias at once (Product Name -> Title, ASIN -> Product Id, Product Condition -> Condition, Total Amount ->
-    // Price). Vendor (the store name -> the copy's Vendor field) and Website (the item URL -> the copy's
-    // Reference) are two separate columns feeding two different fields.
+    // The header of a real Rakuten export reshaped in a spreadsheet, exercising every alias at once: Product Name to Title, ASIN to Product Id, Product Condition to Condition, Total Amount to Price.
+    // Vendor (the store name, to the copy's Vendor) and Website (the item URL, to the copy's Reference) are two columns feeding two fields.
     private const string RakutenCsv = """
                                       Order Date,Order ID,ASIN,Product Name,Product Condition,Total Amount,Vendor,Website,Type,Platform,Author
                                       2021-06-12,ORD-1,ASIN-1,The Left Hand of Darkness,Used - Good,12.50,Rakuten,https://fr.shopping.rakuten.com/a,Book,,Ursula K. Le Guin

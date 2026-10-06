@@ -9,17 +9,12 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// The slow half of the sync lifecycle: polling until the job reports Completed with a result. Opt-in via
-/// REFERENCE_SYNC_POLL_ENABLED=true (see CONTRIBUTING.md) - run it on demand when touching the sync pipeline,
-/// not on every default test run. Forced on purpose: the point is to drive the whole pipeline against the live
-/// providers, and the default pass can legitimately find nothing to do.
+/// The slow half of the sync lifecycle: polling until the job reports Completed with a result.
+/// Opt-in through REFERENCE_SYNC_POLL_ENABLED=true (see CONTRIBUTING.md), run on demand when touching the sync pipeline.
+/// Forced, since it drives the whole pipeline against the live providers, and the default pass can find nothing to do.
 /// <para>
-/// It sits in its own class precisely because of that: it is the one test here that *wants* the real pass, so
-/// it keeps the ordinary <see cref="KestrelWebAppFactory{TEntryPoint}"/> while the endpoint-contract tests in
-/// <see cref="ReferenceDataAdminResourceTest"/> moved to <see cref="ProviderlessWebAppFactory"/>. A live pass
-/// rewrites the shared Explore ranking, which nothing can register for cleanup at creation time (the pass
-/// writes it after the test ends) - <see cref="ServerDerivedDataSweep"/> is what removes it, and it only ever
-/// has work to do because of this test.
+/// It is the one test wanting the real pass, so it has its own class on the ordinary <see cref="KestrelWebAppFactory{TEntryPoint}"/>, while <see cref="ReferenceDataAdminResourceTest"/> runs on <see cref="ProviderlessWebAppFactory"/>.
+/// A live pass rewrites the shared Explore ranking after the test ends, which nothing can register for cleanup, so <see cref="ServerDerivedDataSweep"/> removes it.
 /// </para>
 /// </summary>
 public class ReferenceSyncPollingResourceTest(KestrelWebAppFactory<Program> factory)

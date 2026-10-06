@@ -107,19 +107,13 @@ else
 
     [Inject] private ReferenceDataApiClient ReferenceDataApi { get; set; } = null!;
 
-    // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
-    // _loaded tracks whether a load attempt has finished at all, fresh or restored from persisted
-    // prerender state - both default false so the forced render Blazor triggers right after the
-    // synchronous prefix of OnParametersSetAsync (before any awaited fetch resolves) shows blank instead
-    // of a spinner flash on every navigation to this page.
+    // _loading is delay-gated (see LoadingIndicator) and turns on only for a slow load, and _loaded tracks whether a load has finished, fresh or restored from prerender state.
+    // Both default false, so the render Blazor forces after OnParametersSetAsync's synchronous prefix shows blank instead of flashing a spinner on every navigation here.
     private bool _loading;
     private bool _loaded;
 
-    // Public properties (a framework requirement for [PersistentState]): the data loaded during the
-    // prerender pass is carried over to the interactive circuit, so the first interactive render reuses
-    // it instead of resetting to the spinner and re-fetching - same pattern as MovieDetail. The derived
-    // by-id/by-title lookups are rebuilt locally from these in BuildDerivedState, same as TvShowDetail's
-    // Episodes -> _watchedByKey.
+    // Public, as [PersistentState] requires: the prerendered data carries over to the interactive circuit instead of being fetched again.
+    // The derived by-id and by-title lookups are rebuilt from these in BuildDerivedState, like TvShowDetail's _watchedByKey from Episodes.
     [PersistentState]
     public PlaylistDto? Playlist { get; set; }
 
@@ -134,9 +128,8 @@ else
     private List<ReferenceTrackDto> _selectedAlbumTracks = [];
 
     /// <summary>
-    /// Every song in the playlist paired with its position - a dangling <c>SongId</c> (the song was
-    /// deleted separately) is silently skipped rather than shown as a broken row, the same soft-reference
-    /// tolerance already used for a missing reference-link elsewhere in the app.
+    /// Every song in the playlist paired with its position.
+    /// A dangling <c>SongId</c> (a song deleted separately) is skipped rather than shown as a broken row, like a missing reference link elsewhere.
     /// </summary>
     private List<(SongDto Song, int Index)> GetPlaylistSongs() =>
         Playlist is null
@@ -149,8 +142,7 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
-        // Playlist already holds this route's item when PersistentState restored the prerendered data
-        // the id check keeps an in-circuit navigation to a different playlist reloading as before
+        // Playlist already holds this route's item when PersistentState restored it, and the id check still reloads an in-circuit navigation to another playlist
         if (Playlist?.Id == Id && Songs is not null && Albums is not null)
         {
             BuildDerivedState();
@@ -239,9 +231,7 @@ else
     }
 
     /// <summary>
-    /// The shared "add a real track" operation (<see cref="SongApiClient.GetOrCreateForTrackAsync"/>) -
-    /// reuses the same <see cref="SongDto"/> if this exact track was already added elsewhere, instead of
-    /// creating a duplicate.
+    /// The shared "add a real track" operation (<see cref="SongApiClient.GetOrCreateForTrackAsync"/>), reusing the <see cref="SongDto"/> of a track already added elsewhere instead of creating a duplicate.
     /// </summary>
     private async Task AddTrackAsync(ReferenceTrackDto track)
     {

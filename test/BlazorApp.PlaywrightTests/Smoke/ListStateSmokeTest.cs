@@ -9,8 +9,7 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Proves list state (search, filters) lives in the URL and survives leaving the list:
-/// opening an item's detail page and navigating back must restore the exact filtered position instead of resetting to an unfiltered page 1.
+/// Proves list state (search, filters) lives in the URL and survives leaving the list: opening an item's detail page and navigating back must restore the exact filtered position instead of resetting to an unfiltered page 1.
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]
@@ -65,7 +64,7 @@ public partial class ListStateSmokeTest(End2EndFixture fixture) : SmokeTestBase(
         var favoritesUrl = FavoriteRegex();
         var favoritesButton = Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Favorites" });
 
-        // The toggle-on click is this page load's first @onclick - see ClickUntilAsync's prerender-gap remarks.
+        // The toggle-on click is this page load's first @onclick (see ClickUntilAsync's prerender-gap remarks).
         await list.ClickFilterUntilActiveAsync(favoritesButton);
         await Assertions.Expect(Page).ToHaveURLAsync(favoritesUrl);
 

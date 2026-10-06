@@ -13,10 +13,8 @@ using Xunit;
 namespace Keeptrack.BlazorApp.UnitTests.Components.Inventory.Clients;
 
 /// <summary>
-/// Covers the one branch every detail page depends on: a 404 has to come back as null so the page can render
-/// its own "not found" state, instead of throwing and surfacing the generic error page for a dead link.
-/// Exercised through <see cref="MovieApiClient"/> because the base class is abstract - the behaviour under test
-/// is the base's, and is shared by all eleven detail pages.
+/// Covers the branch every detail page depends on: a 404 comes back as null, so the page renders its "not found" state rather than the generic error page for a dead link.
+/// Exercised through <see cref="MovieApiClient"/>, the base class being abstract, and the behaviour is the base's, shared by all eleven detail pages.
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class InventoryApiClientBaseTest
@@ -66,8 +64,7 @@ public class InventoryApiClientBaseTest
     [InlineData(HttpStatusCode.BadRequest)]
     public async Task GetOneAsync_StillThrows_ForAFailureThatIsNotAMissingItem(HttpStatusCode statusCode)
     {
-        // only "it isn't there" is an expected answer - swallowing the rest would render a real outage
-        // as an empty detail page.
+        // Only "it isn't there" is an expected answer, and swallowing the rest would render a real outage as an empty detail page.
         var get = async () => await ClientReturning(statusCode).GetOneAsync("abc");
 
         await get.Should().ThrowAsync<HttpRequestException>();

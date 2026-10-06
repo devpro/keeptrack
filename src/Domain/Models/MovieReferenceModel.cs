@@ -5,7 +5,7 @@ using Keeptrack.Common.System;
 namespace Keeptrack.Domain.Models;
 
 /// <summary>
-/// Shared, tenant-agnostic movie metadata sourced from an external provider such as TMDB.
+/// Movie metadata from TMDB, shared by every tenant.
 /// See <see cref="TvShowReferenceModel"/> for why this deliberately has no <c>OwnerId</c>.
 /// </summary>
 public class MovieReferenceModel : IHasExternalIds
@@ -23,9 +23,7 @@ public class MovieReferenceModel : IHasExternalIds
     public required Dictionary<string, string> ExternalIds { get; set; }
 
     /// <summary>
-    /// Every (title, year) combination that has ever been confirmed (via TMDB resolution, automatic or
-    /// admin-picked) to mean this movie - not just <see cref="TitleNormalized"/>/<see cref="Year"/>. See
-    /// <see cref="TvShowReferenceModel.MatchedAliases"/> for the full rationale.
+    /// Every (title, year) combination confirmed to mean this movie, beyond <see cref="TitleNormalized"/> and <see cref="Year"/> (see <see cref="TvShowReferenceModel.MatchedAliases"/>).
     /// </summary>
     public List<ReferenceMatchModel> MatchedAliases { get; set; } = [];
 
@@ -34,15 +32,13 @@ public class MovieReferenceModel : IHasExternalIds
     public List<CastMemberModel> Cast { get; set; } = [];
 
     /// <summary>
-    /// Aggregate ratings for this movie keyed by source ("tmdb" today; "imdb"/others later) - see
-    /// <see cref="ReferenceRatingModel"/>. Canonical here on the shared reference document; the primary
-    /// source's value is denormalized onto each tenant's <see cref="MovieModel.ReferenceRating"/> on link.
+    /// Aggregate ratings keyed by source ("tmdb", "imdb"), see <see cref="ReferenceRatingModel"/>.
+    /// The primary source's value is copied onto each tenant's <see cref="MovieModel.ReferenceRating"/>.
     /// </summary>
     public Dictionary<string, ReferenceRatingModel> Ratings { get; set; } = [];
 
     /// <summary>
-    /// When each rating source was last *attempted* for this movie, whether or not it produced a value -
-    /// see <see cref="TvShowReferenceModel.RatingsCheckedAt"/> for what it protects against.
+    /// When each rating source was last attempted for this movie, whether or not it produced a value (see <see cref="TvShowReferenceModel.RatingsCheckedAt"/>).
     /// </summary>
     public Dictionary<string, DateTime> RatingsCheckedAt { get; set; } = [];
 

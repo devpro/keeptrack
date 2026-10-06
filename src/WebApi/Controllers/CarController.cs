@@ -19,7 +19,7 @@ public class CarController(
     : DataCrudControllerBase<CarDto, CarModel>(mapper, dataRepository)
 {
     /// <summary>
-    /// Computed fuel/electric consumption, cost history, mileage warnings and next-maintenance estimate for this car - see <see cref="CarMetricsService"/>.
+    /// Computed consumption, cost history, mileage warnings and last records for this car (see <see cref="CarMetricsService"/>).
     /// </summary>
     [HttpGet("{id}/metrics")]
     [ProducesResponseType(200)]
@@ -38,8 +38,7 @@ public class CarController(
     }
 
     /// <summary>
-    /// CarHistory is a separate top-level collection referencing its car by id -
-    /// without this, deleting a car would leave its fuel/maintenance history orphaned in MongoDB forever, since it's only ever reachable via the car's own id.
+    /// Cascades to the car's history, a separate collection reachable only through the car's id, which would otherwise be orphaned forever.
     /// </summary>
     protected override async Task OnDeletedAsync(string id, string ownerId, CancellationToken cancellationToken)
     {

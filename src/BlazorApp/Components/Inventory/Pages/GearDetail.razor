@@ -81,22 +81,16 @@ else
 
     [Inject] private GearApiClient GearApi { get; set; } = null!;
 
-    // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
-    // _loaded tracks whether a load attempt has finished at all, fresh or restored from persisted
-    // prerender state - both default false so the forced render Blazor triggers right after the
-    // synchronous prefix of OnParametersSetAsync (before any awaited fetch resolves) shows blank instead
-    // of a spinner flash on every navigation to this page.
+    // _loading is delay-gated (see LoadingIndicator) and turns on only for a slow load, and _loaded tracks whether a load has finished, fresh or restored from prerender state.
+    // Both default false, so the render Blazor forces after OnParametersSetAsync's synchronous prefix shows blank instead of flashing a spinner on every navigation here.
     private bool _loading;
     private bool _loaded;
 
-    // Suggested values for the Category input's datalist - fetched once, not tied to Item/Id like the
-    // rest of this page's state (a category typed on this item shouldn't wait on a second round trip).
+    // Suggested values for the Category input, fetched once rather than per Id like the rest of the page's state.
     private List<string> _categories = [];
 
-    // Public property (a framework requirement for [PersistentState]): the data loaded during the
-    // prerender pass is carried over to the interactive circuit, so the first interactive render reuses
-    // it instead of resetting to the spinner and re-fetching - same pattern as AlbumDetail/CarDetail.
-    // Named "Item" rather than "Gear" - a property can't share its containing partial class's own name.
+    // Public, as [PersistentState] requires: the prerendered item carries over to the interactive circuit instead of being fetched again.
+    // Named "Item" rather than "Gear", since a property can't share its containing class's name.
     [PersistentState]
     public GearDto? Item { get; set; }
 
@@ -107,8 +101,7 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
-        // Item already holds this route's item when PersistentState restored the prerendered data
-        // the id check keeps an in-circuit navigation to a different item reloading as before
+        // Item already holds this route's item when PersistentState restored it, and the id check still reloads an in-circuit navigation to another item
         if (Item?.Id == Id)
         {
             _loading = false;

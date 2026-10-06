@@ -13,8 +13,7 @@ public abstract class InventoryApiClientBase<TDto>(HttpClient http, bool hasRefe
     protected abstract string ApiResourceName { get; }
 
     /// <summary>
-    /// Exposes the HttpClient to subclasses that add their own calls (e.g. a refresh-reference endpoint) -
-    /// lets them reuse this instance instead of capturing their own <c>HttpClient</c> primary-constructor parameter as a second field holding the same reference.
+    /// Exposes the HttpClient to subclasses adding their own calls, rather than each capturing its own primary-constructor parameter as a second field holding the same reference.
     /// </summary>
     protected HttpClient Http => http;
 
@@ -41,13 +40,10 @@ public abstract class InventoryApiClientBase<TDto>(HttpClient http, bool hasRefe
     }
 
     /// <summary>
-    /// Returns null when the API reports 404 - an id that doesn't exist, or one belonging to another owner
-    /// (every query is owner-scoped server-side, so the two are indistinguishable from here, deliberately).
-    /// Every detail page already renders its own "&lt;type&gt; not found." state from that null; this used to call
-    /// <c>GetFromJsonAsync</c>, whose built-in <c>EnsureSuccessStatusCode</c> made an ordinary 404 throw instead -
-    /// killing the circuit on an in-app navigation, and blowing up the prerender pass into the generic /error
-    /// page on a direct load, which left that null branch unreachable.
-    /// Any other failure still throws: only "it isn't there" is an expected answer.
+    /// Returns null when the API reports 404: an id that doesn't exist, or one belonging to another owner, indistinguishable by design since every query is owner-scoped.
+    /// Every detail page renders its "&lt;type&gt; not found." state from that null.
+    /// <c>GetFromJsonAsync</c> would throw on the 404, killing the circuit on an in-app navigation, or sending the prerender to the generic /error page on a direct load.
+    /// Any other failure throws, since only "it isn't there" is an expected answer.
     /// </summary>
     public async Task<TDto?> GetOneAsync(string id, CancellationToken cancellationToken = default)
     {
@@ -69,8 +65,8 @@ public abstract class InventoryApiClientBase<TDto>(HttpClient http, bool hasRefe
             return (await response.Content.ReadFromJsonAsync<TDto>(cancellationToken))!;
         }
 
-        // the API returns error bodies (free-tier quota 403s, ApiExceptionFilterAttribute's 400s/500s) -
-        // surfacing that text beats EnsureSuccessStatusCode's opaque "403 (Forbidden)" in the Add form
+        // The API returns error bodies (free-tier quota 403s, ApiExceptionFilterAttribute's 400s and 500s).
+        // Their text beats EnsureSuccessStatusCode's opaque "403 (Forbidden)" in the Add form.
         var body = await response.Content.ReadFromJsonAsync<ApiError>(cancellationToken);
         throw new InvalidOperationException(string.IsNullOrEmpty(body?.Error)
             ? $"The request failed ({(int)response.StatusCode})."
@@ -90,7 +86,7 @@ public abstract class InventoryApiClientBase<TDto>(HttpClient http, bool hasRefe
 
     /// <summary>
     /// User-triggered re-check of the item's reference match (POST api/{type}/{id}/refresh-reference on WebApi), escalating to the provider when nothing local matches.
-    /// Returns the (possibly now-linked) item so the caller can tell whether a match was actually found, and throws <see cref="ApiRequestException"/> with the API's own message, which the page shows.
+    /// Returns the item, linked or not, so the caller can tell whether a match was found, and throws <see cref="ApiRequestException"/> with the API's own message, which the page shows.
     /// </summary>
     public async Task<TDto> RefreshReferenceAsync(string id, CancellationToken cancellationToken = default)
     {
@@ -104,7 +100,7 @@ public abstract class InventoryApiClientBase<TDto>(HttpClient http, bool hasRefe
     }
 
     /// <summary>
-    /// Admin-only: unlinks and permanently deletes the shared reference document (POST api/{type}/{id}/unlink-reference on WebApi).
+    /// For admins: unlinks and permanently deletes the shared reference document (POST api/{type}/{id}/unlink-reference on WebApi).
     /// </summary>
     public async Task<TDto> UnlinkReferenceAsync(string id, CancellationToken cancellationToken = default)
     {

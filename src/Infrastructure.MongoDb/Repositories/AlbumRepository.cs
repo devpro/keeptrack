@@ -32,7 +32,7 @@ public class AlbumRepository(IMongoDatabase mongoDatabase, ILogger<AlbumReposito
         if (!string.IsNullOrEmpty(search)) filter &= builder.Where(f => f.Title.Contains(search, System.StringComparison.CurrentCultureIgnoreCase)
                                                                          || f.Artist.Contains(search, System.StringComparison.CurrentCultureIgnoreCase));
         if (input.IsFavorite) filter &= builder.Eq(f => f.IsFavorite, true);
-        // "owned" means at least one owned version - see MovieRepository.GetFilter
+        // owned means at least one owned version (see MovieRepository.GetFilter)
         if (input.IsOwned) filter &= builder.SizeGt(f => f.OwnedVersions, 0);
         return filter;
     }
@@ -63,7 +63,7 @@ public class AlbumRepository(IMongoDatabase mongoDatabase, ILogger<AlbumReposito
 
     public async Task<IReadOnlyList<(string Title, int? Year, string? Creator)>> FindDistinctUnresolvedTitleYearsAsync()
     {
-        // grouped by artist too, since an admin's link reaches only the albums by the artist it names
+        // grouped by artist too, since an admin's link reaches only the albums of the artist it names
         var groups = await GetCollection().Aggregate()
             .Match(UnresolvedFilter())
             .Group(f => new { f.Title, f.Year, f.Artist }, g => new { g.Key })
@@ -72,10 +72,8 @@ public class AlbumRepository(IMongoDatabase mongoDatabase, ILogger<AlbumReposito
     }
 
     /// <summary>
-    /// "Has no reference link yet" means <see cref="Album.ReferenceId"/> is null OR empty string, not
-    /// just null: old documents (written before the AutoMapper -> Mapperly migration) can still store ""
-    /// for an unset field; new writes store a real null instead (Mapperly preserves nulls, and the Mongo
-    /// driver's IgnoreIfNullConvention then omits it entirely). Both generations must match.
+    /// "Not linked yet" means <see cref="Album.ReferenceId"/> is null, missing or empty.
+    /// Older documents store "" for an unset field, while newer ones omit it, and both must match.
     /// </summary>
     private static FilterDefinition<Album> UnresolvedFilter()
     {

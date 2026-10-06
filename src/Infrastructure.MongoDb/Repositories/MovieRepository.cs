@@ -34,11 +34,10 @@ public class MovieRepository(IMongoDatabase mongoDatabase, ILogger<MovieReposito
         if (!string.IsNullOrEmpty(search)) filter &= builder.Where(f => f.Title.Contains(search, System.StringComparison.CurrentCultureIgnoreCase));
         if (input.IsFavorite) filter &= builder.Eq(f => f.IsFavorite, true);
         if (input.WantToWatch) filter &= builder.Eq(f => f.WantToWatch, true);
-        // "owned" means at least one owned version - renders as { "owned_versions.0": { $exists: true } }
+        // owned means at least one owned version, rendered as { "owned_versions.0": { $exists: true } }
         if (input.IsOwned) filter &= builder.SizeGt(f => f.OwnedVersions, 0);
         if (input.IsUnseen) filter &= builder.Eq(f => f.FirstSeenAt, null);
-        // WishlistController.BuildWishlistAsync still relies on this filter-probe clause even though the
-        // list page's own "Wishlist" toggle button was removed - don't drop it again.
+        // WishlistController.BuildWishlistAsync relies on this clause, although no list page offers the filter
         if (input.IsWishlisted) filter &= builder.Eq(f => f.IsWishlisted, true);
         return filter;
     }
@@ -79,7 +78,7 @@ public class MovieRepository(IMongoDatabase mongoDatabase, ILogger<MovieReposito
             .Match(UnresolvedFilter())
             .Group(f => new { f.Title, f.Year }, g => g.Key)
             .ToListAsync();
-        // no creator dimension for this type - the tuple stays one shape across all five repositories
+        // no creator for this type, the tuple keeping one shape across the five repositories
         return [.. groups.Select(g => (g.Title, g.Year, (string?)null))];
     }
 
@@ -94,10 +93,8 @@ public class MovieRepository(IMongoDatabase mongoDatabase, ILogger<MovieReposito
     }
 
     /// <summary>
-    /// "Has no reference link yet" means <see cref="Movie.ReferenceId"/> is null OR empty string, not just null:
-    /// old documents (written before the AutoMapper -> Mapperly migration) can still store "" for an unset field;
-    /// new writes store a real null instead (Mapperly preserves nulls, and the Mongo driver's IgnoreIfNullConvention then omits it entirely).
-    /// Both generations must match.
+    /// "Not linked yet" means <see cref="Movie.ReferenceId"/> is null, missing or empty.
+    /// Older documents store "" for an unset field, while newer ones omit it, and both must match.
     /// </summary>
     private static FilterDefinition<Movie> UnresolvedFilter()
     {

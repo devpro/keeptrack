@@ -8,11 +8,8 @@ using Keeptrack.WebApi.ReferenceData;
 namespace Keeptrack.WebApi.Import;
 
 /// <summary>
-/// Imports a TV Time GDPR export (a zip of CSV files) as an upsert: followed shows, per-episode
-/// watch history, ratings, favorite/want-to-watch status, comments, and movies discovered through
-/// rating/emotion votes and tracking-prod-records.csv's movie watch/want-to-watch/follow events.
-/// Every record created or updated is stamped with the authenticated caller's owner id only - nothing
-/// in the uploaded file (including TV Time's own internal user id) is ever used to determine ownership.
+/// Imports a TV Time GDPR export (a zip of CSV files) as an upsert: followed shows, episode watch history, ratings, favorite and want-to-watch status, comments, and movies found through votes and tracking events.
+/// Every record is stamped with the authenticated caller's owner id, never with anything from the file, TV Time's own user id included.
 /// </summary>
 public class TvTimeImportService(
     ITvShowRepository tvShowRepository,
@@ -35,16 +32,11 @@ public class TvTimeImportService(
 
         await using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
 
-        // followed_tv_show.csv is NOT a complete list of shows the user has a relationship with - it's
-        // just one signal among several (confirmed against real export data: shows with real watch
-        // history in the tracking files are sometimes entirely absent from this file). Never treat it
-        // as the sole source of truth for "which shows exist".
+        // followed_tv_show.csv is one signal among several, not the complete list of shows: shows with watch history in the tracking files can be absent from it
         var followedShows = ReadCsvEntry(archive, "followed_tv_show.csv", FollowedShowsCsvParser.Parse) ?? [];
 
-        // Three overlapping sources of "episode watched on this date", oldest/least complete to newest/most complete.
-        // seen_episode_source.csv alone is usually drastically incomplete (only episode-detail-screen taps); the two
-        // tracking-prod-records files are TV Time's generic event logs and capture episodes marked watched any other
-        // way too. All three are merged and de-duplicated per (show, season, episode) in ImportEpisodesAsync.
+        // Three overlapping sources of episode watch dates, least complete first: seen_episode_source.csv only holds episode screen taps, while the two tracking logs capture every other way.
+        // ImportEpisodesAsync merges them and deduplicates per (show, season, episode).
         var seenEpisodes = (ReadCsvEntry(archive, "seen_episode_source.csv", SeenEpisodesCsvParser.Parse) ?? [])
             .Concat(ReadCsvEntry(archive, "tracking-prod-records.csv", LegacyEpisodeWatchCsvParser.Parse) ?? [])
             .Concat(ReadCsvEntry(archive, "tracking-prod-records-v2.csv", EpisodeWatchCsvParser.Parse) ?? [])
@@ -63,16 +55,13 @@ public class TvTimeImportService(
             .SelectMany(votes => votes!)
             .ToList();
 
-        // The only source of a movie's watched-date/want-to-watch status: tracking-prod-records.csv's
-        // generic event log also carries movie rows (entity_type "movie"), not just episode ones.
+        // the only source of a movie's watch date and want-to-watch status: tracking-prod-records.csv also carries entity_type "movie" rows
         var movieTrackingEvents = ReadCsvEntry(archive, "tracking-prod-records.csv", MovieTrackingEventsCsvParser.Parse) ?? [];
 
         var enrichment = ShowEnrichment.Build(showRatings, showStatuses, showComments);
         var result = new ImportResultDto();
 
-        // Map every TV Time title to its stable id, so the title-only source files (seen_episode_source.csv
-        // for shows; the vote files for movies) resolve to the *same* id as the id-bearing files
-        // (followed_tv_show.csv / the tracking logs) instead of being treated as a different item.
+        // every TV Time title mapped to its stable id, so the files with titles only (seen episodes, votes) resolve to the same id as those carrying ids
         var showIdByTitle = BuildIdByTitle(
             followedShows.Select(s => (s.Title, (string?)s.TvShowId))
                 .Concat(seenEpisodes.Select(e => (e.ShowTitle, e.TvShowId))));
@@ -96,9 +85,8 @@ public class TvTimeImportService(
     private const string TitleTvTimeIdPrefix = "tvtime_title:";
 
     /// <summary>
-    /// Builds a normalized-title -> stable-id lookup from every (title, id) pair that carries an id,
-    /// first one wins. Used so a title appearing in a source file that has no id (seen_episode_source.csv,
-    /// the movie vote files) still resolves to the id its id-bearing counterpart established.
+    /// A lookup from normalized title to stable id, from every (title, id) pair carrying an id, the first winning.
+    /// A title from a file without ids (seen_episode_source.csv, the movie votes) then resolves to the id its counterpart established.
     /// </summary>
     private static Dictionary<string, string> BuildIdByTitle(IEnumerable<(string Title, string? Id)> entries)
     {
@@ -115,10 +103,8 @@ public class TvTimeImportService(
     }
 
     /// <summary>
-    /// The stable TV Time id to stamp on (and match) a record: the export's own id for that title when
-    /// there is one, otherwise a deterministic title-derived fallback (<c>tvtime_title:&lt;normalized&gt;</c>).
-    /// The fallback is stable across re-imports because it is derived from the export title, which
-    /// reference enrichment never touches - unlike the record's own Title.
+    /// The stable TV Time id stamped on a record and matched on: the export's id for that title, or else a deterministic one derived from it (<c>tvtime_title:&lt;normalized&gt;</c>).
+    /// The fallback is stable across re-imports, derived from the export title, which reference resolution never touches, unlike the record's title.
     /// </summary>
     private static string ResolveTvTimeId(string title, Dictionary<string, string> idByTitle)
     {
@@ -161,13 +147,9 @@ public class TvTimeImportService(
     }
 
     /// <summary>
-    /// Upserts episodes from the merged watch-event sources (see <see cref="ImportAsync"/>), taking the
-    /// earliest recorded date per (show, season, episode) when more than one source reports it. A show
-    /// with watch history that was never in followed_tv_show.csv is created here rather than skipped -
-    /// confirmed against real export data that a show can have genuine watch history without ever
-    /// appearing in that file. Returns, per normalized show title, how many distinct episodes got a
-    /// watch date - used by <see cref="AnnotateWatchCompleteness"/> to flag shows where TV Time's own
-    /// reported total is still higher than what these files captured in detail.
+    /// Upserts episodes from the merged watch sources (see <see cref="ImportAsync"/>), the earliest date winning per (show, season, episode).
+    /// A show with watch history absent from followed_tv_show.csv is created rather than skipped.
+    /// Returns how many distinct episodes got a date per normalized title, so <see cref="AnnotateWatchCompleteness"/> flags shows where TV Time's total is higher.
     /// </summary>
     private async Task<Dictionary<string, int>> ImportEpisodesAsync(
         string ownerId,
@@ -196,9 +178,7 @@ public class TvTimeImportService(
             }
             else
             {
-                // A show with genuine watch history but no followed_tv_show.csv row is created here rather
-                // than skipped (see ImportEpisodesAsync summary). enrichment.ApplyTo takes the raw TV Time
-                // show id (null when the export has none), not the possibly-synthesized tvTimeId.
+                // created rather than skipped, and enrichment.ApplyTo takes the raw TV Time show id, null when absent, not a derived tvTimeId
                 var rawShowId = showGroup.Select(e => e.TvShowId).FirstOrDefault(id => !string.IsNullOrEmpty(id));
                 show = NewShow(ownerId, showTitle);
                 show.TvTimeId = tvTimeId;
@@ -211,7 +191,7 @@ public class TvTimeImportService(
                 await TryEnrichShowAsync(show);
             }
 
-            // de-duplicate across the merged sources: one row per (season, episode), earliest date wins
+            // one row per (season, episode) across the merged sources, the earliest date winning
             var episodesWatched = showGroup
                 .GroupBy(e => (e.SeasonNumber, e.EpisodeNumber))
                 .Select(g => (g.Key.SeasonNumber, g.Key.EpisodeNumber, WatchedAt: g.Min(e => e.WatchedAt)))
@@ -219,7 +199,7 @@ public class TvTimeImportService(
 
             detailedEpisodeCountByShowTitle[showGroup.Key] = episodesWatched.Count;
 
-            // one bulk fetch per show, so matching each watched episode doesn't need its own database round trip
+            // one fetch per show, so matching each episode costs no round trip
             var existingEpisodes = (await episodeRepository.FindAllAsync(ownerId, 1, int.MaxValue, null,
                     NewEpisode(ownerId, show.Id!, 0, 0)))
                 .Items
@@ -228,7 +208,7 @@ public class TvTimeImportService(
 
             foreach (var seen in episodesWatched)
             {
-                // Already imported: leave it as-is (keeps the earliest date a previous import recorded).
+                // already imported, so the earliest date an earlier import recorded is kept
                 if (existingEpisodes.Contains((seen.SeasonNumber, seen.EpisodeNumber)))
                 {
                     result.EpisodesSkipped++;
@@ -248,10 +228,8 @@ public class TvTimeImportService(
     }
 
     /// <summary>
-    /// TV Time's own reported episode count (user_tv_show_data.csv) can still be higher than what the
-    /// merged watch-event sources captured in detail, for shows with activity old or unusual enough
-    /// that even those logs missed it. Surface that gap in plain language instead of silently importing
-    /// a suspiciously short watch history.
+    /// TV Time's episode count (user_tv_show_data.csv) can exceed what the merged sources detail, for activity old or unusual enough that the logs missed it.
+    /// The gap is reported in plain language rather than silently importing a short history.
     /// </summary>
     private static void AnnotateWatchCompleteness(
         List<FollowedShowRecord> followedShows,
@@ -273,12 +251,9 @@ public class TvTimeImportService(
     }
 
     /// <summary>
-    /// A movie exists in Keeptrack if it appears in *either* the rating/emotion vote files or the
-    /// tracking-prod-records.csv movie events - not just the vote files, the same "don't limit
-    /// existence to one file" lesson already applied to shows. <see cref="MovieTrackingEventType.Watched"/>
-    /// events set <see cref="MovieModel.FirstSeenAt"/> (the earliest one, if there's more than one);
-    /// a <see cref="MovieTrackingEventType.WantToWatch"/> event only sets <see cref="MovieModel.WantToWatch"/>
-    /// when there's no watched event too, so a since-watched movie doesn't stay flagged as still-to-watch.
+    /// A movie exists when it appears in the vote files or in the tracking events, as no single file lists every show either.
+    /// The earliest <see cref="MovieTrackingEventType.Watched"/> event sets <see cref="MovieModel.FirstSeenAt"/>.
+    /// A <see cref="MovieTrackingEventType.WantToWatch"/> event sets <see cref="MovieModel.WantToWatch"/> only without a watched event, so a movie seen since is not left on the list.
     /// </summary>
     private async Task ImportMoviesAsync(
         string ownerId,
@@ -337,10 +312,8 @@ public class TvTimeImportService(
     }
 
     /// <summary>
-    /// One-time adoption of a record created by an import that predated the stable-id matching: it exists
-    /// (matched by title) but has no TV Time id yet, so stamp the id on it now, without touching anything
-    /// else, so that every subsequent re-import matches it by id instead of title. A no-op for a record
-    /// that already carries an id (the steady-state re-import path, which writes nothing at all).
+    /// Stamps the TV Time id, and nothing else, on a record matched by title that has none, so every later re-import matches it by id.
+    /// Does nothing for a record already carrying an id, the usual re-import path, which writes nothing.
     /// </summary>
     private static async Task BackfillTvTimeIdAsync<TModel>(IDataRepository<TModel> repository, UpsertIndex<TModel> index, TModel model, string tvTimeId, string ownerId)
         where TModel : class, IHasIdAndOwnerId, IHasTvTimeId
@@ -363,11 +336,9 @@ public class TvTimeImportService(
         string.Join('\n', comments.OrderBy(c => c.CreatedAt).Select(c => $"{c.CreatedAt:yyyy-MM-dd}: {c.Comment}"));
 
     /// <summary>
-    /// Best-effort background reference-data match for a newly-imported show, fired on its own DI scope
-    /// instead of awaited inline - a bulk import creating dozens of shows/movies must not block on a
-    /// sequential chain of TMDB HTTP calls (search + details + credits, per item) before finishing. Same
-    /// shape already used for single-item creation via <c>TvShowController</c>/<c>MovieController.OnCreatedAsync</c>.
-    /// A single show's TMDB lookup failing (rate limit, no network) must never fail the rest of the import.
+    /// A best-effort background reference match for an imported show, started on its own DI scope rather than awaited, so a bulk import does not wait on a chain of TMDB calls per item.
+    /// Like <c>TvShowController.OnCreatedAsync</c>.
+    /// One show's failed lookup never fails the rest of the import.
     /// </summary>
     private Task TryEnrichShowAsync(TvShowModel show)
     {
@@ -420,11 +391,9 @@ public class TvTimeImportService(
     }
 
     /// <summary>
-    /// Resolves each imported show/movie to the existing record it should update, keyed by a stable TV
-    /// Time id. This is what makes a re-import idempotent even after reference enrichment has rewritten a
-    /// record's stored Title to a provider's canonical name: matching is by the immutable id, never by the
-    /// mutable title. It also tallies how many records were created versus skipped, de-duplicated by
-    /// reference identity so a show touched in both the followed-shows and episodes phases counts once.
+    /// Resolves each imported show or movie to the existing record it updates, keyed by a stable TV Time id.
+    /// That keeps a re-import idempotent after resolution rewrote a title, since matching uses the id, never the title.
+    /// It also counts created and skipped records, by object identity, so a show touched by both the followed-shows and episodes phases counts once.
     /// </summary>
     private sealed class UpsertIndex<TModel>
         where TModel : class, IHasTvTimeId
@@ -448,7 +417,7 @@ public class TvTimeImportService(
 
         public int SkippedCount => _skipped.Count;
 
-        /// <summary>Registers a model under its TV Time id (if set) and its normalized title.</summary>
+        /// <summary>Registers a model under its TV Time id, if set, and its normalized title.</summary>
         public void Index(TModel model)
         {
             if (!string.IsNullOrEmpty(model.TvTimeId)) _byTvTimeId[model.TvTimeId] = model;
@@ -456,11 +425,9 @@ public class TvTimeImportService(
         }
 
         /// <summary>
-        /// Matches an imported item to an existing record. A hit on <paramref name="tvTimeId"/> is the
-        /// steady-state path. The title fallback fires only for a record that has no TV Time id yet - one
-        /// created by an import predating this feature - so it gets adopted (and back-filled) exactly once
-        /// rather than duplicated; a record that already carries a *different* id is left alone, so two
-        /// genuinely different items sharing a title are never collapsed into one.
+        /// Matches an imported item to an existing record, usually by <paramref name="tvTimeId"/>.
+        /// The title fallback only applies to a record with no TV Time id yet, which is adopted and back-filled once rather than duplicated.
+        /// A record with a different id is left alone, so two items sharing a title are never collapsed.
         /// </summary>
         public bool TryMatch(string tvTimeId, string title, out TModel model)
         {
@@ -475,16 +442,15 @@ public class TvTimeImportService(
 
         public void MarkMatched(TModel model)
         {
-            // A record created earlier in this same run is not a pre-existing "skip".
+            // a record created earlier in this run is not an existing record skipped
             if (!_created.Contains(model)) _skipped.Add(model);
         }
     }
 
     /// <summary>
-    /// Per-show rating/favorite/notes, keyed by TV Time's show id. Built once from
-    /// tv_show_rate.csv/user_show_special_status.csv/show_comment.csv and applied both to shows found
-    /// via followed_tv_show.csv and to shows discovered only through episode watch history.
-    /// TV Time's "for_later" status has no Keeptrack counterpart for shows and is intentionally not imported.
+    /// Rating, favorite and notes per show, keyed by TV Time's show id.
+    /// Built once from tv_show_rate.csv, user_show_special_status.csv and show_comment.csv, and applied to followed shows and to shows found only through watch history.
+    /// TV Time's "for_later" status has no counterpart for shows and is not imported.
     /// </summary>
     private sealed class ShowEnrichment(
         Dictionary<string, float> ratingByShowId,

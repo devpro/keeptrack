@@ -137,31 +137,25 @@ else if (Data is not null)
 
     [Inject] private ListViewPreference ViewPreference { get; set; } = null!;
 
-    // Persisted in the URL (?tab=) the same way list pages persist search/page/filters - see
-    // InventoryPageBase's ApplyQueryChanges/SetFilter for the pattern this mirrors. Unlike a list page's
-    // query params, changing this one never triggers a reload: Data isn't query-dependent here (WishlistDto
-    // is one full, unpaged aggregate), so OnParametersSet only ever reparses the tab, it never calls LoadAsync.
+    // Persisted in the URL (?tab=) as list pages persist search, page and filters (see InventoryPageBase's ApplyQueryChanges and SetFilter).
+    // Unlike a list page's, changing it never reloads: WishlistDto is one unpaged aggregate, so OnParametersSet only reparses the tab and never calls LoadAsync.
     [SupplyParameterFromQuery(Name = "tab")]
     public string? TabQuery { get; set; }
 
-    // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
-    // _loaded tracks whether a load attempt has finished at all - both default false so the forced
-    // render Blazor triggers right after the synchronous prefix of OnInitializedAsync (before any
-    // awaited fetch resolves) shows blank instead of a spinner flash on every navigation to this page.
+    // _loading is delay-gated (see LoadingIndicator) and turns on only for a slow load, and _loaded tracks whether a load attempt has finished.
+    // Both default false, so the render Blazor forces after OnInitializedAsync's synchronous prefix shows blank instead of flashing a spinner on every navigation here.
     private bool _loading;
     private bool _loaded;
 
-    // Deliberately NOT [PersistentState], unlike the detail pages: WishlistDto embeds every wishlisted
-    // item across four collections, an unbounded payload that can exceed the Blazor hub's 32 KB
-    // MaximumReceiveMessageSize and kill the circuit on the prerender-to-interactive handoff
-    // (dotnet/aspnetcore#65101, see docs/blazor-ui.md). The interactive circuit re-fetches
-    // instead; the delay-gated spinner above keeps that re-fetch flash-free when it's fast.
+    // Not [PersistentState], unlike the detail pages: WishlistDto embeds every wishlisted item across four collections, an unbounded payload.
+    // It can exceed the Blazor hub's 32 KB MaximumReceiveMessageSize and kill the circuit on the prerender-to-interactive handoff (dotnet/aspnetcore#65101, see docs/blazor-ui.md).
+    // The interactive circuit re-fetches instead, and the delay-gated spinner above keeps a fast re-fetch flash-free.
     private WishlistDto? Data { get; set; }
 
     private Tab _tab = Tab.Movies;
 
-    // The shared list/thumbnail preference (see ListViewToggle). Video games are the only wide-cover tab, so
-    // the grid uses that column shape there and the default portrait shape for movies/TV shows/books.
+    // The shared list/thumbnail preference (see ListViewToggle).
+    // Video games are the only wide-cover tab, so the grid uses that column shape there and the portrait default for movies, TV shows and books.
     private string _view = "";
 
     private string CurrentShape => _tab == Tab.VideoGames ? "wide" : "";

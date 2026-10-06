@@ -7,37 +7,32 @@ namespace Keeptrack.Domain.Repositories;
 public interface IMovieRepository : IDataRepository<MovieModel>, IExploreSourceRepository
 {
     /// <summary>
-    /// Sets <see cref="MovieModel.ReferenceId"/>, <see cref="MovieModel.Title"/>, <see cref="MovieModel.Year"/> and the denormalized <see cref="MovieModel.ReferenceRating"/>/<see cref="MovieModel.ReferenceRatingScale"/> (to the reference's canonical values) on the records <paramref name="target"/> names, see <see cref="ITvShowRepository.SetReferenceLinkAsync"/>.
+    /// Sets <see cref="MovieModel.ReferenceId"/>, <see cref="MovieModel.Title"/>, <see cref="MovieModel.Year"/> and the rating copy to the reference's values on the records <paramref name="target"/> names (see <see cref="ITvShowRepository.SetReferenceLinkAsync"/>).
     /// </summary>
     Task<long> SetReferenceLinkAsync(ReferenceLinkTarget target, string referenceId, string canonicalTitle, int? canonicalYear = null, double? canonicalRating = null, double? canonicalRatingScale = null, string? canonicalRatingSource = null);
 
     /// <summary>
-    /// Re-propagates the denormalized <see cref="MovieModel.ReferenceRating"/>/<see cref="MovieModel.ReferenceRatingScale"/>
-    /// to every tenant movie already linked to <paramref name="referenceId"/>, keeping the copies current after
-    /// a periodic reference refresh (unlike <see cref="SetReferenceLinkAsync"/>, this matches by reference id
-    /// and so intentionally does touch already-linked documents). Null clears a rating that went away.
+    /// Copies the rating again onto every movie linked to <paramref name="referenceId"/>, keeping the copies current after a refresh.
+    /// Unlike <see cref="SetReferenceLinkAsync"/>, it matches by reference id, so it reaches every linked item of every tenant.
+    /// Null clears a rating that went away.
     /// </summary>
     Task<long> SetReferenceRatingAsync(string referenceId, double? rating, double? ratingScale, string? source);
 
     /// <summary>
-    /// <see cref="SetReferenceRatingAsync"/> for a batch of references, applied as one bulk write. Backs the
-    /// admin "recompute" action, which re-stamps a whole domain at once: a reference at a time cost one round
-    /// trip each, while the batch costs one for the lot. Every entry still updates all of that reference's
-    /// linked items server-side, so the work grows with the user base but the number of round trips does not.
-    /// Returns the total number of tenant items modified.
+    /// <see cref="SetReferenceRatingAsync"/> for a batch of references, as one bulk write, for the admin recompute of a whole domain.
+    /// Each entry still updates all of its reference's linked items server side, so the work grows with the user base but the round trips do not.
+    /// Returns the number of tenant items modified.
     /// </summary>
     Task<long> SetReferenceRatingsAsync(IReadOnlyList<(string ReferenceId, double? Rating, double? RatingScale, string? Source)> updates);
 
     /// <summary>
-    /// How many linked items are stamped with a rating source other than <paramref name="source"/> (an item
-    /// stamped with none at all counts). Lets the admin "recompute" action skip its whole pass when every item
-    /// is already on the selected source, instead of rewriting values that are already correct.
+    /// How many linked items are stamped with a rating source other than <paramref name="source"/>, an unstamped item included.
+    /// The admin recompute skips its whole pass when this is zero, rather than rewriting values that are already correct.
     /// </summary>
     Task<long> CountLinkedOnOtherRatingSourceAsync(string source);
 
     /// <summary>
-    /// Distinct (title, year) pairs across every tenant's movies that have no <see cref="MovieModel.ReferenceId"/>
-    /// yet - feeds the admin curation queue.
+    /// Distinct (title, year) pairs across every tenant's unlinked movies, for the admin queue.
     /// </summary>
     Task<IReadOnlyList<(string Title, int? Year, string? Creator)>> FindDistinctUnresolvedTitleYearsAsync();
 }

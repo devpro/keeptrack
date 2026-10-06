@@ -4,12 +4,12 @@ using System.Collections.Generic;
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// One entry per platform a game is tracked on - not one entry per physical copy.
+/// One entry per platform a game is tracked on, not one per physical copy.
 /// </summary>
 public class VideoGamePlatformDto : IOwnedCopyDto
 {
     /// <summary>
-    /// Platform name (e.g. "PS5", "Xbox Series X", "PC").
+    /// Platform name, such as "PS5", "Xbox Series X" or "PC".
     /// </summary>
     public string? Platform { get; set; }
 
@@ -24,8 +24,8 @@ public class VideoGamePlatformDto : IOwnedCopyDto
     public string? State { get; set; }
 
     /// <summary>
-    /// The date this entry's <see cref="State"/> was last set to "Completed" - auto-populated. Not to be
-    /// confused with <see cref="FullyCompletedAt"/> (the platinum/100% date).
+    /// When this entry's <see cref="State"/> was last set to "Completed", filled automatically.
+    /// Not to be confused with <see cref="FullyCompletedAt"/>, the platinum date.
     /// </summary>
     public DateOnly? CompletedAt { get; set; }
 
@@ -35,7 +35,7 @@ public class VideoGamePlatformDto : IOwnedCopyDto
     public List<PlaythroughDto> Playthroughs { get; set; } = [];
 
     /// <summary>
-    /// Whether the game has been fully completed (e.g. platinum trophy, 1000/1000 achievements) on this platform.
+    /// Whether the game was fully completed on this platform, such as a platinum trophy or every achievement.
     /// </summary>
     public bool IsFullyCompleted { get; set; }
 
@@ -45,12 +45,12 @@ public class VideoGamePlatformDto : IOwnedCopyDto
     public DateOnly? FullyCompletedAt { get; set; }
 
     /// <summary>
-    /// Price paid, in the user's own currency (currently always displayed as euros).
+    /// Price paid, displayed in euros.
     /// </summary>
     public decimal? Price { get; set; }
 
     /// <summary>
-    /// Where this copy was bought (store, site, marketplace seller...).
+    /// Where this copy was bought: store, site, marketplace seller.
     /// </summary>
     public string? Vendor { get; set; }
 
@@ -60,13 +60,12 @@ public class VideoGamePlatformDto : IOwnedCopyDto
     public DateOnly? AcquiredAt { get; set; }
 
     /// <summary>
-    /// Free-text reference for this copy: edition name, order number, barcode...
+    /// Free-text reference for this copy: edition name, order number, barcode.
     /// </summary>
     public string? Reference { get; set; }
 
     /// <summary>
-    /// The store's own specific product/edition text for this copy (e.g. "Grand Theft Auto V : Édition Premium"),
-    /// as opposed to the game's own title.
+    /// The store's product or edition text for this copy ("Grand Theft Auto V : Édition Premium"), as opposed to the game's title.
     /// </summary>
     public string? ProductName { get; set; }
 }

@@ -4,8 +4,7 @@ using System.Collections.Generic;
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// Computed metrics for one health profile: yearly costs after reimbursements, last visit per
-/// practitioner, and paid records still waiting on a reimbursement.
+/// Computed metrics for one health profile: yearly costs after reimbursements, the last visit per specialty, and paid records still waiting on a reimbursement.
 /// </summary>
 public class HealthMetricsDto
 {
@@ -15,13 +14,13 @@ public class HealthMetricsDto
     public required List<HealthCostHistoryPointDto> CostHistory { get; set; }
 
     /// <summary>
-    /// When each practitioner was last seen, most recent first.
+    /// When each specialty was last seen, most recent first.
     /// </summary>
     public required List<HealthLastVisitDto> LastVisits { get; set; }
 
     /// <summary>
-    /// Paid records whose money doesn't balance to zero (price - public - insurance - leftover), oldest
-    /// first - money is still expected, or more arrived than the price accounts for.
+    /// Paid records whose money does not balance (price minus public, insurance and not covered), oldest first.
+    /// Money is still expected, or more arrived than the price accounts for.
     /// </summary>
     public required List<HealthUnbalancedRecordDto> UnbalancedRecords { get; set; }
 }
@@ -69,7 +68,7 @@ public class HealthLastVisitDto
 }
 
 /// <summary>
-/// A paid record whose money doesn't balance to zero.
+/// A paid record whose money does not balance.
 /// </summary>
 public class HealthUnbalancedRecordDto
 {
@@ -84,7 +83,7 @@ public class HealthUnbalancedRecordDto
     public required DateTime HistoryDate { get; set; }
 
     /// <summary>
-    /// Practitioner, description or specialty - whatever identifies the record best.
+    /// Practitioner, description or specialty, whichever identifies the record best.
     /// </summary>
     public required string Label { get; set; }
 
@@ -94,8 +93,7 @@ public class HealthUnbalancedRecordDto
     public required double Price { get; set; }
 
     /// <summary>
-    /// Price minus reimbursements minus leftover: positive = money still expected, negative = more was
-    /// received than the price accounts for.
+    /// The price minus reimbursements and not covered: positive when money is still expected, negative when more was received than the price.
     /// </summary>
     public required double MissingAmount { get; set; }
 }

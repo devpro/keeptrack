@@ -4,11 +4,9 @@ using System.Text;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Support;
 
 /// <summary>
-/// Builds a minimal one-row generic store/CSV import fixture for the import smoke test, using the real-world
-/// Rakuten header shape. The row carries an explicit "Type" column (Book) so it's auto-selected without relying
-/// on any heuristic, plus a per-call unique title and fresh order id so every run imports a genuinely new book
-/// the test then deletes - never a dedup-hidden "already imported" row from a previous run.
-/// Never use a real personal export as a fixture (same rule as the integration suite's own builders).
+/// Builds a minimal one-row generic store CSV fixture for the import smoke test, with the real Rakuten header shape.
+/// The row's explicit "Type" column (Book) selects it without a heuristic, and a per-call unique title and fresh order id make every run import a new book the test deletes.
+/// A real personal export is never a fixture, as in the integration suite's builders.
 /// </summary>
 internal static class GenericImportFixtureCsvBuilder
 {

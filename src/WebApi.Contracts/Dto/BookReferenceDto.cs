@@ -4,8 +4,7 @@ using Keeptrack.Common.System;
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// Shared book metadata (synopsis, cover) - read-only, fetched separately from <see cref="BookDto"/> since
-/// it isn't the tenant's own data.
+/// Shared book metadata (synopsis, cover), read-only and fetched apart from <see cref="BookDto"/>, since it is not the tenant's own data.
 /// </summary>
 public class BookReferenceDto : IHasId
 {
@@ -23,7 +22,7 @@ public class BookReferenceDto : IHasId
 
     public List<string> Genres { get; set; } = [];
 
-    /// <summary>Aggregate ratings keyed by provider key ("googlebooks"/"openlibrary") - see <see cref="ReferenceRatingDto"/>.</summary>
+    /// <summary>Aggregate ratings keyed by provider ("googlebooks", "openlibrary"), see <see cref="ReferenceRatingDto"/>.</summary>
     public Dictionary<string, ReferenceRatingDto> Ratings { get; set; } = [];
 
     public string? ImageUrl { get; set; }

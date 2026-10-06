@@ -10,9 +10,8 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Basic full-cycle CRUD coverage for <c>HealthRecord</c>, same shape as
-/// <see cref="HouseHistoryResourceTest"/> - including the date+time round trip (HistoryDate is a full
-/// DateTime here, the Car pattern, so the time of day must survive MongoDB's UTC stamping).
+/// Full-cycle CRUD coverage for <c>HealthRecord</c>, the shape of <see cref="HouseHistoryResourceTest"/>, with the date and time round trip.
+/// HistoryDate is a full DateTime, as for cars, so the time of day must survive MongoDB's UTC stamping.
 /// </summary>
 public class HealthRecordResourceTest(KestrelWebAppFactory<Program> factory)
     : ResourceTestBase(factory)
@@ -69,7 +68,7 @@ public class HealthRecordResourceTest(KestrelWebAppFactory<Program> factory)
         byProfile.Items.Should().ContainSingle(x => x.Id == created.Id);
         byProfile.Items.Should().NotContain(x => x.Id == otherCreated.Id);
 
-        // search spans practitioner (and specialty/description) - "when did I last see Dr X"
+        // search spans practitioner, specialty and description: "when did I last see Dr X"
         var bySearch = await GetAsync<PagedResult<HealthRecordDto>>($"/{ResourceEndpoint}?HealthProfileId={profileId}&search={practitioner}");
         bySearch.Items.Should().ContainSingle(x => x.Id == created.Id);
     }

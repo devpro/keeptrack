@@ -8,9 +8,7 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Playlists have no reference-data concept at all (confirmed: no <c>ReferenceId</c> on <c>PlaylistDto</c>),
-/// so this is a plain add/verify/delete CRUD smoke test - same GUID-suffixed-title discipline as
-/// <c>BookSmokeTest</c> since there's no real-world title to preserve here.
+/// Playlists have no reference data (no <c>ReferenceId</c> on <c>PlaylistDto</c>), so this is a plain add, verify and delete smoke test, with a GUID-suffixed title like <c>BookSmokeTest</c>.
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]

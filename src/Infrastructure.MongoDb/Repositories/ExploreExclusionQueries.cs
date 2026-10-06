@@ -9,22 +9,15 @@ using MongoDB.Driver;
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
 /// <summary>
-/// The projections that build the Explore feature's "the caller already has this" exclusion set: two
-/// owner-scoped reads over the caller's own collection, plus the id lookup over the shared reference
-/// documents those link to. Each is the same query for every domain and differs only by which field it reads,
-/// so they live here once rather than being copy-pasted into
-/// <c>MovieRepository</c>/<c>TvShowRepository</c>/<c>VideoGameRepository</c> and their reference counterparts
-/// (the first two already carried an identical hand-written copy of the reference-id one).
-/// They aren't hooks on <c>MongoDbRepositoryBase</c> because that base is generic over entities with no
-/// reference id and no title at all - passing the field in keeps the field declaration next to the entity it
-/// belongs to, exactly like the <c>SortTitleField</c> hook does for sorting.
+/// The projections behind Explore's exclusion of what the caller already has: two owner-scoped reads of the caller's collection, and the id lookup over the reference documents they link to.
+/// Each is the same query in every domain but for the field it reads, so it is written once here.
+/// They are not hooks on <c>MongoDbRepositoryBase</c>, whose entities may have no reference id or title, and passing the field keeps its declaration next to its entity, like <c>SortTitleField</c>.
 /// </summary>
 internal static class ExploreExclusionQueries
 {
     /// <summary>
-    /// Every distinct reference document id this owner's items link to. "Linked" is the inverse of the
-    /// repositories' <c>UnresolvedFilter</c>: a real id, neither null nor the legacy empty-string sentinel
-    /// (see docs/data-model.md on why an empty string has to be treated as unset here).
+    /// Every distinct reference document id this owner's items link to.
+    /// Linked is the inverse of the repositories' <c>UnresolvedFilter</c>: a real id, neither null nor empty (see docs/data-model.md).
     /// </summary>
     internal static async Task<IReadOnlyList<string>> FindLinkedReferenceIdsAsync<TEntity>(
         IMongoCollection<TEntity> collection, string ownerId, Expression<Func<TEntity, string?>> referenceIdField)
@@ -39,13 +32,10 @@ internal static class ExploreExclusionQueries
     }
 
     /// <summary>
-    /// The <paramref name="provider"/> id of each of the given reference documents, read with a server-side
-    /// projection so only <c>external_ids</c> crosses the wire.
+    /// The <paramref name="provider"/> id of each given reference, projected server side so only <c>external_ids</c> crosses the wire.
     /// <para>
-    /// The projection is the whole point. The caller wants exactly one string per reference, and the obvious
-    /// <c>FindByIdsAsync</c> would fetch entire documents to get it - synopsis, cast, matched aliases, ratings,
-    /// and for TV shows the complete embedded episode guide. An owner tracking a few hundred linked shows
-    /// would drag every episode of every season across on each Explore request, to extract a few hundred ids.
+    /// The caller wants one string per reference, and <c>FindByIdsAsync</c> would fetch whole documents, with synopsis, cast, aliases, ratings and a show's whole episode guide.
+    /// A few hundred linked shows would then load every episode of every season on each Explore request.
     /// </para>
     /// </summary>
     internal static async Task<IReadOnlyList<string>> FindExternalIdsAsync<TEntity>(
@@ -62,8 +52,7 @@ internal static class ExploreExclusionQueries
             .Project(externalIdsField)
             .ToListAsync();
 
-        // a reference resolved through a different provider simply has no id in this one's number space -
-        // it contributes nothing to the exclusion set rather than an empty string that could match anything.
+        // a reference resolved through another provider has no id in this one's number space, and contributes nothing rather than an empty string that could match anything
         return externalIds
             .Select(map => map.GetValueOrDefault(provider))
             .Where(externalId => !string.IsNullOrEmpty(externalId))
@@ -72,10 +61,8 @@ internal static class ExploreExclusionQueries
     }
 
     /// <summary>
-    /// Every distinct title this owner tracks, raw (normalization is the caller's job - <c>TitleNormalizer</c>
-    /// lives in the layers that compare them, not in a Mongo query). This is the fallback half of the
-    /// exclusion set: an item the owner added manually or imported may never have been linked to a reference
-    /// document, so matching on the reference id alone would keep suggesting something they already have.
+    /// Every distinct raw title this owner tracks, the caller normalizing them.
+    /// The fallback half of the exclusion: an item never linked is invisible to the reference ids, so matching on them alone would keep suggesting what the owner has.
     /// </summary>
     internal static async Task<IReadOnlyList<string>> FindDistinctTitlesAsync<TEntity>(
         IMongoCollection<TEntity> collection, string ownerId, Expression<Func<TEntity, string>> titleField)

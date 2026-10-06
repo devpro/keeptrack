@@ -1,14 +1,11 @@
 @* What a row or card shows when an item has no cover art yet.
 
-   It used to be a faint ◈ on a flat grey block, which reads as a failed image load rather than as "nothing
-   linked here yet" - and in a six-up grid two of them dominate the row. The established answer in media
-   libraries (Plex, Jellyfin, Spotify) is a text fallback derived from the title: it can never look broken,
-   it gives each placeholder a different face so a column of them stays scannable, and it carries a little
-   real information instead of none.
+   A glyph on a flat grey block reads as a failed image load rather than "nothing linked here yet".
+   Media libraries (Plex, Jellyfin, Spotify) use a text fallback derived from the title instead.
+   It never looks broken, gives each placeholder a different face so a column stays scannable, and carries a little real information.
 
-   A title that starts with something other than a letter or digit (punctuation, an emoji) renders nothing
-   at all rather than that character blown up to 2.4rem - an empty tile is better than a loud meaningless
-   one. Same for an item with no title yet. *@
+   A title starting with something other than a letter or digit (punctuation, an emoji) renders nothing rather than that character at 2.4rem, an empty tile being better than a loud meaningless one.
+   Same for an item with no title yet. *@
 
 @if (Initial is not null)
 {
@@ -24,8 +21,7 @@
         {
             if (string.IsNullOrWhiteSpace(Title)) return null;
 
-            // Rune, not char: a surrogate pair (an emoji, a rarer CJK glyph) is two chars, and taking
-            // Title[0] there yields half a code point - which renders as U+FFFD.
+            // Rune, not char: a surrogate pair (an emoji, a rarer CJK glyph) is two chars, and Title[0] would be half a code point, rendered as U+FFFD.
             foreach (var rune in Title.Trim().EnumerateRunes())
             {
                 if (System.Text.Rune.IsLetterOrDigit(rune))
@@ -33,8 +29,7 @@
                     return System.Text.Rune.ToUpperInvariant(rune).ToString();
                 }
 
-                // Only the *first* character decides: "…And Justice for All" is deliberately blank rather
-                // than showing the A of its second word, which would misrepresent how it sorts and reads.
+                // Only the first character decides: "…And Justice for All" stays blank rather than showing the A of its second word, which would misrepresent how it sorts and reads.
                 return null;
             }
 

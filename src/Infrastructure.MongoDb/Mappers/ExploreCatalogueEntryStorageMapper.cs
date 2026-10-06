@@ -6,9 +6,7 @@ using Riok.Mapperly.Abstractions;
 namespace Keeptrack.Infrastructure.MongoDb.Mappers;
 
 /// <summary>
-/// Injected directly by <see cref="Repositories.ExploreCatalogueRepository"/> - see
-/// <see cref="TvShowReferenceStorageMapper"/> for why an owner-less collection's mapper has no shared
-/// interface (it never goes through <see cref="Repositories.MongoDbRepositoryBase{TModel, TEntity}"/>).
+/// Injected directly into <see cref="Repositories.ExploreCatalogueRepository"/>, since an owner-less collection never goes through <see cref="Repositories.MongoDbRepositoryBase{TModel, TEntity}"/> (see <see cref="TvShowReferenceStorageMapper"/>).
 /// </summary>
 [Mapper]
 public partial class ExploreCatalogueEntryStorageMapper

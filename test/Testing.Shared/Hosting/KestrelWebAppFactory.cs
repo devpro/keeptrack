@@ -13,10 +13,8 @@ namespace Keeptrack.Testing.Shared.Hosting;
 
 /// <summary>
 /// In-process (or already-running, via "urlOverrideEnvironmentVariable") Kestrel host for a test suite.
-/// Shared by <c>WebApi.IntegrationTests</c> and <c>BlazorApp.E2eTests</c>,
-/// so the env-var override name and any in-memory configuration overrides
-/// (e.g. disabling a background sync job that would otherwise fire real outbound calls against shared test data)
-/// are constructor parameters rather than hardcoded, letting each host (WebApi, BlazorApp) supply its own.
+/// Shared by <c>WebApi.IntegrationTests</c> and <c>BlazorApp.PlaywrightTests</c>, so the env-var override name and in-memory configuration overrides are constructor parameters, each host (WebApi, BlazorApp) supplying its own.
+/// An override can disable a background sync job that would fire real outbound calls against shared test data.
 /// </summary>
 public class KestrelWebAppFactory<TEntryPoint> : WebApplicationFactory<TEntryPoint>
     where TEntryPoint : class

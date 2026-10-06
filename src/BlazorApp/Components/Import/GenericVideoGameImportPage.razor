@@ -154,7 +154,7 @@
     private List<EditableRow>? _rows;
 
     /// <summary>
-    /// Defaults on - a re-uploaded export is mostly already-imported rows, and hiding them by default is what actually keeps the review list short.
+    /// On by default, since a re-uploaded export is mostly already-imported rows, and hiding them keeps the review list short.
     /// </summary>
     private bool _hideAlreadyImported = true;
 
@@ -163,7 +163,7 @@
     private GenericVideoGameImportCommitResultDto? _commitResult;
 
     /// <summary>
-    /// How many rows the last commit actually submitted - the reconciliation total shown next to <see cref="GenericVideoGameImportCommitResultDto.RowsImported"/>.
+    /// How many rows the last commit submitted, the total shown next to <see cref="GenericVideoGameImportCommitResultDto.RowsImported"/>.
     /// </summary>
     private int _lastCommitRowCount;
 
@@ -173,7 +173,7 @@
     private IEnumerable<EditableRow> SelectedRows => _rows is null ? [] : _rows.Where(r => r.Selected);
 
     /// <summary>
-    /// Drives the header checkbox: checked only once every currently-shown row is selected.
+    /// Drives the header checkbox, checked only once every shown row is selected.
     /// </summary>
     private bool AllDisplayedSelected => DisplayedRows.Any() && DisplayedRows.All(r => r.Selected);
 
@@ -221,8 +221,7 @@
             {
                 RowId = row.Preview.RowId,
                 Title = row.Title,
-                // The original, unedited title from the parsed preview -
-                // kept separate from the editable row.Title above so it can be recorded verbatim in the created item's notes, regardless of whatever the user typed over it here.
+                // The parsed preview's unedited title, kept apart from the editable row.Title so the created item's notes record it verbatim, whatever the user typed over it.
                 SourceTitle = row.Preview.Title,
                 Platform = row.Platform,
                 ProductName = row.Preview.ProductName,
@@ -254,7 +253,7 @@
         Selected = !preview.AlreadyImported,
         Title = preview.Title,
         Platform = preview.Platform,
-        // This export is store purchase history, so a copy is inherently digital - still editable in case of an oddity (e.g. a listed physical bundle/voucher line).
+        // This export is store purchase history, so a copy is digital, still editable for an oddity such as a physical bundle or voucher line.
         CopyType = CopyType.Digital
     };
 
@@ -264,12 +263,12 @@
         public bool Selected { get; set; }
 
         /// <summary>
-        /// The one field worth editing at import time besides Year/Platform/Copy - everything else is read-only, order-derived info.
+        /// The one field worth editing at import time besides Year, Platform and Copy, everything else being read-only order data.
         /// </summary>
         public string Title { get; set; } = "";
 
         /// <summary>
-        /// Never pre-filled - the export has no publication/release year.
+        /// Never prefilled, since the export has no release year.
         /// </summary>
         public int? Year { get; set; }
 

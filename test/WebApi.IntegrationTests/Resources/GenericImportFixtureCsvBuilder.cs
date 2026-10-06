@@ -3,10 +3,8 @@ using System.Text;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Builds a small, synthetic generic store/CSV import fixture for tests - never use a real personal export as
-/// a test fixture (same rule as <see cref="AmazonFixtureCsvBuilder"/>). Uses the exact real-world Rakuten
-/// header shape (Product Name, ASIN, Product Condition, Total Amount, Website...) so the test doubles as proof
-/// the canonical column aliases resolve against a genuine export header.
+/// Builds a small, synthetic generic store CSV fixture, since a real personal export is never a fixture (as with <see cref="AmazonFixtureCsvBuilder"/>).
+/// It uses the real Rakuten header shape (Product Name, ASIN, Product Condition, Total Amount, Website...), proving the column aliases resolve against a genuine export header.
 /// </summary>
 internal static class GenericImportFixtureCsvBuilder
 {

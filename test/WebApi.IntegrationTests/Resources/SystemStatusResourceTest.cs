@@ -9,13 +9,10 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Covers the admin "System" panel's endpoint. Admin-gating is exercised the same way as
-/// <see cref="ReferenceDataAdminResourceTest"/> (the standard test user carries the admin claim;
-/// there is no non-admin account to prove the rejection side).
+/// Covers the admin "System" panel's endpoint.
+/// Admin-gating is exercised the same way as <see cref="ReferenceDataAdminResourceTest"/> (the standard test user carries the admin claim; there is no non-admin account to prove the rejection side).
 /// <para>
-/// Hosted through <see cref="ProviderlessWebAppFactory"/> for the same reason as that class: the recent-jobs
-/// assertion below starts a real sync job, whose pass would otherwise run on against the live providers and
-/// leave a rewritten Explore ranking behind, long after this test has finished.
+/// Hosted through <see cref="ProviderlessWebAppFactory"/> for the same reason as that class: the recent-jobs assertion below starts a real sync job, whose pass would otherwise run on against the live providers and leave a rewritten Explore ranking behind, long after this test has finished.
 /// </para>
 /// </summary>
 public class SystemStatusResourceTest(ProviderlessWebAppFactory factory)
@@ -37,8 +34,7 @@ public class SystemStatusResourceTest(ProviderlessWebAppFactory factory)
         var status = await GetAsync<SystemStatusDto>($"/{ResourceEndpoint}");
 
         status.InstanceName.Should().NotBeNullOrEmpty();
-        // the test host overrides Features:IsReferenceSyncEnabled to false (see KestrelWebAppFactory) -
-        // asserting it here proves the endpoint reflects live configuration, not a default
+        // The test host overrides Features:IsReferenceSyncEnabled to false (see KestrelWebAppFactory), so this proves the endpoint reflects live configuration, not a default.
         status.IsReferenceSyncEnabled.Should().BeFalse();
         status.BookProvider.Should().NotBeNullOrEmpty();
         status.RecentJobs.Should().NotBeNull();

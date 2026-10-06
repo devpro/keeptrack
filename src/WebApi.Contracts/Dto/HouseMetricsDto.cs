@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// Computed metrics for one house: yearly cost history and a last-record-per-type readout.
+/// Computed metrics for one house: yearly cost history and the last record per type.
 /// </summary>
 public class HouseMetricsDto
 {

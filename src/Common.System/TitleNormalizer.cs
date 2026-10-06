@@ -6,39 +6,30 @@ using System.Text;
 namespace Keeptrack.Common.System;
 
 /// <summary>
-/// Shared title normalization for matching by name across the import pipeline and the reference-data
-/// layer - one implementation so both never drift apart on what counts as "the same title".
+/// Title normalization for matching by name, shared by the imports and reference data so both agree on what counts as "the same title".
 /// </summary>
 public static class TitleNormalizer
 {
     public static string Normalize(string title) => title.Trim().ToLowerInvariant();
 
     /// <summary>
-    /// A deliberately looser form of <see cref="Normalize"/>, for matching one <b>provider's</b> canonical
-    /// title against another's: diacritics folded, a <c>(1997)</c>-style disambiguation suffix dropped,
-    /// punctuation and the article "the" removed, whitespace collapsed.
+    /// A looser form of <see cref="Normalize"/>, for matching one provider's title against another's.
+    /// It folds diacritics, drops a <c>(1997)</c>-style disambiguator, removes punctuation and the article "the", and collapses whitespace.
     /// <para>
-    /// It exists because two catalogues name the same work differently in small, systematic ways, confirmed
-    /// against real RAWG and IGDB records: <c>Mass Effect: Legendary Edition</c> vs
-    /// <c>Mass Effect Legendary Edition</c>, <c>Disco Elysium: Final Cut</c> vs
-    /// <c>Disco Elysium: The Final Cut</c>, and RAWG's habit of disambiguating a remake by appending the
-    /// original's year (<c>GoldenEye 007 (1997)</c>, <c>Resident Evil 2 (1998)</c>). Exact normalized equality
-    /// rejected every one of those, which is what left a third of this database's video game references
-    /// unable to adopt the current default provider's id - and, because the Explore exclusion compares titles
-    /// the same way, is why those same games kept being suggested to the owner who already had them.
+    /// Two catalogues name the same work differently in small, systematic ways, as real RAWG and IGDB records show.
+    /// <c>Mass Effect: Legendary Edition</c> and <c>Mass Effect Legendary Edition</c> are one game, and so are <c>Disco Elysium: Final Cut</c> and <c>Disco Elysium: The Final Cut</c>.
+    /// RAWG also disambiguates a remake by appending the original's year (<c>GoldenEye 007 (1997)</c>, <c>Resident Evil 2 (1998)</c>).
+    /// Exact equality rejects every one of those, so the references cannot adopt the default provider's id, and Explore keeps suggesting games the user already has.
     /// </para>
     /// <para>
-    /// It is <b>not</b> a replacement for <see cref="Normalize"/> and never becomes the stored
-    /// <c>TitleNormalized</c>/alias key: those are matched against tenant-typed text, where losing this much
-    /// information would start conflating genuinely different items. Loose matching is only ever a way to
-    /// *shortlist* candidates - every caller still confirms with a compatible year and refuses anything that
-    /// isn't a single match, so a false pairing here costs an entry in the admin reconciliation queue rather
-    /// than a wrong link.
+    /// It never replaces <see cref="Normalize"/> nor becomes the stored <c>TitleNormalized</c> or alias key.
+    /// Those are matched against text a tenant typed, where losing this much information would conflate different items.
+    /// Loose matching only shortlists candidates: every caller still confirms a compatible year and refuses anything but a single match.
+    /// A false pairing therefore costs an entry in the admin reconciliation queue, not a wrong link.
     /// </para>
     /// <para>
-    /// Roman numerals are deliberately left alone (<c>Final Fantasy IV</c> stays distinct from
-    /// <c>Final Fantasy 4</c>): the rule would be genuinely ambiguous for one-letter tokens, and an
-    /// unmatched pair is a queue entry an admin resolves in one click, while a wrong pair is silent data loss.
+    /// Roman numerals are left alone, so <c>Final Fantasy IV</c> stays distinct from <c>Final Fantasy 4</c>.
+    /// The rule would be ambiguous for one-letter tokens, and an unmatched pair costs an admin one click where a wrong pair is silent data loss.
     /// </para>
     /// </summary>
     public static string NormalizeLoose(string title)
@@ -49,8 +40,7 @@ public static class TitleNormalizer
 
         foreach (var character in folded)
         {
-            // a parenthesised group is dropped whole - it is a provider's disambiguator ("(1997)", "(remake)"),
-            // never part of the name people search with
+            // a parenthesised group is dropped whole: it is a provider's disambiguator ("(1997)", "(remake)"), never part of the name people search with
             if (character is '(' or '[')
             {
                 depth++;
@@ -70,15 +60,13 @@ public static class TitleNormalizer
             }
             else if (character is '\'' or '’')
             {
-                // an apostrophe is dropped rather than collapsed to a space, so one catalogue's
-                // "Assassin's Creed" and another's "Assassins Creed" tokenize the same way. Spacing it instead
-                // produced "assassin s creed", which matched neither spelling.
+                // an apostrophe is dropped rather than turned into a space, so "Assassin's Creed" and "Assassins Creed" tokenize the same way.
+                // A space would give "assassin s creed", which matches neither spelling.
                 continue;
             }
             else
             {
-                // "&" and every separator collapse to a single space, so "Rock & Roll", "Rock and Roll" and
-                // "Rock: Roll" all tokenize the same way
+                // "&" and every separator collapse to a single space, so "Rock & Roll", "Rock and Roll" and "Rock: Roll" all tokenize the same way
                 builder.Append(character == '&' ? " and " : " ");
             }
         }
@@ -88,15 +76,13 @@ public static class TitleNormalizer
     }
 
     /// <summary>
-    /// The title with any parenthesised or bracketed group removed, and nothing else touched - case,
-    /// punctuation and accents all preserved, so the result is still a title a provider could hold verbatim.
+    /// The title with any parenthesised or bracketed group removed and nothing else touched.
+    /// Case, punctuation and accents are preserved, so the result is still a title a provider could hold verbatim.
     /// <para>
-    /// <see cref="NormalizeLoose"/> only helps once candidates are in hand; this is for asking the provider in
-    /// the first place. RAWG disambiguates a remake by putting the original's year in the title itself
-    /// (<c>GoldenEye 007 (1997)</c>, <c>God of War (2018)</c>, <c>Demon's Souls (2020)</c>), and confirmed
-    /// against the live IGDB API, querying with that string returns *nothing at all* - neither its exact-name
-    /// lookup nor its relevance search finds a thing, so there is no candidate list for a looser comparison to
-    /// rescue. Retrying with the bare title is what turns those from a dead end into an ordinary match.
+    /// <see cref="NormalizeLoose"/> only helps once candidates are in hand, and this is for asking the provider in the first place.
+    /// RAWG puts the original's year in a remake's title (<c>GoldenEye 007 (1997)</c>, <c>God of War (2018)</c>, <c>Demon's Souls (2020)</c>).
+    /// IGDB returns nothing at all for that string, from its exact-name lookup and from its relevance search, so there are no candidates for a looser comparison to rescue.
+    /// Retrying with the bare title turns that dead end into an ordinary match.
     /// </para>
     /// </summary>
     public static string StripDisambiguator(string title)
@@ -115,21 +101,16 @@ public static class TitleNormalizer
     }
 
     /// <summary>
-    /// The title reduced to plain words a provider's own search can parse: diacritics folded, apostrophes
-    /// dropped, every other non-alphanumeric run collapsed to a single space. Unlike
-    /// <see cref="NormalizeLoose"/> it keeps every word (including "the") and the original casing, because the
-    /// result is a *query*, not a matching key.
+    /// The title reduced to plain words a provider's search can parse: diacritics folded, apostrophes dropped, and every other non-alphanumeric run collapsed to a single space.
+    /// Unlike <see cref="NormalizeLoose"/> it keeps every word, "the" included, and the original casing, because the result is a query, not a matching key.
     /// <para>
-    /// It exists because a provider's free-text search is far less forgiving about punctuation than its
-    /// catalogue is, confirmed against the live IGDB API: <c>search "NieR:Automata"</c> - a colon glued to the
-    /// next letter, exactly how RAWG spells it - returns only "Untitled NieR:Automata Project" and never the
-    /// game itself, while <c>search "NieR Automata"</c> returns it as the top hit. The same query is what
-    /// rescues a title carrying <c>!</c>, <c>,</c> or an accent.
+    /// A provider's free-text search is far less forgiving about punctuation than its catalogue.
+    /// IGDB answers <c>search "NieR:Automata"</c>, spelled as RAWG spells it, with only "Untitled NieR:Automata Project", while <c>search "NieR Automata"</c> returns the game as the top hit.
+    /// The same form rescues a title carrying <c>!</c>, <c>,</c> or an accent.
     /// </para>
     /// <para>
-    /// Asking with this form is safe because nothing about *confirmation* loosens: the candidates it brings
-    /// back are still checked against the reference's own title with <see cref="LooselyEqual"/> and a
-    /// compatible year, and anything but a single match is still left for a human.
+    /// Asking with this form is safe because confirmation does not loosen.
+    /// The candidates it brings back are still checked against the reference's own title with <see cref="LooselyEqual"/> and a compatible year, and anything but a single match is left for a human.
     /// </para>
     /// </summary>
     public static string ToProviderQuery(string title)
@@ -147,30 +128,24 @@ public static class TitleNormalizer
     }
 
     /// <summary>
-    /// Whether two provider titles name the same work under <see cref="NormalizeLoose"/>. The one place the
-    /// comparison itself is written, so an adoption attempt, the duplicate finder and the Explore exclusion
-    /// can't drift apart on what "the same title" means.
+    /// Whether two provider titles name the same work under <see cref="NormalizeLoose"/>.
+    /// The comparison is written once, so adoption, the duplicate finder and the Explore exclusion agree on what "the same title" means.
     /// </summary>
     public static bool LooselyEqual(string left, string right) =>
         NormalizeLoose(left) == NormalizeLoose(right);
 
     /// <summary>
-    /// Whether <paramref name="candidate"/> contains <paramref name="searched"/> as a whole run of words,
-    /// under <see cref="NormalizeLoose"/>. Weaker than <see cref="LooselyEqual"/> on purpose: it answers
-    /// "did the searched title actually appear in this result's title", which is what tells a genuine
-    /// candidate ("Nevermind (Demo &amp; Outtakes)" for "Nevermind") apart from a result a provider returned
-    /// for some other reason entirely.
+    /// Whether <paramref name="candidate"/> contains <paramref name="searched"/> as a whole run of words, under <see cref="NormalizeLoose"/>.
+    /// Weaker than <see cref="LooselyEqual"/> on purpose: it answers whether the searched title appears in this result's title.
+    /// That tells a genuine candidate ("Nevermind (Demo &amp; Outtakes)" for "Nevermind") from a result the provider returned for another reason.
     /// <para>
-    /// It exists because a provider's free-text search parameter matches fields other than the title -
-    /// confirmed against the real Discogs API, where <c>q=Discovery&amp;artist=Daft Punk</c> returns
-    /// "Live @ Rex Club, Paris" and "MP3 Collection" alongside the album, and <c>q=Sabbath</c> returns
-    /// releases whose only occurrence of the word is the artist's name.
+    /// A provider's free-text parameter also matches fields other than the title.
+    /// Discogs answers <c>q=Discovery&amp;artist=Daft Punk</c> with "Live @ Rex Club, Paris" and "MP3 Collection" alongside the album, and <c>q=Sabbath</c> with releases naming the word only in the artist.
     /// See <c>DiscogsClient.SearchAlbumsCoreAsync</c>.
     /// </para>
     /// <para>
-    /// The comparison is over whole words rather than raw substrings so a search for "Blue" doesn't keep a
-    /// "Blueprint", and a title that normalizes to nothing at all matches everything rather than filtering
-    /// the caller's results down to none.
+    /// It compares whole words rather than raw substrings, so a search for "Blue" does not keep a "Blueprint".
+    /// A title that normalizes to nothing matches everything, rather than filtering the caller's results down to none.
     /// </para>
     /// </summary>
     public static bool LooselyContains(string candidate, string searched)
@@ -184,8 +159,7 @@ public static class TitleNormalizer
     }
 
     /// <summary>
-    /// Strips combining marks so "Pokémon" and "Pokemon" compare equal - the same work spelled by two
-    /// catalogues with different opinions about accents.
+    /// Strips combining marks so "Pokémon" and "Pokemon" compare equal, since catalogues disagree about accents.
     /// </summary>
     private static string RemoveDiacritics(string value)
     {

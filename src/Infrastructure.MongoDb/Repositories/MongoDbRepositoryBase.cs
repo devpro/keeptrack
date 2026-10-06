@@ -13,10 +13,10 @@ using MongoDB.Driver;
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
 /// <summary>
-/// MongoDB Data Access Layer repository abstract class.
+/// The owner-scoped CRUD every user-owned collection shares.
 /// </summary>
-/// <typeparam name="TModel">Data Model class</typeparam>
-/// <typeparam name="TEntity">Business class</typeparam>
+/// <typeparam name="TModel">Domain model</typeparam>
+/// <typeparam name="TEntity">MongoDB entity</typeparam>
 public abstract class MongoDbRepositoryBase<TModel, TEntity>(
     IMongoDatabase mongoDatabase,
     ILogger<MongoDbRepositoryBase<TModel, TEntity>> logger,
@@ -28,23 +28,15 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
     protected ILogger<MongoDbRepositoryBase<TModel, TEntity>> Logger { get; } = logger;
 
     /// <summary>
-    /// The entity &lt;-&gt; model mapper. Protected rather than private so a subclass with its own hand-written
-    /// query maps through this single stored instance: capturing the primary-constructor parameter as well
-    /// would store the same mapper twice on the type (CS9107).
+    /// Protected, so a subclass with its own query maps through this one instance, since also capturing the primary-constructor parameter would store the mapper twice (CS9107).
     /// </summary>
     protected IStorageMapper<TModel, TEntity> Mapper { get; } = mapper;
 
     /// <summary>
-    /// Whether <paramref name="id"/> could name a document in this collection at all.
-    /// Every entity reaching this base maps its <c>_id</c> as an ObjectId - the four collections with genuine
-    /// string ids (lease, background_job, app_setting, provider_quota) are owner-less and use purpose-built
-    /// repositories, so they never come through here. The driver therefore serializes the string in an id
-    /// filter through <c>ObjectId.Parse</c> and throws <see cref="FormatException"/> on anything that isn't
-    /// 24 hex digits (confirmed against a real MongoDB), which the API surfaced as a 500 and the Blazor app
-    /// as its generic error page.
-    /// A hand-edited, truncated or stale id in a URL is ordinary client input, not a server fault: it names
-    /// no document, exactly like a well-formed id that was never minted, and every caller below already has
-    /// a truthful answer for that case (a 404, and the detail page's own "not found" state).
+    /// Whether <paramref name="id"/> could name a document of this collection at all.
+    /// Every entity here stores its <c>_id</c> as an ObjectId, since the collections with string ids use purpose-built repositories.
+    /// The driver parses the id of a filter through <c>ObjectId.Parse</c> and throws <see cref="FormatException"/> on anything but 24 hex digits, which would become a 500.
+    /// A truncated or edited id in a URL is client input naming no document, like an id never minted, so every caller answers it as not found.
     /// </summary>
     private static bool CanNameADocument(string id) => ObjectId.TryParse(id, out _);
 
@@ -95,37 +87,31 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
     }
 
     /// <summary>
-    /// Field behind the <see cref="ListSort.Title"/> sort key;
-    /// null (the default) means this collection doesn't offer that sort and the key falls back to newest-first.
-    /// An expression rather than an element-name string, so the BSON name mapping stays with the entity class.
+    /// The field behind the <see cref="ListSort.Title"/> sort key, or null when the collection does not offer it and the key falls back to newest first.
+    /// An expression rather than an element name, so the BSON name mapping stays with the entity class.
     /// </summary>
     protected virtual Expression<Func<TEntity, object>>? SortTitleField => null;
 
     /// <summary>
-    /// Field behind the <see cref="ListSort.Rating"/> sort key (descending, unrated items last) - same contract as <see cref="SortTitleField"/>.
+    /// The field behind the <see cref="ListSort.Rating"/> sort key (descending, unrated last), like <see cref="SortTitleField"/>.
     /// </summary>
     protected virtual Expression<Func<TEntity, object>>? SortRatingField => null;
 
     /// <summary>
-    /// Field behind the <see cref="ListSort.ReferenceRating"/> sort key (descending, items with no linked
-    /// reference rating last) - the denormalized copy on the tenant entity, so this stays a plain indexed
-    /// sort with no join. Same contract as <see cref="SortTitleField"/>.
+    /// The field behind the <see cref="ListSort.ReferenceRating"/> sort key (descending, unrated last), like <see cref="SortTitleField"/>.
+    /// It is the copy on the tenant entity, so the sort stays a plain indexed one with no join.
     /// </summary>
     protected virtual Expression<Func<TEntity, object>>? SortReferenceRatingField => null;
 
     /// <summary>
-    /// Field behind <see cref="ListSort.LastSeen"/>/<see cref="ListSort.LastRead"/> (descending, unset
-    /// items last) - same contract as <see cref="SortTitleField"/>. A single hook covers both keys: a
-    /// collection only ever advertises one of the two via its own list page's UI (Movie: last seen, Book:
-    /// last read), so both keys resolving to the same field is harmless.
+    /// The field behind <see cref="ListSort.LastSeen"/> and <see cref="ListSort.LastRead"/> (descending, unset last), like <see cref="SortTitleField"/>.
+    /// One hook covers both keys, since a list page offers only one of them (last seen for movies, last read for books).
     /// </summary>
     protected virtual Expression<Func<TEntity, object>>? SortSecondaryDateField => null;
 
     /// <summary>
-    /// "_id" descending doubles as the "recently added" default (ObjectIds embed their creation timestamp, so no separate created-at field is needed)
-    /// and as the deterministic tie-break appended to every other sort. Virtual so a collection whose extra
-    /// sort key doesn't fit the single-scalar-field hooks above (e.g. VideoGame's "last completed", the max
-    /// of an array field) can add its own case - see VideoGameRepository.GetSort.
+    /// "_id" descending is the "recently added" default, since an ObjectId embeds its creation time, and the deterministic tie-break of every other sort.
+    /// Virtual, so a sort key that is not a single field (video games' "last completed", the maximum of an array field) adds its own case (see <c>VideoGameRepository.GetSort</c>).
     /// </summary>
     protected virtual SortDefinition<TEntity> GetSort(string? sort)
     {
@@ -176,19 +162,13 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
     }
 
     /// <summary>
-    /// Deletes every owner-scoped document whose parent-id field matches - the single implementation behind
-    /// each child repository's cascade method (CarHistory/HouseHistory/HealthRecord/Episode). Child entities
-    /// are separate top-level collections referencing their parent by id (see docs/data-model.md's "Child entities"
-    /// section), so deleting the parent alone would leave them in MongoDB forever, only ever reachable via a
-    /// parent id that no longer exists.
-    /// The parent field is an expression rather than an element-name string, so the BSON name mapping stays
-    /// with the entity class - same contract as <see cref="SortTitleField"/>.
+    /// Deletes every owner-scoped document whose parent id matches, behind each child repository's cascade.
+    /// A child references its parent by id (see docs/data-model.md's "Child entities" section), so deleting the parent alone would orphan it forever.
+    /// The parent field is an expression, like <see cref="SortTitleField"/>.
     /// </summary>
     protected async Task<long> DeleteAllByParentAsync(Expression<Func<TEntity, string>> parentIdField, string parentId, string ownerId, CancellationToken cancellationToken = default)
     {
-        // A parent id is an ObjectId here too, and the controller's OnDeletedAsync cascade hook runs on the
-        // raw route id whether or not the parent delete matched anything - so an unparseable id reaches this
-        // far and would throw where the delete above already answered "nothing to remove".
+        // the cascade runs on the raw route id whether or not the parent delete matched, so an unparseable id reaches here and must answer "nothing to remove" rather than throw
         if (!CanNameADocument(parentId))
         {
             return 0;
@@ -208,18 +188,13 @@ public abstract class MongoDbRepositoryBase<TModel, TEntity>(
     }
 
     /// <summary>
-    /// Every distinct non-empty value this owner has used in one string field, sorted case-insensitively -
-    /// the single implementation behind each "suggest what has already been typed" endpoint
-    /// (<c>GearController.GetCategories</c>, <c>CarHistoryController.GetFuelCategories</c>).
-    /// The field is an expression rather than an element-name string, so the BSON name mapping stays with
-    /// the entity class - same contract as <see cref="SortTitleField"/> and
-    /// <see cref="DeleteAllByParentAsync"/>, and the only form that works for a nested field.
+    /// Every distinct non-empty value this owner used in one string field, sorted case-insensitively, behind each suggestion endpoint (<c>GearController.GetCategories</c>, <c>CarHistoryController.GetFuelCategories</c>).
+    /// The field is an expression like <see cref="SortTitleField"/>, the only form that works for a nested field.
     /// </summary>
     protected async Task<IReadOnlyList<string>> FindDistinctValuesAsync(Expression<Func<TEntity, string?>> field, string ownerId, CancellationToken cancellationToken = default)
     {
         var builder = Builders<TEntity>.Filter;
-        // "has a value" is the negation of TvShowRepository/MovieRepository's UnresolvedFilter shape
-        // (matches null OR empty string) - both generations of "unset" must be excluded here too.
+        // excludes null, missing and empty, the inverse of UnresolvedFilter
         var filter = builder.Eq(f => f.OwnerId, ownerId) & builder.Ne(field, null) & builder.Ne(field, string.Empty);
         var cursor = await GetCollection().DistinctAsync(field, filter, cancellationToken: cancellationToken);
         var values = await cursor.ToListAsync(cancellationToken);

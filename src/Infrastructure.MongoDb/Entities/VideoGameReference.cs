@@ -6,8 +6,8 @@ using MongoDB.Bson.Serialization.Attributes;
 namespace Keeptrack.Infrastructure.MongoDb.Entities;
 
 /// <summary>
-/// Shared, owner-less video game metadata collection (<c>videogame_reference</c>). See
-/// <see cref="TvShowReference"/> for why this has no <c>owner_id</c>.
+/// Shared video game metadata (<c>videogame_reference</c>).
+/// See <see cref="TvShowReference"/> for why it has no <c>owner_id</c>.
 /// </summary>
 public class VideoGameReference : IHasMatchedAliases
 {
@@ -34,13 +34,13 @@ public class VideoGameReference : IHasMatchedAliases
 
     public List<string> Genres { get; set; } = [];
 
-    /// <summary>Aggregate ratings keyed by source name ("rawg", "metacritic") - see <see cref="ReferenceRating"/>.</summary>
+    /// <summary>Aggregate ratings keyed by source ("igdb", "igdbcritic", "rawg", "metacritic"), see <see cref="ReferenceRating"/>.</summary>
     public Dictionary<string, ReferenceRating> Ratings { get; set; } = [];
 
     [BsonElement("image_url")]
     public string? ImageUrl { get; set; }
 
-    /// <summary>Last provider-id adoption attempt per provider - see <see cref="Keeptrack.Domain.Models.VideoGameReferenceModel.ProviderAdoptionCheckedAt"/>.</summary>
+    /// <summary>Last provider id adoption attempt per provider (see <see cref="Keeptrack.Domain.Models.VideoGameReferenceModel.ProviderAdoptionCheckedAt"/>).</summary>
     [BsonElement("provider_adoption_checked_at")]
     public Dictionary<string, DateTime> ProviderAdoptionCheckedAt { get; set; } = [];
 

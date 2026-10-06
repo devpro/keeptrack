@@ -4,31 +4,29 @@ using System.Threading.Tasks;
 namespace Keeptrack.Domain.Repositories;
 
 /// <summary>
-/// Global, owner-less application settings an admin can change at runtime, all kept in one shared
-/// <c>app_setting</c> collection (a single document) rather than a collection per setting - a new setting
-/// adds a field/accessor here, never a new collection. Purpose-built like <see cref="ILeaseRepository"/>,
-/// so it doesn't extend the owner-scoped <see cref="IDataRepository{TModel}"/>.
+/// Global settings an admin changes at runtime, all in the single document of <c>app_setting</c>.
+/// A new setting adds a field and an accessor here, never a new collection.
+/// Purpose-built like <see cref="ILeaseRepository"/>, so it does not extend the owner-scoped <see cref="IDataRepository{TModel}"/>.
 /// </summary>
 public interface IAppSettingRepository
 {
     /// <summary>
-    /// The admin's per-domain primary rating-source overrides, keyed by domain (empty when none has been
-    /// set) - which provider score is denormalized onto tenant items as the pill/sort value. A domain with
-    /// no entry falls back to its code default (see <c>RatingSourceCatalog</c>).
+    /// The admin's primary rating source per domain, empty when none is set: the score copied onto tenant items for display and sorting.
+    /// A domain with no entry uses its default (see <c>RatingSourceCatalog</c>).
     /// </summary>
     Task<IReadOnlyDictionary<string, string>> GetReferenceRatingSourcesAsync();
 
     /// <summary>
-    /// Sets (or replaces) the primary rating source for one domain. Upserts the single settings document.
+    /// Sets the primary rating source for one domain, upserting the settings document.
     /// </summary>
     Task SetReferenceRatingSourceAsync(string domainKey, string source);
 
     /// <summary>
-    /// Whether the Explore discovery feature should rank/show TMDB ratings for movies and TV shows even when
-    /// IMDb is the selected primary source (avoiding a per-title OMDb lookup). Defaults to false.
+    /// Whether Explore shows TMDB ratings for movies and TV shows even when IMDb is the primary source, which avoids an OMDb lookup per title.
+    /// False by default.
     /// </summary>
     Task<bool> GetExploreUseTmdbAsync();
 
-    /// <summary>Sets the Explore "use TMDB ranking" flag. Upserts the single settings document.</summary>
+    /// <summary>Sets the Explore "use TMDB ratings" flag, upserting the settings document.</summary>
     Task SetExploreUseTmdbAsync(bool useTmdb);
 }

@@ -6,8 +6,8 @@ using MongoDB.Bson.Serialization.Attributes;
 namespace Keeptrack.Infrastructure.MongoDb.Entities;
 
 /// <summary>
-/// Shared, owner-less book metadata collection (<c>book_reference</c>). See
-/// <see cref="TvShowReference"/> for why this has no <c>owner_id</c>.
+/// Shared book metadata (<c>book_reference</c>).
+/// See <see cref="TvShowReference"/> for why it has no <c>owner_id</c>.
 /// </summary>
 public class BookReference : IHasMatchedAliases
 {
@@ -35,7 +35,7 @@ public class BookReference : IHasMatchedAliases
 
     public List<string> Genres { get; set; } = [];
 
-    /// <summary>Aggregate ratings keyed by provider key ("googlebooks"/"openlibrary") - see <see cref="ReferenceRating"/>.</summary>
+    /// <summary>Aggregate ratings keyed by provider ("googlebooks", "openlibrary"), see <see cref="ReferenceRating"/>.</summary>
     public Dictionary<string, ReferenceRating> Ratings { get; set; } = [];
 
     [BsonElement("image_url")]

@@ -1,9 +1,8 @@
 namespace Keeptrack.BlazorApp.Components.Shared;
 
 /// <summary>
-/// Shared "check for reference match" result message for every reference-linked detail page's refresh-reference
-/// button (Movie/TvShow/Book/Album/VideoGame) - keeps the message/style rule in one place instead of duplicating
-/// the same four-way outcome across five detail pages.
+/// The "check for reference match" result message for every reference-linked detail page (movie, TV show, book, album, video game).
+/// The four-way outcome and its style live here once rather than in five detail pages.
 /// </summary>
 public static class ReferenceRefreshMessage
 {

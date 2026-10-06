@@ -5,8 +5,8 @@ using Keeptrack.Domain.Models;
 namespace Keeptrack.Domain.Repositories;
 
 /// <summary>
-/// Repository for the shared, owner-less person/actor reference collection. See
-/// <see cref="ITvShowReferenceRepository"/> for why this doesn't extend <see cref="IDataRepository{TModel}"/>.
+/// Repository for the shared person reference collection (actors, authors, artists).
+/// See <see cref="ITvShowReferenceRepository"/> for why it does not extend <see cref="IDataRepository{TModel}"/>.
 /// </summary>
 public interface IPersonReferenceRepository
 {
@@ -17,8 +17,8 @@ public interface IPersonReferenceRepository
     Task<PersonReferenceModel> UpsertAsync(PersonReferenceModel model);
 
     /// <summary>
-    /// Every reference document, for admin export. Bounded, shared metadata (not per-tenant), so a
-    /// full unpaged read is fine.
+    /// Every reference document, for the admin export.
+    /// An unpaged read is fine, since this shared metadata is bounded and not per tenant.
     /// </summary>
     Task<List<PersonReferenceModel>> FindAllAsync();
 }

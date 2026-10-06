@@ -6,7 +6,7 @@ namespace Keeptrack.WebApi.Mappers;
 [Mapper(EnumMappingStrategy = EnumMappingStrategy.ByName)]
 public partial class HealthRecordDtoMapper : IDtoMapper<HealthRecordDto, HealthRecordModel>
 {
-    // see BookDtoMapper.ToModel for why MapValue (not MapperIgnoreTarget) is required here
+    // MapValue rather than MapperIgnoreTarget, since OwnerId is required (see BookDtoMapper)
     [MapValue(nameof(HealthRecordModel.OwnerId), "")]
     public partial HealthRecordModel ToModel(HealthRecordDto dto);
 

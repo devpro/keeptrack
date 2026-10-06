@@ -10,14 +10,9 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Exercises <see cref="ITvShowRepository.SetReferenceLinkAsync"/> and
-/// <see cref="ITvShowRepository.FindDistinctUnresolvedTitleYearsAsync"/> directly against real MongoDB -
-/// these are new, hand-written Mongo queries (case-insensitive regex match, a "don't overwrite an
-/// existing link" guard, a $group aggregation), exactly the kind of per-type override logic that has
-/// historically hidden real bugs in this codebase (see the CarHistory $text-vs-$eq finding in
-/// docs/data-model.md). Goes through the repository resolved from the test host's DI
-/// container rather than HTTP, since the cross-tenant propagation this proves has nothing to do with
-/// the calling user's own identity/role.
+/// Exercises <see cref="ITvShowRepository.SetReferenceLinkAsync"/> and <see cref="ITvShowRepository.FindDistinctUnresolvedTitleYearsAsync"/> against real MongoDB.
+/// They are hand-written queries (a case-insensitive regex, a "don't overwrite an existing link" guard, a $group aggregation), the per-type logic that hides bugs (see docs/data-model.md).
+/// Goes through the repository resolved from the test host's DI container rather than HTTP, since the cross-tenant propagation this proves has nothing to do with the calling user's own identity/role.
 /// </summary>
 public class TvShowReferenceLinkingTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)
 {
@@ -50,9 +45,7 @@ public class TvShowReferenceLinkingTest(KestrelWebAppFactory<Program> factory) :
         // the tenant's own title is replaced with the reference's canonical name, not just the id
         tenantAResult.Title.Should().Be(canonicalTitle);
         (await repository.FindOneAsync(tenantBShow.Id!, "reference-link-tenant-b", TestContext.Current.CancellationToken))!.ReferenceId.Should().Be("reference-123");
-        // An unset ReferenceId can round-trip as either "" (documents written before the
-        // AutoMapper -> Mapperly migration) or null (new writes) - BeNullOrEmpty is the correct
-        // "still unresolved" check that covers both generations.
+        // An unset ReferenceId reads as "" (documents written before Mapperly) or null, so BeNullOrEmpty is the "still unresolved" check covering both.
         (await repository.FindOneAsync(differentYearShow.Id!, "reference-link-tenant-a", TestContext.Current.CancellationToken))!.ReferenceId.Should().BeNullOrEmpty();
         // a show that already has a link is never clobbered by a later automatic/admin resolution
         var alreadyLinkedResult = (await repository.FindOneAsync(alreadyLinkedShow.Id!, "reference-link-tenant-c", TestContext.Current.CancellationToken))!;

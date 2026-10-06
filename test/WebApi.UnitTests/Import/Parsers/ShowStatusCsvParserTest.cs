@@ -20,8 +20,7 @@ public class ShowStatusCsvParserTest
         var result = ShowStatusCsvParser.Parse(CsvTestHelper.ToStream(csv));
 
         result.Should().HaveCount(2);
-        // "for_later" has no Keeptrack counterpart for shows, so it's not imported - but the parser must
-        // still read the raw status faithfully (the column also carries "favorite", which is imported).
+        // "for_later" has no Keeptrack counterpart for shows and isn't imported, but the parser reads the raw status faithfully, since the column also carries "favorite", which is imported.
         result.Single(r => r.TvShowId == "70626").Status.Should().Be("for_later");
         result.Single(r => r.TvShowId == "70761").Status.Should().Be(ShowStatusCsvParser.FavoriteStatus);
     }

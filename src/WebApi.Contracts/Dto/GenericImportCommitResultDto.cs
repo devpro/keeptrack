@@ -3,8 +3,7 @@ using System.Collections.Generic;
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// Outcome of committing a selected set of generic-import rows, broken down per trackable item type - only the
-/// types actually present in the commit request end up non-zero - plus the reconciling per-row totals.
+/// Outcome of committing selected generic import rows, per trackable type, only the types present in the request being non-zero, plus per-row totals.
 /// </summary>
 public class GenericImportCommitResultDto
 {
@@ -33,14 +32,12 @@ public class GenericImportCommitResultDto
     public int CollectiblesSkipped { get; set; }
 
     /// <summary>
-    /// The true per-row count of rows that got an owned copy added, whether onto a brand-new item or an
-    /// existing/already-created-this-batch one. The per-type Created/MergedInto counts are per distinct item,
-    /// so rows sharing a title consolidate and make them add up to less than the selected-row count without any
-    /// loss. <c>RowsImported</c> + the sum of every type's <c>*Skipped</c> always equals the number of rows
-    /// submitted - the reconciling total to show the user so they can trust nothing was silently dropped.
+    /// The rows that got an owned copy added, on a new item or an existing one.
+    /// The per-type created and merged counts are per distinct item, so rows sharing a title make them add up to less than the rows, without any loss.
+    /// <c>RowsImported</c> plus every type's <c>*Skipped</c> always equals the rows submitted, which shows the user nothing was silently dropped.
     /// </summary>
     public int RowsImported { get; set; }
 
-    /// <summary>The title of each row skipped as an already-imported duplicate, so the user can see exactly which.</summary>
+    /// <summary>The title of each row skipped as a duplicate of an earlier import.</summary>
     public List<string> SkippedRowTitles { get; set; } = [];
 }

@@ -107,7 +107,7 @@ public class TvShowStatusReconciliationServiceTest
     [Fact]
     public async Task LeavesShowAlone_WhenItHasNoRecordedEpisodes()
     {
-        // no last-watched episode to compare against - can't tell whether a newer one exists, so don't guess.
+        // no last-watched episode to compare, so whether a newer one exists is unknown, and nothing is guessed
         Setup(
             [FinishedShow("show-1")],
             [],

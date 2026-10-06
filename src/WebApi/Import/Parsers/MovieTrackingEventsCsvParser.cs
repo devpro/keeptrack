@@ -10,20 +10,14 @@ public enum MovieTrackingEventType
 }
 
 /// <summary>
-/// A single movie event. <paramref name="Uuid"/> is TV Time's own per-movie tracking id: every event
-/// type (follow/watch/towatch) for the same movie shares one uuid, and two different movies that happen
-/// to share a title get distinct uuids - so it is a stable, title-independent key for the movie.
+/// A single movie event.
+/// <paramref name="Uuid"/> is TV Time's tracking id per movie: every event (follow, watch, towatch) of one movie shares it, and two movies sharing a title differ, so it is a stable key independent of the title.
 /// </summary>
 public sealed record MovieTrackingEventRecord(string MovieName, MovieTrackingEventType EventType, DateTime CreatedAt, string? Uuid);
 
 /// <summary>
-/// Parses the movie-related rows of tracking-prod-records.csv (tracking-prod-records-v2.csv, TV Time's
-/// newer-generation log, carries no movie data at all - confirmed against a real export). Movies have
-/// no dedicated "watched"/"want to watch" file the way shows do (followed_tv_show.csv,
-/// user_show_special_status.csv); this generic event log turns out to be the only source for both, via
-/// entity_type "movie" rows of type "watch"/"towatch"/"follow" - each individually dated. Previously
-/// assumed unrecoverable ("import movies without a watch date"); found by grepping the real export for
-/// a movie-watch signal instead of accepting that as final, the same way the episode-history gaps were found.
+/// Parses the movie rows of tracking-prod-records.csv, since the newer tracking-prod-records-v2.csv carries no movie data.
+/// Movies have no watched or want-to-watch file as shows do, and this event log is the only source of both: dated entity_type "movie" rows of type "watch", "towatch" or "follow".
 /// </summary>
 public static class MovieTrackingEventsCsvParser
 {

@@ -13,12 +13,7 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Real-MongoDB coverage for the reference-rating feature's repository behaviors, which mocks can't prove:
-/// the <see cref="ListSort.ReferenceRating"/> sort ordering (with unrated items last), the two
-/// denormalized-copy propagation paths (<c>SetReferenceLinkAsync</c> on link, <c>SetReferenceRatingAsync</c>
-/// on refresh and the batched <c>SetReferenceRatingsAsync</c> the admin recompute writes through), the
-/// projected, id-cursor-paged <c>FindRatingsAsync</c> that feeds it, and that the reference document's
-/// <c>Ratings</c>/<c>RatingsCheckedAt</c> dictionaries round-trip through BSON.
+/// Real-MongoDB coverage for the reference-rating feature's repository behaviors, which mocks can't prove: the <see cref="ListSort.ReferenceRating"/> sort ordering (with unrated items last), the two denormalized-copy propagation paths (<c>SetReferenceLinkAsync</c> on link, <c>SetReferenceRatingAsync</c> on refresh and the batched <c>SetReferenceRatingsAsync</c> the admin recompute writes through), the projected, id-cursor-paged <c>FindRatingsAsync</c> that feeds it, and that the reference document's <c>Ratings</c>/<c>RatingsCheckedAt</c> dictionaries round-trip through BSON.
 /// Each test uses its own random owner id so parallel runs can't interfere.
 /// </summary>
 public class MovieReferenceRatingRepositoryTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)
@@ -45,9 +40,7 @@ public class MovieReferenceRatingRepositoryTest(KestrelWebAppFactory<Program> fa
         using var scope = Factory.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IMovieRepository>();
         var ownerId = $"refrating-link-{Guid.NewGuid():N}";
-        // SetReferenceLinkAsync matches by (title, year) across every owner by design, so a fixed title
-        // would also rewrite anyone else's movie of that name in the shared test database - the one place a
-        // random owner id isn't enough to isolate this test.
+        // SetReferenceLinkAsync matches by (title, year) across every owner, so a fixed title would rewrite anyone's movie of that name in the shared test database, where a random owner id alone can't isolate the test.
         var title = $"The Matrix {Guid.NewGuid():N}";
 
         var unlinked = await CreateMovieAsync(repository, NewMovie(ownerId, title, year: 1999));
@@ -72,8 +65,7 @@ public class MovieReferenceRatingRepositoryTest(KestrelWebAppFactory<Program> fa
         using var scope = Factory.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IMovieRepository>();
         var ownerId = $"refrating-refresh-{Guid.NewGuid():N}";
-        // unique per run: SetReferenceRatingAsync propagates by reference id across every owner, so a fixed
-        // literal would also hit leftovers from an earlier run and break the exact modified-count assertion.
+        // unique per run: SetReferenceRatingAsync propagates by reference id across every owner, so a fixed literal would also hit leftovers from an earlier run and break the exact modified-count assertion.
         var referenceId = $"reference-{Guid.NewGuid():N}";
 
         var linkedA = await CreateMovieAsync(repository, NewMovie(ownerId, "Alien", referenceId: referenceId, referenceRating: 7.0));
@@ -135,9 +127,8 @@ public class MovieReferenceRatingRepositoryTest(KestrelWebAppFactory<Program> fa
         var ownerId = $"refsource-count-{Guid.NewGuid():N}";
         var referenceId = $"reference-{Guid.NewGuid():N}";
 
-        // three shapes that must all be distinguished: on the selected source, on another one, and one that
-        // predates the stamp entirely - the last is the one a $ne filter can silently miss, since a missing
-        // field is not "not equal" in every query language
+        // Three shapes to tell apart: on the selected source, on another, and one predating the stamp.
+        // A $ne filter can silently miss the last, since a missing field is not "not equal" in every query language.
         var onTmdb = await CreateMovieAsync(repository, NewMovie(ownerId, "A", referenceId: referenceId, referenceRating: 7.0));
         await repository.SetReferenceRatingAsync(referenceId, 7.0, 10, "tmdb");
         var onImdb = await CreateMovieAsync(repository, NewMovie(ownerId, "B", referenceId: $"other-{Guid.NewGuid():N}", referenceRating: 8.0));
@@ -150,8 +141,7 @@ public class MovieReferenceRatingRepositoryTest(KestrelWebAppFactory<Program> fa
         await repository.SetReferenceRatingAsync(onImdb.ReferenceId!, 8.0, 10, "tmdb");
         await repository.SetReferenceRatingAsync(neverStamped.ReferenceId!, 6.0, 10, "tmdb");
 
-        // once everything this test created is on the selected source, none of it is counted any more - which
-        // is what lets the admin recompute report "nothing to do" and skip its whole pass
+        // once everything this test created is on the selected source, none of it is counted, which lets the admin recompute report "nothing to do" and skip its pass
         (await repository.CountLinkedOnOtherRatingSourceAsync("tmdb")).Should().Be(before - 2);
         (await repository.FindOneAsync(onTmdb.Id!, ownerId, TestContext.Current.CancellationToken))!.ReferenceRatingSource.Should().Be("tmdb");
     }
@@ -162,8 +152,7 @@ public class MovieReferenceRatingRepositoryTest(KestrelWebAppFactory<Program> fa
         using var scope = Factory.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IMovieRepository>();
         var ownerId = $"refrating-bulk-{Guid.NewGuid():N}";
-        // unique per run for the same reason as SetReferenceRatingAsync's test: propagation is by reference
-        // id across every owner, so a fixed literal would also catch leftovers and break the exact counts
+        // unique per run for the same reason as SetReferenceRatingAsync's test: propagation is by reference id across every owner, so a fixed literal would also catch leftovers and break the exact counts
         var firstReferenceId = $"reference-{Guid.NewGuid():N}";
         var secondReferenceId = $"reference-{Guid.NewGuid():N}";
         var untouchedReferenceId = $"reference-{Guid.NewGuid():N}";
@@ -179,8 +168,7 @@ public class MovieReferenceRatingRepositoryTest(KestrelWebAppFactory<Program> fa
             (secondReferenceId, null, null, "imdb")
         ]);
 
-        // one bulk write, but each entry still re-stamps *all* of its reference's linked items - which is what
-        // keeps a recompute's cost flat as the number of users grows
+        // one bulk write, each entry re-stamping all of its reference's linked items, which keeps a recompute's cost flat as users grow
         modified.Should().Be(3);
         (await repository.FindOneAsync(firstA.Id!, ownerId, TestContext.Current.CancellationToken))!.ReferenceRating.Should().Be(8.4);
         (await repository.FindOneAsync(firstB.Id!, ownerId, TestContext.Current.CancellationToken))!.ReferenceRating.Should().Be(8.4);
@@ -203,9 +191,8 @@ public class MovieReferenceRatingRepositoryTest(KestrelWebAppFactory<Program> fa
         var second = await CreateReferenceAsync(referenceRepository, tmdb: 7.2);
         var third = await CreateReferenceAsync(referenceRepository, tmdb: 7.3);
 
-        // ObjectIds are monotonic, so these three are the tail of the collection and the cursor should walk
-        // straight from the first to the other two. Assertions stay relative: this is the shared reference
-        // collection, and other documents (including other tests') legitimately share it.
+        // ObjectIds are monotonic, so these three are the tail of the collection and the cursor should walk straight from the first to the other two.
+        // Assertions stay relative: this is the shared reference collection, and other documents (including other tests') legitimately share it.
         var page = await referenceRepository.FindRatingsAsync(first.Id, 100);
 
         page.Select(r => r.Id).Should().BeInAscendingOrder("the cursor relies on _id order to page without gaps or repeats");
@@ -238,9 +225,8 @@ public class MovieReferenceRatingRepositoryTest(KestrelWebAppFactory<Program> fa
         TrackCleanup(() => referenceRepository.DeleteAsync(saved.Id!));
 
         var reloaded = await referenceRepository.FindByIdAsync(saved.Id!);
-        // BSON dates are millisecond-precision, so the stamp comes back rounded - close enough for a 90-day
-        // window, but it must come back as UTC: the re-attempt check subtracts it from DateTime.UtcNow, and a
-        // value read back as Local or Unspecified would silently shift that window by the host's offset.
+        // BSON dates are millisecond-precision, so the stamp comes back rounded, close enough for a 90-day window, but it must come back as UTC.
+        // The re-attempt check subtracts it from DateTime.UtcNow, and a Local or Unspecified value would silently shift that window by the host's offset.
         reloaded!.RatingsCheckedAt["imdb"].Should().BeCloseTo(attemptedAt, TimeSpan.FromMilliseconds(1));
         reloaded.RatingsCheckedAt["imdb"].Kind.Should().Be(DateTimeKind.Utc);
     }

@@ -24,9 +24,7 @@ public class CarHistoryRepository(IMongoDatabase mongoDatabase, ILogger<CarHisto
         => FindDistinctValuesAsync(f => f.Fuel!.Category, ownerId, cancellationToken);
 
     /// <summary>
-    /// Not owner-scoped, unlike everything else here: <c>car_station</c> is shared, so "is this station
-    /// still in use" has to mean "by anyone", or an admin would delete a station out from under another
-    /// tenant's entries.
+    /// Not owner-scoped, unlike the rest: <c>car_station</c> is shared, so "in use" means by anyone, or an admin would delete a station under another tenant's entries.
     /// </summary>
     public Task<long> CountUsingStationAsync(string stationId)
     {

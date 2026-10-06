@@ -3,9 +3,8 @@ using System.Collections.Generic;
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// What a reference-data zip import (POST /api/reference-data/import) did, per collection. Documents are
-/// matched by provider id (TMDB, IGDB, Google Books...), never by the <c>_id</c> they were exported with, so
-/// "updated" means the target database already knew that work - under its own id, which the import keeps.
+/// What a reference-data zip import (POST /api/reference-data/import) did, per collection.
+/// Documents match by provider id (TMDB, IGDB, Google Books), never by their exported <c>_id</c>, so "updated" means the target already knew the work under its own id, which the import keeps.
 /// </summary>
 public class ReferenceDataImportResultDto
 {
@@ -22,18 +21,15 @@ public class ReferenceDataImportResultDto
     public required ReferenceDataImportCountsDto Albums { get; set; }
 
     /// <summary>
-    /// Provider ids ("provider:id") the import could not carry over because a different document in the target
-    /// database already claims them - two reference documents for one work, which only an admin can merge.
-    /// Empty on a normal import; anything listed here is worth acting on, not a routine warning.
+    /// Provider ids ("provider:id") the import could not carry over because another document of the target claims them: two documents for one work, which only an admin can merge.
+    /// Empty on a normal import, so anything listed is worth acting on.
     /// </summary>
     public required List<string> SkippedExternalIds { get; set; }
 
     /// <summary>
-    /// Works the import created a *new* document for although the target already held one under a different
-    /// provider's id - reported as <c>"collection:Title (Year)"</c>. Not an error and nothing was lost, but
-    /// each entry means this database now holds two reference documents for one work, which the provider
-    /// reconciliation screen can merge. See <c>ReferenceDataImportSummary.PossibleDuplicates</c> for why an
-    /// import reports these rather than merging them itself.
+    /// Works the import created a new document for although the target held one under another provider's id, as <c>"collection:Title (Year)"</c>.
+    /// Nothing was lost, but each is two documents for one work, which the provider reconciliation screen can merge.
+    /// See <c>ReferenceDataImportSummary.PossibleDuplicates</c> for why the import does not merge them itself.
     /// </summary>
     public List<string> PossibleDuplicates { get; set; } = [];
 }

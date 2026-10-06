@@ -8,7 +8,7 @@ public partial class ReferenceEnrichmentService
 {
     private const string DiscogsProviderKey = "discogs";
 
-    /// <summary>Builds the reference <c>Ratings</c> map from Discogs' 0-5 community rating; a 0/absent value is omitted, not stored as a real zero.</summary>
+    /// <summary>The <c>Ratings</c> map from Discogs' 0 to 5 community rating, a zero or absent value being omitted.</summary>
     private static Dictionary<string, ReferenceRatingModel> BuildDiscogsRatings(double? rating, int? ratingCount)
     {
         var ratings = new Dictionary<string, ReferenceRatingModel>();
@@ -20,20 +20,15 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// User-triggered "check for reference match" for albums - see
-    /// <see cref="TryLinkExistingTvShowReferenceAsync"/> for the full rationale (this is the same local-only,
-    /// no-HTTP-call lookup, just against <c>album_reference</c>). A successful match also sets
-    /// <see cref="AlbumModel.Year"/>, <see cref="AlbumModel.Artist"/> and <see cref="AlbumModel.Genre"/> to the
-    /// reference's canonical values - the artist's name is joined from <see cref="PersonReferenceModel"/> via
-    /// <see cref="AlbumReferenceModel.ArtistReferenceId"/>, and Genre from <see cref="AlbumReferenceModel.Genres"/>
-    /// (joined into the same single free-text field the tenant can otherwise edit by hand).
+    /// The local half of "check for reference match" for albums (see <see cref="TryLinkExistingTvShowReferenceAsync"/>), against <c>album_reference</c>.
+    /// A match also sets <see cref="AlbumModel.Year"/>, <see cref="AlbumModel.Artist"/> (the name from <see cref="AlbumReferenceModel.ArtistReferenceId"/>'s person) and <see cref="AlbumModel.Genre"/> to the reference's values.
     /// </summary>
     public async Task<AlbumModel> TryLinkExistingAlbumReferenceAsync(AlbumModel model)
     {
         // see TryLinkExistingTvShowReferenceAsync's empty-title guard
         if (string.IsNullOrWhiteSpace(model.Title)) return model;
 
-        // one lookup, and no year in it: title plus artist is an album's whole identity, while the year names a pressing - see IAlbumReferenceRepository.FindByTitleCreatorAsync
+        // one lookup without a year, since title and artist are an album's identity and a year names a pressing
         var reference = await albumReferenceRepository.FindByTitleCreatorAsync(model.Title, model.Artist);
 
         if (reference is null)
@@ -68,9 +63,7 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// Admin-triggered "unlink" for albums - see <see cref="UnlinkTvShowReferenceAsync"/> for the full
-    /// rationale (clears the tenant's link and permanently deletes the shared reference document, rather
-    /// than only detaching this one item).
+    /// The admin's unlink for albums: clears the link and deletes the shared reference (see <see cref="UnlinkTvShowReferenceAsync"/>).
     /// </summary>
     public async Task<AlbumModel> UnlinkAlbumReferenceAsync(AlbumModel model)
     {
@@ -89,20 +82,13 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// Best-effort automatic match for albums - see <see cref="TryAutoResolveTvShowAsync"/>.
+    /// Best-effort automatic match for albums (see <see cref="TryAutoResolveTvShowAsync"/>).
     /// <para>
-    /// <b>An album is identified by its title and its artist</b>, the same shape as a book and for the same
-    /// reason: one release exists as many records, so the year is a tie-break rather than an identity, and an
-    /// artist is required instead (owner's rule). Several confirmed candidates are pressings of one release
-    /// rather than an ambiguity - measured live, Discogs returns two masters for "Thriller" by Michael
-    /// Jackson - so the best is linked rather than the set refused. See
-    /// <see cref="ReferenceMatchRules.ConfirmedCreatorMatches"/>.
+    /// <b>An album is its title and its artist</b>, like a book: one release exists as many records, so the year breaks ties, and an artist is required (owner's rule).
+    /// Several confirmed candidates are pressings of one release, Discogs returning two masters for "Thriller" by Michael Jackson, so the best is linked (see <see cref="ReferenceMatchRules.ConfirmedCreatorMatches"/>).
     /// </para>
     /// <para>
-    /// Waiting for exactly one row was wrong in both directions here too. It refused "Kid A" by Radiohead
-    /// (2000), which comes back beside "Kid A (The World Premier Broadcast)"; and
-    /// <c>q=Kid A&amp;artist=Radiohead&amp;year=2001</c> returns exactly one master which is <i>Amnesiac</i>,
-    /// saved from being linked only by the title re-check <c>DiscogsClient</c> already happened to apply.
+    /// Counting rows fails both ways here too: "Kid A" comes back beside "Kid A (The World Premier Broadcast)", and <c>q=Kid A&amp;artist=Radiohead&amp;year=2001</c> returns only <i>Amnesiac</i>.
     /// </para>
     /// </summary>
     public async Task TryAutoResolveAlbumAsync(AlbumModel item)
@@ -113,10 +99,10 @@ public partial class ReferenceEnrichmentService
 
         if (string.IsNullOrWhiteSpace(title)) return; // see TryAutoResolveTvShowAsync
 
-        // an artist is required for any automatic link here - see TryAutoResolveBookAsync, same rule
+        // an artist is required for any automatic link, as an author is for books
         if (string.IsNullOrWhiteSpace(artist)) return;
 
-        // a reference someone already confirmed for this (title, artist) is the answer - see TryLinkKnownReferenceAsync for why it is worth asking before Discogs is
+        // a reference confirmed for this (title, artist) is the answer, asked before Discogs (see TryLinkKnownReferenceAsync)
         if (await TryLinkKnownReferenceAsync(
                 () => albumReferenceRepository.FindByTitleCreatorAsync(title, artist),
                 reference => WriteAlbumLinkAsync(reference, ReferenceLinkTarget.Item(item.Id!, item.OwnerId))))
@@ -131,10 +117,7 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// What the detail page's "check for reference match" does for albums - see
-    /// <see cref="LinkTvShowReferenceAsync"/> for the rationale this shares, and
-    /// <see cref="LinkBookReferenceAsync"/> for the domain whose missing field is the creator rather than the
-    /// year, as it is here.
+    /// "Check for reference match" for albums (see <see cref="LinkTvShowReferenceAsync"/>), the missing field being the artist, as the author is for books (<see cref="LinkBookReferenceAsync"/>).
     /// </summary>
     public async Task<AlbumModel> LinkAlbumReferenceAsync(AlbumModel model)
     {
@@ -146,7 +129,7 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// Resolves a title+year to a specific Discogs master id, upserts the reference document, and links the records <paramref name="target"/> names, see <see cref="ResolveTvShowAsync"/>.
+    /// Resolves a title to a Discogs master id, upserts the reference and links the records <paramref name="target"/> names (see <see cref="ResolveTvShowAsync"/>).
     /// </summary>
     public async Task<AlbumReferenceModel> ResolveAlbumAsync(string title, int? year, string externalId, ReferenceLinkTarget target)
     {
@@ -155,8 +138,8 @@ public partial class ReferenceEnrichmentService
         var details = await discogsClient.GetAlbumDetailsAsync(externalId)
                       ?? throw new InvalidOperationException($"Discogs master {externalId} could not be fetched.");
 
-        // the Discogs id is checked first and is authoritative - see ResolveTvShowAsync.
-        // The fallback is the domain's own identity, title + artist, and takes no year: a document found under a different pressing's year is still this release, and minting a second one for it is the outcome to avoid.
+        // The Discogs id is checked first and is authoritative (see ResolveTvShowAsync).
+        // The fallback is the album's identity, title and artist, without a year, since a document under another pressing's year is still this release and must not be duplicated.
         var existing = await albumReferenceRepository.FindByExternalIdAsync(DiscogsProviderKey, externalId)
                        ?? (details.Artist is not null ? await albumReferenceRepository.FindByTitleCreatorAsync(title, details.Artist) : null);
         var externalIds = existing?.ExternalIds ?? new Dictionary<string, string>();
@@ -202,10 +185,8 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// Re-fetches an album reference from Discogs, always doing a full re-fetch when called (unlike TMDB,
-    /// Discogs exposes no per-id "has this changed" endpoint) - see <see cref="RefreshTvShowReferenceAsync"/>
-    /// for the shared staleness-cutoff mechanism this is invoked from. A no-op (returns unchanged) for a
-    /// reference with no Discogs id or that Discogs no longer has details for.
+    /// Fetches an album reference from Discogs again, always in full, since Discogs has no "changed since" endpoint (see <see cref="RefreshTvShowReferenceAsync"/>).
+    /// Unchanged for a reference without a Discogs id or one Discogs no longer holds.
     /// </summary>
     public async Task<(AlbumReferenceModel Model, bool DataChanged)> RefreshAlbumReferenceAsync(AlbumReferenceModel reference, CancellationToken cancellationToken = default)
     {

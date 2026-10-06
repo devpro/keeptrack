@@ -41,8 +41,7 @@ public class TvShow : IHasIdAndOwnerId, IHasReferenceRating
     [BsonElement("reference_rating_source")]
     public string? ReferenceRatingSource { get; set; }
 
-    // storage name kept as "status" deliberately - only the C# property was renamed to State (for parity
-    // with VideoGame.State), so existing documents need no migration.
+    // stored as "status": the C# name matches VideoGame.State, and the stored name needs no migration
     [BsonElement("status")]
     public TvShowStatus? State { get; set; }
 

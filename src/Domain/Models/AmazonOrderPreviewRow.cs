@@ -3,15 +3,14 @@ using System;
 namespace Keeptrack.Domain.Models;
 
 /// <summary>
-/// One line item parsed from an Amazon order-history export, before the user has reviewed/selected it.
-/// Transient - never persisted. Produced by <see cref="Services.AmazonOrderPreviewService"/> and mapped
-/// to <c>AmazonOrderPreviewRowDto</c> by <c>AmazonOrderPreviewRowDtoMapper</c> for the review UI.
+/// One line item parsed from an Amazon order-history export, before the user reviews and selects it.
+/// Never persisted.
+/// Produced by <see cref="Services.AmazonOrderPreviewService"/> and mapped to <c>AmazonOrderPreviewRowDto</c> for the review UI.
 /// </summary>
 public class AmazonOrderPreviewRow
 {
     /// <summary>
-    /// <c>"{OrderId}:{Asin}"</c> - stable within one export, used only to correlate a selected/edited row
-    /// back to this one at commit time. Never stored.
+    /// <c>"{OrderId}:{Asin}"</c>, stable within one export, used only to match a selected or edited row back to this one at commit time.
     /// </summary>
     public required string RowId { get; set; }
 
@@ -24,23 +23,22 @@ public class AmazonOrderPreviewRow
 
     public DateOnly? OrderDate { get; set; }
 
-    /// <summary>What was actually paid for this item - tax and any per-item discount already netted in.</summary>
+    /// <summary>What was actually paid for this item, tax and any per-item discount included.</summary>
     public decimal? Price { get; set; }
 
     public required string Vendor { get; set; }
 
-    /// <summary>Display only ("New", "Used"...) - not carried onto the created book.</summary>
+    /// <summary>Display only ("New", "Used"), not carried onto the created book.</summary>
     public string? Condition { get; set; }
 
-    /// <summary>True when <see cref="Asin"/> passes an ISBN-10 checksum - the review table's default filter.</summary>
+    /// <summary>True when <see cref="Asin"/> passes an ISBN-10 checksum, the review table's default filter.</summary>
     public bool LooksLikeBook { get; set; }
 
     /// <summary><see cref="Asin"/> again, only when <see cref="LooksLikeBook"/> is true.</summary>
     public string? SuggestedIsbn { get; set; }
 
     /// <summary>
-    /// True when an existing book already has an owned version referencing this order - see
-    /// <see cref="Services.AmazonBookImportMergeService.FormatOrderReference"/>.
+    /// True when an existing book already has an owned version referencing this order (see <see cref="Services.AmazonImportMergeService.FormatOrderReference"/>).
     /// </summary>
     public bool AlreadyImported { get; set; }
 }

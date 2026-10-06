@@ -6,20 +6,20 @@ using MongoDB.Driver;
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
 /// <summary>
-/// Every lookup against <c>matched_aliases</c>, written once for all five reference collections - they differ only in which of the alias's fields their domain's identity is made of, so each repository picks a method here rather than rebuilding the same <c>ElemMatch</c>.
-/// The same consolidation as <see cref="ReferenceRatingQueries"/>, over <see cref="IHasMatchedAliases"/>.
+/// Every lookup against <c>matched_aliases</c>, written once for the five reference collections over <see cref="IHasMatchedAliases"/>.
+/// The domains differ only in which alias fields make their identity, so each repository picks a method here.
 /// <para>
-/// Every condition goes inside one <c>ElemMatch</c> on purpose: the fields must hold on the <b>same</b> array element, or a title from one alias and a year from another would satisfy a query neither alias ever confirmed.
-/// It is also what keeps these queries indexed - see the compound <c>matched_aliases.*</c> indexes in <c>scripts/mongodb-create-index.js</c>, one per domain shaped like the lookup that domain actually issues.
+/// Every condition sits in one <c>ElemMatch</c>, since the fields must hold on the <b>same</b> element, or a title from one alias and a year from another would satisfy a query neither confirmed.
+/// It also keeps the queries indexed by the compound <c>matched_aliases.*</c> indexes in <c>scripts/mongodb-create-index.js</c>, one per domain lookup.
 /// </para>
 /// </summary>
 internal static class ReferenceAliasQueries
 {
     /// <summary>
-    /// The reference confirmed under this exact (title, year) - films, shows and games, whose identity is those two fields together.
+    /// The reference confirmed under this exact (title, year), the identity of films, shows and games.
     /// </summary>
     /// <remarks>
-    /// <c>FirstOrDefault</c>, not <see cref="FindSingleMatchAsync{TEntity}"/>: two documents sharing a title <i>and</i> a year are a duplicate to be merged, not an ambiguity to refuse - they are the same work, so either answers the question, and refusing would break linking until an admin merged them.
+    /// <c>FirstOrDefault</c>, not <see cref="FindSingleMatchAsync{TEntity}"/>: two documents sharing a title <i>and</i> a year are one work duplicated, so either answers, and refusing would break linking until an admin merged them.
     /// </remarks>
     internal static Task<TEntity?> FindByTitleYearAsync<TEntity>(IMongoCollection<TEntity> collection, string title, int? year)
         where TEntity : class, IHasMatchedAliases =>
@@ -28,7 +28,7 @@ internal static class ReferenceAliasQueries
             & Builders<ReferenceMatch>.Filter.Eq(m => m.Year, year)));
 
     /// <summary>
-    /// The reference confirmed under this (title, year, creator) - books, whose printings the year tells apart but whose title a creator is still needed to disambiguate.
+    /// The reference confirmed under this (title, year, creator): books, whose printings the year tells apart and whose title needs a creator.
     /// </summary>
     internal static Task<TEntity?> FindByTitleYearCreatorAsync<TEntity>(IMongoCollection<TEntity> collection, string title, int? year, string creator)
         where TEntity : class, IHasMatchedAliases =>
@@ -38,16 +38,14 @@ internal static class ReferenceAliasQueries
             & Builders<ReferenceMatch>.Filter.Eq(m => m.Creator, TitleNormalizer.Normalize(creator))));
 
     /// <summary>
-    /// The reference confirmed under this (title, creator), whatever year either side records - an album's whole identity, and a book's fallback when the tenant's year names an edition nobody has confirmed yet (which is the ordinary case: one work is reprinted under as many years as it has printings).
+    /// The reference confirmed under this (title, creator), whatever year either side records.
+    /// It is an album's whole identity, and a book's fallback when the tenant's year names an edition nobody confirmed, the ordinary case since a work is reprinted under many years.
     /// </summary>
+    /// <param name="collection"></param>
+    /// <param name="title"></param>
+    /// <param name="creator"></param>
     /// <param name="refuseAmbiguous">
-    /// Whether several matches mean "leave it unresolved" (books: two works can genuinely share a title and an author's name, and picking one would be a guess) or "either will do" (albums: a title plus an artist is the identity, so two matching documents are a duplicate to merge, exactly like <see cref="FindByTitleYearAsync{TEntity}"/>'s pair).
-    /// </param>
-    /// <param name="collection">
-    /// </param>
-    /// <param name="title">
-    /// </param>
-    /// <param name="creator">
+    /// Whether several matches leave the item unresolved (books, since two works can share a title and an author's name) or either will do (albums, where title and artist are the identity, so two matches are a duplicate to merge).
     /// </param>
     internal static Task<TEntity?> FindByTitleCreatorAsync<TEntity>(IMongoCollection<TEntity> collection, string title, string creator, bool refuseAmbiguous)
         where TEntity : class, IHasMatchedAliases
@@ -59,14 +57,16 @@ internal static class ReferenceAliasQueries
     }
 
     /// <summary>
-    /// The reference confirmed under this ISBN - books only, and the strongest key the domain has: an ISBN names one printing outright, so it is asked before any title text is and matches a tenant who recorded the work under a translated title nothing else would connect.
+    /// The reference confirmed under this ISBN, books only, the strongest key of the domain.
+    /// An ISBN names one printing outright, so it is asked before any title and matches a work recorded under a translated title.
     /// </summary>
     internal static Task<TEntity?> FindByIsbnAsync<TEntity>(IMongoCollection<TEntity> collection, string isbn)
         where TEntity : class, IHasMatchedAliases =>
         FindFirstAsync(collection, Alias<TEntity>(Builders<ReferenceMatch>.Filter.Eq(m => m.Isbn, isbn.Trim())));
 
     /// <summary>
-    /// The <b>single</b> reference carrying this title, or null when none does <b>or when several do</b> - the yearless fallback for films, shows and games, reached only when the caller has no year to identify the work with (see <c>ReferenceEnrichmentService.TryLinkExisting*ReferenceAsync</c>).
+    /// The <b>single</b> reference carrying this title, or null when none does <b>or several do</b>.
+    /// The fallback for films, shows and games when the caller has no year to identify the work.
     /// </summary>
     internal static Task<TEntity?> FindByTitleAsync<TEntity>(IMongoCollection<TEntity> collection, string title)
         where TEntity : class, IHasMatchedAliases =>
@@ -81,19 +81,17 @@ internal static class ReferenceAliasQueries
         await collection.Find(filter).FirstOrDefaultAsync();
 
     /// <summary>
-    /// The single document matching <paramref name="filter"/>, or null when none matches <b>or when several do</b>.
+    /// The single document matching <paramref name="filter"/>, or null when none <b>or several</b> match.
     /// <para>
-    /// It used to be a plain <c>FirstOrDefaultAsync</c> over an unsorted, unbounded match, so where several reference documents share a title it returned whichever one the database happened to hand back first - a guess dressed up as an answer, and one stable enough to look deliberate.
-    /// Reported from the running app: a yearless "Resident Evil 2" silently adopted the 2019 remake's reference, and did it again after the link was deleted.
-    /// IGDB holds eight games named exactly "Resident Evil 2".
+    /// A plain <c>FirstOrDefaultAsync</c> would return whichever namesake the database hands back first, a guess stable enough to look deliberate.
+    /// A yearless "Resident Evil 2" would then link one of the eight games IGDB holds under that name.
     /// </para>
     /// <para>
-    /// <b>"Ambiguous" and "no match" are the same answer to a caller that must not guess</b>, so both are null - which is why this needed no new call site handling: every caller already treats null as "leave it unresolved".
-    /// A single match is untouched, and that is the ordinary case these fallbacks exist for.
+    /// <b>Ambiguous and not found are the same answer to a caller that must not guess</b>, so both are null, which every caller treats as "leave it unresolved".
     /// </para>
     /// </summary>
     /// <remarks>
-    /// Reads two documents, never a count: "is there more than one" is the entire question, and counting past two is work whose answer is never used.
+    /// Reads two documents, never a count, since "more than one" is the whole question.
     /// </remarks>
     private static async Task<TEntity?> FindSingleMatchAsync<TEntity>(IMongoCollection<TEntity> collection, FilterDefinition<TEntity> filter)
         where TEntity : class

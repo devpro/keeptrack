@@ -9,18 +9,13 @@ using Polly.Timeout;
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// OMDb REST client - looks up a title by its IMDb id and returns IMDb's own aggregate rating/vote count.
-/// Configured as a typed <see cref="HttpClient"/> (see <c>Program.cs</c>), with the api key appended as a
-/// query parameter, same convention as <see cref="TmdbClient"/>/<see cref="RawgClient"/>. When no key is
-/// configured the client is a graceful no-op rather than calling the provider - IMDb enrichment is optional,
-/// so a deployment without an OMDb key keeps movies/TV on their TMDB rating alone.
+/// OMDb client: looks a title up by IMDb id and returns IMDb's rating and vote count.
+/// A typed <see cref="HttpClient"/> with the API key as a query parameter, like <see cref="TmdbClient"/>.
+/// Without a key it does nothing, IMDb ratings being optional.
 /// <para>
-/// Two things make this client different from the other providers, both because OMDb's free tier is a hard
-/// 1000 calls a day. Every call is reserved against <see cref="OmdbCallBudget"/> first, so no call site can
-/// bypass the quota by construction rather than by discipline. And every failure is swallowed into
-/// <see cref="OmdbLookupResult.NotAttempted"/>: an exhausted key answers 401, which
-/// <c>GetFromJsonAsync</c> would have thrown for - and that exception used to surface as a 500 from admin
-/// manual linking and from Explore "add", both of which are supposed to treat IMDb as optional.
+/// OMDb's free tier being a hard 1000 calls a day, it differs from the other clients twice.
+/// Every call is first reserved against <see cref="OmdbCallBudget"/>, so no caller can bypass the quota.
+/// Every failure becomes <see cref="OmdbLookupResult.NotAttempted"/>, since an exhausted key answers 401, and a throw would turn admin linking and Explore's add into 500s.
 /// </para>
 /// </summary>
 public class OmdbClient(HttpClient http, OmdbSettings settings, IOmdbCallBudget budget, ILogger<OmdbClient> logger) : IOmdbClient
@@ -33,8 +28,7 @@ public class OmdbClient(HttpClient http, OmdbSettings settings, IOmdbCallBudget 
         try
         {
             using var response = await http.GetAsync($"?apikey={settings.ApiKey}&i={Uri.EscapeDataString(imdbId)}", cancellationToken);
-            // read the body before checking the status: OMDb reports both "limit reached" and "invalid key"
-            // as a 401 whose JSON body is the only thing that tells the two apart.
+            // the body is read before the status, since only it tells "limit reached" from "invalid key", both 401
             var payload = await ReadPayloadAsync(response, cancellationToken);
 
             if (response.StatusCode == HttpStatusCode.Unauthorized)
@@ -49,19 +43,14 @@ public class OmdbClient(HttpClient http, OmdbSettings settings, IOmdbCallBudget 
                 return OmdbLookupResult.NotAttempted;
             }
 
-            // OMDb returns Response:"False" for an unknown id, and imdbRating:"N/A" for a title nobody has rated -
-            // both are "no rating", not a genuine zero (a stored 0 would sort as a real score and render a "0" pill).
-            // Both are genuine answers, though, so they count as attempted.
+            // Response "False" for an unknown id and imdbRating "N/A" for an unrated title both mean no rating, not zero, which would sort and display as a score.
+            // Both are real answers, so they count as attempted.
             if (payload is null || !string.Equals(payload.Response, "True", StringComparison.OrdinalIgnoreCase)) return OmdbLookupResult.NoRating;
             if (!TryParseRating(payload.ImdbRating, out var value)) return OmdbLookupResult.NoRating;
 
             return OmdbLookupResult.Rated(new OmdbRating(value, ParseVotes(payload.ImdbVotes)));
         }
-        // everything OMDb, the network, or the resilience pipeline can raise - enumerated rather than a blanket
-        // catch, so a genuine bug in this method still surfaces instead of being reported as "no rating":
-        // HttpRequestException (connection/DNS/TLS), TimeoutRejectedException + TaskCanceledException (the
-        // per-attempt and total timeouts), BrokenCircuitException (the breaker open after repeated failures),
-        // JsonException/NotSupportedException (a non-JSON error page from a proxy in front of OMDb).
+        // what OMDb, the network or the resilience pipeline can raise, listed rather than caught blindly so a real bug still surfaces: connection failures, timeouts, an open circuit, and a non-JSON page from a proxy
         catch (Exception ex) when (ex is HttpRequestException or TimeoutRejectedException or BrokenCircuitException or JsonException or NotSupportedException)
         {
             logger.LogWarning(ex, "OMDb lookup failed for imdb id {ImdbId}; skipping the IMDb rating.", imdbId);
@@ -69,19 +58,16 @@ public class OmdbClient(HttpClient http, OmdbSettings settings, IOmdbCallBudget 
         }
         catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
         {
-            // a timeout from the resilience pipeline, not the caller giving up - the caller's own cancellation
-            // must keep propagating, or a shutting-down background service would look like it completed
+            // a timeout of the resilience pipeline, while the caller's own cancellation propagates, or a background service shutting down would look completed
             logger.LogWarning(ex, "OMDb lookup timed out for imdb id {ImdbId}; skipping the IMDb rating.", imdbId);
             return OmdbLookupResult.NotAttempted;
         }
     }
 
     /// <summary>
-    /// OMDb's two 401s. "Request limit reached!" is the one the budget exists for - it's authoritative, so the
-    /// shared counter is written off for the rest of the UTC day, which is both what stops this pass from
-    /// firing hundreds of doomed calls and what tells the other replicas. A rejected/absent key can't be
-    /// retried into working either, so it stops the day the same way rather than failing once per item; it's
-    /// logged as an error because, unlike a spent quota, it needs someone to fix a setting.
+    /// OMDb's two 401s.
+    /// "Request limit reached!" is authoritative, so the shared counter is spent for the rest of the UTC day, which stops this pass's doomed calls and tells the other replicas.
+    /// A rejected key cannot be retried into working either, so it stops the day the same way, logged as an error since a setting needs fixing.
     /// </summary>
     private async Task HandleRejectedKeyAsync(OmdbResponse? payload, CancellationToken cancellationToken)
     {
@@ -99,9 +85,8 @@ public class OmdbClient(HttpClient http, OmdbSettings settings, IOmdbCallBudget 
     }
 
     /// <summary>
-    /// Reads the JSON body whatever the status code - OMDb answers its errors in JSON too. A body that isn't
-    /// JSON at all (a proxy's HTML error page) is not an OMDb answer, so it raises rather than being read as
-    /// an empty one, and is caught with the other transport failures.
+    /// Reads the JSON body whatever the status, since OMDb answers errors in JSON too.
+    /// A non-JSON body, a proxy's HTML error page, is not an OMDb answer, so it throws rather than reading as empty, and is caught with the transport failures.
     /// </summary>
     private static async Task<OmdbResponse?> ReadPayloadAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
@@ -112,7 +97,7 @@ public class OmdbClient(HttpClient http, OmdbSettings settings, IOmdbCallBudget 
     private static bool TryParseRating(string? rating, out double value) =>
         double.TryParse(rating, NumberStyles.Number, CultureInfo.InvariantCulture, out value) && value > 0;
 
-    /// <summary>OMDb formats vote counts with thousands separators ("1,950,000") or "N/A" - strip and parse.</summary>
+    /// <summary>Parses OMDb's vote count, formatted with thousands separators ("1,950,000") or "N/A".</summary>
     private static int? ParseVotes(string? votes) =>
         int.TryParse(votes, NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed) ? parsed : null;
 

@@ -9,9 +9,8 @@ using Xunit;
 namespace Keeptrack.BlazorApp.UnitTests.Components.Shared;
 
 /// <summary>
-/// The client half of surfacing a provider outage honestly. <c>EnsureSuccessStatusCode</c> throws with only
-/// the status line and discards the body, so the <c>{ error }</c> the API deliberately writes never reached a
-/// user - every upstream failure showed up as an unexplained "502 (Bad Gateway)".
+/// The client half of surfacing a provider outage honestly.
+/// <c>EnsureSuccessStatusCode</c> throws with only the status line and discards the body, so the API's <c>{ error }</c> would never reach a user, every upstream failure reading as an unexplained "502 (Bad Gateway)".
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class ApiResponseExtensionsTest
@@ -45,8 +44,7 @@ public class ApiResponseExtensionsTest
     }
 
     /// <summary>
-    /// 502 is what tells a caller the failure was upstream rather than in this API, which is what decides
-    /// whether reaching for a different provider is worth suggesting.
+    /// 502 is what tells a caller the failure was upstream rather than in this API, which is what decides whether reaching for a different provider is worth suggesting.
     /// </summary>
     [Fact]
     public async Task ApiRequestException_MarksA502AsAnUpstreamProviderFailure()
@@ -65,8 +63,7 @@ public class ApiResponseExtensionsTest
     }
 
     /// <summary>
-    /// A failure while reading the explanation of a failure must never replace it with an exception of its
-    /// own - a proxy's HTML error page in front of the API is the realistic case.
+    /// A failure while reading the explanation of a failure never replaces it with an exception of its own, a proxy's HTML error page in front of the API being the realistic case.
     /// </summary>
     [Fact]
     public async Task EnsureSuccessOrThrowAsync_FallsBackToTheStatusLine_WhenTheBodyIsNotTheExpectedJson()

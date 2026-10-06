@@ -6,9 +6,8 @@
 
 @code {
     /// <summary>
-    /// Stars are an accurate live preview (see StarRating's percentage fill) - clicking a star can only
-    /// ever express a handful of fixed positions, nowhere near enough precision for an exact rating like
-    /// 4.8, so the number field next to it is the actual editing surface.
+    /// The stars are an accurate live preview (see StarRating's percentage fill), but a click expresses only a few fixed positions, far from a rating like 4.8.
+    /// The number field next to them is the editing surface.
     /// </summary>
     [Parameter] public float? Rating { get; set; }
 

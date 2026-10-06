@@ -1,7 +1,7 @@
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// An admin's manual choice: link every tenant's unlinked (Title, Year) match to this external provider id (TMDB, Open Library, RAWG or Discogs, depending on <see cref="Type"/>), and for an album only the ones by <see cref="Creator"/>.
+/// An admin's manual choice: link every tenant's unlinked (title, year) match to this provider id, and for an album only those by <see cref="Creator"/>.
 /// </summary>
 public class LinkReferenceRequestDto
 {
@@ -14,16 +14,14 @@ public class LinkReferenceRequestDto
     public required string ExternalId { get; set; }
 
     /// <summary>
-    /// Which registered provider <see cref="ExternalId"/> came from - only meaningful for
-    /// <see cref="ReferenceItemType.Book"/> (the one domain with more than one registered provider); null
-    /// for every other type, and null here falls back to the deployment's default book provider.
+    /// Which registered provider <see cref="ExternalId"/> came from, for the multi-provider domains (books, video games).
+    /// Null means the domain's default provider.
     /// </summary>
     public string? Provider { get; set; }
 
     /// <summary>
-    /// The ISBN actually used to find this candidate, when the preceding search used one - Book-only, null
-    /// for every other type. Carried from the search step to this one so the stored match alias only ever
-    /// records an ISBN that genuinely drove the match, never backfilled from the provider's own data.
+    /// The ISBN the search used to find this candidate, books only.
+    /// Carried from the search, so a stored alias records only an ISBN that drove the match, never the provider's own.
     /// </summary>
     public string? Isbn { get; set; }
 

@@ -6,14 +6,10 @@ namespace Keeptrack.BlazorApp.Components.Account;
 /// Builds the cookie principal's claims from a verified Firebase token's own claims.
 /// </summary>
 /// <remarks>
-/// Extracted as a pure function, the same convention as <see cref="ReturnUrlResolver"/>, so the "role"
-/// custom-claim copy can be tested without standing up a real Firebase token or HTTP pipeline.
-/// This is the one place a Firebase custom claim (the admin "role" claim, set via the Firebase Admin SDK)
-/// crosses into Blazor's own cookie principal, which is what <c>AuthorizeView</c>/policy checks run against
-/// here (the bearer token WebApi validates separately carries the same claim, but on its own path).
-/// A drift between the two was a real incident: it once let the Blazor UI show the admin nav link while the
-/// same user's API call still 403'd, because <c>AddJwtBearer</c>'s <c>MapInboundClaims = false</c> setting
-/// on the API side has no bearing on this cookie copy at all, so the two must be checked independently.
+/// A pure function, like <see cref="ReturnUrlResolver"/>, so the "role" claim copy is tested without a real Firebase token or HTTP pipeline.
+/// It is the one place a Firebase custom claim (the "role" claim, set through the Firebase Admin SDK) crosses into Blazor's cookie principal, which <c>AuthorizeView</c> and policy checks run against.
+/// The bearer token WebApi validates carries the same claim on its own path, and <c>AddJwtBearer</c>'s <c>MapInboundClaims = false</c> has no bearing on this copy.
+/// The two are checked independently, or the UI can show the admin nav link while the same user's API calls answer 403.
 /// </remarks>
 public static class FirebaseClaimsBuilder
 {

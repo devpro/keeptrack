@@ -1,10 +1,8 @@
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// Type of property (house, apartment, or other). Kept as a separate definition from
-/// <c>Keeptrack.Domain.Models.PropertyType</c> since WebApi.Contracts doesn't depend on Domain - member
-/// names must stay identical so the generated Mapperly mapper (<c>EnumMappingStrategy.ByName</c>) can
-/// map enum-to-enum by name.
+/// Type of property (house, apartment, or other).
+/// A copy of the Domain enum, since Contracts does not depend on Domain, mapped by name, so member names stay identical.
 /// </summary>
 public enum PropertyType
 {

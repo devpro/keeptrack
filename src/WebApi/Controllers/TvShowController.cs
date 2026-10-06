@@ -21,19 +21,17 @@ public class TvShowController(
     ILogger<TvShowController> logger)
     : DataCrudControllerBase<TvShowDto, TvShowModel>(mapper, dataRepository)
 {
-    /// <summary>TV shows are part of the free preview tier, capped at the configured limit for non-members.</summary>
+    /// <summary>TV shows are in the free preview tier, capped at the configured limit for non-members.</summary>
     protected override int FreeTierLimitFactor => 1;
 
     /// <summary>
-    /// Hydrates each page item's cover image from its linked reference document - one batched lookup per
-    /// page (see <see cref="ReferenceImageHydrator"/>), keyed by the id-bearing documents only.
+    /// Hydrates each item's cover from its linked reference, one batched lookup per page (see <see cref="ReferenceImageHydrator"/>).
     /// </summary>
     protected override Task OnListMappedAsync(List<TvShowDto> dtos, CancellationToken cancellationToken)
         => ReferenceImageHydrator.HydrateAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl);
 
     /// <summary>
-    /// Fires a best-effort background TMDB match for the new show. Runs on its own DI scope since the
-    /// request will have completed by the time it finishes - same shape as the TV Time import job.
+    /// Starts a best-effort background TMDB match for the new show, on its own DI scope, since the request completes before it does.
     /// </summary>
     protected override Task OnCreatedAsync(TvShowModel model)
     {
@@ -55,9 +53,8 @@ public class TvShowController(
     }
 
     /// <summary>
-    /// User-triggered, exact-match-only re-check against the local reference collection - no TMDB call.
-    /// Distinct from the admin-only live TMDB search/linker: this only ever picks up a match that already
-    /// exists locally (e.g. after the tenant fixes a typo'd title), so any user can trigger it.
+    /// "Check for reference match", open to every user: the local references first, then the provider under the same rules as automatic resolution.
+    /// It links this item only, after the tenant corrected its title or year (see docs/reference-data.md).
     /// </summary>
     [HttpPost("{id}/refresh-reference")]
     [ProducesResponseType(200)]
@@ -72,13 +69,9 @@ public class TvShowController(
     }
 
     /// <summary>
-    /// Admin-only: clears this show's reference link and permanently deletes the shared reference document
-    /// itself, rather than merely detaching this one tenant's link - the admin has determined the match was
-    /// wrong, so the document behind it is bad data. Unlike <see cref="RefreshReference"/> (open to any
-    /// owner, harmless/idempotent), this mutates shared data other tenants could theoretically point at, so
-    /// it's gated to admins via a method-level policy on top of the controller's own plain <c>[Authorize]</c>.
-    /// Clearing <c>ReferenceId</c> is also what makes the Blazor detail page's <c>InlineReferenceLinker</c>
-    /// search card reappear, letting the admin immediately pick the correct match.
+    /// Admin only: clears this show's link and deletes the shared reference document, since the admin found the match wrong, so the document is bad data.
+    /// It changes data other tenants may point at, so a method-level policy adds the admin gate to the controller's plain <c>[Authorize]</c>.
+    /// Clearing <c>ReferenceId</c> brings back the detail page's <c>InlineReferenceLinker</c>, so the admin picks the right match at once.
     /// </summary>
     [HttpPost("{id}/unlink-reference")]
     [Authorize(Policy = "AdminOnly")]
@@ -94,9 +87,7 @@ public class TvShowController(
     }
 
     /// <summary>
-    /// Episodes are a separate top-level collection referencing their show by id - without this, deleting a
-    /// show would leave its whole watch history orphaned in MongoDB forever, since an episode is only ever
-    /// reachable via the show's own id. Same shape as House/HealthProfile/Car.
+    /// Cascades to the show's episodes, a separate collection reachable only through the show's id, which would otherwise be orphaned forever.
     /// </summary>
     protected override async Task OnDeletedAsync(string id, string ownerId, CancellationToken cancellationToken)
     {

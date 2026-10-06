@@ -4,10 +4,8 @@ using Riok.Mapperly.Abstractions;
 namespace Keeptrack.WebApi.Mappers;
 
 /// <summary>
-/// One-directional (Model -> Dto) - see <see cref="TvShowReferenceDtoMapper"/> for the general rationale.
-/// <see cref="AlbumReferenceDto.ArtistName"/>/<see cref="AlbumReferenceDto.ArtistImageUrl"/> are ignored
-/// here and hydrated manually by <see cref="ReferenceData.ReferenceDataController"/> - same reasoning as
-/// <see cref="BookReferenceDtoMapper"/>.
+/// Model to DTO only (see <see cref="TvShowReferenceDtoMapper"/>).
+/// <see cref="AlbumReferenceDto.ArtistName"/> and <see cref="AlbumReferenceDto.ArtistImageUrl"/> are hydrated by <see cref="ReferenceData.ReferenceDataController"/>, as in <see cref="BookReferenceDtoMapper"/>.
 /// </summary>
 [Mapper]
 public partial class AlbumReferenceDtoMapper

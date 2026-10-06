@@ -3,13 +3,10 @@ using Keeptrack.Domain.Models;
 namespace Keeptrack.Domain.Services;
 
 /// <summary>
-/// Builds a recipient's own copy of a shared media item, carrying only its identity and reference link -
-/// title, creator, year and <c>ReferenceId</c>. Everything personal to the sharer (rating, notes,
-/// favorite/wishlist flags, owned copies, watched/read dates) is deliberately dropped: the recipient is
-/// starting their own record, not inheriting the sharer's opinions or possessions. Keeping
-/// <c>ReferenceId</c> means the copy is instantly cover-art/synopsis-linked, since reference data is
-/// shared and owner-less. Personal categories (car/house/health) are never copyable, so they have no
-/// method here - see <see cref="ShareCategoryClassifier"/>.
+/// Builds the recipient's own copy of a shared media item, with only its identity and reference link: title, creator, year and <c>ReferenceId</c>.
+/// What is personal to the sharer (rating, notes, flags, owned copies, watched or read dates) is dropped, since the recipient starts their own record.
+/// Keeping <c>ReferenceId</c> links the copy at once to its cover and synopsis, since reference data is shared.
+/// Other categories are never copyable (see <see cref="ShareCategoryClassifier"/>), so they have no method here.
 /// </summary>
 public static class SharedItemCopyService
 {

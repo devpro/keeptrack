@@ -3,7 +3,7 @@ using Keeptrack.WebApi.Contracts.Dto;
 namespace Keeptrack.BlazorApp.Components.Sharing;
 
 /// <summary>
-/// The owner side of sharing - issue, list and revoke directed share grants (<c>/api/shares</c>).
+/// The owner side of sharing: issues, lists and revokes directed share grants (<c>/api/shares</c>).
 /// Registered with <c>AuthenticationTokenHandler</c> like every other authenticated API client.
 /// </summary>
 public sealed class ShareApiClient(HttpClient http)

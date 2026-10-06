@@ -12,15 +12,11 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// The standard test user carries the Firebase <c>role: admin</c> custom claim (see CONTRIBUTING.md's
-/// "Admin role" section), so admin-gated endpoints can be exercised end-to-end over HTTP with the same
-/// single test account - there's no separate non-admin account to prove the "AdminOnly" policy actually
-/// rejects a non-admin caller.
+/// The standard test user carries the Firebase <c>role: admin</c> custom claim (see CONTRIBUTING.md's "Admin role" section), so admin-gated endpoints run end to end over HTTP with the single test account.
+/// There is no separate non-admin account to prove the "AdminOnly" policy rejects a non-admin caller.
 /// <para>
-/// Hosted through <see cref="ProviderlessWebAppFactory"/>: nothing here asserts anything a provider returns,
-/// but three of these tests start a real <c>sync-now</c> job, which used to run on against the live providers
-/// after the test had finished - rewriting the shared Explore ranking, mutating reference documents and
-/// spending OMDb's daily budget on every run. See that fixture for the whole story.
+/// Hosted through <see cref="ProviderlessWebAppFactory"/>: nothing here asserts what a provider returns, but three tests start a real <c>sync-now</c> job.
+/// Against live providers it would run on after the test, rewriting the shared Explore ranking, mutating reference documents and spending OMDb's daily budget (see that fixture).
 /// </para>
 /// </summary>
 public class ReferenceDataAdminResourceTest(ProviderlessWebAppFactory factory)
@@ -35,10 +31,8 @@ public class ReferenceDataAdminResourceTest(ProviderlessWebAppFactory factory)
     }
 
     /// <summary>
-    /// Registration order in Program.cs doubles as the admin UI's provider-picker display/priority order
-    /// (<c>ReferenceClientRegistry.All</c> preserves it) - Google Books is the default, Open Library and
-    /// BnF are fallbacks in that order. This pins the contract so a future reordering in Program.cs fails a
-    /// test instead of silently changing the picker's default.
+    /// Registration order in Program.cs is the admin picker's display order (<c>ReferenceClientRegistry.All</c> preserves it): Google Books is the default, then Open Library and BnF.
+    /// This pins the contract, so a reordering in Program.cs fails a test instead of silently changing the picker.
     /// </summary>
     [Fact]
     public async Task GetProviders_ReturnsRegisteredBookProvidersInPriorityOrder()
@@ -58,8 +52,7 @@ public class ReferenceDataAdminResourceTest(ProviderlessWebAppFactory factory)
     [Fact]
     public async Task GetProviders_ReturnsRegisteredVideoGameProvidersInPriorityOrder()
     {
-        // IGDB first because it is the deployment default; RAWG stays registered so references linked through
-        // it keep their stored ratings.
+        // IGDB first because it is the deployment default; RAWG stays registered so references linked through it keep their stored ratings.
         await Authenticate();
 
         var providers = await GetAsync<List<ReferenceProviderDto>>("/api/reference-data/providers?type=VideoGame");
@@ -81,14 +74,9 @@ public class ReferenceDataAdminResourceTest(ProviderlessWebAppFactory factory)
     }
 
     /// <summary>
-    /// Exercises the "sync now" job start over HTTP: POST returns immediately (202 + job id) rather than
-    /// blocking on every reference document - the actual fix for the timeout reported against this
-    /// endpoint (see docs/reference-data.md) - and the status endpoint reports the job it started.
-    /// The poll-to-completion half lives in <see cref="SyncNow_PollingReachesACompletedResult"/>, opt-in,
-    /// because its duration is unbounded by this repo (it re-checks every reference document against the
-    /// live providers, so it grows with the shared database and flakes on provider latency/rate limits).
-    /// No <c>force</c> here, so this is the default incremental pass - the same documents the periodic
-    /// background tick would take.
+    /// Exercises the "sync now" job start over HTTP: POST returns at once (202 and a job id) rather than blocking on every reference document, and the status endpoint reports the job it started.
+    /// The poll-to-completion half is <see cref="SyncNow_PollingReachesACompletedResult"/>, opt-in, since it re-checks every reference against the live providers and grows with the shared database.
+    /// No <c>force</c> here, so this is the default incremental pass, the documents the periodic tick would take.
     /// </summary>
     [Fact]
     public async Task SyncNow_StartsAJob_AndStatusIsQueryable()
@@ -106,11 +94,9 @@ public class ReferenceDataAdminResourceTest(ProviderlessWebAppFactory factory)
     }
 
     /// <summary>
-    /// The forced variant: <c>?force=true</c> re-checks every document regardless of age, where the default
-    /// takes only what the periodic pass would (see <c>ReferenceSyncWindows</c>). Both are the same job over
-    /// the same endpoint, so this only pins that the parameter is accepted and still starts a real job -
-    /// what each mode selects is covered by <c>ReferenceSyncWindowsTest</c> and, for the query itself, by
-    /// <c>ReferenceStalenessRepositoryTest</c>.
+    /// The forced variant: <c>?force=true</c> re-checks every document regardless of age, where the default takes only what the periodic pass would (see <c>ReferenceSyncWindows</c>).
+    /// Both are the same job over the same endpoint, so this only pins that the parameter is accepted and starts a real job.
+    /// What each mode selects is covered by <c>ReferenceSyncWindowsTest</c>, and the query itself by <c>ReferenceStalenessRepositoryTest</c>.
     /// </summary>
     [Fact]
     public async Task SyncNow_WithForce_StartsAJob_AndStatusIsQueryable()
@@ -127,10 +113,9 @@ public class ReferenceDataAdminResourceTest(ProviderlessWebAppFactory factory)
     }
 
     /// <summary>
-    /// The Explore-only variant: <c>?exploreOnly=true</c> rebuilds the discovery rankings and skips the five
-    /// reference domains entirely. What is asserted is the part that can go wrong silently - the job starts in
-    /// (and stays in) the Explore stage rather than walking the reference stages first, since "it skipped the
-    /// expensive half" and "it ran the expensive half quickly" look identical from a 202 alone.
+    /// The Explore-only variant: <c>?exploreOnly=true</c> rebuilds the discovery rankings and skips the five reference domains entirely.
+    /// It asserts the part that can fail silently: the job starts and stays in the Explore stage rather than walking the reference stages.
+    /// "It skipped the expensive half" and "it ran the expensive half quickly" look identical from a 202 alone.
     /// </summary>
     [Fact]
     public async Task SyncNow_WithExploreOnly_SkipsTheReferenceStagesEntirely()
@@ -144,8 +129,7 @@ public class ReferenceDataAdminResourceTest(ProviderlessWebAppFactory factory)
 
         var status = await GetAsync<ReferenceSyncJobStatusDto>($"/api/reference-data/sync-now/{job.JobId}");
 
-        // a ranking rebuild is bounded (a few listing pages per ordering), so Completed is a legitimate answer
-        // by the time this poll lands - but a reference stage never is.
+        // A ranking rebuild is bounded (a few listing pages per ordering), so Completed is a legitimate answer by this poll, but a reference stage never is.
         status.Stage.Should()
             .BeOneOf([ReferenceSyncStage.RefreshingExplore, ReferenceSyncStage.Completed], because: status.ErrorMessage ?? "");
     }

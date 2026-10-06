@@ -5,11 +5,9 @@ using Keeptrack.Common.System;
 namespace Keeptrack.Domain.Models;
 
 /// <summary>
-/// Shared, tenant-agnostic show metadata (title, synopsis, episode list) sourced from an external
-/// provider such as TMDB. Deliberately has no <c>OwnerId</c> - unlike every other collection in
-/// Keeptrack, this one carries no user content, only public facts about a real show, so storing it
-/// once and pointing every tenant's own <see cref="TvShowModel.ReferenceId"/> at it avoids duplicating
-/// the same show's data per user.
+/// Show metadata from TMDB (title, synopsis, episode guide), shared by every tenant.
+/// It has no <c>OwnerId</c>: it holds no user content, only public facts about a real show.
+/// Stored once, it is pointed at by every tenant's <see cref="TvShowModel.ReferenceId"/> rather than copied per user.
 /// </summary>
 public class TvShowReferenceModel : IHasExternalIds
 {
@@ -24,21 +22,17 @@ public class TvShowReferenceModel : IHasExternalIds
     public string? Synopsis { get; set; }
 
     /// <summary>
-    /// Provider name (e.g. "tmdb") to that provider's id for this show. Keeps the document itself
-    /// source-agnostic: adding a second provider later is just another dictionary entry, not a schema change.
+    /// Provider name ("tmdb", "imdb") to that provider's id for this show.
+    /// A dictionary keeps the document independent of providers: another provider is another entry, not a schema change.
     /// </summary>
     public required Dictionary<string, string> ExternalIds { get; set; }
 
     /// <summary>
-    /// Every (title, year) combination that has ever been confirmed (via TMDB resolution, automatic or
-    /// admin-picked) to mean this show - not just <see cref="TitleNormalized"/>/<see cref="Year"/>. A tenant
-    /// typing a different-language title, a typo, or a regional variant that an admin resolved to this same
-    /// TMDB entry gets remembered here, so the next tenant with that exact same (title, year) matches
-    /// instantly without a fresh TMDB search. Year travels with its specific title variant rather than living
-    /// as a single scalar on this document, because two tenants (or a tenant and TMDB's own canonical value)
-    /// can legitimately disagree on the year for the same real show - a single top-level year would reject a
-    /// tenant whose recorded year genuinely differs from whichever one happens to be canonical. Always
-    /// includes <see cref="TitleNormalized"/> paired with <see cref="Year"/>.
+    /// Every (title, year) combination confirmed to mean this show, by automatic resolution or an admin's pick, beyond <see cref="TitleNormalized"/> and <see cref="Year"/>.
+    /// A title in another language, a typo or a regional variant resolved to this show is remembered, so the next tenant typing it matches with no provider search.
+    /// The year travels with its title variant rather than being one value on the document.
+    /// Two tenants, or a tenant and TMDB, can disagree on a show's year, and a single year would reject the tenant whose year differs.
+    /// Always includes <see cref="TitleNormalized"/> paired with <see cref="Year"/>.
     /// </summary>
     public List<ReferenceMatchModel> MatchedAliases { get; set; } = [];
 
@@ -48,16 +42,15 @@ public class TvShowReferenceModel : IHasExternalIds
 
     public List<CastMemberModel> Cast { get; set; } = [];
 
-    /// <summary>Aggregate ratings keyed by source ("tmdb") - see <see cref="ReferenceRatingModel"/>.</summary>
+    /// <summary>Aggregate ratings keyed by source ("tmdb", "imdb"), see <see cref="ReferenceRatingModel"/>.</summary>
     public Dictionary<string, ReferenceRatingModel> Ratings { get; set; } = [];
 
     /// <summary>
-    /// When each rating source was last *attempted* for this show, whether or not it produced a value - the
-    /// marker that stops the periodic sync's IMDb backfill re-asking OMDb about the same handful of titles
-    /// IMDb genuinely has nothing for, every pass, forever. Only a source that actually answered is stamped;
-    /// a call that never happened (no key, spent budget, failed request) deliberately leaves no trace, so one
-    /// exhausted afternoon can't write those titles off for the whole re-attempt window. Same shape and same
-    /// window as <see cref="ExploreCatalogueEntryModel.RatingsCheckedAt"/>.
+    /// When each rating source was last attempted for this show, whether or not it produced a value.
+    /// It stops the sync's IMDb backfill asking OMDb again on every pass about titles IMDb has nothing for.
+    /// Only a source that answered is stamped.
+    /// A call that never happened (no key, spent budget, failed request) leaves no trace, so one exhausted afternoon does not write those titles off for the whole window.
+    /// Same shape and window as <see cref="ExploreCatalogueEntryModel.RatingsCheckedAt"/>.
     /// </summary>
     public Dictionary<string, DateTime> RatingsCheckedAt { get; set; } = [];
 

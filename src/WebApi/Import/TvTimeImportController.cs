@@ -12,8 +12,8 @@ namespace Keeptrack.WebApi.Import;
 public class TvTimeImportController(JobStore<ImportStage, ImportResultDto> jobStore, IServiceScopeFactory scopeFactory) : ControllerBase
 {
     /// <summary>
-    /// Starts importing a TV Time GDPR export (the zip TV Time sends in answer to a "Download my data" request)
-    /// as an upsert. Runs in the background; poll <see cref="GetStatus"/> with the returned job id for progress.
+    /// Starts importing a TV Time GDPR export (the zip TV Time sends for a "Download my data" request) as an upsert.
+    /// Runs in the background, its progress polled through <see cref="GetStatus"/> with the returned job id.
     /// </summary>
     [HttpPost("tv-time")]
     [RequestSizeLimit(50_000_000)]
@@ -31,8 +31,7 @@ public class TvTimeImportController(JobStore<ImportStage, ImportResultDto> jobSt
             return BadRequest();
         }
 
-        // buffered up front: IFormFile's stream isn't valid once this request finishes, but the import
-        // itself runs in the background after we respond
+        // buffered first, since IFormFile's stream is invalid once the request finishes, while the import runs after the response
         var buffer = new MemoryStream();
         await using (var uploadStream = file.OpenReadStream())
         {
@@ -49,7 +48,7 @@ public class TvTimeImportController(JobStore<ImportStage, ImportResultDto> jobSt
     }
 
     /// <summary>
-    /// Current status of a previously started import job.
+    /// Current status of a started import job.
     /// </summary>
     [HttpGet("tv-time/{jobId:guid}")]
     [ProducesResponseType(200)]
@@ -63,9 +62,7 @@ public class TvTimeImportController(JobStore<ImportStage, ImportResultDto> jobSt
     }
 
     /// <summary>
-    /// Runs the import on a background task using its own DI scope (the request that started it has
-    /// already completed by the time this runs, so it can't reuse the request's scoped services -
-    /// including the request's own JobStore, whose repository belongs to that dead scope).
+    /// Runs the import on its own DI scope, since the request that started it has completed, and its scoped services, its JobStore included, are disposed.
     /// </summary>
     private async Task RunImportJobAsync(Guid jobId, MemoryStream buffer, string ownerId)
     {

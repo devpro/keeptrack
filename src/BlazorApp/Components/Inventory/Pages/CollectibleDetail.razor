@@ -67,24 +67,18 @@ else
 
     [Inject] private CollectibleApiClient CollectibleApi { get; set; } = null!;
 
-    // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
-    // _loaded tracks whether a load attempt has finished at all, fresh or restored from persisted
-    // prerender state - both default false so the forced render Blazor triggers right after the
-    // synchronous prefix of OnParametersSetAsync (before any awaited fetch resolves) shows blank instead
-    // of a spinner flash on every navigation to this page.
+    // _loading is delay-gated (see LoadingIndicator) and turns on only for a slow load, and _loaded tracks whether a load has finished, fresh or restored from prerender state.
+    // Both default false, so the render Blazor forces after OnParametersSetAsync's synchronous prefix shows blank instead of flashing a spinner on every navigation here.
     private bool _loading;
     private bool _loaded;
 
-    // Public property (a framework requirement for [PersistentState]): the data loaded during the
-    // prerender pass is carried over to the interactive circuit, so the first interactive render reuses
-    // it instead of resetting to the spinner and re-fetching - same pattern as AlbumDetail/CarDetail.
+    // Public, as [PersistentState] requires: the prerendered item carries over to the interactive circuit instead of being fetched again.
     [PersistentState]
     public CollectibleDto? Collectible { get; set; }
 
     protected override async Task OnParametersSetAsync()
     {
-        // Collectible already holds this route's item when PersistentState restored the prerendered data
-        // the id check keeps an in-circuit navigation to a different collectible reloading as before
+        // Collectible already holds this route's item when PersistentState restored it, and the id check still reloads an in-circuit navigation to another collectible
         if (Collectible?.Id == Id)
         {
             _loading = false;

@@ -16,9 +16,7 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
 /// <summary>
-/// The pass that materializes each provider's ranking into <c>explore_catalogue</c>: rank assignment across
-/// provider pages, the staleness gate, the deliberate refusal to prune when a pass didn't complete, and the
-/// bounded IMDb rating backfill.
+/// The pass that materializes each provider's ranking into <c>explore_catalogue</c>: rank assignment across provider pages, the staleness gate, the deliberate refusal to prune when a pass didn't complete, and the bounded IMDb rating backfill.
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class ExploreCatalogueRefreshServiceTest
@@ -51,8 +49,7 @@ public class ExploreCatalogueRefreshServiceTest
     }
 
     /// <summary>
-    /// Every ranking looks freshly built by default, so a test only has to make the one it cares about stale -
-    /// otherwise the pass would walk all four and every test would need every provider stubbed.
+    /// Every ranking looks freshly built by default, so a test makes only its own one stale, or the pass would walk all four and every test would stub every provider.
     /// </summary>
     private void AllRankingsFresh()
     {
@@ -94,8 +91,7 @@ public class ExploreCatalogueRefreshServiceTest
 
         var result = await CreateService().RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
 
-        // rank is the position in the whole ranking, not within a page - it is the read path's paging cursor,
-        // so a per-page restart would make every page after the first re-serve the same titles.
+        // Rank is the position in the whole ranking, not within a page, since it is the read path's paging cursor, and a per-page restart would re-serve the same titles on every later page.
         _upserted.Select(e => (e.ExternalId, e.Rank)).Should().Equal([("a", 1), ("b", 2), ("c", 3)]);
         result.EntriesRefreshed.Should().Be(3);
         result.RankingsRefreshed.Should().Be(1);
@@ -121,12 +117,12 @@ public class ExploreCatalogueRefreshServiceTest
     {
         AllRankingsFresh();
         RankingIsStale(ExploreItemType.Movie, "tmdb");
-        TmdbPages(); // every page empty - an outage, a revoked key, a provider change
+        TmdbPages(); // every page empty: an outage, a revoked key, a provider change
 
         var result = await CreateService().RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
 
-        // pruning here would empty Explore for everyone until the next weekly pass. A week-old ranking is a
-        // far better answer than none, so the prune only ever follows a pass that actually produced titles.
+        // pruning here would empty Explore for everyone until the next weekly pass.
+        // A week-old ranking is a far better answer than none, so the prune only ever follows a pass that actually produced titles.
         _catalogueRepository.Verify(
             r => r.DeleteStaleAsync(It.IsAny<ExploreItemType>(), It.IsAny<string>(), It.IsAny<DateTime>()), Times.Never);
         result.EntriesRefreshed.Should().Be(0);
@@ -163,7 +159,7 @@ public class ExploreCatalogueRefreshServiceTest
         TmdbPages([Movie("a", 9.0)]);
         _tmdbClient.Setup(c => c.GetTopRatedTvShowsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
 
-        // what the admin's "sync now" passes - the force-it-now path
+        // what the admin's "sync now" passes, the forced path
         var result = await CreateService().RefreshAsync(TimeSpan.Zero, TestContext.Current.CancellationToken);
 
         result.RankingsRefreshed.Should().Be(4, "movies, TV shows, and video games by each of the provider's two sources");
@@ -178,8 +174,7 @@ public class ExploreCatalogueRefreshServiceTest
 
         await CreateService().RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
 
-        // a game provider puts every number it has on each listing entry, so storing all of them costs nothing
-        // and means switching the admin's selected source never needs a provider call
+        // a game provider puts every number it has on each listing entry, so storing all of them costs nothing and means switching the admin's selected source never needs a provider call
         _upserted.Should().ContainSingle();
         _upserted[0].Ratings.Should().BeEquivalentTo(new Dictionary<string, double> { ["igdb"] = 92, ["igdbcritic"] = 96 });
     }
@@ -193,7 +188,7 @@ public class ExploreCatalogueRefreshServiceTest
 
         await CreateService().RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
 
-        // absent, not stored as zero - a missing score must read as "no rating", never as the worst one
+        // absent, not stored as zero, since a missing score reads as "no rating", never as the worst one
         _upserted[0].Ratings.Should().NotContainKey(RatingSourceCatalog.IgdbCritic);
     }
 
@@ -248,8 +243,7 @@ public class ExploreCatalogueRefreshServiceTest
 
         var result = await service.RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
 
-        // without stamping the fruitless attempt, the same handful of unrated titles would consume the whole
-        // per-pass budget every week and coverage would never move down the ranking.
+        // without stamping the fruitless attempt, the same handful of unrated titles would consume the whole per-pass budget every week and coverage would never move down the ranking.
         result.ImdbRatingsBackfilled.Should().Be(0);
         _catalogueRepository.Verify(r => r.RecordRatingAttemptAsync(ExploreItemType.Movie, "tmdb", "42", "imdb", null), Times.Once);
     }
@@ -281,8 +275,7 @@ public class ExploreCatalogueRefreshServiceTest
 
         await service.RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
 
-        // the pass asks for exactly what it can afford, instead of a hardcoded per-domain guess that had to
-        // assume the worst about the other consumer
+        // the pass asks for exactly what it can afford, instead of a hardcoded per-domain guess that had to assume the worst about the other consumer
         _catalogueRepository.Verify(
             r => r.FindMissingRatingOrLinkAsync(ExploreItemType.Movie, "tmdb", "imdb", It.IsAny<DateTime>(), 7), Times.Once);
     }
@@ -325,8 +318,7 @@ public class ExploreCatalogueRefreshServiceTest
         var result = await service.RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
 
         result.ImdbRatingsBackfilled.Should().Be(0);
-        // stamping here would suppress these titles for the whole 90-day re-attempt window over a limit that
-        // had nothing to do with them - they must simply be picked up again next pass
+        // Stamping would suppress these titles for the 90-day re-attempt window over a limit unrelated to them, so they are picked up again next pass.
         _catalogueRepository.Verify(
             r => r.RecordRatingAttemptAsync(
                 It.IsAny<ExploreItemType>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<double?>()), Times.Never);
@@ -345,8 +337,8 @@ public class ExploreCatalogueRefreshServiceTest
 
         await CreateService().RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
 
-        // a suggestion is by definition not in the collection yet, so its provider page is the only "read more
-        // about this" a card can offer. Keyed by the discovery provider, whatever rating is displayed on it.
+        // a suggestion is by definition not in the collection yet, so its provider page is the only "read more about this" a card can offer.
+        // Keyed by the discovery provider, whatever rating is displayed on it.
         _upserted.Single(e => e.ExternalId == "a").WebUrls.Should()
             .BeEquivalentTo(new Dictionary<string, string> { ["tmdb"] = "https://www.themoviedb.org/movie/a" });
         _upserted.Single(e => e.ExternalId == "g1").WebUrls.Should()
@@ -366,8 +358,7 @@ public class ExploreCatalogueRefreshServiceTest
 
         await service.RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
 
-        // the id is already paid for by the rating lookup, so the link that shows a movie's IMDb page costs
-        // nothing extra - and it is what makes an IMDb-rated card open IMDb rather than TMDB.
+        // The rating lookup already paid for the id, so the link to a movie's IMDb page costs nothing extra, and it makes an IMDb-rated card open IMDb rather than TMDB.
         _catalogueRepository.Verify(
             r => r.SetWebUrlAsync(ExploreItemType.Movie, "tmdb", "42", "imdb", "https://www.imdb.com/title/tt0042/"), Times.Once);
     }
@@ -386,8 +377,7 @@ public class ExploreCatalogueRefreshServiceTest
 
         await service.RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
 
-        // the link depends on the TMDB id alone; withholding it because a *different*, budgeted call failed
-        // would throw away a fact already in hand and leave the card linking nowhere for another week.
+        // the link depends on the TMDB id alone; withholding it because a *different*, budgeted call failed would throw away a fact already in hand and leave the card linking nowhere for another week.
         _catalogueRepository.Verify(
             r => r.SetWebUrlAsync(ExploreItemType.Movie, "tmdb", "42", "imdb", "https://www.imdb.com/title/tt0042/"), Times.Once);
     }
@@ -398,7 +388,7 @@ public class ExploreCatalogueRefreshServiceTest
         var service = CreateService();
         AllRankingsFresh();
         SelectImdbFor("Movie");
-        // already rated by an earlier pass, from before links were stored - the only thing missing is the link
+        // rated by an earlier pass, with only the link missing
         var rated = Entry("42");
         rated.Ratings["imdb"] = 8.4;
         PendingBackfill(rated);

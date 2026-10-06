@@ -23,8 +23,8 @@ else if (Game is null)
 }
 else
 {
-    @* The whole page sits in one narrow column so the artwork, the fields and the platform cards share a width.
-       .content is 1100px wide for list pages that genuinely need it, which leaves this page's text lines far longer than the banner above them. *@
+    @* The page sits in one narrow column, so the artwork, the fields and the platform cards share a width.
+       .content is 1100px wide for the list pages, which would leave this page's text lines far longer than the banner above them. *@
     <div class="kt-game-page">
     <Breadcrumb ListRoute="/video-games" ListLabel="Video games" Current="@Game.Title"/>
 
@@ -49,9 +49,9 @@ else
         </AuthorizeView>
     }
 
-    @* A 16:9 banner, because that is what the artwork actually is: nearly every stored cover here is RAWG key art at exactly that ratio.
+    @* A 16:9 banner, since nearly every stored cover is RAWG key art at exactly that ratio.
        It fills the banner's whole width, so there is never empty space beside it.
-       See .kt-game-banner in app.css for the measured ratios and for what the few odd ones lose. *@
+       See .kt-game-banner in app.css for the measured ratios and what the few odd ones lose. *@
     @{
         var artUrl = !string.IsNullOrEmpty(Game.CustomImageUrl) ? Game.CustomImageUrl : Reference?.ImageUrl;
     }
@@ -68,7 +68,7 @@ else
 
     <div class="kt-form-card">
         <div class="row g-3">
-            @* col-auto, not col-6: a forced half-row is narrower than the star input on a phone, which wraps the fifth star onto its own line. *@
+            @* col-auto, not col-6, since a forced half row is narrower than the star input on a phone and wraps the fifth star onto its own line. *@
             <div class="col-auto">
                 <label class="form-label">Year</label>
                 <input class="form-control form-control-sm" style="max-width:120px" type="number" min="1970" max="2100"
@@ -99,7 +99,7 @@ else
             }
             @if (Reference?.Platforms.Count > 0)
             {
-                @* "Released on", not "Available on": these are the platforms the game exists on, a different thing from the Platforms section below, where each entry is a copy owned. *@
+                @* "Released on", not "Available on": the platforms the game exists on, unlike the Platforms section below, where each entry is an owned copy. *@
                 <div class="col-12">
                     <label class="form-label">Released on</label>
                     <div class="kt-chip-row">
@@ -114,7 +114,7 @@ else
                 <label class="form-label">Notes</label>
                 <textarea class="form-control" rows="4" @onchange="SaveNotesAsync">@Game.Notes</textarea>
             </div>
-            @* A raw URL box earns no room at the top of the page, so it stays folded away unless this item already carries one, where hiding it would make the value uneditable. *@
+            @* A raw URL box earns no room at the top of the page, so it stays folded unless the item carries one, which hiding would make uneditable. *@
             <div class="col-12">
                 @if (_editingCover || !string.IsNullOrEmpty(Game.CustomImageUrl))
                 {
@@ -150,10 +150,9 @@ else
 
     @foreach (var entry in Game.Platforms)
     {
-        @* A platform entry *is* this game's copy, so it takes the same kt-copy-card treatment as
-           OwnedVersionsEditor's cards - full-width equal columns, no field-grid cap. *@
+        @* A platform entry is the game's copy, so it takes the kt-copy-card treatment of OwnedVersionsEditor's cards: full-width equal columns, no field-grid cap. *@
         <div class="kt-form-card kt-copy-card mb-3">
-            @* The card's own header carries this copy's state, so a game owned on three platforms reads at a glance instead of through each card's controls.
+            @* The card's header carries the copy's state, so a game owned on three platforms reads at a glance rather than through each card's controls.
                Same badges as the list row. *@
             <div class="kt-copy-card-header">
                 <h3>@entry.Platform</h3>
@@ -359,8 +358,7 @@ else
 
     private async Task RequestRemovePlatformAsync(VideoGamePlatformDto entry)
     {
-        // a platform entry with no state/completion/playthroughs set has no details to lose -
-        // remove it without the confirmation detour, same as OwnedVersionsEditor's empty-copy case
+        // a platform entry with no state, completion or playthroughs has nothing to lose, so it goes without confirmation, like OwnedVersionsEditor's empty copy
         if (IsEmpty(entry))
         {
             await RemovePlatformAsync(entry);
@@ -399,8 +397,7 @@ else
         && string.IsNullOrWhiteSpace(entry.ProductName);
 
     /// <summary>
-    /// Clicking the already-active state button clears it back to unset - same toggle-off-on-reclick
-    /// pattern as <c>TvShowDetail.razor</c>'s <c>SetStatusAsync</c>, now applied per platform entry.
+    /// Clicking the active state button clears it, as in <c>TvShowDetail.razor</c>'s <c>SetStateAsync</c>, per platform entry.
     /// </summary>
     private async Task SetPlatformStateAsync(VideoGamePlatformDto entry, string state)
     {

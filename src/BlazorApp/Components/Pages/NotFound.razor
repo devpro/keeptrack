@@ -4,16 +4,12 @@
 @using Microsoft.AspNetCore.Diagnostics
 
 @* Reached three ways, which is why this page keeps a real route of its own and renders statically:
-   - an unknown URL on a full page load, re-executed onto this path by UseStatusCodePagesWithReExecute
-     (Program.cs) - so the path has to be routable, and the original status code is still on the response;
-   - an unknown URL followed inside a live circuit, rendered here by the Router's NotFoundPage (Routes.razor),
-     where there is no HttpContext at all;
-   - NavigationManager.NotFound(), for a route that matched but whose target doesn't exist.
-   [ExcludeFromInteractiveRouting] is what makes the first case readable: App.razor's RenderModeForPage checks
-   for it, so this page renders statically and the cascaded HttpContext is actually there. It also means a
-   bogus URL - a stale bookmark, a crawler walking dead links - never opens a SignalR circuit to say "no".
-   Deliberately no [Authorize]: a signed-out visitor following a dead link must land here rather than be
-   bounced to login, which would tell them the page exists. *@
+   - an unknown URL on a full page load, re-executed onto this path by UseStatusCodePagesWithReExecute (Program.cs), so the path must be routable, and the original status is still on the response
+   - an unknown URL followed inside a live circuit, rendered by the Router's NotFoundPage (Routes.razor), with no HttpContext at all
+   - NavigationManager.NotFound(), for a route that matched but whose target doesn't exist
+   [ExcludeFromInteractiveRouting] makes the first case readable: App.razor's RenderModeForPage checks for it, so this page renders statically with the cascaded HttpContext.
+   A bogus URL (a stale bookmark, a crawler walking dead links) then never opens a SignalR circuit to say "no".
+   No [Authorize]: a signed-out visitor following a dead link lands here rather than at login, which would reveal the page exists. *@
 
 <PageTitle>@_heading - Keeptrack</PageTitle>
 
@@ -36,17 +32,14 @@
 
     protected override void OnInitialized()
     {
-        // The re-execute leaves the original status on the response; the feature reports it explicitly and
-        // keeps reporting it whatever the re-executed pipeline does to the response afterwards.
-        // Anything below 400 means this page was opened through its own /not-found route, or rendered by the
-        // Router with no request behind it at all - both can only mean 404, never the 200 the response carries.
+        // The feature reports the original status whatever the re-executed pipeline does to the response afterwards.
+        // Anything below 400 means the page was opened through its own /not-found route, or rendered by the Router with no request behind it, both meaning 404, never the 200 the response carries.
         var status = HttpContext?.Features.Get<IStatusCodeReExecuteFeature>()?.OriginalStatusCode
                      ?? HttpContext?.Response.StatusCode
                      ?? StatusCodes.Status404NotFound;
         _statusCode = status < FirstErrorStatusCode ? StatusCodes.Status404NotFound : status;
 
-        // The middleware re-executes onto this path for *every* 400-599 that has no body of its own, not just
-        // 404s, so the page must not claim "page not found" for something like a rejected antiforgery token.
+        // The middleware re-executes onto this path for every 400 to 599 with no body of its own, so the page must not claim "page not found" for a rejected antiforgery token.
         if (_statusCode != StatusCodes.Status404NotFound)
         {
             _heading = "Something went wrong";

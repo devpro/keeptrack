@@ -1,6 +1,5 @@
-/* Scoped rather than added to app.css: these rules exist for this one page only and would just add noise
-   to the shared kt-* vocabulary. The surrounding .kt-empty / .kt-empty-icon / .kt-empty p rules are the
-   global ones - only the pieces this page adds live here. */
+/* Scoped rather than in app.css, since these rules serve this one page and would add noise to the shared kt-* vocabulary.
+   The surrounding .kt-empty, .kt-empty-icon and .kt-empty p rules are global, and only what this page adds lives here. */
 
 .kt-not-found-code {
     font-size: 0.78rem;

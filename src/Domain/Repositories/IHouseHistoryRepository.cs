@@ -7,9 +7,7 @@ namespace Keeptrack.Domain.Repositories;
 public interface IHouseHistoryRepository : IDataRepository<HouseHistoryModel>
 {
     /// <summary>
-    /// Deletes every history entry owned by <paramref name="ownerId"/> for the given house - used to cascade
-    /// a house deletion, since HouseHistory is a separate top-level collection referencing its parent by id
-    /// rather than an embedded array (see docs/data-model.md's "Child entities" section).
+    /// Deletes every history entry of <paramref name="ownerId"/> for the house, cascading its deletion, since entries reference their house by id rather than being embedded (see docs/data-model.md's "Child entities" section).
     /// </summary>
     Task<long> DeleteAllForHouseAsync(string houseId, string ownerId, CancellationToken cancellationToken = default);
 }

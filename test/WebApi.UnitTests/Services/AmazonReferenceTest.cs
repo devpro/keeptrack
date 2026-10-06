@@ -6,8 +6,7 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.Services;
 
 /// <summary>
-/// <see cref="AmazonReference"/> is the read side of <see cref="AmazonImportMergeService.FormatOrderReference"/>'s
-/// write side - covers both the round trip between them and the parts unique to the read side (vendor domain).
+/// <see cref="AmazonReference"/> reads what <see cref="AmazonImportMergeService.FormatOrderReference"/> writes, covering the round trip and what only the read side has (the vendor domain).
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class AmazonReferenceTest

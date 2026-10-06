@@ -5,36 +5,32 @@ using Keeptrack.Domain.Models;
 namespace Keeptrack.Domain.Repositories;
 
 /// <summary>
-/// Repository for the shared, owner-less <c>car_station</c> collection. Like the <c>*_reference</c>
-/// repositories it deliberately does not extend <see cref="IDataRepository{TModel}"/>, which is
-/// hard-constrained to owner-scoped paged CRUD over <see cref="Common.System.IHasIdAndOwnerId"/>.
+/// Repository for the shared <c>car_station</c> collection.
+/// Like the <c>*_reference</c> repositories, it does not extend <see cref="IDataRepository{TModel}"/>, which is constrained to owner-scoped paged CRUD.
 /// </summary>
 public interface ICarStationRepository
 {
     Task<CarStationModel?> FindByIdAsync(string id);
 
     /// <summary>
-    /// Batched id lookup backing car-history list hydration - one query per page instead of one per entry,
-    /// the same shape as the reference repositories' own <c>FindByIdsAsync</c>.
+    /// Batched id lookup for car history hydration: one query per page, never one per entry.
     /// </summary>
     Task<List<CarStationModel>> FindByIdsAsync(IReadOnlyCollection<string> ids);
 
     /// <summary>
-    /// The whole catalogue, ordered by brand then city. Unpaged like the reference exports and acceptable
-    /// for the same reason: this data is small, shared, and the station picker needs all of it at once.
+    /// The whole catalogue, ordered by brand then city.
+    /// Unpaged, since it is small and shared, and the station picker needs all of it at once.
     /// </summary>
     Task<List<CarStationModel>> FindAllAsync();
 
     /// <summary>
-    /// Looks a station up by its natural key (normalized brand name + city + postal code) - what makes a
-    /// member's inline "create this station" idempotent instead of minting a duplicate per refuel.
+    /// Looks a station up by its natural key (normalized brand, city, postal code), so a member's inline creation reuses a station rather than minting a duplicate.
     /// </summary>
     Task<CarStationModel?> FindByNaturalKeyAsync(string brandName, string? city, string? postalCode);
 
     /// <summary>
-    /// Creates or updates a station, stamping the normalized natural-key fields. The application check in
-    /// <see cref="FindByNaturalKeyAsync"/> is what's supposed to prevent duplicates; the collection's
-    /// unique index is what guarantees it.
+    /// Creates or updates a station, stamping the normalized natural-key fields.
+    /// <see cref="FindByNaturalKeyAsync"/> avoids duplicates, and the unique index guarantees there are none.
     /// </summary>
     Task<CarStationModel> UpsertAsync(CarStationModel model);
 

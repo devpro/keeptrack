@@ -12,9 +12,7 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Basic full-cycle CRUD coverage for <c>Car</c> - closes the "Car has no controller or Blazor page" /
-/// "no CRUD integration test" findings tracked in docs/backlog.md, same shape as
-/// <see cref="VideoGameResourceTest"/>.
+/// Full-cycle CRUD coverage for <c>Car</c>, the shape of <see cref="VideoGameResourceTest"/>.
 /// </summary>
 public class CarResourceTest(KestrelWebAppFactory<Program> factory)
     : ResourceTestBase(factory)
@@ -56,9 +54,7 @@ public class CarResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// CarRepository previously had no GetFilter override at all, so search silently fell back to the base
-    /// class's $text query against an index that didn't even cover Car's field name (see
-    /// docs/data-model.md) - this proves a name search now actually finds the car.
+    /// CarRepository previously had no GetFilter override at all, so search silently fell back to the base class's $text query against an index that didn't even cover Car's field name (see docs/data-model.md) - this proves a name search now actually finds the car.
     /// </summary>
     [Fact]
     public async Task CarResourceSearch_FiltersByName_IsOk()
@@ -77,11 +73,8 @@ public class CarResourceTest(KestrelWebAppFactory<Program> factory)
     {
         await Authenticate();
 
-        // a freshly generated, syntactically valid ObjectId that can't collide with any real document - a
-        // malformed id (e.g. a GUID) throws a MongoDB BSON FormatException instead of a clean 404, a
-        // pre-existing gap in MongoDbRepositoryBase shared by every entity type, not something introduced by
-        // Car; out of scope to fix here. (A fixed all-zeros id was tried first and turned out to already
-        // exist as fixture data in the shared integration test database, masking the actual check.)
+        // A freshly generated, valid ObjectId that can't collide with a real document (see MalformedIdResourceTest for malformed ids).
+        // A fixed all-zeros id could already exist as fixture data in the shared test database, masking the check.
         await GetAsync($"/{ResourceEndpoint}/{MongoDB.Bson.ObjectId.GenerateNewId()}/metrics", HttpStatusCode.NotFound);
     }
 

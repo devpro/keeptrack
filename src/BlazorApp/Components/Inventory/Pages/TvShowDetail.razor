@@ -291,9 +291,8 @@ else
     }
 
     /// <summary>
-    /// Clicking the already-active state button clears it back to unset - otherwise sets it. Explicit
-    /// buttons instead of a click-to-cycle flag: all three options are visible and directly selectable,
-    /// nothing to guess about what a click will do.
+    /// Clicking the active state button clears it, and any other sets it.
+    /// Explicit buttons rather than a click-to-cycle flag, so all three options are visible and a click is never a guess.
     /// </summary>
     private async Task SetStateAsync(TvShowStatus state)
     {

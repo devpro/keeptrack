@@ -7,10 +7,8 @@ namespace Keeptrack.Domain.Repositories;
 public interface IGearRepository : IDataRepository<GearModel>
 {
     /// <summary>
-    /// Distinct, non-empty <see cref="GearModel.Category"/> values across this tenant's gear, sorted
-    /// alphabetically - feeds the list page's category filter buttons and the detail page's suggested
-    /// values. One gear item has exactly one category (unlike a blog's tags), so this is a plain
-    /// distinct scan, not a tag-cloud aggregation.
+    /// Distinct <see cref="GearModel.Category"/> values of this tenant's gear, sorted, for the list page's category filters and the detail page's suggestions.
+    /// One item has exactly one category, so this is a plain distinct scan.
     /// </summary>
     Task<IReadOnlyList<string>> FindDistinctCategoriesAsync(string ownerId);
 }

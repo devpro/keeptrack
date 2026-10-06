@@ -3,10 +3,9 @@ using System;
 namespace Keeptrack.Domain.Models;
 
 /// <summary>
-/// One episode's reference metadata (title, air date), embedded within a <see cref="TvShowReferenceModel"/>.
-/// Unlike the per-tenant <see cref="EpisodeModel"/> (a separate collection, since it grows unbounded per
-/// user over years and is queried across shows for Watch Next), this list is bounded to one show's real
-/// runtime and always fetched as a whole, so embedding is the right call here.
+/// One episode's reference metadata (title, air date), embedded in a <see cref="TvShowReferenceModel"/>.
+/// The tenant's <see cref="EpisodeModel"/> is a separate collection, since it grows without bound and Watch Next queries it across shows.
+/// This list is bounded by the show's real runtime and always fetched whole, so it is embedded.
 /// </summary>
 public class ReferenceEpisodeModel
 {

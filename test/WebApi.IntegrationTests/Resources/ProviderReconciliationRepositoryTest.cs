@@ -13,15 +13,10 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Real-MongoDB coverage for the two queries the provider-reconciliation feature rests on, neither of which a
-/// mocked repository can prove.
+/// Real-MongoDB coverage for the two queries the provider-reconciliation feature rests on, neither of which a mocked repository can prove.
 /// <para>
-/// <c>FindWithoutExternalIdAsync</c> asks for the *absence* of a key inside an embedded document, which is the
-/// same family of trap as the sync's staleness query and the <c>ReferenceId</c> null/empty one: a filter that
-/// matches nothing looks exactly like a filter that found nothing wrong, and here it would report a clean
-/// catalogue while every one of those references stayed invisible to the Explore exclusion.
-/// <c>RepointReferenceAsync</c> is a cross-tenant <c>UpdateMany</c> whose whole purpose is that the items
-/// actually move before the document they point at is deleted.
+/// <c>FindWithoutExternalIdAsync</c> asks for the *absence* of a key inside an embedded document, which is the same family of trap as the sync's staleness query and the <c>ReferenceId</c> null/empty one: a filter that matches nothing looks exactly like a filter that found nothing wrong, and here it would report a clean catalogue while every one of those references stayed invisible to the Explore exclusion.
+/// <c>RepointReferenceAsync</c> is a cross-tenant <c>UpdateMany</c> whose whole purpose is that the items actually move before the document they point at is deleted.
 /// </para>
 /// </summary>
 public class ProviderReconciliationRepositoryTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)
@@ -40,7 +35,7 @@ public class ProviderReconciliationRepositoryTest(KestrelWebAppFactory<Program> 
             [Provider] = TestExternalId.New()
         });
         var stuck = await CreateReferenceAsync(repository, marker, "stuck", new Dictionary<string, string> { ["rawg"] = TestExternalId.New() });
-        // no provider id at all - a document that has never resolved counts as a gap too
+        // no provider id at all, since a document that never resolved counts as a gap too
         var unlinked = await CreateReferenceAsync(repository, marker, "unlinked", []);
 
         var gaps = await MineAsync(repository, marker);
@@ -58,8 +53,7 @@ public class ProviderReconciliationRepositoryTest(KestrelWebAppFactory<Program> 
         const string absorbedReferenceId = "6a5cba680e0bece35ad59728";
         const string keptReferenceId = "6a5cba680e0bece35ad59729";
 
-        // two different tenants linked the same work through the document that is about to be absorbed - the
-        // reference documents are shared, so repairing one has to repair it for both of them at once
+        // Two tenants linked the same work through the document about to be absorbed, and reference documents are shared, so repairing it repairs both.
         await CreateItemAsync(itemRepository, ownerA, "Elden Ring", absorbedReferenceId);
         await CreateItemAsync(itemRepository, ownerB, "Elden Ring", absorbedReferenceId);
         var untouched = await CreateItemAsync(itemRepository, ownerA, "Some Other Game", keptReferenceId);
@@ -74,9 +68,7 @@ public class ProviderReconciliationRepositoryTest(KestrelWebAppFactory<Program> 
     }
 
     /// <summary>
-    /// The reference collection is shared and owner-less, so a parallel class's own gaps legitimately come
-    /// back from this query too - filtering to this test's marker keeps the assertion exact without pretending
-    /// the query is scoped.
+    /// The reference collection is shared and owner-less, so a parallel class's gaps come back from this query too, and filtering to this test's marker keeps the assertion exact.
     /// </summary>
     private static async Task<List<VideoGameReferenceModel>> MineAsync(IVideoGameReferenceRepository repository, string marker)
     {

@@ -4,16 +4,14 @@ using Riok.Mapperly.Abstractions;
 namespace Keeptrack.WebApi.Mappers;
 
 /// <summary>
-/// Maps the <see cref="ShareModel"/> grant to/from its public DTOs. The two <c>ShareCategory</c> enums
-/// (Domain vs Contracts) are mapped by name, so a member drifting between them is a build error.
-/// <see cref="Controllers.ShareController"/> owns setting <c>OwnerId</c>/<c>OwnerDisplayName</c> from the
-/// authenticated caller after <see cref="ToModel"/>, never trusting them from the request body.
+/// Maps the <see cref="ShareModel"/> grant to and from its public DTOs.
+/// The Domain and Contracts <c>ShareCategory</c> enums map by name, so drift is a build error.
+/// <see cref="Controllers.ShareController"/> sets <c>OwnerId</c> and <c>OwnerDisplayName</c> from the authenticated caller after <see cref="ToModel"/>, never from the request body.
 /// </summary>
 [Mapper(EnumMappingStrategy = EnumMappingStrategy.ByName)]
 public partial class ShareDtoMapper
 {
-    // OwnerId is required non-nullable on the model, so it's given a placeholder here (overwritten
-    // server-side from the caller's claims) rather than ignored - same pattern as the CRUD DTO mappers.
+    // OwnerId is required, so it gets a placeholder the controller overwrites from the caller's claims, as in the CRUD DTO mappers
     [MapValue(nameof(ShareModel.OwnerId), "")]
     [MapperIgnoreTarget(nameof(ShareModel.Id))]
     [MapperIgnoreTarget(nameof(ShareModel.OwnerDisplayName))]

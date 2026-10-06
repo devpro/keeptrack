@@ -13,10 +13,8 @@ public class EpisodeController(IDtoMapper<EpisodeDto, EpisodeModel> mapper, IEpi
     : DataCrudControllerBase<EpisodeDto, EpisodeModel>(mapper, dataRepository)
 {
     /// <summary>
-    /// Episodes ride along with the free tier's TV shows, so the cap is deliberately generous (100x the
-    /// per-collection limit): ticking off a full watch-through is the product's core value and must never
-    /// feel rationed - the cap only exists so an anonymous-signup account can't flood the database
-    /// through the raw API.
+    /// Episodes come with the free tier's TV shows, so the cap is generous, 100 times the collection limit, since ticking off a whole watch-through must never feel rationed.
+    /// It only stops an account flooding the database through the raw API.
     /// </summary>
     protected override int FreeTierLimitFactor => 100;
 }

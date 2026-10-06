@@ -32,12 +32,12 @@ public class AlbumReferenceRepository(IMongoDatabase mongoDatabase, AlbumReferen
     }
 
     /// <summary>
-    /// Matches against every (title, artist) combination ever confirmed for a reference, not just its canonical one - see <see cref="ReferenceAliasQueries"/> for the shared query.
-    /// The year takes no part: it is not in an album's identity (see <see cref="ReferenceAliasRule.TitleAndCreator"/>), so an alias written under one pressing's year still answers a tenant who recorded another's.
+    /// Matches every (title, artist) combination confirmed for a reference, not only its canonical one (see <see cref="ReferenceAliasQueries"/>).
+    /// The year takes no part, being outside an album's identity (see <see cref="ReferenceAliasRule.TitleAndCreator"/>), so one pressing's alias answers a tenant who recorded another.
     /// </summary>
     public async Task<AlbumReferenceModel?> FindByTitleCreatorAsync(string title, string artist)
     {
-        // not refuseAmbiguous: title + artist IS the identity here, so two matching documents are a duplicate to merge rather than an ambiguity - either one answers the question, same as a title+year pair.
+        // title and artist are the identity, so two matching documents are a duplicate to merge rather than an ambiguity, and either one answers
         var entity = await ReferenceAliasQueries.FindByTitleCreatorAsync(Collection, title, artist, refuseAmbiguous: false);
         return entity is null ? null : mapper.ToModel(entity);
     }
@@ -64,8 +64,8 @@ public class AlbumReferenceRepository(IMongoDatabase mongoDatabase, AlbumReferen
     public async Task<AlbumReferenceModel> UpsertAsync(AlbumReferenceModel model)
     {
         model.TitleNormalized = TitleNormalizer.Normalize(model.Title);
-        // No canonical-alias safety net here - see BookReferenceRepository.UpsertAsync's equivalent comment: an album is identified by title + artist and this model carries only ArtistReferenceId, so the (title, year) pair it used to add was an artist-less half-key on every album reference ever upserted.
-        // ReferenceAliasRule.TitleAndCreator is what the Resolve/Refresh paths write instead.
+        // No canonical-alias safety net: an album is its title and artist, and this model carries only ArtistReferenceId, so a complete key cannot be built here.
+        // The resolve and refresh paths write the alias through ReferenceAliasRule.TitleAndCreator instead.
         var entity = mapper.ToEntity(model);
 
         if (string.IsNullOrEmpty(entity.Id))

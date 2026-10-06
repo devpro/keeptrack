@@ -13,15 +13,12 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
 /// <summary>
-/// OMDb's rating/vote fields are strings ("8.7", "1,950,000", or "N/A") and it signals an unknown id via
-/// <c>Response:"False"</c> - this pins the parsing of each of those shapes plus the graceful no-op when no
-/// key is configured (IMDb enrichment is optional, so movies/TV must keep working without an OMDb key).
+/// OMDb's rating and vote fields are strings ("8.7", "1,950,000", "N/A"), and it signals an unknown id with <c>Response:"False"</c>.
+/// This pins the parsing of each shape, and the no-op without a key, IMDb enrichment being optional for movies and TV.
 /// <para>
-/// It also pins the two behaviours the hard 1000/day free tier forces: every call is reserved against the
-/// shared budget first, and *nothing* the provider or the network does escapes as an exception - an
-/// exhausted key answers 401, which used to surface as a 500 from admin manual linking and Explore "add".
-/// The <see cref="OmdbLookupResult.Attempted"/> flag is asserted throughout, because callers use it to
-/// decide whether a title may be written off as "OMDb has nothing for this".
+/// It also pins the two behaviours the hard 1000/day free tier forces: every call is reserved against the shared budget first, and nothing the provider or network does escapes as an exception.
+/// An exhausted key answers 401, which must not surface as a 500 from admin linking or Explore's add.
+/// The <see cref="OmdbLookupResult.Attempted"/> flag is asserted throughout, because callers use it to decide whether a title may be written off as "OMDb has nothing for this".
 /// </para>
 /// </summary>
 [Trait("Category", "UnitTests")]
@@ -83,7 +80,7 @@ public class OmdbClientTest
 
         var lookup = await client.GetRatingAsync("tt0133093", OmdbCallPriority.Background, TestContext.Current.CancellationToken);
 
-        // OMDb answered - the caller may record that and stop asking about this title for a while
+        // OMDb answered, so the caller may record that and stop asking about this title for a while
         lookup.Attempted.Should().BeTrue();
         lookup.Rating.Should().BeNull();
     }
@@ -158,7 +155,7 @@ public class OmdbClientTest
     [Fact]
     public async Task GetRatingAsync_StopsTheDay_WhenOmdbRejectsTheApiKey()
     {
-        // an unusable key can't be retried into working either - one log, then stop, rather than one failure per item
+        // an unusable key can't be retried into working either, so one log, then stop, rather than one failure per item
         var client = BuildClient("k", () => Json("""{"Response":"False","Error":"Invalid API key!"}""", HttpStatusCode.Unauthorized));
 
         var lookup = await client.GetRatingAsync("tt0133093", OmdbCallPriority.Interactive, TestContext.Current.CancellationToken);
@@ -192,8 +189,7 @@ public class OmdbClientTest
     [MemberData(nameof(TransportFailures))]
     public async Task GetRatingAsync_ReturnsNotAttempted_OnATransportFailure_WithoutThrowing(Exception failure)
     {
-        // IMDb is best-effort: an admin's manual link and a user's Explore "add" both await this, and neither
-        // may fail because OMDb was unreachable
+        // IMDb is best-effort: an admin's manual link and a user's Explore "add" both await this, and neither may fail because OMDb was unreachable
         var client = BuildClient("k", new ThrowingHttpMessageHandler(() => failure));
 
         var lookup = await client.GetRatingAsync("tt0133093", OmdbCallPriority.Interactive, TestContext.Current.CancellationToken);
@@ -205,8 +201,7 @@ public class OmdbClientTest
     [Fact]
     public async Task GetRatingAsync_PropagatesTheCallersOwnCancellation()
     {
-        // a timeout is swallowed, but the caller giving up is not - a shutting-down background service must
-        // not look like it completed its work
+        // a timeout is swallowed, but the caller giving up is not, or a shutting-down background service would look like it completed its work
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
         var client = BuildClient("k", new ThrowingHttpMessageHandler(() => new TaskCanceledException("cancelled")));

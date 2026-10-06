@@ -8,12 +8,10 @@ using CarHistoryType = Keeptrack.Domain.Models.CarHistoryType;
 namespace Keeptrack.WebApi.Import;
 
 /// <summary>
-/// One-off personal import of the "Voitures.xlsx" spreadsheet:
-/// one fuel-log sheet and (optionally) one maintenance-log sheet per car, hand-tracked in French.
-/// This is a single-owner spreadsheet with a fixed, known shape (not a generic user-facing file format like the TV Time GDPR export),
-/// so the sheet names and column headers below are hardcoded rather than auto-detected. Not idempotent by design -
-/// matches an existing car by name so re-running doesn't duplicate the cars themselves, but re-uploading the same file will duplicate history entries.
-/// This is meant to be run once per car; unlike <see cref="TvTimeImportService"/>, there is no per-entry natural key in the source data to de-duplicate against.
+/// One-off personal import of the "Voitures.xlsx" spreadsheet: a fuel log sheet and an optional maintenance log sheet per car, kept by hand in French.
+/// It is one owner's file of a known shape, not a general format like the TV Time export, so sheet names and headers are hardcoded.
+/// Not idempotent: an existing car is matched by name, but uploading the file again duplicates the history.
+/// It runs once per car, since the source has no natural key per entry to deduplicate on.
 /// </summary>
 public class CarHistoryImportService(
     ICarRepository carRepository,
@@ -91,9 +89,7 @@ public class CarHistoryImportService(
 
             var time = ExcelCellParser.ParseTime(Cell(row, headers, "Heure")) ?? TimeOnly.MinValue;
 
-            // A refuel's Distributeur/Ville/CP triple describes the station, not the entry - it resolves to
-            // one shared car_station document (created once, reused by every later row at the same place)
-            // instead of being copied onto every line, which is the whole point of the station collection.
+            // the Distributeur, Ville and CP columns describe the station, so they resolve to one shared car_station document reused by every row at that place
             var stationId = await ResolveStationIdAsync(
                 ExcelCellParser.StringOrNull(Cell(row, headers, "Distributeur")),
                 ExcelCellParser.StringOrNull(Cell(row, headers, "Ville")),
@@ -129,9 +125,8 @@ public class CarHistoryImportService(
     }
 
     /// <summary>
-    /// Find-or-create the shared station a refuel row happened at. Returns null when the row names no
-    /// station at all - a station with no brand name has no identity to de-duplicate on, so an entry with
-    /// a bare city is better left unlinked than pointed at a nameless catch-all document.
+    /// Finds or creates the shared station of a refuel row.
+    /// Null when the row names no station: without a brand there is no identity to deduplicate on, so a bare city is left unlinked rather than pointed at a nameless catch-all.
     /// </summary>
     private async Task<string?> ResolveStationIdAsync(string? brandName, string? city, string? postalCode)
     {
@@ -173,9 +168,9 @@ public class CarHistoryImportService(
             {
                 OwnerId = ownerId,
                 CarId = carId,
-                // Neither maintenance sheet has a time-of-day column, so this always defaults to midnight.
+                // the maintenance sheets have no time column, so midnight
                 HistoryDate = date.Value.ToDateTime(TimeOnly.MinValue),
-                // "Achat" (purchase) is not a maintenance action - everything else in these two sheets is.
+                // "Achat" (purchase) is not maintenance, and everything else in these sheets is
                 EventType = string.Equals(nature, "Achat", StringComparison.OrdinalIgnoreCase) ? CarHistoryType.Other : CarHistoryType.Maintenance,
                 City = ExcelCellParser.StringOrNull(Cell(row, headers, "Ville")),
                 PostalCode = ExcelCellParser.StringOrNull(Cell(row, headers, "CP")),
@@ -204,8 +199,7 @@ public class CarHistoryImportService(
         var headers = new Dictionary<string, int>();
         foreach (var cell in headerRow.CellsUsed())
         {
-            // Some headers (e.g. "Autoroute\nEloigné") span two lines within a single cell -
-            // normalize whitespace so a lookup doesn't have to guess the exact line-break character used in the file.
+            // some headers ("Autoroute\nEloigné") span two lines in a cell, so whitespace is normalized rather than guessing the line break
             var text = string.Join(' ', cell.GetString().Split([' ', '\r', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries));
             if (text.Length > 0) headers.TryAdd(text, cell.Address.ColumnNumber);
         }
@@ -219,10 +213,8 @@ public class CarHistoryImportService(
         headers.TryGetValue(header, out var column) ? row.Cell(column) : null;
 
     /// <summary>
-    /// Reads a date, falling back to a manual French (d/M/yyyy) text parse for the one row that wasn't stored as a real Excel date.
-    /// One entry in "Carburant X" has the corrupted literal text "11/06/0207",
-    /// confirmed (from the surrounding, chronologically-sorted rows: 2017-08-13 above, 2017-05-26 below) to be a mistyped 11/06/2017 -
-    /// fixed here rather than skipped, per a manual review of the source file.
+    /// Reads a date, falling back to a French (d/M/yyyy) text parse for a row not stored as an Excel date.
+    /// One "Carburant X" entry reads "11/06/0207", a mistyped 11/06/2017 given its sorted neighbors (2017-08-13 and 2017-05-26), so it is fixed rather than skipped.
     /// </summary>
     private static DateOnly? ParseDate(IXLCell cell)
     {

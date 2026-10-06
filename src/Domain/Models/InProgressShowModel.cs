@@ -3,9 +3,8 @@ using System;
 namespace Keeptrack.Domain.Models;
 
 /// <summary>
-/// A TV show in progress, with the last episode Keeptrack knows was watched and the next confirmed-unseen
-/// one from its TMDB episode guide. Only shows with a resolved reference and a confirmed aired-but-unwatched
-/// episode are reported at all - see WatchNextService.
+/// A TV show in progress, with the last episode known to be watched and the next unwatched one from its TMDB episode guide.
+/// Only shows with a reference and a confirmed aired, unwatched episode are reported (see <c>WatchNextService</c>).
 /// </summary>
 public class InProgressShowModel
 {

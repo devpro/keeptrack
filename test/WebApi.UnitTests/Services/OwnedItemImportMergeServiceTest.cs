@@ -117,8 +117,7 @@ public class OwnedItemImportMergeServiceTest
     [Fact]
     public void ComputeCommitPlan_SkipsARow_WhenItsOrderReferenceAlreadyExistsOnAnExistingBook()
     {
-        // reproduces a real bug: re-running the same commit (or re-importing the same export) created a
-        // second owned version for the same order every time, because matching was title-only
+        // Re-running the same commit, or re-importing the same export, must not create a second owned version for the same order, which title-only matching would.
         var reference = AmazonImportMergeService.FormatOrderReference(SomeOrderId, SomeAsin);
         var existing = Book("Some Book", new OwnedVersionModel { Reference = reference });
 
@@ -134,12 +133,10 @@ public class OwnedItemImportMergeServiceTest
     [Fact]
     public void ComputeCommitPlan_SkipsARow_WhenItsOrderReferenceMatchesAnExistingBook_EvenUnderADifferentTitleNow()
     {
-        // reproduces a real bug: after a book's title was changed (e.g. by reference-data linking) following
-        // a first import, re-importing the same order under its original Amazon title no longer matched the
-        // existing book by title at all, and created a brand new duplicate record instead
+        // A book renamed after a first import (by reference linking) must still match when the same order is re-imported under its original Amazon title, rather than creating a duplicate.
         var reference = AmazonImportMergeService.FormatOrderReference(SomeOrderId, SomeAsin);
         var existing = Book("The Secret: Jack Reacher, Book 28", new OwnedVersionModel { Reference = reference });
-        existing.Title = "No Plan B"; // renamed after the first import, e.g. by reference-data linking
+        existing.Title = "No Plan B"; // renamed after the first import, as reference linking does
 
         var plan = ComputeBookPlan([existing], [Item("The Secret: Jack Reacher, Book 28", reference: reference)]);
 
@@ -164,9 +161,7 @@ public class OwnedItemImportMergeServiceTest
     [Fact]
     public void ComputeCommitPlan_ImportsBothItems_WhenTwoDifferentItemsShareTheSameOrderId()
     {
-        // reproduces a real bug: an Amazon order commonly contains several different line items, but the
-        // reference used to be built from the order id alone - so the second item in the same order was
-        // silently skipped as a "duplicate" of the first, even though it's a genuinely different product
+        // An Amazon order often holds several line items, so a reference built from the order id alone would skip the second, a different product, as a duplicate of the first.
         const string sharedOrderId = "405-2222222-2222222";
         var firstItem = Item("First Book In Order", reference: AmazonImportMergeService.FormatOrderReference(sharedOrderId, "1111111111"));
         var secondItem = Item("Second Book In Order", reference: AmazonImportMergeService.FormatOrderReference(sharedOrderId, "2222222222"));

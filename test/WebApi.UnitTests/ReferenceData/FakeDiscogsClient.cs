@@ -20,7 +20,7 @@ internal sealed class FakeDiscogsClient : IDiscogsClient
 
     public static FakeDiscogsClient WithSearchResults(params DiscogsSearchResult[] results) => new([.. results]);
 
-    /// <summary>How many searches were issued - zero is what "the local reference answered" looks like.</summary>
+    /// <summary>How many searches were issued, zero meaning the local reference answered.</summary>
     public int SearchCount { get; private set; }
 
     public Task<IReadOnlyList<DiscogsSearchResult>> SearchAlbumsAsync(string title, int? year, string? artist = null, CancellationToken cancellationToken = default)

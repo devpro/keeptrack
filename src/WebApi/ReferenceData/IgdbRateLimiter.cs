@@ -4,23 +4,18 @@ using System.Threading.RateLimiting;
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// Paces outgoing IGDB requests to the 4 requests/second the API documents, queueing rather than failing when
-/// callers arrive faster.
+/// Paces IGDB requests to the documented 4 per second, queueing rather than failing when callers come faster.
 /// <para>
-/// A singleton holding the bucket, separate from the handler that uses it, because a
-/// <see cref="DelegatingHandler"/> registered with <c>AddHttpMessageHandler</c> is rebuilt every time
-/// <see cref="IHttpClientFactory"/> rotates its handler chain - a limiter owned by the handler would silently
-/// reset its budget on every rotation.
+/// A singleton apart from its handler, since <see cref="IHttpClientFactory"/> rebuilds a <see cref="DelegatingHandler"/> on every rotation, which would reset a budget the handler owned.
 /// </para>
 /// <para>
-/// The bucket is per process, so N replicas can still collectively exceed the limit; the standard resilience
-/// handler's retry covers the occasional 429 that results - IGDB's own and this one's alike. Only the nightly
-/// reference sync can sustain this rate at all; interactive traffic is a handful of calls.
+/// The bucket is per process, so several replicas can exceed the limit together, and the resilience handler retries the occasional 429.
+/// Only the reference sync sustains this rate, interactive traffic being a handful of calls.
 /// </para>
 /// </summary>
 public sealed class IgdbRateLimiter : IDisposable
 {
-    /// <summary>IGDB's documented ceiling: 4 requests per second, with up to 8 open at once.</summary>
+    /// <summary>IGDB's documented ceiling: 4 requests per second, up to 8 open at once.</summary>
     private const int RequestsPerSecond = 4;
 
     private readonly TokenBucketRateLimiter _limiter = new(new TokenBucketRateLimiterOptions
@@ -34,17 +29,13 @@ public sealed class IgdbRateLimiter : IDisposable
     });
 
     /// <summary>
-    /// How many callers may wait for a token before the handler stops queueing and answers 429 instead.
+    /// How many callers may wait for a token before the handler answers 429 instead.
     /// <para>
-    /// Bounded on purpose. At <see cref="RequestsPerSecond"/> this is a few seconds of backlog, comfortably
-    /// inside the resilience handler's total-request timeout, so an ordinary burst waits its turn. An
-    /// unbounded queue would instead let a caller wait indefinitely - the typed client's own
-    /// <c>HttpClient.Timeout</c> is <c>Timeout.InfiniteTimeSpan</c> by design, so nothing else would ever
-    /// break that wait, and a pod stuck in one is worse than a pod that fails and gets restarted.
+    /// Bounded: at <see cref="RequestsPerSecond"/> this is a few seconds of backlog, within the resilience total timeout, so a burst waits its turn.
+    /// An unbounded queue could wait forever, since <c>HttpClient.Timeout</c> is infinite, and a stuck pod is worse than a failing one.
     /// </para>
     /// <para>
-    /// Overflowing is cheap rather than fatal precisely because this handler sits inside the resilience
-    /// handler: the 429 is retried with backoff, which paces a bulk sync pass instead of failing it.
+    /// Overflowing is cheap, since this handler sits inside the resilience handler, which retries the 429 with backoff and so paces a sync pass.
     /// </para>
     /// </summary>
     private const int MaxQueuedRequests = 32;

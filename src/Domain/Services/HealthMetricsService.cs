@@ -6,15 +6,13 @@ using Keeptrack.Domain.Models;
 namespace Keeptrack.Domain.Services;
 
 /// <summary>
-/// Pure, stateless computation over a health profile's journal -
-/// no persistence of its own, same shape as <see cref="HouseMetricsService"/>/<see cref="CarMetricsService"/>.
-/// Three views the raw journal can't answer at a glance:
-/// what health costs per year after reimbursements, when each practitioner was last seen, and which paid records are still waiting on a reimbursement.
+/// Pure computation over a health profile's journal, like <see cref="HouseMetricsService"/> and <see cref="CarMetricsService"/>.
+/// It answers three questions the journal does not show at a glance: what health costs per year after reimbursements, when each specialty was last seen, and which paid records still wait on a reimbursement.
 /// </summary>
 public static class HealthMetricsService
 {
     /// <summary>
-    /// Two amounts closer than this are "equal" - reimbursement arithmetic runs on doubles, and a sub-cent residue must never flag a genuinely settled record.
+    /// Two amounts closer than this are equal, since reimbursement arithmetic runs on doubles and a rounding residue must never flag a settled record.
     /// </summary>
     private const double BalanceTolerance = 0.05;
 
@@ -25,8 +23,8 @@ public static class HealthMetricsService
     }
 
     /// <summary>
-    /// What's still missing once everything entered is accounted for: price minus both reimbursements minus the accepted not-covered part (reste à charge).
-    /// Zero = settled.
+    /// What is still missing once everything entered is counted: the price minus both reimbursements and the accepted not-covered part (reste à charge).
+    /// Zero means settled.
     /// </summary>
     private static double ComputeMissingAmount(HealthRecordModel record)
     {
@@ -54,10 +52,8 @@ public static class HealthMetricsService
     }
 
     /// <summary>
-    /// One line per specialty across every appointment - most recently seen first, so "when did I last
-    /// see a dentist" is the top of the list, not a search. Grouped by specialty rather than by
-    /// practitioner name (owner's call): the question is about the kind of care, and the journal itself
-    /// carries the names.
+    /// One line per specialty across every appointment, most recently seen first, so the last dentist visit is read at a glance.
+    /// Grouped by specialty rather than practitioner (owner's call): the question is the kind of care, and the journal carries the names.
     /// </summary>
     private static List<HealthLastVisitModel> ComputeLastVisits(IEnumerable<HealthRecordModel> records)
     {
@@ -70,10 +66,9 @@ public static class HealthMetricsService
     }
 
     /// <summary>
-    /// Every paid record whose money doesn't balance to zero, oldest first (the longest-waiting claim is
-    /// the one to chase). This deliberately flags partial settlements too: a record with only the ameli
-    /// payment entered is exactly the "did the mutuelle ever pay?" case the check exists for, and a
-    /// negative missing amount (more received than the price accounts for) is just as worth a look.
+    /// Every paid record whose money does not balance, oldest first, since the longest-waiting claim is the one to chase.
+    /// Partial settlements are flagged too: a record with only the public reimbursement entered is exactly the "did the mutuelle pay?" case.
+    /// A negative missing amount, more received than the price, is just as worth a look.
     /// </summary>
     private static List<HealthUnbalancedRecordModel> ComputeUnbalancedRecords(IEnumerable<HealthRecordModel> records)
     {

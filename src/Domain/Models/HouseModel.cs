@@ -18,13 +18,13 @@ public class HouseModel : IHasIdAndOwnerId
     /// <summary>When the owner moved into this property, if recorded.</summary>
     public DateOnly? MovedInAt { get; set; }
 
-    /// <summary>When the owner moved out of this property, if recorded (unset while still occupied).</summary>
+    /// <summary>When the owner moved out of this property, unset while still occupied.</summary>
     public DateOnly? MovedOutAt { get; set; }
 
     public string? Notes { get; set; }
 
     /// <summary>
-    /// Tenant-owned cover image URL, shown on the list thumbnail and detail page header. Optional.
+    /// The tenant's own optional cover image URL, shown on the list thumbnail and the detail page header.
     /// </summary>
     public string? ImageUrl { get; set; }
 }

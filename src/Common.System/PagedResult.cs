@@ -3,10 +3,6 @@ using System.Collections.Generic;
 
 namespace Keeptrack.Common.System;
 
-/// <summary>
-/// Represents a paginated result set, carrying the requested page of items alongside the total number of records matching the query.
-/// </summary>
-/// <typeparam name="T">The item type for this page.</typeparam>
 public sealed record PagedResult<T>
 {
     public List<T> Items { get; init; }
@@ -36,9 +32,6 @@ public sealed record PagedResult<T>
         PageSize = pageSize;
     }
 
-    /// <summary>
-    /// Convenience factory, projects items without re-allocating the wrapper.
-    /// </summary>
     public PagedResult<TOut> Map<TOut>(Func<T, TOut> selector) =>
         new(Items.ConvertAll(selector.Invoke), TotalCount, Page, PageSize);
 }

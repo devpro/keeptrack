@@ -4,8 +4,7 @@ using Keeptrack.Common.System;
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// Shared album metadata (synopsis, cover) - read-only, fetched separately from <see cref="AlbumDto"/> since
-/// it isn't the tenant's own data.
+/// Shared album metadata (synopsis, cover), read-only and fetched apart from <see cref="AlbumDto"/>, since it is not the tenant's own data.
 /// </summary>
 public class AlbumReferenceDto : IHasId
 {
@@ -25,7 +24,7 @@ public class AlbumReferenceDto : IHasId
 
     public List<ReferenceTrackDto> Tracks { get; set; } = [];
 
-    /// <summary>Aggregate ratings keyed by source name ("discogs") - see <see cref="ReferenceRatingDto"/>.</summary>
+    /// <summary>Aggregate ratings keyed by source ("discogs"), see <see cref="ReferenceRatingDto"/>.</summary>
     public Dictionary<string, ReferenceRatingDto> Ratings { get; set; } = [];
 
     public string? ImageUrl { get; set; }

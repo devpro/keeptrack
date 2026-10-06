@@ -20,9 +20,8 @@ public class HouseHistoryModel : IHasIdAndOwnerId
     public double? Cost { get; set; }
 
     /// <summary>
-    /// Contractor/technician/utility company/store name - a single field covering every category, unlike
-    /// Car's Refuel-only StationBrandName vs Maintenance-only Garage split, since House has no event type
-    /// where "who was involved" doesn't apply.
+    /// Contractor, technician, utility company or store name.
+    /// One field covers every category, unlike Car's station and garage split, since every house event involves someone.
     /// </summary>
     public string? Provider { get; set; }
 }

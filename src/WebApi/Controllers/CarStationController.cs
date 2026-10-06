@@ -7,16 +7,13 @@ using Microsoft.AspNetCore.Mvc;
 namespace Keeptrack.WebApi.Controllers;
 
 /// <summary>
-/// The shared, owner-less fuel-station catalogue. Not a <see cref="DataCrudControllerBase{TDto, TModel}"/>:
-/// that base scopes every query to the caller and stamps an <c>OwnerId</c>, which is exactly what this
-/// collection deliberately doesn't have (see <see cref="CarStationModel"/>).
+/// The shared fuel station catalogue.
+/// Not a <see cref="DataCrudControllerBase{TDto, TModel}"/>, which scopes every query to the caller and stamps an <c>OwnerId</c> this collection does not have (see <see cref="CarStationModel"/>).
 /// </summary>
 /// <remarks>
-/// Reads and creation are open to any member, curation is admin-only. A member refuelling somewhere new
-/// must never be blocked waiting on an admin, so the picker creates the station on the spot with just a
-/// brand name; enriching it with a city and coordinates, merging the near-duplicates that inevitably
-/// produces, and deleting are the admin half - the same "act on what's confident, leave the rest for a
-/// human" split as reference auto-resolution and its admin queue.
+/// Reading and creating are open to any member, curating is admin only.
+/// A member refuelling somewhere new is never blocked on an admin, so the picker creates the station on the spot with a brand name.
+/// Adding a city and coordinates, merging the near-duplicates this produces, and deleting are the admin's part.
 /// </remarks>
 [ApiController]
 [Authorize(Policy = "MemberOnly")]
@@ -28,7 +25,7 @@ public class CarStationController(
     : ControllerBase
 {
     /// <summary>
-    /// The whole catalogue, ordered by brand then city - what the car history form's station picker offers.
+    /// The whole catalogue, ordered by brand then city, for the history form's station picker.
     /// </summary>
     [HttpGet]
     [ProducesResponseType(200)]
@@ -70,9 +67,8 @@ public class CarStationController(
     }
 
     /// <summary>
-    /// Find-or-create by natural key (normalized brand name + city + postal code). Idempotent on purpose:
-    /// the picker posts here every time a member types a station that isn't in the list yet, and two members
-    /// typing "Total" at the same address must land on one document, not two.
+    /// Find or create by natural key (normalized brand, city, postal code).
+    /// Idempotent, since the picker posts here whenever a member types a station not in the list, and two members typing "Total" at one address must land on one document.
     /// </summary>
     [HttpPost]
     [Consumes("application/json", "text/json")]
@@ -100,7 +96,7 @@ public class CarStationController(
     }
 
     /// <summary>
-    /// Admin-only: enrich a station with its city, postal code, country and coordinates.
+    /// Admin only: adds a station's city, postal code, country and coordinates.
     /// </summary>
     [HttpPut("{id}")]
     [Authorize(Policy = "AdminOnly")]
@@ -119,9 +115,8 @@ public class CarStationController(
         var existing = await stationRepository.FindByIdAsync(id);
         if (existing is null) return NotFound();
 
-        // An edit can move a station onto another one's natural key ("Total" gaining the city that makes it
-        // the "Total - Rennes" already on file). The unique index would reject that write outright, so name
-        // the conflict instead - "merge these two" is an action the admin has, a duplicate-key 500 is not.
+        // An edit can move a station onto another's natural key ("Total" gaining the city of the "Total - Rennes" on file).
+        // The unique index would reject it, so the conflict is named instead, since merging is an action the admin has and a duplicate-key 500 is not.
         var clash = await stationRepository.FindByNaturalKeyAsync(dto.BrandName, dto.City, dto.PostalCode);
         if (clash is not null && clash.Id != id)
         {
@@ -135,9 +130,8 @@ public class CarStationController(
     }
 
     /// <summary>
-    /// Admin-only: delete a station no entry points at. A station is only ever reachable through an entry's
-    /// <c>StationId</c>, so deleting one still in use would blank the location of every refuel referencing
-    /// it with nothing to recover it from - that's a merge, not a delete.
+    /// Admin only: deletes a station no entry points at.
+    /// Deleting one in use would blank the location of every refuel referencing it, with nothing to recover it, which is what a merge is for.
     /// </summary>
     [HttpDelete("{id}")]
     [Authorize(Policy = "AdminOnly")]
@@ -159,9 +153,7 @@ public class CarStationController(
     }
 
     /// <summary>
-    /// Admin-only: fold <paramref name="id"/> into <paramref name="targetId"/>, re-pointing every entry
-    /// first and only then deleting the absorbed document - the same ordering and the same reason as the
-    /// video-game reference merge: skipping the re-point silently blanks those entries' station.
+    /// Admin only: folds <paramref name="id"/> into <paramref name="targetId"/>, re-pointing every entry before deleting the absorbed document, as the video game reference merge does.
     /// </summary>
     [HttpPost("{id}/merge/{targetId}")]
     [Authorize(Policy = "AdminOnly")]
@@ -177,25 +169,21 @@ public class CarStationController(
         var survivor = await stationRepository.FindByIdAsync(targetId);
         if (absorbed is null || survivor is null) return NotFound();
 
-        // The survivor keeps everything it already knows and only gains what it is missing - both documents
-        // describe the same physical station, so a field only one of them has is strictly new information.
-        // Same "never overwrite with nothing" rule as SetReferenceLinkAsync.
+        // The survivor keeps what it knows and only gains what it lacks, since both describe one station, so a field only one has is new information.
         survivor.PostalCode ??= absorbed.PostalCode;
         survivor.Country ??= absorbed.Country;
         survivor.Longitude ??= absorbed.Longitude;
         survivor.Latitude ??= absorbed.Latitude;
 
-        // The city is part of the natural key, so adopting it can move the survivor onto a *third*
-        // station's key, which the unique index rejects outright. Gaining a city is a cosmetic improvement
-        // and losing the merge is not, so the adoption is checked and skipped rather than attempted.
+        // The city is part of the natural key, so adopting it can move the survivor onto a third station's key, which the unique index rejects.
+        // Gaining a city is cosmetic and losing the merge is not, so a colliding city is skipped.
         if (survivor.City is null && absorbed.City is not null)
         {
             var clash = await stationRepository.FindByNaturalKeyAsync(survivor.BrandName, absorbed.City, survivor.PostalCode);
             if (clash is null || clash.Id == id) survivor.City = absorbed.City;
         }
 
-        // Re-point before deleting: while both documents exist the entries can be moved, and an entry left
-        // pointing at a deleted station renders as no station at all with nothing to recover it from.
+        // re-pointed before deleting, since an entry left on a deleted station shows no station, with nothing to recover it
         var repointed = await carHistoryRepository.RepointStationAsync(id, targetId);
         await stationRepository.DeleteAsync(id);
         await stationRepository.UpsertAsync(survivor);

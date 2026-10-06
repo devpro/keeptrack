@@ -1,13 +1,11 @@
 namespace Keeptrack.Domain.Models;
 
 /// <summary>
-/// Which of the six reference collections an import is currently writing, reported as each one starts so a
-/// caller can show real progress. A full export is tens of thousands of documents (people alone routinely
-/// outnumber every other collection put together), so "importing..." with no breakdown says nothing useful.
+/// Which of the six reference collections an import is writing, reported as each one starts so a caller shows real progress.
+/// A full export is tens of thousands of documents, people outnumbering every other collection together, so a bare "importing" says nothing useful.
 /// <para>
-/// Deliberately not the same enum as the client-facing <c>ReferenceDataImportStage</c>: Domain can't reference
-/// <c>WebApi.Contracts</c>, and the two genuinely describe different things - this names a collection, that one
-/// names a job stage (including the parse/complete/fail states only the web layer knows about).
+/// It is not the client-facing <c>ReferenceDataImportStage</c>: Domain cannot reference <c>WebApi.Contracts</c>, and the two describe different things.
+/// This names a collection, that one a job stage, including the parse, complete and fail states only the web layer knows.
 /// </para>
 /// </summary>
 public enum ReferenceDataImportCollection

@@ -2,8 +2,8 @@
 @using Keeptrack.BlazorApp.Components.Inventory.Pages
 @attribute [Authorize(Policy = "MemberOnly")]
 
-@* The recipient route for a shared car. Reuses the owner's own CarDetail page in read-only mode (ShareId set),
-   which loads through the ownership-scoped /api/shared-with-me endpoints instead of the caller-scoped /api/cars. *@
+@* The recipient route for a shared car.
+   It reuses the owner's CarDetail page in read-only mode (ShareId set), which loads through the /api/shared-with-me endpoints instead of the caller-scoped /api/cars. *@
 <CarDetail ShareId="@ShareId" Id="@Id"/>
 
 @code {

@@ -6,14 +6,10 @@ using Keeptrack.Common.System;
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// BnF (Bibliothèque nationale de France) "Catalogue général" SRU client - free, keyless, public.
-/// Unlike every other provider here (JSON), SRU responses are XML: each hit is a <c>srw:record</c> whose
-/// <c>srw:recordData</c> embeds a Dublin Core (<c>oai_dc:dc</c>) document. Confirmed against the real API
-/// (searching "Killing Floor" / Lee Child, then re-fetching by <c>bib.persistentid</c>) before writing this
-/// parser - the exact element/namespace shape below is not guessed from documentation prose.
-/// Deliberately never populates <see cref="BookSearchResult.ImageUrl"/>/<see cref="BookDetails.ImageUrl"/>:
-/// BnF's ordinary catalogue records carry no cover-art field at all (only a digitized Gallica item would,
-/// via a separate API this client doesn't call), unlike Open Library/RAWG/Discogs.
+/// SRU client of the BnF (Bibliothèque nationale de France) "Catalogue général", free and keyless.
+/// Unlike the other providers, it answers XML: each hit is a <c>srw:record</c> whose <c>srw:recordData</c> embeds a Dublin Core (<c>oai_dc:dc</c>) document.
+/// The element and namespace shape below comes from real responses, not documentation prose.
+/// It never fills <see cref="BookSearchResult.ImageUrl"/> or <see cref="BookDetails.ImageUrl"/>, since catalogue records carry no cover (only a digitized Gallica item would, through another API).
 /// </summary>
 public class BnfClient(HttpClient http) : BookReferenceClientBase
 {
@@ -29,41 +25,26 @@ public class BnfClient(HttpClient http) : BookReferenceClientBase
     private static readonly TimeSpan s_regexTimeout = TimeSpan.FromSeconds(1);
 
     /// <summary>
-    /// <c>bib.isbn</c> is an exact-identifier criterion, so unlike the author clause below it needs no
-    /// client-side re-check - confirmed against the real API that it round-trips a known ISBN to the single
-    /// matching record (<c>2841142787</c> to Lee Child's "Du fond de l'abîme"). BnF's catalogue is much
-    /// narrower than Google Books' for an arbitrary edition, so a miss is routine and simply widens to the
-    /// title search - see <see cref="BookReferenceClientBase.SearchBooksAsync"/>.
-    /// <para>
-    /// <c>dc:identifier</c>-parsed ISBNs were already reported by <see cref="GetBookDetailsAsync"/> for
-    /// autofill on link/refresh; this is the other direction, which the class previously did not support.
-    /// </para>
+    /// <c>bib.isbn</c> is exact, so unlike the author clause it needs no check: <c>2841142787</c> returns the one record, Lee Child's "Du fond de l'abîme".
+    /// BnF's catalogue is much narrower than Google Books', so a miss is routine and widens to the title search (see <see cref="BookReferenceClientBase.SearchBooksAsync"/>).
     /// </summary>
     protected override Task<IReadOnlyList<BookSearchResult>> SearchByIsbnAsync(string isbn, CancellationToken cancellationToken) =>
         SearchCoreAsync($"bib.isbn all \"{EscapeCql(isbn)}\"", null, cancellationToken);
 
     /// <summary>
-    /// <paramref name="author"/>, when given, is both sent to BnF as an "and (bib.author ...)" clause AND
-    /// re-checked client-side afterward - confirmed against the real API that BnF's own "and" combination
-    /// is not a strict intersection for every author: querying title "La Peste" and author "Victor Hugo"
-    /// (who never wrote a book by that title) returns several real Hugo anthologies instead of zero, none
-    /// of them actually titled "La Peste". The server-side clause still narrows the common, well-populated
-    /// case (confirmed correct for "Killing Floor"/Lee Child and "La Peste"/Albert Camus, both genuine
-    /// matches), but a candidate that slips through without a real author match must be filtered out here
-    /// rather than trusted - otherwise search results silently include titles that don't match the
-    /// requested author at all, which read as "the author was ignored".
+    /// <paramref name="author"/> is sent as an "and (bib.author ...)" clause and checked again here, since BnF's "and" is not a strict intersection.
+    /// "La Peste" by "Victor Hugo", who never wrote it, returns several Hugo anthologies rather than nothing.
+    /// The clause still narrows the ordinary case, but a candidate without a real author match is filtered out, or results would seem to ignore the author.
     /// <para>
-    /// No year clause: that unreliable "and" combination is precisely why stacking a second server-side
-    /// clause on top of the author one would only compound the risk. <c>dc:date</c> is still parsed and
-    /// returned per candidate (<see cref="BookSearchResult.Year"/>) for the admin to pick with.
+    /// No year clause, since stacking a second unreliable "and" only adds risk.
+    /// <c>dc:date</c> is still returned per candidate (<see cref="BookSearchResult.Year"/>) for the admin to pick with.
     /// </para>
     /// </summary>
     protected override Task<IReadOnlyList<BookSearchResult>> SearchByTitleAsync(string title, string? author, CancellationToken cancellationToken) =>
         SearchCoreAsync(BuildCqlQuery(title, author), author, cancellationToken);
 
     /// <summary>
-    /// <paramref name="authorToVerify"/> re-checks the parsed creator client-side; null skips the check,
-    /// for a query whose criterion is already exact.
+    /// <paramref name="authorToVerify"/> checks the parsed creator, null skipping it for a query whose criterion is already exact.
     /// </summary>
     private async Task<IReadOnlyList<BookSearchResult>> SearchCoreAsync(string cqlQuery, string? authorToVerify, CancellationToken cancellationToken)
     {
@@ -78,12 +59,8 @@ public class BnfClient(HttpClient http) : BookReferenceClientBase
     }
 
     /// <summary>
-    /// True when every word of <paramref name="requestedAuthor"/> appears somewhere in
-    /// <paramref name="candidateAuthor"/> - a plain substring/word-presence check (same normalization,
-    /// <see cref="TitleNormalizer.Normalize"/>, already used for title matching elsewhere), not an exact
-    /// match: <paramref name="candidateAuthor"/> already went through <see cref="ExtractAuthorName"/>'s
-    /// reordering, but a multi-author record's <c>dc:creator</c> only ever contributes the FIRST credited
-    /// name to this parser, so this stays a loose contains-check rather than requiring exact equality.
+    /// True when every word of <paramref name="requestedAuthor"/> appears in <paramref name="candidateAuthor"/>, under <see cref="TitleNormalizer.Normalize"/>.
+    /// A loose containment rather than equality, since a multi-author record's <c>dc:creator</c> gives this parser only the first credited name.
     /// </summary>
     private static bool AuthorMatches(string? candidateAuthor, string requestedAuthor)
     {
@@ -97,9 +74,7 @@ public class BnfClient(HttpClient http) : BookReferenceClientBase
 
     public override async Task<BookDetails?> GetBookDetailsAsync(string externalId, CancellationToken cancellationToken = default)
     {
-        // externalId is the bare ARK (e.g. "ark:/12148/cb361713613") from srw:recordIdentifier - re-querying
-        // by bib.persistentid is the one exact-id search criterion confirmed to round-trip it back to the
-        // same single record.
+        // externalId is the bare ARK ("ark:/12148/cb361713613") of srw:recordIdentifier, and bib.persistentid is the criterion returning that one record
         var xml = await FetchAsync($"bib.persistentid all \"{externalId}\"", cancellationToken);
         var record = ParseRecords(xml).FirstOrDefault();
         return record is null ? null : new BookDetails(record.ExternalId, record.Title, record.Year, record.Synopsis, record.Author, null, record.Genres, null, record.Language, record.Isbn);
@@ -122,10 +97,8 @@ public class BnfClient(HttpClient http) : BookReferenceClientBase
     private sealed record ParsedRecord(string ExternalId, string Title, int? Year, string? Author, string? Synopsis, string? Language, List<string> Genres, string? Isbn);
 
     /// <summary>
-    /// <c>srw:recordData</c>'s only child is the <c>oai_dc:dc</c> wrapper - read it positionally rather than
-    /// by name, so this doesn't depend on assuming the oai_dc namespace prefix/URI stays exactly as observed.
-    /// A record missing an id or a title (shouldn't happen for a real bibliographic hit) is skipped rather
-    /// than surfaced as a broken candidate.
+    /// <c>srw:recordData</c>'s only child is the <c>oai_dc:dc</c> wrapper, read by position rather than name, so a change of namespace prefix does not matter.
+    /// A record without an id or title is skipped rather than shown as a broken candidate.
     /// </summary>
     private static IEnumerable<ParsedRecord> ParseRecords(string xml)
     {
@@ -150,9 +123,7 @@ public class BnfClient(HttpClient http) : BookReferenceClientBase
     }
 
     /// <summary>
-    /// <c>dc:identifier</c> is repeatable and mixes different identifier kinds in the same element (an ARK
-    /// URL, an ISBN as plain text "ISBN 2841142787" - confirmed against the real API) - the ARK is already
-    /// captured separately via <c>srw:recordIdentifier</c>, so this only looks for the ISBN-prefixed one.
+    /// <c>dc:identifier</c> repeats and mixes kinds (an ARK URL, "ISBN 2841142787"), and the ARK comes from <c>srw:recordIdentifier</c>, so this only reads the ISBN one.
     /// </summary>
     private static readonly Regex s_isbnRegex = new(@"^ISBN\s+(.+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled, s_regexTimeout);
 
@@ -163,11 +134,9 @@ public class BnfClient(HttpClient http) : BookReferenceClientBase
             ?.Groups[1].Value.Trim();
 
     /// <summary>
-    /// BnF's <c>dc:creator</c> is formatted "LastName, FirstName (birth-death dates). Role" (e.g. "Child,
-    /// Lee (1954-....). Auteur du texte", confirmed against the real API) - strips the trailing role
-    /// sentence and the parenthetical dates, then reorders "LastName, FirstName" to "FirstName LastName" to
-    /// match the plain-name shape every other provider here returns. Left as-is (just parenthetical-
-    /// stripped) when there's no comma to reorder around (e.g. a corporate/collective author).
+    /// BnF's <c>dc:creator</c> reads "LastName, FirstName (dates). Role" ("Child, Lee (1954-....). Auteur du texte").
+    /// The role and dates are stripped and the name reordered to "FirstName LastName", like the other providers.
+    /// Without a comma, a corporate author, only the dates are stripped.
     /// </summary>
     private static string? ExtractAuthorName(string? raw)
     {
@@ -181,9 +150,7 @@ public class BnfClient(HttpClient http) : BookReferenceClientBase
     }
 
     /// <summary>
-    /// <c>dc:date</c> is usually a bare 4-digit year (confirmed "1997" for a real record) but library
-    /// catalogue dates can carry uncertainty markers or ranges - a defensive last-4-digit-token extraction,
-    /// same shape as <see cref="OpenLibraryClient"/>'s own year parsing, rather than a bare <c>int.Parse</c>.
+    /// <c>dc:date</c> is usually a bare year, but catalogue dates can carry uncertainty markers or ranges, so the last 4-digit token is read, as in <see cref="OpenLibraryClient"/>.
     /// </summary>
     private static readonly Regex s_yearRegex = new(@"\b\d{4}\b", RegexOptions.Compiled, s_regexTimeout);
 

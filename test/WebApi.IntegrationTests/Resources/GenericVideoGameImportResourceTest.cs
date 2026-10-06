@@ -27,8 +27,7 @@ public class GenericVideoGameImportResourceTest(KestrelWebAppFactory<Program> fa
         gameRow.ProductName.Should().Be(GenericVideoGameImportFixtureCsvBuilder.GameProductName);
         gameRow.AlreadyImported.Should().BeFalse();
 
-        // the commit creates an item whose id this test never sees, so cleanup is keyed on the fixture's own
-        // synthetic title - and registered before the commit, so a partial commit is cleaned up too
+        // The commit creates an item whose id this test never sees, so cleanup is keyed on the fixture's synthetic title, registered before the commit, so a partial commit is cleaned up too.
         TrackResourcesMatching<VideoGameDto>("/api/video-games", GenericVideoGameImportFixtureCsvBuilder.GameTitle);
 
         // a row with no platform must be rejected before anything is persisted
@@ -49,12 +48,10 @@ public class GenericVideoGameImportResourceTest(KestrelWebAppFactory<Program> fa
         videoGame.Platforms[0].CopyType.Should().Be(CopyType.Digital);
         videoGame.Platforms[0].Price.Should().Be(14.99m);
         videoGame.Platforms[0].Reference.Should().Contain(GenericVideoGameImportFixtureCsvBuilder.GameTransactionId);
-        // SourceTitle is echoed from the preview row's already-cleaned Title (platform suffix already
-        // stripped by CleanTitle during parsing), not the raw "Game Name (PS4)" CSV cell.
+        // SourceTitle is echoed from the preview row's already-cleaned Title (platform suffix already stripped by CleanTitle during parsing), not the raw "Game Name (PS4)" CSV cell.
         videoGame.Notes.Should().Be($"Title from {GenericVideoGameImportFixtureCsvBuilder.GameVendor}: {GenericVideoGameImportFixtureCsvBuilder.GameTitle}");
 
-        // re-preview after commit: the just-imported transaction must now be flagged, so re-uploading a
-        // newer export later doesn't silently duplicate it
+        // re-preview after commit: the just-imported transaction must now be flagged, so re-uploading a newer export later doesn't silently duplicate it
         var secondPreview = await PostFileAsync<List<GenericVideoGameImportPreviewRowDto>>("/api/import/video-games/preview", "file", csv, "transactions.csv");
         secondPreview.Should().Contain(r => r.Title == GenericVideoGameImportFixtureCsvBuilder.GameTitle && r.AlreadyImported);
 
@@ -106,10 +103,8 @@ public class GenericVideoGameImportResourceTest(KestrelWebAppFactory<Program> fa
     [Fact]
     public async Task PreviewThenCommit_ImportsAllThreeLines_WhenTheyShareOneTransactionAndOrderButDifferentProducts()
     {
-        // reproduces a real bug found against a real PSN export: three different "Far Cry 4" DLC packs were
-        // bought in a single transaction, sharing one Transaction Id/Order Id - the Reference used to be
-        // built from those two alone, so the second and third lines were wrongly skipped as "already
-        // imported" duplicates of the first, and only 1 of the 3 platform entries actually got created
+        // A real PSN export bundles three "Far Cry 4" DLC packs in one transaction, sharing one Transaction Id and Order Id.
+        // A Reference built from those two alone would skip the second and third lines as duplicates, creating 1 of the 3 platform entries.
         await Authenticate();
 
         var csv = GenericVideoGameImportFixtureCsvBuilder.Build();

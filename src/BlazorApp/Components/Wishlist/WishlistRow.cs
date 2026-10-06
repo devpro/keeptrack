@@ -3,10 +3,8 @@ using Keeptrack.WebApi.Contracts.Dto;
 namespace Keeptrack.BlazorApp.Components.Wishlist;
 
 /// <summary>
-/// The one common projection all four wishlisted item types share - a single row loop instead of four
-/// near-identical per-type markup blocks, used by both the owner's tabbed page (<c>WishlistPage.razor</c>,
-/// rows link to detail pages) and the anonymous shared view (<c>SharedWishlistPage.razor</c>, which
-/// ignores <see cref="Href"/> - a recipient has no account to open a detail page with).
+/// The projection all four wishlisted item types share, so one row loop replaces four near-identical markup blocks.
+/// The owner's tabbed page (<c>WishlistPage.razor</c>) links rows to detail pages, and the anonymous shared view (<c>SharedWishlistPage.razor</c>) ignores <see cref="Href"/>, since a recipient has no account to open one with.
 /// </summary>
 public sealed record WishlistRow(string Href, string? ImageUrl, string? Shape, string? Title, int? Year, string? Subtitle = null)
 {

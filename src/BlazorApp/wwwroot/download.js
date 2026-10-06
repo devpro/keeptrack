@@ -1,6 +1,5 @@
-// Triggers a browser save-as for bytes already fetched by C# (e.g. a zip export) - there's no other way
-// to hand raw bytes from a Blazor Server component to the browser's download mechanism, since the file
-// only exists in the server-side response, not at a public URL the browser could navigate to directly.
+// Triggers a browser save-as for bytes already fetched by C# (a zip export).
+// The file exists only in a server-side response, not at a URL the browser could navigate to, so this is the way to hand raw bytes from a Blazor Server component to a download.
 window.ktDownloadFile = (fileName, contentType, base64Data) => {
     const link = document.createElement('a');
     link.href = `data:${contentType};base64,${base64Data}`;

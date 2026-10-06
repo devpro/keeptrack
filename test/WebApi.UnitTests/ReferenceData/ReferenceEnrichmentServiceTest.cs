@@ -39,28 +39,22 @@ public class ReferenceEnrichmentServiceTest
 
     public ReferenceEnrichmentServiceTest()
     {
-        // default: no admin override, so every domain resolves to its code default (see RatingSourceCatalog).
-        // individual tests override this to exercise a stored primary-source choice.
+        // default: no admin override, so every domain resolves to its code default (see RatingSourceCatalog). individual tests override this to exercise a stored primary-source choice.
         _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync())
             .ReturnsAsync(new Dictionary<string, string>());
 
-        // default: recompute has something to do. The action early-outs when every linked item is already on
-        // the selected source, so a test about what recompute *writes* has to say that isn't the case here;
-        // RecomputeReferenceRatingsAsync_DoesNothing_WhenEveryItemIsAlreadyOnTheSelectedSource covers the other side.
+        // default: recompute has something to do.
+        // The action early-outs when every linked item is already on the selected source, so a test about what recompute *writes* has to say that isn't the case here; RecomputeReferenceRatingsAsync_DoesNothing_WhenEveryItemIsAlreadyOnTheSelectedSource covers the other side.
         _movieRepository.Setup(r => r.CountLinkedOnOtherRatingSourceAsync(It.IsAny<string>())).ReturnsAsync(1);
         _tvShowRepository.Setup(r => r.CountLinkedOnOtherRatingSourceAsync(It.IsAny<string>())).ReturnsAsync(1);
         _videoGameRepository.Setup(r => r.CountLinkedOnOtherRatingSourceAsync(It.IsAny<string>())).ReturnsAsync(1);
 
-        // the real OmdbClient spends from the shared allowance and writes the day off on OMDb's "limit
-        // reached" 401; the fakes only model that when they share a budget, so hand it the same one the
-        // service reads (see FakeOmdbClient.ReportsLimitReached).
+        // the real OmdbClient spends from the shared allowance and writes the day off on OMDb's "limit reached" 401; the fakes only model that when they share a budget, so hand it the same one the service reads (see FakeOmdbClient.ReportsLimitReached).
         _omdbClient.Budget = _omdbCallBudget;
     }
 
     /// <summary>
-    /// The registry always has "openlibrary" as the deployment default - matches FakeBookReferenceClient's
-    /// hardcoded ProviderKey, so every existing test that never mentions a provider keeps resolving the
-    /// same fake it always did.
+    /// The registry's deployment default is "openlibrary", FakeBookReferenceClient's hardcoded ProviderKey, so a test that never names a provider resolves that fake.
     /// </summary>
     private const string DefaultBookProvider = "openlibrary";
 
@@ -88,9 +82,8 @@ public class ReferenceEnrichmentServiceTest
         NullLogger<ReferenceEnrichmentService>.Instance);
 
     /// <summary>
-    /// The video game registry a test runs against. The first client is always the deployment default (the
-    /// registry resolves a null key to it), so a test that needs the secondary provider to be the default
-    /// simply passes it as the primary - which is what the RAWG-era cases below do.
+    /// The video game registry a test runs against.
+    /// The first client is the deployment default (the registry resolves a null key to it), so a test needing the secondary provider as default passes it first, as the RAWG cases below do.
     /// </summary>
     private const string ItemId = "item-1";
 
@@ -182,10 +175,8 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task ResolveTvShowAsync_ReusesTheSameReferenceByTmdbId_EvenWhenTitleTextDiffersEntirely()
     {
-        // regression test: resolving the exact same TMDB show twice under two completely unrelated title
-        // strings (e.g. a translation an admin didn't recognize) used to create a second, duplicate
-        // reference document, because the "does this already exist" check only ever looked at title/year -
-        // tmdbId is now checked first and is authoritative.
+        // Resolving one TMDB show under two unrelated titles (a translation an admin didn't recognize) must not create a duplicate reference document.
+        // The tmdbId is checked first and is authoritative, since title and year can't prevent duplicates.
         var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
         tmdbClient.TvShowDetails["42"] = new TmdbTvShowDetails("42", "The Wire", 2002, "Synopsis", [], [], null);
         _tvShowReferenceRepository
@@ -323,8 +314,7 @@ public class ReferenceEnrichmentServiceTest
 
         var result = await service.TryLinkExistingTvShowReferenceAsync(model);
 
-        // no match for the current title means the previously stored link no longer corresponds to what
-        // the tenant just told us is correct - clear it (which also puts it back in the admin's unresolved queue)
+        // No match for the current title means the stored link no longer fits what the tenant says is correct, so it is cleared, which returns the item to the admin's unresolved queue.
         result.ReferenceId.Should().BeEmpty();
         _tvShowRepository.Verify(r => r.UpdateAsync("show-1", It.Is<TvShowModel>(m => m.ReferenceId == string.Empty), "owner"), Times.Once);
     }
@@ -332,9 +322,8 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task TryLinkExistingTvShowReferenceAsync_FallsBackToTitleOnlyMatch_WhenTheTenantHasNoYearSet()
     {
-        // regression test: the title-only fallback used to be skipped whenever Year was null, which meant
-        // any linked show with no recorded year would unlink itself on every refresh, since the title+year
-        // query can never succeed with a null year against a reference that has a real one.
+        // The title-only fallback must run when Year is null.
+        // The title and year query never matches a null year against a reference that has one, so a linked show with no recorded year would unlink itself on every refresh.
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
         var model = new TvShowModel
         {
@@ -381,8 +370,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task TryLinkExistingTvShowReferenceAsync_UpdatesYearToTheReferencesCanonicalYear_OnLink()
     {
-        // the tenant's own recorded year is pre-populated with the reference's canonical year on link -
-        // still freely editable afterward, but starts from a trustworthy value instead of the tenant's guess
+        // Linking sets the tenant's year to the reference's canonical one, still editable, but starting from a trustworthy value rather than a guess.
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
         var model = new TvShowModel { Id = "show-1", OwnerId = "owner", Title = "Some Show", Year = 2019 };
         _tvShowReferenceRepository
@@ -406,10 +394,8 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task TryLinkExistingTvShowReferenceAsync_DoesNotFallBackToTitleOnlyMatch_WhenTenantHasAYearButTitleYearMatchMisses()
     {
-        // regression test: a title-only fallback that ignores a tenant-recorded year risks matching a
-        // same-titled but genuinely different reference (e.g. "Road House" 1990 vs. 2024) - once the 2024
-        // remake is linked, checking for a match on the 1990 original must not silently attach it to the
-        // 2024 reference just because no (title, 1990) alias has been confirmed yet.
+        // A title-only fallback ignoring the tenant's year could match a same-titled but different reference ("Road House" 1990 and 2024).
+        // With the 2024 remake linked, checking the 1990 original must not attach it to the 2024 reference because no (title, 1990) alias is confirmed yet.
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
         var model = new TvShowModel { Id = "show-1", OwnerId = "owner", Title = "Road House", Year = 1990 };
         _tvShowReferenceRepository.Setup(r => r.FindByTitleYearAsync("Road House", 1990)).ReturnsAsync((TvShowReferenceModel?)null);
@@ -440,7 +426,7 @@ public class ReferenceEnrichmentServiceTest
 
         var result = await service.TryLinkExistingTvShowReferenceAsync(model);
 
-        // was never linked and still isn't - nothing to clear, so no write should happen at all
+        // never linked and still isn't, so nothing is cleared and nothing is written
         result.ReferenceId.Should().BeNullOrEmpty();
         _tvShowRepository.Verify(r => r.SetReferenceLinkAsync(It.IsAny<ReferenceLinkTarget>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<double?>(), It.IsAny<double?>(), It.IsAny<string?>()), Times.Never);
         _tvShowRepository.Verify(r => r.UpdateAsync(It.IsAny<string>(), It.IsAny<TvShowModel>(), It.IsAny<string>()), Times.Never);
@@ -510,7 +496,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task TryLinkExistingMovieReferenceAsync_DoesNotFallBackToTitleOnlyMatch_WhenTenantHasAYearButTitleYearMatchMisses()
     {
-        // same regression as the TvShow test above, for the Movie path - see that test's own comment
+        // the TvShow test above, for the Movie path (see its comment)
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
         var model = new MovieModel { Id = "movie-1", OwnerId = "owner", Title = "Road House", Year = 1990 };
         _movieReferenceRepository.Setup(r => r.FindByTitleYearAsync("Road House", 1990)).ReturnsAsync((MovieReferenceModel?)null);
@@ -534,11 +520,8 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task ResolveMovieAsync_DoesNotMergeIntoAnUnrelatedSameTitledReference_WhenResolvingADifferentTmdbIdWithItsOwnKnownYear()
     {
-        // regression test for the real bug report: linking "Road House" (2024, tmdbId "2024id") first, then
-        // resolving "Road House" (1990, tmdbId "1990id") separately, used to look up the existing reference
-        // by title only once the (title, 1990) alias came up empty - finding the 2024 document and reusing
-        // its Id for the upsert, which doesn't just link wrong, it overwrites the 2024 reference's own data
-        // with the 1990 movie's data (a de-facto merge of two distinct real movies into one document).
+        // Linking "Road House" (2024, tmdbId "2024id"), then resolving "Road House" (1990, tmdbId "1990id"), must not fall back to a title-only lookup once the (title, 1990) alias is empty.
+        // That would find the 2024 document and reuse its Id for the upsert, overwriting the 2024 reference with the 1990 movie's data and merging two real movies into one document.
         var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
         tmdbClient.MovieDetails["1990id"] = new TmdbMovieDetails("1990id", "Road House", 1990, "1989 original synopsis", [], null, null, null);
         _movieReferenceRepository
@@ -599,7 +582,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task ResolveMovieAsync_StoresNoRating_WhenTmdbHasNoVotes()
     {
-        // TMDB returns vote_average 0 / vote_count 0 for an unrated title - that must not be stored as a real 0
+        // TMDB returns vote_average 0 and vote_count 0 for an unrated title, which must not be stored as a real 0
         var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
         tmdbClient.MovieDetails["42"] = new TmdbMovieDetails("42", "Some Movie", 2020, "Synopsis", [], null, 0, 0);
         _movieReferenceRepository
@@ -620,8 +603,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshMovieReferenceAsync_ForcesAFullFetch_WhenReferenceHasNoRatingsYet_EvenIfTmdbReportsNoChange()
     {
-        // an already-linked reference created before ratings existed must backfill a rating on the next sync,
-        // so the cheap "nothing changed" short-circuit must not fire while Ratings is still empty
+        // an already-linked reference created before ratings existed must backfill a rating on the next sync, so the cheap "nothing changed" short-circuit must not fire while Ratings is still empty
         var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
         tmdbClient.ChangedSince["42"] = false;
         tmdbClient.MovieDetails["42"] = new TmdbMovieDetails("42", "Some Movie", 2020, "Synopsis", [], null, 6.5, 500);
@@ -733,8 +715,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task ResolveMovieAsync_StoresTheImdbId_EvenWhenOmdbHasNoRatingYet()
     {
-        // no OMDb rating (unknown title, or no OMDb key) must still record the imdb id, so the periodic
-        // sync's cheap backfill has a key to retry with instead of the id being lost forever
+        // no OMDb rating (unknown title, or no OMDb key) must still record the imdb id, so the periodic sync's cheap backfill has a key to retry with instead of the id being lost forever
         var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
         tmdbClient.MovieDetails["42"] = new TmdbMovieDetails("42", "Some Movie", 2020, "Synopsis", [], null, 7.8, 1234, "tt0042");
         _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) =>
@@ -753,8 +734,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task ResolveMovieAsync_DenormalizesTheImdbScore_WhenImdbIsTheAdminSelectedPrimarySource()
     {
-        // the admin-selectable primary source (same mechanism as video games' RAWG/Metacritic) drives the
-        // list pill / Ref-sort scalar: with imdb selected for movies, imdb's value/scale is denormalized
+        // the admin-selectable primary source (same mechanism as video games' RAWG/Metacritic) drives the list pill / Ref-sort scalar: with imdb selected for movies, imdb's value/scale is denormalized
         _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync())
             .ReturnsAsync(new Dictionary<string, string> { ["Movie"] = "imdb" });
         var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
@@ -775,8 +755,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshMovieReferenceAsync_BackfillsImdbCheaply_OnTheNoChangeShortCircuit_WithoutRefetchingDetails()
     {
-        // an already-tmdb-rated reference takes the no-change short-circuit, but a missing imdb rating is
-        // still backfilled with one cheap OMDb call - never the expensive TMDB details re-fetch
+        // A TMDB-rated reference takes the no-change short-circuit, but a missing imdb rating is still backfilled with one cheap OMDb call, never the expensive TMDB details re-fetch.
         var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
         tmdbClient.ChangedSince["42"] = false;
         _omdbClient.Ratings["tt0042"] = new OmdbRating(8.9, 500_000);
@@ -805,9 +784,8 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshMovieReferenceAsync_ResolvesTheImdbIdCheaply_WhenBackfillingAReferenceThatPredatesImdb()
     {
-        // the bootstrap case: a reference enriched before IMDb existed has a tmdb rating (so it takes the
-        // no-change short-circuit) but NO stored imdb id - the id must be fetched via the cheap external-ids
-        // lookup (not a full details re-fetch), stored, and then used to pull the OMDb rating
+        // The bootstrap case: a reference enriched before IMDb has a tmdb rating, so it takes the no-change short-circuit, but no stored imdb id.
+        // The id is fetched through the cheap external-ids lookup, not a full details re-fetch, stored, and used to pull the OMDb rating.
         var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
         tmdbClient.ChangedSince["42"] = false;
         tmdbClient.ImdbIds["42"] = "tt0042";
@@ -829,10 +807,10 @@ public class ReferenceEnrichmentServiceTest
 
         changed.Should().BeTrue();
         result.Ratings["imdb"].Value.Should().Be(8.9);
-        // the resolved id is now stored so later syncs skip the external-ids lookup...
+        // the resolved id is stored, so later syncs skip the external-ids lookup...
         result.ExternalIds["imdb"].Should().Be("tt0042");
         tmdbClient.ImdbIdsRequested.Should().ContainSingle();
-        // ...and the expensive full details re-fetch was still avoided
+        // ...and the expensive full details re-fetch is avoided
         tmdbClient.MovieDetailsRequested.Should().NotContain("42");
     }
 
@@ -868,10 +846,9 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshMovieReferenceAsync_CallsNoProviderAtAll_OnTheShortCircuit_WhenImdbWasAttemptedRecently()
     {
-        // the case this whole stamp exists for: IMDb genuinely has nothing for this title, so no imdb rating
-        // will ever appear to short-circuit on. Before the stamp, every pass past the staleness cutoff paid a
-        // TMDB external-ids call AND an OMDb call to be told the same thing again, roughly every three days,
-        // forever. Both are skipped now - the stamp is checked before the id lookup, not just before OMDb.
+        // The case the stamp exists for: IMDb has nothing for this title, so no imdb rating will ever short-circuit the pass.
+        // Without it, every pass past the staleness cutoff would pay a TMDB external-ids call and an OMDb call for the same answer, every three days.
+        // Both are skipped, since the stamp is checked before the id lookup, not only before OMDb.
         var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
         tmdbClient.ChangedSince["42"] = false;
         tmdbClient.ImdbIds["42"] = "tt0042";
@@ -889,8 +866,8 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshMovieReferenceAsync_ReAttemptsImdb_WhenTheLastAttemptFellOutOfTheReattemptWindow()
     {
-        // the other half: the stamp defers a re-attempt, it doesn't write a title off permanently. A rating
-        // that appears on IMDb later is still picked up, one window after the last fruitless ask.
+        // the other half: the stamp defers a re-attempt, it doesn't write a title off permanently.
+        // A rating that appears on IMDb later is still picked up, one window after the last fruitless ask.
         var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
         tmdbClient.ChangedSince["42"] = false;
         _omdbClient.Ratings["tt0042"] = new OmdbRating(8.9, 500_000);
@@ -917,7 +894,7 @@ public class ReferenceEnrichmentServiceTest
 
         var (result, changed) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
 
-        // "OMDb answered, and has nothing" is a real answer worth remembering - it is what the next pass reads
+        // "OMDb answered, and has nothing" is a real answer worth remembering, which the next pass reads
         changed.Should().BeFalse();
         _omdbClient.Requested.Should().ContainSingle();
         result.RatingsCheckedAt.Should().ContainKey("imdb");
@@ -927,8 +904,8 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshMovieReferenceAsync_LeavesNoAttemptStamp_WhenOmdbWasNeverActuallyAsked()
     {
-        // no key, a spent budget, a failed request: nothing was learned, so nothing may be recorded. Stamping
-        // here would write a title off for the whole window over one bad afternoon.
+        // no key, a spent budget, a failed request: nothing was learned, so nothing may be recorded.
+        // Stamping here would write a title off for the whole window over one bad afternoon.
         var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
         tmdbClient.ChangedSince["42"] = false;
         _omdbClient.Unavailable = true;
@@ -945,11 +922,8 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshMovieReferenceAsync_LeavesLastEnrichedAtAlone_WhenTheOmdbBudgetIsSpent()
     {
-        // Regression, confirmed in the running app: the day after a deploy, 509 of 1516 movie references held
-        // an imdb id, no imdb rating and no attempt stamp - the day's OMDb allowance had run out mid-pass. The
-        // pass stamped LastEnrichedAt anyway, which marked those documents fresh and dropped them out of
-        // FindStaleAsync for a full 3-day staleness window, so half the catalogue showed no rating and no
-        // amount of re-running the sync (or the admin recompute, which never calls a provider) moved it.
+        // When the day's OMDb allowance runs out mid-pass, the references it skipped hold an imdb id, no imdb rating and no attempt stamp.
+        // Stamping LastEnrichedAt anyway would mark them fresh and drop them out of FindStaleAsync for a 3-day window, and no re-run of the sync or the admin recompute (which never calls a provider) would move them.
         var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
         tmdbClient.ChangedSince["42"] = false;
         _omdbCallBudget.Exhausted = true;
@@ -971,9 +945,8 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshMovieReferenceAsync_LeavesLastEnrichedAtAlone_WhenTheBudgetRunsOutDuringThePass()
     {
-        // the pre-call guard can't catch this one: the allowance was open when the call started and OMDb's own
-        // "Request limit reached!" 401 is what wrote the day off (another replica having spent the last of it
-        // does the same). Re-reading the budget after the lookup is what keeps this document on the queue.
+        // the pre-call guard can't catch this one: the allowance was open when the call started and OMDb's own "Request limit reached!" 401 is what wrote the day off (another replica having spent the last of it does the same).
+        // Re-reading the budget after the lookup is what keeps this document on the queue.
         var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
         tmdbClient.ChangedSince["42"] = false;
         _omdbClient.ReportsLimitReached = true;
@@ -993,14 +966,12 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshMovieReferenceAsync_StampsLastEnrichedAt_WhenOmdbIsUnreachableForAnyOtherReason()
     {
-        // The deferral is deliberately narrow: only a spent allowance holds a document at the head of the
-        // staleness queue, because only that condition is self-limiting (it renews at UTC midnight). A missing
-        // key can never be retried into working, so deferring on it would pin every movie reference at the
-        // head forever and starve the rest of the collection - the failure mode
-        // RefreshVideoGameReferenceAsync_StampsItAsChecked_WhenNoProviderIdCouldBeResolved exists to prevent.
+        // The deferral is deliberately narrow: only a spent allowance holds a document at the head of the staleness queue, because only that condition is self-limiting (it renews at UTC midnight).
+        // A missing key never retries into working, so deferring on it would pin every movie reference at the head and starve the rest of the collection.
+        // RefreshVideoGameReferenceAsync_StampsItAsChecked_WhenNoProviderIdCouldBeResolved guards the same failure.
         var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
         tmdbClient.ChangedSince["42"] = false;
-        _omdbClient.Unavailable = true; // no key configured / the request failed - the budget is untouched
+        _omdbClient.Unavailable = true; // no key configured, or the request failed, and the budget is untouched
         _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => m);
         var lastEnrichedAt = DateTime.UtcNow.AddDays(-5);
         var reference = MovieReferenceAwaitingImdb(attemptedAt: null);
@@ -1016,9 +987,8 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshMovieReferenceAsync_StampsLastEnrichedAt_WhenTheBudgetIsSpentButNothingNeededBackfilling()
     {
-        // the other half of "narrow": a spent allowance is only a reason to come back if there was actually a
-        // call to make. An already-imdb-rated reference wanted nothing from OMDb, so it is fully enriched and
-        // must rotate out of the queue like any other.
+        // the other half of "narrow": a spent allowance is only a reason to come back if there was actually a call to make.
+        // An already-imdb-rated reference wanted nothing from OMDb, so it is fully enriched and must rotate out of the queue like any other.
         var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
         tmdbClient.ChangedSince["42"] = false;
         _omdbCallBudget.Exhausted = true;
@@ -1037,8 +1007,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshTvShowReferenceAsync_LeavesLastEnrichedAtAlone_WhenTheOmdbBudgetIsSpent()
     {
-        // TV spends from the same daily allowance and syncs first, so it is the domain that empties it - and
-        // it carries the same rule, on its own copy of the short-circuit.
+        // TV spends from the same daily allowance and syncs first, so it empties it, and it carries the same rule on its own copy of the short-circuit.
         var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
         tmdbClient.ChangedSince["42"] = false;
         _omdbCallBudget.Exhausted = true;
@@ -1065,9 +1034,8 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshMovieReferenceAsync_KeepsTheKnownImdbRating_WhenAFullFetchCannotReachOmdb()
     {
-        // a full fetch rebuilds the ratings map from TMDB, and the imdb value doesn't come from TMDB. With
-        // OMDb unreachable, dropping it would discard a rating that cost a call to obtain - and would do so
-        // exactly on the days the budget is tight, leaving the cheap backfill to buy it back afterwards.
+        // a full fetch rebuilds the ratings map from TMDB, and the imdb value doesn't come from TMDB.
+        // With OMDb unreachable, dropping it would discard a rating that cost a call, on exactly the days the budget is tight, leaving the backfill to buy it back.
         var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
         tmdbClient.MovieDetails["42"] = new TmdbMovieDetails("42", "Some Movie", 2020, "Synopsis", [], null, 7.9, 2000, "tt0042");
         _omdbClient.Unavailable = true;
@@ -1085,8 +1053,8 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshMovieReferenceAsync_DropsTheKnownImdbRating_WhenAFullFetchLearnsOmdbNoLongerHasOne()
     {
-        // the counterpart: OMDb answering "no rating" is a real answer, so the stale value goes. Only a call
-        // that never happened preserves it.
+        // the counterpart: OMDb answering "no rating" is a real answer, so the stale value goes.
+        // Only a call that never happened preserves it.
         var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
         tmdbClient.MovieDetails["42"] = new TmdbMovieDetails("42", "Some Movie", 2020, "Synopsis", [], null, 7.9, 2000, "tt0042");
         _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => m);
@@ -1103,8 +1071,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task ResolveMovieAsync_CarriesOverTheAttemptStamps_OfTheReferenceItReResolves()
     {
-        // a re-resolve rebuilds the document from the provider response; the stamps are memory of what OMDb
-        // has already answered, so restarting them would hand the background backfill its old bill back.
+        // a re-resolve rebuilds the document from the provider response; the stamps are memory of what OMDb has already answered, so restarting them would hand the background backfill its old bill back.
         var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
         tmdbClient.MovieDetails["42"] = new TmdbMovieDetails("42", "Some Movie", 2020, "Synopsis", [], null, 7.8, 1234, null);
         var attemptedAt = DateTime.UtcNow.AddDays(-10);
@@ -1125,9 +1092,8 @@ public class ReferenceEnrichmentServiceTest
     }
 
     /// <summary>
-    /// A movie reference that takes the cheap no-change short-circuit (already TMDB-rated, enriched days ago)
-    /// and has no imdb rating - the shape every backfill test starts from. <paramref name="attemptedAt"/> is
-    /// when OMDb was last asked about it, or null for never.
+    /// A movie reference that takes the cheap no-change short-circuit (TMDB-rated, enriched days ago) and has no imdb rating, the shape every backfill test starts from.
+    /// <paramref name="attemptedAt"/> is when OMDb was last asked about it, or null for never.
     /// </summary>
     private static MovieReferenceModel MovieReferenceAwaitingImdb(DateTime? attemptedAt) => new()
     {
@@ -1189,8 +1155,7 @@ public class ReferenceEnrichmentServiceTest
             Title = "Some Show",
             TitleNormalized = "some show",
             ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" },
-            // already has a rating, so the no-change short-circuit applies (an empty Ratings would instead
-            // force a full backfill fetch - covered separately below)
+            // already rated, so the no-change short-circuit applies, where an empty Ratings would force a full backfill fetch (covered below)
             Ratings = new Dictionary<string, ReferenceRatingModel> { ["tmdb"] = new() { Value = 8.0, Scale = 10, Count = 100 } },
             LastEnrichedAt = lastEnrichedAt
         };
@@ -1293,8 +1258,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task TryAutoResolveBookAsync_PassesTheAuthorThroughToTheBookSearch()
     {
-        // regression: a common title without an author hint returns many unrelated candidates - the
-        // author must reach IBookReferenceClient.SearchBooksAsync, not just get dropped along the way.
+        // A common title without an author hint returns many unrelated candidates, so the author must reach IBookReferenceClient.SearchBooksAsync.
         var bookReferenceClient = FakeBookReferenceClient.WithSearchResults(new BookSearchResult("OL1W", "Some Book", 2020, "Lee Child", null));
         bookReferenceClient.Details["OL1W"] = new BookDetails("OL1W", "Some Book", 2020, "Synopsis", "Lee Child", "OL1A", [], null);
         _bookReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<BookReferenceModel>())).ReturnsAsync((BookReferenceModel m) =>
@@ -1339,10 +1303,8 @@ public class ReferenceEnrichmentServiceTest
     }
 
     /// <summary>
-    /// An exact-identifier field must only ever record the identifier that genuinely drove a given match,
-    /// never backfilled from a different source onto an alias that didn't actually rely on it - the
-    /// canonical alias (the provider's own reported data) and the tenant-search alias (what was actually
-    /// searched with) are recorded as two distinct entries here, deliberately, not merged into one.
+    /// An exact-identifier field records only the identifier that drove a match, never one backfilled from another source onto an alias that didn't rely on it.
+    /// The canonical alias (the provider's reported data) and the tenant-search alias (what was searched with) are two distinct entries, not merged into one.
     /// </summary>
     [Fact]
     public async Task ResolveBookAsync_RecordsOnlyTheIsbnActuallyUsed_InEachMatchedAlias()
@@ -1363,9 +1325,9 @@ public class ReferenceEnrichmentServiceTest
 
         var result = await service.ResolveBookAsync("Some Book", 2020, "OL1W", ReferenceLinkTarget.Matching("Some Book", 2020), isbn: "9780000000001");
 
-        // the reference's own canonical Isbn always reflects the provider's own reported value...
+        // the reference's canonical Isbn reflects the provider's reported value...
         result.Isbn.Should().Be("9780000000002");
-        // ...but the alias list keeps the two ISBNs as separate entries rather than one merged/overwritten value
+        // ...but the alias list keeps the two ISBNs as separate entries rather than one merged value
         result.MatchedAliases.Should().Contain(a => a.Isbn == "9780000000001");
         result.MatchedAliases.Should().Contain(a => a.Isbn == "9780000000002");
     }
@@ -1395,7 +1357,8 @@ public class ReferenceEnrichmentServiceTest
 
     /// <summary>
     /// Linking is one call to the linking provider and nothing else.
-    /// The Open Library rating lookup used to run here too, and the guard it sits behind (a rating is already present) is false for every book Google Books links, since Google Books serves no ratings at all: the "fallback" fired on every single link and made whoever clicked wait on a second, slower provider for a number that has no bearing on the link.
+    /// The Open Library rating lookup does not run here: its guard (no rating present) holds for every book Google Books links, since Google Books serves no ratings.
+    /// It would fire on every link and make whoever clicked wait on a second, slower provider for a number unrelated to the link.
     /// It belongs to <c>RefreshBookReferenceAsync</c>, where the tests further down cover it and nobody is waiting.
     /// </summary>
     [Fact]
@@ -1552,8 +1515,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshBookReferenceAsync_AlwaysRefetches_RegardlessOfLastEnrichedAt()
     {
-        // Open Library exposes no "changed since" endpoint (unlike TMDB) - every refresh call does a full
-        // re-fetch, even when LastEnrichedAt is very recent.
+        // Open Library has no "changed since" endpoint, unlike TMDB, so every refresh does a full re-fetch, even when LastEnrichedAt is very recent.
         var bookReferenceClient = FakeBookReferenceClient.Empty();
         bookReferenceClient.Details["OL1W"] = new BookDetails("OL1W", "Some Book - Updated", 2020, "New synopsis", "Some Author", "OL1A", ["Fiction"], null);
         var reference = new BookReferenceModel
@@ -1580,18 +1542,14 @@ public class ReferenceEnrichmentServiceTest
     }
 
     /// <summary>
-    /// Regression: Open Library's rating lookup is a *secondary* provider adding an optional number to a book
-    /// the linking provider already returned in full, but an exception from it used to escape the whole
-    /// refresh - so a slow Open Library discarded a complete BnF/Google Books response, skipped the upsert,
-    /// and left <c>LastEnrichedAt</c> unstamped, which pinned those books at the head of the staleness queue
-    /// to re-pay the same 40s timeout on every pass. Confirmed in the running app: 7 of 7 book references
-    /// failed a forced sync this way while every other domain refreshed normally.
+    /// Open Library's rating lookup is a secondary provider adding an optional number to a book the linking provider returned in full, so an exception from it must not escape the refresh.
+    /// Otherwise a slow Open Library discards a complete BnF or Google Books response, skips the upsert and leaves <c>LastEnrichedAt</c> unstamped.
+    /// Those books would then sit at the head of the staleness queue, paying the same 40s timeout on every pass.
     /// </summary>
     [Fact]
     public async Task RefreshBookReferenceAsync_KeepsTheLinkingProvidersData_WhenTheOpenLibraryRatingLookupFails()
     {
-        // bnf, not the default openlibrary: the fallback deliberately no-ops when the linking provider IS
-        // Open Library, so the failure can only be reached through another provider.
+        // bnf, not the default openlibrary: the fallback deliberately no-ops when the linking provider IS Open Library, so the failure can only be reached through another provider.
         var bnfClient = FakeBnfClient.Empty();
         bnfClient.Details["ark:/12148/cb1"] = new BookDetails(
             "ark:/12148/cb1", "Some Book - Updated", 2020, "Synopsis", "Some Author", null, ["Fiction"], null, "fre", "9780000000001");
@@ -1602,8 +1560,7 @@ public class ReferenceEnrichmentServiceTest
             Title = "Some Book",
             TitleNormalized = "some book",
             ExternalIds = new Dictionary<string, string> { ["bnf"] = "ark:/12148/cb1" },
-            // obtained by an earlier successful lookup: the linking provider never carries this value, so a
-            // refresh that couldn't reach Open Library must not be what deletes it ("The Hobbit"'s 4.29/498).
+            // obtained by an earlier successful lookup: the linking provider never carries this value, so a refresh that couldn't reach Open Library must not be what deletes it ("The Hobbit"'s 4.29/498).
             Ratings = new Dictionary<string, ReferenceRatingModel> { ["openlibrary"] = new() { Value = 4.29, Scale = 5, Count = 498 } },
             LastEnrichedAt = DateTime.UtcNow.AddDays(-30)
         };
@@ -1622,8 +1579,7 @@ public class ReferenceEnrichmentServiceTest
     }
 
     /// <summary>
-    /// The other side of that rule: Open Library answering "no rating for this ISBN" is a real answer, so the
-    /// stored value goes - only a lookup that never happened is allowed to preserve it.
+    /// The other side of that rule: Open Library answering "no rating for this ISBN" is a real answer, so the stored value goes, and only a lookup that never happened preserves it.
     /// </summary>
     [Fact]
     public async Task RefreshBookReferenceAsync_ClearsAKnownRating_WhenOpenLibraryAnswersWithNoRating()
@@ -1681,9 +1637,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshBookReferenceAsync_RefreshesViaANonDefaultRegisteredProvider_WhenThatsTheOnlyOnePresent()
     {
-        // regression: this used to only ever check the currently-configured DEFAULT provider's key, so a
-        // reference linked through any other registered provider (bnf here, openlibrary being the default)
-        // would silently stop refreshing forever.
+        // Every registered provider's key is checked, not only the default's, or a reference linked through another provider (bnf here, openlibrary being the default) would never refresh.
         var bnfClient = FakeBnfClient.Empty();
         bnfClient.Details["ark:/12148/cb1"] = new BookDetails("ark:/12148/cb1", "Some Book - Updated", 2020, "Synopsis", "Some Author", null, [], null, "fre");
         var reference = new BookReferenceModel
@@ -1755,10 +1709,8 @@ public class ReferenceEnrichmentServiceTest
     }
 
     /// <summary>
-    /// The year is what makes an automatic link possible at all for a title with namesakes, and this domain is
-    /// full of them - IGDB holds eight games named exactly "Resident Evil 2". Only one of them is from 2019, so
-    /// a tenant recording the remake resolves unattended rather than waiting in the admin queue behind seven
-    /// games it plainly is not.
+    /// The year makes an automatic link possible for a title with namesakes, and this domain is full of them: IGDB holds eight games named "Resident Evil 2".
+    /// Only one of them is from 2019, so a tenant recording the remake resolves unattended rather than waiting in the admin queue behind seven games it plainly is not.
     /// </summary>
     [Fact]
     public async Task TryAutoResolveVideoGameAsync_ResolvesOnTheYear_WhenSeveralCandidatesShareTheTitle()
@@ -1782,8 +1734,7 @@ public class ReferenceEnrichmentServiceTest
     }
 
     /// <summary>
-    /// The year narrows, it never invents certainty: IGDB carries three separate 1998 "Resident Evil 2"
-    /// entries, so that one stays a human decision.
+    /// The year narrows, it never invents certainty: IGDB carries three separate 1998 "Resident Evil 2" entries, so that one stays a human decision.
     /// </summary>
     [Fact]
     public async Task TryAutoResolveVideoGameAsync_DoesNothing_WhenSeveralCandidatesShareBothTitleAndYear()
@@ -1800,9 +1751,8 @@ public class ReferenceEnrichmentServiceTest
     }
 
     /// <summary>
-    /// A lone candidate is not a confirmation. IGDB answers "NieR:Automata" with a single "Untitled
-    /// NieR:Automata Project", which the old "exactly one search result" rule would have linked without ever
-    /// comparing the two titles.
+    /// A lone candidate is not a confirmation.
+    /// IGDB answers "NieR:Automata" with a single "Untitled NieR:Automata Project", which the old "exactly one search result" rule would have linked without ever comparing the two titles.
     /// </summary>
     [Fact]
     public async Task TryAutoResolveVideoGameAsync_DoesNothing_WhenTheOnlyCandidateIsNotActuallyThatGame()
@@ -1817,8 +1767,7 @@ public class ReferenceEnrichmentServiceTest
     }
 
     /// <summary>
-    /// A single candidate that carries the title but a contradicting year is a remake or a same-named sequel
-    /// far more often than it is a provider getting the date wrong - and linking it is silent data loss.
+    /// A single candidate with the title but a contradicting year is far more often a remake or same-named sequel than a provider's wrong date, and linking it is silent data loss.
     /// </summary>
     [Fact]
     public async Task TryAutoResolveVideoGameAsync_DoesNothing_WhenTheOnlyTitleMatchIsFromAnotherYear()
@@ -1833,9 +1782,8 @@ public class ReferenceEnrichmentServiceTest
     }
 
     /// <summary>
-    /// Reported from the running app on 2026-08-16: entering "Resident Evil 2" with <b>no year</b> silently
-    /// adopted the 2019 remake. With no year there is nothing to choose between eight same-titled games with,
-    /// so nothing may be chosen - the owner's rule, and the same one the yearless local lookup has to follow.
+    /// Entering "Resident Evil 2" with <b>no year</b> must not adopt the 2019 remake.
+    /// With no year nothing chooses between eight same-titled games, so nothing is chosen (owner's rule), as in the yearless local lookup.
     /// </summary>
     [Fact]
     public async Task TryAutoResolveVideoGameAsync_DoesNothing_WhenNoYearIsGivenAndSeveralGamesShareTheTitle()
@@ -1852,11 +1800,9 @@ public class ReferenceEnrichmentServiceTest
     }
 
     /// <summary>
-    /// <b>A year is required for any automatic link in this domain</b> (owner's rule), so a yearless item is
-    /// left alone even where the provider holds exactly one game by that name - IGDB has one "Code Vein".
+    /// <b>A year is required for any automatic link in this domain</b> (owner's rule), so a yearless item is left alone even where the provider holds a single game by that name, as IGDB does for "Code Vein".
     /// <para>
-    /// The provider is not even asked: the answer cannot depend on what comes back, so the call would be spent
-    /// either way.
+    /// The provider is not even asked: the answer cannot depend on what comes back, so the call would be spent either way.
     /// </para>
     /// </summary>
     [Fact]
@@ -1873,8 +1819,8 @@ public class ReferenceEnrichmentServiceTest
     }
 
     /// <summary>
-    /// The other half of the owner's rule: the moment a year is supplied, the same item resolves. Scenario 3
-    /// of the reported journey - create without a year, add the year, check again.
+    /// The other half of the owner's rule: the moment a year is supplied, the same item resolves.
+    /// Create without a year, add the year, check again.
     /// </summary>
     [Fact]
     public async Task TryAutoResolveVideoGameAsync_Resolves_AsSoonAsTheYearIsSupplied()
@@ -1940,10 +1886,8 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task GetPrimaryRatingSourceAsync_IgnoresAStoredMetacriticOverride_NowThatNoRegisteredProviderReportsIt()
     {
-        // the same fate RAWG's own score met when it stopped being the default: the key stays declared so
-        // stored values keep rendering, but it leaves the selectable list, and Resolve then falls back to the
-        // current default. Without that, every game linked since the provider change resolved to no rating at
-        // all - IGDB never writes a metacritic value, so there was nothing for the primary source to read.
+        // As with RAWG's own score once it is not the default: the key stays declared so stored values render, but it leaves the selectable list, and Resolve falls back to the current default.
+        // Otherwise every game linked through IGDB, which never writes a metacritic value, would resolve to no rating at all.
         _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync())
             .ReturnsAsync(new Dictionary<string, string> { ["VideoGame"] = RatingSourceCatalog.Metacritic });
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
@@ -1970,8 +1914,7 @@ public class ReferenceEnrichmentServiceTest
     {
         _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync())
             .ReturnsAsync(new Dictionary<string, string> { ["VideoGame"] = RatingSourceCatalog.IgdbCritic });
-        // a provider reports two scores on two scales, and which of them a tenant item carries is the admin's
-        // choice - here the critic aggregate rather than the user score the domain defaults to.
+        // A provider reports two scores on two scales, and the admin chooses which a tenant item carries, here the critic aggregate rather than the default user score.
         var videoGameClient = FakeVideoGameReferenceClient.Empty();
         videoGameClient.Details["1"] = new VideoGameDetails("1", "Some Game", 2020, "Synopsis", [], [], null, new Dictionary<string, ReferenceRatingModel>
         {
@@ -2017,8 +1960,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RecomputeReferenceRatingsAsync_PagesWithACursor_AndStopsOnTheFirstShortPage()
     {
-        // a full page means there may be more behind it, so the next read continues *after* the last id
-        // rather than starting over; a short page is the end and costs no further query.
+        // a full page means there may be more behind it, so the next read continues *after* the last id rather than starting over; a short page is the end and costs no further query.
         var firstPage = Enumerable.Range(0, 500).Select(i => GameRatings($"r{i}", igdb: 92, critic: 90)).ToList();
         _videoGameReferenceRepository.Setup(r => r.FindRatingsAsync(null, It.IsAny<int>())).ReturnsAsync(firstPage);
         _videoGameReferenceRepository.Setup(r => r.FindRatingsAsync("r499", It.IsAny<int>()))
@@ -2061,8 +2003,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RecomputeReferenceRatingsAsync_DoesNothing_WhenEveryItemIsAlreadyOnTheSelectedSource()
     {
-        // nothing is stamped with anything other than the selected source - the ordinary case, since the
-        // action sits next to the source picker and gets clicked again "just in case"
+        // Everything is already stamped with the selected source, the ordinary case, since the action sits next to the source picker and gets clicked again "just in case".
         _videoGameRepository.Setup(r => r.CountLinkedOnOtherRatingSourceAsync(It.IsAny<string>())).ReturnsAsync(0);
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
 
@@ -2070,8 +2011,7 @@ public class ReferenceEnrichmentServiceTest
 
         referencesChecked.Should().Be(0);
         itemsUpdated.Should().Be(0);
-        // the whole point: the reference collection isn't even read, let alone re-stamped with values that
-        // are already correct
+        // the whole point: the reference collection isn't even read, let alone re-stamped with values that are already correct
         _videoGameReferenceRepository.Verify(r => r.FindRatingsAsync(It.IsAny<string?>(), It.IsAny<int>()), Times.Never);
         _videoGameRepository.Verify(r => r.SetReferenceRatingsAsync(It.IsAny<RatingUpdateBatch>()), Times.Never);
     }
@@ -2090,16 +2030,14 @@ public class ReferenceEnrichmentServiceTest
 
         await service.RecomputeReferenceRatingsAsync(ReferenceItemType.VideoGame);
 
-        // the stamp records which source was applied, not where a number came from. Leaving it null here
-        // would leave this item looking mismatched forever, so recompute could never report "nothing to do".
+        // the stamp records which source was applied, not where a number came from.
+        // Leaving it null here would leave this item looking mismatched forever, so recompute could never report "nothing to do".
         written.Should().ContainSingle().Which.Should().Equal(("r1", null, null, RatingSourceCatalog.IgdbCritic));
     }
 
     /// <summary>
-    /// Stubs a tenant repository's bulk re-stamp and hands back the list the batches land in, one entry per
-    /// bulk write. A captured batch is asserted with ordinary assertions afterwards: Moq's <c>It.Is</c> takes
-    /// an expression tree, and an expression tree may hold neither a tuple literal nor a tuple <c>==</c>, so
-    /// matching a batch inline is not an option here (CS8143/CS8382).
+    /// Stubs a tenant repository's bulk re-stamp and hands back the list the batches land in, one entry per bulk write.
+    /// A captured batch is asserted with ordinary assertions afterwards: Moq's <c>It.Is</c> takes an expression tree, and an expression tree may hold neither a tuple literal nor a tuple <c>==</c>, so matching a batch inline is not an option here (CS8143/CS8382).
     /// </summary>
     private static List<RatingUpdateBatch> CaptureRatingUpdates<TRepository>(
         Mock<TRepository> repository,
@@ -2113,8 +2051,7 @@ public class ReferenceEnrichmentServiceTest
     }
 
     /// <summary>
-    /// One entry of what the recompute's projected read returns for a game reference carrying two sources -
-    /// pass a null <paramref name="critic"/> for the common case of a game the press never scored.
+    /// One entry of the recompute's projected read for a game reference carrying two sources, with a null <paramref name="critic"/> for the common game the press never scored.
     /// </summary>
     private static (string Id, Dictionary<string, ReferenceRatingModel> Ratings) GameRatings(string id, double igdb, double? critic) =>
     (
@@ -2206,9 +2143,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshVideoGameReferenceAsync_StampsItAsChecked_WhenNoProviderIdCouldBeResolved()
     {
-        // nothing was fetched, but the pass still has to record that it looked: FindStaleAsync serves the
-        // least-recently-enriched first under a per-pass cap, so a document whose LastEnrichedAt never moves
-        // would sit at the head of that queue forever and starve everything behind it.
+        // nothing was fetched, but the pass still has to record that it looked: FindStaleAsync serves the least-recently-enriched first under a per-pass cap, so a document whose LastEnrichedAt never moves would sit at the head of that queue forever and starve everything behind it.
         _videoGameReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<VideoGameReferenceModel>())).ReturnsAsync((VideoGameReferenceModel m) => m);
         var service = CreateService(FakeTmdbClient.WithTvShowSearchResults());
         var reference = new VideoGameReferenceModel { Id = "reference-1", Title = "Some Game", TitleNormalized = "some game", ExternalIds = [] };
@@ -2223,8 +2158,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshVideoGameReferenceAsync_AlwaysRefetches_RegardlessOfLastEnrichedAt()
     {
-        // no video game provider exposes a "changed since" endpoint (unlike TMDB) - every refresh call does a
-        // full re-fetch, even when LastEnrichedAt is very recent.
+        // No video game provider has a "changed since" endpoint, unlike TMDB, so every refresh does a full re-fetch, even when LastEnrichedAt is very recent.
         var videoGameClient = FakeVideoGameReferenceClient.Empty();
         videoGameClient.Details["1"] = new VideoGameDetails("1", "Some Game - Updated", 2020, "New synopsis", ["Action"], ["PC"], null);
         var reference = new VideoGameReferenceModel
@@ -2248,10 +2182,8 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshVideoGameReferenceAsync_NeverCallsAProviderOtherThanTheDefault()
     {
-        // deliberately unlike RefreshBookReferenceAsync's "refresh through whichever provider linked it": this
-        // domain gained a second provider *because the first went down*, so falling back to it would make every
-        // not-yet-adopted reference pay a retry-and-timeout cycle against a dead host on every pass. The
-        // reference keeps the data (and the ids) it already has instead.
+        // deliberately unlike RefreshBookReferenceAsync's "refresh through whichever provider linked it": this domain gained a second provider *because the first went down*, so falling back to it would make every not-yet-adopted reference pay a retry-and-timeout cycle against a dead host on every pass.
+        // The reference keeps the data (and the ids) it already has instead.
         var igdbClient = FakeVideoGameReferenceClient.Empty();
         var rawgClient = FakeVideoGameReferenceClient.Empty(RatingSourceCatalog.Rawg);
         rawgClient.Details["7"] = new VideoGameDetails("7", "Some Game - Updated", 2020, "New synopsis", [], [], null);
@@ -2277,9 +2209,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshVideoGameReferenceAsync_KeepsRatingsFromTheOtherProvider()
     {
-        // the whole point of merging rather than assigning: a refresh through IGDB may only speak for IGDB's
-        // own sources, and must leave a still-perfectly-good RAWG/Metacritic score on the document (it is
-        // still shown on the detail page, and re-earning it would cost a call to a provider that may be down).
+        // the whole point of merging rather than assigning: a refresh through IGDB may only speak for IGDB's own sources, and must leave a still-perfectly-good RAWG/Metacritic score on the document (it is still shown on the detail page, and re-earning it would cost a call to a provider that may be down).
         var igdbClient = FakeVideoGameReferenceClient.Empty();
         igdbClient.Details["1"] = new VideoGameDetails("1", "Some Game", 2020, "Synopsis", [], [], null, new Dictionary<string, ReferenceRatingModel>
         {
@@ -2310,8 +2240,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshVideoGameReferenceAsync_DropsItsOwnSource_WhenTheProviderNoLongerReportsIt()
     {
-        // the other half of the merge rule: a provider saying "I have no critic score for this" is an answer,
-        // so its own stale value goes - only *other* providers' values are untouchable.
+        // The other half of the merge rule: a provider saying "no critic score" is an answer, so its own stale value goes, and only other providers' values are untouchable.
         var igdbClient = FakeVideoGameReferenceClient.Empty();
         igdbClient.Details["1"] = new VideoGameDetails("1", "Some Game", 2020, "Synopsis", [], [], null, new Dictionary<string, ReferenceRatingModel>
         {
@@ -2339,8 +2268,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshVideoGameReferenceAsync_AdoptsTheDefaultProvidersId_OnAnExactTitleMatch()
     {
-        // how a catalogue crosses a provider change without a migration script: the reference was linked
-        // through RAWG, and one search per pass gives it an IGDB id it can be refreshed and rated through.
+        // how a catalogue crosses a provider change without a migration script: the reference was linked through RAWG, and one search per pass gives it an IGDB id it can be refreshed and rated through.
         var igdbClient = FakeVideoGameReferenceClient.WithSearchResults(new VideoGameSearchResult("42", "Some Game", 2020, null));
         igdbClient.Details["42"] = new VideoGameDetails("42", "Some Game", 2020, "Synopsis", [], [], null);
         var rawgClient = FakeVideoGameReferenceClient.Empty(RatingSourceCatalog.Rawg);
@@ -2367,8 +2295,7 @@ public class ReferenceEnrichmentServiceTest
     [InlineData("Some Game", 1999)]       // right title, a different game's year
     public async Task RefreshVideoGameReferenceAsync_DoesNotAdopt_WhenTheMatchIsNotExact(string candidateTitle, int candidateYear)
     {
-        // "don't guess": two different games sharing a title is ordinary, so anything short of an exact match
-        // is left for an admin to link by hand rather than silently attached to the wrong game.
+        // "don't guess": two different games sharing a title is ordinary, so anything short of an exact match is left for an admin to link by hand rather than silently attached to the wrong game.
         var igdbClient = FakeVideoGameReferenceClient.WithSearchResults(new VideoGameSearchResult("42", candidateTitle, candidateYear, null));
         var rawgClient = FakeVideoGameReferenceClient.Empty(RatingSourceCatalog.Rawg);
         rawgClient.Details["7"] = new VideoGameDetails("7", "Some Game", 2020, "Synopsis", [], [], null);
@@ -2411,19 +2338,16 @@ public class ReferenceEnrichmentServiceTest
     }
 
     [Theory]
-    // the divergences that actually blocked adoption on real data - a colon, an article, and RAWG's habit of
-    // disambiguating a remake by putting the original's year in the title
+    // the divergences that blocked adoption on real data: a colon, an article, and RAWG disambiguating a remake with the original's year in the title
     [InlineData("Mass Effect: Legendary Edition", "Mass Effect Legendary Edition")]
     [InlineData("Disco Elysium: Final Cut", "Disco Elysium: The Final Cut")]
     [InlineData("GoldenEye 007 (1997)", "GoldenEye 007")]
-    // and an apostrophe one catalogue writes and the other doesn't: spacing it produced "assassin s creed",
-    // which matched neither spelling of the game
+    // and an apostrophe one catalogue writes and the other doesn't: spacing it produced "assassin s creed", which matched neither spelling of the game
     [InlineData("Assassins Creed", "Assassin's Creed")]
     public async Task RefreshVideoGameReferenceAsync_Adopts_WhenTheProviderSpellsTheSameTitleDifferently(string referenceTitle, string providerTitle)
     {
-        // exact normalized equality rejected every one of these, which is what left a third of a real
-        // catalogue stuck on the old provider - and, since Explore excludes owned titles the same way, kept
-        // suggesting those games to the owner who already had them
+        // Exact normalized equality rejects every one of these, leaving a third of a real catalogue on the old provider.
+        // Explore excludes owned titles the same way, so it would keep suggesting those games to their owner.
         var igdbClient = FakeVideoGameReferenceClient.WithSearchResults(new VideoGameSearchResult("42", providerTitle, 2020, null));
         igdbClient.Details["42"] = new VideoGameDetails("42", providerTitle, 2020, "Synopsis", [], [], null);
         var reference = new VideoGameReferenceModel
@@ -2445,8 +2369,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshVideoGameReferenceAsync_AsksForTheExactTitleFirst_AndOnlyWidensWhenItFindsNothing()
     {
-        // the relevance search is documented as noisy enough to push the canonical entry out of the result
-        // window entirely, so adoption asks the narrow question first and widens only on an empty answer
+        // the relevance search is documented as noisy enough to push the canonical entry out of the result window entirely, so adoption asks the narrow question first and widens only on an empty answer
         var igdbClient = FakeVideoGameReferenceClient.WithSearchResults(new VideoGameSearchResult("99", "Some Game: Definitive Edition", 2020, null));
         igdbClient.ExactTitleResults.Add(new VideoGameSearchResult("42", "Some Game", 2020, null));
         igdbClient.Details["42"] = new VideoGameDetails("42", "Some Game", 2020, "Synopsis", [], [], null);
@@ -2465,15 +2388,15 @@ public class ReferenceEnrichmentServiceTest
 
         result.ExternalIds.Should().ContainKey("igdb").WhoseValue.Should().Be("42");
         igdbClient.ExactTitleSearchCount.Should().Be(1);
-        igdbClient.SearchCount.Should().Be(0); // the exact answer was enough - no widening
+        igdbClient.SearchCount.Should().Be(0); // the exact answer is enough, with no widening
     }
 
     [Fact]
     public async Task RefreshVideoGameReferenceAsync_RetriesWithoutTheDisambiguator_WhenTheTitleAsStoredFindsNothing()
     {
-        // RAWG disambiguates a remake by putting the original's year in the title. Confirmed live: IGDB
-        // returns *nothing at all* for "GoldenEye 007 (1997)" - from both its queries - so there is no
-        // candidate list a looser comparison could rescue. Only re-asking with the bare title finds the game.
+        // RAWG disambiguates a remake by putting the original's year in the title.
+        // Live IGDB returns nothing for "GoldenEye 007 (1997)" from both its queries, so no looser comparison has a candidate to rescue.
+        // Only re-asking with the bare title finds the game.
         var igdbClient = FakeVideoGameReferenceClient.Empty();
         igdbClient.ExactTitleResults.Add(new VideoGameSearchResult("42", "Some Game", 2016, null));
         igdbClient.Details["42"] = new VideoGameDetails("42", "Some Game", 2016, "Synopsis", [], [], null);
@@ -2498,8 +2421,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshVideoGameReferenceAsync_DoesNotReSearch_WhenAdoptionWasAlreadyAttemptedRecently()
     {
-        // a title the provider has no unambiguous match for cannot be searched into working, so re-asking on
-        // every pass buys nothing and costs two calls per stuck reference, forever
+        // a title the provider has no unambiguous match for cannot be searched into working, so re-asking on every pass buys nothing and costs two calls per stuck reference, forever
         var igdbClient = FakeVideoGameReferenceClient.WithSearchResults(new VideoGameSearchResult("42", "Some Game", 2020, null));
         var rawgClient = FakeVideoGameReferenceClient.Empty(RatingSourceCatalog.Rawg);
         rawgClient.Details["7"] = new VideoGameDetails("7", "Some Game", 2020, "Synopsis", [], [], null);
@@ -2524,8 +2446,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshVideoGameReferenceAsync_RecordsAFruitlessAdoptionAttempt()
     {
-        // stamped even though nothing was adopted: that record is what stops the next pass re-paying for the
-        // same answer, and what lets the admin queue show "tried, and the provider has no match"
+        // stamped even though nothing was adopted: that record is what stops the next pass re-paying for the same answer, and what lets the admin queue show "tried, and the provider has no match"
         var igdbClient = FakeVideoGameReferenceClient.WithSearchResults(new VideoGameSearchResult("42", "A Different Game", 2020, null));
         var rawgClient = FakeVideoGameReferenceClient.Empty(RatingSourceCatalog.Rawg);
         var reference = new VideoGameReferenceModel
@@ -2577,8 +2498,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task AdoptVideoGameProviderIdAsync_Refuses_WhenAnotherDocumentAlreadyClaimsThatId()
     {
-        // the unique partial index would reject the write anyway; failing here names the other document, which
-        // is what turns "it didn't work" into "merge these two"
+        // the unique partial index would reject the write anyway; failing here names the other document, which is what turns "it didn't work" into "merge these two"
         var igdbClient = FakeVideoGameReferenceClient.Empty();
         var reference = new VideoGameReferenceModel
         {
@@ -2607,17 +2527,16 @@ public class ReferenceEnrichmentServiceTest
 
     // --- What the adoption ladder asks, on the rows a real database was stuck on ---
     //
-    // Every provider answer below was measured against the live IGDB API with the titles this database
-    // actually holds. The failure they share is not the comparison but the *query*: a provider's relevance
-    // search is far more punctuation-sensitive than its catalogue, and it answers with something unrelated at
-    // least as often as with nothing - which the previous ladder read as "found it, stop asking".
+    // Every provider answer below was measured against the live IGDB API with the titles this database actually holds.
+    // The failure they share is the query, not the comparison: a provider's relevance search is far more punctuation-sensitive than its catalogue.
+    // It answers with something unrelated at least as often as with nothing, which a ladder stopping on any answer reads as "found it".
 
     [Fact]
     public async Task RefreshVideoGameReferenceAsync_Adopts_WhenOnlyThePunctuationFoldedTitleReachesTheProvider()
     {
-        // live IGDB: `search "NieR:Automata"` (RAWG's spelling - the colon glued to the next letter) returns
-        // only "Untitled NieR:Automata Project", never the game. `search "NieR Automata"` returns it first.
-        // The junk answer is what used to end the ladder, so the rung that finds the game never ran.
+        // Live IGDB: `search "NieR:Automata"` (RAWG's spelling, the colon glued to the next letter) returns only "Untitled NieR:Automata Project", never the game.
+        // `search "NieR Automata"` returns it first.
+        // Stopping on the junk answer would never ask the rung that finds the game.
         var igdbClient = FakeVideoGameReferenceClient.Empty();
         igdbClient.SearchResultsByQuery["NieR:Automata"] = [new VideoGameSearchResult("9", "Untitled NieR:Automata Project", null, null)];
         igdbClient.SearchResultsByQuery["NieR Automata"] = [new VideoGameSearchResult("42", "NieR: Automata", 2017, null)];
@@ -2640,16 +2559,15 @@ public class ReferenceEnrichmentServiceTest
     }
 
     [Theory]
-    // the two rows a shorter query is the only thing that reaches. Both were "never searched" dead ends: the
-    // provider answers the full string with nothing at all, from either of its query shapes.
+    // the two rows a shorter query is the only thing that reaches.
+    // Both were "never searched" dead ends: the provider answers the full string with nothing at all, from either of its query shapes.
     [InlineData("NieR Replicant v1.22474487139", 2021, "NieR Replicant", "NieR Replicant ver.1.22474487139...")]
     [InlineData("Pokémon: Let's Go, Pikachu! and Eevee!", 2018, "Pokemon Lets Go Pikachu and", "Pokémon: Let's Go, Pikachu!")]
     public async Task FindVideoGameAdoptionCandidatesAsync_ProposesTheGame_WhenOnlyAShorterQueryReachesIt(
         string referenceTitle, int year, string answeringQuery, string providerTitle)
     {
-        // the candidate does not *confirm* - the two catalogues genuinely spell these differently, and this
-        // reference names two games at once - so it stays a human's call. Putting the right game in front of
-        // that human is the whole job of this screen, and before this it showed an empty list instead.
+        // The candidate does not confirm, since the catalogues spell these differently and this reference names two games at once, so it stays a human's call.
+        // Putting the right game in front of that human is this screen's job.
         var igdbClient = FakeVideoGameReferenceClient.Empty();
         igdbClient.SearchResultsByQuery[answeringQuery] = [new VideoGameSearchResult("42", providerTitle, year, null)];
         var reference = new VideoGameReferenceModel
@@ -2673,9 +2591,8 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task FindVideoGameAdoptionCandidatesAsync_KeepsAskingAndKeepsEveryCandidate_WhenAnAnswerMatchesNothing()
     {
-        // live IGDB answers "Marvel Avengers" with three unrelated LEGO expansion packs. That non-empty
-        // answer used to end the ladder on the spot, and it is also why the row must show what *was* found
-        // rather than only the last rung's reply - "the provider said these" is the admin's evidence.
+        // live IGDB answers "Marvel Avengers" with three unrelated LEGO expansion packs.
+        // That non-empty answer must not end the ladder, and the row shows everything found rather than only the last rung's reply, since "the provider said these" is the admin's evidence.
         var igdbClient = FakeVideoGameReferenceClient.Empty();
         igdbClient.SearchResultsByQuery["Marvel Avengers: Ant-Man"] = [new VideoGameSearchResult("9", "LEGO Marvel's Avengers: Ant-Man Pack", 2016, null)];
         igdbClient.SearchResultsByQuery["Marvel Avengers"] = [new VideoGameSearchResult("8", "Marvel Avengers Academy", 2016, null)];
@@ -2700,9 +2617,8 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task FindVideoGameAdoptionCandidatesAsync_StaysWithinItsCallBudget_WhenNothingIsEverFound()
     {
-        // the ladder widens on "nothing matched", so its cost has to be bounded by construction rather than
-        // by the first answer that happens to arrive: three full-title forms x two query shapes, then at most
-        // three shortened queries. A stuck reference pays that once per re-attempt window, not per pass.
+        // the ladder widens on "nothing matched", so its cost has to be bounded by construction rather than by the first answer that happens to arrive: three full-title forms x two query shapes, then at most three shortened queries.
+        // A stuck reference pays that once per re-attempt window, not per pass.
         var igdbClient = FakeVideoGameReferenceClient.Empty();
         var reference = new VideoGameReferenceModel
         {
@@ -2728,10 +2644,9 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task FindVideoGameAdoptionCandidatesAsync_ProposesTheGameItself_WhenTheProviderSpellsItWithPunctuationTheReferenceOmits()
     {
-        // the real row, and the real catalogue: IGDB holds "Marvel's Avengers" (26950, 2020) - the game, not a
-        // LEGO one - which the exact-name lookup misses on the apostrophe-s while the relevance search answers
-        // with expansion packs and never the game. Every word is still a substring of the provider's spelling,
-        // and among the 40 entries that matches live, the plain work is the closest to what was asked for.
+        // The real row and catalogue: IGDB holds "Marvel's Avengers" (26950, 2020), the game, not a LEGO one.
+        // The exact-name lookup misses it on the apostrophe-s, and the relevance search answers with expansion packs, never the game.
+        // Every word is still a substring of the provider's spelling, and among the 40 entries that matches live, the plain work is the closest to what was asked for.
         var igdbClient = FakeVideoGameReferenceClient.Empty();
         igdbClient.SearchResultsByQuery["Marvel Avengers"] = [new VideoGameSearchResult("9", "LEGO Marvel's Avengers: Marvel's Ant-Man Pack", 2016, null)];
         igdbClient.Catalogue.AddRange([
@@ -2761,21 +2676,18 @@ public class ReferenceEnrichmentServiceTest
         var (candidates, matchingIds) = await service.FindVideoGameAdoptionCandidatesAsync(
             "reference-1", cancellationToken: TestContext.Current.CancellationToken);
 
-        // the game leads the row, ahead of the search's junk and of every edition and namesake that also
-        // contains both words
+        // the game leads the row, ahead of the search's junk and of every edition and namesake that also contains both words
         candidates[0].Title.Should().Be("Marvel's Avengers");
         // and the row stays a list of candidates rather than the whole substring result
         candidates.Should().HaveCount(9); // the search's one junk answer plus a shortlist of eight
-        // still not adopted unattended: "Marvel Avengers" and "Marvel's Avengers" are one apostrophe apart,
-        // and equating those would equally equate "The Sim" with "The Sims" - a wrong link is worse than a click
+        // Still not adopted unattended: equating "Marvel Avengers" with "Marvel's Avengers" would equate "The Sim" with "The Sims", and a wrong link is worse than a click.
         matchingIds.Should().BeEmpty();
     }
 
     [Fact]
     public async Task FindVideoGameAdoptionCandidatesAsync_NeverReachesTheSubstringQuery_WhenAnEarlierRungAnswers()
     {
-        // it scans on title substrings with no relevance ordering behind it, so it is the last thing tried and
-        // an ordinary reference must never pay for it
+        // it scans on title substrings with no relevance ordering behind it, so it is the last thing tried and an ordinary reference must never pay for it
         var igdbClient = FakeVideoGameReferenceClient.Empty();
         igdbClient.ExactTitleResults.Add(new VideoGameSearchResult("42", "Some Game", 2020, null));
         igdbClient.Catalogue.Add(new VideoGameSearchResult("99", "Some Game: Definitive Edition", 2021, null));
@@ -2800,9 +2712,8 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task FindVideoGameAdoptionCandidatesAsync_AsksWithTheAdminsOwnText_WhenNoQueryOnTheStoredTitleReachesTheGame()
     {
-        // "Marvel's Avengers" is the dead end no automatic rung can clear: live IGDB returns the same three
-        // LEGO packs for every spelling of the phrase, and only an exact-name lookup for the provider's own
-        // string finds the game. So the admin gets to supply that string.
+        // "Marvel's Avengers" is the dead end no automatic rung can clear: live IGDB returns the same three LEGO packs for every spelling of the phrase, and only an exact-name lookup for the provider's own string finds the game.
+        // So the admin gets to supply that string.
         var igdbClient = FakeVideoGameReferenceClient.Empty();
         igdbClient.ExactTitleResults.Add(new VideoGameSearchResult("26950", "Marvel's Avengers", 2020, null));
         var reference = new VideoGameReferenceModel
@@ -2820,8 +2731,7 @@ public class ReferenceEnrichmentServiceTest
             "reference-1", "Marvel's Avengers", TestContext.Current.CancellationToken);
 
         candidates.Should().ContainSingle().Which.ExternalId.Should().Be("26950");
-        // and confirmation still judges the candidate against the *reference*, not against what was typed:
-        // the admin's own text can widen what is found, never what counts as an automatic match
+        // and confirmation still judges the candidate against the *reference*, not against what was typed: the admin's own text can widen what is found, never what counts as an automatic match
         matchingIds.Should().BeEmpty();
     }
 
@@ -2831,8 +2741,7 @@ public class ReferenceEnrichmentServiceTest
     [InlineData("26950")]
     public async Task FindVideoGameAdoptionCandidatesAsync_ResolvesAPastedPageAddress_WithoutSearchingAtAll(string typed)
     {
-        // the escape hatch for a game no wording finds: its page names it exactly, and a human can always
-        // open the provider's site and copy the address
+        // the escape hatch for a game no wording finds: its page names it exactly, and a human can always open the provider's site and copy the address
         var igdbClient = FakeVideoGameReferenceClient.Empty();
         igdbClient.Identifiers["marvels-avengers"] = new VideoGameSearchResult("26950", "Marvel's Avengers", 2020, null);
         igdbClient.Identifiers["26950"] = new VideoGameSearchResult("26950", "Marvel's Avengers", 2020, null);
@@ -2858,8 +2767,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task FindVideoGameAdoptionCandidatesAsync_SearchesForOrdinaryText_RatherThanTreatingItAsAnAddress()
     {
-        // a hyphenated word is a perfectly ordinary thing to search for, and looks exactly like a page slug -
-        // guessing wrong here would silently turn "look this up" into "look nothing up"
+        // A hyphenated word is an ordinary search and looks exactly like a page slug, and guessing wrong would silently turn "look this up" into "look nothing up".
         var igdbClient = FakeVideoGameReferenceClient.Empty();
         igdbClient.ExactTitleResults.Add(new VideoGameSearchResult("42", "Half-Life", 1998, null));
         var reference = new VideoGameReferenceModel
@@ -2883,8 +2791,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task MergeVideoGameReferencesAsync_UnionsWhatEachKnew_AndRePointsTheTenantsItems()
     {
-        // the state a provider change (or a reference-data import from an environment on another provider)
-        // leaves behind: one work, two documents, its ids and ratings split between them
+        // the state a provider change (or a reference-data import from an environment on another provider) leaves behind: one work, two documents, its ids and ratings split between them
         var keep = new VideoGameReferenceModel
         {
             Id = "reference-1",
@@ -2924,10 +2831,8 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task MergeVideoGameReferencesAsync_KeepsTheRawgCover_EvenWhenTheAdminKeepsTheIgdbDocument()
     {
-        // the same rule PreferredImageUrl applies to a refresh: RAWG's curated key art is irreplaceable (its
-        // CDN still serves those URLs, but the URL cannot be recomputed from the id without RAWG's API),
-        // IGDB's box art is a downgrade, and a merge is exactly where that loss would happen unnoticed - the
-        // duplicate pair is typically one RAWG-era document and one IGDB-era one.
+        // PreferredImageUrl's rule for a refresh: RAWG's curated key art is irreplaceable (its CDN serves those URLs, but one can't be rebuilt from the id without RAWG's API), and IGDB's box art is a downgrade.
+        // A merge is where that loss would go unnoticed, the duplicate pair typically being one RAWG-linked document and one IGDB-linked one.
         var keep = new VideoGameReferenceModel
         {
             Id = "reference-1",
@@ -2960,8 +2865,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task MergeVideoGameReferencesAsync_KeepsTheSurvivorsCover_WhenNeitherDocumentIsRawgLinked()
     {
-        // the rule is about RAWG's key art specifically, not about preferring the absorbed document - with no
-        // rawg id in play the ordinary "never overwrite the survivor" rule applies.
+        // The rule is about RAWG's key art, not preferring the absorbed document, so with no rawg id in play the survivor's image is kept.
         var keep = new VideoGameReferenceModel
         {
             Id = "reference-1",
@@ -2996,9 +2900,8 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshVideoGameReferenceAsync_KeepsTheRawgCover_WhenRefreshingThroughIgdb()
     {
-        // RAWG's background_image is curated landscape key art and its CDN still serves it even though its API
-        // is gone; IGDB's portrait box art is a downgrade, and the RAWG URL can't be recomputed from the RAWG
-        // id once overwritten. This is the normal state after adoption: both ids on one document.
+        // RAWG's background_image is curated landscape key art and its CDN still serves it even though its API is gone; IGDB's portrait box art is a downgrade, and the RAWG URL can't be recomputed from the RAWG id once overwritten.
+        // This is the normal state after adoption: both ids on one document.
         var igdbClient = FakeVideoGameReferenceClient.Empty();
         igdbClient.Details["42"] = new VideoGameDetails("42", "Some Game", 2020, "Synopsis", [], [], "https://images.igdb.com/igdb/image/upload/t_1080p/abc.jpg");
         var reference = new VideoGameReferenceModel
@@ -3016,7 +2919,7 @@ public class ReferenceEnrichmentServiceTest
         var (result, _) = await service.RefreshVideoGameReferenceAsync(reference, TestContext.Current.CancellationToken);
 
         result.ImageUrl.Should().Be("https://media.rawg.io/media/games/some-game.jpg");
-        // everything else the refresh fetched still lands - only the image is held back
+        // everything else the refresh fetched still lands, and only the image is held back
         result.Synopsis.Should().Be("Synopsis");
     }
 
@@ -3089,11 +2992,9 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task ResolveVideoGameAsync_TakesTheRawgCover_WhenAnAdminRelinksThroughRawg()
     {
-        // Regression: the guard used to key on "the document carries a RAWG id" alone, which fires against RAWG
-        // itself. The admin picker passes its provider straight through to here, so re-linking a reference
-        // through RAWG added the RAWG id first and then discarded the key art it had just fetched in favour of
-        // the stored IGDB cover - the exact inversion of the rule's intent, and the only way to repair a dead
-        // RAWG image short of unlinking (which deletes the shared reference document).
+        // A guard keyed on "the document carries a RAWG id" alone fires against RAWG itself.
+        // The admin picker passes its provider straight here, so re-linking through RAWG would add the RAWG id and then discard the key art just fetched for the stored IGDB cover.
+        // That is also the only way to repair a dead RAWG image short of unlinking, which deletes the shared reference document.
         var igdbClient = FakeVideoGameReferenceClient.Empty();
         var rawgClient = FakeVideoGameReferenceClient.Empty(RatingSourceCatalog.Rawg);
         rawgClient.Details["7"] = new VideoGameDetails("7", "Some Game", 2020, "Synopsis", [], [], "https://media.rawg.io/media/games/some-game.jpg");
@@ -3119,15 +3020,9 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshVideoGameReferenceAsync_DoesNotDuplicateAnAliasAlreadyPersistedWithANullCreator()
     {
-        // Regression: MergeMatchedAliases must recognize an existing alias with Creator = null as the same
-        // alias it's about to re-add with a freshly-computed null Creator (TV show/movie/video game domains
-        // have no creator dimension), or every refresh appends a fresh, indistinguishable duplicate forever.
-        // This used to fail because a null Creator silently round-tripped through Mongo as "" (a global
-        // AllowNullDestinationValues = false default), which the in-memory comparison here didn't account
-        // for - confirmed against a real RAWG-backed video game reference ("God of War") that had
-        // accumulated an exact duplicate {title, year, creator: ""} entry from being resolved/refreshed
-        // more than once. Fixed at the mapping layer instead (DataStorageMappingProfile opts Creator out of
-        // AllowNullDestinationValues, so it stays a real null in Mongo) rather than papering over it here.
+        // MergeMatchedAliases must recognize an existing alias with Creator = null as the one it is about to re-add, since TV show, movie and video game have no creator.
+        // Otherwise every refresh appends an indistinguishable duplicate.
+        // Storage keeps a null Creator a real null, so the comparison here needs no "" special case.
         var videoGameClient = FakeVideoGameReferenceClient.Empty();
         videoGameClient.Details["1"] = new VideoGameDetails("1", "Some Game", 2020, "Synopsis", ["Action"], ["PC"], null);
         var reference = new VideoGameReferenceModel
@@ -3186,8 +3081,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task TryAutoResolveAlbumAsync_PassesTheArtistThroughToTheDiscogsSearch()
     {
-        // regression: a common album title without an artist hint returns many unrelated candidates - the
-        // artist must reach IDiscogsClient.SearchAlbumsAsync, not just get dropped along the way.
+        // A common album title without an artist hint returns many unrelated candidates, so the artist must reach IDiscogsClient.SearchAlbumsAsync.
         var discogsClient = FakeDiscogsClient.WithSearchResults(new DiscogsSearchResult("1", "Some Album", 2020, "Pink Floyd", null));
         discogsClient.Details["1"] = new DiscogsAlbumDetails("1", "Some Album", 2020, "Synopsis", "Pink Floyd", "100", [], null, []);
         _albumReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<AlbumReferenceModel>())).ReturnsAsync((AlbumReferenceModel m) =>
@@ -3361,8 +3255,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task RefreshAlbumReferenceAsync_AlwaysRefetches_RegardlessOfLastEnrichedAt()
     {
-        // Discogs exposes no "changed since" endpoint (unlike TMDB) - every refresh call does a full
-        // re-fetch, even when LastEnrichedAt is very recent.
+        // Discogs has no "changed since" endpoint, unlike TMDB, so every refresh does a full re-fetch, even when LastEnrichedAt is very recent.
         var discogsClient = FakeDiscogsClient.Empty();
         discogsClient.Details["1"] = new DiscogsAlbumDetails("1", "Some Album - Updated", 2020, "New synopsis", "Some Artist", "100", ["Rock"], null,
             [new DiscogsTrack("1", "Intro", "0:22"), new DiscogsTrack("2", "Apocalypse Please", "4:12")]);
@@ -3404,8 +3297,7 @@ public class ReferenceEnrichmentServiceTest
 
     /// <summary>
     /// Every provider client is a strict mock with zero setups: any provider call at all fails the test.
-    /// This is exactly what the empty-title guards promise - a null/empty/whitespace title must never
-    /// reach an external provider (or unlink anything) in any of the five domains.
+    /// That is what the empty-title guards promise: a null, empty or whitespace title never reaches a provider, or unlinks anything, in any of the five domains.
     /// </summary>
     private ReferenceEnrichmentService CreateServiceWithStrictClients() => new(
         new Mock<ITmdbClient>(MockBehavior.Strict).Object,
@@ -3421,9 +3313,9 @@ public class ReferenceEnrichmentServiceTest
         _appSettingRepository.Object, new RatingSourceOptions(StrictVideoGameRegistry), NullLogger<ReferenceEnrichmentService>.Instance);
 
     /// <summary>
-    /// A registry over a strict client mock. Held apart so the service and its RatingSourceOptions share one -
-    /// resolving the default client is a property read, which a strict mock allows; it is the *calls* that must
-    /// fail the test.
+    /// A registry over a strict client mock.
+    /// Held apart so the service and its RatingSourceOptions share one.
+    /// Resolving the default client is a property read, which a strict mock allows, and only the calls fail the test.
     /// </summary>
     private static ReferenceClientRegistry<IVideoGameReferenceClient> StrictVideoGameRegistry
     {
@@ -3460,8 +3352,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task TryLinkExisting_LeavesAnExistingLinkUntouched_OnAnEmptyTitle_ForAnyDomain()
     {
-        // without the guard, an empty title would match nothing and the "no match" branch would wrongly
-        // clear ReferenceId - empty input must be a no-op, not an unlink
+        // Without the guard, an empty title would match nothing and the "no match" branch would clear ReferenceId, where empty input must be a no-op.
         var service = CreateServiceWithStrictClients();
 
         var show = await service.TryLinkExistingTvShowReferenceAsync(new TvShowModel { OwnerId = "o", Title = " ", ReferenceId = "ref-1" });
@@ -3485,8 +3376,7 @@ public class ReferenceEnrichmentServiceTest
     [Fact]
     public async Task Resolve_Throws_OnAnEmptyTitle_ForAnyDomain()
     {
-        // Resolve* is the admin's explicit link action - an empty title there is a caller bug and maps
-        // to a 400 via ApiExceptionFilterAttribute rather than being silently ignored
+        // Resolve* is the admin's explicit link action, where an empty title is a caller bug, mapped to a 400 by ApiExceptionFilterAttribute rather than ignored.
         var service = CreateServiceWithStrictClients();
 
         await ((Func<Task>)(() => service.ResolveTvShowAsync("", 2020, "42", ReferenceLinkTarget.Matching("", 2020)))).Should().ThrowAsync<ArgumentException>();
@@ -3589,7 +3479,7 @@ public class ReferenceEnrichmentServiceTest
     }
 
     /// <summary>
-    /// An album is one work per (title, artist) - see <see cref="ReferenceAliasRule.TitleAndCreator"/> - so its aliases carry no year and a re-resolve under a different year adds no second entry.
+    /// An album is one work per (title, artist) (see <see cref="ReferenceAliasRule.TitleAndCreator"/>), so its aliases carry no year and a re-resolve under another year adds no second entry.
     /// </summary>
     [Fact]
     public async Task ResolveAlbumAsync_RecordsTheTitleAndArtistAlias_WithoutAYear()
@@ -3613,7 +3503,8 @@ public class ReferenceEnrichmentServiceTest
     }
 
     /// <summary>
-    /// The same book exists as many printings, so a tenant's year routinely names none of them - matching on title and author alone is what keeps that from costing a provider call, and the single-match rule is what keeps it from guessing between two genuinely different books.
+    /// The same book exists as many printings, so a tenant's year often names none of them.
+    /// Matching on title and author alone saves a provider call, and the single-match rule keeps it from guessing between two different books.
     /// </summary>
     [Fact]
     public async Task TryLinkExistingBookReferenceAsync_FallsBackToTitleAndAuthor_WhenNoAliasCarriesTheTenantsYear()
@@ -3666,7 +3557,7 @@ public class ReferenceEnrichmentServiceTest
         /// <summary>Result the fallback returns; defaults to "no rating" so tests not exercising it are unaffected.</summary>
         public (double? Average, int? Count) Result { get; set; } = (null, null);
 
-        /// <summary>When set, the lookup throws it instead of answering - Open Library timing out or 5xx-ing.</summary>
+        /// <summary>When set, the lookup throws it instead of answering, like Open Library timing out or answering 5xx.</summary>
         public Exception? Failure { get; set; }
 
         public List<string> RequestedIsbns { get; } = [];
@@ -3688,7 +3579,7 @@ public class ReferenceEnrichmentServiceTest
 
         public Dictionary<string, List<TmdbCastMember>> Cast { get; } = new();
 
-        /// <summary>Whether TMDB reports a change for a given id - defaults to true (changed) when unset.</summary>
+        /// <summary>Whether TMDB reports a change for a given id, true (changed) when unset.</summary>
         public Dictionary<string, bool> ChangedSince { get; } = new();
 
         public List<string> TvShowDetailsRequested { get; } = [];
@@ -3707,7 +3598,7 @@ public class ReferenceEnrichmentServiceTest
         public Task<IReadOnlyList<TmdbTopRatedItem>> GetTopRatedTvShowsAsync(int page, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<TmdbTopRatedItem>>([]);
 
-        /// <summary>How many searches were issued - zero is what "the local reference answered" looks like.</summary>
+        /// <summary>How many searches were issued, zero meaning the local reference answered.</summary>
         public int SearchCount { get; private set; }
 
         public Task<IReadOnlyList<TmdbSearchResult>> SearchTvShowAsync(string title, int? year, CancellationToken cancellationToken = default)
@@ -3752,7 +3643,7 @@ public class ReferenceEnrichmentServiceTest
             return Task.FromResult(ChangedSince.GetValueOrDefault(tmdbId, true));
         }
 
-        /// <summary>imdb id served by the cheap external-ids lookup - keyed by tmdb id, defaults to null (unknown).</summary>
+        /// <summary>imdb id served by the cheap external-ids lookup, keyed by tmdb id, null (unknown) by default.</summary>
         public Dictionary<string, string?> ImdbIds { get; } = new();
 
         public List<string> ImdbIdsRequested { get; } = [];

@@ -18,8 +18,8 @@
             <span class="kt-stat-value"><Icon Name="tv-shows" Size="22"/></span>
             <span class="kt-stat-label">TV show</span>
         </a>
-        @* Free preview accounts only get movies and TV shows, same rule as NavMenu.razor - hiding is UX,
-           the API enforces the same policy on every request. *@
+        @* Free preview accounts get only movies and TV shows, as in NavMenu.razor.
+           Hiding is UX, and the API enforces the same policy on every request. *@
         <AuthorizeView Policy="MemberOnly" Context="memberContext">
             <Authorized>
                 <a class="kt-stat-tile" href="/add?type=book" data-testid="quickadd-type-book">

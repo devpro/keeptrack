@@ -36,8 +36,7 @@ public partial class QuickAddPage : ComponentBase
     [Inject] private HealthRecordApiClient HealthRecordApi { get; set; } = null!;
 
     /// <summary>
-    /// The selected type lives in the URL (list-page URL-state convention) so the browser back button
-    /// returns from a form to the picker, and a specific type is deep-linkable/bookmarkable.
+    /// The selected type lives in the URL, like list state, so the back button returns from a form to the picker, and a type can be linked or bookmarked.
     /// </summary>
     [SupplyParameterFromQuery(Name = "type")]
     public string? Type { get; set; }
@@ -118,8 +117,7 @@ public partial class QuickAddPage : ComponentBase
     };
 
     /// <summary>
-    /// Only rebuilds the draft on an actual type change - this also fires on unrelated parameter updates
-    /// (e.g. a cascading auth-state refresh), which must not wipe a half-filled form.
+    /// Rebuilds the draft only on a real type change, since this also fires on unrelated parameter updates (a cascading auth-state refresh), which must not wipe a half-filled form.
     /// </summary>
     protected override async Task OnParametersSetAsync()
     {
@@ -169,9 +167,10 @@ public partial class QuickAddPage : ComponentBase
         }
     }
 
-    /// <summary>Fetches a record type's possible parents (delay-gated spinner, same as every detail page's
-    /// own load) - shared by the three record types since the fetch-and-preselect algorithm is identical,
-    /// only the DTO/client/target field differ.</summary>
+    /// <summary>
+    /// Fetches a record type's possible parents, with the delay-gated spinner of every detail page's load.
+    /// Shared by the three record types, whose fetch and preselect differ only by DTO, client and target field.
+    /// </summary>
     private async Task<List<TDto>> LoadParentsAsync<TDto>(InventoryApiClientBase<TDto> api) where TDto : IHasId
     {
         List<TDto>? items = null;
@@ -189,7 +188,7 @@ public partial class QuickAddPage : ComponentBase
     {
         if (_cars is not null) return;
         _cars = await LoadParentsAsync(CarApi);
-        // the common "I only have one car" case - preselect it silently instead of a one-option picker
+        // the common single-car case preselects it instead of offering a one-option picker
         if (_cars.Count == 1) _selectedCarId = _cars[0].Id;
     }
 
@@ -225,8 +224,7 @@ public partial class QuickAddPage : ComponentBase
         _healthEntry.HealthProfileId = profileId;
     }
 
-    /// <summary>Shared error/saving-state handling for every Save button; each caller only supplies the
-    /// save action and the route to land on afterward.</summary>
+    /// <summary>Shared error and saving state for every Save button, each caller supplying only the save action and the route to land on afterwards.</summary>
     private async Task RunSaveAsync(Func<Task<string>> save)
     {
         _error = null;
@@ -278,7 +276,7 @@ public partial class QuickAddPage : ComponentBase
 
     private Task SaveVideoGameAsync()
     {
-        // choosing a platform is what makes the game owned - no platform selected means an unowned game
+        // choosing a platform makes the game owned, and no platform means an unowned game
         if (!string.IsNullOrEmpty(_videoGamePlatformDraft.Platform))
         {
             _videoGame.Platforms = [_videoGamePlatformDraft];

@@ -1,15 +1,8 @@
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// The search policy every <see cref="IBookReferenceClient"/> shares, written once instead of copied per
-/// provider: try the narrowest query first, widen whenever a narrowing produced nothing, and never let an
-/// optional narrowing parameter silently zero out results a broader search would have found. Each provider
-/// supplies only its own two query shapes (<see cref="SearchByIsbnAsync"/>/<see cref="SearchByTitleAsync"/>);
-/// the order they are attempted in, and the fallbacks between them, live here.
-/// <para>
-/// The author fallback below was previously duplicated verbatim in all three clients - the same algorithm
-/// over three different query builders, which is exactly the shape that drifts.
-/// </para>
+/// The search policy of every <see cref="IBookReferenceClient"/>, written once: the narrowest query first, widening whenever a narrowing found nothing, so an optional parameter never hides what a broader search finds.
+/// Each provider supplies only its two query shapes (<see cref="SearchByIsbnAsync"/>, <see cref="SearchByTitleAsync"/>), and the order and fallbacks live here.
 /// </summary>
 public abstract class BookReferenceClientBase : IBookReferenceClient
 {
@@ -27,24 +20,16 @@ public abstract class BookReferenceClientBase : IBookReferenceClient
         {
             var byIsbn = await SearchByIsbnAsync(isbn, cancellationToken);
 
-            // An ISBN identifies one edition exactly, so a hit is always better than anything a title match
-            // could produce and is returned as-is. A MISS, though, is not an answer - it usually means this
-            // catalogue simply doesn't index that edition (confirmed: BnF holds no record at all for
-            // 9782265002104, which Open Library resolves in one call), and returning nothing there would make
-            // an ISBN strictly worse to supply than to leave blank. So a miss falls through to the title
-            // search below rather than short-circuiting, the same "an optional narrowing parameter must never
-            // silently zero out results" rule the author fallback exists for.
-            // No new mis-linking risk: the fallback runs the exact query an ISBN-less item already runs, and
-            // automatic resolution still only acts on a single confident candidate.
+            // An ISBN identifies one edition, so a hit beats any title match and is returned as is.
+            // A miss usually means this catalogue does not index that edition (BnF has no record of 9782265002104, which Open Library finds), so it falls through to the title search rather than making an ISBN worse than none.
+            // That adds no risk of a wrong link: it is the query an item without an ISBN runs, and automatic resolution still needs a confirmed candidate.
             if (byIsbn.Count > 0) return byIsbn;
         }
 
         var results = await SearchByTitleAsync(title, author, cancellationToken);
         if (results.Count == 0 && !string.IsNullOrEmpty(author))
         {
-            // A tenant's plain author text can fail to match a provider's own creator indexing (a middle name,
-            // a diacritic, "and" vs "&", BnF's "LastName, FirstName (dates). Role" shape, a Discogs-style
-            // "Artist (2)" disambiguation suffix) even when the title alone finds the book.
+            // a tenant's author text can miss the provider's indexing (a middle name, a diacritic, "and" or "&", BnF's "LastName, FirstName (dates). Role") although the title alone finds the book
             results = await SearchByTitleAsync(title, null, cancellationToken);
         }
 
@@ -52,19 +37,17 @@ public abstract class BookReferenceClientBase : IBookReferenceClient
     }
 
     /// <summary>
-    /// Looks the book up by exact identifier. Returning an empty list is a supported outcome and means
-    /// "this catalogue doesn't index that edition" - <see cref="SearchBooksAsync"/> widens from there.
+    /// Looks the book up by exact identifier.
+    /// An empty list means this catalogue does not index that edition, and <see cref="SearchBooksAsync"/> widens from there.
     /// </summary>
     protected abstract Task<IReadOnlyList<BookSearchResult>> SearchByIsbnAsync(string isbn, CancellationToken cancellationToken);
 
     /// <summary>
     /// Looks the book up by title, narrowed by <paramref name="author"/> when one is given.
     /// <para>
-    /// Takes no year on purpose: no book provider here sends one as a server-side filter, each for its own
-    /// confirmed reason (Open Library's <c>first_publish_year</c> is the work's original year rather than the
-    /// tenant's edition; BnF's "and" clause is not a strict intersection, so stacking a second one compounds
-    /// the risk; Google Books needs no year to rank a title well). The year is still returned per candidate
-    /// for the admin to pick with, so it is a display/tie-break value, never a query criterion.
+    /// It takes no year, since no book provider sends one as a filter, each for its own reason.
+    /// Open Library's <c>first_publish_year</c> is the work's original year, not the edition's, BnF's "and" clause is not a strict intersection, and Google Books ranks a title well without one.
+    /// Each candidate still reports its year, for display and tie-breaks, never as a query criterion.
     /// </para>
     /// </summary>
     protected abstract Task<IReadOnlyList<BookSearchResult>> SearchByTitleAsync(string title, string? author, CancellationToken cancellationToken);

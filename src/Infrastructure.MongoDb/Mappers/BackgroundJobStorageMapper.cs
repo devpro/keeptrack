@@ -7,9 +7,8 @@ namespace Keeptrack.Infrastructure.MongoDb.Mappers;
 [Mapper]
 public partial class BackgroundJobStorageMapper
 {
-    // JobId (Guid) <-> Id (string): Mapperly's built-in Guid/string conversion, renamed across the pair.
-    // CreatedAt is stamped by the repository on the write side (ignored here so a model can't ante-date
-    // itself) and mapped back plainly on the read side.
+    // JobId (Guid) maps to Id (string) through Mapperly's built-in conversion.
+    // The repository stamps CreatedAt on write, ignored here so a model cannot backdate itself, and it is read back as is.
     [MapProperty(nameof(BackgroundJobModel.JobId), nameof(BackgroundJob.Id))]
     [MapperIgnoreTarget(nameof(BackgroundJob.CreatedAt))]
     [MapperIgnoreSource(nameof(BackgroundJobModel.CreatedAt))]

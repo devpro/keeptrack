@@ -9,10 +9,9 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// The 404 wiring, which nothing below the browser can prove: an unknown URL has to come back with a real 404
-/// status *and* the rendered page, which takes the status-code middleware re-executing onto <c>/not-found</c>
-/// (Program.cs) and the page rendering statically so it can read the original status (NotFound.razor).
-/// Read-only safe - a missing page creates nothing - so this runs under <c>E2E_READONLY</c> too.
+/// The 404 wiring, which nothing below the browser proves: an unknown URL comes back with a real 404 status and the rendered page.
+/// That takes the status-code middleware re-executing onto <c>/not-found</c> (Program.cs), and the page rendering statically to read the original status (NotFound.razor).
+/// Read-only safe, since a missing page creates nothing, so it runs under <c>E2E_READONLY</c> too.
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Readonly")]
@@ -32,9 +31,8 @@ public class NotFoundSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
     }
 
     /// <summary>
-    /// A signed-out visitor following a dead link must land here rather than on login: bouncing them would say
-    /// the page exists. The shared context is signed in, so this needs its own clean one (same reasoning as
-    /// <see cref="AuthSmokeTest"/>).
+    /// A signed-out visitor following a dead link must land here rather than on login: bouncing them would say the page exists.
+    /// The shared context is signed in, so this needs its own clean one (same reasoning as <see cref="AuthSmokeTest"/>).
     /// </summary>
     [Fact]
     public async Task UnknownUrl_ShowsTheNotFoundPage_ToAnAnonymousVisitor()
@@ -50,8 +48,7 @@ public class NotFoundSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
     }
 
     /// <summary>
-    /// The other two tests above both reach <c>/not-found</c> through <c>Page.GotoAsync</c>, a full browser navigation that only ever exercises <c>UseStatusCodePagesWithReExecute</c>.
-    /// docs/blazor-ui.md documents a second, genuinely different path: once a page is interactively routed (<c>App.razor</c>'s <c>RenderModeForPage</c> gives every page but this one <c>InteractiveServer</c>), an in-circuit navigation to an unknown route is resolved by the Blazor Web App router over the already-open circuit rather than by the server's status-code middleware.
+    /// The other two tests above both reach <c>/not-found</c> through <c>Page.GotoAsync</c>, a full browser navigation that only ever exercises <c>UseStatusCodePagesWithReExecute</c>. docs/blazor-ui.md documents a second, genuinely different path: once a page is interactively routed (<c>App.razor</c>'s <c>RenderModeForPage</c> gives every page but this one <c>InteractiveServer</c>), an in-circuit navigation to an unknown route is resolved by the Blazor Web App router over the already-open circuit rather than by the server's status-code middleware.
     /// That is the same code path a <c>NavLink</c> click to a stale route would take.
     /// <c>Blazor.navigateTo</c> is the documented JS API a <c>NavLink</c> click resolves to internally, so it's the direct way to trigger that path from Playwright without a DOM hack.
     /// <para>

@@ -12,16 +12,11 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Every action on <c>DataCrudControllerBase</c> scopes its Mongo query by the caller's own owner id, but
-/// nothing had ever proven it end to end.
+/// Every action on <c>DataCrudControllerBase</c> scopes its Mongo query by the caller's own owner id, but nothing had ever proven it end to end.
 /// <para>
-/// A mocked-repository unit test cannot prove a Mongo filter (see AGENTS.md's quality bar), and every other
-/// HTTP test signs in as the one Firebase test account, so there was never a second owner's document to try
-/// to reach through it.
-/// Movies stand in for the whole base class here, the same convention <see cref="MalformedIdResourceTest"/>
-/// uses: the scoping is identical across all twenty repositories.
-/// The other owner's document is seeded directly through the repository, since HTTP has no way to
-/// authenticate as a second account, and is cleaned up the same raw way.
+/// A mocked-repository unit test cannot prove a Mongo filter (see AGENTS.md's quality bar), and every other HTTP test signs in as the one Firebase test account, so there was never a second owner's document to try to reach through it.
+/// Movies stand in for the whole base class here, the same convention <see cref="MalformedIdResourceTest"/> uses: the scoping is identical across all twenty repositories.
+/// The other owner's document is seeded directly through the repository, since HTTP has no way to authenticate as a second account, and is cleaned up the same raw way.
 /// </para>
 /// </summary>
 public class OwnershipIsolationResourceTest(KestrelWebAppFactory<Program> factory)
@@ -51,8 +46,7 @@ public class OwnershipIsolationResourceTest(KestrelWebAppFactory<Program> factor
         var page = await GetAsync<PagedResult<MovieDto>>($"/api/movies?search={Uri.EscapeDataString(originalTitle)}");
         page.Items.Should().NotContain(m => m.Id == otherOwnersMovie.Id);
 
-        // Put answers 204 either way (see MalformedIdResourceTest), so the proof is that the record itself
-        // never changes.
+        // Put answers 204 either way (see MalformedIdResourceTest), so the proof is that the record itself never changes.
         await PutAsync($"/api/movies/{otherOwnersMovie.Id}", new MovieDto { Id = otherOwnersMovie.Id, Title = "Overwritten" });
         var untouched = await repository.FindOneAsync(otherOwnersMovie.Id!, otherOwnerId, TestContext.Current.CancellationToken);
         untouched.Should().NotBeNull();

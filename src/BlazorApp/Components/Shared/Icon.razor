@@ -1,22 +1,15 @@
 @* The app's one icon set: a single monochrome line vocabulary drawn as inline SVG.
 
-   It replaces three near-identical things - TrashIcon.razor, ExternalLinkIcon.razor and the sidebar's own
-   NavIcon.razor - plus the loose Unicode glyphs that were doing icon duty in buttons and toggles. Those
-   glyphs are the reason this exists: a set assembled from whatever codepoint looked closest (◼ for Movies,
-   ▭ for TV shows, ● for "owned", □ for "unseen") is indistinguishable at 16px and carries no meaning, and
-   half of it renders at a different optical weight to the other half because it comes from whichever font
-   happens to have that codepoint.
+   Unicode glyphs picked as the closest codepoint (◼ for Movies, ▭ for TV shows, ● for "owned", □ for "unseen") are indistinguishable at 16px and carry no meaning.
+   They also render at different optical weights, coming from whichever font has the codepoint.
 
-   This does NOT relax the no-colour-emoji rule in docs/blazor-ui.md's Theme section - that rule bans codepoints
-   whose default presentation is a colour glyph, and these are paths. stroke="currentColor" means every
-   icon inherits its context's own colour and hover/active states, so there is nothing extra to theme, no
-   webfont, and no request a CSP or an offline deployment could fail.
+   The no-colour-emoji rule in docs/blazor-ui.md's Theme section still holds: it bans codepoints whose default presentation is a colour glyph, and these are paths.
+   stroke="currentColor" makes every icon inherit its context's colour and hover and active states, so there is nothing extra to theme, no webfont, and no request a CSP or an offline deployment could fail.
 
-   Deliberately NOT converted, and they should stay text:
-     - `★` inside .kt-stars / StarRating - that is a rating *value*, not an icon, and its partial-fill
-       renders by clipping an overlaid text glyph to a fraction of its width (see .star-fill).
-     - the `◈` brandmark in .navbar-brand / .kt-login-logo - a logotype, not an affordance.
-     - `›` in the breadcrumb and `‹` / `→` inside text links - typography inside a sentence. *@
+   These stay text:
+     - `★` inside .kt-stars and StarRating, a rating value rather than an icon, whose partial fill clips an overlaid text glyph (see .star-fill).
+     - the `◈` brandmark in .navbar-brand and .kt-login-logo, a logotype rather than an affordance.
+     - `›` in the breadcrumb and `‹` or `→` inside text links, typography inside a sentence. *@
 
 <svg viewBox="0 0 24 24" width="@Size" height="@Size" fill="none" stroke="currentColor"
      stroke-width="@StrokeWidth" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
@@ -176,8 +169,7 @@
             <path d="M14.5 6.5l3 3"/>
             break;
 
-        @* plus-in-circle, distinct from bare "add": this one means "take this into my collection"
-           (the shared-collection view's per-row action), not "create a new blank thing". *@
+        @* Plus in a circle, distinct from bare "add": it means "take this into my collection" (the shared view's per-row action), not "create a new blank thing". *@
         case "add-to-collection":
             <circle cx="12" cy="12" r="9"/>
             <path d="M12 8v8M8 12h8"/>
@@ -245,17 +237,20 @@
 
 @code {
     /// <summary>
-    /// Which glyph to draw. An unknown name renders an empty (invisible) svg rather than throwing:
-    /// a missing icon is a cosmetic gap, never a reason to fail a render.
+    /// Which glyph to draw.
+    /// An unknown name renders an empty svg rather than throwing, since a missing icon is a cosmetic gap, never a reason to fail a render.
     /// </summary>
     [Parameter] public required string Name { get; set; }
 
-    /// <summary>Rendered size in px, square. The sidebar overrides this from CSS instead.</summary>
+    /// <summary>
+    /// Rendered size in px, square.
+    /// The sidebar overrides it from CSS.
+    /// </summary>
     [Parameter] public int Size { get; set; } = 16;
 
     /// <summary>
-    /// Line weight. The default suits 15-18px; a large decorative instance (an empty-state glyph at 40px)
-    /// wants a thinner stroke, since stroke width does not scale with the viewBox.
+    /// Line weight.
+    /// The default suits 15 to 18px, and a large decorative instance (an empty-state glyph at 40px) wants a thinner stroke, since stroke width does not scale with the viewBox.
     /// </summary>
     [Parameter] public double StrokeWidth { get; set; } = 1.7;
 }

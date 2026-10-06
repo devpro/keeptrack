@@ -3,8 +3,7 @@ using System;
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// Stage of an in-progress reference-data sync, reported back to the client so it can show real progress
-/// instead of a single opaque "syncing..." spinner.
+/// Stage of a running reference-data sync, reported so the client shows real progress rather than a bare spinner.
 /// </summary>
 public enum ReferenceSyncStage
 {
@@ -15,9 +14,8 @@ public enum ReferenceSyncStage
     SyncingAlbums,
 
     /// <summary>
-    /// Rebuilding the Explore discovery rankings - the last phase of a full pass, and the only one an
-    /// Explore-only run has. Worth its own stage rather than leaving the bar on "albums": the ranking rebuild
-    /// walks several provider pages per ordering and can outlast every reference domain put together.
+    /// Rebuilding the Explore rankings, the last phase of a full pass and the only one of an Explore-only run.
+    /// It has its own stage, since walking several provider pages per ordering can outlast every reference domain together.
     /// </summary>
     RefreshingExplore,
     Completed,
@@ -25,8 +23,7 @@ public enum ReferenceSyncStage
 }
 
 /// <summary>
-/// Returned immediately when a sync is started; poll <see cref="ReferenceSyncJobStatusDto"/> at
-/// GET /api/reference-data/sync-now/{JobId} for progress.
+/// Returned as soon as a sync starts, its progress then polled as <see cref="ReferenceSyncJobStatusDto"/> at GET /api/reference-data/sync-now/{JobId}.
 /// </summary>
 public class ReferenceSyncJobDto
 {

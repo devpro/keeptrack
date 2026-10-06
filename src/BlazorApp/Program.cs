@@ -14,13 +14,11 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     });
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy("AdminOnly", policy => policy.RequireClaim("role", "admin"))
-    // mirrors WebApi's policy (the cookie principal carries the same Firebase "role" claim): members and
-    // admins see the whole app; everyone else is the free preview tier (movies + TV shows). This only
-    // drives what the UI shows - the API enforces the same rule on every request.
+    // Mirrors WebApi's policy, the cookie principal carrying the same Firebase "role" claim: members and admins see the whole app, everyone else the free preview tier (movies and TV shows).
+    // This only drives what the UI shows, and the API enforces the same rule on every request.
     .AddPolicy("MemberOnly", policy => policy.RequireClaim("role", "member", "admin"));
-// opt-in shared Data Protection key ring (see MongoDbXmlRepository) - required before running more than
-// one replica of this app, since the auth cookie and antiforgery tokens must decrypt on every replica.
-// Left unset (the default), the framework keeps its usual per-instance ephemeral keys.
+// Opt-in shared Data Protection key ring (see MongoDbXmlRepository), required for more than one replica, since the auth cookie and antiforgery tokens must decrypt on every replica.
+// Left unset, the framework keeps its per-instance ephemeral keys.
 var dataProtectionConnectionString = builder.Configuration["DataProtection:MongoDb:ConnectionString"];
 if (!string.IsNullOrEmpty(dataProtectionConnectionString))
 {
@@ -63,8 +61,8 @@ app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
-// Anonymous share-link recipients must never open a SignalR circuit (see SharedWishlistPage.razor) - this bypasses the now-globally-interactive Routes/Router entirely
-// rather than relying on a per-component opt-out, which isn't possible once an ancestor establishes an interactive render mode.
+// An anonymous share-link recipient must never open a SignalR circuit (see SharedWishlistPage.razor).
+// This bypasses the globally interactive Routes and Router, since a per-component opt-out is impossible once an ancestor sets an interactive render mode.
 app.MapGet("/shared/wishlist/{token}", (string token) =>
     new RazorComponentResult<Keeptrack.BlazorApp.Components.Wishlist.SharedWishlistApp>(new { Token = token }));
 app.MapControllers();

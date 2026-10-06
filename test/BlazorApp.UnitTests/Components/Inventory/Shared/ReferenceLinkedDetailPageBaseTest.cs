@@ -18,9 +18,7 @@ namespace Keeptrack.BlazorApp.UnitTests.Components.Inventory.Shared;
 
 /// <summary>
 /// The pending-link watch of every reference-linked detail page.
-/// A re-read replaces the page's model, so it may only happen when it reveals a link:
-/// replacing the model while the item is still unlinked swaps the objects a pending action refers to,
-/// and removing a copy from the old list then removes nothing and the next save writes it back.
+/// A re-read replaces the page's model, so it may only happen when it reveals a link: replacing the model while the item is still unlinked swaps the objects a pending action refers to, and removing a copy from the old list then removes nothing and the next save writes it back.
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class ReferenceLinkedDetailPageBaseTest

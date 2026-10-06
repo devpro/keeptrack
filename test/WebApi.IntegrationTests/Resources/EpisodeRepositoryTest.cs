@@ -11,10 +11,9 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Exercises <see cref="IEpisodeRepository.FindByShowIdsAsync"/> against real MongoDB. This is the batched,
-/// owner-scoped multi-show read Watch Next uses instead of pulling the whole owner's episode history and
-/// discarding non-current shows in memory - verified against a real database, not mocks, since it's a
-/// hand-written Mongo filter (the class of code that has hidden bugs before, see docs/data-model.md).
+/// Exercises <see cref="IEpisodeRepository.FindByShowIdsAsync"/> against real MongoDB.
+/// It is the batched, owner-scoped multi-show read Watch Next uses rather than pulling the owner's whole episode history.
+/// A hand-written Mongo filter of this kind hides bugs (see docs/data-model.md), so it is verified against a real database, not mocks.
 /// </summary>
 public class EpisodeRepositoryTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)
 {
@@ -30,9 +29,9 @@ public class EpisodeRepositoryTest(KestrelWebAppFactory<Program> factory) : Data
 
         var wanted = await CreateEpisodeAsync(repository, ownerId, wantedShowId, 1, 1);
         var wantedSecond = await CreateEpisodeAsync(repository, ownerId, wantedShowId, 1, 2);
-        // same owner, a show that was NOT requested - must be excluded
+        // same owner, a show not requested, excluded
         await CreateEpisodeAsync(repository, ownerId, otherShowId, 1, 1);
-        // a different owner tracking the very same show id - must be excluded (owner scoping)
+        // another owner tracking the same show id, excluded by owner scoping
         await CreateEpisodeAsync(repository, otherOwnerId, wantedShowId, 1, 1);
 
         var found = await repository.FindByShowIdsAsync(ownerId, [wantedShowId]);

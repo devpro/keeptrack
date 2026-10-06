@@ -97,9 +97,7 @@ else
             @{
                 var showFuelChart = ShowFuel && metrics.FuelConsumption.Count > 0;
                 var showElectricChart = ShowElectric && metrics.ElectricConsumption.Count > 0;
-                // Side-by-side (half width each) only when both charts actually render, e.g. a hybrid -
-                // a combustion-only or electric-only car has just one chart, which should take the full row
-                // instead of leaving the other half empty.
+                // Side by side only when both charts render (a hybrid), since a combustion-only or electric-only car's single chart takes the full row.
                 var bothConsumptionCharts = showFuelChart && showElectricChart;
                 var consumptionColClass = bothConsumptionCharts ? "col-md-6" : "col-12";
                 var consumptionGeometry = bothConsumptionCharts ? SvgChartHelpers.HalfWidthGeometry : SvgChartHelpers.FullWidthGeometry;
@@ -158,11 +156,9 @@ else
             <button class="btn btn-sm btn-primary" @onclick="ShowAddModal">+ Add entry</button>
         }
     </div>
-    @* kt-table-grid opts this table out of the mobile stacked-cards treatment (see HealthProfileDetail.razor's
-       journal for the same pattern) - a real spreadsheet-like grid with only the most important columns
-       (City/Description) stay desktop-only via d-none d-md-table-cell.
-       One tab per year (same kt-season-picker/kt-page-btn header as TvShowDetail.razor's season tabs and
-       HealthProfileDetail.razor's journal), newest year first. *@
+    @* kt-table-grid opts this table out of the mobile stacked-cards treatment, like HealthProfileDetail.razor's journal, so it stays a spreadsheet-like grid.
+       It shows only the most important columns, with City and Description desktop-only through d-none d-md-table-cell.
+       One tab per year, newest first, with the kt-season-picker header of TvShowDetail.razor's season tabs. *@
     @if (History!.Count == 0)
     {
         <div class="kt-table-wrap kt-car-sheet">
@@ -272,9 +268,10 @@ else
 
     private bool ShowElectric => Car?.EnergyType is CarEnergyType.Electric or CarEnergyType.Hybrid;
 
-    /// <summary>`ComputeMetrics` always returns a non-null result, even for a brand-new car with no history
-    /// at all (empty lists, null averages/next-maintenance) - the metrics panel should only render once
-    /// there's actually something in it to show, not just because the object itself isn't null.</summary>
+    /// <summary>
+    /// `ComputeMetrics` returns a result even for a new car with no history (empty lists, null averages).
+    /// The metrics panel renders only once it has something to show.
+    /// </summary>
     private bool HasMetricsToShow => Metrics is not null && (
         Metrics.FuelConsumption.Count > 0 ||
         Metrics.ElectricConsumption.Count > 0 ||
@@ -353,8 +350,7 @@ else
         ElectricUnitPrice = entry.ElectricUnitPrice,
         IsFullRefill = entry.IsFullRefill,
         DeltaMileage = entry.DeltaMileage,
-        // StationId only - StationBrandName/StationCity are server-hydrated display copies, and carrying
-        // them into an edit would just send back values the API ignores.
+        // StationId only, since StationBrandName and StationCity are server-hydrated display copies the API ignores on an edit.
         StationId = entry.StationId,
         Garage = entry.Garage
     };

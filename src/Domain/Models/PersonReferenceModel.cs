@@ -4,9 +4,8 @@ using Keeptrack.Common.System;
 namespace Keeptrack.Domain.Models;
 
 /// <summary>
-/// Shared, owner-less actor/person metadata sourced from an external provider such as TMDB. Deduplicated
-/// across every show/movie that credits them - matched by external provider id, not by name (unlike
-/// <see cref="TvShowReferenceModel"/>/<see cref="MovieReferenceModel"/>, credits already give an exact id).
+/// A person (actor, author, artist) from a provider, shared by every tenant.
+/// Deduplicated across every work crediting them by provider id, never by name, since a credit carries an exact id.
 /// </summary>
 public class PersonReferenceModel : IHasExternalIds
 {

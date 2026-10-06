@@ -6,21 +6,16 @@ using Keeptrack.Domain.Services;
 using Keeptrack.WebApi.Mappers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-// Both Domain.Models (imported above) and Contracts.Dto (a global using) declare ImportMediaType/CopyType.
-// The DTOs the request carries use the Contracts ones; this alias keeps the comparisons below unambiguous.
+// Domain.Models and Contracts.Dto both declare ImportMediaType and CopyType, so an alias keeps the comparisons unambiguous
 using ContractsImportMediaType = Keeptrack.WebApi.Contracts.Dto.ImportMediaType;
 
 namespace Keeptrack.WebApi.Controllers;
 
 /// <summary>
-/// Previews a generic store/CSV import (any retailer export the user has reshaped into the canonical column set
-/// in a spreadsheet) and commits the rows the user selected/edited in the review UI. The store-agnostic
-/// generalization of <see cref="AmazonImportController"/>: vendor and each row's media type are read from
-/// columns rather than hardcoded/guessed, so a well-prepared "Type" column pre-selects every row's type. Both
-/// controllers share the same create/merge orchestration - <see cref="OwnedItemImportCommitCoordinator"/> -
-/// and the same dedup engine, differing only in parsing and reference/provenance text.
-/// Synchronous on both ends: there is no external API call in the loop, so even a multi-year export completes
-/// well within a normal request.
+/// Previews a generic CSV import, any store export reshaped into the canonical columns, then commits the rows selected in the review UI.
+/// The store-agnostic counterpart of <see cref="AmazonImportController"/>: the vendor and each row's type come from columns, so a "Type" column preselects every row.
+/// Both share <see cref="OwnedItemImportCommitCoordinator"/> and the dedup engine, differing only in parsing and reference and provenance text.
+/// Synchronous, since no external call runs in the loop.
 /// </summary>
 [ApiController]
 [Authorize(Policy = "MemberOnly")]
@@ -35,9 +30,8 @@ public class GenericImportController(
     GenericImportPreviewRowDtoMapper previewMapper) : ControllerBase
 {
     /// <summary>
-    /// Parses the uploaded CSV and returns every line item for review - nothing is persisted by this call. A
-    /// row is flagged <see cref="GenericImportPreviewRowDto.AlreadyImported"/> when its order reference already
-    /// exists on an owned copy of any type.
+    /// Parses the uploaded CSV and returns every line item for review, persisting nothing.
+    /// A row is flagged <see cref="GenericImportPreviewRowDto.AlreadyImported"/> when its order reference already exists on an owned copy of any type.
     /// </summary>
     [HttpPost("preview")]
     [RequestSizeLimit(20_000_000)]
@@ -56,8 +50,7 @@ public class GenericImportController(
 
         var ownerId = this.GetUserId();
 
-        // "Already imported" is checked across every type, not just one - a row previously imported as a movie
-        // must still be flagged when the same file is uploaded again.
+        // checked across every type, so a row imported earlier as a movie is still flagged
         var existingBooks = await FindAllAsync(bookRepository, ownerId, new BookModel { OwnerId = ownerId, Title = string.Empty, Author = string.Empty });
         var existingMovies = await FindAllAsync(movieRepository, ownerId, new MovieModel { OwnerId = ownerId, Title = string.Empty });
         var existingTvShows = await FindAllAsync(tvShowRepository, ownerId, new TvShowModel { OwnerId = ownerId, Title = string.Empty });
@@ -80,10 +73,8 @@ public class GenericImportController(
     }
 
     /// <summary>
-    /// Creates/updates items from the rows the user selected, grouped by the media type each row was assigned.
-    /// A row whose (normalized) title matches an existing item of the same type - or one created earlier in
-    /// this same request - gets an additional owned copy instead of a duplicate; see
-    /// <see cref="OwnedItemImportCommitCoordinator.CommitAsync"/>.
+    /// Creates or updates items from the selected rows, grouped by the type each row was given.
+    /// A row whose normalized title matches an item of its type, existing or created earlier in the request, adds a copy rather than a duplicate (see <see cref="OwnedItemImportCommitCoordinator.CommitAsync"/>).
     /// </summary>
     [HttpPost("commit")]
     [ProducesResponseType(200)]
@@ -145,8 +136,7 @@ public class GenericImportController(
         {
             MediaType = Enum.Parse<Keeptrack.Domain.Models.ImportMediaType>(item.MediaType!.Value.ToString()),
             Title = item.Title,
-            // Provenance notes preserve the source's original listing text, since reference-data linking is
-            // expected to overwrite Title later. The ISBN line is only meaningful for a book.
+            // the original listing text, kept in the notes since reference linking may overwrite the title, with the ISBN for a book only
             ProvenanceNotes = GenericImportService.BuildProvenanceNotes(item.Vendor, item.SourceTitle, isBook ? item.Isbn : null),
             Year = item.Year,
             Author = isBook ? item.Author : null,
@@ -158,13 +148,10 @@ public class GenericImportController(
                 Price = item.Price,
                 Vendor = item.Vendor,
                 AcquiredAt = item.AcquiredAt,
-                // The reference carries the Website label + order id + product id (with SourceTitle as the
-                // product-id fallback so it matches what preview checked against) - derived server-side, never
-                // from a client-supplied Reference string. Independent of the Vendor field above; the order
-                // id + product id are what disambiguate two different items sharing one order on re-import.
+                // Built from the Website label, order id and product id (the source title when absent, as the preview checked), never from client text.
+                // Independent of the Vendor, the order and product ids telling apart two items of one order.
                 Reference = GenericImportService.FormatReference(item.Website, item.OrderId, item.ProductId, item.SourceTitle),
-                // Condition is preserved on the copy's Product field rather than dropped (the one behavioral
-                // difference from the Amazon importer).
+                // the condition is kept on the copy's product name (owner's request)
                 ProductName = string.IsNullOrWhiteSpace(item.Condition) ? null : item.Condition.Trim()
             }
         };

@@ -3,8 +3,7 @@ using Keeptrack.WebApi.Contracts.Dto;
 namespace Keeptrack.BlazorApp.Components.Sharing;
 
 /// <summary>
-/// Human-readable labels for the sharing categories, in one place so the owner and recipient pages never
-/// drift on how a category is named.
+/// Human-readable labels for the sharing categories, in one place so the owner and recipient pages never drift on how a category is named.
 /// </summary>
 public static class SharingLabels
 {
@@ -16,9 +15,8 @@ public static class SharingLabels
         _ => category.ToString()
     };
 
-    // The categories' canonical display order, matching the left nav menu (NavMenu.razor), so tabs and
-    // summaries read the same way everywhere regardless of the order the owner happened to click them when
-    // creating the share (which is what a raw stored order reflects). Any category missing here sorts last.
+    // The categories' display order, matching the nav menu (NavMenu.razor), so tabs and summaries read the same everywhere, whatever order the owner clicked them in when creating the share.
+    // Any category missing here sorts last.
     private static readonly ShareCategory[] s_displayOrder =
     [
         ShareCategory.Movies,
@@ -33,7 +31,7 @@ public static class SharingLabels
         ShareCategory.Gears
     ];
 
-    /// <summary>The given categories in the left-menu display order, not their stored (click) order.</summary>
+    /// <summary>The given categories in the nav menu's display order, not their stored (click) order.</summary>
     public static IEnumerable<ShareCategory> Ordered(IEnumerable<ShareCategory> categories)
     {
         var order = s_displayOrder;

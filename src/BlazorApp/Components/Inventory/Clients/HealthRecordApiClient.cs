@@ -8,9 +8,8 @@ public sealed class HealthRecordApiClient(HttpClient http)
     protected override string ApiResourceName => "/api/health-records";
 
     /// <summary>
-    /// Specialties and practitioners already recorded by this account, feeding the journal form's
-    /// suggestion dropdowns - see <c>HealthRecordController.GetSuggestions</c>. One call for both lists,
-    /// since the form opens needing both.
+    /// Specialties and practitioners already recorded by this account, for the journal form's suggestions (see <c>HealthRecordController.GetSuggestions</c>).
+    /// One call for both lists, since the form opens needing both.
     /// </summary>
     public async Task<HealthRecordSuggestionsDto> GetSuggestionsAsync()
     {

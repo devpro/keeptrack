@@ -34,15 +34,14 @@ public class AmazonImportResourceTest(KestrelWebAppFactory<Program> factory)
         var videoGameRow = preview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.VideoGameTitle).Subject;
         var gearRow = preview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.GearTitle).Subject;
         var collectibleRow = preview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.CollectibleTitle).Subject;
-        // none of these have an ISBN-shaped ASIN - confirms the heuristic never mistakes them for books
+        // none of these has an ISBN-shaped ASIN, so the heuristic never mistakes them for books
         movieRow.LooksLikeBook.Should().BeFalse();
         tvShowRow.LooksLikeBook.Should().BeFalse();
         videoGameRow.LooksLikeBook.Should().BeFalse();
         gearRow.LooksLikeBook.Should().BeFalse();
         collectibleRow.LooksLikeBook.Should().BeFalse();
 
-        // the commit creates items whose ids this test never sees, so cleanup is keyed on the fixture's own
-        // synthetic titles - and registered before the commit, so a partial commit is cleaned up too
+        // The commit creates items whose ids this test never sees, so cleanup is keyed on the fixture's synthetic titles, registered before the commit, so a partial commit is cleaned up too.
         TrackResourcesMatching<BookDto>("/api/books", AmazonFixtureCsvBuilder.BookTitle);
         TrackResourcesMatching<MovieDto>("/api/movies", AmazonFixtureCsvBuilder.MovieTitle);
         TrackResourcesMatching<TvShowDto>("/api/tv-shows", AmazonFixtureCsvBuilder.TvShowTitle);
@@ -115,8 +114,7 @@ public class AmazonImportResourceTest(KestrelWebAppFactory<Program> factory)
         collectible.OwnedVersions.Should().ContainSingle();
         collectible.OwnedVersions[0].Reference.Should().Contain(AmazonFixtureCsvBuilder.CollectibleOrderId);
 
-        // re-preview after commit: every just-imported order must now be flagged, regardless of which
-        // type it was imported as, so re-uploading a newer export later doesn't silently duplicate any of them
+        // re-preview after commit: every just-imported order must now be flagged, regardless of which type it was imported as, so re-uploading a newer export later doesn't silently duplicate any of them
         var secondPreview = await PostFileAsync<List<AmazonOrderPreviewRowDto>>("/api/import/amazon/preview", "file", csv, "orders.csv");
         secondPreview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.BookTitle && r.AlreadyImported);
         secondPreview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.MovieTitle && r.AlreadyImported);
@@ -125,8 +123,7 @@ public class AmazonImportResourceTest(KestrelWebAppFactory<Program> factory)
         secondPreview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.GearTitle && r.AlreadyImported);
         secondPreview.Should().Contain(r => r.Title == AmazonFixtureCsvBuilder.CollectibleTitle && r.AlreadyImported);
 
-        // committing the exact same rows again (e.g. the user re-runs the import without noticing the
-        // "already imported" badge) must not duplicate anything - this is the bug reported in practice
+        // Committing the same rows again (a user re-running the import past the "already imported" badge) must not duplicate anything.
         var secondCommitResult = await PostAsync<AmazonImportCommitRequestDto, AmazonImportCommitResultDto>("/api/import/amazon/commit", commitRequest);
         secondCommitResult.BooksCreated.Should().Be(0);
         secondCommitResult.BooksMergedInto.Should().Be(0);
@@ -170,9 +167,7 @@ public class AmazonImportResourceTest(KestrelWebAppFactory<Program> factory)
     [Fact]
     public async Task Commit_ImportsBothItems_WhenTwoDifferentBooksShareTheSameOrder()
     {
-        // reproduces a real bug: an Amazon order commonly contains several different line items, but the
-        // owned-copy Reference used to be built from the order id alone - so the second book from the same
-        // order was silently skipped as a "duplicate" of the first
+        // An Amazon order often holds several line items, so a Reference built from the order id alone would skip the second book as a duplicate of the first.
         await Authenticate();
 
         const string sharedOrderId = "999-6666666-6666666";

@@ -20,17 +20,15 @@ public class SongDto : IHasId
     public string? Artist { get; set; }
 
     /// <summary>
-    /// Id of the linked <c>Album</c> this song is from, if any - the tenant's own tracked album, not
-    /// external reference-data.
+    /// Id of the tenant's own album this song is from, if any, not a reference document.
     /// </summary>
     public string? AlbumId { get; set; }
 
     public string? Duration { get; set; }
 
     /// <summary>
-    /// The reference tracklist position this song was created from - combined with <see cref="AlbumId"/>,
-    /// lets the client look up (and reuse) the song already created for a given album track instead of
-    /// creating a duplicate.
+    /// The tracklist position this song was created from.
+    /// With <see cref="AlbumId"/>, it lets the client reuse the song already created for an album track rather than create a duplicate.
     /// </summary>
     public string? TrackPosition { get; set; }
 }

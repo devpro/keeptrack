@@ -31,8 +31,7 @@ public class CarSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
         TrackOpenItem("/api/cars");
         await Assertions.Expect(detail.TitleInput).ToHaveValueAsync(name);
 
-        // cover image: the detail banner and the list's wide thumbnail (same shape as VideoGames.razor)
-        // must both pick up the URL - a plain default-portrait thumb was a reported regression here.
+        // Cover image: the detail banner and the list's wide thumbnail (the shape of VideoGames.razor) both pick up the URL.
         await DetailPageBase.SetFieldAsync(detail.ImageUrlInput, imageUrl);
         await Assertions.Expect(detail.CoverImage).ToHaveAttributeAsync("src", imageUrl);
 

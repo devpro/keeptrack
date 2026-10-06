@@ -1,12 +1,9 @@
 namespace Keeptrack.Domain.Models;
 
 /// <summary>
-/// One "don't suggest this to me again" record: an owner has dismissed a specific provider title from their
-/// Explore list for a given domain. Per-user (owner-scoped). The natural key is
-/// (owner, item type, external source, external id) - dismissing the same suggestion twice is idempotent.
-/// A dismissal deliberately points at the *provider's* title, not at a local reference document: an Explore
-/// suggestion is by definition something nobody tracks yet, so there is usually no reference document to
-/// point at until the title is actually added.
+/// A "do not suggest this again" record: an owner dismissed one provider title from their Explore list.
+/// The natural key is (owner, item type, external source, external id), so dismissing twice is idempotent.
+/// It points at the provider's title rather than a reference document, since a suggestion is something nobody tracks yet and usually has no reference document.
 /// </summary>
 public class ExploreDismissalModel
 {
@@ -18,11 +15,9 @@ public class ExploreDismissalModel
     public required ExploreItemType ItemType { get; set; }
 
     /// <summary>
-    /// Which provider <see cref="ExternalId"/> belongs to ("tmdb" for movies/TV, "rawg" for video games) -
-    /// the *discovery* provider the suggestion came from, not the admin-selected rating source (an IMDb-ranked
-    /// movie suggestion is still a TMDB id). Stored explicitly rather than inferred from
-    /// <see cref="ItemType"/>, so an id can never be read against the wrong provider's number space if a
-    /// domain's discovery provider ever changes.
+    /// Which provider <see cref="ExternalId"/> belongs to: the discovery provider the suggestion came from ("tmdb", "igdb"), not the selected rating source.
+    /// A movie shown with its IMDb rating is still a TMDB id.
+    /// It is stored rather than inferred from <see cref="ItemType"/>, so an id is never read in the wrong provider's number space after a domain changes provider.
     /// </summary>
     public required string ExternalSource { get; set; }
 

@@ -20,17 +20,14 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
         if (!string.IsNullOrEmpty(provider)) query += $"&provider={Uri.EscapeDataString(provider)}";
         if (!string.IsNullOrEmpty(isbn)) query += $"&isbn={Uri.EscapeDataString(isbn)}";
 
-        // Not GetFromJsonAsync: this call reaches a live third-party provider, so it is the one most likely to
-        // fail for a reason worth reporting, and EnsureSuccessStatusCode would discard the API's explanation
-        // of it (see ApiResponseExtensions).
+        // Not GetFromJsonAsync: this call reaches a live provider, the likeliest to fail for a reason worth reporting, and EnsureSuccessStatusCode would discard the API's explanation (see ApiResponseExtensions).
         var response = await http.GetAsync(query);
         return await response.ReadJsonOrThrowAsync<List<ReferenceSearchResultDto>>() ?? [];
     }
 
     /// <summary>
-    /// Every registered provider for <paramref name="type"/> (see
-    /// <c>ReferenceDataAdminController.GetProviders</c>). Empty for the domains with a single provider, which
-    /// is what tells the caller not to render a picker at all.
+    /// Every registered provider for <paramref name="type"/> (see <c>ReferenceDataAdminController.GetProviders</c>).
+    /// Empty for the domains with a single provider, which tells the caller to render no picker.
     /// </summary>
     public async Task<List<ReferenceProviderDto>> GetProvidersAsync(ReferenceItemType type)
     {
@@ -39,8 +36,7 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
     }
 
     /// <summary>
-    /// Every domain whose primary rating source is admin-selectable, with available/selected sources (see
-    /// <c>ReferenceDataAdminController.GetRatingSources</c>).
+    /// Every domain whose primary rating source is admin-selectable, with its available and selected sources (see <c>ReferenceDataAdminController.GetRatingSources</c>).
     /// </summary>
     public async Task<List<RatingSourceOptionDto>> GetRatingSourcesAsync()
     {
@@ -49,7 +45,7 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
     }
 
     /// <summary>
-    /// Stores a domain's primary rating source (does not re-propagate - call <see cref="RecomputeRatingsAsync"/> for that).
+    /// Stores a domain's primary rating source, without re-applying it, which is <see cref="RecomputeRatingsAsync"/>'s job.
     /// </summary>
     public async Task SetRatingSourceAsync(ReferenceItemType domain, string source)
     {
@@ -58,8 +54,7 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
     }
 
     /// <summary>
-    /// Re-applies a domain's current primary rating source to every linked tenant item (see
-    /// <c>ReferenceDataAdminController.RecomputeRatingSource</c>).
+    /// Re-applies a domain's current primary rating source to every linked tenant item (see <c>ReferenceDataAdminController.RecomputeRatingSource</c>).
     /// </summary>
     public async Task<RecomputeRatingsResultDto> RecomputeRatingsAsync(ReferenceItemType domain)
     {
@@ -80,8 +75,7 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
     }
 
     /// <summary>
-    /// Linking re-fetches the chosen candidate's full details from the provider, so it can fail upstream for
-    /// exactly the same reasons the search can - and is reported the same way.
+    /// Linking re-fetches the chosen candidate's full details from the provider, so it can fail upstream like the search, and is reported the same way.
     /// </summary>
     public async Task LinkAsync(LinkReferenceRequestDto request)
     {
@@ -90,7 +84,7 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
     }
 
     /// <summary>
-    /// The full reference dataset (TV shows, movies, cast) as a zip, for seeding a fresh environment.
+    /// Every reference collection as a zip, for seeding a fresh environment.
     /// </summary>
     public async Task<byte[]> ExportAsync()
     {
@@ -100,19 +94,16 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
     }
 
     /// <summary>
-    /// Re-import of a previously exported zip. Documents are matched by provider id, not by the <c>_id</c>
-    /// they were exported with, so this is idempotent and safe against a database that already holds some of
-    /// the same references - see <c>ReferenceDataImportService</c>.
+    /// Imports a previously exported zip.
+    /// Documents are matched by provider id, not by their exported <c>_id</c>, so it is idempotent and safe against a database already holding some of the same references (see <c>ReferenceDataImportService</c>).
     /// <para>
-    /// Runs in the background; poll <see cref="GetImportStatusAsync"/> with the returned job id for progress.
-    /// A real export is tens of thousands of documents, which takes far longer than this client's default
-    /// 100s timeout - waiting on one response reported a timeout for an import that was still running fine.
+    /// It runs in the background, and <see cref="GetImportStatusAsync"/> reports progress for the returned job id.
+    /// A real export is tens of thousands of documents, far longer than this client's default 100s timeout.
     /// </para>
     /// </summary>
     /// <param name="zipStream">
-    /// Read to the end before the request is sent, so pass a stream that is already in memory. Handing
-    /// <c>IBrowserFile.OpenReadStream()</c> straight to <see cref="StreamContent"/> makes the API wait on the
-    /// browser drip-feeding the file down the SignalR circuit mid-request.
+    /// Read to the end before the request is sent, so it should already be in memory.
+    /// <c>IBrowserFile.OpenReadStream()</c> handed straight to <see cref="StreamContent"/> makes the API wait on the browser drip-feeding the file down the SignalR circuit mid-request.
     /// </param>
     public async Task<Guid> StartImportAsync(Stream zipStream, string fileName)
     {
@@ -135,13 +126,10 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
     }
 
     /// <summary>
-    /// Runs the reference sync now instead of waiting for the periodic background one (see
-    /// <c>ReferenceDataAdminController.SyncNow</c>). With <paramref name="force"/> it re-checks every
-    /// reference document and rebuilds every Explore ranking; without it, it takes exactly what the
-    /// background tick would have taken - only what is past its staleness window.
-    /// With <paramref name="exploreOnly"/> it rebuilds the Explore rankings alone, skipping the five reference
-    /// domains - much the cheaper half, and the only one that matters after an Explore change.
-    /// Runs in the background; poll <see cref="GetSyncStatusAsync"/> with the returned job id for progress.
+    /// Runs the reference sync now instead of waiting for the periodic background one (see <c>ReferenceDataAdminController.SyncNow</c>).
+    /// With <paramref name="force"/> it re-checks every reference document and rebuilds every Explore ranking, and without it, only what is past its staleness window, like the background tick.
+    /// With <paramref name="exploreOnly"/> it rebuilds the Explore rankings alone, the much cheaper half, and the only one an Explore change needs.
+    /// It runs in the background, and <see cref="GetSyncStatusAsync"/> reports progress for the returned job id.
     /// </summary>
     public async Task<Guid> StartSyncAsync(bool force, bool exploreOnly)
     {
@@ -159,22 +147,20 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
     }
 
     /// <summary>
-    /// How far the video game reference documents have caught up with the domain's current default provider,
-    /// plus any that look like duplicates of one another (see
-    /// <c>ReferenceDataAdminController.GetProviderReconciliation</c>). Pure database reads - no provider call,
-    /// so it is safe to load with the page.
+    /// Which video game references lack an id from the current default provider, and which look like duplicates (see <c>ReferenceDataAdminController.GetProviderReconciliation</c>).
+    /// Database reads only, with no provider call, so it is safe to load with the page.
     /// </summary>
     public async Task<ProviderReconciliationDto> GetProviderReconciliationAsync() =>
         await http.GetFromJsonAsync<ProviderReconciliationDto>("/api/reference-data/provider-reconciliation")
         ?? new ProviderReconciliationDto { Provider = "", ProviderDisplayName = "" };
 
     /// <summary>
-    /// The default provider's candidates for one stuck reference. Reaches a live provider, so it is read
-    /// through <see cref="ApiResponseExtensions"/> like the admin search is.
+    /// The default provider's candidates for one stuck reference.
+    /// Reaches a live provider, so it is read through <see cref="ApiResponseExtensions"/> like the admin search is.
     /// </summary>
     /// <param name="query">
-    /// What the admin typed instead of the reference's own title, or a pasted provider page URL. Null asks
-    /// with the stored title, which is what opening a row does.
+    /// What the admin typed instead of the reference's own title, or a pasted provider page URL.
+    /// Null asks with the stored title, as opening a row does.
     /// </param>
     public async Task<List<ReferenceSearchResultDto>> GetAdoptionCandidatesAsync(string referenceId, string? query = null)
     {
@@ -203,8 +189,7 @@ public sealed class ReferenceDataAdminApiClient(HttpClient http)
     }
 
     /// <summary>
-    /// Operational snapshot: the answering instance's configuration plus the shared reference-sync lease
-    /// and recent background jobs (see <c>SystemStatusController</c>).
+    /// Operational snapshot: the answering instance's configuration plus the shared reference-sync lease and recent background jobs (see <c>SystemStatusController</c>).
     /// </summary>
     public async Task<SystemStatusDto?> GetSystemStatusAsync() =>
         await http.GetFromJsonAsync<SystemStatusDto>("/api/system-status");

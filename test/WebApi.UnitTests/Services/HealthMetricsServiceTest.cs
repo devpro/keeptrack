@@ -75,7 +75,7 @@ public class HealthMetricsServiceTest
     [Fact]
     public void ComputeMetrics_CostHistory_ExcludesRecordsWithNoMoneyAtAll()
     {
-        // a sickness entry carries no money - it must not fabricate a zero-cost year
+        // a sickness entry carries no money, so it must not fabricate a zero-cost year
         var records = new[] { Record("r1", new DateTime(2025, 3, 10, 8, 0, 0), HealthEventType.Sickness, description: "Fever") };
 
         HealthMetricsService.ComputeMetrics(records).CostHistory.Should().BeEmpty();
@@ -119,8 +119,7 @@ public class HealthMetricsServiceTest
             // nothing entered yet: missing = the full price
             Record("r1", new DateTime(2026, 5, 2, 9, 0, 0), practitioner: "Dr Martin", price: 60),
             Record("r2", new DateTime(2026, 3, 1, 9, 0, 0), description: "Blood test", price: 25),
-            // partially settled: ameli paid, the mutuelle (or the leftover) hasn't been entered - the
-            // exact "did the mutuelle ever pay?" case the check exists for
+            // Partially settled: ameli paid, the mutuelle or the leftover not entered, the "did the mutuelle ever pay?" case the check exists for.
             Record("r3", new DateTime(2026, 4, 1, 9, 0, 0), price: 30, publicReimbursement: 20),
             // free consultations never wait on anything
             Record("r4", new DateTime(2026, 6, 1, 9, 0, 0), practitioner: "Dr Diaz")

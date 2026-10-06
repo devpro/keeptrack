@@ -12,9 +12,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// Lets an admin/maintainer resolve titles the automatic match couldn't confidently handle (ambiguous or zero results),
-/// across every reference-backed domain (TV shows, movies, books, video games, albums).
-/// Not per-tenant CRUD, so this doesn't extend <see cref="Controllers.DataCrudControllerBase{TDto,TModel}"/>.
+/// Lets an admin resolve titles automatic matching left unlinked, across every reference-backed domain: TV shows, movies, books, video games and albums.
+/// It is not per-tenant CRUD, so it doesn't extend <see cref="Controllers.DataCrudControllerBase{TDto,TModel}"/>.
 /// </summary>
 [ApiController]
 [Authorize(Policy = "AdminOnly")]
@@ -52,7 +51,7 @@ public class ReferenceDataAdminController(
     private const string AlbumEntryName = "album_reference.json";
 
     /// <summary>
-    /// Every reference document as a zip, so an admin can seed a fresh environment's reference data without re-earning every match one search at a time.
+    /// Every reference document as a zip, so an admin can seed a fresh environment without earning every match again one search at a time.
     /// </summary>
     [HttpGet("export")]
     [ProducesResponseType(200)]
@@ -81,16 +80,14 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// Re-import of a previously exported zip, into whatever the target database already holds.
-    /// Every document is matched by its <b>provider id</b> (TMDB, IGDB, Google Books, Discogs...), never by the <c>_id</c> it was exported with -
-    /// see <see cref="ReferenceDataImportService"/> for why that distinction is the whole feature, and for what a match merges rather than replaces.
-    /// Idempotent either way: re-running the same import updates the same documents in place a second time.
+    /// Imports a previously exported zip into whatever the target database already holds.
+    /// Every document is matched by its <b>provider id</b> (TMDB, IGDB, Google Books, Discogs...), never by the <c>_id</c> it was exported with.
+    /// <see cref="ReferenceDataImportService"/> explains why, and what a match merges rather than replaces.
+    /// Re-running the same import updates the same documents in place.
     /// <para>
-    /// Runs in the background; poll <see cref="GetImportStatus"/> with the returned job id for progress. A real
-    /// export is tens of thousands of documents (people alone run to five figures), each one a write, so this
-    /// comfortably outlives a single request/response - as a blocking call it died on the *client's* default
-    /// 100s <c>HttpClient.Timeout</c> while the server kept importing, reporting a failure for work that was
-    /// still running and would go on to succeed.
+    /// It runs in the background, and <see cref="GetImportStatus"/> reports progress for the returned job id.
+    /// A real export is tens of thousands of documents, each one a write.
+    /// A blocking call would outlive the client's default 100s <c>HttpClient.Timeout</c>, reporting a failure for work that goes on to succeed.
     /// </para>
     /// </summary>
     [HttpPost("import")]
@@ -105,8 +102,7 @@ public class ReferenceDataAdminController(
     {
         if (file.Length == 0) return BadRequest();
 
-        // buffered up front: IFormFile's stream isn't valid once this request finishes, but the import itself
-        // runs in the background after we respond
+        // buffered up front, since IFormFile's stream is invalid once this request finishes and the import runs after the response
         var buffer = new MemoryStream();
         await using (var uploadStream = file.OpenReadStream())
         {
@@ -136,15 +132,11 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// Runs the import on a background task using its own DI scope - the request that started it has already
-    /// completed by the time this runs, so none of the request's scoped services (the six repositories, its own
-    /// JobStore) are still usable.
+    /// Runs the import on a background task with its own DI scope, since the request that started it has completed and its scoped services (the six repositories, its JobStore) are unusable.
     /// <para>
-    /// It runs on <see cref="IHostApplicationLifetime.ApplicationStopping"/> for the same reason
-    /// <see cref="RunSyncJobAsync"/> does: a shutdown mid-import would otherwise leave it writing against a
-    /// disposed Mongo client, including the final job-store write that would leave the job reading "Running"
-    /// forever. Stopping partway is safe here - the import is idempotent, so re-running the same zip picks up
-    /// what didn't land and updates what did.
+    /// It runs on <see cref="IHostApplicationLifetime.ApplicationStopping"/>, like <see cref="RunSyncJobAsync"/>.
+    /// A shutdown mid-import would otherwise leave it writing against a disposed Mongo client, and the job reading "Running" forever.
+    /// Stopping partway is safe, since re-running the same zip picks up what didn't land and updates what did.
     /// </para>
     /// </summary>
     private async Task RunImportJobAsync(Guid jobId, MemoryStream buffer)
@@ -172,15 +164,14 @@ public class ReferenceDataAdminController(
 
                 foreach (var skipped in summary.SkippedExternalIds)
                 {
-                    // reported in the result too, but logged so the collision leaves a server-side trail: it means the
-                    // target holds two reference documents for one work, which the import deliberately won't merge on its own.
+                    // Also in the result, but logged so the collision leaves a server-side trail.
+                    // The target holds two reference documents for one work, which the import won't merge on its own.
                     logger.LogWarning("Reference-data import skipped external id {ExternalId}: another document in this database already claims it.", skipped);
                 }
 
                 foreach (var duplicate in summary.PossibleDuplicates)
                 {
-                    // same reason as above: this leaves the database holding two reference documents for one
-                    // work, which nothing but the admin reconciliation action can put back together.
+                    // Logged for the same reason: two reference documents for one work, which only the admin reconciliation action merges.
                     logger.LogWarning("Reference-data import created a second document for {Work}: the target already had it under a different provider's id.", duplicate);
                 }
 
@@ -198,8 +189,8 @@ public class ReferenceDataAdminController(
             }
             catch (OperationCanceledException)
             {
-                // the API is going down, so this is neither a success nor a fault to investigate - just say so
-                // plainly and stop. Best-effort: the job store may already be unusable at this point.
+                // The API is going down, which is neither a success nor a fault to investigate.
+                // Best effort, since the job store may already be unusable.
                 try
                 {
                     await scopedJobStore.FailAsync(jobId, ReferenceDataImportStage.Failed,
@@ -233,9 +224,8 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// The client-facing stage for the collection the import just started. Domain reports which collection it
-    /// is writing; naming that as a job stage (alongside the parse/complete/fail states it knows nothing about)
-    /// is the web layer's job.
+    /// The client-facing stage for the collection the import just started.
+    /// Domain reports which collection it is writing, and naming it as a job stage beside the parse, complete and fail states is the web layer's concern.
     /// </summary>
     private static ReferenceDataImportStage StageOf(ReferenceDataImportCollection collection) => collection switch
     {
@@ -268,28 +258,21 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// Runs the periodic background sync (see <see cref="ReferenceSyncBackgroundService"/>) right now instead
-    /// of waiting for its next tick - the same logic either way, only the staleness windows differ.
-    /// Runs in the background; poll <see cref="GetSyncStatus"/> with the returned job id for progress, since a
-    /// re-check across five domains can easily exceed a single request/response's own timeout.
+    /// Runs the periodic background sync (see <see cref="ReferenceSyncBackgroundService"/>) now instead of at its next tick, with the same logic and only the staleness windows differing.
+    /// It runs in the background, and <see cref="GetSyncStatus"/> reports progress for the returned job id, since a re-check across five domains easily exceeds a request's timeout.
     /// </summary>
     /// <param name="force">
-    /// <c>true</c> re-checks every reference document and rebuilds every Explore ranking, however recently
-    /// they were last enriched. The default runs exactly what the background tick would have taken (see
-    /// <see cref="ReferenceSyncWindows.Periodic"/>), so a collection already synced within the window
-    /// legitimately reports zero checked - it is the cheap option, and it spends no provider calls on
-    /// documents that are already fresh.
+    /// <c>true</c> re-checks every reference document and rebuilds every Explore ranking, however recently enriched.
+    /// The default runs exactly what the background tick would (see <see cref="ReferenceSyncWindows.Periodic"/>), so a collection synced within the window reports zero checked.
+    /// It is the cheap option, spending no provider calls on fresh documents.
     /// </param>
     /// <param name="exploreOnly">
-    /// <c>true</c> runs only the Explore ranking rebuild, skipping the five reference domains and the
-    /// finished-show reconciliation. Still the same endpoint and the same job rather than one of its own: the
-    /// two passes were always separate calls inside the job, so this is a flag rather than a second code path,
-    /// and Explore has deliberately never had an admin endpoint to itself.
+    /// <c>true</c> runs only the Explore ranking rebuild, skipping the five reference domains and the finished-show reconciliation.
+    /// The two passes are separate calls inside one job, so this is a flag rather than a second endpoint.
     /// <para>
-    /// Worth having because the two halves cost wildly different things. The reference sync walks up to 500
-    /// documents per domain, each a provider call or several; a ranking rebuild is a handful of listing pages.
-    /// So "I changed something about Explore and want to see it" no longer means paying for a full reference
-    /// pass - which, combined with <paramref name="force"/>, is the expensive option in the app.
+    /// The two halves cost very different amounts.
+    /// The reference sync walks up to 500 documents per domain, each one or more provider calls, while a ranking rebuild is a handful of listing pages.
+    /// Checking an Explore change then doesn't pay for a full reference pass, the most expensive action in the app with <paramref name="force"/>.
     /// </para>
     /// </param>
     [HttpPost("sync-now")]
@@ -319,16 +302,11 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// Runs the sync on a background task using its own DI scope - the request that started it has
-    /// already completed by the time this runs, so it can't reuse the request's scoped services
-    /// (neither <see cref="ReferenceSyncService"/> nor the request's own JobStore instance).
+    /// Runs the sync on a background task with its own DI scope, since the request that started it has completed and its scoped services (<see cref="ReferenceSyncService"/>, its JobStore) are unusable.
     /// <para>
-    /// It runs on <see cref="IHostApplicationLifetime.ApplicationStopping"/>, not an unbounded token. A pass
-    /// takes minutes, so without that a shutdown leaves it working against a container being torn down: the
-    /// singletons it depends on (the Mongo client, the HTTP clients, IGDB's rate limiter) are disposed out from
-    /// under it, and every remaining step fails with <see cref="ObjectDisposedException"/> - including the
-    /// final job-store write, which would leave the job reading "Running" forever. Confirmed in the running
-    /// app: a shutdown mid-pass surfaced as a disposed <c>TokenBucketRateLimiter</c> deep inside an IGDB call.
+    /// It runs on <see cref="IHostApplicationLifetime.ApplicationStopping"/>, not an unbounded token.
+    /// A pass takes minutes, and on shutdown the singletons it uses (the Mongo client, the HTTP clients, IGDB's rate limiter) are disposed under it.
+    /// Every remaining step would then fail with <see cref="ObjectDisposedException"/>, the final job-store write included, leaving the job reading "Running" forever.
     /// </para>
     /// </summary>
     private async Task RunSyncJobAsync(Guid jobId, ReferenceSyncWindows windows, bool exploreOnly)
@@ -340,8 +318,8 @@ public class ReferenceDataAdminController(
 
         try
         {
-            // an Explore-only run leaves every reference count at zero, which is the truth about what it did -
-            // the admin page hides them rather than reporting "0 checked" as if the pass had found nothing.
+            // An Explore-only run leaves every reference count at zero, which is true of what it did.
+            // The admin page hides them rather than reporting "0 checked" as if the pass had found nothing.
             var result = new ReferenceSyncResultDto();
             if (!exploreOnly)
             {
@@ -355,15 +333,14 @@ public class ReferenceDataAdminController(
                 await scopedJobStore.UpdateStageAsync(jobId, ReferenceSyncStage.RefreshingExplore);
             }
 
-            // ...and covers the Explore discovery rankings on the same window, which is what makes this the
-            // "run it now" control for those too - no separate admin endpoint needed.
+            // the Explore rankings run on the same windows, which makes this their "run it now" control too
             result.ApplyExploreRefresh(await scopedExploreRefreshService.RefreshAsync(windows.Explore, cancellationToken));
             await scopedJobStore.CompleteAsync(jobId, ReferenceSyncStage.Completed, result);
         }
         catch (OperationCanceledException)
         {
-            // the API is going down, so this is neither a success nor a fault to investigate - just say so
-            // plainly and stop. Best-effort: the job store may already be unusable at this point.
+            // The API is going down, which is neither a success nor a fault to investigate.
+            // Best effort, since the job store may already be unusable.
             try
             {
                 await scopedJobStore.FailAsync(jobId, ReferenceSyncStage.Failed, "The API shut down before the sync finished. Start it again once the API is back up.");
@@ -380,9 +357,8 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// Every registered provider an admin can search/link <paramref name="type"/> with, in priority order.
-    /// Books and video games are the domains with more than one; TMDB/Discogs have exactly one each, so those
-    /// types return an empty list and the caller shows no picker.
+    /// Every registered provider an admin can search and link <paramref name="type"/> with, in priority order.
+    /// Books and video games have more than one, while the TMDB and Discogs domains return an empty list and the caller shows no picker.
     /// </summary>
     [HttpGet("providers")]
     [ProducesResponseType(200)]
@@ -406,10 +382,8 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// Every domain whose primary rating source (the score shown as the pill / used for the "Ref ★" sort) is
-    /// admin-selectable, with its available sources and the one currently selected. The video game entry
-    /// follows whichever provider that deployment registered as its default, so it lists IGDB's two scores
-    /// today and would list RAWG's own plus Metacritic on a deployment configured back to RAWG.
+    /// Every domain whose primary rating source (the pill's score, and the "Ref ★" sort) is admin-selectable, with its available sources and the current selection.
+    /// The video game entry follows the deployment's default provider: IGDB's two scores, or RAWG's own plus Metacritic on a deployment configured for RAWG.
     /// </summary>
     [HttpGet("rating-sources")]
     [ProducesResponseType(200)]
@@ -430,9 +404,9 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// Sets a domain's primary rating source. Only stores the choice - existing linked items keep their old
-    /// denormalized rating until <see cref="RecomputeRatingSource"/> re-applies it, so a switch is visible
-    /// and deliberate rather than silently reshuffling every list.
+    /// Sets a domain's primary rating source.
+    /// It only stores the choice: linked items keep their denormalized rating until <see cref="RecomputeRatingSource"/> re-applies it.
+    /// A switch is then deliberate rather than silently reshuffling every list.
     /// </summary>
     [HttpPut("rating-sources/{domain}")]
     [ProducesResponseType(204)]
@@ -465,9 +439,8 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// Re-applies a domain's current primary rating source to every already-linked tenant item - a single
-    /// bulk pass over the (small, shared) reference collection, no provider calls. Run after switching the
-    /// source via <see cref="SetRatingSource"/> so the list pills and sort reflect the new choice.
+    /// Re-applies a domain's primary rating source to every linked tenant item, in bulk over the shared reference collection, with no provider call.
+    /// It follows <see cref="SetRatingSource"/>, so list pills and sort reflect the new choice.
     /// </summary>
     [HttpPost("rating-sources/{domain}/recompute")]
     [ProducesResponseType(200)]
@@ -479,11 +452,9 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// Distinct (title, year) pairs, across every tenant, still missing a reference-data link. Book is
-    /// handled separately since it's the only domain whose <c>FindDistinctUnresolvedTitleYearsAsync</c>
-    /// also surfaces a prefill <c>Isbn</c> (see <see cref="IBookRepository.FindDistinctUnresolvedTitleYearsAsync"/>) -
-    /// forcing that onto the other four's shared tuple shape for one field only they'd never populate
-    /// wasn't worth it.
+    /// Distinct (title, year) pairs, across every tenant, still missing a reference-data link.
+    /// Books are handled apart, since their <see cref="IBookRepository.FindDistinctUnresolvedTitleYearsAsync"/> also returns an <c>Isbn</c> to prefill.
+    /// The other four domains share a tuple shape that would never populate it.
     /// </summary>
     [HttpGet("unresolved")]
     [ProducesResponseType(200)]
@@ -508,8 +479,7 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// How many search candidates get enriched with a poster and top cast names (TV/movie only) - bounds
-    /// the extra per-candidate credits calls to a small, admin-facing action, not the full result page.
+    /// How many TV or movie search candidates get a poster and top cast names, which bounds the extra per-candidate credits calls.
     /// </summary>
     private const int MaxEnrichedCandidates = 5;
 
@@ -517,21 +487,17 @@ public class ReferenceDataAdminController(
 
     /// <summary>
     /// Live external-provider search, for an admin to pick the right candidate for an unresolved title.
-    /// TV show/movie candidates are additionally enriched with top-billed cast names to help tell apart near-identical results
-    /// (remakes, regional variants, sequels sharing a title).
-    /// </summary>
-    /// <summary>
-    /// <paramref name="creator"/> is the book's author or the album's artist, when the caller has one -
-    /// passed straight through to the provider's own author/artist search field
-    /// (see <see cref="IBookReferenceClient.SearchBooksAsync"/>/<see cref="IDiscogsClient.SearchAlbumsAsync"/>),
-    /// since a common title alone often returns many unrelated candidates.
-    /// Ignored for TV shows/movies/video games, which have no equivalent single-name creator field on this endpoint.
-    /// <paramref name="provider"/> selects which registered provider to search with, for the domains that have
-    /// more than one (see <see cref="GetProviders"/>); ignored for the rest. Null falls back to the
-    /// deployment default.
-    /// <paramref name="isbn"/> is Book-only - an exact identifier, tried first by every book provider and
-    /// widening to the title search when that provider's catalogue doesn't index the edition (see
-    /// <see cref="BookReferenceClientBase"/>).
+    /// TV show and movie candidates also carry top-billed cast names, to tell apart near-identical results (remakes, regional variants, sequels sharing a title).
+    /// <para>
+    /// <paramref name="creator"/> is a book's author or an album's artist, passed to the provider's own author or artist field, since a common title alone returns many unrelated candidates.
+    /// TV shows, movies and video games ignore it.
+    /// </para>
+    /// <para>
+    /// <paramref name="provider"/> picks the provider for the domains with more than one (see <see cref="GetProviders"/>), null meaning the deployment default.
+    /// </para>
+    /// <para>
+    /// <paramref name="isbn"/> is for books only: every book provider tries it first and widens to the title search when its catalogue lacks the edition (see <see cref="BookReferenceClientBase"/>).
+    /// </para>
     /// </summary>
     [HttpGet("search")]
     [ProducesResponseType(200)]
@@ -539,7 +505,7 @@ public class ReferenceDataAdminController(
     public async Task<ActionResult<List<ReferenceSearchResultDto>>> Search([FromQuery] ReferenceItemType type, [FromQuery] string title, [FromQuery] int? year,
         [FromQuery] string? creator = null, [FromQuery] string? provider = null, [FromQuery] string? isbn = null)
     {
-        // never hit a provider with an empty title - mapped to a 400 by ApiExceptionFilterAttribute
+        // never call a provider with an empty title, a 400 through ApiExceptionFilterAttribute
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
 
         switch (type)
@@ -609,15 +575,11 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// Provider reconciliation for video games: which reference documents have not caught up with the domain's
-    /// current default provider, and which look like duplicates of one another.
+    /// Provider reconciliation for video games: which reference documents lack an id from the current default provider, and which look like duplicates.
     /// <para>
-    /// Video games only, and that is not an oversight. This is the one domain where a reference is refreshed
-    /// exclusively through the *default* provider (see
-    /// <c>ReferenceEnrichmentService.RefreshVideoGameReferenceAsync</c> for why - the second provider was added
-    /// because the first went down, so falling back to it means talking to a dead host), which makes "carries
-    /// no id in the default provider's number space" a real, self-inflicting gap rather than a detail. Books,
-    /// the other multi-provider domain, refresh through whichever provider linked them and have no such gap.
+    /// Video games only, since it is the one domain refreshed exclusively through the default provider (see <c>ReferenceEnrichmentService.RefreshVideoGameReferenceAsync</c>).
+    /// A missing default-provider id is then a real gap.
+    /// Books refresh through whichever provider linked them and have no such gap.
     /// </para>
     /// </summary>
     [HttpGet("provider-reconciliation")]
@@ -658,15 +620,12 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// What the default video game provider offers for one stuck reference, with the candidates the automatic
-    /// rule would have accepted flagged. Fetched per row rather than for the whole queue, since each row costs
-    /// a provider call or two.
+    /// What the default video game provider offers for one stuck reference, with the candidates the automatic rule would have accepted flagged.
+    /// Fetched per row rather than for the whole queue, since each row costs a provider call or two.
     /// </summary>
     /// <param name="query">
-    /// Optional replacement for the reference's stored title - what an admin types when the provider does not
-    /// spell the work the way this document does, or a pasted provider page URL for the rows no query reaches
-    /// at all. Candidates are still confirmed against the reference itself, so this widens what is *found*,
-    /// never what counts as a match.
+    /// Optional replacement for the reference's stored title, when the provider spells the work differently, or a pasted provider page URL for rows no query reaches.
+    /// Candidates are still confirmed against the reference, so this widens what is found, never what counts as a match.
     /// </param>
     /// <param name="referenceId"></param>
     /// <param name="cancellationToken"></param>
@@ -683,16 +642,15 @@ public class ReferenceDataAdminController(
             Title = candidate.Title,
             Year = candidate.Year,
             ImageUrl = candidate.ImageUrl,
-            // reuses the candidate's synopsis slot to say why it is (or isn't) the automatic pick - the admin's
-            // question here is "would this have linked itself?", and a listing carries no synopsis anyway
+            // The synopsis slot says whether this is the automatic pick, the admin's question being "would this have linked itself?".
+            // A listing carries no synopsis anyway.
             Synopsis = matchingIds.Contains(candidate.ExternalId) ? "Title and year match this reference." : null
         }).ToList());
     }
 
     /// <summary>
-    /// Attaches an admin-chosen provider id to an existing video game reference and refreshes it through that
-    /// provider. Adds the id to the document that is already there - it never creates a second one, which is
-    /// the state this whole screen exists to repair.
+    /// Attaches an admin-chosen provider id to an existing video game reference and refreshes it through that provider.
+    /// The id goes onto the existing document and never creates a second one, the state this screen exists to repair.
     /// </summary>
     [HttpPost("provider-reconciliation/{referenceId}/adopt")]
     [ProducesResponseType(204)]
@@ -704,9 +662,8 @@ public class ReferenceDataAdminController(
     }
 
     /// <summary>
-    /// Folds one duplicate video game reference into another: the surviving document gains every provider id,
-    /// rating and alias the other held, every tenant item linked to the absorbed one is re-pointed, and the
-    /// absorbed document is deleted.
+    /// Folds one duplicate video game reference into another.
+    /// The survivor gains every provider id, rating and alias the other held, every tenant item linked to the absorbed one is re-pointed, and the absorbed document is deleted.
     /// </summary>
     [HttpPost("provider-reconciliation/merge")]
     [ProducesResponseType(200)]

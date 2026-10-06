@@ -7,8 +7,8 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.Services;
 
 /// <summary>
-/// The single declaration of what a matched alias must carry to be stored at all, per domain - see <see cref="ReferenceAliasRule"/>.
-/// An alias is the local match key: an entry missing the field that identifies the work is not a weaker key, it is a key that matches things it was never confirmed for, which is why building one has to be refused rather than merely discouraged.
+/// The single declaration of what a matched alias must carry to be stored, per domain (see <see cref="ReferenceAliasRule"/>).
+/// An alias is the local match key, and one missing the field identifying the work is not weaker but matches what it was never confirmed for, so building one is refused.
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class ReferenceAliasRuleTest
@@ -26,7 +26,7 @@ public class ReferenceAliasRuleTest
     }
 
     /// <summary>
-    /// The defect this rule exists for: a tenant who recorded no year used to have a title-only alias written for them, and every later lookup for that title - whatever year it carried - matched it.
+    /// The defect this rule exists for: a title-only alias written for a tenant who recorded no year would match every later lookup for that title, whatever its year.
     /// </summary>
     [Fact]
     public void TitleAndYear_RefusesAnAlias_WithNoYear()
@@ -51,7 +51,7 @@ public class ReferenceAliasRuleTest
     }
 
     /// <summary>
-    /// An album is identified by its title and its artist, so the year adds nothing to the key - and carrying it would mint one alias per year any tenant ever typed for the same release.
+    /// An album is identified by its title and artist, so the year adds nothing to the key, and carrying it would mint one alias per year any tenant typed for the release.
     /// </summary>
     [Fact]
     public void TitleAndCreator_StoresNoYear_SoOneCombinationIsOneEntry()
@@ -80,7 +80,8 @@ public class ReferenceAliasRuleTest
     }
 
     /// <summary>
-    /// The year is recorded, never required: a book whose provider reports no year still has a complete key in its title and author, and refusing the alias would leave the reference locally unmatchable - which is worse than unmatched, since the next "check for reference match" would find nothing and clear the link.
+    /// The year is recorded, never required: a book whose provider reports no year still has a complete key in its title and author.
+    /// Refusing the alias would leave the reference locally unmatchable, worse than unmatched, since the next "check for reference match" would find nothing and clear the link.
     /// </summary>
     [Fact]
     public void TitleAndCreatorWithYear_RecordsTheAlias_WithNoYearAtAll()
@@ -93,7 +94,7 @@ public class ReferenceAliasRuleTest
     }
 
     /// <summary>
-    /// And where a year *is* known it is kept, per edition - which is what makes the exact (title, creator, year) tier precise, and why two printings of one work are two entries rather than one.
+    /// Where a year is known it is kept, per edition, which makes the exact (title, creator, year) tier precise, and two printings of one work two entries.
     /// </summary>
     [Fact]
     public void TitleAndCreatorWithYear_RecordsOneAliasPerEditionYear()
@@ -133,7 +134,7 @@ public class ReferenceAliasRuleTest
     }
 
     /// <summary>
-    /// Documents written before Mapperly store a null creator as <c>""</c> (see <c>scripts/dedupe-matched-aliases.js</c>) - reading those as a different creator appended an exact duplicate on every single re-resolve.
+    /// Documents written before Mapperly store a null creator as <c>""</c> (see <c>scripts/dedupe-matched-aliases.js</c>), and reading those as a different creator would append a duplicate on every re-resolve.
     /// </summary>
     [Fact]
     public void Merge_TreatsAnEmptyStoredCreator_AsNoCreator()
@@ -177,7 +178,7 @@ public class ReferenceAliasRuleTest
     }
 
     /// <summary>
-    /// A book/album reference document carries only its author/artist <i>reference id</i>, never the name, so a repository has nothing to build a complete alias from - and a creator-less one would be the exact junk key this rule refuses everywhere else.
+    /// A book or album reference document carries only its author or artist <i>reference id</i>, never the name, so a repository can't build a complete alias, and a creator-less one is the junk key this rule refuses.
     /// </summary>
     [Fact]
     public void EnsureCanonical_AddsNothing_WhenTheDomainNeedsACreatorTheDocumentCannotSupply()

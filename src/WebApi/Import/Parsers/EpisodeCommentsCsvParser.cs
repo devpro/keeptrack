@@ -23,7 +23,7 @@ public class EpisodeCommentRecord
 
 /// <summary>
 /// Parses TV Time's episode_comment.csv: the exporting user's own free-text comments on episodes.
-/// Episodes here are only identified by show name (no show id in this file), same as seen_episode_source.csv.
+/// Episodes are identified by show name only, with no show id, as in seen_episode_source.csv.
 /// </summary>
 public static class EpisodeCommentsCsvParser
 {

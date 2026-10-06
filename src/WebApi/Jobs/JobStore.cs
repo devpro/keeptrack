@@ -5,21 +5,16 @@ using Keeptrack.Domain.Repositories;
 namespace Keeptrack.WebApi.Jobs;
 
 /// <summary>
-/// Tracks the progress of a background job so the client can poll for real status instead of waiting on
-/// a single opaque request - shared by every feature with a long-running admin/user-triggered action
-/// (TV Time import, reference-data "sync now"), parameterized by that feature's own stage enum and result
-/// DTO rather than duplicated per feature. Backed by MongoDB (<see cref="IBackgroundJobRepository"/>),
-/// not memory: with multiple WebApi replicas, the replica answering a poll is not necessarily the one
-/// running the job, and the old in-memory store made polling fail whenever they differed. This typed
-/// wrapper owns the enum-name/JSON translation so the Domain contract stays free of web DTO types.
+/// Tracks a background job's progress, so the client polls for real status rather than waiting on one long request.
+/// Shared by every long-running action (TV Time import, reference sync, reference import), typed by the feature's own stage enum and result DTO.
+/// Backed by MongoDB (<see cref="IBackgroundJobRepository"/>), since the replica answering a poll is not necessarily the one running the job.
+/// This typed wrapper translates enum names and JSON, so the Domain contract stays free of web DTO types.
 /// </summary>
 public class JobStore<TStage, TResult>(IBackgroundJobRepository repository)
     where TStage : struct, Enum
 {
     /// <summary>
-    /// The feature this store's jobs belong to, shown on the admin system-status panel - derived from the
-    /// stage enum's name ("ImportStage" -> "Import"), the one piece of identity every closed generic
-    /// already carries without per-feature registration ceremony.
+    /// The feature this store's jobs belong to, shown on the admin system panel, derived from the stage enum's name ("ImportStage" gives "Import") so no feature registers it.
     /// </summary>
     private static readonly string Kind = typeof(TStage).Name.EndsWith("Stage", StringComparison.Ordinal)
         ? typeof(TStage).Name[..^"Stage".Length]
@@ -42,8 +37,7 @@ public class JobStore<TStage, TResult>(IBackgroundJobRepository repository)
         await repository.FailAsync(jobId, failedStage.ToString(), errorMessage);
 
     /// <summary>
-    /// Returns null if the job doesn't exist or wasn't created by this owner - a caller can never observe
-    /// another user's job, even by guessing a job id (enforced by the repository query itself).
+    /// Null when the job does not exist or belongs to another owner, which the repository query enforces, so a caller never sees another user's job.
     /// </summary>
     public async Task<(TStage Stage, TResult? Result, string? ErrorMessage)?> GetStatusAsync(Guid jobId, string ownerId)
     {
