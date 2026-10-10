@@ -37,7 +37,8 @@ The IMDb link is stored even when OMDb was never called, and `FindMissingRatingO
 - **by provider id**: `FindLinkedReferenceIdsAsync` then `FindExternalIdsAsync`, a projected read;
 - **by title**: `FindDistinctTitlesAsync` with `NormalizeLoose`, since providers spell one work differently (`Mass Effect: Legendary Edition` and `Mass Effect Legendary Edition`, RAWG's `GoldenEye 007 (1997)`).
 
-Both are only as good as provider adoption: a RAWG-linked reference has no `igdb` id until it is adopted, and the fix is adoption, never a workaround in Explore (see [Reference matching](reference-matching.md#adopting-the-default-providers-id)).
+Both are only as good as provider adoption: a RAWG-linked reference has no `igdb` id until it is adopted, and the fix is adoption,
+never a workaround in Explore (see [Reference matching](reference-matching.md#adopting-the-default-providers-id)).
 
 `explore_dismissal` is keyed `{owner_id, item_type, external_source, external_id}` on the **discovery** provider's id (`ExploreRankings.DiscoverySource`), since TMDB and RAWG ids are both plain integers.
 Dismissals keep the provider they were recorded under, so switching back to a previous provider restores them (owner's call).

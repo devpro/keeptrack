@@ -17,7 +17,8 @@ Hand-written mappers would let a forgotten property fail silently, and runtime m
   A null string stays null, and `IgnoreIfNullConvention` omits it from the stored document.
 - `OwnerId` uses `[MapValue(nameof(Model.OwnerId), "")]` from DTO to model (a plain ignore does not compile, it is `required`).
   `DataCrudControllerBase` overwrites it from the caller's claims, so it is never trusted from client input.
-- Read-only feature controllers (`WatchNextController`, `WishlistController`, Car and House metrics, `ReferenceDataController`) use a small one-directional model to DTO mapper injected by its concrete type, and so do the owner-less reference repositories.
+- Read-only feature controllers (`WatchNextController`, `WishlistController`, Car and House metrics, `ReferenceDataController`) use a small one-directional model to DTO mapper injected by its concrete type,
+  and so do the owner-less reference repositories.
 - Bespoke shapes are hand-written methods inside the mapper class, as in `CarHistoryStorageMapper`, which never persists an empty coordinates list: two values or nothing.
 
 ### Enums
@@ -43,7 +44,8 @@ Never name a property bare `Type`: discriminators are `CarHistoryModel.EventType
 
 ## Storage
 
-**A single-word property is stored camelCase, not snake_case**: `CamelCaseElementNameConvention` is registered globally in `InfrastructureServiceCollectionExtensions`, so only multi-word members carry an explicit `[BsonElement("public_reimbursement")]`.
+**A single-word property is stored camelCase, not snake_case**: `CamelCaseElementNameConvention` is registered globally in `InfrastructureServiceCollectionExtensions`,
+so only multi-word members carry an explicit `[BsonElement("public_reimbursement")]`.
 Repository code names fields with **expressions**, which resolve through the class map.
 Anything written by hand against raw names uses the stored name: an index or a `$rename` naming `Specialty` instead of `specialty` matches zero documents and reports success.
 
@@ -100,7 +102,8 @@ A malformed id passed as a child filter (`GET /api/episodes?TvShowId=not-an-obje
 
 ## Migrations
 
-**A data-shape rename needs an idempotent migration script** (`scripts/migrate-*.js`, a `$rename` or equivalent, followed by a re-run of the index script), not just updated `[BsonElement]` attributes, or every existing document silently loses the field.
+**A data-shape rename needs an idempotent migration script** (`scripts/migrate-*.js`, a `$rename` or equivalent, followed by a re-run of the index script), not just updated `[BsonElement]` attributes,
+or every existing document silently loses the field.
 A C# rename that keeps the stored element name (`[BsonElement("status")]` on `State`) needs none.
 How to run them is in [Operations](operations.md).
 

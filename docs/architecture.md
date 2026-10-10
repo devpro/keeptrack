@@ -39,7 +39,8 @@ Resolution, the detail page's check and an admin unlink write the link through a
 - **A provider that timed out, exhausted its retries or tripped its circuit breaker is a 502, never a 500** (`TimeoutRejectedException`, `BrokenCircuitException`, `HttpRequestException`, logged as a warning).
   A 500 would blame this API for a provider outage.
 - **The 502's `{ error }` says what the provider did** (`DescribeUpstreamFailure`: its status, unreachable, timed out or circuit open).
-- **`BlazorApp/Components/Shared/ApiResponseExtensions` (`EnsureSuccessOrThrowAsync`, `ReadJsonOrThrowAsync`) is used wherever a failure is shown to a user**, never `EnsureSuccessStatusCode` or `GetFromJsonAsync`, which discard the body and leave the user with "502 Bad Gateway".
+- **`BlazorApp/Components/Shared/ApiResponseExtensions` (`EnsureSuccessOrThrowAsync`, `ReadJsonOrThrowAsync`) is used wherever a failure is shown to a user**, never `EnsureSuccessStatusCode` or `GetFromJsonAsync`,
+  which discard the body and leave the user with "502 Bad Gateway".
   They throw `ApiRequestException`, whose `IsUpstreamProviderFailure` tells a provider outage from a defect.
   `InlineReferenceLinker` then names the provider, quotes the detail, and points at the provider picker when the domain has more than one.
 
@@ -80,7 +81,8 @@ A background service still catches what it can anticipate.
 An account with no `role` claim gets movies and TV shows only, capped at `Features:FreeTierItemLimit` per collection (default 20, `AppConfiguration.GetFreeTierItemLimit`).
 Episodes are capped at 100 times that (`EpisodeController.FreeTierLimitFactor`), only to stop a raw API caller flooding the database.
 
-Enforcement is API side: `[Authorize(Policy = "MemberOnly")]` on every restricted controller, plus the creation quota in `FreeTierQuota.CheckAsync`, called by `DataCrudControllerBase.Post` and by every other path that creates an item (403 with `{ error }`).
+Enforcement is API side: `[Authorize(Policy = "MemberOnly")]` on every restricted controller, plus the creation quota in `FreeTierQuota.CheckAsync`,
+called by `DataCrudControllerBase.Post` and by every other path that creates an item (403 with `{ error }`).
 `NavMenu.razor` hiding sections is UX, never security, and `FreeTierTest` carries a reflection guard asserting each controller's expected policy.
 
 ### Admin settings

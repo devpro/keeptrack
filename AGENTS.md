@@ -114,21 +114,21 @@ Those values are never converted into `NAME=value` lines and sourced: [CONTRIBUT
 
 ## Where to read before changing
 
-File | Read before changing
------|---------------------
-[Architecture](docs/architecture.md) | A controller, error handling, a background job, authorization, the free tier, an admin setting, an outbound HTTP client
-[Data model](docs/data-model.md) | A model, entity, DTO, mapper, repository filter, index or stored field name, or when adding a trackable type
-[Blazor UI](docs/blazor-ui.md) | A page, a list filter, persisted state, a shared component, styles or icons
-[Collections](docs/collections.md) | Ownership, gear, collectibles, playlists, Wishlist, Watch Next, Quick Add, user preferences
-[Journals](docs/journals.md) | Car, house or health, their metrics or charts
-[Sharing](docs/sharing.md) | The wishlist link or collection sharing
-[Imports](docs/imports.md) | A transaction import or the TV Time import
-[Explore](docs/explore.md) | The Explore catalogue, its exclusion or paging
-[Reference data](docs/reference-data.md) | Enrichment, a reference link, ratings, the sync, the reference export or import
+File                                             | Read before changing
+-------------------------------------------------|------------------------------------------------------------------------------------------------------------------------
+[Architecture](docs/architecture.md)             | A controller, error handling, a background job, authorization, the free tier, an admin setting, an outbound HTTP client
+[Data model](docs/data-model.md)                 | A model, entity, DTO, mapper, repository filter, index or stored field name, or when adding a trackable type
+[Blazor UI](docs/blazor-ui.md)                   | A page, a list filter, persisted state, a shared component, styles or icons
+[Collections](docs/collections.md)               | Ownership, gear, collectibles, playlists, Wishlist, Watch Next, Quick Add, user preferences
+[Journals](docs/journals.md)                     | Car, house or health, their metrics or charts
+[Sharing](docs/sharing.md)                       | The wishlist link or collection sharing
+[Imports](docs/imports.md)                       | A transaction import or the TV Time import
+[Explore](docs/explore.md)                       | The Explore catalogue, its exclusion or paging
+[Reference data](docs/reference-data.md)         | Enrichment, a reference link, ratings, the sync, the reference export or import
 [Reference matching](docs/reference-matching.md) | Anything deciding whether a candidate is a work, before loosening any rule
-[Providers](docs/providers.md) | A provider client, its query, quota or registration
-[Testing](docs/testing.md) | A test fixture, cleanup, or an end-to-end test
-[CI and code quality](docs/ci-and-quality.md) | A workflow, `.istarci.yml`, or a Sonar finding
+[Providers](docs/providers.md)                   | A provider client, its query, quota or registration
+[Testing](docs/testing.md)                       | A test fixture, cleanup, or an end-to-end test
+[CI and code quality](docs/ci-and-quality.md)    | A workflow, `.istarci.yml`, or a Sonar finding
 
 A new finding is added to the file its subject belongs to, and a reported bug is checked against these files first, since some behavior is by design.
 

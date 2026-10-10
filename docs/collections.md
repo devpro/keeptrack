@@ -58,7 +58,8 @@ The selected type lives in the URL (`/add?type=movie`), so the back button retur
 
 - It is BlazorApp only, going through the existing API clients, so creation enforces the free-tier quota and fires reference resolution exactly as a list page's Add does.
 - It does not extend `InventoryPageBase`, so the record DTOs' `required` members cause no `new()` constraint problem.
-- The record forms (`CarHistoryForm`, `HouseHistoryForm`, `HealthRecordForm`) and the copy fields (`OwnedVersionFields`) are the same components the detail pages use, and each form's `NewEntry` factory is the single way to build a new record.
+- The record forms (`CarHistoryForm`, `HouseHistoryForm`, `HealthRecordForm`) and the copy fields (`OwnedVersionFields`) are the same components the detail pages use,
+  and each form's `NewEntry` factory is the single way to build a new record.
 - A media item can carry one owned copy in the same POST, and a video game's platform entry is its copy.
 - A record needs its parent: none links to the page creating one, a single one is preselected, several show a choice.
 - After saving, it lands on the created item's detail page, or the parent's detail page for a record.

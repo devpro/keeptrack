@@ -48,7 +48,9 @@ Video games have no title-only fallback at all (see [Video games](#video-games))
 Counting results fails both ways:
 
 - **It refuses ordinary titles**: TMDB's fuzzy search returns 8 results for *The Bear* 2022 and 14 for *Heat* 1995, with the right one first.
-- **It links titles nobody compared**: `Fallout` + 2025 returns only *Thirst Trap: The Fame. The Fantasy. The Fallout.*, Discogs' `Kid A` + Radiohead + 2001 returns only *Amnesiac*, and IGDB answers `NieR:Automata` with only *Untitled NieR:Automata Project*.
+- **It links titles nobody compared**: `Fallout` + 2025 returns only *Thirst Trap: The Fame.
+  The Fantasy.
+  The Fallout.*, Discogs' `Kid A` + Radiohead + 2001 returns only *Amnesiac*, and IGDB answers `NieR:Automata` with only *Untitled NieR:Automata Project*.
 
 There are two identity shapes, a real difference between domains:
 
@@ -111,7 +113,8 @@ IGDB (`igdb`) is the default and RAWG (`rawg`) stays registered for admin search
 **A reference linked before the default changed adopts the new provider's id during the sync** (`TryAdoptDefaultVideoGameProviderAsync`), with no migration script.
 It requires exactly one candidate whose title matches the reference's with a compatible year, since the reference's own title is canonical data.
 
-- **A failed adoption breaks Explore**: its exclusion asks each linked reference for the discovery provider's id, so an unadopted reference is a tracked game that keeps being suggested (see [Explore](explore.md#excluding-what-the-user-tracks)).
+- **A failed adoption breaks Explore**: its exclusion asks each linked reference for the discovery provider's id, so an unadopted reference is a tracked game that keeps being suggested (see
+  [Explore](explore.md#excluding-what-the-user-tracks)).
 - `FindAdoptionCandidatesAsync` runs a ladder, widening when nothing **matched** (not when nothing came back, since a relevance search answers with unrelated results), and accumulating candidates across rungs:
   1. the exact title (`where name ~ "..."`);
   2. the same with `TitleNormalizer.StripDisambiguator` (RAWG's `GoldenEye 007 (1997)`);

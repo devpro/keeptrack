@@ -20,11 +20,13 @@ Mapper validation is compile-time (Mapperly diagnostics), not a test.
 ## Integration tests
 
 - `ResourceTestBase` gives typed HTTP helpers, `Authenticate()` (a real Firebase bearer) and `AuthenticatedUserId`.
-- **Every fixture uses `KestrelWebAppFactory<Program>`**, which sets `Features:IsReferenceSyncEnabled` to `false` through `ConfigureAppConfiguration` (`UseSetting` does not work with a top-level-statement `Program.cs`), or the host fires real provider calls at startup.
+- **Every fixture uses `KestrelWebAppFactory<Program>`**, which sets `Features:IsReferenceSyncEnabled` to `false` through `ConfigureAppConfiguration` (`UseSetting` does not work with a top-level-statement `Program.cs`),
+  or the host fires real provider calls at startup.
 - `TvTimeFixtureZipBuilder` builds a synthetic export in memory, and a real personal export is never committed.
 - **A test whose subject is a live provider calls it through `GetThroughLiveProviderAsync`/`PostNoContentThroughLiveProviderAsync`**, which skip on a 502 and on nothing wider,
   as in `BookProviderSearchAndLinkResourceTest`'s `[Theory]` over several providers.
-- **A test that starts a background job must not let it do real work**: the `sync-now` tests use `ProviderlessWebAppFactory` (every provider credential blanked), except the opt-in `ReferenceSyncPollingResourceTest` (`REFERENCE_SYNC_POLL_ENABLED`).
+- **A test that starts a background job must not let it do real work**: the `sync-now` tests use `ProviderlessWebAppFactory` (every provider credential blanked),
+  except the opt-in `ReferenceSyncPollingResourceTest` (`REFERENCE_SYNC_POLL_ENABLED`).
 - `CancellationTokenPropagationTest` proves the generic CRUD path cancels a real MongoDB call.
 
 ## End-to-end tests
@@ -57,7 +59,8 @@ The reload only runs after a failed assertion, and firing often is the signal to
 
 ### Failure evidence
 
-**A failing test's evidence is in `test/BlazorApp.PlaywrightTests/bin/<config>/net10.0/e2e-diagnostics`**, written by `SmokeTestBase.DisposeAsync` for every context and page the test opened: a full-page screenshot and the trace, with their paths printed in the test output.
+**A failing test's evidence is in `test/BlazorApp.PlaywrightTests/bin/<config>/net10.0/e2e-diagnostics`**, written by `SmokeTestBase.DisposeAsync` for every context and page the test opened:
+a full-page screenshot and the trace, with their paths printed in the test output.
 A test needing a clean browser opens it through `SmokeTestBase.NewAnonymousPageAsync`, since a context disposed inside the test body is already closed when the capture runs.
 Capturing never throws, so diagnosing a failure never replaces the failure.
 

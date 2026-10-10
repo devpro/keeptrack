@@ -25,11 +25,11 @@ A grant is a `share` document: owner, owner display name (denormalized from the 
 
 `ShareCategoryClassifier.KindOf` is the single place deciding how a category is presented and whether it can be copied, read by both the copy endpoint and the owner UI's grouping.
 
-Kind         | Categories                                          | Recipient sees                                  | Copyable
--------------|-----------------------------------------------------|-------------------------------------------------|---------
-`Media`      | Movies, TV shows, books, albums, video games        | The owner's list, with an "add to my collection" action | Yes
-`Collection` | Collectibles, gear                                  | The owner's list, read only                     | No
-`Personal`   | Cars, houses, health                                | A read-only detail view with history and metrics | No
+Kind         | Categories                                   | Recipient sees                                          | Copyable
+-------------|----------------------------------------------|---------------------------------------------------------|---------
+`Media`      | Movies, TV shows, books, albums, video games | The owner's list, with an "add to my collection" action | Yes
+`Collection` | Collectibles, gear                           | The owner's list, read only                             | No
+`Personal`   | Cars, houses, health                         | A read-only detail view with history and metrics        | No
 
 Health is never bundled: enabling it asks through `ConfirmModal`.
 
@@ -51,7 +51,9 @@ Keeping `ReferenceId` makes the copy instantly linked, since reference data is s
 
 ### Recipient views
 
-- Media and collection categories render through the real `InventoryList` in read-only mode, so search, sort, filters, thumbnails and the grid all work, and per-type meta rows (`Components/Inventory/Meta/*MetaRow.razor`) are shared with the owner's pages.
-- Personal categories reuse the owner's own detail pages (`CarDetail`, `HouseDetail`, `HealthProfileDetail`) through a `ShareId` parameter that switches the data source to the shared endpoints and hides every edit affordance (`CanEdit => ShareId is null`).
+- Media and collection categories render through the real `InventoryList` in read-only mode, so search, sort, filters, thumbnails and the grid all work,
+  and per-type meta rows (`Components/Inventory/Meta/*MetaRow.razor`) are shared with the owner's pages.
+- Personal categories reuse the owner's own detail pages (`CarDetail`, `HouseDetail`, `HealthProfileDetail`) through a `ShareId` parameter that switches the data source to the shared endpoints
+  and hides every edit affordance (`CanEdit => ShareId is null`).
   Thin route wrappers (`Shared{Car,House,Health}DetailPage`) own the routes and the authorization.
 - Metrics reuse the same metrics services, through one generic `SharedDetailDto<TParent, TChild, TMetrics>`.

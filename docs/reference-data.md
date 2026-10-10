@@ -5,7 +5,8 @@ How an item is matched to a reference is in [Reference matching](reference-match
 
 ## Collections
 
-`tvshow_reference`, `movie_reference`, `book_reference`, `videogame_reference`, `album_reference` and `person_reference` are the deliberate exception to "every collection has `owner_id`": public facts about a real work, shared by every tenant.
+`tvshow_reference`, `movie_reference`, `book_reference`, `videogame_reference`, `album_reference` and `person_reference` are the deliberate exception to "every collection has `owner_id`":
+public facts about a real work, shared by every tenant.
 Images are hotlinked from the provider CDN (TMDB's sanctioned pattern), so there is no local image storage.
 
 - These repositories do not extend `IDataRepository<TModel>`/`MongoDbRepositoryBase`, both constrained to `IHasIdAndOwnerId` and owner-scoped CRUD.
@@ -76,7 +77,8 @@ A source key is not a provider, so `rawg` and `metacritic` stay declared while s
 The primary source is an admin setting, global rather than per user, in `app_setting`, since a switch must be one bulk recompute per reference.
 The admin card and the `rating-sources` GET, PUT and `recompute` endpoints are generic over `RatingSourceCatalog.SelectableDomains`, and the picker is a `form-select`.
 
-A changed source applies to new links and syncs until the admin runs the recompute, which copies values references already hold onto tenant items and never calls a provider, so "0 updated" is correct when the references themselves have no rating.
+A changed source applies to new links and syncs until the admin runs the recompute, which copies values references already hold onto tenant items and never calls a provider,
+so "0 updated" is correct when the references themselves have no rating.
 
 - **It opens with `CountLinkedOnOtherRatingSourceAsync`** and returns `(0, 0)` without reading references when nothing differs.
   An unstamped item counts as different, so the first run backfills.

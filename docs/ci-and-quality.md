@@ -27,7 +27,7 @@ Setup is in [CONTRIBUTING.md](../CONTRIBUTING.md#continuous-integration).
 `.istarci.yml` sets the image of each job:
 
 Job            | Image                          | Workflow
----------------|--------------------------------|---------
+---------------|--------------------------------|----------------------------
 `git-check`    | `ghcr.io/devpro/debian-node`   | The local reusable workflow
 `markup-lint`  | `ghcr.io/devpro/debian-node`   | `github-workflow-parts`
 `code-quality` | `ghcr.io/devpro/ubuntu-dotnet` | `github-workflow-parts`

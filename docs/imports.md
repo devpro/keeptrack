@@ -8,11 +8,11 @@ The reference-data export and import, an admin tool, is in [Reference data](refe
 Three importers of the same shape, the controller in `Controllers/` and the pure parsing and computation in `Domain/Services/`.
 Each is a preview then a commit: the user reviews and selects rows before anything is written.
 
-Importer | Controller and service | Input
----------|------------------------|------
-Generic | `GenericImportController`, `GenericImportService` (`POST /api/import/generic`, `MemberOnly`) | Any CSV with the canonical columns
-Amazon | `AmazonImportController`, `AmazonOrderPreviewService` | Amazon's order-history CSV
-Video game | `GenericVideoGameImportController`, `GenericVideoGameImportService` | A video-game-only transaction CSV, such as PSN's GDPR export
+Importer   | Controller and service                                                                       | Input
+-----------|----------------------------------------------------------------------------------------------|-------------------------------------------------------------
+Generic    | `GenericImportController`, `GenericImportService` (`POST /api/import/generic`, `MemberOnly`) | Any CSV with the canonical columns
+Amazon     | `AmazonImportController`, `AmazonOrderPreviewService`                                        | Amazon's order-history CSV
+Video game | `GenericVideoGameImportController`, `GenericVideoGameImportService`                          | A video-game-only transaction CSV, such as PSN's GDPR export
 
 **The generic importer is the store-agnostic default, extended rather than adding another store-specific importer.**
 

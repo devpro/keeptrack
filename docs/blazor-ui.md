@@ -73,7 +73,8 @@ A missing item is a 404 at every layer:
 
 **`SuggestInput`** offers free text with suggestions (fuel categories, gear categories, health specialties and practitioners).
 
-- **Its menu survives the blur its own click causes** (`@onmousedown:preventDefault` on item and menu, plus `_menuMouseDown`): Blazor Server runs the `focusout` handler to completion before the click is dispatched, which no `Task.Delay` fixes.
+- **Its menu survives the blur its own click causes** (`@onmousedown:preventDefault` on item and menu, plus `_menuMouseDown`):
+  Blazor Server runs the `focusout` handler to completion before the click is dispatched, which no `Task.Delay` fixes.
 - **Typing highlights a match immediately** (`DefaultActiveIndex`, the ARIA combobox automatic selection), so Enter completes, and an empty field highlights nothing.
 - **Enter takes the highlight, Tab only one reached with the arrow keys**, since completing on Tab turns "Dr Kim" into "Dr Kimura".
   Escape drops the highlight, and there is no `preventDefault` on keydown.

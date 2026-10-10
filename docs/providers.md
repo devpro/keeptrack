@@ -4,7 +4,7 @@ The third-party APIs behind reference data: what each supplies, and how the code
 Credentials and how to obtain them are in [CONTRIBUTING.md](../CONTRIBUTING.md#reference-data-providers).
 
 Domain           | Providers
------------------|----------
+-----------------|------------------------------------------
 TV shows, movies | TMDB, plus OMDb for IMDb ratings
 Video games      | IGDB (default), RAWG
 Albums           | Discogs
@@ -147,7 +147,8 @@ It queries `intitle:`/`inauthor:`, with an `isbn` as the sole query when given, 
 - It searches `q=` rather than `title=`, which misses regional variants.
 - `GetBookDetailsAsync` falls back to a `q=key:{workKey}` re-query when the work JSON lacks `first_publish_date`.
 - It exposes no reliable series, so `BookModel.Series` is not filled automatically.
-- Its search is the slowest endpoint here (tens of seconds, and 503s), so the rating fallback (`AddOpenLibraryRatingFallbackAsync`) catches everything but `OperationCanceledException` and keeps the stored rating when the lookup never answered.
+- Its search is the slowest endpoint here (tens of seconds, and 503s), so the rating fallback (`AddOpenLibraryRatingFallbackAsync`) catches everything but `OperationCanceledException` and keeps the stored rating
+  when the lookup never answered.
 
 **Its `q=` noise is left alone (owner's call).**
 `q=` matches descriptions and subjects too (`q=Sabbath` returns "Iron man" by Tony Iommi), and the Discogs title filter would work, but book search is a ladder that widens only on an empty step.

@@ -101,7 +101,7 @@ A provider with no credentials is skipped: items of that type stay unlinked inst
 ### Blazor app
 
 Key                                       | Required | Default value
-------------------------------------------|----------|--------------
+------------------------------------------|----------|----------------
 `AllowedHosts`                            | false    | `"*"`
 `Features:IsHttpsRedirectionEnabled`      | false    | `true`
 `Firebase:WebAppConfiguration:ApiKey`     | true     | `""`
@@ -149,7 +149,7 @@ dotnet run --project src/BlazorApp   # https://localhost:7042/
 ## Tests
 
 Project                          | Needs
----------------------------------|------
+---------------------------------|-----------------------------------------------------------------------------
 `test/WebApi.UnitTests`          | Nothing
 `test/BlazorApp.UnitTests`       | Nothing
 `test/WebApi.IntegrationTests`   | MongoDB and a Firebase test user
@@ -240,7 +240,7 @@ pwsh test/BlazorApp.PlaywrightTests/bin/Debug/net10.0/playwright.ps1 install chr
 ```
 
 Mode        | Trigger                           | Hosting
-------------|-----------------------------------|--------
+------------|-----------------------------------|----------------------------------------------------------------------------------
 Self-hosted | `E2E_ENABLED=true`, no target URL | Both apps in the test process, so breakpoints in `BlazorApp` and `WebApi` are hit
 Live        | `E2E_TARGET_URL` set              | Drives an already running deployment
 Read-only   | `E2E_READONLY=true`               | Every mutating test skips, paired with `E2E_TARGET_URL`
@@ -256,7 +256,7 @@ dotnet test --project test/BlazorApp.PlaywrightTests/BlazorApp.PlaywrightTests.c
 ```
 
 Variable                       | Default                             | Purpose
--------------------------------|-------------------------------------|--------
+-------------------------------|-------------------------------------|----------------------------------------------------------------------------
 `E2E_ENABLED`                  | `false`                             | Master switch
 `E2E_TARGET_URL`               | empty                               | Live mode: BlazorApp base URL
 `E2E_WEBAPI_URL`               | empty                               | Live mode: WebApi base URL, required unless read-only
