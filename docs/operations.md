@@ -27,8 +27,21 @@ Why a shape change needs one is in [Data model](data-model.md#migrations).
 
 ## Database backups
 
+Create a backup:
+
 ```bash
 docker run --rm -it --workdir=/data --volume "$(pwd)":/data mongo:8.2 mongodump --uri "mongodb+srv://<user>:<password>@<cluster>.<project>.mongodb.net/<database>"
+```
+
+Or directly with mongodump:
+
+```bash
+mongodump --uri="mongodb+srv://<user>:<password>@<cluster>.<project>.mongodb.net/<database>" --out="./mongodb-backup"
+```
+
+Restore a backup:
+
+```bash
 docker run --rm -it --workdir=/data --volume "$(pwd)":/data mongo:8.2 mongorestore --uri "mongodb+srv://<user>:<password>@<cluster>.<project>.mongodb.net"
 ```
 

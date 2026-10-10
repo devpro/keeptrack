@@ -43,7 +43,9 @@
   </Folder>
   <Folder Name="/Solution Items/scripts/">
     <File Path="scripts/dedupe-matched-aliases.js" />
+    <File Path="scripts/firebase-create-user.js" />
     <File Path="scripts/firebase-user-role.js" />
+    <File Path="scripts/load-runsettings.js" />
     <File Path="scripts/migrate-car-history-station.js" />
     <File Path="scripts/migrate-house-schema.js" />
     <File Path="scripts/migrate-is-owned-to-owned-versions.js" />
@@ -51,6 +53,8 @@
     <File Path="scripts/migrate-videogame-to-embedded-platforms.js" />
     <File Path="scripts/mongodb-create-index.js" />
     <File Path="scripts/mongodb-install.sh" />
+    <File Path="scripts/prune-incomplete-matched-aliases.js" />
+    <File Path="scripts/unlink-yearless-ambiguous-reference-matches.js" />
     <File Path="scripts/unset-tvshow-want-to-watch.js" />
   </Folder>
   <Project Path="src/BlazorApp/BlazorApp.csproj" />
