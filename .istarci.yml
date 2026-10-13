@@ -8,6 +8,8 @@ runner:
     "image-scan*": ghcr.io/devpro/debian-node:latest
   # The scan jobs build an image and scan it through the host Docker daemon.
   docker: true
+  # The analysis runs against the SonarQube IstarCI starts on this machine, with a token made there.
+  sonarqube: true
 
 workflow:
   onDisallowedAction: fail
@@ -23,4 +25,7 @@ workflow:
 
 # Repository variables the pipeline reads, which a local run otherwise gets as placeholders, and an image tag refuses the uppercase in one.
 vars:
+  # The local SonarQube has no organizations, and a non-empty one is what turns the analysis on.
+  SONAR_ORG: local
+  SONAR_PROJECT_KEY: keeptrack
   CONTAINER_REGISTRY_PATH: devprofr
