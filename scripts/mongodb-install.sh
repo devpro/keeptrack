@@ -1,17 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# The runner image has no sudo, so MongoDB comes from its tarball into the temporary directory instead of the apt package.
 echo "Install and start MongoDB 8.2"
-curl --proto "=https" --tlsv1.2 -sSf -L https://www.mongodb.org/static/pgp/server-8.0.asc | \
-  sudo gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg \
-  --dearmor
-echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.2 multiverse" |
-  sudo tee /etc/apt/sources.list.d/mongodb-org-8.2.list
-sudo apt-get update
-sudo apt-get install -y mongodb-org
-sudo systemctl start mongod
+MONGODB_HOME="${RUNNER_TEMP:-$(mktemp -d)}/mongodb"
+mkdir -p "${MONGODB_HOME}/bin" "${MONGODB_HOME}/data"
+curl --proto "=https" --tlsv1.2 -fsSL https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu2404-8.2.1.tgz |
+  tar xz --strip-components=2 -C "${MONGODB_HOME}/bin" --wildcards "*/bin/mongod"
+"${MONGODB_HOME}/bin/mongod" --dbpath "${MONGODB_HOME}/data" --bind_ip 127.0.0.1 \
+  --fork --logpath "${MONGODB_HOME}/mongod.log"
 timeout 30 bash -c "
-  until mongosh --host localhost:27017 --eval 'db.runCommand({ ping: 1 })' >/dev/null 2>&1; do
+  until (echo > /dev/tcp/127.0.0.1/27017) 2>/dev/null; do
     echo 'MongoDB not ready yet, retrying in 1 second...'
     sleep 1
   done
