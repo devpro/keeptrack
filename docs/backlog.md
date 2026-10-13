@@ -41,8 +41,8 @@ Known debt and gaps, not yet scheduled.
 
 ## CI
 
-- [ ] Replace `scripts/mongodb-install.sh`, which the quality job runs to install MongoDB with `sudo apt` and start it with `systemctl`, with a `mongo:8` service declaring `ports: [27017:27017]`.
-  A container has no `systemd`, and the service works the same on GitHub and in IstarCI, on `localhost:27017`.
+- [ ] Replace `scripts/mongodb-install.sh`, which the quality job runs to start MongoDB from its archive, with `mongodb-enabled: true` of the reusable .NET quality workflow.
+  The workflow then starts it without sudo, with the checksums verified, on GitHub and in IstarCI alike.
 - [ ] Run `code-quality` and `image-scan` through the installed IstarCI package on a commit changing the application, and record in [CI and code quality](ci-and-quality.md) what passes.
 
 ## Dependencies
