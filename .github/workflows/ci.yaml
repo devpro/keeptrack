@@ -64,7 +64,7 @@ jobs:
         ./scripts/mongodb-install.sh
         echo "Initialize database (indexes, tenants & users)"
         echo "TODO (MONGODB_URI="mongodb://localhost:27017/keeptrack_dev" ./scripts/...)"
-      dotnet-test-args: "--report-xunit-trx --coverage --coverage-output-format cobertura"
+      dotnet-test-args: "--report-xunit-trx --coverage --coverage-output-format cobertura ${{ vars.DOTNET_TEST_EXTRA_ARGS }}"
       extra-vars: |
         AllowedOrigins__0=5207
         AllowedOrigins__1=7042

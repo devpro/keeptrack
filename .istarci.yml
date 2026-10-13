@@ -29,3 +29,6 @@ vars:
   SONAR_ORG: local
   SONAR_PROJECT_KEY: keeptrack
   CONTAINER_REGISTRY_PATH: devprofr
+  # The integration tests sign in to Firebase, an external system a local run never reaches,
+  # and leaving them out leaves their project with no test, which exit code 8 reports.
+  DOTNET_TEST_EXTRA_ARGS: --filter-not-namespace Keeptrack.WebApi.IntegrationTests* --ignore-exit-code 8
