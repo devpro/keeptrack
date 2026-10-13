@@ -73,7 +73,7 @@ jobs:
         Infrastructure__MongoDB__ConnectionString=mongodb://localhost:27017
         Infrastructure__MongoDB__DatabaseName=keeptrack_ci
         Logging__LogLevel__Keeptrack=Debug
-      fossa-enabled: true
+      fossa-enabled: ${{ vars.FOSSA_ENABLED != 'false' }}
       sonar-enabled: true
       sonar-host-url: ${{ vars.SONAR_HOST_URL || 'https://sonarcloud.io' }}
       sonar-cpd-exclusions: "**/*.g.cs,**/*.generated.cs,**/src/WebApi.Contracts/Dto/*.cs,**/src/Domain/Models/*.cs,**/src/Infrastructure.MongoDb/Entities/*.cs"

@@ -25,6 +25,8 @@ workflow:
 
 # Repository variables the pipeline reads, which a local run otherwise gets as placeholders, and an image tag refuses the uppercase in one.
 vars:
+  # FOSSA analyses on its own service with an API key, which a local run never holds.
+  FOSSA_ENABLED: "false"
   # The local SonarQube has no organizations, and a non-empty one is what turns the analysis on.
   SONAR_ORG: local
   SONAR_PROJECT_KEY: keeptrack
