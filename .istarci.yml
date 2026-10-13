@@ -10,6 +10,7 @@ runner:
   docker: true
 
 workflow:
+  onDisallowedAction: fail
   # Actions published by GitHub or Docker, and the composite replacements for every other one kept in github-workflow-parts.
   allowedActions:
     - actions/*
