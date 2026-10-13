@@ -41,8 +41,6 @@ Known debt and gaps, not yet scheduled.
 
 ## CI
 
-- [ ] Replace `scripts/mongodb-install.sh`, which the quality job runs to start MongoDB from its archive, with `mongodb-enabled: true` of the reusable .NET quality workflow.
-  The workflow then starts it without sudo, with the checksums verified, on GitHub and in IstarCI alike.
 - [ ] Run `code-quality` and `image-scan` through the installed IstarCI package on a commit changing the application, and record in [CI and code quality](ci-and-quality.md) what passes.
 
 ## Dependencies
