@@ -33,20 +33,20 @@ permissions:
 jobs:
   git-check:
     name: Git
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-git-check.yml@1407a4bb9c27be25216e3ab69865c3895d862107
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-git-check.yml@c6d06a61a377a41dc192ce58f08a0b5100d9a2bc
     with:
       version-file: Directory.Build.props
-      workflow-parts-version: 1407a4bb9c27be25216e3ab69865c3895d862107
+      workflow-parts-version: c6d06a61a377a41dc192ce58f08a0b5100d9a2bc
 
   markup-lint:
     name: Markup
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-markup-lint.yml@1407a4bb9c27be25216e3ab69865c3895d862107
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-markup-lint.yml@c6d06a61a377a41dc192ce58f08a0b5100d9a2bc
 
   code-quality:
     name: Code
     needs: git-check
     if: needs.git-check.outputs.changed == 'true' || (github.event_name == 'workflow_dispatch' && inputs.run-code-quality)
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-dotnet-quality.yml@1407a4bb9c27be25216e3ab69865c3895d862107
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-dotnet-quality.yml@c6d06a61a377a41dc192ce58f08a0b5100d9a2bc
     with:
       # TODO: need a safe solution for service account json content
       #
@@ -82,7 +82,7 @@ jobs:
       sonar-organization: ${{ vars.SONAR_ORG }}
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
       sonar-project-name: Keeptrack
-      workflow-parts-version: 1407a4bb9c27be25216e3ab69865c3895d862107
+      workflow-parts-version: c6d06a61a377a41dc192ce58f08a0b5100d9a2bc
     secrets:
       fossa-api-key: ${{ secrets.FOSSA_API_KEY }}
       sonar-token: ${{ secrets.SONAR_TOKEN }}
@@ -117,7 +117,7 @@ jobs:
           - name: "Web Api"
             image-name: "keeptrack-webapi"
             image-definition: "src/WebApi/Dockerfile"
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-scan.yml@1407a4bb9c27be25216e3ab69865c3895d862107
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-scan.yml@c6d06a61a377a41dc192ce58f08a0b5100d9a2bc
     with:
       image-definition: ${{ matrix.image-definition }}
       image-name: ${{ matrix.image-name }}
@@ -125,4 +125,4 @@ jobs:
       image-tag: "${{ needs.git-check.outputs.version-major-minor }}.${{ github.run_id }}"
       max-high-cves: 1 # temporary (2026-07-19): libxml2-2 │ SUSE-SU-2026:3097-1 │ HIGH │ fixed │ 2.12.10-150700.4.11.1 │ 2.12.10-150700.4.14.1 │ Security update for libxml2
       max-medium-cves: 0
-      workflow-parts-version: 1407a4bb9c27be25216e3ab69865c3895d862107
+      workflow-parts-version: c6d06a61a377a41dc192ce58f08a0b5100d9a2bc
