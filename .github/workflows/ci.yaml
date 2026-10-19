@@ -33,19 +33,20 @@ permissions:
 jobs:
   git-check:
     name: Git
-    uses: ./.github/workflows/reusable-git-check.yml
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-git-check.yml@1407a4bb9c27be25216e3ab69865c3895d862107
     with:
-      is-pull-request: ${{ github.event_name == 'pull_request' }}
+      version-file: Directory.Build.props
+      workflow-parts-version: 1407a4bb9c27be25216e3ab69865c3895d862107
 
   markup-lint:
     name: Markup
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-markup-lint.yml@600c60e158424d3f9b233ec47e76cff1e79c3fdd
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-markup-lint.yml@1407a4bb9c27be25216e3ab69865c3895d862107
 
   code-quality:
     name: Code
     needs: git-check
-    if: needs.git-check.outputs.app_changed == 'true' || (github.event_name == 'workflow_dispatch' && inputs.run-code-quality)
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-dotnet-quality.yml@600c60e158424d3f9b233ec47e76cff1e79c3fdd
+    if: needs.git-check.outputs.changed == 'true' || (github.event_name == 'workflow_dispatch' && inputs.run-code-quality)
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-dotnet-quality.yml@1407a4bb9c27be25216e3ab69865c3895d862107
     with:
       # TODO: need a safe solution for service account json content
       #
@@ -81,7 +82,7 @@ jobs:
       sonar-organization: ${{ vars.SONAR_ORG }}
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
       sonar-project-name: Keeptrack
-      workflow-parts-version: 600c60e158424d3f9b233ec47e76cff1e79c3fdd
+      workflow-parts-version: 1407a4bb9c27be25216e3ab69865c3895d862107
     secrets:
       fossa-api-key: ${{ secrets.FOSSA_API_KEY }}
       sonar-token: ${{ secrets.SONAR_TOKEN }}
@@ -106,7 +107,7 @@ jobs:
   image-scan:
     name: "Image ${{ matrix.name }}"
     needs: git-check
-    if: needs.git-check.outputs.app_changed == 'true' || (github.event_name == 'workflow_dispatch' && inputs.run-image-scan)
+    if: needs.git-check.outputs.changed == 'true' || (github.event_name == 'workflow_dispatch' && inputs.run-image-scan)
     strategy:
       matrix:
         include:
@@ -116,12 +117,12 @@ jobs:
           - name: "Web Api"
             image-name: "keeptrack-webapi"
             image-definition: "src/WebApi/Dockerfile"
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-scan.yml@600c60e158424d3f9b233ec47e76cff1e79c3fdd
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-scan.yml@1407a4bb9c27be25216e3ab69865c3895d862107
     with:
       image-definition: ${{ matrix.image-definition }}
       image-name: ${{ matrix.image-name }}
       image-path: ${{ vars.CONTAINER_REGISTRY_PATH }}
-      image-tag: "${{ needs.git-check.outputs.version_major_minor }}.${{ github.run_id }}"
+      image-tag: "${{ needs.git-check.outputs.version-major-minor }}.${{ github.run_id }}"
       max-high-cves: 1 # temporary (2026-07-19): libxml2-2 │ SUSE-SU-2026:3097-1 │ HIGH │ fixed │ 2.12.10-150700.4.11.1 │ 2.12.10-150700.4.14.1 │ Security update for libxml2
       max-medium-cves: 0
-      workflow-parts-version: 600c60e158424d3f9b233ec47e76cff1e79c3fdd
+      workflow-parts-version: 1407a4bb9c27be25216e3ab69865c3895d862107
