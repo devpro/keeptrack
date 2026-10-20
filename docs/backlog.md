@@ -45,5 +45,5 @@ Known debt and gaps, not yet scheduled.
 
 ## Dependencies
 
-- [ ] `Verify.XunitV3` is held at 32.x: 33.x fails the build with `SC021` until a SponsorCheck license or exemption property is declared, which is the owner's decision.
+- [ ] `Microsoft.OpenApi` stays at 2.x: `Microsoft.AspNetCore.OpenApi` 10.x requires `[2.12.2, 3.0.0)` and its source generator fails to compile against 3.x, which only the net11.0 package supports.
 - [ ] `SharpCompress` (pulled in by `MongoDB.Driver`) is pinned transitively at 0.50.x: 1.0 is a major version, adopted once the driver supports it.
