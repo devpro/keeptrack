@@ -36,7 +36,6 @@
   <Folder Name="/Solution Items/pipelines/github/">
     <File Path=".github/workflows/ci.yaml" />
     <File Path=".github/workflows/pkg.yaml" />
-    <File Path=".github/workflows/reusable-git-check.yml" />
   </Folder>
   <Folder Name="/Solution Items/pipelines/gitlab/">
     <File Path=".gitlab-ci.yml" />

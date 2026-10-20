@@ -35,6 +35,7 @@ jobs:
     name: Git
     uses: devpro/github-workflow-parts/.github/workflows/reusable-git-check.yml@86258d301cd7d6d374587a0663ee384b9ccc4515
     with:
+      paths: 'src test Directory.Build.props Directory.Packages.props *.slnx global.json'
       version-file: Directory.Build.props
       workflow-parts-version: 86258d301cd7d6d374587a0663ee384b9ccc4515
 
