@@ -24,7 +24,7 @@ If you do not agree with these terms, do not submit a contribution.
 3. A MongoDB database, for example:
 
    ```bash
-   docker run --name mongodb -d -p 27017:27017 mongo:8.2
+   docker run --name mongodb -d -p 27017:27017 mongo:9.0
    ```
 
    A local `mongod` or a [MongoDB Atlas](https://cloud.mongodb.com/) cluster works too.

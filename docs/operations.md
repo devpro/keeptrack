@@ -30,7 +30,7 @@ Why a shape change needs one is in [Data model](data-model.md#migrations).
 Create a backup:
 
 ```bash
-docker run --rm -it --workdir=/data --volume "$(pwd)":/data mongo:8.2 mongodump --uri "mongodb+srv://<user>:<password>@<cluster>.<project>.mongodb.net/<database>"
+docker run --rm -it --workdir=/data --volume "$(pwd)":/data mongo:9.0 mongodump --uri "mongodb+srv://<user>:<password>@<cluster>.<project>.mongodb.net/<database>"
 ```
 
 Or directly with mongodump:
@@ -42,7 +42,7 @@ mongodump --uri="mongodb+srv://<user>:<password>@<cluster>.<project>.mongodb.net
 Restore a backup:
 
 ```bash
-docker run --rm -it --workdir=/data --volume "$(pwd)":/data mongo:8.2 mongorestore --uri "mongodb+srv://<user>:<password>@<cluster>.<project>.mongodb.net"
+docker run --rm -it --workdir=/data --volume "$(pwd)":/data mongo:9.0 mongorestore --uri "mongodb+srv://<user>:<password>@<cluster>.<project>.mongodb.net"
 ```
 
 ## Container image review
