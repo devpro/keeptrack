@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace Keeptrack.WebApi.IntegrationTests.Hosting;
 
@@ -41,5 +43,16 @@ public class KestrelWebAppFactory<TEntryPoint> : Keeptrack.Testing.Shared.Hostin
         ])
     {
         Keeptrack.Testing.Shared.Hosting.TestDatabaseGuard.EnsureTestDatabaseName(IntegrationTestDatabase.Name);
+    }
+
+    /// <summary>
+    /// Filled only by the in-process host, so against <c>KESTREL_WEBAPP_URL</c> it stays empty and nothing is skipped.
+    /// </summary>
+    public AutomaticMatchFailureLog AutomaticMatchFailures { get; } = new();
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.ConfigureLogging(logging => logging.AddProvider(AutomaticMatchFailures));
+        base.ConfigureWebHost(builder);
     }
 }

@@ -21,11 +21,9 @@ public sealed class ApiExceptionFilterAttribute(ILogger<ApiExceptionFilterAttrib
         {
             ArgumentNullException ex => (ex.Message, StatusCodes.Status400BadRequest),
             ArgumentException ex => (ex.Message, StatusCodes.Status400BadRequest),
-            // A provider that timed out, exhausted its retries or tripped its circuit breaker is an upstream failure,
-            // not a defect here, so 502 says who failed where a 500 would read as a bug.
-            // The only outbound HTTP an action makes is to those providers.
-            TimeoutRejectedException or BrokenCircuitException or HttpRequestException =>
-                (DescribeUpstreamFailure(context.Exception), StatusCodes.Status502BadGateway),
+            // an upstream failure is not a defect here, so 502 says who failed where a 500 would read as a bug
+            var ex when UpstreamFailure.Is(ex) =>
+                (DescribeUpstreamFailure(ex), StatusCodes.Status502BadGateway),
             _ => (context.Exception.Message, StatusCodes.Status500InternalServerError)
         };
 

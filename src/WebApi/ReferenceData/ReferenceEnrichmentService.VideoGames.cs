@@ -127,7 +127,7 @@ public partial class ReferenceEnrichmentService
         }
 
         var client = videoGameReferenceClientRegistry.Resolve(null);
-        var candidates = await client.SearchGamesAsync(title, year);
+        var candidates = await SearchForAutomaticMatchAsync(client.SearchGamesAsync(title, year), "video game", title);
         var matches = ReferenceMatchRules.ConfirmedMatches(candidates, title, year);
         if (matches.Count != 1) return;
         await ResolveVideoGameAsync(title, year, matches[0].ExternalId, ReferenceLinkTarget.Item(item.Id!, item.OwnerId), client.ProviderKey);

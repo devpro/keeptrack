@@ -153,6 +153,25 @@ public partial class ReferenceEnrichmentService(
     }
 
     /// <summary>
+    /// The provider search of a background match, logging when it answers nothing at all.
+    /// <para>
+    /// An empty answer is a normal outcome and leaves the item unlinked, but without the log it reads exactly like candidates refused by the match rules.
+    /// A degraded Google Books answers 200 with no volume even for "Dune" by Frank Herbert,
+    /// and the integration tests skip on this line rather than fail on that outage (see <c>docs/testing.md</c>).
+    /// </para>
+    /// </summary>
+    private async Task<IReadOnlyList<TCandidate>> SearchForAutomaticMatchAsync<TCandidate>(Task<IReadOnlyList<TCandidate>> search, string itemType, string title)
+    {
+        var candidates = await search;
+        if (candidates.Count == 0)
+        {
+            logger.LogInformation("Automatic reference-data match found no candidate for {ItemType} '{Title}'.", itemType, title);
+        }
+
+        return candidates;
+    }
+
+    /// <summary>
     /// Merges a fetch's ratings into a reference's, replacing only the sources <paramref name="providerSources"/> says this provider owns.
     /// <para>
     /// A multi-provider domain needs it: a game linked through RAWG and refreshed through IGDB keeps its <c>rawg</c> and <c>metacritic</c> values, and the reverse.

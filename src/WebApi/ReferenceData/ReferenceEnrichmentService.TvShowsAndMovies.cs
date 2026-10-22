@@ -339,7 +339,7 @@ public partial class ReferenceEnrichmentService
             return;
         }
 
-        var candidates = await tmdbClient.SearchTvShowAsync(title, year);
+        var candidates = await SearchForAutomaticMatchAsync(tmdbClient.SearchTvShowAsync(title, year), "TV show", title);
         var matches = ReferenceMatchRules.ConfirmedMatches(candidates, title, year);
         if (matches.Count != 1) return;
         await ResolveTvShowAsync(title, year, matches[0].TmdbId, ReferenceLinkTarget.Item(item.Id!, item.OwnerId));
@@ -366,7 +366,7 @@ public partial class ReferenceEnrichmentService
             return;
         }
 
-        var candidates = await tmdbClient.SearchMovieAsync(title, year);
+        var candidates = await SearchForAutomaticMatchAsync(tmdbClient.SearchMovieAsync(title, year), "movie", title);
         var matches = ReferenceMatchRules.ConfirmedMatches(candidates, title, year);
         if (matches.Count != 1) return;
         await ResolveMovieAsync(title, year, matches[0].TmdbId, ReferenceLinkTarget.Item(item.Id!, item.OwnerId));

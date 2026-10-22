@@ -113,7 +113,7 @@ public partial class ReferenceEnrichmentService
             return;
         }
 
-        var candidates = await discogsClient.SearchAlbumsAsync(title, year, artist);
+        var candidates = await SearchForAutomaticMatchAsync(discogsClient.SearchAlbumsAsync(title, year, artist), "album", title);
         var matches = ReferenceMatchRules.ConfirmedCreatorMatches(candidates, title, artist);
         if (matches.Count == 0) return;
         await ResolveAlbumAsync(title, year, matches[0].ExternalId, ReferenceLinkTarget.Item(item.Id!, item.OwnerId));

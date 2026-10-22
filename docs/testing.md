@@ -25,6 +25,10 @@ Mapper validation is compile-time (Mapperly diagnostics), not a test.
 - `TvTimeFixtureZipBuilder` builds a synthetic export in memory, and a real personal export is never committed.
 - **A test whose subject is a live provider calls it through `GetThroughLiveProviderAsync`/`PostNoContentThroughLiveProviderAsync`**, which skip on a 502 and on nothing wider,
   as in `BookProviderSearchAndLinkResourceTest`'s `[Theory]` over several providers.
+  An automatic match shows an outage only as a missing link, since the background one is fire-and-forget and a degraded Google Books answers 200 with no volume.
+  The host records each match whose provider failed or answered no candidate (`AutomaticMatchFailureLog`),
+  and `ReferenceMatchResourceTest` skips on it, since its cases only use titles their provider holds.
+  Searching the provider again afterwards proves nothing during a partial outage, when some calls succeed.
 - **A test that starts a background job must not let it do real work**: the `sync-now` tests use `ProviderlessWebAppFactory` (every provider credential blanked),
   except the opt-in `ReferenceSyncPollingResourceTest` (`REFERENCE_SYNC_POLL_ENABLED`).
 - `CancellationTokenPropagationTest` proves the generic CRUD path cancels a real MongoDB call.

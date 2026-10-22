@@ -50,7 +50,7 @@ public class ReferenceMatchResourceTest(KestrelWebAppFactory<Program> factory)
         await ClearLocalTvShowReferenceAsync(title, year);
         var created = await CreateAsync("/api/tv-shows", new TvShowDto { Title = title, Year = year });
 
-        var linked = await PollForReferenceLinkAsync<TvShowDto>($"/api/tv-shows/{created.Id}");
+        var linked = await PollForReferenceLinkAsync<TvShowDto>($"/api/tv-shows/{created.Id}", title);
 
         TrackDocument("tvshow_reference", linked);
         linked.Should().NotBeNullOrEmpty(
@@ -96,7 +96,7 @@ public class ReferenceMatchResourceTest(KestrelWebAppFactory<Program> factory)
         await ClearLocalMovieReferenceAsync(title, year);
         var created = await CreateAsync("/api/movies", new MovieDto { Title = title, Year = year });
 
-        var linked = await PollForReferenceLinkAsync<MovieDto>($"/api/movies/{created.Id}");
+        var linked = await PollForReferenceLinkAsync<MovieDto>($"/api/movies/{created.Id}", title);
 
         TrackDocument("movie_reference", linked);
         linked.Should().NotBeNullOrEmpty(
@@ -114,7 +114,7 @@ public class ReferenceMatchResourceTest(KestrelWebAppFactory<Program> factory)
         await ClearLocalMovieReferenceAsync("Road House", 1989);
         var created = await CreateAsync("/api/movies", new MovieDto { Title = "Road House", Year = 1989 });
 
-        var linked = await PollForReferenceLinkAsync<MovieDto>($"/api/movies/{created.Id}");
+        var linked = await PollForReferenceLinkAsync<MovieDto>($"/api/movies/{created.Id}", "Road House");
 
         TrackDocument("movie_reference", linked);
         linked.Should().NotBeNullOrEmpty("TMDB holds exactly one \"Road House\" from 1989");
@@ -142,7 +142,7 @@ public class ReferenceMatchResourceTest(KestrelWebAppFactory<Program> factory)
         await ClearLocalBookReferenceAsync(title, author);
         var created = await CreateAsync("/api/books", new BookDto { Title = title, Author = author });
 
-        var linked = await PollForReferenceLinkAsync<BookDto>($"/api/books/{created.Id}", BookResolveSeconds);
+        var linked = await PollForReferenceLinkAsync<BookDto>($"/api/books/{created.Id}", title, BookResolveSeconds);
 
         TrackDocument("book_reference", linked);
         linked.Should().NotBeNullOrEmpty(
@@ -183,7 +183,7 @@ public class ReferenceMatchResourceTest(KestrelWebAppFactory<Program> factory)
         await ClearLocalAlbumReferenceAsync(title, year, artist);
         var created = await CreateAsync("/api/albums", new AlbumDto { Title = title, Artist = artist, Year = year });
 
-        var linked = await PollForReferenceLinkAsync<AlbumDto>($"/api/albums/{created.Id}");
+        var linked = await PollForReferenceLinkAsync<AlbumDto>($"/api/albums/{created.Id}", title);
 
         TrackDocument("album_reference", linked);
         linked.Should().NotBeNullOrEmpty(
@@ -227,6 +227,7 @@ public class ReferenceMatchResourceTest(KestrelWebAppFactory<Program> factory)
         var refreshed = await PostThroughLiveProviderAsync<TvShowDto?>($"/api/tv-shows/{created.Id}/refresh-reference", "TMDB");
 
         TrackDocument("tvshow_reference", refreshed!.ReferenceId);
+        SkipWhenProviderGaveNoAnswer(refreshed.ReferenceId, "Chernobyl");
         refreshed.ReferenceId.Should().NotBeNullOrEmpty("TMDB holds exactly one show named \"Chernobyl\" (2019)");
     }
 
@@ -243,6 +244,7 @@ public class ReferenceMatchResourceTest(KestrelWebAppFactory<Program> factory)
         var refreshed = await PostThroughLiveProviderAsync<MovieDto?>($"/api/movies/{created.Id}/refresh-reference", "TMDB");
 
         TrackDocument("movie_reference", refreshed!.ReferenceId);
+        SkipWhenProviderGaveNoAnswer(refreshed.ReferenceId, "Blade Runner");
         refreshed.ReferenceId.Should().NotBeNullOrEmpty("TMDB holds exactly one film named \"Blade Runner\" (1982)");
     }
 
@@ -261,6 +263,7 @@ public class ReferenceMatchResourceTest(KestrelWebAppFactory<Program> factory)
         var refreshed = await PostThroughLiveProviderAsync<BookDto?>($"/api/books/{created.Id}/refresh-reference", "Google Books");
 
         TrackDocument("book_reference", refreshed!.ReferenceId);
+        SkipWhenProviderGaveNoAnswer(refreshed.ReferenceId, "Neuromancer");
         refreshed.ReferenceId.Should().NotBeNullOrEmpty("Google Books holds Neuromancer by William Gibson");
     }
 
@@ -277,6 +280,7 @@ public class ReferenceMatchResourceTest(KestrelWebAppFactory<Program> factory)
         var refreshed = await PostThroughLiveProviderAsync<AlbumDto?>($"/api/albums/{created.Id}/refresh-reference", "Discogs");
 
         TrackDocument("album_reference", refreshed!.ReferenceId);
+        SkipWhenProviderGaveNoAnswer(refreshed.ReferenceId, "OK Computer");
         refreshed.ReferenceId.Should().NotBeNullOrEmpty("Discogs holds one master \"OK Computer\" by Radiohead (1997)");
     }
 
@@ -288,7 +292,7 @@ public class ReferenceMatchResourceTest(KestrelWebAppFactory<Program> factory)
     /// A shorter budget can expire while the resolution is in flight and report a failure for a link that lands.
     /// </para>
     /// </summary>
-    private async Task<string?> PollForReferenceLinkAsync<TDto>(string url, int seconds = 30)
+    private async Task<string?> PollForReferenceLinkAsync<TDto>(string url, string title, int seconds = 30)
         where TDto : IReferenceLinkedDto
     {
         for (var attempt = 0; attempt < seconds; attempt++)
@@ -298,8 +302,17 @@ public class ReferenceMatchResourceTest(KestrelWebAppFactory<Program> factory)
             if (!string.IsNullOrEmpty(item.ReferenceId)) return item.ReferenceId;
         }
 
+        SkipWhenProviderGaveNoAnswer(null, title);
         return null;
     }
+
+    /// <summary>
+    /// Skips a case expecting a link when the match got none because its provider failed or answered no candidate,
+    /// the counterpart of <c>PostThroughLiveProviderAsync</c>'s 502 for an outage that never reaches the HTTP answer (see <see cref="AutomaticMatchFailureLog"/>).
+    /// </summary>
+    private void SkipWhenProviderGaveNoAnswer(string? referenceId, string title) =>
+        Assert.SkipWhen(string.IsNullOrEmpty(referenceId) && Factory.AutomaticMatchFailures.HasProviderFailure(title),
+            $"The match for \"{title}\" got no answer from its provider; skipping rather than failing on a third-party outage.");
 
     /// <summary>
     /// Clears any reference document for this title before the case runs, since <b>its absence is the premise</b>:

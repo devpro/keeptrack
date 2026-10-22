@@ -227,7 +227,7 @@ public partial class ReferenceEnrichmentService
         }
 
         var client = bookReferenceClientRegistry.Resolve(null);
-        var candidates = await client.SearchBooksAsync(title, year, author, isbn);
+        var candidates = await SearchForAutomaticMatchAsync(client.SearchBooksAsync(title, year, author, isbn), "book", title);
         var matches = ReferenceMatchRules.ConfirmedCreatorMatches(candidates, title, author);
         if (matches.Count == 0) return;
         await ResolveBookAsync(title, year, matches[0].ExternalId, ReferenceLinkTarget.Item(item.Id!, item.OwnerId), client.ProviderKey, isbn);
