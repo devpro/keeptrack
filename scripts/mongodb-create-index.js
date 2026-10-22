@@ -17,12 +17,13 @@ function ensureIndex(collection, keys, options) {
 
 // Removes an index this file no longer declares.
 // A renamed or re-keyed one would otherwise stay behind forever, since createIndex only ever adds.
-// Idempotent: "index not found" (code 27) is the expected answer on every run after the first, and on a fresh database.
+// Idempotent: "index not found" (code 27) is the expected answer on every run after the first,
+// and "namespace not found" (code 26) on a fresh database, where the collection does not exist yet.
 function dropIndexIfExists(collection, name) {
   try {
     collection.dropIndex(name);
   } catch (e) {
-    if (e.code !== 27) {
+    if (e.code !== 26 && e.code !== 27) {
       throw e;
     }
   }
