@@ -33,21 +33,21 @@ permissions:
 jobs:
   git-check:
     name: Git
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-git-check.yml@86258d301cd7d6d374587a0663ee384b9ccc4515
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-git-check.yml@13ac7ccf4ba593797f8c80a75f2559ce0fc2d09e
     with:
       paths: 'src test Directory.Build.props Directory.Packages.props *.slnx global.json'
       version-file: Directory.Build.props
-      workflow-parts-version: 86258d301cd7d6d374587a0663ee384b9ccc4515
+      workflow-parts-version: 13ac7ccf4ba593797f8c80a75f2559ce0fc2d09e
 
   markup-lint:
     name: Markup
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-markup-lint.yml@86258d301cd7d6d374587a0663ee384b9ccc4515
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-markup-lint.yml@13ac7ccf4ba593797f8c80a75f2559ce0fc2d09e
 
   code-quality:
     name: Code
     needs: git-check
     if: needs.git-check.outputs.changed == 'true' || (github.event_name == 'workflow_dispatch' && inputs.run-code-quality)
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-dotnet-quality.yml@86258d301cd7d6d374587a0663ee384b9ccc4515
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-dotnet-quality.yml@13ac7ccf4ba593797f8c80a75f2559ce0fc2d09e
     with:
       # TODO: need a safe solution for service account json content
       #
@@ -83,7 +83,7 @@ jobs:
       sonar-organization: ${{ vars.SONAR_ORG }}
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
       sonar-project-name: Keeptrack
-      workflow-parts-version: 86258d301cd7d6d374587a0663ee384b9ccc4515
+      workflow-parts-version: 13ac7ccf4ba593797f8c80a75f2559ce0fc2d09e
     secrets:
       fossa-api-key: ${{ secrets.FOSSA_API_KEY }}
       sonar-token: ${{ secrets.SONAR_TOKEN }}
@@ -118,12 +118,10 @@ jobs:
           - name: "Web Api"
             image-name: "keeptrack-webapi"
             image-definition: "src/WebApi/Dockerfile"
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-scan.yml@86258d301cd7d6d374587a0663ee384b9ccc4515
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-scan.yml@13ac7ccf4ba593797f8c80a75f2559ce0fc2d09e
     with:
       image-definition: ${{ matrix.image-definition }}
       image-name: ${{ matrix.image-name }}
       image-path: ${{ vars.CONTAINER_REGISTRY_PATH }}
       image-tag: "${{ needs.git-check.outputs.version-major-minor }}.${{ github.run_id }}"
-      max-high-cves: 1 # temporary (2026-07-19): libxml2-2 │ SUSE-SU-2026:3097-1 │ HIGH │ fixed │ 2.12.10-150700.4.11.1 │ 2.12.10-150700.4.14.1 │ Security update for libxml2
-      max-medium-cves: 0
-      workflow-parts-version: 86258d301cd7d6d374587a0663ee384b9ccc4515
+      workflow-parts-version: 13ac7ccf4ba593797f8c80a75f2559ce0fc2d09e
