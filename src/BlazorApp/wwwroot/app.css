@@ -392,7 +392,8 @@ div.content,
 /* Inventory rows in list view only, added by InventoryList, never to the grid.
    A .kt-item-row clusters its content left and pushes its delete button to the far edge, so across the full 1100px column the title and its delete icon sit ~900px apart.
    Capping the measure keeps a row readable as one object.
-   The grid, the admin queues and the dense car and health journals take the full width. */
+   The grid, the admin queues and the dense car and health journals take the full width.
+   On a large screen the cap lifts and the rows go two per line instead (see Large screens). */
 .kt-table-wrap-list { max-width: 920px; margin-inline: auto; }
 
 .kt-table-header {
@@ -699,6 +700,8 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 }
 .kt-page-header h1 { font-size: 2rem; color: var(--kt-text); margin: 0; line-height: 1; }
 .kt-page-header h1 span { color: var(--kt-accent); }
+/* The running build on the admin page, so a deployment can be checked from the browser. */
+.kt-app-version { color: var(--kt-text-muted); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
 
 /* ── Quick Add ─────────────────────────────────────────────────────── */
 .kt-quickadd-back {
@@ -1872,3 +1875,44 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   background: var(--kt-surface);
 }
 .kt-dropzone-icon { font-size: 2.25rem; display: block; margin-bottom: 1rem; color: var(--kt-text-subtle); }
+
+/* ── Large screens ─────────────────────────────────────────────────── */
+/* Last in the file so these overrides win the cascade over every base rule they widen.
+   The base measures suit a laptop, and on a large monitor they leave the content as a narrow strip between two empty margins.
+   Text grows with the root font size, while px measures (covers, grid columns) are widened explicitly since rem does not reach them. */
+@media (min-width: 1400px) {
+  article.content, div.content, .content { max-width: 1440px; padding: 2.5rem 3.5rem; }
+  .kt-search-input-wrap { max-width: 480px; }
+  .kt-detail-hero { max-width: 1100px; }
+  .kt-form-card > .row { max-width: 1100px; }
+  .kt-game-page { max-width: 1100px; }
+}
+
+/* Rows go two per line rather than stretching, which keeps each row's title and delete button close together without leaving the sides empty. */
+@media (min-width: 1600px) {
+  .kt-table-wrap-list { max-width: none; }
+  .kt-item-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kt-item-list > .kt-item-row:nth-child(odd) { border-right: 1px solid var(--kt-border); }
+}
+
+@media (min-width: 1920px) {
+  html, body { font-size: 16px; }
+  article.content, div.content, .content { max-width: 1800px; padding: 3rem 4rem; }
+  .sidebar { width: 250px; }
+  .kt-search-input-wrap { max-width: 560px; }
+  .kt-sort-select { width: 96px; }
+  .kt-item-thumb { width: 52px; height: 78px; }
+  .kt-item-thumb.square { width: 64px; height: 64px; }
+  .kt-item-thumb.wide { width: 112px; height: 63px; }
+  .kt-item-grid { grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); gap: 1.5rem 1.25rem; }
+  .kt-item-grid.square { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+  .kt-item-grid.wide { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+  .kt-detail-hero { max-width: 1300px; --kt-hero-cover-width: 280px; }
+  .kt-detail-hero.square { --kt-hero-cover-width: 320px; }
+  .kt-form-card > .row { max-width: 1300px; }
+  .kt-game-page { max-width: 1300px; }
+}
+
+@media (min-width: 2400px) {
+  html, body { font-size: 17px; }
+}

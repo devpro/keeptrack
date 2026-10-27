@@ -100,6 +100,11 @@ Sonar reports every `!important` (`css:S9423`), and an `!important` theme also s
 
 `wwwroot/Keeptrack.BlazorApp.lib.module.js` is loaded automatically by name (never a manual `<script>` tag), and is where `blazor.addEventListener('enhancedload', ...)` re-applies client-side DOM state.
 
+### Responsive widths
+
+Phone below 768px, laptop up to 1400px, and the large-screen block last in `app.css` above it, so its overrides win the cascade.
+At 1400px and up the content column and the detail measures widen, at 1600px list rows go two per line instead of stretching, and at 1920px the root font size grows with the px measures (covers, grid columns, thumbnails) widened to match, since rem does not reach them.
+
 ### Icons
 
 **Icons are Unicode with text presentation** (`◈ ✓ ✕ ★ ▶ ↻ ⌂ ⚙ ♪ ◼ ▭ ▬ ◆`), never a codepoint with `Emoji_Presentation=Yes` (`⭐`, `👁`), never with U+FE0F.
