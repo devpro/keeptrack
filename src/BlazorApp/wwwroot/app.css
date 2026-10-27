@@ -124,14 +124,14 @@ div.content,
 .main > .top-row { display: none; }
 
 .navbar-brand {
+  --bs-navbar-brand-color: var(--kt-text);
+  --bs-navbar-brand-hover-color: var(--kt-text);
   font-size: 1.2rem;
   font-weight: 700;
-  color: var(--kt-text) !important;
   letter-spacing: -0.01em;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  text-decoration: none !important;
 }
 .navbar-brand::before { content: '◈'; color: var(--kt-accent); font-size: 0.95rem; }
 
@@ -148,7 +148,7 @@ div.content,
 }
 
 #nav-toggle {
-  display: none !important;
+  display: none;
 }
 
 .navbar-toggler-label {
@@ -171,27 +171,26 @@ div.content,
 }
 .nav-scrollable .nav { gap: 1px; }
 
+/* Colours, padding and size go through Bootstrap's own --bs-nav-link-* variables, which its :hover and :focus rules read too, so no state falls back to Bootstrap's blue. */
 .nav-link {
-  display: flex !important;
+  --bs-nav-link-padding-y: 0.5rem;
+  --bs-nav-link-padding-x: 0.75rem;
+  --bs-nav-link-font-size: 0.875rem;
+  --bs-nav-link-font-weight: 500;
+  --bs-nav-link-color: var(--kt-text-muted);
+  --bs-nav-link-hover-color: var(--kt-text);
+  display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.5rem 0.75rem !important;
   border-radius: 7px;
-  color: var(--kt-text-muted) !important;
-  font-size: 0.875rem !important;
-  font-weight: 500;
   transition: all var(--kt-transition);
   cursor: pointer;
-  background: none !important;
-  border: none;
   width: 100%;
   text-align: left;
-  text-decoration: none !important;
   line-height: 1.4;
 }
-.nav-link:hover   { color: var(--kt-text) !important; background: var(--kt-surface-2) !important; }
-.nav-link.active  { color: var(--kt-accent) !important; background: var(--kt-accent-glow) !important; }
-button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199, 58, 82, 0.08) !important; }
+.nav-link:hover   { background: var(--kt-surface-2); }
+.nav-link.active  { color: var(--kt-accent); background: var(--kt-accent-glow); }
 
 .nav-icon {
   width: 18px;
@@ -237,8 +236,8 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
 }
 
 .nav-link-logout:hover {
-  color: var(--kt-danger) !important;
-  background: rgba(199, 58, 82, 0.08) !important;
+  color: var(--kt-danger);
+  background: rgba(199, 58, 82, 0.08);
 }
 
 .nav-username {
@@ -252,95 +251,133 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
 .nav-divider { border-top: 1px solid var(--kt-border); margin: 0.75rem 0; }
 
 /* ── Buttons ───────────────────────────────────────────────────────── */
+/* Buttons are themed through Bootstrap's --bs-btn-* variables, which every one of its state rules reads.
+   A variant sets its resting and hover colours, and the pressed and disabled states follow them. */
 .btn {
-  font-family: var(--kt-font) !important;
-  font-weight: 500 !important;
-  font-size: 0.85rem !important;
-  border-radius: 8px !important;
-  padding: 0.5rem 1.1rem !important;
-  transition: all var(--kt-transition) !important;
+  --bs-btn-font-family: var(--kt-font);
+  --bs-btn-font-weight: 500;
+  --bs-btn-font-size: 0.85rem;
+  --bs-btn-border-radius: 8px;
+  --bs-btn-padding-y: 0.5rem;
+  --bs-btn-padding-x: 1.1rem;
+  transition: all var(--kt-transition);
   line-height: 1.4;
 }
-.btn-primary  { background: var(--kt-accent) !important; color: #fff !important; border-color: var(--kt-accent) !important; }
-.btn-primary:hover  { background: var(--kt-accent-dim) !important; border-color: var(--kt-accent-dim) !important; color: #fff !important; box-shadow: 0 0 0 3px var(--kt-accent-glow) !important; }
-.btn-secondary { background: var(--kt-surface-3) !important; color: var(--kt-text-muted) !important; border-color: var(--kt-border) !important; }
-.btn-secondary:hover { background: var(--kt-surface-2) !important; color: var(--kt-text) !important; border-color: var(--kt-border-hover) !important; box-shadow: none !important; }
-.btn-success  { background: var(--kt-success) !important; color: #fff !important; border-color: var(--kt-success) !important; }
-.btn-success:hover { filter: brightness(1.08); border-color: var(--kt-success) !important; }
-.btn-outline-danger  { background: transparent !important; color: var(--kt-danger) !important; border-color: rgba(199, 58, 82, 0.35) !important; }
-.btn-outline-danger:hover  { background: rgba(199, 58, 82, 0.10) !important; color: var(--kt-danger) !important; border-color: var(--kt-danger) !important; box-shadow: none !important; }
-.btn-outline-primary { background: transparent !important; color: var(--kt-accent) !important; border-color: rgba(47, 111, 237, 0.35) !important; }
-.btn-outline-primary:hover { background: var(--kt-accent-glow) !important; color: var(--kt-accent) !important; border-color: var(--kt-accent) !important; box-shadow: none !important; }
-.btn-sm { padding: 0.28rem 0.65rem !important; font-size: 0.78rem !important; border-radius: 6px !important; }
+.btn-primary,
+.btn-secondary,
+.btn-success,
+.kt-toggle-btn {
+  --bs-btn-active-color: var(--bs-btn-hover-color);
+  --bs-btn-active-bg: var(--bs-btn-hover-bg);
+  --bs-btn-active-border-color: var(--bs-btn-hover-border-color);
+  --bs-btn-disabled-color: var(--bs-btn-color);
+  --bs-btn-disabled-bg: var(--bs-btn-bg);
+  --bs-btn-disabled-border-color: var(--bs-btn-border-color);
+}
+.btn-primary {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: var(--kt-accent);
+  --bs-btn-border-color: var(--kt-accent);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--kt-accent-dim);
+  --bs-btn-hover-border-color: var(--kt-accent-dim);
+}
+.btn-primary:hover { box-shadow: 0 0 0 3px var(--kt-accent-glow); }
+.btn-secondary {
+  --bs-btn-color: var(--kt-text-muted);
+  --bs-btn-bg: var(--kt-surface-3);
+  --bs-btn-border-color: var(--kt-border);
+  --bs-btn-hover-color: var(--kt-text);
+  --bs-btn-hover-bg: var(--kt-surface-2);
+  --bs-btn-hover-border-color: var(--kt-border-hover);
+}
+.btn-secondary:hover { box-shadow: none; }
+.btn-success {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: var(--kt-success);
+  --bs-btn-border-color: var(--kt-success);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--kt-success);
+  --bs-btn-hover-border-color: var(--kt-success);
+}
+.btn-success:hover { filter: brightness(1.08); }
+.btn-sm {
+  --bs-btn-padding-y: 0.28rem;
+  --bs-btn-padding-x: 0.65rem;
+  --bs-btn-font-size: 0.78rem;
+  --bs-btn-border-radius: 6px;
+}
 
 /* ── Form controls ─────────────────────────────────────────────────── */
 .form-control,
 .form-select {
-  background-color: var(--kt-surface-3) !important;
-  border: 1px solid var(--kt-border) !important;
-  color: var(--kt-text) !important;
-  border-radius: 8px !important;
-  padding: 0.5rem 0.85rem !important;
-  font-size: 0.875rem !important;
-  font-family: var(--kt-font) !important;
-  transition: border-color var(--kt-transition), box-shadow var(--kt-transition) !important;
+  background-color: var(--kt-surface-3);
+  border: 1px solid var(--kt-border);
+  color: var(--kt-text);
+  border-radius: 8px;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.875rem;
+  font-family: var(--kt-font);
+  transition: border-color var(--kt-transition), box-shadow var(--kt-transition);
 }
 .form-control:focus, .form-select:focus {
-  background-color: var(--kt-surface-3) !important;
-  border-color: var(--kt-accent) !important;
-  color: var(--kt-text) !important;
-  box-shadow: 0 0 0 3px var(--kt-accent-glow) !important;
-  outline: none !important;
+  background-color: var(--kt-surface-3);
+  border-color: var(--kt-accent);
+  color: var(--kt-text);
+  box-shadow: 0 0 0 3px var(--kt-accent-glow);
+  outline: none;
 }
-.form-control::placeholder { color: var(--kt-text-subtle) !important; }
+/* A read-only car or house shown to a viewer disables its fields, and Bootstrap's :disabled rule would repaint them in its light grey. */
+.form-control:disabled, .form-select:disabled { background-color: var(--kt-surface-3); }
+.form-control::placeholder { color: var(--kt-text-subtle); }
 .form-select option { background: var(--kt-surface-3); color: var(--kt-text); }
-.form-control-sm, .form-select-sm { padding: 0.3rem 0.65rem !important; font-size: 0.82rem !important; border-radius: 6px !important; }
+.form-control-sm, .form-select-sm { padding: 0.3rem 0.65rem; font-size: 0.82rem; border-radius: 6px; }
 /* Field labels are sentence case, and uppercase is reserved for what structures a page: section headings (.kt-section-title, .kt-form-card h5) and table column headers.
    A detail page would otherwise stack a dozen shouted micro-labels, and a treatment everything has marks no hierarchy.
    Labels are written in sentence case in the markup, so this is CSS-only. */
 .form-label { font-size: 0.78rem; font-weight: 500; letter-spacing: 0; color: var(--kt-text-muted); margin-bottom: 0.3rem; }
-.form-check-input:checked { background-color: var(--kt-accent) !important; border-color: var(--kt-accent) !important; }
+.form-check-input:checked { background-color: var(--kt-accent); border-color: var(--kt-accent); }
 
 /* ── TABLE ─────────────────────────────────────────────────────────── */
 .table {
-  --bs-table-bg:           transparent !important;
-  --bs-table-color:        var(--kt-text) !important;
-  --bs-table-border-color: var(--kt-border) !important;
-  --bs-table-hover-bg:     var(--kt-surface-2) !important;
-  --bs-table-striped-bg:   transparent !important;
-  color: var(--kt-text) !important;
-  width: 100% !important;
-  margin-bottom: 0 !important;
-  border-collapse: separate !important;
-  border-spacing: 0 !important;
+  --bs-table-bg:           transparent;
+  --bs-table-color:        var(--kt-text);
+  --bs-table-border-color: var(--kt-border);
+  --bs-table-hover-bg:     var(--kt-surface-2);
+  --bs-table-striped-bg:   transparent;
+  color: var(--kt-text);
+  width: 100%;
+  margin-bottom: 0;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 .table > :not(caption) > * > * {
-  background-color: transparent !important;
-  color: var(--kt-text) !important;
-  border-bottom-color: var(--kt-border) !important;
-  box-shadow: none !important;
-  padding: 0.85rem 1.1rem !important;
-  vertical-align: middle !important;
+  background-color: transparent;
+  color: var(--kt-text);
+  border-bottom-color: var(--kt-border);
+  box-shadow: none;
+  padding: 0.85rem 1.1rem;
+  vertical-align: middle;
 }
 
 .table thead th {
-  font-size: 0.7rem !important;
-  font-weight: 600 !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.08em !important;
-  color: var(--kt-text-muted) !important;
-  border-bottom: 1px solid var(--kt-border) !important;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--kt-text-muted);
+  border-bottom: 1px solid var(--kt-border);
   white-space: nowrap;
 }
 
-.table tbody tr:last-child td { border-bottom: none !important; }
-.table tbody tr:hover td { background-color: var(--kt-surface-2) !important; }
+.table tbody tr:last-child td { border-bottom: none; }
+.table tbody tr:hover td { background-color: var(--kt-surface-2); }
 
 .table tbody tr.kt-editing td {
-  background-color: var(--kt-accent-glow) !important;
-  border-top: 1px solid var(--kt-accent) !important;
-  border-bottom: 1px solid var(--kt-accent) !important;
+  background-color: var(--kt-accent-glow);
+  border-top: 1px solid var(--kt-accent);
+  border-bottom: 1px solid var(--kt-accent);
 }
 
 .kt-table-wrap {
@@ -1028,17 +1065,19 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 /* Favorite and watchlist toggle buttons on a detail page: a soft tinted "selected" state, since the solid btn-primary block reads as aggressive in dark mode.
    Same accent-glow treatment as .kt-page-btn.active. */
 .kt-toggle-btn {
-  background: var(--kt-surface-3) !important;
-  color: var(--kt-text-muted) !important;
-  border: 1px solid var(--kt-border) !important;
+  --bs-btn-color: var(--kt-text-muted);
+  --bs-btn-bg: var(--kt-surface-3);
+  --bs-btn-border-color: var(--kt-border);
+  --bs-btn-hover-color: var(--kt-text);
+  --bs-btn-hover-bg: var(--kt-surface-2);
+  --bs-btn-hover-border-color: var(--kt-border);
 }
-.kt-toggle-btn:hover { background: var(--kt-surface-2) !important; color: var(--kt-text) !important; }
+/* Bootstrap's .btn.active rule comes after its :hover rule, so the selected state also holds under the pointer. */
 .kt-toggle-btn.active {
-  background: var(--kt-accent-glow) !important;
-  color: var(--kt-accent) !important;
-  border-color: rgba(47, 111, 237, 0.35) !important;
+  --bs-btn-active-color: var(--kt-accent);
+  --bs-btn-active-bg: var(--kt-accent-glow);
+  --bs-btn-active-border-color: rgba(47, 111, 237, 0.35);
 }
-.kt-toggle-btn.active:hover { background: var(--kt-accent-glow) !important; }
 
 /* Status pill for a list column (TV show status, video game state).
    The value is set through the detail page's buttons, never by clicking this. */
@@ -1060,13 +1099,17 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 .kt-status-badge.available { background: var(--kt-surface-2); color: var(--kt-text-muted); }
 
 /* ── Progress bar ──────────────────────────────────────────────────── */
-.progress { background-color: var(--kt-surface-3) !important; border-radius: 999px !important; }
-.progress-bar { background-color: var(--kt-accent) !important; transition: width 0.3s ease !important; }
+.progress {
+  --bs-progress-bg: var(--kt-surface-3);
+  --bs-progress-border-radius: 999px;
+  --bs-progress-bar-bg: var(--kt-accent);
+  --bs-progress-bar-transition: width 0.3s ease;
+}
 
 /* ── Alerts ────────────────────────────────────────────────────────── */
-.alert { border-radius: var(--kt-radius) !important; font-size: 0.875rem; padding: 0.8rem 1.1rem !important; }
-.alert-danger { background: rgba(199, 58, 82, 0.10) !important; border-color: rgba(199, 58, 82, 0.3) !important; color: var(--kt-danger) !important; }
-.alert-info   { background: var(--kt-accent-glow) !important; border-color: rgba(47, 111, 237, 0.2) !important; color: var(--kt-text-muted) !important; }
+.alert { --bs-alert-border-radius: var(--kt-radius); --bs-alert-padding-y: 0.8rem; --bs-alert-padding-x: 1.1rem; font-size: 0.875rem; }
+.alert-danger { --bs-alert-bg: rgba(199, 58, 82, 0.10); --bs-alert-border-color: rgba(199, 58, 82, 0.3); --bs-alert-color: var(--kt-danger); }
+.alert-info   { --bs-alert-bg: var(--kt-accent-glow); --bs-alert-border-color: rgba(47, 111, 237, 0.2); --bs-alert-color: var(--kt-text-muted); }
 
 /* ── Loading / empty ───────────────────────────────────────────────── */
 .kt-loading { display: flex; align-items: center; gap: 0.75rem; color: var(--kt-text-muted); font-size: 0.9rem; padding: 4rem 0; justify-content: center; }
@@ -1281,8 +1324,8 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   .table thead { display: none; }
   .table, .table tbody, .table tr, .table td { display: block; width: 100%; }
   .table tr { border-bottom: 1px solid var(--kt-border); padding: 0.5rem 0; }
-  .table td { border-bottom: none !important; padding: 0.3rem 1rem !important; }
-  .table td:last-child { padding-top: 0.5rem !important; padding-bottom: 0.75rem !important; }
+  .table td { border-bottom: none; padding: 0.3rem 1rem; }
+  .table td:last-child { padding-top: 0.5rem; padding-bottom: 0.75rem; }
   /* a stacked cell loses its column header, so it is re-attached as an inline label */
   .table td[data-label]::before {
     content: attr(data-label);
@@ -1304,7 +1347,7 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   .table.kt-table-grid { display: table; }
   .table.kt-table-grid tbody { display: table-row-group; }
   .table.kt-table-grid tr { display: table-row; border-bottom: none; padding: 0; }
-  .table.kt-table-grid td { display: table-cell; width: auto; white-space: nowrap; border-bottom: 1px solid var(--kt-border) !important; padding: 0.4rem 0.6rem !important; }
+  .table.kt-table-grid td { display: table-cell; width: auto; white-space: nowrap; border-bottom: 1px solid var(--kt-border); padding: 0.4rem 0.6rem; }
   .table.kt-table-grid td[data-label]::before { content: none; }
   .table.kt-table-grid td[data-label]:empty { display: table-cell; }
 
@@ -1343,7 +1386,7 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 }
 
 .kt-search-input-wrap .form-control {
-  padding-left: 2.4rem !important;
+  padding-left: 2.4rem;
 }
 
 /* An inline SVG, not a glyph: U+1F50D, the obvious magnifier, has Emoji_Presentation=Yes and renders in full colour, which the Theme section of docs/blazor-ui.md rules out.
@@ -1690,11 +1733,6 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   white-space: nowrap;
   color: var(--kt-text-muted);
   font-weight: 600;
-}
-
-.kt-sheet-table td {
-  padding: 0.4rem 0.6rem;
-  vertical-align: middle;
 }
 
 /* Money and odometer columns: lining figures so digits stack in a column, right-aligned so magnitudes compare at a glance.

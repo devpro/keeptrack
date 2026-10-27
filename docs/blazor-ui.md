@@ -92,6 +92,12 @@ Dark only: `App.razor` sets `data-bs-theme="dark"` statically on `<html>`, serve
 It is never set client side, since enhanced navigation diffs the whole document and strips it.
 System-ui fonts only, no webfonts.
 
+**A Bootstrap component is themed through its own `--bs-*` variables, never with `!important`.**
+`app.css` loads after Bootstrap, so a rule of equal specificity already wins.
+Bootstrap's state rules (`.btn:hover`, `.btn:disabled`, `.nav-link:focus`, `.form-control:disabled`) are more specific, and they read the variables, so setting `--bs-btn-hover-bg` themes a state with no specificity fight.
+A component whose state rules read no variable, such as the form controls, repeats the colours in its own state rule.
+Sonar reports every `!important` (`css:S9423`), and an `!important` theme also silently overrides a scoped `.razor.css` rule meant to win.
+
 `wwwroot/Keeptrack.BlazorApp.lib.module.js` is loaded automatically by name (never a manual `<script>` tag), and is where `blazor.addEventListener('enhancedload', ...)` re-applies client-side DOM state.
 
 ### Icons
