@@ -33,15 +33,15 @@ permissions:
 jobs:
   markup-lint:
     name: Markup
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-markup-lint.yml@591b0c7bfba6fbc7b0cab7d896447e0732b819de
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-markup-lint.yml@1c7f098dd14618eeb1a5080b60eaf07c3a12c3c4
 
   git-check:
     name: Git
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-git-check.yml@591b0c7bfba6fbc7b0cab7d896447e0732b819de
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-git-check.yml@1c7f098dd14618eeb1a5080b60eaf07c3a12c3c4
     with:
       paths: 'src test Directory.Build.props Directory.Packages.props *.slnx global.json SonarQube.Analysis.xml'
       version-file: Directory.Build.props
-      workflow-parts-version: 591b0c7bfba6fbc7b0cab7d896447e0732b819de
+      workflow-parts-version: 1c7f098dd14618eeb1a5080b60eaf07c3a12c3c4
 
   code-quality:
     name: Code
@@ -119,10 +119,10 @@ jobs:
           - name: "Web Api"
             image-name: "keeptrack-webapi"
             image-definition: "src/WebApi/Dockerfile"
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-scan.yml@591b0c7bfba6fbc7b0cab7d896447e0732b819de
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-scan.yml@1c7f098dd14618eeb1a5080b60eaf07c3a12c3c4
     with:
       image-definition: ${{ matrix.image-definition }}
       image-name: ${{ matrix.image-name }}
       image-path: ${{ vars.CONTAINER_REGISTRY_PATH }}
       image-tag: "${{ needs.git-check.outputs.version-major-minor }}.${{ github.run_id }}"
-      workflow-parts-version: 591b0c7bfba6fbc7b0cab7d896447e0732b819de
+      workflow-parts-version: 1c7f098dd14618eeb1a5080b60eaf07c3a12c3c4
