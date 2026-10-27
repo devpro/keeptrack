@@ -150,14 +150,25 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
     }
 
     /// <summary>
-    /// TMDB's "changes" endpoint per id, unlike the bulk ones limited to the last days,
-    /// reports changes since any date, one cheap call rather than fetching the details and every season again.
+    /// TMDB rejects a <c>/changes</c> range longer than this, with status 20.
+    /// </summary>
+    private const int MaxChangesRangeDays = 14;
+
+    /// <summary>
+    /// TMDB's "changes" endpoint per id, one cheap call rather than fetching the details and every season again.
+    /// <para>
+    /// Without an <c>end_date</c> it answers the changes of the <c>start_date</c> day only, so the range is always closed at today.
+    /// A range TMDB would reject counts as changed, since a full fetch is the only safe answer.
+    /// </para>
     /// </summary>
     private async Task<bool> HasChangedSinceAsync(string resourceType, string tmdbId, DateTime since, CancellationToken cancellationToken)
     {
-        var startDate = since.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var start = DateOnly.FromDateTime(since);
+        var end = DateOnly.FromDateTime(DateTime.UtcNow);
+        if (end.DayNumber - start.DayNumber > MaxChangesRangeDays) return true;
+
         var response = await http.GetFromJsonAsync<TmdbChangesResponse>(
-            $"{resourceType}/{tmdbId}/changes?api_key={ApiKey}&start_date={startDate}", cancellationToken);
+            $"{resourceType}/{tmdbId}/changes?api_key={ApiKey}&start_date={FormatDate(start)}&end_date={FormatDate(end)}", cancellationToken);
         return response?.Changes.Count > 0;
     }
 
@@ -167,6 +178,8 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
     private const string ProfileImageSize = "w185";
 
     private static string Encode(string value) => HttpUtility.UrlEncode(value);
+
+    private static string FormatDate(DateOnly date) => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     private static int? ParseYear(string? date) => ParseDate(date)?.Year;
 

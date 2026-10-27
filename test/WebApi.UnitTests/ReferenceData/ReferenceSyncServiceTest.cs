@@ -101,6 +101,66 @@ public class ReferenceSyncServiceTest
         result.TvShowsUpdated.Should().Be(1);
     }
 
+    /// <summary>
+    /// A rated reference enriched today, which TMDB reports unchanged since: the periodic pass trusts the change check, a forced one fetches anyway.
+    /// The change check only sees changes after <c>LastEnrichedAt</c>, so one it missed is recovered only by forcing.
+    /// </summary>
+    private FakeTmdbClient SetupRecentlyEnrichedTvShowAndMovieReportedUnchanged()
+    {
+        var tmdbClient = FakeTmdbClient.Empty();
+        tmdbClient.ChangedSince["42"] = false;
+        tmdbClient.ChangedSince["603"] = false;
+        tmdbClient.TvShowDetails["42"] = new TmdbTvShowDetails("42", "Some Show", 2023, "Synopsis", [new TmdbEpisode(4, 1, "S4E1", new DateOnly(2026, 10, 15))], [], null);
+        tmdbClient.MovieDetails["603"] = new TmdbMovieDetails("603", "Some Movie", 1999, "Synopsis", [], null, 8.2, 100);
+        var ratings = new Dictionary<string, ReferenceRatingModel> { ["tmdb"] = new() { Value = 8.0, Scale = 10, Count = 100 } };
+        _tvShowReferenceRepository.Setup(r => r.FindStaleAsync(It.IsAny<DateTime>(), It.IsAny<int>())).ReturnsAsync([
+            new TvShowReferenceModel
+            {
+                Id = "reference-1", Title = "Some Show", TitleNormalized = "some show",
+                ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" }, Ratings = new(ratings), LastEnrichedAt = DateTime.UtcNow
+            }
+        ]);
+        _movieReferenceRepository.Setup(r => r.FindStaleAsync(It.IsAny<DateTime>(), It.IsAny<int>())).ReturnsAsync([
+            new MovieReferenceModel
+            {
+                Id = "reference-2", Title = "Some Movie", TitleNormalized = "some movie",
+                ExternalIds = new Dictionary<string, string> { ["tmdb"] = "603" }, Ratings = new(ratings), LastEnrichedAt = DateTime.UtcNow
+            }
+        ]);
+        _tvShowReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>())).ReturnsAsync((TvShowReferenceModel m) => m);
+        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => m);
+        return tmdbClient;
+    }
+
+    [Fact]
+    public async Task SyncStaleReferencesAsync_FetchesTvShowsAndMoviesInFull_WhenForced_EvenIfTmdbReportsNoChange()
+    {
+        var tmdbClient = SetupRecentlyEnrichedTvShowAndMovieReportedUnchanged();
+        var service = CreateService(tmdbClient);
+
+        var result = await service.SyncStaleReferencesAsync(ReferenceSyncWindows.Forced.References, fullFetch: ReferenceSyncWindows.Forced.FullFetch,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        result.TvShowsUpdated.Should().Be(1);
+        result.MoviesUpdated.Should().Be(1);
+        tmdbClient.ChangesRequested.Should().BeEmpty();
+        _tvShowReferenceRepository.Verify(r => r.UpsertAsync(It.Is<TvShowReferenceModel>(m => m.Episodes.Exists(e => e.SeasonNumber == 4))), Times.Once);
+    }
+
+    [Fact]
+    public async Task SyncStaleReferencesAsync_TrustsTmdbsChangeCheck_OnThePeriodicPass()
+    {
+        var tmdbClient = SetupRecentlyEnrichedTvShowAndMovieReportedUnchanged();
+        var service = CreateService(tmdbClient);
+
+        var result = await service.SyncStaleReferencesAsync(ReferenceSyncWindows.Periodic.References, fullFetch: ReferenceSyncWindows.Periodic.FullFetch,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        result.TvShowsUpdated.Should().Be(0);
+        result.MoviesUpdated.Should().Be(0);
+        tmdbClient.ChangesRequested.Should().BeEquivalentTo(["42", "603"]);
+    }
+
     [Fact]
     public async Task SyncStaleReferencesAsync_ContinuesPastAFailedReference_AndStillProcessesTheRest()
     {
@@ -148,7 +208,7 @@ public class ReferenceSyncServiceTest
                 stages.Add(stage);
                 return Task.CompletedTask;
             },
-            TestContext.Current.CancellationToken);
+            cancellationToken: TestContext.Current.CancellationToken);
 
         stages.Should().ContainInOrder(
             ReferenceSyncStage.SyncingTvShows,
@@ -165,6 +225,11 @@ public class ReferenceSyncServiceTest
         public Dictionary<string, TmdbMovieDetails> MovieDetails { get; } = new();
 
         public string? ThrowForTmdbId { get; set; }
+
+        /// <summary>The answer of TMDB's change check, keyed by tmdb id, a change by default.</summary>
+        public Dictionary<string, bool> ChangedSince { get; } = new();
+
+        public List<string> ChangesRequested { get; } = [];
 
         public static FakeTmdbClient Empty() => new();
 
@@ -198,11 +263,17 @@ public class ReferenceSyncServiceTest
         public Task<IReadOnlyList<TmdbCastMember>> GetMovieCastAsync(string tmdbId, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<TmdbCastMember>>([]);
 
-        public Task<bool> HasTvShowChangedSinceAsync(string tmdbId, DateTime since, CancellationToken cancellationToken = default) =>
-            Task.FromResult(true);
+        public Task<bool> HasTvShowChangedSinceAsync(string tmdbId, DateTime since, CancellationToken cancellationToken = default)
+        {
+            ChangesRequested.Add(tmdbId);
+            return Task.FromResult(ChangedSince.GetValueOrDefault(tmdbId, true));
+        }
 
-        public Task<bool> HasMovieChangedSinceAsync(string tmdbId, DateTime since, CancellationToken cancellationToken = default) =>
-            Task.FromResult(true);
+        public Task<bool> HasMovieChangedSinceAsync(string tmdbId, DateTime since, CancellationToken cancellationToken = default)
+        {
+            ChangesRequested.Add(tmdbId);
+            return Task.FromResult(ChangedSince.GetValueOrDefault(tmdbId, true));
+        }
 
         public Task<string?> GetTvShowImdbIdAsync(string tmdbId, CancellationToken cancellationToken = default) =>
             Task.FromResult<string?>(null);

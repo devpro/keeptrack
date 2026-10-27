@@ -633,7 +633,7 @@ public class ReferenceEnrichmentServiceTest
         };
         var service = CreateService(tmdbClient);
 
-        var (result, changed) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+        var (result, changed) = await service.RefreshMovieReferenceAsync(reference, cancellationToken: TestContext.Current.CancellationToken);
 
         changed.Should().BeTrue();
         tmdbClient.MovieDetailsRequested.Should().Contain("42");
@@ -662,7 +662,7 @@ public class ReferenceEnrichmentServiceTest
         };
         var service = CreateService(tmdbClient);
 
-        var (_, changed) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+        var (_, changed) = await service.RefreshMovieReferenceAsync(reference, cancellationToken: TestContext.Current.CancellationToken);
 
         changed.Should().BeFalse();
         tmdbClient.MovieDetailsRequested.Should().NotContain("42");
@@ -783,7 +783,7 @@ public class ReferenceEnrichmentServiceTest
         };
         var service = CreateService(tmdbClient);
 
-        var (result, changed) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+        var (result, changed) = await service.RefreshMovieReferenceAsync(reference, cancellationToken: TestContext.Current.CancellationToken);
 
         changed.Should().BeTrue();
         result.Ratings["imdb"].Value.Should().Be(8.9);
@@ -814,7 +814,7 @@ public class ReferenceEnrichmentServiceTest
         };
         var service = CreateService(tmdbClient);
 
-        var (result, changed) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+        var (result, changed) = await service.RefreshMovieReferenceAsync(reference, cancellationToken: TestContext.Current.CancellationToken);
 
         changed.Should().BeTrue();
         result.Ratings["imdb"].Value.Should().Be(8.9);
@@ -847,7 +847,7 @@ public class ReferenceEnrichmentServiceTest
         };
         var service = CreateService(tmdbClient);
 
-        var (_, changed) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+        var (_, changed) = await service.RefreshMovieReferenceAsync(reference, cancellationToken: TestContext.Current.CancellationToken);
 
         changed.Should().BeFalse();
         _omdbClient.Requested.Should().BeEmpty();
@@ -867,7 +867,7 @@ public class ReferenceEnrichmentServiceTest
         var reference = MovieReferenceAwaitingImdb(attemptedAt: DateTime.UtcNow.AddDays(-10));
         var service = CreateService(tmdbClient);
 
-        var (_, changed) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+        var (_, changed) = await service.RefreshMovieReferenceAsync(reference, cancellationToken: TestContext.Current.CancellationToken);
 
         changed.Should().BeFalse();
         _omdbClient.Requested.Should().BeEmpty();
@@ -887,7 +887,7 @@ public class ReferenceEnrichmentServiceTest
         reference.ExternalIds["imdb"] = "tt0042";
         var service = CreateService(tmdbClient);
 
-        var (result, changed) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+        var (result, changed) = await service.RefreshMovieReferenceAsync(reference, cancellationToken: TestContext.Current.CancellationToken);
 
         changed.Should().BeTrue();
         result.Ratings["imdb"].Value.Should().Be(8.9);
@@ -903,7 +903,7 @@ public class ReferenceEnrichmentServiceTest
         reference.ExternalIds["imdb"] = "tt0042"; // OMDb has no rating seeded for it
         var service = CreateService(tmdbClient);
 
-        var (result, changed) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+        var (result, changed) = await service.RefreshMovieReferenceAsync(reference, cancellationToken: TestContext.Current.CancellationToken);
 
         // "OMDb answered, and has nothing" is a real answer worth remembering, which the next pass reads
         changed.Should().BeFalse();
@@ -925,7 +925,7 @@ public class ReferenceEnrichmentServiceTest
         reference.ExternalIds["imdb"] = "tt0042";
         var service = CreateService(tmdbClient);
 
-        var (result, _) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+        var (result, _) = await service.RefreshMovieReferenceAsync(reference, cancellationToken: TestContext.Current.CancellationToken);
 
         result.RatingsCheckedAt.Should().BeEmpty();
     }
@@ -946,7 +946,7 @@ public class ReferenceEnrichmentServiceTest
         reference.LastEnrichedAt = lastEnrichedAt;
         var service = CreateService(tmdbClient);
 
-        var (result, changed) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+        var (result, changed) = await service.RefreshMovieReferenceAsync(reference, cancellationToken: TestContext.Current.CancellationToken);
 
         changed.Should().BeFalse();
         // the point: still stale, so the next pass takes it again as soon as the allowance renews
@@ -971,7 +971,7 @@ public class ReferenceEnrichmentServiceTest
         reference.LastEnrichedAt = lastEnrichedAt;
         var service = CreateService(tmdbClient);
 
-        var (result, _) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+        var (result, _) = await service.RefreshMovieReferenceAsync(reference, cancellationToken: TestContext.Current.CancellationToken);
 
         result.LastEnrichedAt.Should().Be(lastEnrichedAt);
         _omdbCallBudget.LimitReported.Should().BeTrue();
@@ -994,7 +994,7 @@ public class ReferenceEnrichmentServiceTest
         reference.LastEnrichedAt = lastEnrichedAt;
         var service = CreateService(tmdbClient);
 
-        var (result, _) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+        var (result, _) = await service.RefreshMovieReferenceAsync(reference, cancellationToken: TestContext.Current.CancellationToken);
 
         result.LastEnrichedAt.Should().BeAfter(lastEnrichedAt);
     }
@@ -1014,7 +1014,7 @@ public class ReferenceEnrichmentServiceTest
         reference.LastEnrichedAt = lastEnrichedAt;
         var service = CreateService(tmdbClient);
 
-        var (result, _) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+        var (result, _) = await service.RefreshMovieReferenceAsync(reference, cancellationToken: TestContext.Current.CancellationToken);
 
         result.LastEnrichedAt.Should().BeAfter(lastEnrichedAt);
     }
@@ -1039,7 +1039,7 @@ public class ReferenceEnrichmentServiceTest
         };
         var service = CreateService(tmdbClient);
 
-        var (result, changed) = await service.RefreshTvShowReferenceAsync(reference, TestContext.Current.CancellationToken);
+        var (result, changed) = await service.RefreshTvShowReferenceAsync(reference, cancellationToken: TestContext.Current.CancellationToken);
 
         changed.Should().BeFalse();
         result.LastEnrichedAt.Should().Be(lastEnrichedAt);
@@ -1059,7 +1059,7 @@ public class ReferenceEnrichmentServiceTest
         reference.Ratings["imdb"] = new ReferenceRatingModel { Value = 8.9, Scale = 10, Count = 500_000 };
         var service = CreateService(tmdbClient);
 
-        var (result, _) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+        var (result, _) = await service.RefreshMovieReferenceAsync(reference, cancellationToken: TestContext.Current.CancellationToken);
 
         result.Ratings["tmdb"].Value.Should().Be(7.9); // TMDB's half was refreshed
         result.Ratings["imdb"].Value.Should().Be(8.9); // IMDb's half survived
@@ -1077,7 +1077,7 @@ public class ReferenceEnrichmentServiceTest
         reference.Ratings["imdb"] = new ReferenceRatingModel { Value = 8.9, Scale = 10, Count = 500_000 };
         var service = CreateService(tmdbClient);
 
-        var (result, _) = await service.RefreshMovieReferenceAsync(reference, TestContext.Current.CancellationToken);
+        var (result, _) = await service.RefreshMovieReferenceAsync(reference, cancellationToken: TestContext.Current.CancellationToken);
 
         result.Ratings.Should().NotContainKey("imdb");
         result.RatingsCheckedAt.Should().ContainKey("imdb");
@@ -1152,7 +1152,7 @@ public class ReferenceEnrichmentServiceTest
         var service = CreateService(tmdbClient);
         var reference = new TvShowReferenceModel { Id = "reference-1", Title = "Some Show", TitleNormalized = "some show", ExternalIds = [] };
 
-        var (result, changed) = await service.RefreshTvShowReferenceAsync(reference, TestContext.Current.CancellationToken);
+        var (result, changed) = await service.RefreshTvShowReferenceAsync(reference, cancellationToken: TestContext.Current.CancellationToken);
 
         changed.Should().BeFalse();
         result.Should().BeSameAs(reference);
@@ -1178,7 +1178,7 @@ public class ReferenceEnrichmentServiceTest
         _tvShowReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>())).ReturnsAsync((TvShowReferenceModel m) => m);
         var service = CreateService(tmdbClient);
 
-        var (result, changed) = await service.RefreshTvShowReferenceAsync(reference, TestContext.Current.CancellationToken);
+        var (result, changed) = await service.RefreshTvShowReferenceAsync(reference, cancellationToken: TestContext.Current.CancellationToken);
 
         changed.Should().BeFalse();
         result.LastEnrichedAt.Should().BeAfter(lastEnrichedAt);
@@ -1203,12 +1203,90 @@ public class ReferenceEnrichmentServiceTest
         _tvShowReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>())).ReturnsAsync((TvShowReferenceModel m) => m);
         var service = CreateService(tmdbClient);
 
-        var (result, changed) = await service.RefreshTvShowReferenceAsync(reference, TestContext.Current.CancellationToken);
+        var (result, changed) = await service.RefreshTvShowReferenceAsync(reference, cancellationToken: TestContext.Current.CancellationToken);
 
         changed.Should().BeTrue();
         result.Title.Should().Be("Some Show - Updated");
         result.Synopsis.Should().Be("New synopsis");
         result.Genres.Should().Contain("Drama");
+    }
+
+    [Fact]
+    public async Task RefreshTvShowReferenceAsync_StoresTheEpisodesOfANewSeason_WhenTmdbReportsChanges()
+    {
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.ChangedSince["42"] = true;
+        tmdbClient.TvShowDetails["42"] = new TmdbTvShowDetails("42", "Some Show", 2023, "Synopsis",
+            [new TmdbEpisode(3, 8, "S3E8", new DateOnly(2025, 10, 16)), new TmdbEpisode(4, 1, "S4E1", new DateOnly(2026, 10, 15))], [], null);
+        var reference = new TvShowReferenceModel
+        {
+            Id = "reference-1",
+            Title = "Some Show",
+            TitleNormalized = "some show",
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" },
+            Ratings = new Dictionary<string, ReferenceRatingModel> { ["tmdb"] = new() { Value = 8.0, Scale = 10, Count = 100 } },
+            Episodes = [new ReferenceEpisodeModel { SeasonNumber = 3, EpisodeNumber = 8, Title = "S3E8", AirDate = new DateOnly(2025, 10, 16) }],
+            LastEnrichedAt = DateTime.UtcNow.AddDays(-20)
+        };
+        _tvShowReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>())).ReturnsAsync((TvShowReferenceModel m) => m);
+        var service = CreateService(tmdbClient);
+
+        var (result, changed) = await service.RefreshTvShowReferenceAsync(reference, cancellationToken: TestContext.Current.CancellationToken);
+
+        changed.Should().BeTrue();
+        result.Episodes.Select(e => (e.SeasonNumber, e.EpisodeNumber, e.AirDate)).Should().Equal(
+            (3, 8, new DateOnly(2025, 10, 16)), (4, 1, new DateOnly(2026, 10, 15)));
+    }
+
+    [Fact]
+    public async Task RefreshTvShowReferenceAsync_FetchesInFull_WhenAskedTo_EvenIfTmdbReportsNoChanges()
+    {
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.ChangedSince["42"] = false;
+        tmdbClient.TvShowDetails["42"] = new TmdbTvShowDetails("42", "Some Show", 2023, "Synopsis", [new TmdbEpisode(4, 1, "S4E1", new DateOnly(2026, 10, 15))], [], null);
+        var reference = new TvShowReferenceModel
+        {
+            Id = "reference-1",
+            Title = "Some Show",
+            TitleNormalized = "some show",
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "42" },
+            Ratings = new Dictionary<string, ReferenceRatingModel> { ["tmdb"] = new() { Value = 8.0, Scale = 10, Count = 100 } },
+            LastEnrichedAt = DateTime.UtcNow
+        };
+        _tvShowReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>())).ReturnsAsync((TvShowReferenceModel m) => m);
+        var service = CreateService(tmdbClient);
+
+        var (result, changed) = await service.RefreshTvShowReferenceAsync(reference, fullFetch: true, TestContext.Current.CancellationToken);
+
+        changed.Should().BeTrue();
+        tmdbClient.ChangesRequested.Should().BeEmpty();
+        tmdbClient.TvShowDetailsRequested.Should().Contain("42");
+        result.Episodes.Should().ContainSingle(e => e.SeasonNumber == 4 && e.EpisodeNumber == 1);
+    }
+
+    [Fact]
+    public async Task RefreshMovieReferenceAsync_FetchesInFull_WhenAskedTo_EvenIfTmdbReportsNoChanges()
+    {
+        var tmdbClient = FakeTmdbClient.WithTvShowSearchResults();
+        tmdbClient.ChangedSince["603"] = false;
+        tmdbClient.MovieDetails["603"] = new TmdbMovieDetails("603", "Some Movie - Updated", 1999, "Synopsis", [], null, 8.2, 100);
+        var reference = new MovieReferenceModel
+        {
+            Id = "reference-1",
+            Title = "Some Movie",
+            TitleNormalized = "some movie",
+            ExternalIds = new Dictionary<string, string> { ["tmdb"] = "603" },
+            Ratings = new Dictionary<string, ReferenceRatingModel> { ["tmdb"] = new() { Value = 8.0, Scale = 10, Count = 100 } },
+            LastEnrichedAt = DateTime.UtcNow
+        };
+        _movieReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<MovieReferenceModel>())).ReturnsAsync((MovieReferenceModel m) => m);
+        var service = CreateService(tmdbClient);
+
+        var (result, changed) = await service.RefreshMovieReferenceAsync(reference, fullFetch: true, TestContext.Current.CancellationToken);
+
+        changed.Should().BeTrue();
+        tmdbClient.ChangesRequested.Should().BeEmpty();
+        result.Title.Should().Be("Some Movie - Updated");
     }
 
     [Fact]
@@ -1228,7 +1306,7 @@ public class ReferenceEnrichmentServiceTest
         _tvShowReferenceRepository.Setup(r => r.UpsertAsync(It.IsAny<TvShowReferenceModel>())).ReturnsAsync((TvShowReferenceModel m) => m);
         var service = CreateService(tmdbClient);
 
-        var (_, changed) = await service.RefreshTvShowReferenceAsync(reference, TestContext.Current.CancellationToken);
+        var (_, changed) = await service.RefreshTvShowReferenceAsync(reference, cancellationToken: TestContext.Current.CancellationToken);
 
         changed.Should().BeTrue();
         tmdbClient.ChangesRequested.Should().NotContain("42");

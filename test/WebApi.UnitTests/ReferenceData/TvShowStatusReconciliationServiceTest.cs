@@ -75,6 +75,69 @@ public class TvShowStatusReconciliationServiceTest
     }
 
     [Fact]
+    public async Task Reopens_FinishedShow_WhenANewSeasonAiredAfterTheLastWatchedSeasonFinale()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        Setup(
+            [FinishedShow("show-1")],
+            [Episode("show-1", 3, 7), Episode("show-1", 3, 8)],
+            Reference("ref-1",
+                RefEpisode(3, 7, today.AddYears(-1)), RefEpisode(3, 8, today.AddYears(-1)),
+                RefEpisode(4, 1, today.AddDays(-12)), RefEpisode(4, 2, today.AddDays(-12))));
+        var service = CreateService();
+
+        var reopened = await service.ReconcileFinishedShowsAsync(TestContext.Current.CancellationToken);
+
+        reopened.Should().Be(1);
+        _tvShowRepository.Verify(r => r.UpdateAsync(
+            "show-1", It.Is<TvShowModel>(s => s.State == TvShowStatus.Current), "owner"), Times.Once);
+    }
+
+    [Fact]
+    public async Task Reopens_FinishedShow_WhenTheNewEpisodeAirsToday()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        Setup(
+            [FinishedShow("show-1")],
+            [Episode("show-1", 3, 8)],
+            Reference("ref-1", RefEpisode(3, 8, today.AddYears(-1)), RefEpisode(4, 1, today)));
+        var service = CreateService();
+
+        var reopened = await service.ReconcileFinishedShowsAsync(TestContext.Current.CancellationToken);
+
+        reopened.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Reopens_FinishedShow_WhenAnEarlierEpisodeWasSkippedButANewerOneAired()
+    {
+        // the comparison is against the last watched episode, so an unwatched gap before it never reopens a show on its own
+        Setup(
+            [FinishedShow("show-1")],
+            [Episode("show-1", 1, 1), Episode("show-1", 1, 3)],
+            Reference("ref-1", RefEpisode(1, 1), RefEpisode(1, 2), RefEpisode(1, 3), RefEpisode(1, 4, new DateOnly(2024, 1, 1))));
+        var service = CreateService();
+
+        var reopened = await service.ReconcileFinishedShowsAsync(TestContext.Current.CancellationToken);
+
+        reopened.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task LeavesShowAlone_WhenTheOnlyUnwatchedEpisodeIsBeforeTheLastWatched()
+    {
+        Setup(
+            [FinishedShow("show-1")],
+            [Episode("show-1", 1, 1), Episode("show-1", 1, 3)],
+            Reference("ref-1", RefEpisode(1, 1), RefEpisode(1, 2), RefEpisode(1, 3)));
+        var service = CreateService();
+
+        var reopened = await service.ReconcileFinishedShowsAsync(TestContext.Current.CancellationToken);
+
+        reopened.Should().Be(0);
+    }
+
+    [Fact]
     public async Task LeavesShowAlone_WhenAlreadyCaughtUpWithTheReferenceGuide()
     {
         Setup(

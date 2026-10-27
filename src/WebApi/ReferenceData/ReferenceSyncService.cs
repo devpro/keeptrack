@@ -27,20 +27,21 @@ public class ReferenceSyncService(
     /// Refreshes the references whose <c>LastEnrichedAt</c> is unset or older than <paramref name="staleAfter"/>,
     /// oldest first, up to <see cref="MaxDocumentsPerDomainPerPass"/> per domain.
     /// A failing document is logged and skipped, never aborting the run.
+    /// <paramref name="fullFetch"/> skips TMDB's change check (see <see cref="ReferenceSyncWindows.FullFetch"/>), the other providers always fetching in full.
     /// </summary>
     public async Task<ReferenceSyncResultDto> SyncStaleReferencesAsync(TimeSpan staleAfter, Func<ReferenceSyncStage, Task>? onStageChanged = null,
-        CancellationToken cancellationToken = default)
+        bool fullFetch = false, CancellationToken cancellationToken = default)
     {
         var cutoff = DateTime.UtcNow - staleAfter;
         var result = new ReferenceSyncResultDto();
 
         // one loop for five domains, each arm supplying only which collection to read and which refresh to run
         await SyncDomainAsync(onStageChanged, ReferenceSyncStage.SyncingTvShows, cutoff,
-            tvShowReferenceRepository.FindStaleAsync, enrichmentService.RefreshTvShowReferenceAsync, r => r.Id,
+            tvShowReferenceRepository.FindStaleAsync, (r, ct) => enrichmentService.RefreshTvShowReferenceAsync(r, fullFetch, ct), r => r.Id,
             (checkedCount, updated) => (result.TvShowsChecked, result.TvShowsUpdated) = (checkedCount, updated), cancellationToken);
 
         await SyncDomainAsync(onStageChanged, ReferenceSyncStage.SyncingMovies, cutoff,
-            movieReferenceRepository.FindStaleAsync, enrichmentService.RefreshMovieReferenceAsync, r => r.Id,
+            movieReferenceRepository.FindStaleAsync, (r, ct) => enrichmentService.RefreshMovieReferenceAsync(r, fullFetch, ct), r => r.Id,
             (checkedCount, updated) => (result.MoviesChecked, result.MoviesUpdated) = (checkedCount, updated), cancellationToken);
 
         await SyncDomainAsync(onStageChanged, ReferenceSyncStage.SyncingBooks, cutoff,

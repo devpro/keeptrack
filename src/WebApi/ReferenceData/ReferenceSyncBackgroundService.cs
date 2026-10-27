@@ -56,7 +56,7 @@ public class ReferenceSyncBackgroundService(
                 jobId = await jobStore.CreateAsync(SystemOwnerId, ReferenceSyncStage.SyncingTvShows);
 
                 var syncService = scope.ServiceProvider.GetRequiredService<ReferenceSyncService>();
-                var result = await syncService.SyncStaleReferencesAsync(s_windows.References, cancellationToken: stoppingToken);
+                var result = await syncService.SyncStaleReferencesAsync(s_windows.References, fullFetch: s_windows.FullFetch, cancellationToken: stoppingToken);
 
                 // finished shows reconciled against the refreshed episode guides, in the same tick under the lease
                 var reconciliationService = scope.ServiceProvider.GetRequiredService<TvShowStatusReconciliationService>();

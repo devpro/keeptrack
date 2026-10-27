@@ -27,6 +27,16 @@ public class ReferenceSyncWindowsTest
     }
 
     /// <summary>
+    /// TMDB's change check only sees changes after the last enrichment, so forcing is the one way to recover a change it missed.
+    /// </summary>
+    [Fact]
+    public void For_WithForce_FetchesInFull_WhereThePeriodicPassTrustsTheChangeCheck()
+    {
+        ReferenceSyncWindows.For(true).FullFetch.Should().BeTrue();
+        ReferenceSyncWindows.Periodic.FullFetch.Should().BeFalse();
+    }
+
+    /// <summary>
     /// Pins the documented cadence: reference documents are re-checked far more often than the discovery rankings, which barely move week to week.
     /// </summary>
     [Fact]

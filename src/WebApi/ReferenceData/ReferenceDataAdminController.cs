@@ -265,7 +265,7 @@ public class ReferenceDataAdminController(
     /// since a re-check across five domains easily exceeds a request's timeout.
     /// </summary>
     /// <param name="force">
-    /// <c>true</c> re-checks every reference document and rebuilds every Explore ranking, however recently enriched.
+    /// <c>true</c> re-checks every reference document in full and rebuilds every Explore ranking, however recently enriched.
     /// The default runs exactly what the background tick would (see <see cref="ReferenceSyncWindows.Periodic"/>), so a collection synced within the window reports zero checked.
     /// It is the cheap option, spending no provider calls on fresh documents.
     /// </param>
@@ -331,7 +331,7 @@ public class ReferenceDataAdminController(
                 var scopedReconciliationService = scope.ServiceProvider.GetRequiredService<TvShowStatusReconciliationService>();
 
                 result = await scopedSyncService.SyncStaleReferencesAsync(
-                    windows.References, stage => scopedJobStore.UpdateStageAsync(jobId, stage), cancellationToken);
+                    windows.References, stage => scopedJobStore.UpdateStageAsync(jobId, stage), windows.FullFetch, cancellationToken);
                 // an on-demand "sync now" reconciles finished-show status too, so its result matches the periodic pass's.
                 result.FinishedShowsReopened = await scopedReconciliationService.ReconcileFinishedShowsAsync();
                 await scopedJobStore.UpdateStageAsync(jobId, ReferenceSyncStage.RefreshingExplore);

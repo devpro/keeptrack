@@ -531,13 +531,14 @@ public partial class ReferenceEnrichmentService
     /// skipping the per-season fetches otherwise, and stamps <c>LastEnrichedAt</c> so the sync moves on.
     /// Unchanged for a reference without a TMDB id or one TMDB no longer holds.
     /// </summary>
-    public async Task<(TvShowReferenceModel Model, bool DataChanged)> RefreshTvShowReferenceAsync(TvShowReferenceModel reference, CancellationToken cancellationToken = default)
+    public async Task<(TvShowReferenceModel Model, bool DataChanged)> RefreshTvShowReferenceAsync(
+        TvShowReferenceModel reference, bool fullFetch = false, CancellationToken cancellationToken = default)
     {
         var tmdbId = reference.ExternalIds.GetValueOrDefault("tmdb");
         if (string.IsNullOrEmpty(tmdbId)) return (reference, false);
 
         // a full fetch while the reference has no ratings, so it backfills one (see RefreshMovieReferenceAsync)
-        if (reference.LastEnrichedAt is not null && reference.Ratings.Count > 0)
+        if (!fullFetch && reference.LastEnrichedAt is not null && reference.Ratings.Count > 0)
         {
             var changed = await tmdbClient.HasTvShowChangedSinceAsync(tmdbId, reference.LastEnrichedAt.Value, cancellationToken);
             if (!changed)
@@ -585,14 +586,15 @@ public partial class ReferenceEnrichmentService
     /// <summary>
     /// Movie equivalent of <see cref="RefreshTvShowReferenceAsync"/>.
     /// </summary>
-    public async Task<(MovieReferenceModel Model, bool DataChanged)> RefreshMovieReferenceAsync(MovieReferenceModel reference, CancellationToken cancellationToken = default)
+    public async Task<(MovieReferenceModel Model, bool DataChanged)> RefreshMovieReferenceAsync(
+        MovieReferenceModel reference, bool fullFetch = false, CancellationToken cancellationToken = default)
     {
         var tmdbId = reference.ExternalIds.GetValueOrDefault("tmdb");
         if (string.IsNullOrEmpty(tmdbId)) return (reference, false);
 
         // A reference without ratings does the full fetch even when TMDB reports no change, or the change check would skip its backfill forever.
-        // A rated reference takes the cheap no-change shortcut.
-        if (reference.LastEnrichedAt is not null && reference.Ratings.Count > 0)
+        // A rated reference takes the cheap no-change shortcut, unless asked for a full fetch (see ReferenceSyncWindows.FullFetch).
+        if (!fullFetch && reference.LastEnrichedAt is not null && reference.Ratings.Count > 0)
         {
             var changed = await tmdbClient.HasMovieChangedSinceAsync(tmdbId, reference.LastEnrichedAt.Value, cancellationToken);
             if (!changed)
