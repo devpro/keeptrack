@@ -3,7 +3,7 @@ using Keeptrack.Common.System;
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// Health profile data transfer object - whose health journal this is.
+/// Whose health journal this is.
 /// </summary>
 public class HealthProfileDto : IHasId
 {
@@ -13,17 +13,17 @@ public class HealthProfileDto : IHasId
     public string? Id { get; set; }
 
     /// <summary>
-    /// The person's name (e.g. "Me", a child's first name).
+    /// The person's name, such as "Me" or a child's first name.
     /// </summary>
     public string? Name { get; set; }
 
     /// <summary>
-    /// Free-text notes (blood type, allergies, anything worth keeping at hand).
+    /// Free-text notes: blood type, allergies, anything worth keeping at hand.
     /// </summary>
     public string? Notes { get; set; }
 
     /// <summary>
-    /// Tenant-owned cover image URL, shown on the list thumbnail and detail page header. Optional.
+    /// The tenant's own optional cover image URL, shown on the list thumbnail and the detail page header.
     /// </summary>
     public string? ImageUrl { get; set; }
 }

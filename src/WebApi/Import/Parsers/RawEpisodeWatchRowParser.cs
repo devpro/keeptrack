@@ -4,10 +4,9 @@ using CsvHelper;
 namespace Keeptrack.WebApi.Import.Parsers;
 
 /// <summary>
-/// Shared row-by-row reader for TV Time files that mix genuine per-episode watch events together
-/// with other row types (show-level summaries, counters, ...) in the same CSV. Each source file has
-/// its own way of telling those apart, so the discriminator is supplied by the caller; everything
-/// else (opening the stream, skipping rows without a season/episode, building the result) is common.
+/// Shared reader for TV Time files mixing episode watch events with other rows (show summaries, counters) in one CSV.
+/// Each file tells them apart its own way, so the caller supplies the discriminator,
+/// and the rest (opening the stream, skipping rows without a season or episode, building the result) is common.
 /// </summary>
 internal static class RawEpisodeWatchRowParser
 {

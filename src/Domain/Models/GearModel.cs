@@ -14,8 +14,8 @@ public class GearModel : IHasIdAndOwnerId
     public string? Brand { get; set; }
 
     /// <summary>
-    /// Free-text category (e.g. "Electronics", "Camping") - suggested from the tenant's other gear but
-    /// not a closed list. Unlike a blog's tags, one gear item has exactly one category.
+    /// Free-text category ("Electronics", "Camping"), suggested from the tenant's other gear but not a closed list.
+    /// One gear item has exactly one category.
     /// </summary>
     public string? Category { get; set; }
 
@@ -24,7 +24,7 @@ public class GearModel : IHasIdAndOwnerId
     public string? Notes { get; set; }
 
     /// <summary>
-    /// Tenant-owned cover image URL, shown on the list thumbnail and detail page header. Optional.
+    /// The tenant's own optional cover image URL, shown on the list thumbnail and the detail page header.
     /// </summary>
     public string? ImageUrl { get; set; }
 
@@ -33,8 +33,8 @@ public class GearModel : IHasIdAndOwnerId
     public List<OwnedVersionModel> OwnedVersions { get; set; } = [];
 
     /// <summary>
-    /// Filter-only: matches if <see cref="OwnedVersions"/> is non-empty. Never persisted - see
-    /// <see cref="MovieModel.IsOwned"/>.
+    /// Filter only: matches when <see cref="OwnedVersions"/> is non-empty.
+    /// Never persisted (see <see cref="MovieModel.IsOwned"/>).
     /// </summary>
     public bool IsOwned { get; set; }
 }

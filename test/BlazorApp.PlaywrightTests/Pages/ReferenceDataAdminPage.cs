@@ -6,10 +6,10 @@ using Microsoft.Playwright;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 
 /// <summary>
-/// The admin-only <c>/admin/reference-data</c> page: the unresolved-title queue (per reference type), the sync-now control,
-/// the export/import round-trip, and the System status panel.
-/// The smoke test deliberately drives only the provider-free, deterministic surfaces here -
-/// the provider search/link flow is already covered by the per-type detail-page smoke tests, and a full sync-now poll is known to flake on provider latency.
+/// The admin-only <c>/admin/reference-data</c> page: the unresolved-title queue (per reference type),
+/// the sync-now control, the export/import round-trip, and the System status panel.
+/// The smoke test drives only the provider-free, deterministic surfaces,
+/// since the per-type detail page smoke tests cover the provider search and link, and a full sync-now poll flakes on provider latency.
 /// </summary>
 public class ReferenceDataAdminPage(IPage page) : PageBase(page)
 {
@@ -19,7 +19,7 @@ public class ReferenceDataAdminPage(IPage page) : PageBase(page)
         await Assertions.Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Reference data", Level = 1 })).ToBeVisibleAsync();
     }
 
-    /// <summary>A System-panel row that only renders once the (admin-only) status call has resolved - proof the panel loaded.</summary>
+    /// <summary>A System panel row rendering only once the admin-only status call resolved, proving the panel loaded.</summary>
     public ILocator SystemInstanceRow => Page.GetByText("Answered by instance");
 
     private ILocator TypeButton(string name) => Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = name, Exact = true });
@@ -33,7 +33,7 @@ public class ReferenceDataAdminPage(IPage page) : PageBase(page)
 
     private ILocator ExportButton => Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Download export" });
 
-    /// <summary>The import file input (the only file input on the page - the export is a button, not a file input).</summary>
+    /// <summary>The import file input, the page's only one, the export being a button.</summary>
     private ILocator ImportFileInput => Page.Locator("input[type='file'][accept='.zip']");
 
     public ILocator ImportResultAlert => Page.Locator(".alert-info", new PageLocatorOptions { HasText = "Imported" });

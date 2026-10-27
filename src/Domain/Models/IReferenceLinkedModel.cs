@@ -6,11 +6,12 @@ namespace Keeptrack.Domain.Models;
 /// <remarks>
 /// <para>
 /// These four fields are <b>server-owned</b>.
-/// They are written only by reference resolution, by the detail page's "check for reference match", and by an admin unlink - each straight through a repository - and never from a client's own payload.
-/// An update is a full replace of the document, so without this a client that merely echoes the fields back decides them, and one holding a copy fetched before the item was linked silently erases the link by saving anything at all.
+/// Only reference resolution, the detail page's "check for reference match" and an admin unlink write them, each through a repository, never from a client's payload.
+/// An update replaces the whole document, so a client holding a copy fetched before the item was linked would otherwise erase the link by saving anything.
 /// </para>
 /// <para>
-/// Declared here rather than per controller because the rule is the same for all five reference-linked types, and the fields are named identically on every one of them - the same reason <c>IHasReferenceRating</c> exists on the entity side.
+/// Declared once rather than per controller, since the rule and the field names are the same on all five reference-linked types,
+/// as <c>IHasReferenceRating</c> is on the entity side.
 /// </para>
 /// </remarks>
 public interface IReferenceLinkedModel

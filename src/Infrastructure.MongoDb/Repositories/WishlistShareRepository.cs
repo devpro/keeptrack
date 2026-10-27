@@ -24,7 +24,7 @@ public class WishlistShareRepository(IMongoDatabase mongoDatabase, WishlistShare
     public async Task<WishlistShareModel?> FindByTokenAsync(string token)
     {
         var entity = await Collection.Find(s => s.Token == token).FirstOrDefaultAsync();
-        // the usual null guard before mapping - see MongoDbRepositoryBase.FindOneAsync's identical shape
+        // the mapper throws on a null source, so a missing document is checked first
         return entity is null ? null : mapper.ToModel(entity);
     }
 

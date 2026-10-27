@@ -14,13 +14,11 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 /// <summary>
 /// The shared, owner-less <c>car_station</c> catalogue, over real HTTP and real MongoDB.
 /// <para>
-/// A mocked repository could prove none of this: the find-or-create's whole job is to keep the collection's
-/// unique natural-key index from firing, the delete guard and the merge are about what other documents
-/// point at, and the display hydration is a batched read layered onto a real list response.
+/// A mocked repository could prove none of this: the find-or-create's whole job is to keep the collection's unique natural-key index from firing,
+/// the delete guard and the merge are about what other documents point at, and the display hydration is a batched read layered onto a real list response.
 /// </para>
 /// <para>
-/// The test account carries the admin role (see <c>ReferenceDataAdminResourceTest</c>), so the admin-gated
-/// half is reachable with the same single account.
+/// The test account carries the admin role (see <c>ReferenceDataAdminResourceTest</c>), so the admin-gated half is reachable with the same single account.
 /// </para>
 /// </summary>
 public class CarStationResourceTest(KestrelWebAppFactory<Program> factory)
@@ -30,16 +28,14 @@ public class CarStationResourceTest(KestrelWebAppFactory<Program> factory)
     private const string HistoryEndpoint = "api/car-history";
 
     /// <summary>
-    /// Stations are shared across accounts and de-duplicated by name, so a fixed one would collide with the
-    /// last run's leftovers and with a parallel class - every test mints its own.
+    /// Stations are shared across accounts and deduplicated by name, so a fixed one would collide with the last run's leftovers and a parallel class, and every test mints its own.
     /// </summary>
     private static string UniqueBrand() => $"E2e Station {Guid.NewGuid():N}";
 
     private async Task<CarStationDto> CreateStationAsync(string brandName, string? city = null, string? postalCode = null)
     {
         var created = await PostAsync(StationsEndpoint, new CarStationDto { BrandName = brandName, City = city, PostalCode = postalCode });
-        // registered at the moment of creation, never in a later try/finally - a create that fails after
-        // this one would otherwise leak a document the unique index makes the next run trip over
+        // Registered at creation, never in a later try/finally, or a create failing after this one would leak a document the unique index makes the next run trip over.
         TrackDocument("car_station", created.Id);
         return created;
     }
@@ -59,9 +55,8 @@ public class CarStationResourceTest(KestrelWebAppFactory<Program> factory)
         var created = await CreateStationAsync(brand, "Rennes");
         created.Id.Should().NotBeNullOrEmpty();
 
-        // The picker posts every time a member types a station that isn't in its list yet, so this has to be
-        // idempotent - and it has to normalize, or "Total" and "total " become two documents describing one
-        // physical place. The natural key is the same trim+lowercase the repository stamps.
+        // The picker posts whenever a member types a station not in its list, so this is idempotent, and normalizes, or "Total" and "total " would be two documents for one place.
+        // The natural key is the same trim+lowercase the repository stamps.
         var again = await PostAsync(StationsEndpoint, new CarStationDto { BrandName = $"  {brand.ToUpperInvariant()}  ", City = "RENNES" }, HttpStatusCode.OK);
         again.Id.Should().Be(created.Id);
 
@@ -109,8 +104,7 @@ public class CarStationResourceTest(KestrelWebAppFactory<Program> factory)
             StationId = station.Id
         });
 
-        // the entry stores an id and nothing else; the name and city come back from the station document,
-        // which is the whole point of not copying them onto every refuel
+        // the entry stores an id and nothing else; the name and city come back from the station document, which is the whole point of not copying them onto every refuel
         var page = await GetAsync<PagedResult<CarHistoryDto>>($"/{HistoryEndpoint}?CarId={carId}");
         var entry = page.Items.Should().ContainSingle().Subject;
         entry.StationId.Should().Be(station.Id);
@@ -135,8 +129,7 @@ public class CarStationResourceTest(KestrelWebAppFactory<Program> factory)
             StationId = station.Id
         });
 
-        // deleting it here would blank that refuel's location with nothing to recover it from - that's a
-        // merge, not a delete
+        // deleting it would blank that refuel's location with nothing to recover it from, which calls for a merge, not a delete
         await DeleteAsync($"/{StationsEndpoint}/{station.Id}", HttpStatusCode.Conflict);
         await GetAsync<CarStationDto>($"/{StationsEndpoint}/{station.Id}");
 
@@ -180,9 +173,8 @@ public class CarStationResourceTest(KestrelWebAppFactory<Program> factory)
     {
         await Authenticate();
 
-        // both documents describe one physical station, so a field only one of them has is new information -
-        // but the survivor's own values must win, the same "never overwrite with nothing" rule as
-        // SetReferenceLinkAsync
+        // Both documents describe one station, so a field only one has is new information,
+        // but the survivor's values win, like SetReferenceLinkAsync's "never overwrite with nothing".
         var absorbed = await CreateStationAsync(UniqueBrand(), "Rennes", "35000");
         absorbed.Country = "FR";
         absorbed.Latitude = 48.1173;
@@ -209,8 +201,7 @@ public class CarStationResourceTest(KestrelWebAppFactory<Program> factory)
         var rennes = await CreateStationAsync(brand, "Rennes");
         var cityless = await CreateStationAsync(brand);
 
-        // giving the second one Rennes' city would put both on one natural key - the unique index would
-        // reject the write as a 500, so the API has to name the collision instead
+        // Giving the second one Rennes' city would put both on one natural key, which the unique index would reject as a 500, so the API names the collision instead.
         cityless.City = "Rennes";
         await PutAsync($"/{StationsEndpoint}/{cityless.Id}", cityless, HttpStatusCode.Conflict);
     }

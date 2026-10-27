@@ -30,7 +30,7 @@ public class ShareRepository(IMongoDatabase mongoDatabase, ShareStorageMapper ma
     public async Task<ShareModel?> FindByIdAsync(string id)
     {
         var entity = await Collection.Find(s => s.Id == id).FirstOrDefaultAsync();
-        // the usual null guard before mapping - see MongoDbRepositoryBase.FindOneAsync's identical shape
+        // the mapper throws on a null source, so a missing document is checked first
         return entity is null ? null : mapper.ToModel(entity);
     }
 

@@ -6,9 +6,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace Keeptrack.WebApi.Controllers;
 
 /// <summary>
-/// Per-owner collection counts - a read-only cross-entity aggregation like WatchNext/Wishlist, so a plain
-/// <see cref="ControllerBase"/> rather than <see cref="DataCrudControllerBase{TDto,TModel}"/>. There is no
-/// Domain service here on purpose: nine independent counts involve no computation to extract.
+/// The caller's collection counts, a read-only aggregation like Watch Next, so a plain <see cref="ControllerBase"/>.
+/// Independent counts involve no computation, so there is no Domain service.
 /// </summary>
 [ApiController]
 [Authorize]

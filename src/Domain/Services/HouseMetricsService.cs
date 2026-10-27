@@ -5,10 +5,9 @@ using Keeptrack.Domain.Models;
 namespace Keeptrack.Domain.Services;
 
 /// <summary>
-/// Pure, stateless computation over a house's history - no persistence of its own, same shape as <see cref="CarMetricsService"/>/<see cref="WatchNextService"/>.
-/// Deliberately limited to a yearly cost breakdown plus a last-record-per-type readout: House has no
-/// reminders/due-date engine by design - the owner tracks recurring bills/maintenance elsewhere and only
-/// wants an exhaustive record plus a yearly cost review here.
+/// Pure computation over a house's history, like <see cref="CarMetricsService"/>.
+/// Limited to a yearly cost breakdown and the last record per type, with no reminders or due dates (owner's call):
+/// recurring bills are tracked elsewhere, and this is an exhaustive record with a yearly cost review.
 /// </summary>
 public static class HouseMetricsService
 {
@@ -37,8 +36,7 @@ public static class HouseMetricsService
     }
 
     /// <summary>
-    /// "When did I last log each kind of house event" - one line per <see cref="HouseEventType"/>, most
-    /// recent first. Same shape as <see cref="CarMetricsService"/>'s own ComputeLastRecords.
+    /// When each kind of house event was last logged, one line per <see cref="HouseEventType"/>, most recent first.
     /// </summary>
     private static List<HouseLastRecordModel> ComputeLastRecords(IEnumerable<HouseHistoryModel> history) =>
         history

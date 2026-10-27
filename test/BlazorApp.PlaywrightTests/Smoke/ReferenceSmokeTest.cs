@@ -8,9 +8,8 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// With <see cref="End2EndFixture"/>'s synthetic book reference already imported, adding a book with the exact
-/// matching title/author and clicking "check for reference match" must resolve it - a local Mongo lookup
-/// only (<c>TryLinkExistingBookReferenceAsync</c>), never a real Open Library call, so this stays deterministic.
+/// With <see cref="End2EndFixture"/>'s synthetic book reference imported, adding a book with the matching title and author and clicking "check for reference match" resolves it.
+/// The local lookup (<c>TryLinkExistingBookReferenceAsync</c>) answers before any provider, so this stays deterministic.
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]

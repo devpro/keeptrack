@@ -10,15 +10,13 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Exercises <see cref="IProviderQuotaRepository"/> against real MongoDB. The whole point of this repository
-/// is that several replicas sharing one rate-limited API key can't collectively overspend it, and that rests
-/// entirely on server-side semantics a mock can only restate: a filtered upsert whose ceiling check and
-/// increment are one atomic operation, with _id uniqueness turning "already at the ceiling" into a duplicate
-/// key rather than a second counter. A read-then-write implementation would pass a mocked test and hand out
-/// the same last call to every replica that asked at once.
+/// Exercises <see cref="IProviderQuotaRepository"/> against real MongoDB.
+/// This repository keeps several replicas sharing one rate-limited API key from overspending it, which rests on server-side semantics a mock can only restate.
+/// A filtered upsert makes the ceiling check and increment one atomic operation, with _id uniqueness turning "at the ceiling" into a duplicate key rather than a second counter.
+/// A read-then-write implementation would pass a mocked test and hand out the same last call to every replica that asked at once.
 /// <para>
-/// Each test uses its own provider name so parallel classes can't contend, and registers the day's document
-/// for cleanup - <c>provider_quota</c> ids are genuine strings (like <c>lease</c>), not ObjectIds.
+/// Each test uses its own provider name, so parallel classes can't contend,
+/// and registers the day's document for cleanup, <c>provider_quota</c> ids being strings (like <c>lease</c>), not ObjectIds.
 /// </para>
 /// </summary>
 public class ProviderQuotaRepositoryTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)
@@ -45,8 +43,7 @@ public class ProviderQuotaRepositoryTest(KestrelWebAppFactory<Program> factory) 
         var provider = NewProvider();
         const int ceiling = 20;
 
-        // 50 replicas racing for 20 calls - the check-and-increment has to be one server-side operation, or
-        // several of these read the same "19 used" and all decide they may spend
+        // 50 replicas racing for 20 calls, so the check and increment must be one server-side operation, or several would read "19 used" and all spend
         var granted = await Task.WhenAll(Enumerable.Range(0, 50).Select(_ => repository.TryConsumeAsync(provider, s_day, ceiling, TestContext.Current.CancellationToken)));
 
         granted.Count(g => g).Should().Be(ceiling);
@@ -124,8 +121,7 @@ public class ProviderQuotaRepositoryTest(KestrelWebAppFactory<Program> factory) 
     }
 
     /// <summary>
-    /// A per-test provider name, registered for cleanup up front (the document's _id is derived from it), so
-    /// parallel classes never share a counter and no test leaves one behind.
+    /// A per-test provider name, registered for cleanup up front (the document's _id is derived from it), so parallel classes never share a counter and no test leaves one behind.
     /// </summary>
     private string NewProvider()
     {

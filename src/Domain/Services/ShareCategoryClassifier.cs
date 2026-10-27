@@ -3,11 +3,11 @@ using Keeptrack.Domain.Models;
 namespace Keeptrack.Domain.Services;
 
 /// <summary>
-/// The single place the "how is this category presented, and can it be copied" rule lives. Media is a
-/// read-only list copyable into the recipient's own collection; ordinary collections (collectibles, gear)
-/// are a read-only list but view-only (no shared reference identity to copy); personal data (cars, houses,
-/// health) is a read-only detail view and never copyable. Both the copy endpoint's gate and the owner UI's
-/// grouping derive from this, so the rule can never drift between them.
+/// How a shared category is presented and whether it can be copied, decided in one place.
+/// Media is a read-only list copyable into the recipient's collection.
+/// Collections (collectibles, gear) are a read-only list with no shared reference to copy.
+/// Personal data (cars, houses, health) is a read-only detail view, never copyable.
+/// The copy endpoint and the owner UI's grouping both derive from it, so they never drift apart.
 /// </summary>
 public static class ShareCategoryClassifier
 {
@@ -18,6 +18,6 @@ public static class ShareCategoryClassifier
         _ => ShareKind.Media
     };
 
-    /// <summary>Only reference-linked media can be copied; collections and personal data never can.</summary>
+    /// <summary>Only reference-linked media can be copied, never collections or personal data.</summary>
     public static bool IsCopyable(ShareCategory category) => KindOf(category) == ShareKind.Media;
 }

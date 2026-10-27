@@ -1,8 +1,7 @@
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// A distinct (title, year) pair, across all tenants, that has no reference-data link yet - one entry
-/// in the admin curation queue at GET /api/reference-data/unresolved.
+/// A distinct (title, year) pair, across all tenants, with no reference link yet: one entry of the admin queue at GET /api/reference-data/unresolved.
 /// </summary>
 public class UnresolvedReferenceDto
 {
@@ -13,15 +12,12 @@ public class UnresolvedReferenceDto
     public int? Year { get; set; }
 
     /// <summary>
-    /// A creator (book author / album artist) taken from one of the unresolved tenant items sharing this
-    /// (title, year) pair - a search-prefill convenience only, null for types with no creator dimension.
+    /// A creator (book author, album artist) from one of the unresolved items sharing this pair, only to prefill the search, null for the domains without a creator.
     /// </summary>
     public string? Creator { get; set; }
 
     /// <summary>
-    /// A book's own ISBN, when one of the unresolved tenant items sharing this (title, year) pair already
-    /// has one recorded - a search-prefill convenience only, same role as <see cref="Creator"/>. Book-only,
-    /// null for every other type.
+    /// A book's ISBN, when one of the unresolved items sharing this pair records one, only to prefill the search like <see cref="Creator"/>.
     /// </summary>
     public string? Isbn { get; set; }
 }

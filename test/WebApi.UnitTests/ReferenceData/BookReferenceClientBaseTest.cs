@@ -8,10 +8,9 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
 /// <summary>
-/// The search policy every book provider shares - which query is attempted, in what order, and what happens
-/// when one comes back empty. Tested once here against a recording fake rather than three times over three
-/// providers' wire formats: the ordering IS the shared algorithm, and each provider's own test then only has
-/// to prove it builds the right query string (see <c>OpenLibraryClientTest</c>/<c>BnfClientTest</c>).
+/// The search policy every book provider shares: which query is attempted, in what order, and what happens when one comes back empty.
+/// Tested once against a recording fake rather than over three wire formats, since the ordering is the shared algorithm,
+/// and each provider's test proves only its query string (see <c>OpenLibraryClientTest</c>, <c>BnfClientTest</c>).
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class BookReferenceClientBaseTest
@@ -51,8 +50,7 @@ public class BookReferenceClientBaseTest
     [Fact]
     public async Task SearchBooksAsync_SearchesByIsbnAloneAndStopsThere_WhenTheIsbnMatches()
     {
-        // an ISBN identifies one edition exactly, so a hit beats anything a fuzzy title match could produce -
-        // no title query should even be issued
+        // an ISBN identifies one edition exactly, so a hit beats any fuzzy title match, and no title query is issued
         var client = new RecordingBookClient(isbnResults: OneResult("by-isbn"));
 
         var results = await client.SearchBooksAsync("Ignored Title", 1997, "Ignored Author", "9782265002104", TestContext.Current.CancellationToken);
@@ -64,9 +62,8 @@ public class BookReferenceClientBaseTest
     [Fact]
     public async Task SearchBooksAsync_WidensToTheTitleSearch_WhenTheIsbnMatchesNothing()
     {
-        // the regression this whole change exists for: a catalogue that doesn't index an edition (BnF holds
-        // no record for 9782265002104) must not report "no results" for a book it can find by title -
-        // supplying an ISBN has to be never worse than leaving it blank
+        // A catalogue missing an edition (BnF has no record for 9782265002104) must not report "no results" for a book it finds by title,
+        // so an ISBN is never worse than leaving it blank.
         var client = new RecordingBookClient(isbnResults: [], titleWithAuthorResults: OneResult("by-title"));
 
         var results = await client.SearchBooksAsync("A Book", 1997, "An Author", "9782265002104", TestContext.Current.CancellationToken);
@@ -108,8 +105,7 @@ public class BookReferenceClientBaseTest
     }
 
     /// <summary>
-    /// A widening step only ever fires on an EMPTY result - never to "improve on" results already found,
-    /// which would replace an exact-identifier match with fuzzy ones.
+    /// A widening step fires only on an empty result, never to "improve on" results found, which would replace an exact-identifier match with fuzzy ones.
     /// </summary>
     [Fact]
     public async Task SearchBooksAsync_DoesNotWiden_WhenTheNarrowSearchAlreadyFoundSomething()

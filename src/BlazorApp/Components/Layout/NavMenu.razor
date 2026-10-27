@@ -36,9 +36,7 @@
                         <span class="nav-icon"><Icon Name="explore"/></span> Explore
                     </NavLink>
                 </div>
-                @* Eighteen flat rows had no shape. These three labels group them by what the row is for -
-                   a place to look at everything (above), one collection type (here), account-level tools
-                   (below) - which is the only structure the list ever actually had. *@
+                @* Three labels group the rows by purpose: a place to look at everything (above), one collection type (here), account-level tools (below). *@
                 <div class="kt-nav-group">Collection</div>
                 <div class="nav-item">
                     <NavLink class="nav-link" href="movies">
@@ -50,8 +48,8 @@
                         <span class="nav-icon"><Icon Name="tv-shows"/></span> TV shows
                     </NavLink>
                 </div>
-                @* Free preview accounts (no Firebase "member"/"admin" role) only get movies and TV shows - the two links above sit outside this block on purpose.
-                   Hiding is UX, not security: the API enforces the same policy on every request. *@
+                @* Free preview accounts (no Firebase "member" or "admin" role) get only movies and TV shows, whose links sit outside this block.
+                   Hiding is UX, not security, since the API enforces the same policy on every request. *@
                 <AuthorizeView Policy="MemberOnly" Context="memberContext">
                     <Authorized>
                         <div class="nav-item">
@@ -99,9 +97,8 @@
                                 <span class="nav-icon"><Icon Name="gear"/></span> Gear
                             </NavLink>
                         </div>
-                        @* Import opens the "Manage" group; the admin-only rows below join it when present.
-                           Inside MemberOnly on purpose - a free preview account has none of these rows, so
-                           it must not get a group label heading an empty group. *@
+                        @* Import opens the "Manage" group, which the admin-only rows below join when present.
+                           Inside MemberOnly, since a free preview account has none of these rows and must not see a label heading an empty group. *@
                         <div class="kt-nav-group">Manage</div>
                         <div class="nav-item">
                             <NavLink class="nav-link" href="import">
@@ -157,11 +154,8 @@
 @code {
     [Inject] private NavigationManager Navigation { get; set; } = null!;
 
-    // The mobile menu is otherwise a pure-CSS checkbox toggle (see app.css's #nav-toggle:checked rule) -
-    // this is the one bit of real Blazor state, needed to force it closed after a nav-link click.
-    // Navigating between interactively-rendered pages happens through the circuit's own router (not a raw
-    // DOM/enhanced-navigation event), so NavigationManager.LocationChanged - the one abstraction that fires
-    // reliably regardless of which navigation path Blazor takes - is what drives this, not a JS event.
+    // The mobile menu is a pure-CSS checkbox toggle (see app.css's #nav-toggle:checked rule), and this is the one Blazor state, to close it after a nav-link click.
+    // Interactive pages navigate through the circuit's router, not a DOM event, so NavigationManager.LocationChanged drives it, firing whichever navigation path Blazor takes.
     private bool _menuOpen;
 
     protected override void OnInitialized() => Navigation.LocationChanged += CloseMenu;

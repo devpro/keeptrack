@@ -81,9 +81,9 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
                 await CaptureAsync(route, name);
             }
 
-            // Thumbnail/grid view at the phone viewport. Click the real toggle once (exercises SetView and
-            // its localStorage persistence), then the sibling list pages inherit the saved preference across
-            // full reloads - which is the whole point of the feature. Restore list view for the later shots.
+            // Thumbnail/grid view at the phone viewport.
+            // Clicks the real toggle once (SetView and its localStorage persistence), and the sibling list pages inherit the saved preference across full reloads.
+            // Restore list view for the later shots.
             await Page.GotoAsync("/books");
             await Page.WaitForTimeoutAsync(1200);
             await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Thumbnail view" }).ClickAsync();
@@ -175,8 +175,8 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             await CaptureFirstDetailAsync("/tv-shows", "tvshow-detail-desktop");
             await CaptureFirstDetailAsync("/books", "book-detail-desktop");
 
-            // The same grid + list views at desktop width, to verify the responsive grid columns at both
-            // breakpoints. Drive the view via the persisted preference, then restore list for the list shot.
+            // The same grid + list views at desktop width, to verify the responsive grid columns at both breakpoints.
+            // Drive the view via the persisted preference, then restore list for the list shot.
             await SetListViewPreferenceAsync("grid");
             await CaptureAsync("/books", "books-grid-desktop");
             await CaptureAsync("/albums", "albums-grid-desktop");
@@ -239,8 +239,8 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
         });
         await CreateAsync(api, created, "api/tv-shows", new TvShowDto { Title = "The Wire", Year = 2002, State = TvShowStatus.Stopped, LastEpisodeSeen = "S03E01" });
 
-        // A realistic long unresolved queue: gibberish titles that no provider can match, so they all land
-        // in the admin queue alongside The Wire (whose two real TMDB candidates keep it unresolved too).
+        // A realistic long unresolved queue: gibberish titles that no provider can match,
+        // so they all land in the admin queue alongside The Wire (whose two real TMDB candidates keep it unresolved too).
         for (var i = 1; i <= 12; i++)
         {
             await CreateAsync(api, created, "api/tv-shows", new TvShowDto { Title = $"Zzq Unmatchable Show {i:00}", Year = 1990 + i });
@@ -257,8 +257,7 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             FirstReadAt = new DateOnly(2024, 8, 3)
         });
 
-        // An album (square Discogs art) and a game (wide RAWG art) - linked deterministically via the admin
-        // search/link API rather than relying on the background auto-resolve winning the race.
+        // An album (square Discogs art) and a game (wide art), linked through the admin search and link API rather than relying on the background auto-resolve winning the race.
         await CreateAsync(api, created, "api/albums", new AlbumDto
         {
             Title = "Nevermind",
@@ -275,7 +274,7 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             Title = "Hades",
             Year = 2020,
             Rating = 4.5f,
-            // a game's copies are its platform entries - there is no separate owned flag anymore
+            // a game's copies are its platform entries, with no separate owned flag
             Platforms = [new VideoGamePlatformDto { Platform = "PC", CopyType = CopyType.Digital, State = "Current" }],
             // proves the CustomImageUrl override shows up on both the list thumbnail and the detail cover,
             // taking priority over the linked RAWG cover it's about to be linked to below
@@ -294,8 +293,7 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
         await LinkFirstCandidateAsync(api, ReferenceItemType.VideoGame, "Hades", 2020, null);
         await LinkFirstCandidateAsync(api, ReferenceItemType.VideoGame, "Half-Life 2", 2004, null);
 
-        // a health journal with a settled appointment, an unbalanced one (drives the "to check" panel)
-        // and a sickness entry, so the detail shot shows every section
+        // a health journal with a settled appointment, an unbalanced one (drives the "to check" panel) and a sickness entry, so the detail shot shows every section
         var healthProfileId = await CreateAsync(api, created, "api/health-profiles", new HealthProfileDto { Name = "Bertrand" });
         await CreateAsync(api, created, "api/health-records", new HealthRecordDto
         {
@@ -328,7 +326,7 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             Description = "Fever, stayed home"
         });
 
-        // stays unresolved (no provider can match it) - proves the admin queue prefills the saved artist
+        // stays unresolved, since no provider can match it, proving the admin queue prefills the saved artist
         await CreateAsync(api, created, "api/albums", new AlbumDto { Title = "Zzq Unfindable Album", Artist = "Zzq Test Artist", Year = 1999 });
         await CreateAsync(api, created, "api/books", new BookDto
         {
@@ -341,9 +339,8 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             IsWishlisted = true
         });
 
-        // Thumbnail/grid-view showcase: several items per shape carrying a deterministic CustomImageUrl
-        // (portrait book covers, square album art, wide game art) so the grid captures below show a full
-        // wall of cover art without depending on a live provider link winning a race.
+        // Thumbnail/grid-view showcase: several items per shape carrying a deterministic CustomImageUrl (portrait book covers, square album art, wide game art)
+        // so the grid captures below show a full wall of cover art without depending on a live provider link winning a race.
         await SeedGridShowcaseAsync(api, created);
 
         var carId = await CreateAsync(api, created, "api/cars", new CarDto
@@ -372,9 +369,8 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
                     FuelUnitPrice = 1.78,
                     Cost = Math.Round((38.2 + i) * 1.78, 2),
                     IsFullRefill = true,
-                    // No station: a refuel's location now lives on the shared car_station document it
-                    // points at, and this harness is a screenshot pass over one tenant's own pages - it has
-                    // no business writing into a catalogue every account sees.
+                    // No station: a refuel's location lives on the shared car_station document,
+                    // and a screenshot pass over one tenant's pages has no business writing into a catalogue every account sees.
                     StationId = null
                 });
         }
@@ -393,8 +389,8 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
     }
 
     /// <summary>
-    /// Seeds a wall of cover-art items (portrait books, square albums, wide games) via CustomImageUrl so the
-    /// thumbnail/grid-view captures show a populated grid deterministically, independent of provider linking.
+    /// Seeds a wall of cover-art items (portrait books, square albums, wide games) via CustomImageUrl
+    /// so the thumbnail/grid-view captures show a populated grid deterministically, independent of provider linking.
     /// </summary>
     private static async Task SeedGridShowcaseAsync(HttpClient api, List<string> created)
     {
@@ -472,7 +468,7 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
         if (candidates is not { Count: > 0 }) return;
 
         var response = await api.PostAsJsonAsync("api/reference-data/link",
-            new LinkReferenceRequestDto { Type = type, Title = title, Year = year, ExternalId = candidates[0].ExternalId });
+            new LinkReferenceRequestDto { Type = type, Title = title, Year = year, Creator = creator, ExternalId = candidates[0].ExternalId });
         response.EnsureSuccessStatusCode();
     }
 
@@ -488,9 +484,9 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
     }
 
     /// <summary>
-    /// Sets (or clears, when null) the per-device list-view preference in localStorage. Each subsequent
-    /// full navigation re-seeds a fresh circuit from it, so this deterministically drives grid vs list for
-    /// the captures without depending on the (removed) ?view= URL parameter.
+    /// Sets (or clears, when null) the per-device list-view preference in localStorage.
+    /// Each subsequent full navigation re-seeds a fresh circuit from it,
+    /// so this deterministically drives grid vs list for the captures without depending on the (removed) ?view= URL parameter.
     /// </summary>
     private async Task SetListViewPreferenceAsync(string? view)
     {
@@ -503,7 +499,7 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
     {
         await Page.GotoAsync(route);
         await Assertions.Expect(Page.Locator("#blazor-error-ui")).ToBeHiddenAsync();
-        // No networkidle with a live SignalR circuit - give data loads a moment to settle instead.
+        // No networkidle with a live SignalR circuit, so data loads get a moment to settle instead.
         await Page.WaitForTimeoutAsync(1200);
         await Page.ScreenshotAsync(new PageScreenshotOptions { Path = Path.Combine(MobileDirectory, $"{name}.png"), FullPage = true });
     }

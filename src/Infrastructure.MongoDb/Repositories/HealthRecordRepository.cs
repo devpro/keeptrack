@@ -28,12 +28,11 @@ public class HealthRecordRepository(IMongoDatabase mongoDatabase, ILogger<Health
     {
         var builder = Builders<HealthRecord>.Filter;
         var filter = builder.Eq(f => f.OwnerId, ownerId);
-        // parent-id filter with Eq, never Text - see CLAUDE.md's CarHistory gotcha
+        // the parent id is filtered with Eq, never Text, since MongoDB allows one $text per query (see docs/data-model.md's Search section)
         if (!string.IsNullOrEmpty(input.HealthProfileId)) filter &= builder.Eq(f => f.HealthProfileId, input.HealthProfileId);
         if (!string.IsNullOrEmpty(search))
         {
-            // "who/what was that" searches span the three identifying free-text fields, like Book's
-            // title/series/author triple
+            // a search spans the three identifying free-text fields, like a book's title, series and author
             filter &= builder.Where(f => (f.Description != null && f.Description.Contains(search, System.StringComparison.CurrentCultureIgnoreCase))
                                           || (f.Practitioner != null && f.Practitioner.Contains(search, System.StringComparison.CurrentCultureIgnoreCase))
                                           || (f.Specialty != null && f.Specialty.Contains(search, System.StringComparison.CurrentCultureIgnoreCase)));

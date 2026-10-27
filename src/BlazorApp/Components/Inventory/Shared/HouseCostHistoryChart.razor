@@ -1,8 +1,7 @@
 @using static Keeptrack.BlazorApp.Components.Shared.SvgChartHelpers
-@*
-    A single-series bar chart of total cost per year.
-    Not stacked by category, which would need six colors: the breakdown table below it carries the per-category detail.
-*@
+@* 
+   A single-series bar chart of total cost per year.
+   Not stacked by category, which would need six colors: the breakdown table below it carries the per-category detail. *@
 
 <svg viewBox="0 0 @ToSvgDimension(Geometry.ViewWidth) @ToSvgDimension(Geometry.ViewHeight)" class="kt-chart-svg">
     <ChartAxes Geometry="Geometry" MarkerId="kt-chart-arrow-house-cost" XAxisLabel="Year" YAxisLabel="€" YTicks="YTicks" XTicks="XTicks"/>

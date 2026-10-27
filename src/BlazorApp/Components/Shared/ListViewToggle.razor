@@ -2,9 +2,8 @@
 @inject ListViewPreference Preference
 @inject IJSRuntime JS
 
-@* The list/thumbnail segmented control, shared by every list page plus Wishlist and Watch Next. It owns the
-   single copy of the view-preference plumbing: seed once per circuit from localStorage, persist on toggle,
-   and notify the parent (which owns rendering list vs grid) via ViewChanged. *@
+@* The list/thumbnail segmented control, shared by every list page plus Wishlist and Watch Next.
+   It owns the view preference: seeded once per circuit from localStorage, persisted on toggle, and reported through ViewChanged to the parent, which renders list or grid. *@
 
 <div class="kt-view-toggle" role="group" aria-label="View mode">
     <button type="button" class="kt-view-btn @(View != "grid" ? "active" : "")"
@@ -14,15 +13,13 @@
 </div>
 
 @code {
-    /// <summary>Current view ("" = detailed list, "grid" = poster thumbnails) - the parent owns this value.</summary>
+    /// <summary>Current view, "" for the detailed list and "grid" for poster thumbnails, owned by the parent.</summary>
     [Parameter] public string View { get; set; } = "";
 
     [Parameter] public EventCallback<string> ViewChanged { get; set; }
 
-    // Seeds the shared preference from localStorage once per circuit. localStorage isn't reachable during the
-    // server-side prerender, so this runs on the first interactive render; every later page reads the
-    // already-seeded value synchronously, so only the very first page of a session can briefly show the
-    // default view before the saved one applies.
+    // Seeds the shared preference from localStorage once per circuit, on the first interactive render, since the prerender can't reach localStorage.
+    // Later pages read the seeded value synchronously, so only a session's first page can briefly show the default view.
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender || Preference.Seeded)
@@ -38,7 +35,7 @@
         }
         catch (JSException)
         {
-            // localStorage unavailable (e.g. private-mode restrictions) - keep the default list view.
+            // localStorage unavailable (private-mode restrictions), so the default list view stays.
         }
 
         if (View != Preference.View)
@@ -57,7 +54,7 @@
         }
         catch (JSException)
         {
-            // localStorage unavailable - the in-memory preference still carries the choice for the session.
+            // localStorage unavailable, and the in-memory preference still carries the choice for the session.
         }
 
         await ViewChanged.InvokeAsync(value);

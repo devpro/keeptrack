@@ -5,10 +5,9 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
 /// <summary>
-/// Reading an identifier back out of a provider page address is the admin reconciliation screen's escape
-/// hatch for a game no search query reaches, so what it accepts matters in both directions: a URL it fails to
-/// read leaves that row stuck, and ordinary search text it mistakes for an address turns "look this up" into
-/// "look nothing up".
+/// Reading an identifier back out of a provider page address is the admin reconciliation screen's escape hatch for a game no search query reaches,
+/// so what it accepts matters in both directions: a URL it fails to read leaves that row stuck,
+/// and ordinary search text it mistakes for an address turns "look this up" into "look nothing up".
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class ProviderWebLinksTest
@@ -30,8 +29,7 @@ public class ProviderWebLinksTest
     }
 
     [Theory]
-    // every one of these is a perfectly ordinary thing to search a provider for, and a hyphenated word looks
-    // exactly like a page slug - so nothing short of an address or a number is treated as one
+    // Each of these is an ordinary search, and a hyphenated word looks exactly like a page slug, so only an address or a number is treated as an identifier.
     [InlineData("Half-Life")]
     [InlineData("Marvel's Avengers")]
     [InlineData("nier-automata")]

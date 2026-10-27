@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace Keeptrack.Domain.Models;
 
 /// <summary>
-/// Computed metrics for one health profile - see <see cref="Services.HealthMetricsService"/>.
+/// Computed metrics for one health profile, see <see cref="Services.HealthMetricsService"/>.
 /// </summary>
 public class HealthMetricsModel
 {
@@ -31,8 +31,8 @@ public class HealthCostHistoryPointModel
 }
 
 /// <summary>
-/// "When did I last see this kind of doctor" - one line per specialty seen in appointments, nothing more
-/// (no names, no counts - owner's explicit display choice).
+/// When each kind of doctor was last seen, one line per specialty seen in appointments.
+/// No names and no counts (owner's call).
 /// </summary>
 public class HealthLastVisitModel
 {
@@ -42,11 +42,10 @@ public class HealthLastVisitModel
 }
 
 /// <summary>
-/// A paid record whose money doesn't balance: price - public - insurance - leftover isn't zero.
-/// Positive <see cref="MissingAmount"/> = money still expected (chase the mutuelle, check the bank
-/// account); negative = more was received than the price accounts for, worth a look too. A record with
-/// nothing entered yet is simply missing its full price - the same list covers "not started" and
-/// "partially settled" alike.
+/// A paid record whose money does not balance: price minus public, insurance and not covered is not zero.
+/// A positive <see cref="MissingAmount"/> is money still expected (chase the mutuelle, check the bank account).
+/// A negative one means more was received than the price accounts for, which is worth a look too.
+/// A record with nothing entered yet misses its full price, so the one list covers "not started" and "partially settled" alike.
 /// </summary>
 public class HealthUnbalancedRecordModel
 {

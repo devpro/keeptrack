@@ -6,10 +6,9 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Proves every page loads with its header and no error boundary, reached the same way a real user would -
-/// clicking through the sidebar from Home, not a direct URL load (each <c>Open&lt;X&gt;Async()</c> call
-/// already asserts this via <see cref="PageBase.WaitForReadyAsync"/>) - read-only safe, so this is the one
-/// class that also runs under <c>E2E_READONLY</c>.
+/// Proves every page loads with its header and no error boundary, reached as a user does, through the sidebar from Home
+/// rather than a direct URL (each <c>Open&lt;X&gt;Async()</c> asserts it through <see cref="PageBase.WaitForReadyAsync"/>).
+/// Read-only safe, it also runs under <c>E2E_READONLY</c>.
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Readonly")]
@@ -25,8 +24,7 @@ public class NavigationSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture
     public async Task Wishlist_Loads() => await (await new HomePage(Page).OpenAsync()).OpenWishlistAsync();
 
     /// <summary>
-    /// Read-only safe: with no catalogue seeded the page renders its "still being prepared" empty state, which
-    /// is as much a load as a full ranking is.
+    /// Read-only safe: with no catalogue seeded the page renders its "still being prepared" empty state, which is as much a load as a full ranking is.
     /// </summary>
     [Fact]
     public async Task Explore_Loads() => await (await new HomePage(Page).OpenAsync()).OpenExploreAsync();

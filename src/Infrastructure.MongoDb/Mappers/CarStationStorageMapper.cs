@@ -5,9 +5,7 @@ using Keeptrack.Infrastructure.MongoDb.Entities;
 namespace Keeptrack.Infrastructure.MongoDb.Mappers;
 
 /// <summary>
-/// Hand-written rather than a Mapperly <c>[Mapper]</c> class for the same reason
-/// <see cref="CarHistoryStorageMapper"/> is: the model's flat Longitude/Latitude pair fans out into the
-/// entity's <c>[longitude, latitude]</c> coordinates array and back.
+/// Hand-written like <see cref="CarHistoryStorageMapper"/>: the model's flat longitude and latitude fan out into the entity's <c>[longitude, latitude]</c> array and back.
 /// </summary>
 public class CarStationStorageMapper : IStorageMapper<CarStationModel, CarStation>
 {
@@ -20,9 +18,7 @@ public class CarStationStorageMapper : IStorageMapper<CarStationModel, CarStatio
             City = model.City,
             PostalCode = model.PostalCode,
             Country = model.Country,
-            // never persist an empty list, only a real 2-element [lon, lat] pair or nothing - the read
-            // side indexes Coordinates[0]/[1] guarded by "!= null", which an empty list would defeat.
-            // Same contract as CarHistoryStorageMapper.BuildLocation.
+            // a real [lon, lat] pair or nothing, as in CarHistoryStorageMapper.BuildLocation
             Coordinates = model.Longitude.HasValue && model.Latitude.HasValue
                 ? [model.Longitude.Value, model.Latitude.Value]
                 : null,

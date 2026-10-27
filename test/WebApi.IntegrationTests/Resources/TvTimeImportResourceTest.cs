@@ -20,21 +20,19 @@ public class TvTimeImportResourceTest(KestrelWebAppFactory<Program> factory)
 
         var zip = TvTimeFixtureZipBuilder.Build();
 
-        // the import creates items whose ids this test never sees, so cleanup is keyed on the fixture's own
-        // synthetic titles - and registered before the import, so a partial import is cleaned up too. Shows
-        // need the extra hop through their episodes: an episode is a separate top-level document keyed by
-        // show id, not something a title search can reach.
+        // The import creates items whose ids this test never sees,
+        // so cleanup is keyed on the fixture's synthetic titles, registered before the import, so a partial import is cleaned up too.
+        // Shows need the extra hop through their episodes: an episode is a separate top-level document keyed by show id, not something a title search can reach.
         TrackShowsAndTheirEpisodes(TvTimeFixtureZipBuilder.ShowTitle);
         TrackShowsAndTheirEpisodes(TvTimeFixtureZipBuilder.OrphanShowTitle);
         TrackResourcesMatching<MovieDto>("/api/movies", TvTimeFixtureZipBuilder.MovieTitle);
 
         var firstJob = await PostFileAsync<ImportJobDto>("/api/import/tv-time", "file", zip, "gdpr-data.zip", HttpStatusCode.Accepted);
         var firstResult = await PollForResultAsync(firstJob.JobId);
-        // ShowTitle (from followed_tv_show.csv) + OrphanShowTitle (has watch history but is absent from
-        // followed_tv_show.csv - the importer must create it anyway, not skip it)
+        // ShowTitle (from followed_tv_show.csv) and OrphanShowTitle (watch history but absent from followed_tv_show.csv, which the importer still creates)
         firstResult.ShowsCreated.Should().Be(2);
-        // 4 for ShowTitle (2 from seen_episode_source.csv + 1 from tracking-prod-records.csv + 1 from
-        // tracking-prod-records-v2.csv) + 1 for OrphanShowTitle (tracking-prod-records-v2.csv only)
+        // 4 for ShowTitle (2 from seen_episode_source.csv + 1 from tracking-prod-records.csv + 1 from tracking-prod-records-v2.csv)
+        // + 1 for OrphanShowTitle (tracking-prod-records-v2.csv only)
         firstResult.EpisodesCreated.Should().Be(5);
         firstResult.MoviesCreated.Should().Be(1);
         // user_tv_show_data.csv reports 5 episodes seen, but only 4 got a watch date from the sources above
@@ -48,14 +46,13 @@ public class TvTimeImportResourceTest(KestrelWebAppFactory<Program> factory)
 
         var episodes = await GetAsync<PagedResult<EpisodeDto>>($"/api/episodes?TvShowId={show.Id}");
         episodes.Items.Should().HaveCount(4);
-        // episode notes are date-prefixed by FormatComments (same as show notes above), e.g. "2020-01-02: Great pilot"
+        // episode notes are date-prefixed by FormatComments, like show notes above ("2020-01-02: Great pilot")
         episodes.Items.Should().Contain(e => e.SeasonNumber == 1 && e.EpisodeNumber == 1 && e.Notes != null && e.Notes.Contains("Great pilot"));
         episodes.Items.Should().Contain(e => e.SeasonNumber == 1 && e.EpisodeNumber == 3);
         episodes.Items.Should().Contain(e => e.SeasonNumber == 2 && e.EpisodeNumber == 1);
 
-        // the real-world bug this guards against: a show with genuine watch history but no
-        // followed_tv_show.csv row must still be created, with its own rating applied by id, and
-        // its episode imported - not silently skipped with a "wasn't found" warning.
+        // A show with watch history but no followed_tv_show.csv row is still created,
+        // its rating applied by id and its episode imported, never skipped with a "wasn't found" warning.
         var orphanShows = await GetAsync<PagedResult<TvShowDto>>($"/api/tv-shows?search={Uri.EscapeDataString(TvTimeFixtureZipBuilder.OrphanShowTitle)}");
         var orphanShow = orphanShows.Items.Should().ContainSingle().Subject;
         orphanShow.Rating.Should().Be(3.5f);
@@ -66,12 +63,10 @@ public class TvTimeImportResourceTest(KestrelWebAppFactory<Program> factory)
         var movies = await GetAsync<PagedResult<MovieDto>>($"/api/movies?search={Uri.EscapeDataString(TvTimeFixtureZipBuilder.MovieTitle)}");
         var movie = movies.Items.Should().ContainSingle().Subject;
         movie.IsFavorite.Should().BeTrue();
-        // the only source of a movie's watched date is a "watch"/"movie" row in tracking-prod-records.csv -
-        // confirmed against a real export, where the rating/emotion vote files never carry one
+        // A movie's watched date comes only from a "watch" and "movie" row in tracking-prod-records.csv, since in a real export the rating and emotion vote files never carry one.
         movie.FirstSeenAt.Should().Be(new DateOnly(2020, 1, 7));
 
-        // re-importing the same export must recognize everything by its stable TV Time id and skip it,
-        // never duplicate
+        // re-importing the same export must recognize everything by its stable TV Time id and skip it, never duplicate
         var secondJob = await PostFileAsync<ImportJobDto>("/api/import/tv-time", "file", zip, "gdpr-data.zip", HttpStatusCode.Accepted);
         var secondResult = await PollForResultAsync(secondJob.JobId);
         secondResult.ShowsCreated.Should().Be(0);
@@ -89,9 +84,9 @@ public class TvTimeImportResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// Registers every show matching a title, plus each show's episodes, for deletion. Episodes live in
-    /// their own collection keyed by show id (see CLAUDE.md's "Child entities"), so they have to be
-    /// enumerated per show rather than found by the same title search.
+    /// Registers every show matching a title, plus each show's episodes, for deletion.
+    /// Episodes live in their own collection keyed by show id (see docs/data-model.md's "Child entities"),
+    /// so they have to be enumerated per show rather than found by the same title search.
     /// </summary>
     private void TrackShowsAndTheirEpisodes(string title)
     {

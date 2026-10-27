@@ -4,8 +4,7 @@ using Keeptrack.Common.System;
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// Shared video game metadata (synopsis, cover, platforms) - read-only, fetched separately from
-/// <see cref="VideoGameDto"/> since it isn't the tenant's own data.
+/// Shared video game metadata (synopsis, cover, platforms), read-only and fetched apart from <see cref="VideoGameDto"/>, since it is not the tenant's own data.
 /// </summary>
 public class VideoGameReferenceDto : IHasId
 {
@@ -21,7 +20,7 @@ public class VideoGameReferenceDto : IHasId
 
     public List<string> Genres { get; set; } = [];
 
-    /// <summary>Aggregate ratings keyed by source name ("rawg", "metacritic") - see <see cref="ReferenceRatingDto"/>.</summary>
+    /// <summary>Aggregate ratings keyed by source ("igdb", "igdbcritic", "rawg", "metacritic"), see <see cref="ReferenceRatingDto"/>.</summary>
     public Dictionary<string, ReferenceRatingDto> Ratings { get; set; } = [];
 
     public string? ImageUrl { get; set; }

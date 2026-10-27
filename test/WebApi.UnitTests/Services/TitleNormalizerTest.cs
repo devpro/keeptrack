@@ -5,9 +5,8 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.Services;
 
 /// <summary>
-/// The loose matcher exists to pair one provider's canonical title with another's, so every case here is a
-/// real divergence taken from live RAWG and IGDB records - the ones that left a third of a real catalogue
-/// unable to adopt the current default provider's id, and kept those same games in the owner's Explore feed.
+/// The loose matcher pairs one provider's canonical title with another's, so every case here is a real divergence from live RAWG and IGDB records.
+/// Unmatched, they would leave a third of a real catalogue unable to adopt the default provider's id, and those games in the owner's Explore feed.
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class TitleNormalizerTest
@@ -25,16 +24,14 @@ public class TitleNormalizerTest
     [InlineData("Pokémon Scarlet", "Pokemon Scarlet")]
     [InlineData("NieR:Automata", "NieR: Automata")]
     [InlineData("Ratchet & Clank", "Ratchet and Clank")]
-    // an apostrophe one catalogue writes and the other doesn't - dropped rather than spaced, or these
-    // normalize to "assassin s creed" and match neither spelling
+    // an apostrophe one catalogue writes and the other doesn't is dropped rather than spaced, or these normalize to "assassin s creed" and match neither spelling
     [InlineData("Assassin's Creed", "Assassins Creed")]
     [InlineData("Marvel’s Spider-Man", "Marvels Spider Man")]
     public void NormalizeLoose_TreatsProviderSpellingsOfOneWorkAsEqual(string left, string right) =>
         TitleNormalizer.LooselyEqual(left, right).Should().BeTrue();
 
     [Theory]
-    // an edition is its own product and must stay distinct - adopting one for the other is a wrong link,
-    // which is worse than an entry in the admin reconciliation queue
+    // an edition is its own product and stays distinct, since adopting one for the other is a wrong link, worse than an entry in the admin reconciliation queue
     [InlineData("NieR:Automata Game of the YoRHa Edition", "NieR: Automata")]
     [InlineData("Red Dead Redemption 2", "Red Dead Redemption")]
     // sequels, and the deliberate decision not to equate roman numerals with digits
@@ -44,8 +41,7 @@ public class TitleNormalizerTest
         TitleNormalizer.LooselyEqual(left, right).Should().BeFalse();
 
     [Theory]
-    // confirmed against the live IGDB API: querying with the suffix returns nothing at all - not a bad
-    // candidate list, an empty one - from both its exact-name lookup and its relevance search
+    // on the live IGDB API, querying with the suffix returns an empty list, not a bad one, from both its exact-name lookup and its relevance search
     [InlineData("GoldenEye 007 (1997)", "GoldenEye 007")]
     [InlineData("God of War (2018)", "God of War")]
     [InlineData("Demon's Souls (2020)", "Demon's Souls")]
@@ -56,14 +52,14 @@ public class TitleNormalizerTest
         TitleNormalizer.StripDisambiguator(title).Should().Be(expected);
 
     [Theory]
-    // the rows a provider's search could not parse, all confirmed against the live IGDB API: it answers the
-    // left-hand string with nothing (or with unrelated games) and the right-hand one with the game itself
+    // the rows a provider's search could not parse, all confirmed against the live IGDB API:
+    // it answers the left-hand string with nothing (or with unrelated games) and the right-hand one with the game itself
     [InlineData("NieR:Automata", "NieR Automata")]
     [InlineData("Pokémon: Let's Go, Pikachu! and Eevee!", "Pokemon Lets Go Pikachu and Eevee")]
     [InlineData("NieR Replicant v1.22474487139", "NieR Replicant v1 22474487139")]
     [InlineData("Marvel's Avengers", "Marvels Avengers")]
-    // unlike NormalizeLoose this is a query, not a key: every word survives (including "the") and so does the
-    // casing, because the result still has to read as a title the provider could hold
+    // unlike NormalizeLoose this is a query, not a key: every word survives (including "the") and so does the casing,
+    // because the result still has to read as a title the provider could hold
     [InlineData("Disco Elysium: The Final Cut", "Disco Elysium The Final Cut")]
     [InlineData("GoldenEye 007 (1997)", "GoldenEye 007 1997")]
     public void ToProviderQuery_ReducesATitleToWordsAProviderSearchCanParse(string title, string expected) =>
@@ -83,7 +79,7 @@ public class TitleNormalizerTest
         TitleNormalizer.LooselyContains(candidate, searched).Should().BeTrue();
 
     [Theory]
-    // real Discogs hits for q=Discovery&artist=Daft Punk - free text matched something other than the title
+    // real Discogs hits for q=Discovery&artist=Daft Punk, the free text matching something other than the title
     [InlineData("Live @ Rex Club, Paris", "Discovery")]
     [InlineData("MP3 Collection", "Discovery")]
     // q=Sabbath: the word only ever occurs in the artist name, "Black Sabbath"
@@ -102,8 +98,8 @@ public class TitleNormalizerTest
     [Fact]
     public void Normalize_StaysStrict_SoTenantTypedTextIsNotConflated()
     {
-        // the stored alias/TitleNormalized key is matched against what a tenant typed, where losing this much
-        // information would start merging different items - only provider-to-provider matching goes loose
+        // The stored alias and TitleNormalized key are matched against what a tenant typed,
+        // where losing this much would merge different items, so only provider-to-provider matching goes loose.
         TitleNormalizer.Normalize("Mass Effect: Legendary Edition").Should().Be("mass effect: legendary edition");
         TitleNormalizer.Normalize("  Portal 2 ").Should().Be("portal 2");
     }

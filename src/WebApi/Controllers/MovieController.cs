@@ -20,18 +20,17 @@ public class MovieController(
     ILogger<MovieController> logger)
     : DataCrudControllerBase<MovieDto, MovieModel>(mapper, dataRepository)
 {
-    /// <summary>Movies are part of the free preview tier, capped at the configured limit for non-members.</summary>
+    /// <summary>Movies are in the free preview tier, capped at the configured limit for non-members.</summary>
     protected override int FreeTierLimitFactor => 1;
 
     /// <summary>
-    /// Hydrates each page item's cover image from its linked reference document - one batched lookup per
-    /// page (see <see cref="ReferenceImageHydrator"/>), keyed by the id-bearing documents only.
+    /// Hydrates each item's cover from its linked reference, one batched lookup per page (see <see cref="ReferenceImageHydrator"/>).
     /// </summary>
     protected override Task OnListMappedAsync(List<MovieDto> dtos, CancellationToken cancellationToken)
         => ReferenceImageHydrator.HydrateAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl);
 
     /// <summary>
-    /// Fires a best-effort background TMDB match for the new movie - see <see cref="TvShowController.OnCreatedAsync"/>.
+    /// Starts a best-effort background TMDB match for the new movie (see <see cref="TvShowController.OnCreatedAsync"/>).
     /// </summary>
     protected override Task OnCreatedAsync(MovieModel model)
     {
@@ -53,8 +52,7 @@ public class MovieController(
     }
 
     /// <summary>
-    /// User-triggered, exact-match-only re-check against the local reference collection - see
-    /// <see cref="TvShowController.RefreshReference"/>.
+    /// "Check for reference match" (see <see cref="TvShowController.RefreshReference"/>).
     /// </summary>
     [HttpPost("{id}/refresh-reference")]
     [ProducesResponseType(200)]
@@ -69,8 +67,7 @@ public class MovieController(
     }
 
     /// <summary>
-    /// Admin-only: clears this movie's reference link and permanently deletes the shared reference
-    /// document - see <see cref="TvShowController.UnlinkReference"/>.
+    /// Admin only: clears this movie's link and deletes the shared reference document (see <see cref="TvShowController.UnlinkReference"/>).
     /// </summary>
     [HttpPost("{id}/unlink-reference")]
     [Authorize(Policy = "AdminOnly")]

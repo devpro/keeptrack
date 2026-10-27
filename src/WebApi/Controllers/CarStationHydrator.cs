@@ -4,19 +4,15 @@ using Keeptrack.WebApi.Contracts.Dto;
 namespace Keeptrack.WebApi.Controllers;
 
 /// <summary>
-/// Fills the display-only <see cref="CarHistoryDto.StationBrandName"/>/<see cref="CarHistoryDto.StationCity"/>
-/// on a page of history entries from the shared <c>car_station</c> collection, with a single batched
-/// lookup - the same one-query-per-page rule as <see cref="ReferenceImageHydrator"/>, and the reason the
-/// station's name and location are stored once rather than copied onto every refuel.
-/// Shared by <see cref="CarHistoryController"/> and the shared-with-me car read so the collect/lookup/apply
-/// logic exists once.
+/// Fills <see cref="CarHistoryDto.StationBrandName"/> and <see cref="CarHistoryDto.StationCity"/> on a page of history entries from <c>car_station</c>,
+/// in one batched lookup like <see cref="ReferenceImageHydrator"/>.
+/// Shared by <see cref="CarHistoryController"/> and the shared car read.
 /// </summary>
 public static class CarStationHydrator
 {
     public static async Task HydrateAsync(IReadOnlyList<CarHistoryDto> entries, ICarStationRepository stationRepository)
     {
-        // distinct, non-empty ids only - an entry with no station (every Maintenance/Other one) contributes
-        // nothing, and "" is the pre-Mapperly generation of "unset" (see CLAUDE.md's UnresolvedFilter gotcha)
+        // distinct non-empty ids, since Maintenance and Other entries have no station, and older documents store "" for unset (see docs/data-model.md)
         var ids = entries.Select(x => x.StationId).OfType<string>().Where(x => x.Length > 0).Distinct().ToList();
         if (ids.Count == 0) return;
 

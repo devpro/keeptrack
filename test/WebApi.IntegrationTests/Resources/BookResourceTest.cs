@@ -33,9 +33,8 @@ public class BookResourceTest(KestrelWebAppFactory<Program> factory)
             {
                 o.Author = f.Random.AlphaNumeric(8);
                 o.Title = f.Random.AlphaNumeric(14);
-                // round-trips Language/CustomImageUrl/Isbn through the real Mapperly mappers + MongoDB -
-                // all three are plain scalar fields with no special mapping, but a real integration test is
-                // what would catch a missed [BsonElement]/mapper ignore, not a mocked unit test.
+                // Round-trips Language, CustomImageUrl and Isbn through the real Mapperly mappers and MongoDB, plain scalars,
+                // since only a real integration test catches a missed [BsonElement] or mapper ignore.
                 o.Language = f.Random.AlphaNumeric(3);
                 o.CustomImageUrl = f.Internet.Url();
                 o.Isbn = f.Random.Replace("##########");
@@ -77,16 +76,14 @@ public class BookResourceTest(KestrelWebAppFactory<Program> factory)
         var owned = await GetAsync<PagedResult<BookDto>>($"/{ResourceEndpoint}?IsOwned=true&search={uniqueTitle}");
         owned.Items.Should().ContainSingle(b => b.Id == created.Id);
 
-        // this is the WishlistController filter-probe, not a list-page UI filter (removed) - still real API behavior
+        // the WishlistController filter probe, not a list-page UI filter, still real API behaviour
         var wishlisted = await GetAsync<PagedResult<BookDto>>($"/{ResourceEndpoint}?IsWishlisted=true&search={uniqueTitle}");
         wishlisted.Items.Should().ContainSingle(b => b.Id == created.Id);
     }
 
     /// <summary>
-    /// <see cref="BookDto.CustomImageUrl"/> is Book-specific (not shared via the generic
-    /// image-hydration helper/<see cref="IReferenceLinkedDto"/>, which the other four reference-linked types
-    /// also implement with no equivalent override) - <c>BookController.OnListMappedAsync</c> is expected to
-    /// apply it over the linked reference's own cover on every list read.
+    /// <c>BookController.OnListMappedAsync</c> applies <see cref="BookDto.CustomImageUrl"/> over the linked reference's cover on every list read,
+    /// beside the generic <see cref="IReferenceLinkedDto"/> image hydration.
     /// </summary>
     [Fact]
     public async Task BookResourceList_CustomImageUrlOverridesTheLinkedReferencesCover()

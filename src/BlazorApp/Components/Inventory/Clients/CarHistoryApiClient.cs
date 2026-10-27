@@ -8,8 +8,7 @@ public sealed class CarHistoryApiClient(HttpClient http)
     protected override string ApiResourceName => "/api/car-history";
 
     /// <summary>
-    /// Fuel grades already recorded across this tenant's history - see
-    /// <c>CarHistoryController.GetFuelCategories</c>.
+    /// Fuel grades already recorded across this tenant's history (see <c>CarHistoryController.GetFuelCategories</c>).
     /// </summary>
     public async Task<List<string>> GetFuelCategoriesAsync()
     {

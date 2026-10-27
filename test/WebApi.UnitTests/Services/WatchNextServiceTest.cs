@@ -184,8 +184,7 @@ public class WatchNextServiceTest
     [Fact]
     public void FilterMoviesToWatch_ExcludesMoviesAlreadyMarkedAsSeen()
     {
-        // toggling "want to watch" on a movie's detail page doesn't clear the flag once it's marked watched -
-        // an already-seen movie shouldn't linger in the watchlist regardless
+        // marking a movie watched doesn't clear its "want to watch" flag, and an already seen movie shouldn't linger in the watchlist regardless
         var movies = new[] { Movie("movie-1", "Dune", new DateOnly(2024, 1, 1)) };
 
         var result = WatchNextService.FilterMoviesToWatch(movies);

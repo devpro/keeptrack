@@ -77,11 +77,11 @@ public class MovieResourceTest(KestrelWebAppFactory<Program> factory)
         var owned = await GetAsync<PagedResult<MovieDto>>($"/{ResourceEndpoint}?IsOwned=true&search={uniqueTitle}");
         owned.Items.Should().ContainSingle(m => m.Id == created.Id);
 
-        // the version's fields must survive the full DTO -> model -> BSON round trip (incl. the decimal price)
+        // the version's fields survive the full DTO, model and BSON round trip, the decimal price included
         var fetchedVersions = owned.Items.Single(m => m.Id == created.Id).OwnedVersions;
         fetchedVersions.Should().BeEquivalentTo(input.OwnedVersions);
 
-        // this is the WishlistController filter-probe, not a list-page UI filter (removed) - still real API behavior
+        // the WishlistController filter probe, not a list-page UI filter, still real API behaviour
         var wishlisted = await GetAsync<PagedResult<MovieDto>>($"/{ResourceEndpoint}?IsWishlisted=true&search={uniqueTitle}");
         wishlisted.Items.Should().ContainSingle(m => m.Id == created.Id);
     }

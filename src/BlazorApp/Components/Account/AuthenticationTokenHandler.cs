@@ -26,12 +26,9 @@ public class AuthenticationTokenHandler(
 
         var response = await base.SendAsync(request, cancellationToken);
 
-        // The auth cookie (8h, sliding) deliberately outlives the Firebase ID token it carries (Firebase
-        // tokens expire after ~1h). Client-side refresh (Firebase's onIdTokenChanged wiring in
-        // FirebaseSessionRefresh + the /auth/refresh endpoint) normally keeps the stored token current, so
-        // this rarely fires - but when it can't (the token was revoked, or the session is past the cookie's
-        // own lifetime) a call reaches the API with a stale token and comes back 401. Bounce to login rather
-        // than surfacing a raw 401 to the page.
+        // The auth cookie (8h, sliding) outlives the Firebase ID token it carries, which expires after about 1h.
+        // Client-side refresh (onIdTokenChanged in FirebaseSessionRefresh, and the /auth/refresh endpoint) normally keeps the stored token current.
+        // When it can't (a revoked token, or a session past the cookie's lifetime), a call comes back 401, and the user is sent to login rather than shown a raw 401.
         if (response.StatusCode == HttpStatusCode.Unauthorized)
         {
             response.Dispose();
@@ -44,18 +41,14 @@ public class AuthenticationTokenHandler(
     [DoesNotReturn]
     private static void RedirectToLogin(HttpContext httpContext)
     {
-        // The NavigationManager is resolved from the request's own DI scope, NOT constructor-injected:
-        // IHttpClientFactory builds this DelegatingHandler in a separate handler scope whose
-        // RemoteNavigationManager the renderer never initialized, so its .Uri / .NavigateTo throw
-        // "RemoteNavigationManager has not been initialized" during the SSR/prerender pass (the intermittent
-        // red error a page refresh worked around). The request scope's NavigationManager is the one the
-        // endpoint renderer already initialized before running OnInitializedAsync, so it is safe to use here.
+        // The NavigationManager comes from the request's DI scope, not the constructor.
+        // IHttpClientFactory builds this handler in its own scope, whose RemoteNavigationManager the renderer never initialized,
+        // so .Uri and .NavigateTo throw "RemoteNavigationManager has not been initialized" during prerender.
+        // The endpoint renderer initializes the request scope's NavigationManager before OnInitializedAsync, so it is safe here.
         var navigationManager = httpContext.RequestServices.GetRequiredService<NavigationManager>();
         var returnUrl = Uri.EscapeDataString(navigationManager.Uri);
-        // forceLoad so the browser does a full navigation to the login page (re-running the Firebase sign-in
-        // flow and re-issuing the cookie) instead of an in-circuit render that would keep the dead session.
-        // During static SSR this throws a NavigationException the framework turns into a redirect; during an
-        // interactive circuit it triggers the browser navigation directly.
+        // forceLoad makes a full navigation to the login page, re-running the Firebase sign-in and re-issuing the cookie, where an in-circuit render would keep the dead session.
+        // During static SSR it throws a NavigationException the framework turns into a redirect, and in an interactive circuit it navigates the browser directly.
         navigationManager.NavigateTo($"account/login?returnUrl={returnUrl}", forceLoad: true);
         throw new TokenExpiredException();
     }

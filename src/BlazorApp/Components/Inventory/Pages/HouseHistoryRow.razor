@@ -1,6 +1,6 @@
-@* One row of the house history sheet - a compact summary of the most important fields. Editing happens
-   through the same modal used to add a new entry (HouseDetail.razor), opened via the Edit button below.
-   Edit/delete icons default to text presentation (no FE0F) - same convention as HealthRecordRow.razor. *@
+@* One row of the house history sheet, a compact summary of the most important fields.
+   The Edit button below opens the same modal that adds an entry (HouseDetail.razor).
+   The edit and delete icons default to text presentation (no FE0F), like HealthRecordRow.razor. *@
 
 <tr>
     <td>@Entry.HistoryDate.ToString("yyyy-MM-dd")</td>
@@ -22,7 +22,7 @@
 @code {
     [Parameter] public required HouseHistoryDto Entry { get; set; }
 
-    /// <summary>Read-only mode (a recipient viewing a shared house) hides the edit/delete actions column.</summary>
+    /// <summary>Read-only mode (a recipient viewing a shared house) hides the edit and delete column.</summary>
     [Parameter] public bool ReadOnly { get; set; }
 
     [Parameter] public EventCallback<HouseHistoryDto> OnEdit { get; set; }

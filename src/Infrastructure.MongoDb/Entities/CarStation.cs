@@ -5,8 +5,7 @@ using MongoDB.Bson.Serialization.Attributes;
 namespace Keeptrack.Infrastructure.MongoDb.Entities;
 
 /// <summary>
-/// One shared, owner-less fuel station - see <see cref="Domain.Models.CarStationModel"/> for why this
-/// collection carries no <c>owner_id</c>.
+/// One shared fuel station (see <see cref="Domain.Models.CarStationModel"/> for why it has no <c>owner_id</c>).
 /// </summary>
 public class CarStation
 {
@@ -25,8 +24,8 @@ public class CarStation
     public string? Country { get; set; }
 
     /// <summary>
-    /// [longitude, latitude], the same shape and ordering as <see cref="CarHistoryLocation.Coordinates"/>.
-    /// Never an empty list - only a real pair or nothing, since the read side indexes [0]/[1].
+    /// [longitude, latitude], like <see cref="CarHistoryLocation.Coordinates"/>.
+    /// A real pair or nothing, never an empty list, since readers index [0] and [1].
     /// </summary>
     public List<double>? Coordinates { get; set; }
 

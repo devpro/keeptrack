@@ -3,8 +3,7 @@ using System;
 namespace Keeptrack.Domain.Models;
 
 /// <summary>
-/// One consumption data point, always computed across a full refill/recharge (never a partial one) - see
-/// CarMetricsService.
+/// One consumption data point, always computed across a full refill or recharge, never a partial one (see <c>CarMetricsService</c>).
 /// </summary>
 public class ConsumptionPointModel
 {

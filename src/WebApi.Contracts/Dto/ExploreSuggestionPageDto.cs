@@ -11,21 +11,18 @@ public class ExploreSuggestionPageDto
     public List<ExploreSuggestionDto> Items { get; set; } = [];
 
     /// <summary>
-    /// Pass back as <c>after</c> to fetch the next page; null once the ranking is exhausted, which is what a
-    /// client uses to stop offering "load more".
+    /// Passed back as <c>after</c> for the next page, and null once the ranking is exhausted, so the client stops offering "load more".
     /// <para>
-    /// A rank cursor rather than a page number because the per-caller exclusions ("already tracked",
-    /// "dismissed") are applied after the ranked read: a skip/limit page would shift under the client and
-    /// silently drop suggestions as titles are filtered out. A page may therefore hold fewer than the
-    /// requested count and still have more to come.
+    /// A rank cursor rather than a page number, since the caller's exclusions (tracked, dismissed) apply after the ranked read,
+    /// and a skip and limit page would shift and drop suggestions.
+    /// A page can therefore hold fewer than requested and still have more to come.
     /// </para>
     /// </summary>
     public int? NextCursor { get; set; }
 
     /// <summary>
-    /// True when this domain's ranking hasn't been built yet (a fresh deployment, before the first periodic
-    /// refresh pass) rather than the caller having run out of suggestions. Both are an empty list, but they
-    /// mean opposite things to a user - "check back shortly" versus "every one is already tracked".
+    /// True when this domain's ranking is not built yet, before the first refresh of a new deployment, rather than the caller having seen every suggestion.
+    /// Both are an empty list, but one means "check back shortly" and the other "everything is already tracked".
     /// </summary>
     public bool CataloguePending { get; set; }
 }

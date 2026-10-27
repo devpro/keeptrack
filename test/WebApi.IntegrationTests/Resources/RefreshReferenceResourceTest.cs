@@ -15,9 +15,8 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Exercises POST /api/tv-shows/{id}/refresh-reference and /api/movies/{id}/refresh-reference - the
-/// user-triggered, exact-match-only re-check against the local reference collection. Deliberately not
-/// admin-gated (unlike the TMDB search/link endpoints), so the standard test user can call it directly.
+/// Exercises POST /api/{collection}/{id}/refresh-reference, the user-triggered re-check that asks the local references first and escalates to the provider when nothing matches.
+/// Not admin-gated, unlike the admin search and link endpoints, so the standard test user calls it directly.
 /// </summary>
 public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
     : ResourceTestBase(factory)
@@ -28,7 +27,8 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
         using var scope = Factory.Services.CreateScope();
         var referenceRepository = scope.ServiceProvider.GetRequiredService<ITvShowReferenceRepository>();
         var title = $"Refresh Reference Test Show {Guid.NewGuid()}";
-        // unique per test, like the searched title: creating the show links it in the background, which rewrites its title to the canonical one, so the refresh below looks the *canonical* title up.
+        // unique per test, like the searched title: creating the show links it in the background,
+        // which rewrites its title to the canonical one, so the refresh below looks the *canonical* title up.
         // A canonical title two tests share would let that lookup answer with the other test's document.
         var canonicalTitle = $"Canonical Refresh Show {Guid.NewGuid()}";
         const int year = 2019;
@@ -116,7 +116,8 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
             TitleNormalized = TitleNormalizer.Normalize(canonicalTitle),
             Year = year,
             ExternalIds = new Dictionary<string, string> { ["openlibrary"] = TestExternalId.New() },
-            // book/album aliases also carry the normalized creator - it is part of the identity here, and a creator-less alias is refused outright (see ReferenceAliasRule), which is why the canonical one has to be seeded rather than left to the repository
+            // Book and album aliases also carry the normalized creator, part of the identity,
+            // and a creator-less alias is refused (see ReferenceAliasRule), so the canonical one is seeded rather than left to the repository.
             MatchedAliases =
             [
                 new ReferenceMatchModel { Title = TitleNormalizer.Normalize(canonicalTitle), Year = year, Creator = TitleNormalizer.Normalize("Some Author") },
@@ -181,7 +182,7 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
             TitleNormalized = TitleNormalizer.Normalize(canonicalTitle),
             Year = year,
             ExternalIds = new Dictionary<string, string> { ["discogs"] = TestExternalId.New() },
-            // an album alias carries no year at all - title + artist is the identity (see ReferenceAliasRule)
+            // an album alias carries no year, title and artist being the identity (see ReferenceAliasRule)
             MatchedAliases =
             [
                 new ReferenceMatchModel { Title = TitleNormalizer.Normalize(canonicalTitle), Creator = TitleNormalizer.Normalize("Some Artist") },
@@ -200,23 +201,16 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// The create journey, end to end: adding a game whose title and year identify exactly one game must link
-    /// it without anyone clicking anything. Reported from the running app with "code vein season pass" (2019).
+    /// The create journey, end to end: adding a game whose title and year identify exactly one game links it without anyone clicking anything.
     /// <para>
-    /// The title is deliberately typed the way a person types it - <b>no colon</b>, where IGDB spells it
-    /// "Code Vein: Season Pass". That difference is not cosmetic: it makes the exact-name query return nothing
-    /// at all, so this only works if the relevance rung is asked too and the confirmation is loose about
-    /// punctuation. Every unit test in this area feeds candidates in directly and therefore cannot catch a
-    /// break in that wiring.
+    /// "code vein season pass" is typed as a person types it, with <b>no colon</b>, where IGDB spells it "Code Vein: Season Pass".
+    /// The exact-name query then returns nothing, so it is found only by the relevance rung and confirmed only because punctuation is folded.
+    /// "Resident Evil 2" is one of eight games IGDB holds under that name, so it is found by the exact-name rung and narrowed only by the year.
+    /// Unit tests in this area feed candidates in directly and can't catch a break in that wiring.
     /// </para>
     /// <para>
     /// <c>OnCreatedAsync</c> resolves on a detached background task, so this polls rather than asserting once.
     /// </para>
-    /// </summary>
-    /// <summary>
-    /// Both titles reach the same rule by different routes, which is why both are here.
-    /// "code vein season pass" is spelled differently from IGDB's own "Code Vein: Season Pass", so it is found only by the relevance rung and confirmed only because punctuation is folded.
-    /// "Resident Evil 2" is one of eight games IGDB holds under exactly that name, so it is found by the exact-name rung and narrowed only by the year.
     /// </summary>
     [Theory]
     [InlineData("code vein season pass", 2019)]
@@ -234,9 +228,8 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// Polls a just-created item until its background reference resolution lands, or gives up. The resolve
-    /// makes a provider call or two, so the budget is generous; returning empty is a real answer here (the
-    /// caller asserts on it) rather than a timeout to throw on.
+    /// Polls a just-created item until its background reference resolution lands, or gives up.
+    /// The resolve makes a provider call or two, so the budget is generous; returning empty is a real answer here (the caller asserts on it) rather than a timeout to throw on.
     /// </summary>
     private async Task<string?> PollForReferenceLinkAsync(string url)
     {
@@ -251,11 +244,9 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// Both video game cases below prove that a title+year reaches the <b>provider</b>, so both are only
-    /// meaningful while no local reference already answers - and each one *creates* exactly such a reference by
-    /// passing. Left behind, they would make their own next run (and each other) pass through the cheap local
-    /// path instead, still green and no longer testing anything. This is the deliberate exception to "reference
-    /// documents from a real provider are left in place": here their absence is the premise.
+    /// Both video game cases below prove that a title and year reach the <b>provider</b>, meaningful only while no local reference answers, and by passing each creates one.
+    /// Left behind, they would make the next run, and each other, pass through the cheap local path, still green and no longer testing anything.
+    /// This is the exception to "reference documents from a real provider stay": here their absence is the premise.
     /// </summary>
     private void TrackReference(string? referenceId)
     {
@@ -263,9 +254,7 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// Fails loudly and by name when a leftover reference would make the test pass for the wrong reason,
-    /// rather than letting it go quietly green - the same "check the premise and say what broke it" shape
-    /// <c>ExploreSmokeTest</c> uses.
+    /// Fails loudly and by name when a leftover reference would make the test pass for the wrong reason, checking the premise like <c>ExploreSmokeTest</c>.
     /// </summary>
     private async Task RequireNoLocalReferenceAsync(string title, int year)
     {
@@ -279,31 +268,26 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// The journey the detail page's button actually promises: <i>"Not right? Edit the title or year below,
-    /// then check again."</i>
+    /// The journey the detail page's button actually promises: <i>"Not right? Edit the title or year below, then check again."</i>
     /// <para>
-    /// A tenant with a real title and a real year, and <b>no reference document anywhere yet</b>, must end up
-    /// linked. This is the ordinary state for anything created before its year was known - automatic
-    /// resolution runs only on create, refuses to guess without a year, and so writes no reference at all;
-    /// from then on the local-only re-check can never find one however correct the title and year become.
-    /// Reported from the running app with "Code Vein: Season Pass" (2019), which IGDB holds exactly once.
+    /// A tenant with a real title and a real year, and <b>no reference document anywhere yet</b>, must end up linked.
+    /// It is the ordinary state for anything created before its year was known: automatic resolution runs on create, refuses to guess without a year, and writes no reference.
+    /// A local-only re-check could then never find one, however correct the title and year become.
+    /// "Code Vein: Season Pass" (2019) is held once by IGDB.
     /// </para>
     /// <para>
-    /// Real IGDB, deliberately: the whole point is that nothing local can answer this, and a fake provider
-    /// would prove only that the plumbing compiles. Skips rather than fails on a 502 - see
-    /// <see cref="ResourceTestBase.GetThroughLiveProviderAsync{T}"/>.
+    /// Real IGDB, since nothing local can answer this, and a fake provider would prove only that the plumbing compiles.
+    /// Skips rather than fails on a 502 (see <see cref="ResourceTestBase.GetThroughLiveProviderAsync{T}"/>).
     /// </para>
     /// </summary>
     [Fact]
     public async Task RefreshReference_LinksVideoGameThroughTheProvider_WhenNoReferenceExistsYetAndTitleAndYearMatchExactly()
     {
-        // a different game from the create case above, so neither can supply the other's reference and make it
-        // pass through the local path
+        // a different game from the create case above, so neither can supply the other's reference and make it pass through the local path
         await Authenticate();
         await RequireNoLocalReferenceAsync("Code Vein: Frozen Empress", 2020);
-        // created without a year and given one afterwards - the exact journey that reaches this button, and
-        // the one that leaves no reference behind for the local lookup to find (resolution on create correctly
-        // refuses to choose between same-titled games without a year)
+        // Created without a year and given one afterwards, the journey that reaches this button.
+        // It leaves no reference for the local lookup, since resolution on create refuses to choose between same-titled games without a year.
         var created = await CreateAsync("/api/video-games", new VideoGameDto { Title = "Code Vein: Frozen Empress" });
         created.Year = 2020;
         await PutAsync($"/api/video-games/{created.Id}", created);
@@ -315,8 +299,8 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// The rule the provider escalation must not break: with no year and several games sharing the title,
-    /// there is nothing to choose with, so nothing is chosen. "Resident Evil 2" is eight games on IGDB.
+    /// The rule the provider escalation must not break: with no year and several games sharing the title, there is nothing to choose with, so nothing is chosen.
+    /// "Resident Evil 2" is eight games on IGDB.
     /// </summary>
     [Fact]
     public async Task RefreshReference_LeavesVideoGameUnresolved_WhenNoYearIsGivenAndSeveralGamesShareTheTitle()

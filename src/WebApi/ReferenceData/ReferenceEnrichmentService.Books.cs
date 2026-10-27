@@ -7,10 +7,9 @@ namespace Keeptrack.WebApi.ReferenceData;
 public partial class ReferenceEnrichmentService
 {
     /// <summary>
-    /// Builds the reference <c>Ratings</c> map for a book, keyed by the provider that resolved it
-    /// (a book links through exactly one provider, so the map holds at most one entry - that provider is
-    /// therefore the primary). Google Books and Open Library both report a 0-5 average; BnF reports none.
-    /// A 0/absent value is omitted, never stored as a real zero.
+    /// A book's <c>Ratings</c> map, keyed by the provider that resolved it, so at most one entry, which is the primary.
+    /// Google Books and Open Library report a 0 to 5 average, BnF none.
+    /// A zero or absent value is omitted.
     /// </summary>
     private static Dictionary<string, ReferenceRatingModel> BuildBookRatings(string providerKey, double? rating, int? ratingCount)
     {
@@ -23,9 +22,8 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// The book's single stored rating (from whichever provider linked it, or the OL fallback) and that
-    /// provider's key as its source, or no value and no source when it has none. Books are the one domain
-    /// with no admin-selectable source, so the key is read off the reference rather than resolved.
+    /// The book's single stored rating, from the linking provider or the Open Library fallback, with that key as its source, or nothing.
+    /// Books have no selectable source, so the key is read from the reference.
     /// </summary>
     private static (double? Value, double? Scale, string? Source) BookPrimaryRating(BookReferenceModel reference) =>
         reference.Ratings.Count == 0 ? (null, null, null) : PrimaryRating(reference.Ratings, reference.Ratings.Keys.First());
@@ -33,33 +31,21 @@ public partial class ReferenceEnrichmentService
     private const string OpenLibraryProviderKey = "openlibrary";
 
     /// <summary>
-    /// Cross-provider rating fallback for books: when the linking provider supplied no rating (Google Books,
-    /// the default, no longer serves any) and there's a resolved ISBN to look up by, fetch Open Library's
-    /// rating by ISBN and store it under its own source key. No-op when a rating already exists, the linking
-    /// provider IS Open Library (already covered), or there's no ISBN. Best-effort - a failed/empty lookup
-    /// just leaves the book unrated rather than failing the resolve.
+    /// The rating fallback for books: when the linking provider gave no rating (Google Books gives none) and an ISBN is known,
+    /// Open Library's rating by ISBN is stored under its own key.
+    /// Nothing happens when a rating exists, the linking provider is Open Library, or there is no ISBN.
     /// <para>
-    /// <b>This runs on the background refresh only</b> (<see cref="RefreshBookReferenceAsync"/>), never while someone is waiting.
-    /// It was on the interactive link path too, and the guard above made that far worse than it reads: Google Books serves no ratings at all, so <c>ratings.Count > 0</c> is false for every book and the "fallback" fired on every single link.
-    /// One admin click therefore called a second provider for a number that has no bearing on the link, and when Open Library is unreachable (measured: no response in 60s) it spent the whole 40s <c>AddBookProviderResilienceHandler</c> budget before this method swallowed the failure.
-    /// Linking now costs one Google Books call and the rating catches up on the next sync pass, which is where a slow optional provider belongs.
+    /// <b>It runs on the background refresh only</b> (<see cref="RefreshBookReferenceAsync"/>), never while someone waits.
+    /// Google Books serving no ratings, it would otherwise run on every link, and an unreachable Open Library would spend the whole 40s book budget on an admin's click.
     /// </para>
     /// <para>
-    /// "Best-effort" has to be enforced here, not merely intended: this is a *secondary* provider adding an
-    /// optional number to work the linking provider has already returned in full, and an exception escaping it
-    /// discards all of that. It did. Open Library's <c>search.json</c> went slow enough to blow the 40s total
-    /// timeout (see <c>AddBookProviderResilienceHandler</c>), and every book refresh threw after Google Books
-    /// had already answered - so nothing was upserted, <c>LastEnrichedAt</c> was never stamped, and the same
-    /// books sat at the head of the staleness queue re-paying that timeout on every pass. Same rule, and the
-    /// same reason, as <see cref="IOmdbClient"/> never throwing for anything OMDb or the network can do.
+    /// It never throws: a secondary provider adding an optional number must not discard what the linking provider returned.
+    /// A slow Open Library would otherwise fail every book refresh, leaving <c>LastEnrichedAt</c> unstamped,
+    /// so the same books would lead every pass and time out again, as <see cref="IOmdbClient"/> avoids.
     /// </para>
     /// <para>
-    /// <paramref name="knownRating"/> is the other half of that rule, and it matters because the refresh
-    /// rebuilds <c>Ratings</c> from the linking provider - which never carries this value. Dropping it whenever
-    /// Open Library couldn't be reached would discard a rating that cost a call to obtain, on exactly the
-    /// passes where it can't be re-earned (observed: "The Hobbit"'s 4.29/498 disappearing during the outage
-    /// above). So a lookup that never answered keeps what is already known, while an answer of "no rating" is
-    /// a real answer and does clear it - the same distinction <c>RebuildRatingsAsync</c> makes for OMDb.
+    /// <paramref name="knownRating"/> matters since the refresh rebuilds <c>Ratings</c> from the linking provider, which never carries this value.
+    /// A lookup that never answered keeps the known rating, while an answer of "no rating" clears it, as <c>RebuildRatingsAsync</c> does for OMDb.
     /// </para>
     /// </summary>
     private async Task AddOpenLibraryRatingFallbackAsync(Dictionary<string, ReferenceRatingModel> ratings, string providerKey, string? isbn,
@@ -67,7 +53,7 @@ public partial class ReferenceEnrichmentService
     {
         if (ratings.Count > 0 || providerKey == OpenLibraryProviderKey) return;
 
-        // no ISBN is not an answer either - there is nothing to ask with, so nothing that could have changed.
+        // no ISBN is no answer either: nothing to ask with, so nothing changed
         if (string.IsNullOrWhiteSpace(isbn))
         {
             KeepKnownRating();
@@ -82,8 +68,7 @@ public partial class ReferenceEnrichmentService
                 ratings[OpenLibraryProviderKey] = new ReferenceRatingModel { Value = average.Value, Scale = 5, Count = count };
             }
         }
-        // a shutdown is not a provider being unhelpful: swallowing it would walk the rest of the pass against
-        // a container already being disposed, the same exclusion ReferenceSyncService's per-document catch makes.
+        // a shutdown is not a provider failure, and swallowing it would walk the rest of the pass against a container being disposed
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             logger.LogWarning(exception, "Open Library rating lookup failed for ISBN {Isbn}; the book keeps the linking provider's data and whatever rating was already known.", isbn);
@@ -97,9 +82,9 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// Carries an Open Library rating that is already stored across a rebuild of <c>Ratings</c>, with no call to anyone.
-    /// The linking provider never carries this value, so re-linking a book would otherwise blank a rating pill that is perfectly good until the next refresh re-earns it.
-    /// This is what <see cref="ResolveBookAsync"/> does instead of the lookup above: the number is worth keeping, it is not worth making an admin wait on a second provider to re-fetch it.
+    /// Carries a stored Open Library rating across a rebuild of <c>Ratings</c>, with no call.
+    /// The linking provider never carries it, so linking again would blank a good rating until the next refresh.
+    /// <see cref="ResolveBookAsync"/> does this rather than the lookup, so an admin never waits on a second provider.
     /// </summary>
     private static void KeepKnownOpenLibraryRating(Dictionary<string, ReferenceRatingModel> ratings, string providerKey, ReferenceRatingModel? knownRating)
     {
@@ -109,14 +94,9 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// User-triggered "check for reference match" for books - see
-    /// <see cref="TryLinkExistingTvShowReferenceAsync"/> for the full rationale (this is the same local-only,
-    /// no-HTTP-call lookup, just against <c>book_reference</c>). A successful match also sets
-    /// <see cref="BookModel.Year"/>, <see cref="BookModel.Author"/>, <see cref="BookModel.Genre"/>,
-    /// <see cref="BookModel.Language"/> and <see cref="BookModel.Isbn"/> to the reference's canonical values -
-    /// the author's name is joined from <see cref="PersonReferenceModel"/> via
-    /// <see cref="BookReferenceModel.AuthorReferenceId"/>, and Genre from <see cref="BookReferenceModel.Genres"/>
-    /// (joined into the same single free-text field the tenant can otherwise edit by hand).
+    /// The local half of "check for reference match" for books (see <see cref="TryLinkExistingTvShowReferenceAsync"/>), against <c>book_reference</c>.
+    /// A match also sets <see cref="BookModel.Year"/>, <see cref="BookModel.Author"/> (the name of <see cref="BookReferenceModel.AuthorReferenceId"/>'s person),
+    /// <see cref="BookModel.Genre"/>, <see cref="BookModel.Language"/> and <see cref="BookModel.Isbn"/> to the reference's values.
     /// </summary>
     public async Task<BookModel> TryLinkExistingBookReferenceAsync(BookModel model)
     {
@@ -159,16 +139,15 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// The reference this book has already been matched to by somebody, or null - the local half of every book match path, asked before any provider is.
+    /// The reference this book was already matched to, or null: the local half of every book match path, asked before any provider.
     /// <para>
-    /// Three tiers, strongest key first.
-    /// An <b>ISBN</b> names one printing outright, so it answers even when the tenant recorded a translated title nothing else would connect.
+    /// Three tiers, strongest first.
+    /// An <b>ISBN</b> names one printing, so it matches even a translated title.
     /// Then the exact (title, author, year) an alias was confirmed under.
-    /// Then <b>title and author alone</b>, which is where most of this domain's local matching actually happens: one work is republished as revisions years apart, so a tenant's year routinely names an edition nobody has confirmed - Google Books answers <c>intitle:The Hobbit+inauthor:Tolkien</c> with volumes spanning 1981 to 2012, all one book.
-    /// Refusing on that would send every reprint to the provider for an answer the collection was already holding.
+    /// Then <b>title and author alone</b>, where most local matching happens, since a work is republished years apart and a tenant's year often names an unconfirmed edition.
     /// </para>
     /// <para>
-    /// The last tier is the one that could guess, and deliberately does not: <c>FindByTitleAsync</c> returns nothing when several references share a title and an author's name, which is the only case where the year would have been the thing telling them apart.
+    /// The last tier could guess but does not: <c>FindByTitleAsync</c> returns nothing when several references share a title and an author's name.
     /// </para>
     /// </summary>
     private async Task<BookReferenceModel?> FindKnownBookReferenceAsync(string title, int? year, string author, string? isbn)
@@ -196,9 +175,7 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// Admin-triggered "unlink" for books - see <see cref="UnlinkTvShowReferenceAsync"/> for the full
-    /// rationale (clears the tenant's link and permanently deletes the shared reference document, rather
-    /// than only detaching this one item).
+    /// The admin's unlink for books: clears the link and deletes the shared reference (see <see cref="UnlinkTvShowReferenceAsync"/>).
     /// </summary>
     public async Task<BookModel> UnlinkBookReferenceAsync(BookModel model)
     {
@@ -217,23 +194,15 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// Best-effort automatic match for books - see <see cref="TryAutoResolveTvShowAsync"/>. Always searches
-    /// the deployment's *default* provider (<see cref="ReferenceClientRegistry{TClient}.Resolve"/> with a null
-    /// key) - this is the unattended background path, so there's no admin picking a provider here.
-    /// The item's ISBN is empty on create, since the Add form doesn't collect it, but is used when the detail page supplied one.
+    /// Best-effort automatic match for books (see <see cref="TryAutoResolveTvShowAsync"/>), always through the default provider, since nobody picks one here.
+    /// The ISBN is empty on create, the Add form not collecting it, and used when the detail page supplied one.
     /// <para>
-    /// <b>A book is identified by its title and its author, never by a year</b>, which is the one place this
-    /// domain genuinely differs from films, shows and games rather than merely lagging behind them. Measured
-    /// live, Google Books answers <c>intitle:The Hobbit+inauthor:Tolkien</c> with 300 volumes whose first page
-    /// alone spans 1981, 1999, 2011 and 2012 - all the same book. So the year is a tie-break here (see
-    /// <see cref="ReferenceMatchRules.OrderByBestMatch"/>) and an author is what is required instead.
+    /// <b>A book is its title and its author, never a year</b>: Google Books answers <c>intitle:The Hobbit+inauthor:Tolkien</c> with 300 volumes spanning decades, all one book.
+    /// The year breaks ties (<see cref="ReferenceMatchRules.OrderByBestMatch"/>), and an author is required.
     /// </para>
     /// <para>
-    /// That also means <b>several confirmed candidates are editions rather than an ambiguity</b>, and the best
-    /// one is linked rather than the whole set being refused - see
-    /// <see cref="ReferenceMatchRules.ConfirmedCreatorMatches"/>. Waiting for the provider to return exactly
-    /// one row, which is what this used to do, meant no book could ever link at all: the owner's report, and
-    /// exactly what the measurement above predicts.
+    /// <b>Several confirmed candidates are editions, not an ambiguity</b>,
+    /// so the best is linked (see <see cref="ReferenceMatchRules.ConfirmedCreatorMatches"/>), where waiting for one row would link no book.
     /// </para>
     /// </summary>
     public async Task TryAutoResolveBookAsync(BookModel item)
@@ -245,12 +214,11 @@ public partial class ReferenceEnrichmentService
 
         if (string.IsNullOrWhiteSpace(title)) return; // see TryAutoResolveTvShowAsync
 
-        // An author is required for any automatic link here (owner's rule), the same way a year is required
-        // for a film, a show or a game: it is what identifies the work, and a title alone routinely names
-        // several. Without one the item waits for the detail page's "check for reference match".
+        // An author is required for any automatic link (owner's rule), as a year is for films, shows and games, since a title alone names several works.
+        // Without one the item waits for "check for reference match".
         if (string.IsNullOrWhiteSpace(author)) return;
 
-        // a reference someone already matched this book to is the answer - see TryLinkKnownReferenceAsync
+        // a reference this book was already matched to is the answer (see TryLinkKnownReferenceAsync)
         if (await TryLinkKnownReferenceAsync(
                 () => FindKnownBookReferenceAsync(title, year, author, isbn),
                 reference => WriteBookLinkAsync(reference, ReferenceLinkTarget.Item(item.Id!, item.OwnerId))))
@@ -259,17 +227,14 @@ public partial class ReferenceEnrichmentService
         }
 
         var client = bookReferenceClientRegistry.Resolve(null);
-        var candidates = await client.SearchBooksAsync(title, year, author, isbn);
+        var candidates = await SearchForAutomaticMatchAsync(client.SearchBooksAsync(title, year, author, isbn), "book", title);
         var matches = ReferenceMatchRules.ConfirmedCreatorMatches(candidates, title, author);
         if (matches.Count == 0) return;
         await ResolveBookAsync(title, year, matches[0].ExternalId, ReferenceLinkTarget.Item(item.Id!, item.OwnerId), client.ProviderKey, isbn);
     }
 
     /// <summary>
-    /// What the detail page's "check for reference match" does for books - see
-    /// <see cref="LinkTvShowReferenceAsync"/> for the rationale this shares. The field that is typically
-    /// missing at creation time here is the <b>author</b> rather than the year, which is what a book is
-    /// identified by, so the dead end this closes is the same one and reached the same way.
+    /// "Check for reference match" for books (see <see cref="LinkTvShowReferenceAsync"/>), the field often missing at creation being the <b>author</b> rather than the year.
     /// </summary>
     public async Task<BookModel> LinkBookReferenceAsync(BookModel model)
     {
@@ -281,10 +246,11 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// Resolves a title+year to a specific book provider id, upserts the reference document, and links the records <paramref name="target"/> names, see <see cref="ResolveTvShowAsync"/>.
-    /// <paramref name="providerKey"/> is which registered <see cref="IBookReferenceClient"/> <paramref name="externalId"/> came from - required from the admin's manual link action (an id is meaningless without knowing which provider issued it once more than one is registered), defaults to the deployment default for the automatic path above.
-    /// <paramref name="isbn"/>
-    /// is the ISBN that was actually supplied as search input (if any) - it only ever feeds the *tenant-search* alias entry (what the caller actually searched with), never the canonical one (which always uses whatever the provider itself reports, <see cref="BookDetails.Isbn"/>, regardless of what was searched for) - see <see cref="ReferenceAliasRule.TitleAndCreatorWithYear"/>.
+    /// Resolves a title to a book provider id, upserts the reference and links the records <paramref name="target"/> names (see <see cref="ResolveTvShowAsync"/>).
+    /// <paramref name="providerKey"/> names the client <paramref name="externalId"/> came from,
+    /// required for an admin's link since an id means nothing without its provider, and the default for the automatic path.
+    /// <paramref name="isbn"/> is the ISBN searched with, if any, feeding only the alias of what was searched, never the canonical one,
+    /// which uses the provider's <see cref="BookDetails.Isbn"/> (see <see cref="ReferenceAliasRule.TitleAndCreatorWithYear"/>).
     /// </summary>
     public async Task<BookReferenceModel> ResolveBookAsync(string title, int? year, string externalId, ReferenceLinkTarget target, string? providerKey = null, string? isbn = null)
     {
@@ -294,9 +260,10 @@ public partial class ReferenceEnrichmentService
         var details = await client.GetBookDetailsAsync(externalId)
                       ?? throw new InvalidOperationException($"Book {externalId} could not be fetched from {client.ProviderKey}.");
 
-        // the provider id is checked first and is authoritative - see ResolveTvShowAsync.
-        // The fallback is this domain's own identity ladder, the same one the local match path asks (see FindKnownBookReferenceAsync): a document found under another printing's year is still this work, and minting a second reference for it is the outcome to avoid.
-        // It can only ever reuse a document the ladder is sure about, since its year-agnostic tier refuses to choose between several.
+        // The provider id is checked first and is authoritative (see ResolveTvShowAsync).
+        // The fallback is the identity ladder of the local match path (FindKnownBookReferenceAsync),
+        // since a document under another printing's year is still this work and must not be duplicated.
+        // It only reuses a document the ladder is sure of, since its last tier refuses to choose.
         var existing = await bookReferenceRepository.FindByExternalIdAsync(client.ProviderKey, externalId)
                        ?? (details.Author is not null ? await FindKnownBookReferenceAsync(title, year, details.Author, isbn ?? details.Isbn) : null);
         var externalIds = existing?.ExternalIds ?? new Dictionary<string, string>();
@@ -336,16 +303,10 @@ public partial class ReferenceEnrichmentService
     }
 
     /// <summary>
-    /// Re-fetches a book reference from whichever registered provider it was actually linked through,
-    /// always doing a full re-fetch when called (unlike TMDB, none of the book providers currently
-    /// supported expose a per-id "has this changed" endpoint, so there's no cheap pre-check to skip it) -
-    /// see <see cref="RefreshTvShowReferenceAsync"/> for the shared staleness-cutoff mechanism this is
-    /// invoked from. Looks up <see cref="BookReferenceModel.ExternalIds"/> against every *currently
-    /// registered* provider, not just the deployment default - a reference linked via a non-default
-    /// provider must keep refreshing even if the default later changes (this used to only ever check the
-    /// single configured client's key, so a reference linked through any other provider silently stopped
-    /// refreshing forever). A no-op (returns unchanged) when no registered provider's id is present, or the
-    /// provider no longer has details for it.
+    /// Fetches a book reference again, in full, from the provider it was linked through,
+    /// since no book provider has a "changed since" endpoint (see <see cref="RefreshTvShowReferenceAsync"/>).
+    /// It checks <see cref="BookReferenceModel.ExternalIds"/> against every registered provider, not only the default, so a book linked through another provider keeps refreshing.
+    /// Unchanged when no registered provider's id is present, or the provider no longer holds it.
     /// </summary>
     public async Task<(BookReferenceModel Model, bool DataChanged)> RefreshBookReferenceAsync(BookReferenceModel reference, CancellationToken cancellationToken = default)
     {
@@ -356,8 +317,7 @@ public partial class ReferenceEnrichmentService
         var details = await client.GetBookDetailsAsync(externalId, cancellationToken);
         if (details is null) return (reference, false);
 
-        // read before Ratings is rebuilt below: the linking provider never carries this value, so it is only
-        // recoverable from what is already stored (see AddOpenLibraryRatingFallbackAsync).
+        // read before Ratings is rebuilt, since the linking provider never carries it (see AddOpenLibraryRatingFallbackAsync)
         var knownOpenLibraryRating = reference.Ratings.GetValueOrDefault(OpenLibraryProviderKey);
 
         reference.Title = details.Title;

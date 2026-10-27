@@ -10,12 +10,15 @@ on:
 jobs:
   git-check:
     name: Git
-    uses: ./.github/workflows/reusable-git-check.yml
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-git-check.yml@591b0c7bfba6fbc7b0cab7d896447e0732b819de
+    with:
+      version-file: Directory.Build.props
+      workflow-parts-version: 591b0c7bfba6fbc7b0cab7d896447e0732b819de
 
   image-publication:
     name: "Image ${{ matrix.name }}"
     needs: git-check
-    if: github.event_name == 'workflow_dispatch' || needs.git-check.outputs.app_changed == 'true'
+    if: github.event_name == 'workflow_dispatch' || needs.git-check.outputs.changed == 'true'
     strategy:
       matrix:
         include:
@@ -28,14 +31,15 @@ jobs:
     permissions:
       id-token: write
       contents: read
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-publication.yml@00907950b2c345e8ad6934b07268cef056d50d86
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-container-publication.yml@591b0c7bfba6fbc7b0cab7d896447e0732b819de
     with:
       create-latest: ${{ github.ref_name == 'main' }}
       image-definition: ${{ matrix.image-definition }}
       image-name: ${{ matrix.image-name }}
       image-path: ${{ vars.CONTAINER_REGISTRY_PATH }}
-      image-tag: "${{ needs.git-check.outputs.version_major_minor }}.${{ github.run_id }}"
-      workflow-parts-version: 00907950b2c345e8ad6934b07268cef056d50d86
+      image-tag: "${{ needs.git-check.outputs.version-major-minor }}.${{ github.run_id }}"
+      image-platform: linux/amd64
+      workflow-parts-version: 591b0c7bfba6fbc7b0cab7d896447e0732b819de
     secrets:
       container-registry-password: ${{ secrets.DOCKERHUB_TOKEN }}
       container-registry-username: ${{ secrets.DOCKERHUB_USERNAME }}

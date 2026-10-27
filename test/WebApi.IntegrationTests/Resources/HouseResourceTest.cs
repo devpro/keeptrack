@@ -84,17 +84,16 @@ public class HouseResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// HouseHistory is a separate top-level collection referencing its house by id (see CLAUDE.md's "Child
-    /// entities" section) - without HouseController.OnDeletedAsync cascading the delete, a deleted house's
-    /// history would be orphaned in MongoDB forever, only ever reachable via the now-gone house id.
+    /// HouseHistory is a separate top-level collection referencing its house by id (see docs/data-model.md's "Child entities" section).
+    /// Without HouseController.OnDeletedAsync cascading the delete, a deleted house's history would be orphaned, reachable only through the gone house id.
     /// </summary>
     [Fact]
     public async Task HouseResourceDelete_CascadesToItsHistory_IsOk()
     {
         await Authenticate();
 
-        // both are registered even though the delete below is the point of the test: if the cascade is ever
-        // broken, the orphaned history entry is exactly what would otherwise be left behind.
+        // both are registered even though the delete below is the point of the test:
+        // if the cascade is ever broken, the orphaned history entry is exactly what would otherwise be left behind.
         var house = await CreateAsync($"/{ResourceEndpoint}", new HouseDto { Name = Guid.NewGuid().ToString() });
         var entry = await CreateAsync("/api/house-history", new HouseHistoryDto
         {

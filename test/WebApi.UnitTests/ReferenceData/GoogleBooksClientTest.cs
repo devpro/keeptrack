@@ -66,9 +66,8 @@ public class GoogleBooksClientTest
     [Fact]
     public async Task GetBookDetailsAsync_ConvertsPlainNewlinesToBreakTags()
     {
-        // confirmed against a real description: paragraph breaks are sometimes plain "\n" characters, not
-        // <br> tags - HTML collapses bare newlines to whitespace, so without this a description with only
-        // bold/italic markup and no actual <br> tags renders as one massive undivided paragraph.
+        // In real descriptions paragraph breaks are sometimes plain "\n", not <br>, and HTML collapses bare newlines,
+        // so a description with only bold and italic markup would render as one undivided paragraph.
         var client = BuildClient(_ => """{"id":"abc123","volumeInfo":{"title":"The Hobbit","description":"Bilbo Baggins is a hobbit.\r\n\r\nA wizard visits."}}""");
 
         var details = await client.GetBookDetailsAsync("abc123", TestContext.Current.CancellationToken);
@@ -79,9 +78,8 @@ public class GoogleBooksClientTest
     [Fact]
     public async Task GetBookDetailsAsync_StripsAnyTagOutsideTheBoldItalicBreakAllowlist_IncludingAttributesOnAllowedTags()
     {
-        // the fixed allowlist-and-reconstruct approach (not a general sanitizer) is what makes it safe to
-        // render the result as MarkupString: an attribute on an otherwise-allowed tag (a plausible injection
-        // vector, e.g. onclick/onmouseover) must never survive, and neither should any other tag/script.
+        // The fixed allowlist-and-reconstruct approach, not a general sanitizer, makes the result safe as a MarkupString.
+        // An attribute on an allowed tag (an injection vector such as onclick or onmouseover) never survives, nor does any other tag or script.
         var client = BuildClient(_ => """
             {
               "id": "abc123",
@@ -94,17 +92,16 @@ public class GoogleBooksClientTest
 
         var details = await client.GetBookDetailsAsync("abc123", TestContext.Current.CancellationToken);
 
-        // the <script>/<p> tags themselves are removed, but this is tag-stripping, not a real HTML parser -
-        // text that was between removed tags (here, the script's own "alert(1)" body) survives as inert
-        // plain text, which is exactly the intended outcome: no tag survives, so nothing can execute.
+        // The <script> and <p> tags are removed by tag stripping, not an HTML parser, so text between them (the script's "alert(1)" body) survives as inert plain text.
+        // No tag survives, so nothing can execute.
         details!.Synopsis.Should().Be("alert(1)<b>bold</b>para");
     }
 
     [Fact]
     public async Task GetBookDetailsAsync_DecodesEntitiesBeforeStrippingTags_SoAnEncodedTagCannotSurvive()
     {
-        // if entities were decoded AFTER stripping, an entity-encoded "<script>" (harmless text at that
-        // point) would decode into a live tag only after the safety filter already ran
+        // if entities were decoded AFTER stripping,
+        // an entity-encoded "<script>" (harmless text at that point) would decode into a live tag only after the safety filter already ran
         var client = BuildClient(_ => """{"id":"abc123","volumeInfo":{"title":"Killing Floor","description":"&lt;script&gt;alert(1)&lt;/script&gt; caf&eacute;"}}""");
 
         var details = await client.GetBookDetailsAsync("abc123", TestContext.Current.CancellationToken);

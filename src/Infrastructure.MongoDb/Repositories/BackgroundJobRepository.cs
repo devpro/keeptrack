@@ -10,9 +10,8 @@ using MongoDB.Driver;
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
 /// <summary>
-/// MongoDB-backed job progress, replacing the old in-memory store: any replica can answer a status poll
-/// for a job another replica is running, and jobs survive an app restart. Every update is a targeted
-/// <c>$set</c> (never read-modify-write), so a poller and the job runner can't race each other.
+/// Job progress in MongoDB, so any replica answers a status poll for a job another replica runs, and jobs survive a restart.
+/// Every update is a targeted <c>$set</c>, never a read-modify-write, so a poller and the job cannot race.
 /// </summary>
 public class BackgroundJobRepository(IMongoDatabase mongoDatabase, BackgroundJobStorageMapper mapper) : IBackgroundJobRepository
 {
@@ -47,7 +46,7 @@ public class BackgroundJobRepository(IMongoDatabase mongoDatabase, BackgroundJob
         var filter = Builders<BackgroundJob>.Filter.Eq(j => j.Id, jobId.ToString())
                      & Builders<BackgroundJob>.Filter.Eq(j => j.OwnerId, ownerId);
         var entity = await Collection.Find(filter).FirstOrDefaultAsync();
-        // the usual null guard before mapping - see MongoDbRepositoryBase.FindOneAsync's identical shape
+        // the mapper throws on a null source, so a missing document is checked first
         return entity is null ? null : mapper.ToModel(entity);
     }
 

@@ -21,7 +21,7 @@ public class TvShowReferenceRepository(IMongoDatabase mongoDatabase, TvShowRefer
     public async Task<TvShowReferenceModel?> FindByIdAsync(string id)
     {
         var entity = await Collection.Find(x => x.Id == id).FirstOrDefaultAsync();
-        // Mapperly throws on a null source rather than substituting a default instance - checking for a missing document must happen before mapping regardless.
+        // the mapper throws on a null source, so a missing document is checked first
         return entity is null ? null : mapper.ToModel(entity);
     }
 
@@ -39,7 +39,8 @@ public class TvShowReferenceRepository(IMongoDatabase mongoDatabase, TvShowRefer
         ReferenceRatingQueries.FindRatingsAsync<TvShowReference>(Collection, afterId, limit);
 
     /// <summary>
-    /// Matches against every (title, year) combination ever confirmed for a reference, not just its canonical one - see <see cref="ReferenceAliasQueries"/> for the shared query and why every condition sits in one <c>ElemMatch</c>.
+    /// Matches every (title, year) combination confirmed for a reference,
+    /// not only its canonical one (see <see cref="ReferenceAliasQueries"/> for why every condition sits in one <c>ElemMatch</c>).
     /// </summary>
     public async Task<TvShowReferenceModel?> FindByTitleYearAsync(string title, int? year)
     {
@@ -55,7 +56,7 @@ public class TvShowReferenceRepository(IMongoDatabase mongoDatabase, TvShowRefer
 
     public async Task<TvShowReferenceModel?> FindByExternalIdAsync(string provider, string externalId)
     {
-        // a string field-path filter, not an expression indexer - the driver's expression-to-filter translation doesn't support indexing a Dictionary<TKey,TValue> by a runtime key.
+        // a string field path, since the driver cannot translate an expression indexing a dictionary by a runtime key
         var filter = Builders<TvShowReference>.Filter.Eq($"external_ids.{provider}", externalId);
         var entity = await Collection.Find(filter).FirstOrDefaultAsync();
         return entity is null ? null : mapper.ToModel(entity);
@@ -76,7 +77,8 @@ public class TvShowReferenceRepository(IMongoDatabase mongoDatabase, TvShowRefer
     public async Task<TvShowReferenceModel> UpsertAsync(TvShowReferenceModel model)
     {
         model.TitleNormalized = TitleNormalizer.Normalize(model.Title);
-        // the canonical (title, year) combination is always itself a valid match, whether or not the caller remembered to include it - but only while it is a complete key, so a show with no year records nothing rather than a title-only alias that would answer for every year (see ReferenceAliasRule)
+        // the canonical (title, year) is always a valid match, but only as a complete key:
+        // a show with no year records nothing rather than a title-only alias answering for every year (see ReferenceAliasRule)
         ReferenceAliasRule.TitleAndYear.EnsureCanonical(model.MatchedAliases, model.TitleNormalized, model.Year);
         var entity = mapper.ToEntity(model);
 

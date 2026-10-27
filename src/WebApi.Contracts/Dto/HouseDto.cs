@@ -14,7 +14,7 @@ public class HouseDto : IHasId
     public string? Id { get; set; }
 
     /// <summary>
-    /// House name (e.g. "Main house", "Beach apartment").
+    /// House name, such as "Main house" or "Beach apartment".
     /// </summary>
     public string? Name { get; set; }
 
@@ -34,7 +34,7 @@ public class HouseDto : IHasId
     public DateOnly? MovedInAt { get; set; }
 
     /// <summary>
-    /// When the owner moved out of this property, if recorded (unset while still occupied).
+    /// When the owner moved out of this property, unset while still occupied.
     /// </summary>
     public DateOnly? MovedOutAt { get; set; }
 
@@ -44,7 +44,7 @@ public class HouseDto : IHasId
     public string? Notes { get; set; }
 
     /// <summary>
-    /// Tenant-owned cover image URL, shown on the list thumbnail and detail page header. Optional.
+    /// The tenant's own optional cover image URL, shown on the list thumbnail and the detail page header.
     /// </summary>
     public string? ImageUrl { get; set; }
 }

@@ -21,7 +21,7 @@ public class CarModel : IHasIdAndOwnerId
     public required CarEnergyType EnergyType { get; set; }
 
     /// <summary>
-    /// Tenant-owned cover image URL, shown on the list thumbnail and detail page header. Optional.
+    /// The tenant's own optional cover image URL, shown on the list thumbnail and the detail page header.
     /// </summary>
     public string? ImageUrl { get; set; }
 }

@@ -12,8 +12,7 @@ public class AmazonOrderPreviewServiceTest
 {
     private static MemoryStream ToStream(string csv) => new(Encoding.UTF8.GetBytes(csv));
 
-    // The "Ã©" sequence below is deliberately literal (not a copy/paste accident) - it reproduces the real
-    // export's mojibake byte-for-byte, confirmed against the raw bytes of a real Amazon order-history CSV.
+    // The "Ã©" sequence below is literal on purpose, reproducing a real Amazon order-history CSV's mojibake byte for byte.
     private const string Csv = """
                                ASIN,Order Date,Order ID,Product Name,Product Condition,Total Amount,Website
                                0552177571,2024-01-24T09:01:58Z,405-2296545-4493925,"protection d'Ã©crans",New,10.49,Amazon.fr
@@ -94,8 +93,7 @@ public class AmazonOrderPreviewServiceTest
     [Fact]
     public void BuildPreview_DoesNotFlagADifferentItemFromTheSameOrder()
     {
-        // reproduces a real bug: an order commonly contains several different line items, so matching by
-        // order id alone incorrectly flagged every sibling item once any one of them had been imported
+        // An order often holds several line items, so matching by order id alone would flag every sibling once any one was imported.
         const string csv = """
                             ASIN,Order Date,Order ID,Product Name,Product Condition,Total Amount,Website
                             0552177571,2024-01-24T09:01:58Z,405-2296545-4493925,"The Secret",New,10.49,Amazon.fr

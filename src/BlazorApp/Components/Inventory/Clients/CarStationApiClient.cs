@@ -5,8 +5,8 @@ using Keeptrack.WebApi.Contracts.Dto;
 namespace Keeptrack.BlazorApp.Components.Inventory.Clients;
 
 /// <summary>
-/// The shared, owner-less fuel-station catalogue. Not an <see cref="InventoryApiClientBase{TDto}"/>:
-/// that base's whole surface is owner-scoped paged CRUD, which this collection deliberately isn't.
+/// The shared, owner-less fuel-station catalogue.
+/// Not an <see cref="InventoryApiClientBase{TDto}"/>, whose whole surface is owner-scoped paged CRUD, which this collection isn't.
 /// </summary>
 public sealed class CarStationApiClient(HttpClient http)
 {
@@ -18,7 +18,7 @@ public sealed class CarStationApiClient(HttpClient http)
         return await response.ReadJsonOrThrowAsync<List<CarStationDto>>() ?? [];
     }
 
-    /// <summary>The catalogue with each station's usage count - admin only.</summary>
+    /// <summary>The catalogue with each station's usage count, for admins only.</summary>
     public async Task<List<CarStationDto>> GetForAdminAsync()
     {
         var response = await http.GetAsync($"{ApiResourceName}/admin");
@@ -26,8 +26,7 @@ public sealed class CarStationApiClient(HttpClient http)
     }
 
     /// <summary>
-    /// Find-or-create by natural key: posting a station the catalogue already holds returns that one
-    /// rather than a duplicate, which is what lets the picker create as freely as it does.
+    /// Find-or-create by natural key: posting a station the catalogue holds returns it rather than a duplicate, which lets the picker create freely.
     /// </summary>
     public async Task<CarStationDto?> FindOrCreateAsync(CarStationDto station)
     {

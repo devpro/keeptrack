@@ -11,7 +11,7 @@ public enum TraceMode
 
 /// <summary>
 /// Every e2e-harness knob in one place, all read from environment variables.
-/// See docs/archived/playwright-e2e-tests-plan.md's configuration table for the full rationale per variable.
+/// See CONTRIBUTING.md's end-to-end variable table for the full rationale per variable.
 /// Application settings for the hosted apps themselves (Mongo connection string, Firebase, JWT authority...) are deliberately not read here:
 /// they flow to the in-process hosts the same way any other environment variable reaches an ASP.NET Core configuration provider,
 /// exactly like <c>WebApi.IntegrationTests</c> already relies on.
@@ -44,7 +44,8 @@ public static class End2EndConfiguration
     public static bool ReadOnly => GetBool("E2E_READONLY", false);
 
     /// <summary>
-    /// Existing account email. Empty triggers ephemeral admin user creation (integration mode only).
+    /// Existing account email.
+    /// Empty triggers ephemeral admin user creation (integration mode only).
     /// </summary>
     public static string? Username => GetString("E2E_USERNAME");
 
@@ -64,13 +65,10 @@ public static class End2EndConfiguration
     /// <summary>
     /// The MongoDB database the self-hosted apps run against, defaulted rather than inherited.
     /// <para>
-    /// This suite and <c>WebApi.IntegrationTests</c> read the same ambient
-    /// <c>Infrastructure__MongoDB__DatabaseName</c>, so an IDE that sets test environment variables once for the
-    /// whole solution (Rider's Test Runner settings) can only ever give them the same database - and sharing one
-    /// is not neutral: the integration suite's <c>sync-now</c> tests write the real Explore ranking, which is
-    /// exactly what <c>ExploreSmokeTest</c> needs to be empty. Defaulting here makes the isolation a property of
-    /// the suite instead of something a developer has to remember to toggle between runs; set this variable to
-    /// override it (a shared database is still reachable, just never by accident).
+    /// This suite and <c>WebApi.IntegrationTests</c> read the same ambient <c>Infrastructure__MongoDB__DatabaseName</c>,
+    /// so an IDE setting test variables once for the solution (Rider's Test Runner) gives both the same database.
+    /// Sharing one is not neutral: the integration suite's opt-in live sync writes the real Explore ranking, which <c>ExploreSmokeTest</c> needs empty.
+    /// Defaulting here makes isolation a property of the suite, and setting this variable overrides it, so a shared database is reachable, never by accident.
     /// </para>
     /// </summary>
     public static string DatabaseName => GetString("E2E_MONGODB_DATABASE") ?? "keeptrack_e2e";
@@ -80,8 +78,8 @@ public static class End2EndConfiguration
     public static float SlowMoMs => GetFloat("E2E_SLOWMO_MS", 0);
 
     /// <summary>
-    /// <c>chromium</c>, <c>firefox</c> or <c>webkit</c>, translated into the <c>BROWSER</c> environment variable
-    /// that <c>Microsoft.Playwright.Xunit.v3</c>'s own <c>PlaywrightSettingsProvider</c> reads natively,
+    /// <c>chromium</c>, <c>firefox</c> or <c>webkit</c>,
+    /// translated into the <c>BROWSER</c> environment variable that <c>Microsoft.Playwright.Xunit.v3</c>'s own <c>PlaywrightSettingsProvider</c> reads natively,
     /// since the underlying <c>PlaywrightTest.BrowserType</c> selection has no other supported extension point.
     /// See <see cref="Smoke.SmokeTestBase"/>'s static constructor.
     /// </summary>

@@ -4,9 +4,8 @@ using Keeptrack.WebApi.Contracts.Dto;
 namespace Keeptrack.BlazorApp.Components.Wishlist;
 
 /// <summary>
-/// Fetches a shared wishlist by token -
-/// the app's one anonymous API read, so this client is registered WITHOUT <c>AuthenticationTokenHandler</c>
-/// (which would bounce an anonymous visitor to the login page instead of showing the wishlist that was shared with them).
+/// Fetches a shared wishlist by token, the app's one anonymous API read.
+/// It is registered without <c>AuthenticationTokenHandler</c>, which would bounce an anonymous visitor to the login page.
 /// </summary>
 public sealed class SharedWishlistApiClient(HttpClient http)
 {

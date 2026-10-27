@@ -6,8 +6,8 @@ using MongoDB.Bson.Serialization.Attributes;
 namespace Keeptrack.Infrastructure.MongoDb.Entities;
 
 /// <summary>
-/// Shared, owner-less movie metadata collection (<c>movie_reference</c>). See
-/// <see cref="TvShowReference"/> for why this has no <c>owner_id</c>.
+/// Shared movie metadata (<c>movie_reference</c>).
+/// See <see cref="TvShowReference"/> for why it has no <c>owner_id</c>.
 /// </summary>
 public class MovieReference : IHasMatchedAliases
 {
@@ -34,10 +34,10 @@ public class MovieReference : IHasMatchedAliases
 
     public List<CastMember> Cast { get; set; } = [];
 
-    /// <summary>Aggregate ratings keyed by source name (e.g. "tmdb") - see <see cref="ReferenceRating"/>.</summary>
+    /// <summary>Aggregate ratings keyed by source ("tmdb", "imdb"), see <see cref="ReferenceRating"/>.</summary>
     public Dictionary<string, ReferenceRating> Ratings { get; set; } = [];
 
-    /// <summary>When each rating source was last attempted, successful or not - see <see cref="Keeptrack.Domain.Models.MovieReferenceModel.RatingsCheckedAt"/>.</summary>
+    /// <summary>When each rating source was last attempted, successful or not (see <see cref="Keeptrack.Domain.Models.MovieReferenceModel.RatingsCheckedAt"/>).</summary>
     [BsonElement("ratings_checked_at")]
     public Dictionary<string, DateTime> RatingsCheckedAt { get; set; } = [];
 

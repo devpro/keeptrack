@@ -18,15 +18,13 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Covers what POST /api/reference-data/import promises against a database that <b>already holds reference
-/// data of its own</b> - the case that separates matching by provider id from matching by the <c>_id</c> the
-/// export happens to carry, and the one no mocked-repository test can prove: the unique partial indexes on
-/// <c>external_ids.*</c> are real, so importing a second copy of a work doesn't produce a duplicate, it
-/// produces a failed write.
+/// Covers what POST /api/reference-data/import promises against a database <b>already holding reference data of its own</b>.
+/// That case separates matching by provider id from matching by the exported <c>_id</c>, and no mocked-repository test proves it.
+/// The unique partial indexes on <c>external_ids.*</c> are real, so a second copy of a work produces a failed write rather than a duplicate.
 /// <para>
-/// Each test seeds a synthetic reference document through its repository, then uploads a zip in exactly the
-/// shape <c>Export</c> produces (same entry names, same default <see cref="JsonSerializerOptions"/> - the
-/// controller applies no naming policy on either side, so anything else silently fails to round-trip).
+/// Each test seeds a synthetic reference document through its repository, then uploads a zip in exactly the shape <c>Export</c> produces.
+/// The entry names and default <see cref="JsonSerializerOptions"/> match,
+/// since the controller applies no naming policy on either side, and anything else silently fails to round-trip.
 /// </para>
 /// </summary>
 public class ReferenceDataImportResourceTest(KestrelWebAppFactory<Program> factory) : ResourceTestBase(factory)
@@ -74,11 +72,9 @@ public class ReferenceDataImportResourceTest(KestrelWebAppFactory<Program> facto
     }
 
     /// <summary>
-    /// Both branches in one run, over the same collection - the shape every real import has, and the one the
-    /// per-branch tests above can't cover on their own. "0 new + N updated" is a claim about the database, so
-    /// this asserts what that claim means: an updated document is still the target's original <c>_id</c> and
-    /// still the only document carrying its provider id (nothing was inserted for it), while the created one
-    /// is genuinely new.
+    /// Both branches in one run over the same collection, the shape of every real import, which the per-branch tests above can't cover alone.
+    /// "0 new + N updated" is a claim about the database, so this asserts it:
+    /// an updated document keeps the target's original <c>_id</c> and is the only one carrying its provider id, while the created one is new.
     /// </summary>
     [Fact]
     public async Task Import_WhenOneDocumentIsKnownAndOneIsNot_CountsEachAgainstWhatItActuallyDid()
@@ -115,9 +111,9 @@ public class ReferenceDataImportResourceTest(KestrelWebAppFactory<Program> facto
     }
 
     /// <summary>
-    /// An export is one environment's snapshot, and the target legitimately knows things it doesn't: aliases
-    /// its own tenants' searches confirmed, and ratings from a provider the exporting environment never
-    /// called (an IMDb value costs a metered OMDb call). A replace would throw all of that away.
+    /// An export is one environment's snapshot, and the target legitimately knows things it doesn't: aliases its own tenants' searches confirmed,
+    /// and ratings from a provider the exporting environment never called (an IMDb value costs a metered OMDb call).
+    /// A replace would throw all of that away.
     /// </summary>
     [Fact]
     public async Task Import_KeepsTheAliasesAndRatingsOnlyTheTargetHas()
@@ -173,10 +169,9 @@ public class ReferenceDataImportResourceTest(KestrelWebAppFactory<Program> facto
     }
 
     /// <summary>
-    /// Cast is stored as a <c>person_reference</c> <c>_id</c>, and that id is local to the database that
-    /// minted it. Matching people by their provider id is only half the job: every document citing them has
-    /// to be re-pointed at the id the target stores them under, or an imported show's cast references
-    /// documents that aren't there.
+    /// Cast is stored as a <c>person_reference</c> <c>_id</c>, and that id is local to the database that minted it.
+    /// Matching people by their provider id is only half the job: every document citing them has to be re-pointed at the id the target stores them under,
+    /// or an imported show's cast references documents that aren't there.
     /// </summary>
     [Fact]
     public async Task Import_RepointsCastAtTheTargetsOwnPersonDocuments()
@@ -219,10 +214,9 @@ public class ReferenceDataImportResourceTest(KestrelWebAppFactory<Program> facto
     }
 
     /// <summary>
-    /// Two documents in the target, each holding one of the provider ids the imported document carries -
-    /// one work the target recorded twice. Writing both ids onto whichever it matched would hit the unique
-    /// partial index and abort the rest of the import (a zip is not a transaction), so the id is left behind
-    /// and reported: merging two existing reference documents is an admin decision, not an import's.
+    /// Two documents in the target, each holding one of the imported document's provider ids: one work the target recorded twice.
+    /// Writing both ids onto the matched one would hit the unique partial index and abort the rest of the import (a zip is not a transaction).
+    /// So the id is left behind and reported, since merging two existing reference documents is an admin's decision, not an import's.
     /// </summary>
     [Fact]
     public async Task Import_WhenAnotherDocumentAlreadyClaimsAProviderId_SkipsThatIdAndReportsIt()
@@ -256,10 +250,9 @@ public class ReferenceDataImportResourceTest(KestrelWebAppFactory<Program> facto
     }
 
     /// <summary>
-    /// The matching rule is provider-agnostic - it walks whatever keys a document carries - so every domain
-    /// and every provider it can be linked through behaves the same. This pins the ones a single-provider
-    /// test would miss: a video game under IGDB (the default that replaced RAWG), an album under Discogs and
-    /// a book under Google Books (the default, and the one with no unique index of its own until recently).
+    /// The matching rule is provider-agnostic, walking whatever keys a document carries, so every domain and provider behaves the same.
+    /// This pins what a single-provider test would miss: a video game under IGDB (the default), an album under Discogs,
+    /// and a book under Google Books (the default book provider, with its own unique index).
     /// </summary>
     [Fact]
     public async Task Import_MatchesEveryDomainThroughItsOwnProvider()
@@ -332,8 +325,7 @@ public class ReferenceDataImportResourceTest(KestrelWebAppFactory<Program> facto
     }
 
     /// <summary>
-    /// A game linked through RAWG that later adopted an IGDB id matches on either key, and the import must
-    /// leave it holding both - dropping one would make the next sync pay to re-adopt it.
+    /// A game linked through RAWG that later adopted an IGDB id matches on either key, and the import leaves it holding both, or the next sync would pay to re-adopt it.
     /// </summary>
     [Fact]
     public async Task Import_KeepsAProviderIdTheTargetHasAndTheExportDoesNot()
@@ -372,12 +364,11 @@ public class ReferenceDataImportResourceTest(KestrelWebAppFactory<Program> facto
     }
 
     /// <summary>
-    /// The real cross-environment case for video games: an export taken while a game was still only RAWG-linked,
-    /// imported into a database that has since adopted IGDB for the same game. It matches on the one id they
-    /// share, so nothing duplicates - and the IGDB id and IGDB-sourced ratings survive, because the import only
-    /// speaks for what it carries. The descriptive fields it *does* carry (RAWG-era title, synopsis, cover)
-    /// deliberately do win: an import is supposed to update the data. What it can't reach through IGDB again is
-    /// what has to be protected, and the next sync re-fetches the rest through the default provider anyway.
+    /// The real cross-environment case for video games:
+    /// an export taken while a game was still only RAWG-linked, imported into a database that has since adopted IGDB for the same game.
+    /// It matches on the one id they share, so nothing duplicates, and the IGDB id and IGDB ratings survive, since the import speaks only for what it carries.
+    /// The descriptive fields it carries (RAWG title, synopsis, cover) win, since an import updates the data.
+    /// What it can't reach through IGDB again is protected, and the next sync re-fetches the rest through the default provider.
     /// </summary>
     [Fact]
     public async Task Import_OfARawgOnlyExport_KeepsTheTargetsAdoptedIgdbLinkAndRatings()
@@ -469,8 +460,8 @@ public class ReferenceDataImportResourceTest(KestrelWebAppFactory<Program> facto
     }
 
     /// <summary>
-    /// Uploads the zip and waits for the background job it starts (see <c>ReferenceDataAdminController.Import</c>) -
-    /// the endpoint answers 202 with a job id, since a real export takes far longer than one request.
+    /// Uploads the zip and waits for the background job it starts (see <c>ReferenceDataAdminController.Import</c>),
+    /// the endpoint answering 202 with a job id, since a real export outlasts one request.
     /// </summary>
     private async Task<ReferenceDataImportResultDto> ImportAsync(ReferenceDataImportPayload payload)
     {
@@ -530,8 +521,8 @@ public class ReferenceDataImportResourceTest(KestrelWebAppFactory<Program> facto
     private static string NewObjectId() => ObjectId.GenerateNewId().ToString();
 
     /// <summary>
-    /// The same six entry names and the same default serializer options <c>Export</c> writes - the controller
-    /// applies no naming policy on either side, so a camelCase zip would deserialize into empty documents.
+    /// The six entry names and default serializer options <c>Export</c> writes,
+    /// since the controller applies no naming policy on either side, and a camelCase zip would deserialize into empty documents.
     /// </summary>
     private static byte[] BuildZip(ReferenceDataImportPayload payload)
     {

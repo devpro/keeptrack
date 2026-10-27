@@ -8,13 +8,10 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Add/edit/delete coverage for the new Collectible type, same shape as <see cref="CarSmokeTest"/>.
-/// Opening the detail page here is exactly the flow that regressed once already: the new type's API
-/// client was added to the codebase but never registered in BlazorApp's DI container
-/// (AddWebApiHttpClient), so navigating to the list and opening an item threw InvalidOperationException
-/// at render time - a bug the build and every unit test missed, and only a real browser click surfaces.
-/// This also covers the cover image round trip (fill the URL, see the detail banner and the list's wide
-/// thumbnail both pick it up) - the other thing that shipped wrong on the first two attempts.
+/// Add, edit and delete coverage for collectibles, the shape of <see cref="CarSmokeTest"/>.
+/// Opening the detail page proves the API client is registered in BlazorApp's DI container (AddWebApiHttpClient),
+/// which the build and unit tests can't, an unregistered client throwing InvalidOperationException at render.
+/// It also covers the cover image round trip: the detail banner and the list's wide thumbnail both pick up the filled URL.
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]
@@ -44,8 +41,7 @@ public class CollectibleSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixtur
         await Assertions.Expect(detail.CoverImage).ToHaveAttributeAsync("src", imageUrl);
 
         list = await detail.OpenCollectiblesAsync();
-        // ItemImageShape="wide" (same as VideoGames.razor) - a plain default-portrait thumb was the
-        // reported regression, so this pins the actual rendered shape, not just that an image exists.
+        // ItemImageShape="wide", as in VideoGames.razor, pinning the rendered shape, not only that an image exists.
         await list.ExpectRowThumbnailAsync(title, imageUrl);
 
         await list.DeleteAsync(title);

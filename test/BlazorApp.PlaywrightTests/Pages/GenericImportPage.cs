@@ -4,8 +4,8 @@ using Microsoft.Playwright;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 
 /// <summary>
-/// The <c>/import/generic</c> sub-page: upload a store/CSV export, review the parsed rows (their media type
-/// pre-filled from the file's "Type" column), then commit the selected ones.
+/// The <c>/import/generic</c> sub-page: upload a store/CSV export,
+/// review the parsed rows (their media type pre-filled from the file's "Type" column), then commit the selected ones.
 /// </summary>
 public class GenericImportPage(IPage page) : PageBase(page)
 {
@@ -20,8 +20,8 @@ public class GenericImportPage(IPage page) : PageBase(page)
     private ILocator FileInput => Page.Locator(".kt-dropzone input[type='file'][accept='.csv']");
 
     /// <summary>
-    /// Only rendered once a preview exists; its label carries the selected-row count (e.g. "Import selected (1)"),
-    /// so asserting on its text proves the upload parsed and pre-selected the expected rows.
+    /// Rendered only once a preview exists, its label carrying the selected-row count ("Import selected (1)"),
+    /// so its text proves the upload parsed and preselected the expected rows.
     /// </summary>
     public ILocator CommitButton => Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Import selected" });
 

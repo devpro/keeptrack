@@ -1,21 +1,17 @@
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// Fetches a title's IMDb aggregate rating from OMDb, keyed by the IMDb id TMDB already exposes
-/// (<c>imdb_id</c> on a movie, <c>external_ids.imdb_id</c> on a show). The only viable source of IMDb
-/// ratings - IMDb has no public ratings API - so movies/TV get their second rating source through this.
+/// Fetches a title's IMDb rating from OMDb, keyed by the IMDb id TMDB exposes (<c>imdb_id</c> on a movie, <c>external_ids.imdb_id</c> on a show).
+/// The only source of IMDb ratings, since IMDb has no public ratings API.
 /// </summary>
 public interface IOmdbClient
 {
     /// <summary>
-    /// Looks up <paramref name="imdbId"/>'s IMDb rating (already on a 0-10 scale, same as TMDB's), subject to
-    /// the daily call budget for <paramref name="priority"/> - see <see cref="OmdbCallBudget"/>.
+    /// Looks up <paramref name="imdbId"/>'s IMDb rating, on TMDB's 0 to 10 scale, within the daily budget of <paramref name="priority"/> (see <see cref="OmdbCallBudget"/>).
     /// <para>
-    /// Never throws for anything OMDb or the network can do to us: an unknown id, an unrated title, a spent
-    /// quota, a timeout and a 5xx all come back as a result rather than an exception, because every caller
-    /// treats IMDb as best-effort and a missing rating must never be able to fail an admin's manual link or a
-    /// user's Explore "add". The distinction that does matter is carried by
-    /// <see cref="OmdbLookupResult.Attempted"/>.
+    /// Never throws for anything OMDb or the network does: an unknown id, an unrated title, a spent quota, a timeout and a 5xx are all results.
+    /// IMDb is best effort, and a missing rating must never fail an admin's link or an Explore add.
+    /// The distinction that matters is <see cref="OmdbLookupResult.Attempted"/>.
     /// </para>
     /// </summary>
     Task<OmdbLookupResult> GetRatingAsync(string imdbId, OmdbCallPriority priority, CancellationToken cancellationToken = default);
@@ -25,10 +21,10 @@ public interface IOmdbClient
 public sealed record OmdbRating(double Value, int? Count);
 
 /// <summary>
-/// The outcome of one lookup. <paramref name="Attempted"/> is the load-bearing half: "OMDb answered and has
-/// no rating for this title" is a fact worth recording (it's what lets a backfill stop re-asking about the
-/// same handful of genuinely unrated titles), whereas "we never got to ask" - no API key, no budget left, a
-/// timeout - must leave no trace at all, or one exhausted afternoon would write those titles off for months.
+/// The outcome of one lookup.
+/// <paramref name="Attempted"/> is what matters.
+/// "OMDb answered with no rating" is a fact worth recording, so a backfill stops asking about unrated titles.
+/// "Never asked" (no key, no budget, a timeout) leaves no trace, or one exhausted afternoon would write those titles off for months.
 /// </summary>
 public sealed record OmdbLookupResult(bool Attempted, OmdbRating? Rating)
 {

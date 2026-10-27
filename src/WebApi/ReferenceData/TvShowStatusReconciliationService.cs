@@ -2,29 +2,23 @@ using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.Domain.Services;
 
-// this service reasons about the Domain status enum (the tenant model's own State), not the DTO one that the
-// Contracts.Dto global using also brings into scope - same disambiguation Amazon/Generic import controllers need.
+// the Domain status enum, not the Contracts one the global using also imports
 using TvShowStatus = Keeptrack.Domain.Models.TvShowStatus;
 
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// Reopens finished TV shows once a new episode airs. Completing a show can't be a permanent decision -
-/// when a tenant marks a show <see cref="TvShowStatus.Finished"/> there's no way to know whether a further
-/// season will ever be announced, so the only deterministic approach is to accept "finished" as of now and
-/// let a regular pass reconcile it against the (independently kept-fresh) reference episode guide.
-/// If a linked reference now lists an aired episode beyond the tenant's last-watched one, the show is flipped
-/// back to <see cref="TvShowStatus.Current"/> so it resurfaces in Watch Next.
+/// Reopens finished TV shows once a new episode airs.
+/// A tenant marking a show <see cref="TvShowStatus.Finished"/> cannot know whether another season will come,
+/// so "finished" holds as of now and a regular pass checks it against the episode guide.
+/// When the linked reference lists an aired episode after the last one watched, the show goes back to <see cref="TvShowStatus.Current"/> and reappears in Watch Next.
 ///
-/// Runs right after <see cref="ReferenceSyncService"/> in the same background tick (and the admin's on-demand
-/// "sync now"), so it always reconciles against the just-updated episode lists rather than stale data.
-/// It's the tenant-data counterpart to <see cref="ReferenceSyncService"/>'s shared-reference refresh, kept a
-/// separate service so that one's charter stays "keep the owner-less reference collections fresh" only.
+/// It runs right after <see cref="ReferenceSyncService"/>, in the same tick or "sync now", so it checks the freshly updated guides.
+/// It works on tenant data, kept apart from the reference refresh, whose only charter is the shared collections.
 ///
-/// Only <see cref="TvShowStatus.Finished"/> shows are touched. <see cref="TvShowStatus.Stopped"/> and an unset
-/// status both mean the tenant deliberately isn't tracking the show, so a new season must never reopen them -
-/// this is enforced at the query (<see cref="ITvShowRepository.FindFinishedLinkedShowsAsync"/>), so no other
-/// state is ever a candidate here.
+/// Only finished shows are touched.
+/// <see cref="TvShowStatus.Stopped"/> and unset both mean the tenant stopped tracking on purpose,
+/// so the query (<see cref="ITvShowRepository.FindFinishedLinkedShowsAsync"/>) never returns them.
 /// </summary>
 public class TvShowStatusReconciliationService(
     ITvShowRepository tvShowRepository,
@@ -33,10 +27,10 @@ public class TvShowStatusReconciliationService(
     ILogger<TvShowStatusReconciliationService> logger)
 {
     /// <summary>
-    /// Re-checks every finished, reference-linked show across all tenants and reopens (to
-    /// <see cref="TvShowStatus.Current"/>) the ones whose reference guide now lists an aired episode after the
-    /// last one watched. Returns how many shows were reopened. A failure on one show is logged and skipped
-    /// rather than aborting the whole pass, mirroring <see cref="ReferenceSyncService"/>'s per-document resilience.
+    /// Checks every finished, linked show of every tenant again,
+    /// and reopens as <see cref="TvShowStatus.Current"/> those whose guide lists an aired episode after the last one watched.
+    /// Returns how many shows were reopened.
+    /// A failing show is logged and skipped, like a document in <see cref="ReferenceSyncService"/>.
     /// </summary>
     public async Task<int> ReconcileFinishedShowsAsync(CancellationToken cancellationToken = default)
     {
@@ -45,15 +39,14 @@ public class TvShowStatusReconciliationService(
 
         var today = DateOnly.FromDateTime(DateTime.Today);
 
-        // one batched reference lookup for the whole pass, keyed by reference id (a reference is shared, so
-        // many shows across tenants can point at the same document).
+        // one batched lookup for the pass, keyed by reference id, since shows of many tenants can share a reference
         var referencesById = (await tvShowReferenceRepository.FindByIdsAsync(
                 finishedShows.Select(s => s.ReferenceId!).Distinct().ToList()))
             .ToDictionary(r => r.Id!);
 
         var reopened = 0;
 
-        // episodes are owner-scoped, so re-check one tenant at a time and reuse the same batched read Watch Next uses.
+        // episodes are owner-scoped, so tenants are checked one at a time with Watch Next's batched read
         foreach (var showsByOwner in finishedShows.GroupBy(s => s.OwnerId))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -86,8 +79,7 @@ public class TvShowStatusReconciliationService(
         IReadOnlyDictionary<string, TvShowReferenceModel> referencesById,
         DateOnly today)
     {
-        // no recorded episodes means there's no "last watched" to compare against - can't tell whether a
-        // newer episode exists, so leave the show alone rather than guess (same "don't guess" rule as Watch Next).
+        // without recorded episodes there is no last watched to compare, so the show is left alone rather than guessed at
         if (!episodesByShow.TryGetValue(show.Id!, out var episodes) || episodes.Count == 0) return false;
         if (!referencesById.TryGetValue(show.ReferenceId!, out var reference)) return false;
 

@@ -1,12 +1,10 @@
 @using Keeptrack.BlazorApp.Components.Inventory
 @typeparam TDto where TDto : class, IHasId
 
-@* A read-only list of one shared personal category (cars/houses/health). Reuses the exact InventoryList the
-   owner's own Cars/Houses/Health pages use - cover thumbnails, grid/list toggle, search, sort and per-type
-   meta - so the shared view matches the in-app item lists instead of a bare list of links. Unlike media, each
-   row opens a full read-only detail page (via DetailHref) rather than offering a copy action, and there is no
-   server paging: a person has only a handful of cars/houses/profiles, so the whole set is fetched once and
-   search/sort run client-side over it. *@
+@* A read-only list of one shared personal category (cars, houses, health).
+   It reuses the InventoryList of the owner's Cars, Houses and Health pages (cover thumbnails, grid toggle, search, sort, per-type meta), so the shared view matches the in-app lists.
+   Unlike media, each row opens a read-only detail page (DetailHref) rather than offering a copy action.
+   There is no server paging: a person has a handful of cars, houses or profiles, so the whole set is fetched once, and search and sort run client-side. *@
 
 <InventoryList TDto="TDto"
                ReadOnly="true"
@@ -38,10 +36,10 @@
 @code {
     [Inject] private ListViewPreference ViewPreference { get; set; } = null!;
 
-    /// <summary>The category label shown as the list heading (e.g. "Cars").</summary>
+    /// <summary>The category label shown as the list heading ("Cars").</summary>
     [Parameter] public required string Title { get; set; }
 
-    /// <summary>Fetches the sharer's items of this category (read-only, unpaged).</summary>
+    /// <summary>Fetches the sharer's items of this category, read-only and unpaged.</summary>
     [Parameter] public required Func<Task<List<TDto>>> Fetch { get; set; }
 
     [Parameter] public required Func<TDto, string?> ItemTitle { get; set; }
@@ -52,7 +50,7 @@
     /// <summary>The per-type second line (same component the owner's own list page uses).</summary>
     [Parameter] public required RenderFragment<TDto> MetaTemplate { get; set; }
 
-    /// <summary>Builds the read-only detail route for one item (e.g. /account/manage/shared/{id}/cars/{itemId}).</summary>
+    /// <summary>Builds the read-only detail route for one item (/account/manage/shared/{id}/cars/{itemId}).</summary>
     [Parameter] public required Func<TDto, string> DetailHref { get; set; }
 
     private List<TDto> _all = [];
@@ -102,9 +100,8 @@
         ApplyView();
     }
 
-    // Client-side search + sort over the already-fetched small set. Mirrors the server-side defaults: a
-    // case-insensitive title Contains, and the same "" (owner order) / title A-Z sort keys the picker offers
-    // for these types (personal categories have no rating field, so no Rating option is shown).
+    // Client-side search and sort over the small fetched set, mirroring the server defaults: a case-insensitive title Contains, and the "" (owner order) and title sort keys.
+    // Personal categories have no rating field, so no Rating option is shown.
     private void ApplyView()
     {
         IEnumerable<TDto> query = _all;

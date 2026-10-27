@@ -1,10 +1,9 @@
 namespace Keeptrack.Common.System;
 
 /// <summary>
-/// List sort keys shared end-to-end: the Blazor list pages' sort picker values, the REST query contract
-/// (<see cref="PagedRequest.Sort"/>) and the repositories' sort translation. No key (null/empty) means the
-/// default order, newest first; a collection that doesn't support a given key falls back to that default
-/// rather than erroring.
+/// List sort keys shared end to end: the list pages' sort picker, the REST query contract (<see cref="PagedRequest.Sort"/>) and the repositories.
+/// No key means the default order, newest first.
+/// A collection that does not support a key falls back to that default rather than failing.
 /// </summary>
 public static class ListSort
 {
@@ -15,8 +14,7 @@ public static class ListSort
     public const string Rating = "rating";
 
     /// <summary>
-    /// Best rated first by the linked reference's own (provider) rating - the denormalized
-    /// <c>ReferenceRating</c> copied onto the tenant item on link/refresh; items with no linked rating last.
+    /// Best rated first by the provider rating, the <c>ReferenceRating</c> copied onto the item on link and refresh, with unrated items last.
     /// Distinct from <see cref="Rating"/>, which is the user's own star rating.
     /// </summary>
     public const string ReferenceRating = "refrating";

@@ -4,7 +4,7 @@ using Riok.Mapperly.Abstractions;
 namespace Keeptrack.WebApi.Mappers;
 
 /// <summary>
-/// One-directional (Model -> Dto) - see <see cref="TvShowReferenceDtoMapper"/> for the general rationale.
+/// Model to DTO only (see <see cref="TvShowReferenceDtoMapper"/>).
 /// </summary>
 [Mapper]
 public partial class VideoGameReferenceDtoMapper

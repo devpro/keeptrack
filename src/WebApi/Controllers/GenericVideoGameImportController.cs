@@ -9,11 +9,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace Keeptrack.WebApi.Controllers;
 
 /// <summary>
-/// Previews a generic video game transaction-history export and commits the rows the user selected/edited in
-/// the review UI as video games. Unlike <see cref="AmazonImportController"/>, every row is always a video
-/// game (the export is store purchase history for games specifically), so there's no per-row media-type
-/// picker and no generic multi-type commit branching - just one direct call into the shared
-/// <see cref="OwnedItemImportMergeService"/> engine.
+/// Previews a video game transaction export, then commits the rows selected in the review UI as video games.
+/// Every row is a video game, so unlike <see cref="AmazonImportController"/> there is no type picker, only one call into <see cref="OwnedItemImportMergeService"/>.
 /// </summary>
 [ApiController]
 [Authorize(Policy = "MemberOnly")]
@@ -23,8 +20,7 @@ public class GenericVideoGameImportController(
     GenericVideoGameImportPreviewRowDtoMapper previewMapper) : ControllerBase
 {
     /// <summary>
-    /// Parses the uploaded transaction-history CSV and returns every line item for review - nothing is
-    /// persisted by this call.
+    /// Parses the uploaded transaction CSV and returns every line item for review, persisting nothing.
     /// </summary>
     [HttpPost("preview")]
     [RequestSizeLimit(20_000_000)]
@@ -53,10 +49,9 @@ public class GenericVideoGameImportController(
     }
 
     /// <summary>
-    /// Creates/updates video games from the rows the user selected in the review UI. A row whose (normalized)
-    /// title matches an existing video game - or one created earlier in this same request - gets an
-    /// additional platform entry instead of a duplicate item; see
-    /// <see cref="OwnedItemImportMergeService.ComputeCommitPlan{TModel,TRequestItem}"/>.
+    /// Creates or updates video games from the selected rows.
+    /// A row whose normalized title matches a game, existing or created earlier in the request,
+    /// adds a platform entry rather than a duplicate (see <see cref="OwnedItemImportMergeService.ComputeCommitPlan{TModel,TRequestItem}"/>).
     /// </summary>
     [HttpPost("commit")]
     [ProducesResponseType(200)]
@@ -122,10 +117,8 @@ public class GenericVideoGameImportController(
             Price = item.Price,
             Vendor = item.Vendor,
             AcquiredAt = item.AcquiredAt,
-            // Derived server-side from the transaction id + order id + product name the preview row
-            // reported, never from a client-supplied Reference string - the product name is what
-            // disambiguates two different items sharing one transaction/order (a single transaction can
-            // bundle several products), and the whole string doubles as the exact-match dedup key on a re-import.
+            // built from the transaction id, order id and product name, never client text:
+            // the product name tells apart products bundled in one transaction, and the whole is the exact dedup key on a re-import
             Reference = GenericVideoGameImportService.FormatReference(item.TransactionId, item.OrderId, item.ProductName, item.SourceTitle)
         }
     };

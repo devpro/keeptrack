@@ -3,12 +3,12 @@ using System;
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// One consumption data point, always computed across a full refill/recharge.
+/// One consumption data point, always computed across a full refill or recharge.
 /// </summary>
 public class ConsumptionPointDto
 {
     /// <summary>
-    /// Date of the full refill/recharge that closed this data point.
+    /// Date of the full refill or recharge closing this data point.
     /// </summary>
     public required DateOnly Date { get; set; }
 

@@ -11,10 +11,11 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// End-to-end share lifecycle against the live API. The recipient is matched by account email, so the single
-/// test account self-shares (as the Playwright smoke test does). Self-share means the recipient already owns
-/// everything shared, which is exactly the dedup path: reads flag the items as already-in-collection and a
-/// copy returns the existing item instead of duplicating. A grant to a different email is invisible to others.
+/// End-to-end share lifecycle against the live API.
+/// The recipient is matched by account email, so the single test account self-shares (as the Playwright smoke test does).
+/// Self-share means the recipient already owns everything shared, which is exactly the dedup path:
+/// reads flag the items as already-in-collection and a copy returns the existing item instead of duplicating.
+/// A grant to a different email is invisible to others.
 /// </summary>
 public class ShareResourceTest(KestrelWebAppFactory<Program> factory)
     : ResourceTestBase(factory)
@@ -109,7 +110,7 @@ public class ShareResourceTest(KestrelWebAppFactory<Program> factory)
         // a personal category not in this grant is an indistinguishable 404
         await GetAsync($"/api/shared-with-me/{share.Id}/houses", HttpStatusCode.NotFound);
 
-        // personal data is never copyable - there is deliberately no copy route for it
+        // personal data is never copyable, so there is no copy route for it
         await PostNoContentAsync($"/api/shared-with-me/{share.Id}/cars/{car.Id}/copy", new { }, HttpStatusCode.NotFound);
     }
 
@@ -146,7 +147,7 @@ public class ShareResourceTest(KestrelWebAppFactory<Program> factory)
         // a category not in scope is an indistinguishable 404
         await GetAsync($"/api/shared-with-me/{share.Id}/gear", HttpStatusCode.NotFound);
 
-        // collections are never copyable - there is deliberately no copy route for them
+        // collections are never copyable, so there is no copy route for them
         await PostNoContentAsync($"/api/shared-with-me/{share.Id}/collectibles/{favourite.Id}/copy", new { }, HttpStatusCode.NotFound);
     }
 

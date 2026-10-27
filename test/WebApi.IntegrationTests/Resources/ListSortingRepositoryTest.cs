@@ -12,12 +12,10 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Exercises <c>MongoDbRepositoryBase.FindAllAsync</c>'s sort translation against real MongoDB - the
-/// interesting behaviors (the title sort's case-insensitive collation, descending-sort null placement,
-/// the newest-first default from _id ordering) are server-side semantics a mocked repository can never
-/// prove. One entity type suffices: the sort switch and collation live once in the shared base, and
-/// Book covers both overridable sort fields (title and rating). Each test run uses its own random
-/// owner id, so parallel runs and other tests' data can't interfere with the ordering assertions.
+/// Exercises <c>MongoDbRepositoryBase.FindAllAsync</c>'s sort translation against real MongoDB,
+/// since the title sort's case-insensitive collation, descending null placement and newest-first _id default are server-side semantics.
+/// One entity type suffices, the sort switch and collation living once in the shared base, and Book covers both overridable sort fields (title, rating).
+/// Each test run uses its own random owner id, so parallel runs and other tests' data can't interfere with the ordering assertions.
 /// </summary>
 public class ListSortingRepositoryTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)
 {
@@ -28,8 +26,8 @@ public class ListSortingRepositoryTest(KestrelWebAppFactory<Program> factory) : 
         var repository = scope.ServiceProvider.GetRequiredService<IBookRepository>();
         var ownerId = $"sort-test-{Guid.NewGuid():N}";
 
-        // creation order deliberately differs from every sorted order; "apple" (lowercase) between
-        // "Banana" and "Cherry" proves the title collation, the null rating proves nulls sort last
+        // creation order deliberately differs from every sorted order;
+        // "apple" (lowercase) between "Banana" and "Cherry" proves the title collation, the null rating proves nulls sort last
         await CreateBookAsync(repository, NewBook(ownerId, "Banana", rating: 2f));
         await CreateBookAsync(repository, NewBook(ownerId, "apple", rating: null));
         await CreateBookAsync(repository, NewBook(ownerId, "Cherry", rating: 4.5f));
@@ -63,8 +61,7 @@ public class ListSortingRepositoryTest(KestrelWebAppFactory<Program> factory) : 
             await CreateBookAsync(repository, NewBook(ownerId, $"Book {i:D2}"));
         }
 
-        // paging through a sorted list must partition it exactly: no duplicates, no drops - the
-        // guarantee an unsorted skip/limit read never had
+        // paging through a sorted list partitions it exactly, with no duplicates and no drops, which an unsorted skip and limit can't guarantee
         var page1 = await repository.FindAllAsync(ownerId, 1, 2, null, NewBook(ownerId, ""), ListSort.Title, TestContext.Current.CancellationToken);
         var page2 = await repository.FindAllAsync(ownerId, 2, 2, null, NewBook(ownerId, ""), ListSort.Title, TestContext.Current.CancellationToken);
         var page3 = await repository.FindAllAsync(ownerId, 3, 2, null, NewBook(ownerId, ""), ListSort.Title, TestContext.Current.CancellationToken);

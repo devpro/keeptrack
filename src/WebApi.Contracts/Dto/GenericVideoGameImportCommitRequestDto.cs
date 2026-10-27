@@ -3,8 +3,7 @@ using System.Collections.Generic;
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// The set of generic video game transaction rows the user picked in the review UI, ready to be created as
-/// video games.
+/// The video game transaction rows the user picked in the review UI, ready to be created or merged.
 /// </summary>
 public class GenericVideoGameImportCommitRequestDto
 {

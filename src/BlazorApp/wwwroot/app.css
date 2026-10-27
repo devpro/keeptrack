@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════
    KEEPTRACK: theme layer (dark only)
-   Bootstrap 5.3 override layer. data-bs-theme="dark" is set statically
-   on <html> in App.razor - the app has no light theme and no toggle.
+   Bootstrap 5.3 override layer.
+   data-bs-theme="dark" is set statically on <html> in App.razor, since the app has no light theme and no toggle.
    ═══════════════════════════════════════════════════════════════════ */
 
 /* ── Tokens ──────────────────────────────────────────────────────── */
@@ -71,8 +71,7 @@ h1, h2, h3, h4 {
 a { color: var(--kt-accent); text-decoration: none; transition: color var(--kt-transition); }
 a:hover { color: var(--kt-accent-dim); }
 
-/* Routes.razor's <FocusOnNavigate Selector="h1"> programmatically focuses the page's h1 after
-   navigation for screen readers; suppress the resulting focus ring since h1 isn't interactive. */
+/* Routes.razor's <FocusOnNavigate Selector="h1"> focuses the page's h1 after navigation for screen readers, and an h1 isn't interactive, so it shows no focus ring. */
 h1:focus { outline: none; }
 
 /* ── Layout ────────────────────────────────────────────────────────── */
@@ -125,14 +124,14 @@ div.content,
 .main > .top-row { display: none; }
 
 .navbar-brand {
+  --bs-navbar-brand-color: var(--kt-text);
+  --bs-navbar-brand-hover-color: var(--kt-text);
   font-size: 1.2rem;
   font-weight: 700;
-  color: var(--kt-text) !important;
   letter-spacing: -0.01em;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  text-decoration: none !important;
 }
 .navbar-brand::before { content: '◈'; color: var(--kt-accent); font-size: 0.95rem; }
 
@@ -149,7 +148,7 @@ div.content,
 }
 
 #nav-toggle {
-  display: none !important;
+  display: none;
 }
 
 .navbar-toggler-label {
@@ -172,27 +171,26 @@ div.content,
 }
 .nav-scrollable .nav { gap: 1px; }
 
+/* Colours, padding and size go through Bootstrap's own --bs-nav-link-* variables, which its :hover and :focus rules read too, so no state falls back to Bootstrap's blue. */
 .nav-link {
-  display: flex !important;
+  --bs-nav-link-padding-y: 0.5rem;
+  --bs-nav-link-padding-x: 0.75rem;
+  --bs-nav-link-font-size: 0.875rem;
+  --bs-nav-link-font-weight: 500;
+  --bs-nav-link-color: var(--kt-text-muted);
+  --bs-nav-link-hover-color: var(--kt-text);
+  display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.5rem 0.75rem !important;
   border-radius: 7px;
-  color: var(--kt-text-muted) !important;
-  font-size: 0.875rem !important;
-  font-weight: 500;
   transition: all var(--kt-transition);
   cursor: pointer;
-  background: none !important;
-  border: none;
   width: 100%;
   text-align: left;
-  text-decoration: none !important;
   line-height: 1.4;
 }
-.nav-link:hover   { color: var(--kt-text) !important; background: var(--kt-surface-2) !important; }
-.nav-link.active  { color: var(--kt-accent) !important; background: var(--kt-accent-glow) !important; }
-button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199, 58, 82, 0.08) !important; }
+.nav-link:hover   { background: var(--kt-surface-2); }
+.nav-link.active  { color: var(--kt-accent); background: var(--kt-accent-glow); }
 
 .nav-icon {
   width: 18px;
@@ -204,13 +202,13 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
   font-style: normal;
   opacity: 0.85;
 }
-/* NavIcon renders a bare <svg>; sizing it here (rather than per-icon) keeps every glyph on one optical
-   scale, and stroke:currentColor on the svg means the nav link's own colour states drive it. */
+/* A nav row's Icon renders a bare <svg>, sized here rather than per icon to keep every glyph on one optical scale.
+   stroke:currentColor lets the nav link's own colour states drive it. */
 .nav-icon svg { width: 18px; height: 18px; display: block; }
 .nav-link.active .nav-icon { opacity: 1; }
 
-/* Section label between nav groups - the sidebar's only structure, so it stays very quiet: it must read
-   as a divider with a name on it, never as another clickable row. */
+/* Section label between nav groups, the sidebar's only structure.
+   It stays very quiet, reading as a named divider, never as another clickable row. */
 .kt-nav-group {
   padding: 1rem 0.75rem 0.35rem;
   font-size: 0.66rem;
@@ -221,9 +219,8 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
   user-select: none;
 }
 
-/* the signed-in user's nav row has no plain-text glyph that reads as "profile" (a person silhouette is a
-   color-emoji-only codepoint - see the Theme section in CLAUDE.md), so it's a small initial-letter avatar
-   instead of an icon - the same pattern Gmail/Slack use, and it doubles as a personalization touch */
+/* No plain-text glyph reads as "profile", a person silhouette being a colour-emoji-only codepoint (see the Theme section in docs/blazor-ui.md).
+   The signed-in user's nav row shows a small initial-letter avatar instead, as Gmail and Slack do. */
 .kt-nav-avatar {
   width: 20px;
   height: 20px;
@@ -239,8 +236,8 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
 }
 
 .nav-link-logout:hover {
-  color: var(--kt-danger) !important;
-  background: rgba(199, 58, 82, 0.08) !important;
+  color: var(--kt-danger);
+  background: rgba(199, 58, 82, 0.08);
 }
 
 .nav-username {
@@ -254,96 +251,133 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
 .nav-divider { border-top: 1px solid var(--kt-border); margin: 0.75rem 0; }
 
 /* ── Buttons ───────────────────────────────────────────────────────── */
+/* Buttons are themed through Bootstrap's --bs-btn-* variables, which every one of its state rules reads.
+   A variant sets its resting and hover colours, and the pressed and disabled states follow them. */
 .btn {
-  font-family: var(--kt-font) !important;
-  font-weight: 500 !important;
-  font-size: 0.85rem !important;
-  border-radius: 8px !important;
-  padding: 0.5rem 1.1rem !important;
-  transition: all var(--kt-transition) !important;
+  --bs-btn-font-family: var(--kt-font);
+  --bs-btn-font-weight: 500;
+  --bs-btn-font-size: 0.85rem;
+  --bs-btn-border-radius: 8px;
+  --bs-btn-padding-y: 0.5rem;
+  --bs-btn-padding-x: 1.1rem;
+  transition: all var(--kt-transition);
   line-height: 1.4;
 }
-.btn-primary  { background: var(--kt-accent) !important; color: #fff !important; border-color: var(--kt-accent) !important; }
-.btn-primary:hover  { background: var(--kt-accent-dim) !important; border-color: var(--kt-accent-dim) !important; color: #fff !important; box-shadow: 0 0 0 3px var(--kt-accent-glow) !important; }
-.btn-secondary { background: var(--kt-surface-3) !important; color: var(--kt-text-muted) !important; border-color: var(--kt-border) !important; }
-.btn-secondary:hover { background: var(--kt-surface-2) !important; color: var(--kt-text) !important; border-color: var(--kt-border-hover) !important; box-shadow: none !important; }
-.btn-success  { background: var(--kt-success) !important; color: #fff !important; border-color: var(--kt-success) !important; }
-.btn-success:hover { filter: brightness(1.08); border-color: var(--kt-success) !important; }
-.btn-outline-danger  { background: transparent !important; color: var(--kt-danger) !important; border-color: rgba(199, 58, 82, 0.35) !important; }
-.btn-outline-danger:hover  { background: rgba(199, 58, 82, 0.10) !important; color: var(--kt-danger) !important; border-color: var(--kt-danger) !important; box-shadow: none !important; }
-.btn-outline-primary { background: transparent !important; color: var(--kt-accent) !important; border-color: rgba(47, 111, 237, 0.35) !important; }
-.btn-outline-primary:hover { background: var(--kt-accent-glow) !important; color: var(--kt-accent) !important; border-color: var(--kt-accent) !important; box-shadow: none !important; }
-.btn-sm { padding: 0.28rem 0.65rem !important; font-size: 0.78rem !important; border-radius: 6px !important; }
+.btn-primary,
+.btn-secondary,
+.btn-success,
+.kt-toggle-btn {
+  --bs-btn-active-color: var(--bs-btn-hover-color);
+  --bs-btn-active-bg: var(--bs-btn-hover-bg);
+  --bs-btn-active-border-color: var(--bs-btn-hover-border-color);
+  --bs-btn-disabled-color: var(--bs-btn-color);
+  --bs-btn-disabled-bg: var(--bs-btn-bg);
+  --bs-btn-disabled-border-color: var(--bs-btn-border-color);
+}
+.btn-primary {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: var(--kt-accent);
+  --bs-btn-border-color: var(--kt-accent);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--kt-accent-dim);
+  --bs-btn-hover-border-color: var(--kt-accent-dim);
+}
+.btn-primary:hover { box-shadow: 0 0 0 3px var(--kt-accent-glow); }
+.btn-secondary {
+  --bs-btn-color: var(--kt-text-muted);
+  --bs-btn-bg: var(--kt-surface-3);
+  --bs-btn-border-color: var(--kt-border);
+  --bs-btn-hover-color: var(--kt-text);
+  --bs-btn-hover-bg: var(--kt-surface-2);
+  --bs-btn-hover-border-color: var(--kt-border-hover);
+}
+.btn-secondary:hover { box-shadow: none; }
+.btn-success {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: var(--kt-success);
+  --bs-btn-border-color: var(--kt-success);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--kt-success);
+  --bs-btn-hover-border-color: var(--kt-success);
+}
+.btn-success:hover { filter: brightness(1.08); }
+.btn-sm {
+  --bs-btn-padding-y: 0.28rem;
+  --bs-btn-padding-x: 0.65rem;
+  --bs-btn-font-size: 0.78rem;
+  --bs-btn-border-radius: 6px;
+}
 
 /* ── Form controls ─────────────────────────────────────────────────── */
 .form-control,
 .form-select {
-  background-color: var(--kt-surface-3) !important;
-  border: 1px solid var(--kt-border) !important;
-  color: var(--kt-text) !important;
-  border-radius: 8px !important;
-  padding: 0.5rem 0.85rem !important;
-  font-size: 0.875rem !important;
-  font-family: var(--kt-font) !important;
-  transition: border-color var(--kt-transition), box-shadow var(--kt-transition) !important;
+  background-color: var(--kt-surface-3);
+  border: 1px solid var(--kt-border);
+  color: var(--kt-text);
+  border-radius: 8px;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.875rem;
+  font-family: var(--kt-font);
+  transition: border-color var(--kt-transition), box-shadow var(--kt-transition);
 }
 .form-control:focus, .form-select:focus {
-  background-color: var(--kt-surface-3) !important;
-  border-color: var(--kt-accent) !important;
-  color: var(--kt-text) !important;
-  box-shadow: 0 0 0 3px var(--kt-accent-glow) !important;
-  outline: none !important;
+  background-color: var(--kt-surface-3);
+  border-color: var(--kt-accent);
+  color: var(--kt-text);
+  box-shadow: 0 0 0 3px var(--kt-accent-glow);
+  outline: none;
 }
-.form-control::placeholder { color: var(--kt-text-subtle) !important; }
+/* A read-only car or house shown to a viewer disables its fields, and Bootstrap's :disabled rule would repaint them in its light grey. */
+.form-control:disabled, .form-select:disabled { background-color: var(--kt-surface-3); }
+.form-control::placeholder { color: var(--kt-text-subtle); }
 .form-select option { background: var(--kt-surface-3); color: var(--kt-text); }
-.form-control-sm, .form-select-sm { padding: 0.3rem 0.65rem !important; font-size: 0.82rem !important; border-radius: 6px !important; }
-/* Field labels are sentence case; uppercase is reserved for the things that structure a page - section
-   headings (.kt-section-title, .kt-form-card h5) and table column headers. A detail page otherwise stacks
-   a dozen shouted micro-labels down one screen, at which point the treatment stops marking hierarchy
-   because everything has it. Labels are written sentence-case in the markup, so this is CSS-only. */
+.form-control-sm, .form-select-sm { padding: 0.3rem 0.65rem; font-size: 0.82rem; border-radius: 6px; }
+/* Field labels are sentence case, and uppercase is reserved for what structures a page: section headings (.kt-section-title, .kt-form-card h5) and table column headers.
+   A detail page would otherwise stack a dozen shouted micro-labels, and a treatment everything has marks no hierarchy.
+   Labels are written in sentence case in the markup, so this is CSS-only. */
 .form-label { font-size: 0.78rem; font-weight: 500; letter-spacing: 0; color: var(--kt-text-muted); margin-bottom: 0.3rem; }
-.form-check-input:checked { background-color: var(--kt-accent) !important; border-color: var(--kt-accent) !important; }
+.form-check-input:checked { background-color: var(--kt-accent); border-color: var(--kt-accent); }
 
 /* ── TABLE ─────────────────────────────────────────────────────────── */
 .table {
-  --bs-table-bg:           transparent !important;
-  --bs-table-color:        var(--kt-text) !important;
-  --bs-table-border-color: var(--kt-border) !important;
-  --bs-table-hover-bg:     var(--kt-surface-2) !important;
-  --bs-table-striped-bg:   transparent !important;
-  color: var(--kt-text) !important;
-  width: 100% !important;
-  margin-bottom: 0 !important;
-  border-collapse: separate !important;
-  border-spacing: 0 !important;
+  --bs-table-bg:           transparent;
+  --bs-table-color:        var(--kt-text);
+  --bs-table-border-color: var(--kt-border);
+  --bs-table-hover-bg:     var(--kt-surface-2);
+  --bs-table-striped-bg:   transparent;
+  color: var(--kt-text);
+  width: 100%;
+  margin-bottom: 0;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 .table > :not(caption) > * > * {
-  background-color: transparent !important;
-  color: var(--kt-text) !important;
-  border-bottom-color: var(--kt-border) !important;
-  box-shadow: none !important;
-  padding: 0.85rem 1.1rem !important;
-  vertical-align: middle !important;
+  background-color: transparent;
+  color: var(--kt-text);
+  border-bottom-color: var(--kt-border);
+  box-shadow: none;
+  padding: 0.85rem 1.1rem;
+  vertical-align: middle;
 }
 
 .table thead th {
-  font-size: 0.7rem !important;
-  font-weight: 600 !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.08em !important;
-  color: var(--kt-text-muted) !important;
-  border-bottom: 1px solid var(--kt-border) !important;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--kt-text-muted);
+  border-bottom: 1px solid var(--kt-border);
   white-space: nowrap;
 }
 
-.table tbody tr:last-child td { border-bottom: none !important; }
-.table tbody tr:hover td { background-color: var(--kt-surface-2) !important; }
+.table tbody tr:last-child td { border-bottom: none; }
+.table tbody tr:hover td { background-color: var(--kt-surface-2); }
 
 .table tbody tr.kt-editing td {
-  background-color: var(--kt-accent-glow) !important;
-  border-top: 1px solid var(--kt-accent) !important;
-  border-bottom: 1px solid var(--kt-accent) !important;
+  background-color: var(--kt-accent-glow);
+  border-top: 1px solid var(--kt-accent);
+  border-bottom: 1px solid var(--kt-accent);
 }
 
 .kt-table-wrap {
@@ -355,11 +389,10 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
   width: 100%;
 }
 
-/* Inventory rows in *list* view only (InventoryList adds this; the grid deliberately doesn't get it).
-   A .kt-item-row is a flex line whose content clusters left and whose delete button is pushed to the far
-   edge, so across the full 1100px content column the title and its own delete icon ended up ~900px apart
-   with nothing in between. Capping the measure keeps a row readable as one object; the grid, the admin
-   queues and the dense car/health journals all still take the full width. */
+/* Inventory rows in list view only, added by InventoryList, never to the grid.
+   A .kt-item-row clusters its content left and pushes its delete button to the far edge, so across the full 1100px column the title and its delete icon sit ~900px apart.
+   Capping the measure keeps a row readable as one object.
+   The grid, the admin queues and the dense car and health journals take the full width. */
 .kt-table-wrap-list { max-width: 920px; margin-inline: auto; }
 
 .kt-table-header {
@@ -380,9 +413,9 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
 .kt-table-title span { color: var(--kt-accent); }
 
 /* ── Inventory item rows (list pages) ──────────────────────────────── */
-/* one media row per item: optional cover thumb, title + meta line, delete icon. The whole row opens the
-   detail page via the title's Bootstrap stretched-link, which needs this position:relative and a raised
-   z-index on the delete button so it stays clickable above the stretched overlay. */
+/* One media row per item: optional cover thumb, title and meta line, delete icon.
+   The whole row opens the detail page through the title's Bootstrap stretched-link.
+   That needs position:relative here, and a raised z-index on the delete button to keep it clickable above the overlay. */
 .kt-item-row {
   position: relative;
   display: flex;
@@ -394,7 +427,7 @@ button.nav-link:hover { color: var(--kt-danger) !important; background: rgba(199
 }
 .kt-item-row:hover { background: var(--kt-surface-2); }
 .kt-item-delete { position: relative; z-index: 2; }
-/* Wishlist/Watch Next rows are plain anchors (no inner action, no stretched-link needed) */
+/* Wishlist and Watch Next rows are plain anchors, with no inner action needing a stretched-link */
 a.kt-item-row { color: inherit; text-decoration: none; }
 
 .kt-item-thumb {
@@ -411,9 +444,8 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 }
 .kt-item-thumb img { width: 100%; height: 100%; object-fit: cover; }
 
-/* No-cover fallback (CoverPlaceholder.razor): the item's initial, set low-contrast so it recedes instead
-   of announcing a broken image. Sized per container rather than by a shared value - a 44px row thumb and
-   a 300px grid cover want very different letters. */
+/* No-cover fallback (CoverPlaceholder.razor): the item's initial, set low-contrast so it recedes instead of announcing a broken image.
+   Sized per container rather than by a shared value, since a 44px row thumb and a 300px grid cover want very different letters. */
 .kt-cover-initial {
   font-weight: 600;
   line-height: 1;
@@ -423,16 +455,14 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 }
 .kt-item-thumb .kt-cover-initial { font-size: 1.1rem; }
 .kt-grid-cover .kt-cover-initial { font-size: 2.6rem; }
-/* per-provider aspect ratios: Discogs album art is square, RAWG game imagery is wide - cropping either
-   into the default 2:3 poster shape cuts the artwork badly */
+/* Per-provider aspect ratios: Discogs album art is square and game key art is wide, and cropping either into the default 2:3 poster shape cuts the artwork badly. */
 .kt-item-thumb.square { width: 56px; height: 56px; }
 .kt-item-thumb.wide { width: 96px; height: 54px; }
 
 .kt-item-main { min-width: 0; flex: 1; }
-/* the title is body text, not a link colour: the row is one big click target whose hover state carries
-   the affordance, and a column of accent-blue titles is the loudest thing on a list page. This is what
-   .kt-grid-title (a plain div, so it never inherited the anchor colour) has always looked like - the two
-   views now agree. */
+/* The title is body text, not a link colour: the row is one big click target whose hover state carries the affordance.
+   A column of accent-blue titles would be the loudest thing on a list page.
+   It matches .kt-grid-title, a plain div, so the two views agree. */
 .kt-item-title {
   font-weight: 500;
   color: var(--kt-text);
@@ -453,8 +483,8 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   color: var(--kt-text-muted);
 }
 
-/* small text pills for per-item flags (favorite, seen/read, owned, wishlist) - plain words instead of
-   bare glyphs, which read as unlabeled noise in the row */
+/* Small text pills for per-item flags (favorite, seen or read, owned, wishlist).
+   Plain words, since bare glyphs read as unlabeled noise in the row. */
 .kt-flag-badge {
   display: inline-flex;
   align-items: center;
@@ -470,8 +500,8 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 .kt-flag-badge.done     { background: var(--kt-success-bg); color: var(--kt-success); }
 .kt-flag-badge.wishlist { background: var(--kt-accent-glow); color: var(--kt-accent); }
 
-/* reference (provider) rating pill on list/grid rows - the linked reference's own score, a bare number
-   with no scale. Distinct from the user's personal star rating (.kt-stars) and the flag pills. */
+/* Reference (provider) rating pill on list and grid rows: the linked reference's own score, a bare number with no scale.
+   Distinct from the user's personal star rating (.kt-stars) and the flag pills. */
 .kt-ref-rating {
   display: inline-flex;
   align-items: center;
@@ -496,7 +526,7 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 .kt-ref-rating-detail .kt-ref-rating-count { color: var(--kt-text-subtle); font-size: 0.75rem; }
 
 /* ── List/thumbnail view toggle ────────────────────────────────────── */
-/* segmented control in the search bar, only rendered for image-bearing types (see InventoryList) */
+/* segmented control in the search bar, rendered only for image-bearing types (see InventoryList) */
 .kt-view-toggle {
   display: inline-flex;
   flex-shrink: 0;
@@ -519,16 +549,16 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 .kt-view-btn.active { background: var(--kt-accent); color: #fff; }
 
 /* ── Inventory thumbnail (grid) view ───────────────────────────────── */
-/* poster cards: the cover art is the hero, title + meta captioned underneath. The whole card opens the
-   detail page via a stretched-link over the cover; the delete button is raised above it via z-index. */
+/* Poster cards: the cover art is the hero, with title and meta captioned underneath.
+   The whole card opens the detail page through a stretched-link over the cover, and the delete button is raised above it by z-index. */
 .kt-item-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 1.25rem 1rem;
   padding: 0.5rem 1rem 1.5rem;
 }
-/* per-shape column sizing: square art reads fine a touch wider than portrait, and wide (16:9) imagery
-   needs a much larger min so the tiles don't shrink to unreadable strips (video games, cars, houses, ...) */
+/* Per-shape column sizing: square art reads well a touch wider than portrait.
+   Wide (16:9) imagery needs a much larger minimum, or the tiles shrink to unreadable strips (video games, cars, houses...). */
 .kt-item-grid.square { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 .kt-item-grid.wide { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
 .kt-grid-card { position: relative; min-width: 0; }
@@ -565,8 +595,9 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 }
 .kt-grid-card:hover .kt-grid-delete,
 .kt-grid-delete:focus-visible { opacity: 1; }
-/* Explore card actions (add / dismiss). Unlike the delete button they are the card's whole purpose, so
-   they stay visible at rest rather than appearing on hover. Add sits left, dismiss right, across the top. */
+/* Explore card actions (add, dismiss).
+   Unlike the delete button they are the card's whole purpose, so they stay visible at rest rather than appearing on hover.
+   Add sits left, dismiss right, across the top. */
 .kt-explore-actions {
   position: absolute;
   top: 0.35rem;
@@ -584,8 +615,8 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 .kt-explore-source { display: inline-flex; align-items: center; gap: 0.25rem; }
 
 .kt-grid-caption { padding: 0.5rem 0.15rem 0; }
-/* Two lines, clamped - a single nowrap line truncated most real titles mid-word ("Project Hail M…"),
-   and the cards are narrow enough that a second line costs less than the lost words did.
+/* Two lines, clamped, since a single nowrap line truncates most real titles mid-word ("Project Hail M…").
+   The cards are narrow enough that a second line costs less than the lost words.
    Same clamp mechanism as .kt-ref-synopsis. */
 .kt-grid-title {
   font-weight: 500;
@@ -606,15 +637,14 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   font-size: 0.75rem;
   color: var(--kt-text-muted);
 }
-/* A caption is a caption, not a second detail page: at full size the stars alone were taller than the
-   text they sat under, and every flag pill claimed its own line, so cards in one row ended at wildly
-   different heights. Smaller stars and pills keep the whole caption to about three lines. */
+/* A caption, not a second detail page.
+   At full size the stars alone are taller than the text under them and every flag pill claims its own line, so cards in one row end at very different heights.
+   Smaller stars and pills keep the caption to about three lines. */
 .kt-grid-meta .kt-stars { font-size: 0.72rem; }
 .kt-grid-meta .star { font-size: 0.95rem; }
 .kt-grid-meta .kt-flag-badge { font-size: 0.62rem; padding: 0.02rem 0.4rem; }
-/* Watch Next thumbnails: stack the "Next: SxxExx" badge and the episode title in a centered column so a
-   short episode title drops below the badge instead of sitting beside it, and the whole caption stays
-   evenly spaced and horizontally centered under the cover. */
+/* Watch Next thumbnails stack the "Next: SxxExx" badge and the episode title in a centred column.
+   A short episode title then drops below the badge instead of sitting beside it, and the caption stays evenly spaced under the cover. */
 .kt-watchnext-grid .kt-grid-caption { text-align: center; }
 .kt-watchnext-grid .kt-grid-meta {
   flex-direction: column;
@@ -629,8 +659,8 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   .kt-item-grid.wide { grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); }
 }
 
-/* candidate synopsis in the admin linking queue - TMDB synopses can run very long, pushing the Link
-   action below the fold; clamp to a teaser so the card stays scannable */
+/* Candidate synopsis in the admin linking queue.
+   TMDB synopses can run very long and push the Link action below the fold, so a clamp keeps the card scannable. */
 .kt-ref-synopsis {
   display: -webkit-box;
   -webkit-line-clamp: 3;
@@ -680,12 +710,10 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 }
 .kt-quickadd-back:hover { color: var(--kt-text); }
 
-/* Equal-width segmented button rows: event-type toggles (CarHistoryForm/HouseHistoryForm/HealthRecordForm)
-   and Quick Add's own parent-selector rows (car/house/health-profile) - each button's default width comes
-   from its own text length, which reads as arbitrary/lopsided for a set of options that are otherwise
-   equal choices. flex-basis:0 with equal grow/shrink divides the row evenly regardless of label length;
-   a still-too-long label (e.g. "Installation") is allowed to keep its own min-content width instead of
-   being squashed unreadable, which is why this isn't a plain CSS grid instead. */
+/* Equal-width segmented button rows: event-type toggles (CarHistoryForm, HouseHistoryForm, HealthRecordForm) and Quick Add's parent selectors (car, house, health profile).
+   A button's default width follows its text, which looks lopsided for a set of equal choices.
+   flex-basis:0 with equal grow and shrink divides the row evenly whatever the label length.
+   A label still too long ("Installation") keeps its min-content width instead of being squashed, which a plain CSS grid would not allow. */
 .kt-btn-row-even > button { flex: 1 1 0; }
 
 /* The detail page's editable title reads as a heading.
@@ -712,8 +740,8 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 .kt-title-input:focus { border-color: var(--kt-accent); outline: none; background: var(--kt-surface); }
 .kt-title-input:disabled { cursor: not-allowed; }
 
-/* the title input + its inline actions (reference-refresh button, toast) on a detail page's header row -
-   one shared class so the mobile full-width override in the responsive section has a single target */
+/* The title input and its inline actions (reference-refresh button, toast) on a detail page's header row.
+   One shared class gives the mobile full-width override in the responsive section a single target. */
 .kt-title-row {
   display: flex;
   align-items: center;
@@ -722,8 +750,8 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   min-width: 0;
 }
 
-/* small icon-only button next to the title (e.g. "check for reference match") - borderless/transparent
-   until hover, matching the title input's own minimal look, instead of standing out as a heavy bordered button */
+/* Small icon-only button next to the title ("check for reference match").
+   Borderless and transparent until hover, matching the title input's minimal look rather than standing out as a heavy bordered button. */
 .kt-icon-btn {
   display: inline-flex;
   align-items: center;
@@ -741,10 +769,9 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 .kt-icon-btn:hover:not(:disabled) { background: var(--kt-surface-3); color: var(--kt-text); }
 .kt-icon-btn:disabled { cursor: not-allowed; opacity: 0.5; }
 
-/* small transient pill next to an inline action button (e.g. the refresh-reference result), instead of a
-   plain unstyled paragraph that reads like leftover debug output. Same pill shape as .kt-status-badge, with
-   generic semantic colors instead of TvShowStatus-specific ones. Auto-dismissed from code-behind after a
-   few seconds - see RefreshReferenceAsync in MovieDetail.razor/TvShowDetail.razor. */
+/* Small transient pill next to an inline action button (the refresh-reference result), since a plain paragraph reads like leftover debug output.
+   Same pill shape as .kt-status-badge, with generic semantic colours instead of TvShowStatus ones.
+   Dismissed from code after a few seconds (see ReferenceMatchControls.razor). */
 .kt-inline-toast {
   display: inline-flex;
   align-items: center;
@@ -760,11 +787,9 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 .kt-inline-toast.danger  { background: var(--kt-danger-bg); color: var(--kt-danger); }
 @keyframes kt-toast-in { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: translateY(0); } }
 
-/* fixed-width reserved slot for the transient refresh-reference toast, sitting to the left of the
-   refresh/unlink icons. The width is reserved permanently (even with no message) so the responsive
-   kt-title-input never resizes - and the icon buttons never shift - as a message appears and then
-   auto-dismisses a few seconds later. A longer-than-usual message overflows leftward over the title's
-   tail rather than widening the slot, so the geometry stays constant regardless of message length. */
+/* Fixed-width slot for the transient refresh-reference toast, left of the refresh and unlink icons.
+   The width is reserved even with no message, so the title input never resizes and the icon buttons never shift as a message comes and goes.
+   A long message overflows leftward over the title's tail rather than widening the slot. */
 .kt-title-toast-slot {
   flex: 0 0 auto;
   width: 6rem;
@@ -774,8 +799,8 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   overflow: visible;
 }
 
-/* small "more options" popup anchored under a kt-icon-btn (e.g. a track row's "⋮" menu) - the row it's
-   anchored to needs position:relative so this absolute box lands directly under the button, not the page. */
+/* Small "more options" popup anchored under a kt-icon-btn (a track row's "⋮" menu).
+   The row needs position:relative, so this absolute box lands under the button rather than relative to the page. */
 .kt-menu {
   position: absolute;
   right: 0;
@@ -802,12 +827,10 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 }
 .kt-menu-item:hover { background: var(--kt-surface-3); }
 
-/* Detail hero (DetailHero.razor): cover + fields side by side, used by Book/Movie/TvShow/Album.
-   A fixed grid, not flex-wrap, so the layout never depends on how much horizontal space the field values
-   happen to need - relying on flex-wrap's intrinsic-sizing heuristics used to drop the cover onto its own
-   row for some albums (long genre text) but not others, with no clear pattern from the markup.
-   The cover column is a real size rather than a fraction of the row: a 1/6th Bootstrap column rendered the
-   artwork at thumbnail scale on a wide card and squeezed the fields into a strip beside it. */
+/* Detail hero (DetailHero.razor): cover and fields side by side, for books, movies, TV shows and albums.
+   A fixed grid, not flex-wrap, so the layout never depends on how much space the field values need.
+   Flex-wrap's intrinsic sizing drops the cover onto its own row for some albums (long genre text) and not others.
+   The cover column is a real size rather than a fraction of the row, since a 1/6 column renders the artwork at thumbnail scale on a wide card. */
 .kt-detail-hero {
   display: grid;
   grid-template-columns: var(--kt-hero-cover-width, 230px) minmax(0, 1fr);
@@ -819,8 +842,7 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 .kt-detail-hero.square { --kt-hero-cover-width: 260px; }
 .kt-detail-hero.kt-detail-hero-no-cover { grid-template-columns: minmax(0, 1fr); }
 
-/* aspect-ratio + object-fit rather than a fixed height: provider artwork is not reliably the ratio it
-   claims, and cropping to the shape keeps a row of covers optically equal. */
+/* aspect-ratio and object-fit rather than a fixed height: provider artwork is not reliably the ratio it claims, and cropping to the shape keeps covers optically equal. */
 .kt-detail-cover {
   width: 100%;
   display: block;
@@ -840,11 +862,10 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   .kt-detail-cover.square { max-width: 200px; }
 }
 
-/* Gear/Collectible detail cover: full-width, on top of the fields (unlike .kt-detail-hero's side-by-side
-   layout) - sized and fitted for e-shop-style product photography (e.g. an Amazon listing photo), which is
-   usually a product shot on a plain background rather than a poster/album-art image with a fixed aspect
-   ratio. "contain" (not "cover") so the product is never cropped. No background/border - just the image,
-   centered and capped to a sensible height. */
+/* Gear and Collectible detail cover: full width, above the fields, unlike .kt-detail-hero's side-by-side layout.
+   It suits e-shop product photography (an Amazon listing photo): a product shot on a plain background, with no fixed aspect ratio.
+   "contain", not "cover", so the product is never cropped.
+   No background or border, only the image, centred and capped to a sensible height. */
 .kt-product-cover-box {
   width: 100%;
   height: 480px;
@@ -863,8 +884,8 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 }
 
 /* The video game detail page's own column.
-   .content is 1100px wide because the list pages need it, which on this page leaves every card, and every line of synopsis in them, far wider than the artwork at the top.
-   Narrowing the page rather than each card is what keeps the banner, the fields and the platform cards on one shared width. */
+   .content is 1100px wide for the list pages, which here would leave every card and line of synopsis far wider than the artwork at the top.
+   Narrowing the page rather than each card keeps the banner, the fields and the platform cards on one shared width. */
 .kt-game-page {
   max-width: 920px;
   margin-inline: auto;
@@ -874,16 +895,16 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 
    Measured against the real collection rather than assumed.
    329 of 345 stored covers are RAWG key art (1536x864 and 1438x810, exactly 16:9), 16 are IGDB box art (810x1080 portrait).
-   The wide banner is therefore the shape this page is built around, which is why it never used .kt-detail-hero's side-by-side poster column.
-   Shrinking the banner into a fixed side column to suit the portrait minority makes the page worse for 95% of the collection.
+   The wide banner is the shape this page is built around, rather than .kt-detail-hero's side-by-side poster column.
+   A fixed side column suiting the portrait minority would make the page worse for 95% of the collection.
 
    The box is exactly 16:9 and the artwork fills its whole width, with no letterboxing at the sides in any case.
-   A random sample of the stored RAWG images measured 1920x1080, 4000x2250, 2560x1440, 1536x864 and 1000x562, all exactly 16:9, so `object-fit: cover` crops nothing at all for the ordinary case.
-   The few that are not (2048x1280, 1763x932, 3761x2158) lose a few percent of one edge, which is the accepted trade for never showing empty space beside the artwork.
-   A portrait cover is cropped hard by the same rule, which is deliberate: a zoom into the middle of the box art is preferred over bands either side of it, and IGDB is no longer the default provider.
+   A random sample of stored RAWG images measured 1920x1080, 4000x2250, 2560x1440, 1536x864 and 1000x562, all exactly 16:9, so `object-fit: cover` crops nothing in the ordinary case.
+   The few that are not (2048x1280, 1763x932, 3761x2158) lose a few percent of one edge, the accepted trade for never showing empty space beside the artwork.
+   A portrait cover is cropped hard by the same rule on purpose: a zoom into the box art is preferred over bands either side of it.
 
-   The artwork is not wrapped in a .kt-form-card: it needs no surface, no border and no padding of its own, and a card around it only inset it and added a gap the rest of the page does not have.
-   It takes the same width as the cards below it instead, so its height follows from the ratio and the page column. */
+   The artwork is not wrapped in a .kt-form-card: it needs no surface, border or padding, and a card would only inset it and add a gap the rest of the page does not have.
+   It takes the width of the cards below it, so its height follows from the ratio and the page column. */
 .kt-game-banner {
   position: relative;
   width: 100%;
@@ -900,12 +921,12 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   width: 100%;
   height: 100%;
   object-fit: cover;
-  /* Slightly above centre, which only has an effect on a portrait cover since 16:9 art has no vertical overflow to position.
-     Box art carries its title at the top, so a dead-centre crop is the one that loses it. */
+  /* Slightly above centre, which affects only a portrait cover, since 16:9 art has no vertical overflow.
+     Box art carries its title at the top, which a dead-centre crop loses. */
   object-position: center 40%;
 }
 /* No artwork: a short strip carrying the item's initial, rather than a blank block that reads as a failed image load.
-   It drops the 16:9 ratio deliberately: there is no artwork to give room to, and a full-height empty banner would be the largest thing on the page for the items with the least to show. */
+   It drops the 16:9 ratio, since a full-height empty banner would be the largest thing on the page for the items with the least to show. */
 .kt-game-banner-none { aspect-ratio: auto; height: 150px; }
 .kt-game-banner-empty {
   position: relative;
@@ -917,7 +938,7 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 .kt-game-banner-empty .kt-cover-initial { font-size: 4rem; }
 
 /* A set of short read-only facts (a game's genres, the platforms it released on) as a wrapping row of pills.
-   Comma-joined into a sentence they read as a paragraph of metadata and get skipped over. */
+   Comma-joined, they read as a paragraph of metadata and get skipped. */
 .kt-chip-row { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .kt-chip {
   display: inline-flex;
@@ -932,7 +953,7 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 }
 
 /* Header row of a copy card (a video game's per-platform entry).
-   The platform name, then the badges saying what state that copy is in, then the card's own actions pushed to the end. */
+   The platform name, then the badges giving that copy's state, then the card's own actions pushed to the end. */
 .kt-copy-card-header {
   display: flex;
   align-items: center;
@@ -944,7 +965,7 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 .kt-copy-card-header .kt-copy-card-actions { margin-left: auto; }
 
 /* One playthrough per row: label, date, remove.
-   A grid rather than a flex row, so the date input keeps a real width instead of being squeezed by a growing label input, and so the columns line up down the list. */
+   A grid rather than a flex row, so the date input keeps a real width beside a growing label input, and the columns line up down the list. */
 .kt-playthrough-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 170px auto;
@@ -958,9 +979,8 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   .kt-playthrough-row > :first-child { grid-column: 1 / -1; }
 }
 
-/* compact aligned row for a list of tracks/songs inside a .kt-form-card (e.g. a playlist's song list) -
-   a CSS grid so title/artist/album line up in columns across rows without resorting to a full
-   .kt-table-wrap/<table>, which reads as a top-level list page rather than a detail-page sub-section. */
+/* Compact aligned row for tracks or songs inside a .kt-form-card (a playlist's song list).
+   A CSS grid lines up title, artist and album across rows, where a full .kt-table-wrap table would read as a top-level list page rather than a detail-page section. */
 .kt-track-row {
   display: grid;
   grid-template-columns: 1fr 180px 180px auto;
@@ -972,10 +992,10 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 .kt-track-row:first-of-type { border-top: none; }
 
 /* ── Form card ─────────────────────────────────────────────────────── */
-/* Deliberately no accent top border: a detail page stacks four or more of these, so a highlight every card
-   carries highlights nothing - and it gave an admin-only notice the same weight as the item's own data.
-   .kt-modal and .kt-login-card keep theirs, where it reads as "this is the one active surface".
-   The preceding .kt-section-title plus the card's own border already do the separating. */
+/* No accent top border: a detail page stacks four or more of these, and a highlight every card carries highlights nothing.
+   It would also give an admin-only notice the same weight as the item's own data.
+   .kt-modal and .kt-login-card keep theirs, where it marks the one active surface.
+   The preceding .kt-section-title and the card's own border do the separating. */
 .kt-form-card {
   position: relative;
   background: var(--kt-surface);
@@ -986,11 +1006,10 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   box-shadow: var(--kt-shadow);
 }
 
-/* A field's width should follow the length of what goes in it, not the width of the monitor: uncapped,
-   the col-md-* split gave a 120px Year input a ~350px column and left ~250px of void beside Notes.
-   Direct children only, and the two card kinds whose content genuinely wants the full width opt out -
-   the car metrics charts, and the copy/platform cards, whose equal-width col-md columns are already
-   sized to re-share whatever room they have (see OwnedVersionFields). */
+/* A field's width follows the length of its content, not the width of the monitor.
+   Uncapped, the col-md-* split gives a 120px Year input a ~350px column and leaves ~250px of void beside Notes.
+   Direct children only, and the two card kinds that want the full width opt out: the car metrics charts, and the copy and platform cards.
+   Those cards' equal-width col-md columns already re-share whatever room they have (see OwnedVersionFields). */
 .kt-form-card > .row { max-width: 860px; }
 .kt-car-metrics > .row,
 .kt-copy-card > .row { max-width: none; }
@@ -1004,15 +1023,12 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 }
 
 /* Corner flag: "watched" on a movie, "read" on a book.
-   This keeps its own place rather than becoming a fourth pill in the header row, deliberately: whether
-   you have seen a film or read a book is the most important single fact on the page, and the header row's
-   accent-blue .kt-toggle-btn states all mean "flagged", not "finished" - the success green here is what
-   carries that distinction, and it is worth more than the consistency of collapsing the two together.
-   What changed is only what was genuinely wrong with it:
-     - it is a real <button> (it was a <span>: unreachable by keyboard, announced as nothing, no pressed state)
-     - its top-right radius is the card's own *inner* radius, so it nests into the corner instead of
-       overhanging it by the width of the card border
-     - the two states are now clearly different from each other rather than differing only in colour. */
+   It keeps its own place rather than becoming a fourth pill in the header row.
+   Whether a film was seen or a book read is the most important fact on the page.
+   The header row's accent-blue .kt-toggle-btn states all mean "flagged", not "finished", and the success green here carries that distinction.
+   It is a real <button>, reachable by keyboard and announced with a pressed state.
+   Its top-right radius is the card's inner radius, so it nests into the corner instead of overhanging it by the border width.
+   The two states differ by more than colour. */
 .kt-corner-flag {
   position: absolute;
   top: 0;
@@ -1043,27 +1059,28 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   border-bottom-color: transparent;
 }
 .kt-corner-flag.active:hover { background: var(--kt-success-bg); color: var(--kt-success); }
-/* The tick is the state, so it gets the weight - the label beside it just names what is ticked. */
+/* The tick is the state, so it gets the weight, and the label beside it only names what is ticked. */
 .kt-corner-flag .kt-corner-check { font-size: 1rem; line-height: 1; }
 
-/* favorite/watchlist toggle buttons on a detail page: a soft tinted "selected" state instead of the
-   solid btn-primary blue/white block, which read as unnecessarily aggressive, especially in dark mode -
-   same accent-glow treatment already used for .kt-page-btn.active. */
+/* Favorite and watchlist toggle buttons on a detail page: a soft tinted "selected" state, since the solid btn-primary block reads as aggressive in dark mode.
+   Same accent-glow treatment as .kt-page-btn.active. */
 .kt-toggle-btn {
-  background: var(--kt-surface-3) !important;
-  color: var(--kt-text-muted) !important;
-  border: 1px solid var(--kt-border) !important;
+  --bs-btn-color: var(--kt-text-muted);
+  --bs-btn-bg: var(--kt-surface-3);
+  --bs-btn-border-color: var(--kt-border);
+  --bs-btn-hover-color: var(--kt-text);
+  --bs-btn-hover-bg: var(--kt-surface-2);
+  --bs-btn-hover-border-color: var(--kt-border);
 }
-.kt-toggle-btn:hover { background: var(--kt-surface-2) !important; color: var(--kt-text) !important; }
+/* Bootstrap's .btn.active rule comes after its :hover rule, so the selected state also holds under the pointer. */
 .kt-toggle-btn.active {
-  background: var(--kt-accent-glow) !important;
-  color: var(--kt-accent) !important;
-  border-color: rgba(47, 111, 237, 0.35) !important;
+  --bs-btn-active-color: var(--kt-accent);
+  --bs-btn-active-bg: var(--kt-accent-glow);
+  --bs-btn-active-border-color: rgba(47, 111, 237, 0.35);
 }
-.kt-toggle-btn.active:hover { background: var(--kt-accent-glow) !important; }
 
-/* Status/state pill for a list column (TV show status, video game state) - setting the value itself
-   happens via the explicit buttons on the detail page, not by clicking this) */
+/* Status pill for a list column (TV show status, video game state).
+   The value is set through the detail page's buttons, never by clicking this. */
 .kt-status-badge {
   display: inline-flex;
   align-items: center;
@@ -1075,40 +1092,42 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 .kt-status-badge.current { background: var(--kt-warning-bg); color: var(--kt-warning); }
 .kt-status-badge.finished { background: var(--kt-success-bg); color: var(--kt-success); }
 .kt-status-badge.stopped { background: var(--kt-danger-bg); color: var(--kt-danger); }
-/* video game states share "current" above (same in-progress meaning); the remaining three have no
-   TV show equivalent, so get their own modifiers here. */
+/* Video game states share "current" above (same in-progress meaning), and the other three have no TV show equivalent, so they get their own modifiers. */
 .kt-status-badge.completed { background: var(--kt-success-bg); color: var(--kt-success); }
 .kt-status-badge.to-resume { background: var(--kt-warning-bg); color: var(--kt-warning); }
 .kt-status-badge.on-hold { background: var(--kt-danger-bg); color: var(--kt-danger); }
 .kt-status-badge.available { background: var(--kt-surface-2); color: var(--kt-text-muted); }
 
 /* ── Progress bar ──────────────────────────────────────────────────── */
-.progress { background-color: var(--kt-surface-3) !important; border-radius: 999px !important; }
-.progress-bar { background-color: var(--kt-accent) !important; transition: width 0.3s ease !important; }
+.progress {
+  --bs-progress-bg: var(--kt-surface-3);
+  --bs-progress-border-radius: 999px;
+  --bs-progress-bar-bg: var(--kt-accent);
+  --bs-progress-bar-transition: width 0.3s ease;
+}
 
 /* ── Alerts ────────────────────────────────────────────────────────── */
-.alert { border-radius: var(--kt-radius) !important; font-size: 0.875rem; padding: 0.8rem 1.1rem !important; }
-.alert-danger { background: rgba(199, 58, 82, 0.10) !important; border-color: rgba(199, 58, 82, 0.3) !important; color: var(--kt-danger) !important; }
-.alert-info   { background: var(--kt-accent-glow) !important; border-color: rgba(47, 111, 237, 0.2) !important; color: var(--kt-text-muted) !important; }
+.alert { --bs-alert-border-radius: var(--kt-radius); --bs-alert-padding-y: 0.8rem; --bs-alert-padding-x: 1.1rem; font-size: 0.875rem; }
+.alert-danger { --bs-alert-bg: rgba(199, 58, 82, 0.10); --bs-alert-border-color: rgba(199, 58, 82, 0.3); --bs-alert-color: var(--kt-danger); }
+.alert-info   { --bs-alert-bg: var(--kt-accent-glow); --bs-alert-border-color: rgba(47, 111, 237, 0.2); --bs-alert-color: var(--kt-text-muted); }
 
 /* ── Loading / empty ───────────────────────────────────────────────── */
 .kt-loading { display: flex; align-items: center; gap: 0.75rem; color: var(--kt-text-muted); font-size: 0.9rem; padding: 4rem 0; justify-content: center; }
 .kt-spinner { width: 18px; height: 18px; border: 2px solid var(--kt-surface-3); border-top-color: var(--kt-accent); border-radius: 50%; animation: spin 0.75s linear infinite; flex-shrink: 0; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Spins its icon in place while an action is running, using the same animation as .kt-spinner - e.g. "check for reference match".
-   inline-flex, not inline-block, and that is the whole reason this comment exists.
-   Every one of these now wraps an <Icon> (an inline <svg>), which an inline-block box aligns on the text baseline: the box then includes the font's descender space and stands taller than the icon, so transform-origin's 50% 50% lands below the icon's real centre and it orbits instead of spinning.
-   Measured in Chromium at Size="17": a 21px box around a 17px icon, pivoting 2px low.
-   inline-flex makes the svg a flex item, so the box hugs it exactly and the centre is the icon's own. */
+/* Spins its icon in place while an action runs ("check for reference match"), with the same animation as .kt-spinner.
+   It must be inline-flex, not inline-block.
+   It wraps an <Icon> (an inline <svg>), which an inline-block box aligns on the text baseline, so the box includes the font's descender space and stands taller than the icon.
+   transform-origin's 50% 50% then lands below the icon's real centre and it orbits instead of spinning: in Chromium at Size="17", a 21px box around a 17px icon pivots 2px low.
+   inline-flex makes the svg a flex item, so the box hugs it and the centre is the icon's own. */
 .kt-icon-spin { display: inline-flex; animation: spin 0.75s linear infinite; }
 .kt-empty { text-align: center; padding: 5rem 2rem; }
 .kt-empty-icon { color: var(--kt-text-subtle); display: flex; justify-content: center; margin-bottom: 1rem; }
 
 /* ── Inline icons (Components/Shared/Icon.razor) ───────────────────── */
-/* An <svg> is an inline element, so inside a non-flex button it sits on the text baseline and reads as
-   sunk against its label. Containers that are already flex (.kt-icon-btn, .kt-page-btn) don't need this -
-   there the svg is a flex item and vertical-align does nothing. */
+/* An <svg> is an inline element, so inside a non-flex button it sits on the text baseline and reads as sunk against its label.
+   Containers already flex (.kt-icon-btn, .kt-page-btn) don't need this, since the svg is a flex item there and vertical-align does nothing. */
 .btn > svg { vertical-align: -0.18em; }
 .kt-home-feature > svg,
 .kt-flag-badge > svg { vertical-align: -0.15em; }
@@ -1121,8 +1140,8 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 /* ── Stars ─────────────────────────────────────────────────────────── */
 .kt-stars { color: var(--kt-accent); letter-spacing: 0; font-size: 0.85rem; }
 
-/* each star is the empty glyph with a precisely-widthed filled glyph overlaid on top, so any decimal
-   rating (e.g. 4.8) renders as an accurate partial fill, not rounded to the nearest half star */
+/* Each star is the empty glyph with a filled glyph of precise width overlaid on top.
+   Any decimal rating (4.8) then renders as an accurate partial fill, not rounded to the nearest half star. */
 .star { position: relative; display: inline-block; font-size: 1.2rem; color: var(--kt-text-subtle); }
 .star-fill {
   position: absolute;
@@ -1279,10 +1298,10 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 ::-webkit-scrollbar-thumb { background: var(--kt-surface-3); border-radius: 10px; }
 
 /* ── Blazor internals ──────────────────────────────────────────────── */
-#blazor-error-ui { background: var(--kt-surface); border-top: 1px solid var(--kt-border); color: var(--kt-text-muted); font-family: var(--kt-font); font-size: 0.82rem; padding: 0.75rem 1.25rem; position: fixed; bottom: 0; width: 100%; z-index: 1000; display: none; }
+#blazor-error-ui { background: var(--kt-surface); border-top: 1px solid var(--kt-border); color: var(--kt-text-muted);
+#font-family: var(--kt-font); font-size: 0.82rem; padding: 0.75rem 1.25rem; position: fixed; bottom: 0; width: 100%; z-index: 1000; display: none; }
 #blazor-error-ui .dismiss { cursor: pointer; float: right; font-weight: 600; }
-/* Reconnect modal theming lives in Components/Layout/ReconnectModal.razor.css - it's Blazor CSS
-   isolation, so a scoped selector there always wins the cascade over anything declared here. */
+/* Reconnect modal theming lives in Components/Layout/ReconnectModal.razor.css, whose scoped selectors win the cascade over anything declared here. */
 
 /* ── Responsive ────────────────────────────────────────────────────── */
 @media (max-width: 767px) {
@@ -1292,23 +1311,22 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   .navbar-toggler-label { display: flex; align-items: center; }
   .nav-scrollable { display: none; }
   #nav-toggle:checked ~ .nav-scrollable { display: block; }
-  /* must repeat the base rule's full selector group: MainLayout renders div.content, and a plain
-     article.content override here silently never matches it (real bug found in a mobile review) */
+  /* Repeats the base rule's full selector group: MainLayout renders div.content, which a plain article.content override silently never matches. */
   article.content, div.content, .content { padding: 1.25rem 0.5rem; }
   .kt-page-header h1 { font-size: 1.6rem; }
-  /* the title group must wrap to its own full-width row - its desktop flex:1 + min-width:0 otherwise lets
-     it shrink to (near) zero width beside the flag toggles instead of ever wrapping */
+  /* The title group wraps to its own full-width row.
+     Its desktop flex:1 and min-width:0 would otherwise let it shrink to near zero beside the flag toggles instead of wrapping. */
   .kt-title-row { flex-basis: 100%; }
-  /* don't permanently reserve toast space on mobile - the title is already narrow here, so let the slot
-     collapse to nothing when empty and only take room while a message is actually showing */
+  /* No permanently reserved toast space on mobile, where the title is already narrow.
+     The slot collapses when empty and takes room only while a message shows. */
   .kt-title-toast-slot { width: auto; flex: 0 1 auto; }
   .kt-table-wrap { border-radius: var(--kt-radius); }
   .table thead { display: none; }
   .table, .table tbody, .table tr, .table td { display: block; width: 100%; }
   .table tr { border-bottom: 1px solid var(--kt-border); padding: 0.5rem 0; }
-  .table td { border-bottom: none !important; padding: 0.3rem 1rem !important; }
-  .table td:last-child { padding-top: 0.5rem !important; padding-bottom: 0.75rem !important; }
-  /* a stacked cell loses its column header - re-attach it as an inline label */
+  .table td { border-bottom: none; padding: 0.3rem 1rem; }
+  .table td:last-child { padding-top: 0.5rem; padding-bottom: 0.75rem; }
+  /* a stacked cell loses its column header, so it is re-attached as an inline label */
   .table td[data-label]::before {
     content: attr(data-label);
     display: inline-block;
@@ -1322,29 +1340,26 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   }
   .table td[data-label]:empty { display: none; }
 
-  /* Opt-out of the stacked-cards treatment above: .kt-table-grid stays a real spreadsheet-like grid at
-     every width (one header row, one line per entry, horizontal scroll via .table-responsive when
-     narrow). For a long, dense journal the per-row labels read as noise, not help - owner feedback. */
+  /* Opts out of the stacked-cards treatment above: .kt-table-grid stays a spreadsheet-like grid at every width.
+     One header row, one line per entry, and horizontal scroll through .table-responsive when narrow.
+     On a long, dense journal the per-row labels read as noise (owner feedback). */
   .table.kt-table-grid thead { display: table-header-group; }
   .table.kt-table-grid { display: table; }
   .table.kt-table-grid tbody { display: table-row-group; }
   .table.kt-table-grid tr { display: table-row; border-bottom: none; padding: 0; }
-  .table.kt-table-grid td { display: table-cell; width: auto; white-space: nowrap; border-bottom: 1px solid var(--kt-border) !important; padding: 0.4rem 0.6rem !important; }
+  .table.kt-table-grid td { display: table-cell; width: auto; white-space: nowrap; border-bottom: 1px solid var(--kt-border); padding: 0.4rem 0.6rem; }
   .table.kt-table-grid td[data-label]::before { content: none; }
   .table.kt-table-grid td[data-label]:empty { display: table-cell; }
 
-  /* Quick Add: the type picker forces 2 columns rather than kt-stat-grid's own auto-fit (which can settle
-     on 3 narrow columns on some phone widths), and every form's Save button goes full-width - there's no
-     sticky save bar in this first version since these forms are short enough not to need one.
-     Scoped to .kt-quickadd-save-btn specifically, not a bare .btn-primary - the event-type/parent-selector
-     toggle rows also turn btn-primary on whichever option is selected, and a blanket selector previously
-     stretched whichever one of those happened to be active to full width too. */
+  /* Quick Add: the type picker forces 2 columns, since kt-stat-grid's auto-fit can settle on 3 narrow columns on some phone widths.
+     Every form's Save button goes full width, and the forms are short enough to need no sticky save bar.
+     Scoped to .kt-quickadd-save-btn, not a bare .btn-primary, since the toggle rows turn btn-primary on the selected option, which would stretch it too. */
   .kt-quickadd-picker { grid-template-columns: repeat(2, 1fr); }
   .kt-quickadd-save-btn { width: 100%; }
 
-  /* The signed-in home page is the one screen that should open on data. Centring a 70vh block behind a
-     three-line headline put the collection tiles around y=750 on an 844px screen, i.e. entirely below the
-     fold. Desktop keeps the centred treatment - there the tiles are visible either way. */
+  /* The signed-in home page is the one screen that should open on data.
+     Centring a 70vh block behind a three-line headline puts the collection tiles around y=750 on an 844px screen, entirely below the fold.
+     Desktop keeps the centred treatment, where the tiles are visible either way. */
   .kt-home { min-height: 0; justify-content: flex-start; padding-top: 0.5rem; }
   .kt-home h1 { font-size: 1.85rem; }
   .kt-home-sub { font-size: 0.92rem; line-height: 1.6; margin-bottom: 1.5rem; }
@@ -1371,12 +1386,11 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 }
 
 .kt-search-input-wrap .form-control {
-  padding-left: 2.4rem !important;
+  padding-left: 2.4rem;
 }
 
-/* An inline SVG, not a glyph: U+1F50D (the obvious magnifier codepoint) has Emoji_Presentation=Yes and
-   renders in full colour everywhere, which is exactly what the Theme section of CLAUDE.md rules out - and
-   it was the one coloured thing on every list page. stroke:currentColor inherits the token below. */
+/* An inline SVG, not a glyph: U+1F50D, the obvious magnifier, has Emoji_Presentation=Yes and renders in full colour, which the Theme section of docs/blazor-ui.md rules out.
+   stroke:currentColor inherits the token below. */
 .kt-search-icon {
   position: absolute;
   left: 0.75rem;
@@ -1387,18 +1401,16 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 }
 .kt-search-icon svg { display: block; }
 
-/* pushed to the far right of the search bar row via margin-left:auto - the search input/Clear button stay
-   left-aligned, filter toggles (status, favorites, ...) sit on the opposite end of the same line instead
-   of a separate row above the table */
+/* Pushed to the far right of the search bar row by margin-left:auto.
+   The search input and Clear button stay left, and filter toggles (status, favorites...) sit on the opposite end of the same line rather than in a row of their own. */
 .kt-sort-select {
   width: 80px;
   flex: 0 0 auto;
 }
 
-/* Gear's category filter, sizing SuggestInput.razor's wrapper to a fixed compact width instead of the
-   .form-control default of 100% - a percentage width inside a flex row (like .kt-search-filters) resolves
-   against the row's own size, which is what pushed the whole filters row onto a wrapped second line for
-   no reason. Same fixed-width-flex-item shape as .kt-sort-select above, just wide enough for typed text. */
+/* Gear's category filter, sizing SuggestInput.razor's wrapper to a fixed compact width instead of the .form-control default of 100%.
+   A percentage width inside a flex row (.kt-search-filters) resolves against the row's own size, and pushes the whole filters row onto a second line.
+   Same fixed-width flex item as .kt-sort-select above, wide enough for typed text. */
 .kt-category-select {
   width: 150px;
   flex: 0 0 auto;
@@ -1409,9 +1421,8 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 }
 
 /* ── Suggest input (SuggestInput.razor) ───────────────────────────────
-   A plain text input with a filtered, click-to-fill suggestion menu - the app's own dark-themed
-   replacement for an HTML <datalist> popup, which is unstyleable browser chrome that ignores
-   data-bs-theme and floats over whatever markup sits below it. */
+   A plain text input with a filtered, click-to-fill suggestion menu.
+   It replaces an HTML <datalist> popup, which is unstyleable browser chrome that ignores data-bs-theme and floats over the markup below it. */
 .kt-autocomplete {
   position: relative;
 }
@@ -1449,8 +1460,8 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   color: var(--kt-accent);
 }
 
-/* Everything in the toolbar except the search box. On desktop it is a transparent flex row that behaves
-   exactly as the loose children did; on mobile it becomes the single second line (see the override below). */
+/* Everything in the toolbar except the search box.
+   On desktop it is a transparent flex row, and on mobile it becomes the single second line (see the override below). */
 .kt-search-controls {
   display: flex;
   align-items: center;
@@ -1467,20 +1478,18 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   margin-left: auto;
 }
 
-/* must come after the base rules above (like the pagination override below) - an equally-specific override
-   placed in the main responsive section earlier in the file loses the cascade to them */
+/* Placed after the base rules above, like the pagination override below, since an equally specific override earlier in the file loses the cascade to them. */
 @media (max-width: 767px) {
   .kt-search-bar { flex-wrap: wrap; padding: 0.75rem 1rem; gap: 0.6rem; }
   .kt-search-input-wrap { flex: 1 1 100%; max-width: none; }
-  /* One scrolling line instead of two wrapped ones. Scrolling beats wrapping here because the controls
-     are a single ordered set (sort, view, then filters) - a wrap splits that set at whatever point the
-     viewport happens to fall, which differs per page depending on how many filters a type has. */
+  /* One scrolling line instead of two wrapped ones.
+     The controls are one ordered set (sort, view, then filters), and a wrap would split it wherever the viewport falls, which differs per page with the number of filters. */
   .kt-search-controls {
     flex: 1 1 100%;
     flex-wrap: nowrap;
     overflow-x: auto;
     gap: 0.5rem;
-    /* room for the scrollbar/overscroll shadow without clipping the focus ring of the last chip */
+    /* room for the scrollbar and overscroll shadow without clipping the last chip's focus ring */
     padding-bottom: 0.15rem;
   }
   .kt-search-controls > * { flex-shrink: 0; }
@@ -1576,11 +1585,10 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   animation: kt-slide-up 0.18s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Multi-column form modals (the car/house/health history entry forms). 520px is right for a confirmation
-   or a single-column form, but it forces a four-field row down to ~110px a column, which wraps the longer
-   labels ("Fuel unit price (€/L)") onto two lines and drops that field's input out of line with its
-   neighbours - and leaves a suggestion dropdown too narrow to read a full station name in. Mobile is
-   unaffected: the max-width: 100% override below is declared after this and wins. */
+/* Multi-column form modals (the car/house/health history entry forms).
+   520px suits a confirmation or a single-column form, but squeezes a four-field row to ~110px a column.
+   Longer labels ("Fuel unit price (€/L)") then wrap onto two lines, pushing their input out of line, and a suggestion menu is too narrow for a full station name.
+   Mobile is unaffected, since the max-width: 100% override below is declared after this and wins. */
 .kt-modal-wide { max-width: 880px; }
 
 .kt-modal-header {
@@ -1694,10 +1702,9 @@ a.kt-item-row { color: inherit; text-decoration: none; }
 }
 .kt-section-title:first-child { margin-top: 0; }
 
-/* ── Callouts, sheet tables and hand-rolled SVG charts (shared by CarDetail.razor/HouseDetail.razor) ──
-   Global (not component-scoped) on purpose: a per-item history table/chart is built from a RenderFragment via
-   RenderTreeBuilder or a child *Row component, so its markup never receives the page's own CSS-isolation
-   scope attribute - putting these rules here avoids every consumer having to redeclare them with ::deep. */
+/* ── Callouts, sheet tables and SVG charts (shared by the journal, import and admin pages) ──
+   Global rather than component-scoped, since tables and charts rendered by child components never receive the page's CSS isolation attribute.
+   Declared here, they need no ::deep in every consumer. */
 .kt-callout {
   background: var(--kt-surface-2);
   border-radius: var(--kt-radius);
@@ -1716,9 +1723,8 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   color: var(--kt-danger);
 }
 
-/* Compact history table: a handful of summary columns per row, with the full field set only shown in the
-   add/edit modal - too many always-visible editable columns read as a spreadsheet dump rather than a
-   browsable history. */
+/* Compact history table: a handful of summary columns per row, the full field set shown only in the add and edit modal.
+   Too many always-visible columns read as a spreadsheet dump rather than a browsable history. */
 .kt-sheet-table {
   font-size: 0.85rem;
 }
@@ -1729,22 +1735,16 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   font-weight: 600;
 }
 
-.kt-sheet-table td {
-  padding: 0.4rem 0.6rem;
-  vertical-align: middle;
-}
-
-/* Money and odometer columns: lining figures so digits stack in a column, right-aligned so magnitudes
-   compare at a glance. Proportional left-aligned digits made 45825 and 45100 impossible to scan against
-   each other. Opt-in per cell (td.kt-num) because a table's other columns are text. */
+/* Money and odometer columns: lining figures so digits stack in a column, right-aligned so magnitudes compare at a glance.
+   Proportional left-aligned digits make 45825 and 45100 hard to compare.
+   Opt-in per cell (td.kt-num) because a table's other columns are text. */
 .kt-num, th.kt-num {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-/* width: 100%, height: auto (not a fixed px height) lets each SVG's own viewBox aspect ratio drive the
-   rendered height - required since the charts have real axis text, and preserveAspectRatio="none" would
-   stretch that text unreadably. */
+/* width: 100% and height: auto let each SVG's viewBox aspect ratio drive the rendered height.
+   The charts carry real axis text, which preserveAspectRatio="none" would stretch unreadably. */
 .kt-chart-svg {
   width: 100%;
   height: auto;
@@ -1779,7 +1779,7 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   vertical-align: middle;
 }
 
-/* ── Tabs (page-level section switcher, e.g. Watch Next / Wishlist by type) ── */
+/* ── Tabs (page-level section switcher, such as Watch Next or Wishlist by type) ── */
 .kt-tabs {
   display: flex;
   gap: 1.5rem;
@@ -1818,8 +1818,8 @@ a.kt-item-row { color: inherit; text-decoration: none; }
   margin-left: 0.3rem;
 }
 
-/* tabs scroll horizontally in place of wrapping onto a second row, which orphans the last tab below the
-   underline. Placed after the base rules for the same cascade reason as the search-bar override above. */
+/* Tabs scroll horizontally rather than wrap onto a second row, which orphans the last tab below the underline.
+   Placed after the base rules for the same cascade reason as the search-bar override above. */
 @media (max-width: 767px) {
   .kt-tabs { flex-wrap: nowrap; overflow-x: auto; gap: 1rem; }
   .kt-tab { white-space: nowrap; flex-shrink: 0; }

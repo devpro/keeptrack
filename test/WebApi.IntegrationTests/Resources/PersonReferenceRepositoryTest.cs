@@ -12,10 +12,9 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Exercises <see cref="IPersonReferenceRepository"/> directly against real MongoDB - the dictionary-key
-/// filter behind <c>FindByExternalIdAsync</c> (a string field-path filter, not an expression indexer -
-/// see the comment in <c>PersonReferenceRepository</c>) is exactly the kind of new, hand-written Mongo
-/// query that has hidden real bugs in this codebase before.
+/// Exercises <see cref="IPersonReferenceRepository"/> against real MongoDB,
+/// since the dictionary-key filter behind <c>FindByExternalIdAsync</c> is a hand-written query of the kind that hides bugs.
+/// It is a string field-path filter, not an expression indexer (see <c>PersonReferenceRepository</c>).
 /// </summary>
 public class PersonReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)
 {
@@ -38,8 +37,7 @@ public class PersonReferenceRepositoryTest(KestrelWebAppFactory<Program> factory
         found!.Id.Should().Be(created.Id);
         found.Name.Should().Be("Test Actor");
 
-        // upserting again with the same id (simulating a second show crediting the same actor) must
-        // update the existing document, not create a second one
+        // upserting again with the same id (simulating a second show crediting the same actor) must update the existing document, not create a second one
         var updated = await repository.UpsertAsync(new PersonReferenceModel
         {
             Id = created.Id,

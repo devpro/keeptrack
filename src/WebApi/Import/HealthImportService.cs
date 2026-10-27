@@ -6,24 +6,19 @@ using HealthEventType = Keeptrack.Domain.Models.HealthEventType;
 namespace Keeptrack.WebApi.Import;
 
 /// <summary>
-/// One-off personal import of the "Journal_sante.xlsx" spreadsheet:
-/// a single sheet of hand-tracked health events in French, mixing every family member in one "Personne" column -
-/// so unlike the car import, rows are dispatched to (and, when needed, create) one <see cref="HealthProfileModel"/> per distinct person.
-/// Same non-idempotence trade-off as <see cref="CarHistoryImportService"/>:
-/// profiles are matched by name so re-running doesn't duplicate the people, but re-uploading the same file will duplicate journal entries -
-/// there is no per-row natural key to de-duplicate against.
-/// The "Reste à charge" column is deliberately NOT imported:
-/// it's a formula in the source file (paid - ameli - mutuelle), i.e. derived data the app recomputes itself (see <see cref="Domain.Services.HealthMetricsService"/>) -
-/// importing its cached value as <see cref="HealthRecordModel.NotCovered"/> would silently mark every historical row as settled.
-/// Rows the balance check then flags are exactly the ones the owner wants to re-verify.
+/// One-off personal import of the "Journal_sante.xlsx" spreadsheet: one sheet of health events kept by hand in French, every family member in one "Personne" column.
+/// Rows go to one <see cref="HealthProfileModel"/> per person, created when needed.
+/// Not idempotent, like <see cref="CarHistoryImportService"/>: profiles are matched by name, but uploading the file again duplicates the entries.
+/// The "Reste à charge" column is not imported: it is a formula (paid minus ameli and mutuelle),
+/// and importing it as <see cref="HealthRecordModel.NotCovered"/> would mark every past row settled.
+/// The rows the balance check flags are those the owner wants to verify.
 /// </summary>
 public class HealthImportService(IHealthProfileRepository healthProfileRepository, IHealthRecordRepository healthRecordRepository)
 {
     /// <summary>
     /// Column positions resolved from the header row.
-    /// The file has TWO columns titled "Personne" - the first is who was treated (the profile), the second the practitioner -
-    /// so a plain header-name-to-column dictionary (the car importer's approach) can't represent this sheet.
-    /// "Jour" (derived day-of-week) and "Reste à charge" (derived, see the class remarks) are ignored.
+    /// Two columns are titled "Personne", the patient then the practitioner, so a header-to-column dictionary like the car import's cannot represent the sheet.
+    /// "Jour" and "Reste à charge", both derived, are ignored.
     /// </summary>
     private sealed class SheetColumns
     {
@@ -128,7 +123,7 @@ public class HealthImportService(IHealthProfileRepository healthProfileRepositor
             OwnerId = ownerId,
             HealthProfileId = target.Id!,
             HistoryDate = DateOnly.FromDateTime(date).ToDateTime(time),
-            // every row in this journal is a care event; sicknesses weren't tracked in the spreadsheet
+            // every row of this journal is a care event, sicknesses not being tracked in it
             EventType = HealthEventType.Appointment,
             Specialty = ExcelCellParser.StringOrNull(Cell(row, columns.Specialty)),
             Practitioner = ExcelCellParser.StringOrNull(Cell(row, columns.Practitioner)),
@@ -136,8 +131,7 @@ public class HealthImportService(IHealthProfileRepository healthProfileRepositor
             Price = ExcelCellParser.PriceOrNull(Cell(row, columns.Paid)),
             PublicReimbursement = ExcelCellParser.PriceOrNull(Cell(row, columns.PublicReimbursement)),
             InsuranceReimbursement = ExcelCellParser.PriceOrNull(Cell(row, columns.InsuranceReimbursement)),
-            // the sparse bookkeeping columns (place, actual ameli bank transfer, payment dates, comment) have no dedicated fields -
-            // preserved as labeled notes instead of dropped
+            // the sparse bookkeeping columns (place, ameli transfer, payment dates, comment) have no fields, so they are kept as labeled notes
             Notes = ExcelCellParser.JoinNonEmpty("; ",
                 ExcelCellParser.StringOrNull(Cell(row, columns.Notes)),
                 ExcelCellParser.StringOrNull(Cell(row, columns.Location)) is { } location ? $"Lieu : {location}" : null,
@@ -153,7 +147,7 @@ public class HealthImportService(IHealthProfileRepository healthProfileRepositor
         var columns = new SheetColumns();
         foreach (var cell in sheet.Row(1).CellsUsed())
         {
-            // headers like "Rbrst\nAmeli" span two lines within one cell; normalize the whitespace
+            // headers like "Rbrst\nAmeli" span two lines in a cell, so whitespace is normalized
             var text = string.Join(' ', cell.GetString().Split([' ', '\r', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries));
             var column = cell.Address.ColumnNumber;
             switch (text)

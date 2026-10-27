@@ -9,7 +9,7 @@ namespace Keeptrack.Infrastructure.MongoDb.Mappers;
 [UseStaticMapper(typeof(CommonStorageMappings))]
 public partial class GearStorageMapper : IStorageMapper<GearModel, Gear>
 {
-    // IsOwned is filter-only (derived from OwnedVersions) - see MovieStorageMapper.
+    // IsOwned is filter only, derived from OwnedVersions (see MovieStorageMapper)
     [MapperIgnoreSource(nameof(GearModel.IsOwned))]
     public partial Gear ToEntity(GearModel model);
 

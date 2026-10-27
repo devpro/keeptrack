@@ -10,9 +10,8 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Exercises <see cref="IBookRepository.FindDistinctUnresolvedTitleYearsAsync"/>'s creator dimension
-/// against real MongoDB - the $group + $first accumulator translation is exactly the kind of driver-level
-/// behavior a mocked unit test can never validate (same rationale as <see cref="TvShowReferenceLinkingTest"/>).
+/// Exercises <see cref="IBookRepository.FindDistinctUnresolvedTitleYearsAsync"/>'s creator dimension against real MongoDB,
+/// since a mocked test can't validate the $group and $first translation (as in <see cref="TvShowReferenceLinkingTest"/>).
 /// </summary>
 public class BookUnresolvedQueueTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)
 {
@@ -35,9 +34,7 @@ public class BookUnresolvedQueueTest(KestrelWebAppFactory<Program> factory) : Da
     }
 
     /// <summary>
-    /// Same search-prefill role as Creator, just for ISBN - regression: the admin unresolved-queue page
-    /// used to always force its ISBN search field back to null on selecting an item, discarding a tenant's
-    /// own already-recorded ISBN instead of prefilling with it.
+    /// The search-prefill role of Creator, for ISBN: selecting an item in the admin unresolved queue prefills a tenant's recorded ISBN rather than clearing the field.
     /// </summary>
     [Fact]
     public async Task FindDistinctUnresolvedTitleYearsAsync_CarriesATenantsIsbn()

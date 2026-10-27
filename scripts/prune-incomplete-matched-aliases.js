@@ -1,9 +1,12 @@
 // One-off data cleanup: matched_aliases entries that do not identify a work, and never should have been written.
-// An alias is the local match key, since a lookup that finds one links the tenant's item to that reference without asking any provider, so an entry missing the field that identifies the work answers questions it was never confirmed for.
+// An alias is the local match key: a lookup that finds one links the tenant's item to that reference without asking any provider.
+// An entry missing the field that identifies the work therefore answers questions it was never confirmed for.
 //
 // Three sources, all fixed in code (see ReferenceAliasRule):
-//   - every reference repository's UpsertAsync added the document's own (title, year) pair on every single upsert, with no creator: harmless-looking on a film, but on a book or an album that is a key claiming every author or artist at once;
-//   - a resolve recorded whatever the tenant searched with, including a title with no year at all, which then matched that title under any year (IGDB holds eight games named exactly "Resident Evil 2");
+//   - every reference repository's UpsertAsync added the document's own (title, year) pair on every single upsert, with no creator.
+//     That is harmless-looking on a film, but on a book or an album it is a key claiming every author or artist at once;
+//   - a resolve recorded whatever the tenant searched with, including a title with no year at all, which then matched that title under any year.
+//     IGDB holds eight games named exactly "Resident Evil 2";
 //   - album aliases carried a year, so one release accumulated an entry per pressing year anyone typed.
 //
 // What survives, per domain:
@@ -12,7 +15,8 @@
 //   book                        title + creator, keeping the year when it has one, or any alias with an isbn
 //
 // Idempotent: a document already holding only complete aliases is left untouched.
-// It deduplicates as it goes, since dropping the album year collapses several entries onto one (null and "" creator count as the same absence, exactly like ReferenceMatchModel.Matches).
+// It deduplicates as it goes, since dropping the album year collapses several entries onto one.
+// Null and "" creator count as the same absence, exactly like ReferenceMatchModel.Matches.
 //
 // Dry run by default: it prints what it would change and writes nothing.
 // Run with APPLY=1 to write:
@@ -37,7 +41,8 @@ function titleAndCreator(alias) {
   return { title: alias.title, creator: alias.creator };
 }
 
-// title + creator, keeping the year when there is one (a book is republished as revisions the year tells apart, so the alias records the printing), or an isbn on its own, which names one printing outright
+// title + creator, keeping the year when there is one, or an isbn on its own, which names one printing outright.
+// A book is republished as revisions the year tells apart, so the alias records the printing.
 function bookIdentity(alias) {
   if (isBlank(alias.title)) return null;
   if (isBlank(alias.creator) && isBlank(alias.isbn)) return null;
@@ -72,8 +77,8 @@ function prune(collection, keepIfComplete) {
 
     removed += (doc.matched_aliases || []).length - kept.length;
     changed++;
-    // a document left with no alias at all is worth naming: it is still reachable by provider id, and the
-    // next resolve/refresh writes a proper alias for it, but until then nothing matches it by title
+    // A document left with no alias at all is worth naming.
+    // It is still reachable by provider id, and the next resolve/refresh writes a proper alias for it, but until then nothing matches it by title.
     if (kept.length === 0) {
       emptied++;
       print(`  ${collection.getName()} ${doc._id} "${doc.title}" (${doc.year ?? "no year"}): no complete alias left`);

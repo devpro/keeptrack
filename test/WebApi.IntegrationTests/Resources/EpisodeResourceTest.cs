@@ -10,7 +10,8 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Basic full-cycle CRUD coverage for <c>Episode</c> over HTTP, complementing <see cref="EpisodeRepositoryTest"/>'s repository-level <c>FindByShowIdsAsync</c> coverage, closing the "no dedicated full CRUD test of its own" half of the finding tracked in docs/findings/by-design-and-gaps.md ("Thin test coverage"), same shape as <see cref="CarHistoryResourceTest"/>.
+/// Basic full-cycle CRUD coverage for <c>Episode</c> over HTTP, complementing <see cref="EpisodeRepositoryTest"/>'s repository-level <c>FindByShowIdsAsync</c> coverage,
+/// closing the "no dedicated full CRUD test of its own" half of the finding tracked in docs/backlog.md ("Thin test coverage"), same shape as <see cref="CarHistoryResourceTest"/>.
 /// </summary>
 public class EpisodeResourceTest(KestrelWebAppFactory<Program> factory)
     : ResourceTestBase(factory)
@@ -33,7 +34,9 @@ public class EpisodeResourceTest(KestrelWebAppFactory<Program> factory)
 
         await Authenticate();
 
-        // TvShowId is a required field on EpisodeDto (same as CarHistory's required CarId), so the list endpoint can only ever be called scoped to a show; a bare, unscoped list call isn't a real scenario this app has, and ASP.NET's automatic model validation rejects it with 400 before the request even reaches the repository.
+        // TvShowId is a required field on EpisodeDto (same as CarHistory's required CarId), so the list endpoint can only ever be called scoped to a show;
+        // a bare, unscoped list call isn't a real scenario this app has,
+        // and ASP.NET's automatic model validation rejects it with 400 before the request even reaches the repository.
         var tvShowId = Guid.NewGuid().ToString();
         var initialItems = await GetAsync<PagedResult<EpisodeDto>>($"/{ResourceEndpoint}?TvShowId={tvShowId}");
 

@@ -9,14 +9,14 @@ public class ShowStatusRecord
     public required string TvShowId { get; set; }
 
     /// <summary>
-    /// TV Time status value, e.g. "favorite" or "for_later".
+    /// TV Time status value, such as "favorite" or "for_later".
     /// </summary>
     [Name("status")]
     public required string Status { get; set; }
 }
 
 /// <summary>
-/// Parses TV Time's user_show_special_status.csv: favorite/for_later status per show.
+/// Parses TV Time's user_show_special_status.csv: the favorite or for_later status per show.
 /// </summary>
 public static class ShowStatusCsvParser
 {

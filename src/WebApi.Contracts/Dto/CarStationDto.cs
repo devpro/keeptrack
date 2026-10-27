@@ -3,8 +3,7 @@ using Keeptrack.Common.System;
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// A fuel station, shared by every account rather than owned by one - car history entries point at it by
-/// id instead of each carrying their own copy of its name and location.
+/// A fuel station, shared by every account, which car history entries point at by id rather than each copying its name and location.
 /// </summary>
 public class CarStationDto : IHasId
 {
@@ -14,7 +13,7 @@ public class CarStationDto : IHasId
     public string? Id { get; set; }
 
     /// <summary>
-    /// Brand/retailer name, e.g. "TotalEnergies".
+    /// Brand or retailer name, such as "TotalEnergies".
     /// </summary>
     public string? BrandName { get; set; }
 
@@ -44,14 +43,13 @@ public class CarStationDto : IHasId
     public double? Latitude { get; set; }
 
     /// <summary>
-    /// How many car history entries currently point at this station, across every account. Server-computed
-    /// and read-only - it's what tells an admin whether deleting this station would strand any refuel.
-    /// Only populated by the admin listing.
+    /// How many car history entries of every account point at this station.
+    /// Read-only, computed by the server for the admin listing only, so an admin sees whether deleting the station would strand a refuel.
     /// </summary>
     public long UsageCount { get; set; }
 
     /// <summary>
-    /// "Brand - City" (or just the brand when the city is unknown), for pickers and list rows.
+    /// "Brand - City", or the brand alone when the city is unknown, for pickers and list rows.
     /// </summary>
     public string DisplayName => string.IsNullOrWhiteSpace(City) ? BrandName ?? "" : $"{BrandName} - {City}";
 }

@@ -7,9 +7,9 @@ namespace Keeptrack.WebApi.Mappers;
 [UseStaticMapper(typeof(CommonDtoMappings))]
 public partial class AlbumDtoMapper : IDtoMapper<AlbumDto, AlbumModel>
 {
-    // see BookDtoMapper.ToModel for why MapValue (not MapperIgnoreTarget) is required here
+    // MapValue rather than MapperIgnoreTarget, since OwnerId is required (see BookDtoMapper)
     [MapValue(nameof(AlbumModel.OwnerId), "")]
-    // ImageUrl is server-hydrated presentation data (see IReferenceLinkedDto) - no model counterpart in either direction.
+    // ImageUrl is hydrated by the server for display (see IReferenceLinkedDto), with no model counterpart
     [MapperIgnoreSource(nameof(AlbumDto.ImageUrl))]
     public partial AlbumModel ToModel(AlbumDto dto);
 

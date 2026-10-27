@@ -8,10 +8,9 @@ using MongoDB.Driver;
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
 /// <summary>
-/// One document per lease name, acquired with a single atomic upsert: the filter only matches when the
-/// lease is expired or already ours, so a live lease held by someone else makes the upsert attempt an
-/// insert that collides with the existing _id - MongoDB's own uniqueness on _id is the mutual exclusion,
-/// no transaction or extra index needed.
+/// One document per lease name, acquired with one atomic upsert.
+/// The filter matches only an expired lease or one already held by the caller, so a live lease held by another turns the upsert into an insert colliding on _id.
+/// The uniqueness of _id is the mutual exclusion, with no transaction or extra index.
 /// </summary>
 public class LeaseRepository(IMongoDatabase mongoDatabase) : ILeaseRepository
 {
@@ -36,8 +35,7 @@ public class LeaseRepository(IMongoDatabase mongoDatabase) : ILeaseRepository
         }
         catch (MongoWriteException ex) when (ex.WriteError.Category == ServerErrorCategory.DuplicateKey)
         {
-            // the lease exists and is live under another holder: the filter matched nothing, so the
-            // upsert tried to insert a second document with the same _id
+            // the lease is live under another holder: the filter matched nothing, so the upsert tried to insert a second document with the same _id
             return false;
         }
     }
@@ -45,8 +43,7 @@ public class LeaseRepository(IMongoDatabase mongoDatabase) : ILeaseRepository
     public async Task<LeaseModel?> FindAsync(string name)
     {
         var entity = await Collection.Find(l => l.Id == name).FirstOrDefaultAsync();
-        // hand-mapped: a three-field read-only diagnostic projection with no evolving entity pair to
-        // drift-check doesn't warrant a generated mapper
+        // mapped by hand, since a three-field read-only diagnostic does not warrant a generated mapper
         return entity is null ? null : new LeaseModel { Name = entity.Id, Holder = entity.Holder, ExpiresAt = entity.ExpiresAt };
     }
 }

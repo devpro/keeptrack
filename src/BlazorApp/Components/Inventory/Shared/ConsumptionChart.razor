@@ -1,8 +1,7 @@
 @using static Keeptrack.BlazorApp.Components.Shared.SvgChartHelpers
-@*
-    A single-series line chart of consumption per 100 km.
-    It needs no legend, since the caption above it names the series, and each point carries a native tooltip.
-*@
+@* 
+   A single-series line chart of consumption per 100 km.
+   It needs no legend, since the caption above it names the series, and each point carries a native tooltip. *@
 
 <svg viewBox="0 0 @ToSvgDimension(Geometry.ViewWidth) @ToSvgDimension(Geometry.ViewHeight)" class="kt-chart-svg">
     <ChartAxes Geometry="Geometry" MarkerId="@($"kt-chart-arrow-{ChartId}")" XAxisLabel="Date" YAxisLabel="@YAxisLabel" YTicks="YTicks" XTicks="XTicks"/>

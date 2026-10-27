@@ -7,9 +7,12 @@ runner:
     "markup-lint*": ghcr.io/devpro/debian-node:latest
     "image-scan*": ghcr.io/devpro/debian-node:latest
   # The scan jobs build an image and scan it through the host Docker daemon.
-  docker: true
+  docker: ["image-scan*"]
+  # The analysis runs against the SonarQube IstarCI starts on this machine, with a token made there.
+  sonarqube: true
 
 workflow:
+  onDisallowedAction: fail
   # Actions published by GitHub or Docker, and the composite replacements for every other one kept in github-workflow-parts.
   allowedActions:
     - actions/*
@@ -22,4 +25,12 @@ workflow:
 
 # Repository variables the pipeline reads, which a local run otherwise gets as placeholders, and an image tag refuses the uppercase in one.
 vars:
+  # FOSSA analyses on its own service with an API key, which a local run never holds.
+  FOSSA_ENABLED: "false"
+  # The local SonarQube has no organizations, and a non-empty one is what turns the analysis on.
+  SONAR_ORG: local
+  SONAR_PROJECT_KEY: keeptrack
   CONTAINER_REGISTRY_PATH: devprofr
+  # The integration tests sign in to Firebase, an external system a local run never reaches,
+  # and leaving them out leaves their project with no test, which exit code 8 reports.
+  DOTNET_TEST_EXTRA_ARGS: --filter-not-namespace Keeptrack.WebApi.IntegrationTests* --ignore-exit-code 8

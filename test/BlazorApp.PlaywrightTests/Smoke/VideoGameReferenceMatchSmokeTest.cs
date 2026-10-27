@@ -15,8 +15,10 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Every other test in this area feeds candidates straight into the matching rule, which is why a run of regressions reached the owner unnoticed: the rule was right each time and the journey around it was not.
-/// A title typed without its colon never reaches the provider's exact-name query, an item created before its year is known writes no reference at all, and editing a title afterwards has to be able to both re-point and clear a link.
+/// Every other test in this area feeds candidates straight into the matching rule,
+/// which is why a run of regressions reached the owner unnoticed: the rule was right each time and the journey around it was not.
+/// A title typed without its colon never reaches the provider's exact-name query, an item created before its year is known writes no reference at all,
+/// and editing a title afterwards has to be able to both re-point and clear a link.
 /// None of that is visible from a unit test.
 /// </para>
 /// <para>
@@ -25,7 +27,9 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 /// And editing a field never searches by itself: the user clicks "check for reference match", and that is the only thing that re-resolves.
 /// </para>
 /// <para>
-/// "Code Vein" is chosen because IGDB spells its family in ways that exercise all of this from one starting point: exactly one game is named "Code Vein" (28168, 2019), "Code Vein: Season Pass" (131955, 2019) matches only once punctuation is folded, and "code vein season" matches nothing at all.
+/// "Code Vein" is chosen because IGDB spells its family in ways that exercise all of this from one starting point:
+/// exactly one game is named "Code Vein" (28168, 2019), "Code Vein: Season Pass" (131955, 2019) matches only once punctuation is folded,
+/// and "code vein season" matches nothing at all.
 /// </para>
 /// </remarks>
 [Trait("Category", "E2eTests")]
@@ -99,7 +103,8 @@ public class VideoGameReferenceMatchSmokeTest(End2EndFixture fixture) : SmokeTes
         SkipIfReadOnly();
         var (detail, id) = await CreateGameAsync(BaseTitle, year: null);
 
-        // Asserted immediately, with nothing waited for, and that is sound rather than lucky: without a year the server returns from resolution before it asks any provider anything, so no later moment can produce a different answer.
+        // Asserted immediately, with nothing waited for, and that is sound rather than lucky:
+        // without a year the server returns from resolution before it asks any provider anything, so no later moment can produce a different answer.
         var beforeYear = await ReadReferenceIdAsync(id);
         beforeYear.Should().BeNullOrEmpty("a title alone identifies nothing in this domain, so nothing may be linked without a year");
 
@@ -136,7 +141,8 @@ public class VideoGameReferenceMatchSmokeTest(End2EndFixture fixture) : SmokeTes
     /// Waits for the item's reference link to settle, optionally until it differs from <paramref name="previous"/>.
     /// </summary>
     /// <remarks>
-    /// Resolution on create runs as a detached background task and the check button's own resolve propagates by title and year rather than by id, so neither is observable the instant the UI returns.
+    /// Resolution on create runs as a detached background task and the check button's own resolve propagates by title and year rather than by id,
+    /// so neither is observable the instant the UI returns.
     /// Returning the value rather than asserting keeps "it never linked" a real answer the caller can assert on, instead of a timeout that hides which half of the journey failed.
     /// </remarks>
     private async Task<string?> WaitForReferenceLinkAsync(string id, string? previous = null)
@@ -184,7 +190,8 @@ public class VideoGameReferenceMatchSmokeTest(End2EndFixture fixture) : SmokeTes
     /// Reads the item's current reference link, remembering every reference it has ever pointed at so the run can leave the database as it found it.
     /// </summary>
     /// <remarks>
-    /// Every reference these tests cause to be created has to go, and the currently-linked one is not enough: scenario 1 deliberately moves the item from one reference to another, so unlinking at the end would leave the first behind.
+    /// Every reference these tests cause to be created has to go, and the currently-linked one is not enough:
+    /// scenario 1 deliberately moves the item from one reference to another, so unlinking at the end would leave the first behind.
     /// See <see cref="End2EndFixture.RemoveVideoGameReferencesAsync"/> for why a leftover is not merely untidy here but turns these tests green and meaningless.
     /// </remarks>
     private async Task<string?> ReadReferenceIdAsync(string id)

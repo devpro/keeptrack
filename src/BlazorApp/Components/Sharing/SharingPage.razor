@@ -122,16 +122,16 @@ else
         (ShareCategory.VideoGames, "Video games")
     ];
 
-    // Collection categories are view-only for the recipient (never copyable, no shared reference to copy) but
-    // render as an ordinary list, unlike the personal categories' read-only detail views.
+    // Collection categories are view-only for the recipient, having no shared reference to copy,
+    // but render as an ordinary list, unlike the personal categories' read-only detail views.
     private static readonly (ShareCategory Category, string Text)[] s_collectionCategories =
     [
         (ShareCategory.Collectibles, "Collectibles"),
         (ShareCategory.Gears, "Gear")
     ];
 
-    // Personal categories are view-only for the recipient (never copyable) - the classifier enforces that
-    // server-side. Health is the strictest and is never bundled: it only toggles on after an explicit confirm.
+    // Personal categories are view-only for the recipient, which the classifier enforces server-side.
+    // Health is the strictest and never bundled: it toggles on only after an explicit confirmation.
     private static readonly (ShareCategory Category, string Text)[] s_personalCategories =
     [
         (ShareCategory.Cars, "Cars"),
@@ -184,7 +184,7 @@ else
         }
     }
 
-    /// <summary>Health is never enabled without an explicit confirmation; the others toggle like media.</summary>
+    /// <summary>Health is never enabled without an explicit confirmation, and the others toggle like media.</summary>
     private void TogglePersonalCategory(ShareCategory category)
     {
         if (category == ShareCategory.Health && !_selected.Contains(ShareCategory.Health))

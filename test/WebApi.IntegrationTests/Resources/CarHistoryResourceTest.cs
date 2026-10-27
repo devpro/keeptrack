@@ -10,10 +10,8 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Basic full-cycle CRUD coverage for <c>CarHistory</c>, plus a regression test for the specific bug tracked
-/// in docs/findings/persistence-and-mapping.md: <c>CarHistoryRepository.GetFilter</c> used to combine two <c>$text</c>
-/// expressions (one for <c>CarId</c>, one for the free-text search) in a single query, which MongoDB rejects
-/// whenever both are supplied at once.
+/// Full-cycle CRUD coverage for <c>CarHistory</c>, plus the <c>GetFilter</c> case of docs/data-model.md.
+/// A <c>CarId</c> filter and a free-text search must not both be <c>$text</c> expressions, since MongoDB rejects two in one query.
 /// </summary>
 public class CarHistoryResourceTest(KestrelWebAppFactory<Program> factory)
     : ResourceTestBase(factory)
@@ -37,10 +35,8 @@ public class CarHistoryResourceTest(KestrelWebAppFactory<Program> factory)
 
         await Authenticate();
 
-        // CarId is a required field on CarHistoryDto, so - same as Episode's required TvShowId - the list
-        // endpoint can only ever be called scoped to a car; a bare, unscoped list call isn't a real scenario
-        // this app has (CarDetail.razor always filters by CarId), and ASP.NET's automatic model validation
-        // rejects it with 400 ("The CarId field is required") before the request even reaches the repository.
+        // CarId is required on CarHistoryDto, like Episode's TvShowId, so the list endpoint is always scoped to a car, as CarDetail.razor calls it.
+        // ASP.NET's model validation rejects an unscoped call with 400 ("The CarId field is required") before it reaches the repository.
         var carId = Guid.NewGuid().ToString();
         var initialItems = await GetAsync<PagedResult<CarHistoryDto>>($"/{ResourceEndpoint}?CarId={carId}");
 
@@ -73,8 +69,7 @@ public class CarHistoryResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// The actual regression case: supplying both a CarId filter and a free-text search at the same time used
-    /// to throw ("only one $text expression allowed per query") because both were built as $text clauses.
+    /// A CarId filter and a free-text search together must not throw "only one $text expression allowed per query".
     /// </summary>
     [Fact]
     public async Task CarHistoryResourceFilter_ByCarIdAndSearch_DoesNotThrow_IsOk()

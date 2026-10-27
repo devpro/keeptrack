@@ -7,7 +7,7 @@ namespace Keeptrack.WebApi.Mappers;
 [UseStaticMapper(typeof(CommonDtoMappings))]
 public partial class PlaylistDtoMapper : IDtoMapper<PlaylistDto, PlaylistModel>
 {
-    // see BookDtoMapper.ToModel for why MapValue (not MapperIgnoreTarget) is required here
+    // MapValue rather than MapperIgnoreTarget, since OwnerId is required (see BookDtoMapper)
     [MapValue(nameof(PlaylistModel.OwnerId), "")]
     public partial PlaylistModel ToModel(PlaylistDto dto);
 

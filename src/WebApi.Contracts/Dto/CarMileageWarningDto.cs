@@ -1,8 +1,8 @@
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// Flags a car history entry whose recorded mileage doesn't reconcile with its neighbors. Advisory only - the
-/// entry is never excluded from metrics or corrected automatically; the user reviews and fixes it themselves.
+/// Flags a car history entry whose mileage does not reconcile with its neighbors.
+/// Advisory only: the entry is never excluded from metrics nor corrected, and the user reviews and fixes it.
 /// </summary>
 public class CarMileageWarningDto
 {

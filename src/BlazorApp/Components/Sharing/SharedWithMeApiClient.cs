@@ -3,14 +3,13 @@ using Keeptrack.WebApi.Contracts.Dto;
 
 namespace Keeptrack.BlazorApp.Components.Sharing;
 
-/// <summary>A search/sort/filter query for one page of a shared category.</summary>
+/// <summary>A search, sort and filter query for one page of a shared category.</summary>
 public sealed record SharedListQuery(string Search, int Page, int PageSize, string Sort, IReadOnlyDictionary<string, string> Filters);
 
 /// <summary>
-/// The recipient side of sharing - browse the collections others have shared with the caller (with the same
-/// search/filter/sort the caller's own lists have) and copy media items into the caller's own collection
-/// (<c>/api/shared-with-me</c>). Authenticated like every other client: the server matches the caller's own
-/// email against each grant, so this is not an anonymous read.
+/// The recipient side of sharing (<c>/api/shared-with-me</c>): browses the collections others shared with the caller,
+/// with the search, filter and sort of the caller's own lists, and copies media items into the caller's collection.
+/// Authenticated like every other client, since the server matches the caller's email against each grant.
 /// </summary>
 public sealed class SharedWithMeApiClient(HttpClient http)
 {
@@ -26,11 +25,11 @@ public sealed class SharedWithMeApiClient(HttpClient http)
     public Task<SharedCategoryPageDto<AlbumDto>?> GetAlbumsAsync(string shareId, SharedListQuery query) => GetPageAsync<AlbumDto>(shareId, "albums", query);
     public Task<SharedCategoryPageDto<VideoGameDto>?> GetVideoGamesAsync(string shareId, SharedListQuery query) => GetPageAsync<VideoGameDto>(shareId, "video-games", query);
 
-    // Collection categories (collectibles/gear): same read-only list as media, but view-only (never copyable).
+    // Collection categories (collectibles, gear): the same read-only list as media, but never copyable.
     public Task<SharedCategoryPageDto<CollectibleDto>?> GetCollectiblesAsync(string shareId, SharedListQuery query) => GetPageAsync<CollectibleDto>(shareId, "collectibles", query);
     public Task<SharedCategoryPageDto<GearDto>?> GetGearAsync(string shareId, SharedListQuery query) => GetPageAsync<GearDto>(shareId, "gear", query);
 
-    // Personal categories (cars/houses/health): list + full read-only detail, never copyable.
+    // Personal categories (cars, houses, health): a list plus a read-only detail, never copyable.
     public async Task<List<CarDto>> GetCarsAsync(string shareId) => await GetListAsync<CarDto>(shareId, "cars");
     public async Task<List<HouseDto>> GetHousesAsync(string shareId) => await GetListAsync<HouseDto>(shareId, "houses");
     public async Task<List<HealthProfileDto>> GetHealthProfilesAsync(string shareId) => await GetListAsync<HealthProfileDto>(shareId, "health-profiles");

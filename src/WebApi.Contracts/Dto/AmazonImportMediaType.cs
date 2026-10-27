@@ -1,8 +1,7 @@
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// Which trackable item type an Amazon order-history row should be imported as - picked per row in the
-/// review UI, since Amazon's export has no category column to detect this automatically.
+/// Which trackable type an Amazon order row is imported as, picked per row in the review UI, since the export has no category column.
 /// </summary>
 public enum AmazonImportMediaType
 {

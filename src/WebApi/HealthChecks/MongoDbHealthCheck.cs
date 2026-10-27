@@ -4,12 +4,10 @@ using MongoDB.Driver;
 namespace Keeptrack.WebApi.HealthChecks;
 
 /// <summary>
-/// Runs a <c>ping</c> against the configured <see cref="IMongoDatabase"/> - not just "is a MongoDB
-/// server reachable somewhere", but specifically the connection string, credentials and
-/// <c>Infrastructure__MongoDB__DatabaseName</c> this instance is actually configured with. A
-/// database name the connection string's user isn't authorized against (a real incident once, e.g. a
-/// MongoDB Atlas user scoped to a different database) fails at command level, not transport level -
-/// a plain "can we open a socket" check would report healthy right up until the first real query.
+/// Runs a <c>ping</c> against the configured <see cref="IMongoDatabase"/>,
+/// checking this instance's connection string, credentials and database name, not only that a server is reachable.
+/// A database the user is not authorized on, such as an Atlas user scoped to another database, fails at command level,
+/// so a socket check would report healthy until the first real query.
 /// </summary>
 public sealed class MongoDbHealthCheck(IMongoDatabase database) : IHealthCheck
 {

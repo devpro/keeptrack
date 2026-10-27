@@ -1,9 +1,8 @@
 namespace Keeptrack.Domain.Models;
 
 /// <summary>
-/// Embedded within <see cref="TvShowReferenceModel"/>/<see cref="MovieReferenceModel"/> - a bounded,
-/// always-fetched-with-the-show top-billed cast list. See <see cref="ReferenceEpisodeModel"/> for the
-/// same embedding reasoning.
+/// Embedded in <see cref="TvShowReferenceModel"/> and <see cref="MovieReferenceModel"/>: the top-billed cast is bounded and always fetched with the work.
+/// See <see cref="ReferenceEpisodeModel"/> for the same embedding reasoning.
 /// </summary>
 public class CastMemberModel
 {

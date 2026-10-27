@@ -16,29 +16,23 @@ namespace Keeptrack.Testing.Shared.Firebase;
 public static class AccountRepository
 {
     /// <summary>
-    /// Every resource test class authenticates independently, and xunit v3 runs them in parallel, so a full
-    /// test run used to fire dozens of concurrent sign-ins against the same fixed Firebase test account within
-    /// seconds - enough to trip Google Identity Platform's abuse protection and fail the whole run with 400s.
-    /// The received token is valid for an hour (see ExpiresIn below), far longer than a test run, so there's no
-    /// need for more than one real call per identity: cache each username's in-flight/completed sign-in behind
-    /// its own Lazy, so concurrent callers for the same identity share one task instead of each starting their
-    /// own.
+    /// Every resource test class authenticates independently, and xunit v3 runs them in parallel,
+    /// so dozens of concurrent sign-ins for one Firebase account would trip Google Identity Platform's abuse protection and fail the run with 400s.
+    /// The token is valid for an hour (see ExpiresIn below), longer than a run,
+    /// so each username's sign-in is cached behind its own Lazy, and concurrent callers for one identity share one task.
     /// </summary>
     /// <remarks>
-    /// Keyed by username, not a single field: a single cached token once meant a second identity's sign-in
-    /// (<see cref="Keeptrack.BlazorApp.PlaywrightTests.Hosting.End2EndFixture"/>'s second ephemeral e2e user)
-    /// silently received the first identity's already-cached token instead of its own, since the parameters
-    /// were ignored once anything had signed in during the process.
-    /// A real-world consequence, not a theoretical one: it made <c>AuthSmokeTest</c>'s identity-swap test pass
-    /// for the wrong reason, both tokens being the same identity's.
+    /// Keyed by username, not one field, or a second identity's sign-in
+    /// (<see cref="Keeptrack.BlazorApp.PlaywrightTests.Hosting.End2EndFixture"/>'s second ephemeral user) would get the first identity's cached token.
+    /// <c>AuthSmokeTest</c>'s identity-swap test would then pass for the wrong reason, both tokens being one identity's.
     /// </remarks>
     private static readonly ConcurrentDictionary<string, Lazy<Task<string?>>> s_cachedTokensByUsername = new();
 
     private static readonly HttpClient s_httpClient = new();
 
     /// <summary>
-    /// Authenticate. Only performs a real sign-in once per username per test run - concurrent and subsequent
-    /// calls for the same username reuse the cached token/task; a different username signs in independently.
+    /// Authenticate.
+    /// Signs in for real once per username per test run, later and concurrent calls for that username reusing the cached task, and a different username signing in independently.
     /// </summary>
     /// <param name="username"></param>
     /// <param name="password"></param>

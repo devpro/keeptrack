@@ -10,12 +10,11 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Proves the <see cref="CancellationToken"/> a repository method now accepts actually reaches the MongoDB
-/// driver, rather than just compiling.
+/// Proves the <see cref="CancellationToken"/> a repository method now accepts actually reaches the MongoDB driver, rather than just compiling.
 /// A mocked repository could never prove this: it is real driver behavior, not application logic.
 /// <para>
-/// Movies stand in for the whole base class, same convention as <see cref="MalformedIdResourceTest"/>: the
-/// forwarding happens once in <c>MongoDbRepositoryBase</c> and is identical for every repository built on it.
+/// Movies stand in for the whole base class, same convention as <see cref="MalformedIdResourceTest"/>:
+/// the forwarding happens once in <c>MongoDbRepositoryBase</c> and is identical for every repository built on it.
 /// </para>
 /// </summary>
 public class CancellationTokenPropagationTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)

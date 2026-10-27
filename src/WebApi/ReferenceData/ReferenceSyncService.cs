@@ -3,9 +3,8 @@ using Keeptrack.Domain.Repositories;
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// Keeps the shared reference collections up to date with TMDB after their initial resolution -
-/// TMDB data (episode air dates, genres, posters, cast) isn't static, so a show/movie resolved months ago can drift out of date otherwise.
-/// Shared by the periodic background sync (<see cref="ReferenceSyncBackgroundService"/>) and the admin's on-demand "sync now" action, so both go through the exact same logic.
+/// Keeps the shared reference collections up to date with their providers, since provider data (air dates, genres, covers, cast, ratings) changes after resolution.
+/// Shared by the periodic sync (<see cref="ReferenceSyncBackgroundService"/>) and the admin's "sync now", so both run the same logic.
 /// </summary>
 public class ReferenceSyncService(
     ITvShowReferenceRepository tvShowReferenceRepository,
@@ -17,18 +16,17 @@ public class ReferenceSyncService(
     ILogger<ReferenceSyncService> logger)
 {
     /// <summary>
-    /// The most documents one pass refreshes per domain. A cap is only safe because the query returns the
-    /// stalest documents first (see <c>FindStaleAsync</c>): whatever a pass doesn't reach is at the front of
-    /// the next one, so nothing starves - it just means a collection larger than this rotates over several
-    /// passes rather than all in one. What it buys is a bounded, predictable amount of provider traffic per
-    /// pass instead of "however many happened to be stale", which matters most on the very first pass after a
-    /// bulk import, when every document is unenriched at once.
+    /// The most documents one pass refreshes per domain.
+    /// The cap is safe because the stalest documents come first (<c>FindStaleAsync</c>),
+    /// so what a pass misses leads the next one, and a larger collection rotates over several passes.
+    /// It bounds provider traffic per pass, which matters most after a bulk import, when every document is unenriched at once.
     /// </summary>
     private const int MaxDocumentsPerDomainPerPass = 500;
 
     /// <summary>
-    /// Refreshes the stalest reference documents whose <c>LastEnrichedAt</c> is older than <paramref name="staleAfter"/> (or unset), oldest first, up to <see cref="MaxDocumentsPerDomainPerPass"/> per domain.
-    /// A failure on one document is logged and skipped rather than aborting the whole run - one bad TMDB response shouldn't block every other show/movie from being checked.
+    /// Refreshes the references whose <c>LastEnrichedAt</c> is unset or older than <paramref name="staleAfter"/>,
+    /// oldest first, up to <see cref="MaxDocumentsPerDomainPerPass"/> per domain.
+    /// A failing document is logged and skipped, never aborting the run.
     /// </summary>
     public async Task<ReferenceSyncResultDto> SyncStaleReferencesAsync(TimeSpan staleAfter, Func<ReferenceSyncStage, Task>? onStageChanged = null,
         CancellationToken cancellationToken = default)
@@ -36,8 +34,7 @@ public class ReferenceSyncService(
         var cutoff = DateTime.UtcNow - staleAfter;
         var result = new ReferenceSyncResultDto();
 
-        // one loop, five domains: each arm supplies only the two things that genuinely differ - which
-        // collection to read and which refresh to run - so a sixth domain is a call, never another copy.
+        // one loop for five domains, each arm supplying only which collection to read and which refresh to run
         await SyncDomainAsync(onStageChanged, ReferenceSyncStage.SyncingTvShows, cutoff,
             tvShowReferenceRepository.FindStaleAsync, enrichmentService.RefreshTvShowReferenceAsync, r => r.Id,
             (checkedCount, updated) => (result.TvShowsChecked, result.TvShowsUpdated) = (checkedCount, updated), cancellationToken);
@@ -62,8 +59,7 @@ public class ReferenceSyncService(
     }
 
     /// <summary>
-    /// The whole per-domain sync: announce the stage, read the stalest page, refresh each document, and report
-    /// the two counts. Every domain ran a byte-for-byte copy of this before, five times over.
+    /// The sync of one domain: announce the stage, read the stalest page, refresh each document, and report the two counts.
     /// </summary>
     private async Task SyncDomainAsync<TReference>(
         Func<ReferenceSyncStage, Task>? onStageChanged,
@@ -87,9 +83,7 @@ public class ReferenceSyncService(
                 var (_, changed) = await refresh(reference, cancellationToken);
                 if (changed) updated++;
             }
-            // cancellation is deliberately not caught here: one failing document must never abort the run, but
-            // a shutdown is not one failing document - swallowing it would walk the rest of the page calling a
-            // container that is already being disposed.
+            // cancellation is not caught, since a shutdown is not one failing document, and swallowing it would walk the rest of the page against a container being disposed
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 logger.LogWarning(ex, "Failed to refresh reference {ReferenceId} during {Stage}", id(reference), stage);

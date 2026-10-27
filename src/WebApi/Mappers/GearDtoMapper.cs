@@ -7,7 +7,7 @@ namespace Keeptrack.WebApi.Mappers;
 [UseStaticMapper(typeof(CommonDtoMappings))]
 public partial class GearDtoMapper : IDtoMapper<GearDto, GearModel>
 {
-    // see BookDtoMapper.ToModel for why MapValue (not MapperIgnoreTarget) is required here
+    // MapValue rather than MapperIgnoreTarget, since OwnerId is required (see BookDtoMapper)
     [MapValue(nameof(GearModel.OwnerId), "")]
     public partial GearModel ToModel(GearDto dto);
 

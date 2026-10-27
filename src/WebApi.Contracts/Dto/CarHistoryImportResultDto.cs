@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// Result of importing the personal "Voitures.xlsx" spreadsheet (fuel/maintenance history per car).
+/// Result of importing the personal "Voitures.xlsx" spreadsheet, the fuel and maintenance history per car.
 /// </summary>
 public class CarHistoryImportResultDto
 {
@@ -14,7 +14,7 @@ public class CarHistoryImportResultDto
     public int HistoryEntriesCreated { get; set; }
 
     /// <summary>
-    /// Rows that couldn't be parsed (e.g. an unreadable date) and were skipped rather than guessed at.
+    /// Rows that could not be parsed, such as an unreadable date, skipped rather than guessed.
     /// </summary>
     public List<string> Warnings { get; set; } = [];
 }

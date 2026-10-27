@@ -4,11 +4,9 @@ using Riok.Mapperly.Abstractions;
 namespace Keeptrack.WebApi.Mappers;
 
 /// <summary>
-/// One-directional (Model -> Dto): admins submit a <c>LinkReferenceRequestDto</c>, never a full
-/// <see cref="TvShowReferenceDto"/>, so there's no Dto -> Model direction to map. <see cref="TvShowReferenceDto.Cast"/>
-/// is ignored here and hydrated manually by <see cref="ReferenceData.ReferenceDataController"/> - the
-/// model only carries a <c>PersonReferenceId</c>, while the Dto needs the person's name/photo joined in
-/// from <c>person_reference</c>, a join Mapperly has no repository access to perform.
+/// Model to DTO only: admins submit a <c>LinkReferenceRequestDto</c>, never a whole <see cref="TvShowReferenceDto"/>.
+/// <see cref="TvShowReferenceDto.Cast"/> is hydrated by <see cref="ReferenceData.ReferenceDataController"/>,
+/// since the model carries only a <c>PersonReferenceId</c> and the name and photo come from <c>person_reference</c>.
 /// </summary>
 [Mapper]
 public partial class TvShowReferenceDtoMapper
@@ -19,7 +17,7 @@ public partial class TvShowReferenceDtoMapper
     [MapperIgnoreSource(nameof(TvShowReferenceModel.MatchedAliases))]
     [MapperIgnoreSource(nameof(TvShowReferenceModel.Cast))]
     [MapperIgnoreSource(nameof(TvShowReferenceModel.LastEnrichedAt))]
-    // sync bookkeeping (when a rating source was last asked), like LastEnrichedAt above - of no use to a client
+    // sync bookkeeping (when a rating source was last asked), like LastEnrichedAt, of no use to a client
     [MapperIgnoreSource(nameof(TvShowReferenceModel.RatingsCheckedAt))]
     public partial TvShowReferenceDto ToDto(TvShowReferenceModel model);
 }

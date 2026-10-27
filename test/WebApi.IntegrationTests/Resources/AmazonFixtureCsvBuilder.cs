@@ -3,21 +3,18 @@ using System.Text;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Builds a small, synthetic Amazon order-history CSV for tests - never use a real personal export as a
-/// test fixture (same rule as <see cref="TvTimeFixtureZipBuilder"/>). Amazon's export has no category
-/// column, so the Movie/TvShow/VideoGame rows below are just ordinary non-ISBN order lines - the test
-/// itself is what assigns their media type at commit time, exactly like a real user would in the review UI.
+/// Builds a small, synthetic Amazon order-history CSV for tests, since a real personal export is never a fixture (as with <see cref="TvTimeFixtureZipBuilder"/>).
+/// Amazon's export has no category column, so the movie, TV show and video game rows are ordinary non-ISBN lines,
+/// and the test assigns their media type at commit, as a user does in the review UI.
 /// </summary>
 internal static class AmazonFixtureCsvBuilder
 {
-    // Deliberately namespaced "Amazon Import" (not the generic "Keeptrack Integration Test X" TvTimeFixtureZipBuilder
-    // uses) - MovieTitle once collided exactly with TvTimeFixtureZipBuilder.MovieTitle in the shared test database,
-    // which made TvTimeImportResourceTest's title-matching pick up this fixture's leftover/concurrent movie and
-    // report 0 created instead of 1. Keep every title here distinct from every other fixture's, not just internally
-    // consistent.
+    // Namespaced "Amazon Import", not the "Keeptrack Integration Test X" of TvTimeFixtureZipBuilder,
+    // since a shared title in the test database lets TvTimeImportResourceTest's title matching pick up this fixture's movie.
+    // Every title here stays distinct from every other fixture's.
     public const string BookTitle = "Keeptrack Amazon Import Test Book";
 
-    /// <summary>A real, checksum-valid ISBN-10 - exercises the "looks like a book" heuristic honestly.</summary>
+    /// <summary>A real, checksum-valid ISBN-10, exercising the "looks like a book" heuristic honestly.</summary>
     public const string BookIsbn = "0552177571";
 
     public const string BookOrderId = "999-1111111-1111111";

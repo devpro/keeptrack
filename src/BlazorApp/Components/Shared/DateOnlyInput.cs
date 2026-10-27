@@ -3,10 +3,9 @@ using System.Globalization;
 namespace Keeptrack.BlazorApp.Components.Shared;
 
 /// <summary>
-/// Shared parser for a plain HTML date input's onchange value - always "yyyy-MM-dd" per the HTML spec
-/// regardless of the browser's locale, so this always parses with the invariant culture rather than the
-/// current one. Used by every owned-copy/car-history/house-history/video-game-completion-style bound
-/// <see cref="DateOnly"/>? field instead of duplicating the same TryParse ternary at each call site.
+/// Shared parser for a plain HTML date input's onchange value.
+/// The HTML spec makes it "yyyy-MM-dd" whatever the browser's locale, so it parses with the invariant culture rather than the current one.
+/// Every bound <see cref="DateOnly"/>? field uses it (owned copies, car and house history, video game completion).
 /// </summary>
 public static class DateOnlyInput
 {

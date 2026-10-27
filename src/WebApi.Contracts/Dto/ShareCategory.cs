@@ -1,9 +1,8 @@
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// One category of a collection that can be shared as a whole with another user. The Contracts twin of
-/// the Domain <c>ShareCategory</c> enum (Contracts can't reference Domain); member names are kept
-/// identical and mapped by name.
+/// One category of a collection that can be shared as a whole with another user.
+/// A copy of the Domain enum, mapped by name, so member names stay identical.
 /// </summary>
 public enum ShareCategory
 {
@@ -28,12 +27,12 @@ public enum ShareCategory
     /// <summary>The caller's gear (view-only list, never copyable).</summary>
     Gears,
 
-    /// <summary>The caller's cars (personal - view-only, never copyable).</summary>
+    /// <summary>The caller's cars (personal, view-only, never copyable).</summary>
     Cars,
 
-    /// <summary>The caller's houses (personal - view-only, never copyable).</summary>
+    /// <summary>The caller's houses (personal, view-only, never copyable).</summary>
     Houses,
 
-    /// <summary>The caller's health journal (personal - view-only, never copyable).</summary>
+    /// <summary>The caller's health journal (personal, view-only, never copyable).</summary>
     Health
 }

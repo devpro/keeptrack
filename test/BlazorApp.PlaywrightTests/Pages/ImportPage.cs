@@ -4,7 +4,8 @@ using Microsoft.Playwright;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 
 /// <summary>
-/// The <c>/import</c> landing page. The TV Time zip upload (and the car/health spreadsheet uploads) live directly on it,
+/// The <c>/import</c> landing page.
+/// The TV Time zip upload (and the car/health spreadsheet uploads) live directly on it,
 /// while the Amazon and generic-video-game importers are separate sub-pages reached via the links below.
 /// </summary>
 public class ImportPage(IPage page) : PageBase(page)

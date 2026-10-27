@@ -13,12 +13,10 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Exercises <see cref="ITvShowReferenceRepository.FindByTitleYearAsync"/>/<see cref="ITvShowReferenceRepository.FindByTitleAsync"/>
-/// against real MongoDB - both now match against every entry in <c>MatchedAliases</c> (an <c>ElemMatch</c>
-/// filter over the embedded (title, year) array, backing a compound multikey index), not just the
-/// document's own canonical <c>TitleNormalized</c>/<c>Year</c>. This is exactly the kind of hand-written
-/// Mongo filter that has hidden real bugs before (see docs/findings/persistence-and-mapping.md), so it's verified
-/// against a real database, not mocks.
+/// Exercises <see cref="ITvShowReferenceRepository.FindByTitleYearAsync"/> and <see cref="ITvShowReferenceRepository.FindByTitleAsync"/> against real MongoDB.
+/// Both match every entry in <c>MatchedAliases</c> (an <c>ElemMatch</c> over the embedded (title, year) array, backed by a compound multikey index),
+/// not only the canonical <c>TitleNormalized</c> and <c>Year</c>.
+/// A hand-written Mongo filter of this kind hides bugs (see docs/data-model.md), so it is verified against a real database, not mocks.
 /// </summary>
 public class TvShowReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)
 {
@@ -49,9 +47,7 @@ public class TvShowReferenceRepositoryTest(KestrelWebAppFactory<Program> factory
     [Fact]
     public async Task FindByTitleYearAsync_MatchesAnAliasWhoseConfirmedYearDiffersFromTheDocumentsOwnCanonicalYear()
     {
-        // regression: a single top-level Year scalar AND-ed against the title-array-contains filter would
-        // reject a tenant whose recorded year genuinely differs from whichever year happens to be this
-        // document's own canonical one - year now travels with its specific title variant instead.
+        // A top-level Year AND-ed with the title filter would reject a tenant whose year differs from the document's canonical one, so the year travels with its title variant.
         using var scope = Factory.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<ITvShowReferenceRepository>();
         var alternateTitle = $"Alternate Title {Guid.NewGuid()}";
@@ -96,14 +92,9 @@ public class TvShowReferenceRepositoryTest(KestrelWebAppFactory<Program> factory
     [Fact]
     public async Task UpsertAsync_PersistsANullCreator_AsAnActualBsonNullNotAnEmptyString()
     {
-        // Regression: a null Creator (TV show/movie/video game have no creator dimension) has to round-trip
-        // as a real null, not "". Getting this wrong once let a null Creator silently become "" on save,
-        // which broke MergeMatchedAliases' in-memory dedup comparison and duplicated an alias on every
-        // re-resolve/re-refresh (confirmed against a real video game reference, RAWG's "God of War", that had
-        // accumulated an exact duplicate this way - see scripts/dedupe-matched-aliases.js). Mapperly (the
-        // current mapper) preserves nulls by default, so this now guards a structural property rather than a
-        // configuration one - and only a real MongoDB round-trip can check it at all, since a mocked
-        // repository never exercises the actual mapper/BSON serialization behavior.
+        // A null Creator (TV show, movie and video game have no creator) round-trips as a real null, not "".
+        // A null saved as "" breaks MergeMatchedAliases' in-memory dedup and duplicates an alias on every re-resolve (see scripts/dedupe-matched-aliases.js).
+        // Mapperly preserves nulls by default, and only a real MongoDB round trip checks it, since a mocked repository never exercises the mapper and BSON serialization.
         using var scope = Factory.Services.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<ITvShowReferenceRepository>();
         var title = $"Null Creator Title {Guid.NewGuid()}";
@@ -145,10 +136,9 @@ public class TvShowReferenceRepositoryTest(KestrelWebAppFactory<Program> factory
     }
 
     /// <summary>
-    /// The yearless title lookup refuses to choose between same-titled works here too, not only for video
-    /// games where it was reported - the rule lives once in <c>ReferenceTitleQueries.FindSingleMatchAsync</c>
-    /// and TV shows reach it through the same title-only fallback. Two shows sharing a name is ordinary
-    /// (a revival, a remake), and with no year there is nothing to tell them apart with.
+    /// The yearless title lookup refuses to choose between same-titled works here too, not only for video games.
+    /// The rule lives once in <c>ReferenceAliasQueries.FindSingleMatchAsync</c>, which TV shows reach through the same title-only fallback.
+    /// Two shows sharing a name is ordinary (a revival, a remake), and with no year there is nothing to tell them apart with.
     /// </summary>
     [Fact]
     public async Task FindByTitleAsync_MatchesNothing_WhenSeveralReferencesShareTheTitleAndOnlyTheYearCouldTellThemApart()
@@ -174,8 +164,7 @@ public class TvShowReferenceRepositoryTest(KestrelWebAppFactory<Program> factory
     }
 
     /// <summary>
-    /// Upserts a reference and registers it for deletion in the same step, so no test body can create one
-    /// without it being cleaned up.
+    /// Upserts a reference and registers it for deletion in the same step, so no test body can create one without it being cleaned up.
     /// </summary>
     private async Task<TvShowReferenceModel> CreateReferenceAsync(ITvShowReferenceRepository repository, TvShowReferenceModel model)
     {

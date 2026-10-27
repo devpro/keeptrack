@@ -6,8 +6,8 @@ using MongoDB.Bson.Serialization.Attributes;
 namespace Keeptrack.Infrastructure.MongoDb.Entities;
 
 /// <summary>
-/// Shared, owner-less album metadata collection (<c>album_reference</c>). See
-/// <see cref="TvShowReference"/> for why this has no <c>owner_id</c>.
+/// Shared album metadata (<c>album_reference</c>).
+/// See <see cref="TvShowReference"/> for why it has no <c>owner_id</c>.
 /// </summary>
 public class AlbumReference : IHasMatchedAliases
 {
@@ -37,7 +37,7 @@ public class AlbumReference : IHasMatchedAliases
 
     public List<ReferenceTrack> Tracks { get; set; } = [];
 
-    /// <summary>Aggregate ratings keyed by source name ("discogs") - see <see cref="ReferenceRating"/>.</summary>
+    /// <summary>Aggregate ratings keyed by source ("discogs"), see <see cref="ReferenceRating"/>.</summary>
     public Dictionary<string, ReferenceRating> Ratings { get; set; } = [];
 
     [BsonElement("image_url")]

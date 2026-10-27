@@ -53,10 +53,8 @@ public class ReferenceSyncServiceTest
     }
 
     /// <summary>
-    /// The staleness cutoff is a query now, not an in-memory check over every document in the collection, so
-    /// what this asserts is that each domain is asked for the right window and a bounded page of it. Which
-    /// documents that window actually returns - and in what order - is MongoDB semantics, pinned by
-    /// <c>ReferenceStalenessRepositoryTest</c> against a real database.
+    /// The staleness cutoff is a query, not an in-memory check over the collection, so this asserts each domain is asked for the right window and a bounded page of it.
+    /// Which documents that window returns, and in what order, is MongoDB semantics, pinned by <c>ReferenceStalenessRepositoryTest</c> against a real database.
     /// </summary>
     [Fact]
     public async Task SyncStaleReferencesAsync_AsksEachDomainForItsStalestDocuments_BoundedPerPass()
@@ -132,9 +130,8 @@ public class ReferenceSyncServiceTest
     }
 
     /// <summary>
-    /// Backs the admin "sync now" progress bar (<c>ReferenceDataAdminController.SyncNow</c>/
-    /// <c>ReferenceDataAdminPage.razor</c>'s polling loop) - confirms the stage callback fires once per
-    /// domain, in the same order the UI's progress-percent mapping assumes.
+    /// Backs the admin "sync now" progress bar (<c>ReferenceDataAdminController.SyncNow</c>, <c>ReferenceDataAdminPage.razor</c>'s polling loop),
+    /// the stage callback firing once per domain in the order the UI's progress mapping assumes.
     /// </summary>
     [Fact]
     public async Task SyncStaleReferencesAsync_InvokesOnStageChanged_OncePerDomainInOrder()

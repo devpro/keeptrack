@@ -18,11 +18,9 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.Import;
 
 /// <summary>
-/// The bug these tests guard: shows/movies used to be matched by title, but reference enrichment
-/// rewrites the stored Title to a provider's canonical name after the first import - so re-importing the
-/// same export no longer matched and created duplicates (which then cascaded to duplicated episodes under
-/// the new show id). The fix stamps every imported record with a stable, enrichment-immutable TvTimeId
-/// and matches on that.
+/// Reference enrichment rewrites a stored Title to the provider's canonical name after the first import,
+/// so title matching would make a re-import create duplicates, and duplicated episodes under the new show id.
+/// Every imported record carries a stable TvTimeId that enrichment never touches, and matching uses it.
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class TvTimeImportServiceIdempotencyTest
@@ -49,14 +47,13 @@ public class TvTimeImportServiceIdempotencyTest
         first.EpisodesSkipped.Should().Be(0);
         first.MoviesSkipped.Should().Be(0);
 
-        // Simulate what reference enrichment does after the first import: it overwrites the stored Title
-        // with the provider's canonical name. This is exactly what used to break title-based matching.
+        // Simulates reference enrichment after the first import, overwriting the stored Title with the provider's canonical name, which title matching can't survive.
         shows.Single().Title = "Some Completely Different Canonical Show Name";
         movies.Single().Title = "Some Completely Different Canonical Movie Name";
 
         var second = await service.ImportAsync(new MemoryStream(zip), OwnerId);
 
-        // Nothing new created, everything recognized as already present - and, crucially, no duplicates.
+        // Nothing new created, everything recognized as present, and no duplicates.
         second.ShowsCreated.Should().Be(0);
         second.EpisodesCreated.Should().Be(0);
         second.MoviesCreated.Should().Be(0);
@@ -94,9 +91,8 @@ public class TvTimeImportServiceIdempotencyTest
         new(shows, episodes, movies, new ThrowingScopeFactory(), NullLogger<TvTimeImportService>.Instance);
 
     /// <summary>
-    /// A minimal but realistic export: a followed show carrying its TV Time id, two of its episodes in the
-    /// id-less seen_episode_source.csv (which must still resolve to that show), and a movie discovered
-    /// through a tracking watch event carrying its stable per-movie uuid.
+    /// A minimal but realistic export: a followed show carrying its TV Time id, two of its episodes in the id-less seen_episode_source.csv (which must still resolve to that show),
+    /// and a movie discovered through a tracking watch event carrying its stable per-movie uuid.
     /// </summary>
     private static byte[] BuildZip()
     {
@@ -125,8 +121,8 @@ public class TvTimeImportServiceIdempotencyTest
         return zipStream.ToArray();
     }
 
-    /// <summary>The import fires a best-effort reference match on a background DI scope; this stands in for
-    /// the scope factory and makes that fire-and-forget path a caught no-op, which the import tolerates.</summary>
+    /// <summary>The import fires a best-effort reference match on a background DI scope;
+    /// this stands in for the scope factory and makes that fire-and-forget path a caught no-op, which the import tolerates.</summary>
     private sealed class ThrowingScopeFactory : IServiceScopeFactory
     {
         public IServiceScope CreateScope() => throw new InvalidOperationException("No DI scope in unit tests.");

@@ -3,81 +3,76 @@ using System;
 namespace Keeptrack.Domain.Models;
 
 /// <summary>
-/// One line item parsed from a generic store/CSV import (any retailer export the user has reshaped into the
-/// canonical column set in a spreadsheet), before the user has reviewed/selected it. Transient - never
-/// persisted. Produced by <see cref="Services.GenericImportService"/> and mapped to
-/// <c>GenericImportPreviewRowDto</c> for the review UI.
-/// Unlike <see cref="AmazonOrderPreviewRow"/>, everything Amazon hardcodes (vendor, the "is this a book"
-/// heuristic) is instead read straight from columns here: <see cref="SuggestedMediaType"/> comes from a
-/// "Type" column, <see cref="Vendor"/> from a per-row column, etc.
+/// One line item parsed from a generic CSV import, any store export reshaped into the canonical columns, before the user reviews and selects it.
+/// Never persisted.
+/// Produced by <see cref="Services.GenericImportService"/> and mapped to <c>GenericImportPreviewRowDto</c> for the review UI.
+/// What the Amazon import hardcodes (the vendor, the "is this a book" heuristic) is read from columns here,
+/// such as <see cref="SuggestedMediaType"/> from "Type" and <see cref="Vendor"/> per row.
 /// </summary>
 public class GenericImportPreviewRow
 {
     /// <summary>
-    /// Stable within one file, used only to correlate a selected/edited row back to this one at commit time.
-    /// Never stored. Built from order id + product id + title so a single order's several line items stay distinct.
+    /// Stable within one file, used only to match a selected or edited row back to this one at commit time.
+    /// Built from the order id, product id and title, so several line items of one order stay distinct.
     /// </summary>
     public required string RowId { get; set; }
 
-    /// <summary>The item title (from the "Title"/"Product Name" column).</summary>
+    /// <summary>The item title, from the "Title" or "Product Name" column.</summary>
     public required string Title { get; set; }
 
     /// <summary>
-    /// The media type read from the optional "Type" column, or null when that column is blank/absent or holds
-    /// an unrecognized value - in which case the review UI forces an explicit per-row pick before commit.
+    /// The media type read from the optional "Type" column.
+    /// Null when the column is blank, absent or unrecognized, and the review UI then requires a pick for the row before commit.
     /// </summary>
     public ImportMediaType? SuggestedMediaType { get; set; }
 
-    /// <summary>The order/invoice number, if the file has one - part of the dedup reference.</summary>
+    /// <summary>The order or invoice number, if the file has one, part of the dedup reference.</summary>
     public string? OrderId { get; set; }
 
     /// <summary>
-    /// The store's own stable per-product id (an Amazon ASIN, a retailer SKU...) - the disambiguator that
-    /// keeps two different line items sharing one order distinct in the dedup reference. Falls back to the
-    /// title when absent.
+    /// The store's stable product id (an Amazon ASIN, a retailer SKU), which keeps two line items of one order distinct in the dedup reference.
+    /// The title stands in when it is absent.
     /// </summary>
     public string? ProductId { get; set; }
 
     public DateOnly? OrderDate { get; set; }
 
-    /// <summary>What was paid for this item, if a price/amount column is present.</summary>
+    /// <summary>What was paid for this item, if a price or amount column is present.</summary>
     public decimal? Price { get; set; }
 
-    /// <summary>The store name, read per row (never hardcoded) - populates the owned copy's Vendor field.</summary>
+    /// <summary>The store name, read per row, which becomes the owned copy's Vendor.</summary>
     public string? Vendor { get; set; }
 
     /// <summary>
-    /// The "Website" column - a free-text per-item label (product/order URL, seller...) that goes into the owned
-    /// copy's Reference (see <see cref="Services.GenericImportService.FormatReference"/>), independent of Vendor.
+    /// The "Website" column, a free-text label per item (product or order URL, seller) that becomes the owned copy's Reference,
+    /// independent of Vendor (see <see cref="Services.GenericImportService.FormatReference"/>).
     /// </summary>
     public string? Website { get; set; }
 
-    /// <summary>Book author, if an "Author" column is present - pre-fills the created book.</summary>
+    /// <summary>Book author, if an "Author" column is present, which fills the created book.</summary>
     public string? Author { get; set; }
 
-    /// <summary>Video game platform, if a "Platform" column is present - pre-fills the created game's copy.</summary>
+    /// <summary>Video game platform, if a "Platform" column is present, which fills the created game's copy.</summary>
     public string? Platform { get; set; }
 
-    /// <summary>Release/publication year, if a "Year" column is present.</summary>
+    /// <summary>Release or publication year, if a "Year" column is present.</summary>
     public int? Year { get; set; }
 
     /// <summary>
-    /// Item condition ("New", "Used"...) from a "Condition"/"Product Condition" column - preserved on the
-    /// created owned copy's Product field rather than discarded (the one behavioral difference from the Amazon
-    /// importer, which treats condition as display-only).
+    /// Item condition ("New", "Used") from a "Condition" or "Product Condition" column.
+    /// It is kept on the created copy's product name (owner's request), where the Amazon import only displays it.
     /// </summary>
     public string? Condition { get; set; }
 
     /// <summary>Book ISBN, if an "ISBN" column is present.</summary>
     public string? Isbn { get; set; }
 
-    /// <summary>Whether the row's "Copy"/"Format" column indicated a digital (vs. the default physical) copy.</summary>
+    /// <summary>Whether the row's "Copy" or "Format" column indicated a digital copy rather than the default physical one.</summary>
     public CopyType CopyType { get; set; }
 
     /// <summary>
-    /// True when an existing item already has an owned copy referencing this order line - see
-    /// <see cref="Services.GenericImportService.FormatReference"/>. Defaults to unchecked in the review UI,
-    /// but stays selectable in case the user wants to re-import anyway.
+    /// True when an existing item already has an owned copy referencing this order line (see <see cref="Services.GenericImportService.FormatReference"/>).
+    /// The review UI leaves it unchecked but selectable, so the user can still import it again.
     /// </summary>
     public bool AlreadyImported { get; set; }
 }

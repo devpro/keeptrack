@@ -11,8 +11,8 @@ namespace Keeptrack.BlazorApp.Components.Inventory.Shared;
 /// Loading, year tabs and the entry modal shared by the journal detail pages: a parent (car, house, health profile) with its dated entries and computed metrics.
 /// </summary>
 /// <remarks>
-/// A concrete page keeps its own <c>[PersistentState]</c> properties and exposes them through <see cref="JournalParent"/>, <see cref="JournalEntries"/> and <see cref="JournalMetrics"/>,
-/// since persisted prerender state is keyed by the component that declares it.
+/// A concrete page keeps its own <c>[PersistentState]</c> properties and exposes them through <see cref="JournalParent"/>,
+/// <see cref="JournalEntries"/> and <see cref="JournalMetrics"/>, since persisted prerender state is keyed by the component that declares it.
 /// Every entry mutation reloads the whole journal rather than patching local state, because an entry can change every metric.
 /// </remarks>
 public abstract class JournalDetailPageBase<TParent, TEntry, TMetrics> : ComponentBase

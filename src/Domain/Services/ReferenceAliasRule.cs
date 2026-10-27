@@ -6,38 +6,46 @@ using Keeptrack.Domain.Models;
 namespace Keeptrack.Domain.Services;
 
 /// <summary>
-/// What a <see cref="ReferenceMatchModel"/> must carry to be worth storing at all, declared once per domain and read by everything that writes one - the enrichment service's merge, and each reference repository's canonical-alias safety net.
+/// What a <see cref="ReferenceMatchModel"/> must carry to be stored, declared once per domain and read by everything writing one:
+/// the enrichment merge and each reference repository's canonical-alias safety net.
 /// <para>
-/// An alias is <b>the local match key</b>: the whole point of <c>matched_aliases</c> is that a title someone already resolved never has to be resolved again, so a lookup finds the reference without a provider call.
+/// An alias is <b>the local match key</b>: a title someone already resolved is found again without a provider call.
 /// That only works while every stored entry names exactly one work.
-/// An entry missing the field that identifies the work is not a weaker key, it is a key that answers questions it was never confirmed for - a title-only alias for "Resident Evil 2" claims all eight games IGDB holds under that name, and a creator-less one for "Echoes" claims every novel ever titled that.
-/// Both were being written, on every resolve where the tenant had left the year (or the provider the author) blank.
+/// An entry missing the field that identifies the work is not a weaker key but one answering questions nobody confirmed.
+/// A title-only "Resident Evil 2" claims all eight games IGDB holds under that name, and a creator-less "Echoes" claims every novel with that title.
 /// </para>
 /// <para>
-/// So an incomplete alias is <b>refused</b> rather than stored and worked around later: the cost of refusing is one provider call the next time that item is checked, and the cost of storing is a wrong link nothing downstream ever reports.
+/// An incomplete alias is therefore <b>refused</b> rather than stored.
+/// Refusing costs one provider call the next time the item is checked, and storing costs a wrong link that nothing reports.
 /// </para>
 /// </summary>
 public sealed class ReferenceAliasRule
 {
     /// <summary>
     /// Films, shows and games: a title <b>plus a year</b>.
-    /// Same-titled works are ordinary in all three catalogues, so the year is the only thing that separates them - which is exactly why automatic resolution refuses to act without one (see <c>ReferenceMatchRules</c>), and why an alias without one is not a match key.
+    /// Same-titled works are ordinary in all three catalogues, and the year is what separates them.
+    /// That is why automatic resolution refuses to act without one (see <c>ReferenceMatchRules</c>), and why an alias without one is no match key.
     /// </summary>
     public static readonly ReferenceAliasRule TitleAndYear = new(carriesYear: true, requiresYear: true, requiresCreator: false, carriesIsbn: false);
 
     /// <summary>
-    /// Albums: a title <b>plus an artist</b>, and deliberately no year.
-    /// One release exists as many pressings under as many years, so the year narrows nothing an artist has not already settled - while carrying it would mint one alias per year any tenant ever typed for the same record.
+    /// Albums: a title <b>plus an artist</b>, and no year.
+    /// One release exists as many pressings under many years, so the year narrows nothing the artist has not settled,
+    /// and carrying it would mint one alias per year typed for the same record.
     /// </summary>
     public static readonly ReferenceAliasRule TitleAndCreator = new(carriesYear: false, requiresYear: false, requiresCreator: true, carriesIsbn: false);
 
     /// <summary>
-    /// Books: a title <b>plus an author</b>, the same identity as an album - and unlike an album, the year travels with it whenever one is known, since a book genuinely is republished as revisions the year tells apart, so an alias records the printing it was confirmed under.
+    /// Books: a title <b>plus an author</b>, like an album.
+    /// Unlike an album, the year travels with it when known, since a book is republished as revisions the year tells apart,
+    /// so an alias records the printing it was confirmed under.
     /// An ISBN, which names one printing outright, is enough on its own.
     /// <para>
-    /// The year is <b>recorded, not required</b>, and that distinction is load-bearing.
-    /// Requiring it would mean a book whose provider reports no year stores no alias at all - and an item with no alias is not merely unmatched, it is <i>actively unlinked</i> the next time anyone presses "check for reference match", since finding nothing is what clears a link.
-    /// It would also buy no disambiguation: two different works sharing both a title and an author's name are the one case the year-agnostic lookup already refuses to choose in, and every other case is one work under several years.
+    /// The year is <b>recorded, not required</b>, and that distinction matters.
+    /// Requiring it, a book whose provider reports no year would store no alias,
+    /// and the next "check for reference match" would then unlink it, since finding nothing clears a link.
+    /// Nor would it disambiguate anything: two works sharing a title and an author's name are the case the lookup ignoring the year already refuses,
+    /// and every other case is one work under several years.
     /// </para>
     /// </summary>
     public static readonly ReferenceAliasRule TitleAndCreatorWithYear = new(carriesYear: true, requiresYear: false, requiresCreator: true, carriesIsbn: true);
@@ -51,8 +59,9 @@ public sealed class ReferenceAliasRule
     private readonly bool _carriesIsbn;
 
     /// <summary>
-    /// "Carries" and "requires" are separate on purpose: a field can be worth recording without being what identifies the work (a book's edition year), and one that identifies nothing is dropped rather than stored (an album's pressing year).
-    /// A creator is only ever recorded where it is required.
+    /// "Carries" and "requires" differ: a field can be worth recording without identifying the work (a book's edition year),
+    /// and one identifying nothing is dropped (an album's pressing year).
+    /// A creator is only recorded where it is required.
     /// </summary>
     private ReferenceAliasRule(bool carriesYear, bool requiresYear, bool requiresCreator, bool carriesIsbn)
     {
@@ -63,8 +72,9 @@ public sealed class ReferenceAliasRule
     }
 
     /// <summary>
-    /// The alias for one confirmed combination, or <b>null when the combination does not identify a work</b> under this rule.
-    /// Title and creator come back normalized (<see cref="TitleNormalizer.Normalize"/>, the same form every lookup filters with), and any field this domain's key has no dimension for is dropped rather than stored - a stray value there would only ever produce a second alias meaning exactly what an existing one already means.
+    /// The alias for one confirmed combination, or <b>null when it does not identify a work</b> under this rule.
+    /// Title and creator come back normalized (<see cref="TitleNormalizer.Normalize"/>), the form every lookup filters with.
+    /// A field outside this domain's key is dropped, since it would only produce a second alias meaning the same as an existing one.
     /// </summary>
     public ReferenceMatchModel? Build(string? title, int? year, string? creator, string? isbn)
     {
@@ -82,8 +92,8 @@ public sealed class ReferenceAliasRule
     }
 
     /// <summary>
-    /// Whatever a reference document already remembered, plus every one of <paramref name="candidates"/> this rule accepts and does not already hold.
-    /// Never removes: an alias is a fact someone confirmed, and the combinations a work has been recorded under only accumulate.
+    /// The aliases a reference already holds, plus every one of <paramref name="candidates"/> this rule accepts and it does not hold yet.
+    /// Never removes any, since an alias is a fact someone confirmed.
     /// </summary>
     public List<ReferenceMatchModel> Merge(List<ReferenceMatchModel>? existing, params (string? Title, int? Year, string? Creator, string? Isbn)[] candidates)
     {
@@ -102,10 +112,12 @@ public sealed class ReferenceAliasRule
     }
 
     /// <summary>
-    /// Adds a document's own canonical title/year to <paramref name="aliases"/> when that pair is a complete key under this rule - the repositories' safety net for a caller that upserted without going through the enrichment service's merge.
+    /// Adds a document's canonical title and year to <paramref name="aliases"/> when that pair is a complete key under this rule.
+    /// It is the repositories' safety net for a caller upserting without the enrichment merge.
     /// <para>
-    /// It adds nothing at all for a domain whose key needs a creator, and that is not a gap: a book/album reference document carries only its author/artist <i>reference id</i>, never the name, so there is nothing here to build a complete alias from.
-    /// Writing the creator-less one anyway is precisely the half-key this class exists to refuse - and it was being written on every single upsert.
+    /// It adds nothing for a domain whose key needs a creator.
+    /// A book or album reference carries only its author's or artist's reference id, never the name,
+    /// so a complete alias cannot be built here, and a creator-less one is the half key this class refuses.
     /// </para>
     /// </summary>
     public void EnsureCanonical(List<ReferenceMatchModel> aliases, string title, int? year)

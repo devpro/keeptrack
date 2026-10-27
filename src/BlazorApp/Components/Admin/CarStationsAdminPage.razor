@@ -2,9 +2,9 @@
 @attribute [Authorize(Policy = "AdminOnly")]
 @using System.Globalization
 
-@* Curation screen for the shared, owner-less car_station catalogue. Members create stations inline from
-   the refuel form with nothing but a brand name, so this is where one gains its real city, postal code and
-   coordinates - and where the near-duplicates that inline creation inevitably produces get merged. *@
+@* Curation screen for the shared, owner-less car_station catalogue.
+   Members create stations inline from the refuel form with little more than a brand name, so this is where one gains its real city, postal code and coordinates.
+   It is also where the near-duplicates inline creation produces get merged. *@
 
 <div class="kt-page-header">
     <h1>Fuel stations</h1>
@@ -83,8 +83,7 @@
                         <td>@station.UsageCount</td>
                         <td>
                             <div class="d-flex gap-1 justify-content-end align-items-center">
-                                @* Merging is the only way to remove a station that is still in use: deleting
-                                   one would blank the location of every refuel pointing at it. *@
+                                @* Merging is the only way to remove a station in use, since deleting one would blank the location of every refuel pointing at it. *@
                                 <select class="form-select form-select-sm" style="max-width:200px"
                                         value="@MergeTargetOf(station)"
                                         @onchange="e => SetMergeTarget(station, e.Value?.ToString())">
@@ -151,8 +150,7 @@
         }
         catch (ApiRequestException ex)
         {
-            // the API refuses an edit that would collide with another station's natural key - show its own
-            // message ("merge them instead") rather than a bare status line
+            // the API refuses an edit colliding with another station's natural key, and its message ("merge them instead") beats a bare status line
             _error = ex.Message;
             await LoadAsync();
         }
@@ -207,7 +205,7 @@
         }
         catch (ApiRequestException ex)
         {
-            // 409 when entries still point at it - that's a merge, not a delete
+            // 409 when entries still point at it, which calls for a merge, not a delete
             _error = ex.Message;
         }
 

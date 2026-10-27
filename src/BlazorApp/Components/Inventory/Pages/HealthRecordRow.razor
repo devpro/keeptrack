@@ -1,12 +1,13 @@
-@* One journal line, Excel-like (owner's explicit display choice): date, specialty, name, a warning sign
-   when money remains unaccounted, edit/delete icons - no field labels, no money columns. The edit modal
-   carries every other field. ⚠ (U+26A0) and ✎ (U+270E) default to text presentation (no FE0F). *@
+@* One journal line, Excel-like (owner's display choice): date, specialty, name, a warning sign when money remains unaccounted,
+   and edit and delete icons, with no field labels or money columns.
+   The edit modal carries every other field.
+   ⚠ (U+26A0) and ✎ (U+270E) default to text presentation (no FE0F). *@
 
 <tr>
     <td>@DateText</td>
     <td>@Entry.Specialty</td>
     <td>@Entry.Practitioner</td>
-    @* wider screens have room for more than the mobile essentials (d-md-table-cell = hidden below 768px) *@
+    @* wider screens have room for more than the mobile essentials (d-md-table-cell hides it below 768px) *@
     <td class="d-none d-md-table-cell">@Entry.Description</td>
     <td class="d-none d-md-table-cell kt-num">@Entry.Price?.ToString("F2")</td>
     <td class="text-center">
@@ -29,19 +30,17 @@
 @code {
     [Parameter] public required HealthRecordDto Entry { get; set; }
 
-    /// <summary>Read-only mode (a recipient viewing a shared health journal) hides the edit/delete actions column.</summary>
+    /// <summary>Read-only mode (a recipient viewing a shared health journal) hides the edit and delete column.</summary>
     [Parameter] public bool ReadOnly { get; set; }
 
-    /// <summary>Computed by HealthMetricsService (via the parent's metrics), never re-derived here -
-    /// the balance rule lives in exactly one place.</summary>
+    /// <summary>Computed by HealthMetricsService through the parent's metrics, never re-derived here, so the balance rule lives in one place.</summary>
     [Parameter] public bool IsUnbalanced { get; set; }
 
     [Parameter] public EventCallback<HealthRecordDto> OnEdit { get; set; }
 
     [Parameter] public EventCallback<string> OnDelete { get; set; }
 
-    /// <summary>Midnight means "no time recorded" (the import's default, and sickness entries rarely have
-    /// one) - showing 00:00 on most rows would just be noise.</summary>
+    /// <summary>Midnight means "no time recorded" (the import's default, and sickness entries rarely have one), and 00:00 on most rows would be noise.</summary>
     private string DateText => Entry.HistoryDate.TimeOfDay == TimeSpan.Zero
         ? Entry.HistoryDate.ToString("yyyy-MM-dd")
         : Entry.HistoryDate.ToString("yyyy-MM-dd HH:mm");

@@ -1,7 +1,7 @@
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// Summary of a reference-data sync pass (periodic or admin-triggered "sync now").
+/// Summary of a reference-data sync pass, periodic or an admin's "sync now".
 /// </summary>
 public class ReferenceSyncResultDto
 {
@@ -11,7 +11,7 @@ public class ReferenceSyncResultDto
     public int TvShowsChecked { get; set; }
 
     /// <summary>
-    /// How many of the examined TV show references had actual TMDB changes and were re-fetched.
+    /// How many of the examined TV show references had TMDB changes and were fetched again.
     /// </summary>
     public int TvShowsUpdated { get; set; }
 
@@ -21,45 +21,39 @@ public class ReferenceSyncResultDto
     public int MoviesChecked { get; set; }
 
     /// <summary>
-    /// How many of the examined movie references had actual TMDB changes and were re-fetched.
+    /// How many of the examined movie references had TMDB changes and were fetched again.
     /// </summary>
     public int MoviesUpdated { get; set; }
 
     public int BooksChecked { get; set; }
 
     /// <summary>
-    /// Open Library exposes no per-id "changed since" endpoint (unlike TMDB), so every examined book
-    /// reference is always fully re-fetched - this count is always equal to <see cref="BooksChecked"/>.
+    /// Always equal to <see cref="BooksChecked"/>, since no book provider has a "changed since" endpoint like TMDB's, so every examined reference is fetched again.
     /// </summary>
     public int BooksUpdated { get; set; }
 
     public int VideoGamesChecked { get; set; }
 
     /// <summary>
-    /// RAWG exposes no per-id "changed since" endpoint (unlike TMDB), so every examined game reference is
-    /// always fully re-fetched - this count is always equal to <see cref="VideoGamesChecked"/>.
+    /// Always equal to <see cref="VideoGamesChecked"/>, since no game provider has a "changed since" endpoint like TMDB's, so every examined reference is fetched again.
     /// </summary>
     public int VideoGamesUpdated { get; set; }
 
     public int AlbumsChecked { get; set; }
 
     /// <summary>
-    /// Discogs exposes no per-id "changed since" endpoint (unlike TMDB), so every examined album reference
-    /// is always fully re-fetched - this count is always equal to <see cref="AlbumsChecked"/>.
+    /// Always equal to <see cref="AlbumsChecked"/>, since Discogs has no "changed since" endpoint like TMDB's, so every examined reference is fetched again.
     /// </summary>
     public int AlbumsUpdated { get; set; }
 
     /// <summary>
-    /// How many finished TV shows were reopened as "current" because their (freshly synced) reference episode
-    /// guide now lists an aired episode beyond the last one watched - see the finished-show status
-    /// reconciliation that runs right after the reference refresh.
+    /// How many finished TV shows were reopened as current, because their refreshed episode guide lists an aired episode after the last one watched.
     /// </summary>
     public int FinishedShowsReopened { get; set; }
 
     /// <summary>
-    /// How many Explore discovery rankings (a domain plus an ordering, e.g. video games by Metacritic) were
-    /// rebuilt this pass. Zero when every stored ranking was still within its own, much longer, staleness
-    /// window - the reference documents above are re-checked far more often than the discovery lists.
+    /// How many Explore rankings (a domain plus an ordering, such as video games by IGDB critic score) were rebuilt this pass.
+    /// Zero when every ranking was within its longer staleness window, since references are checked far more often than rankings.
     /// </summary>
     public int ExploreRankingsRefreshed { get; set; }
 
@@ -67,9 +61,9 @@ public class ReferenceSyncResultDto
     public int ExploreEntriesRefreshed { get; set; }
 
     /// <summary>
-    /// How many Explore catalogue entries gained an IMDb rating this pass. Bounded per pass (each costs a TMDB
-    /// plus an OMDb call), so this is expected to be well under the number of entries until coverage catches
-    /// up; it is zero unless IMDb is actually a domain's selected rating source.
+    /// How many Explore entries gained an IMDb rating this pass.
+    /// Each costs a TMDB and an OMDb call within the shared daily budget, so it stays well under the entries until coverage catches up.
+    /// Zero unless IMDb is a domain's selected rating source.
     /// </summary>
     public int ExploreImdbRatingsBackfilled { get; set; }
 }

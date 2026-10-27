@@ -5,7 +5,7 @@ using Keeptrack.Common.System;
 namespace Keeptrack.Domain.Models;
 
 /// <summary>
-/// Shared, tenant-agnostic album metadata sourced from an external provider (Discogs).
+/// Album metadata from Discogs, shared by every tenant.
 /// See <see cref="TvShowReferenceModel"/> for why this deliberately has no <c>OwnerId</c>.
 /// </summary>
 public class AlbumReferenceModel : IHasExternalIds
@@ -21,18 +21,15 @@ public class AlbumReferenceModel : IHasExternalIds
     public string? Synopsis { get; set; }
 
     /// <summary>
-    /// Points at the shared, deduplicated <see cref="PersonReferenceModel"/> for this album's artist
-    /// (keyed by the artist's Discogs id) - the same dedup mechanism as TV/movie cast, just for a single
-    /// credited individual/group instead of a list. Null when Discogs' response didn't carry an artist id
-    /// to dedupe by.
+    /// The album artist's shared <see cref="PersonReferenceModel"/>, deduplicated by the artist's Discogs id like TV and movie cast.
+    /// Null when Discogs reported no artist id to deduplicate by.
     /// </summary>
     public string? ArtistReferenceId { get; set; }
 
     public required Dictionary<string, string> ExternalIds { get; set; }
 
     /// <summary>
-    /// Every (title, year) combination that has ever been confirmed to mean this album - see
-    /// <see cref="TvShowReferenceModel.MatchedAliases"/> for the full rationale.
+    /// Every (title, artist) combination confirmed to mean this album (see <see cref="TvShowReferenceModel.MatchedAliases"/>).
     /// </summary>
     public List<ReferenceMatchModel> MatchedAliases { get; set; } = [];
 
@@ -40,7 +37,7 @@ public class AlbumReferenceModel : IHasExternalIds
 
     public List<ReferenceTrackModel> Tracks { get; set; } = [];
 
-    /// <summary>Aggregate ratings keyed by source ("discogs") - see <see cref="ReferenceRatingModel"/>.</summary>
+    /// <summary>Aggregate ratings keyed by source ("discogs"), see <see cref="ReferenceRatingModel"/>.</summary>
     public Dictionary<string, ReferenceRatingModel> Ratings { get; set; } = [];
 
     public string? ImageUrl { get; set; }

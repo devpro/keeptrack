@@ -19,8 +19,9 @@ public class CarHistoryDto : IHasId
     public required string CarId { get; set; }
 
     /// <summary>
-    /// History date and time. Several entries can share the same date (e.g. multiple refuels on a road
-    /// trip); the time is what lets them sort correctly. Defaults to midnight when the time isn't known.
+    /// History date and time.
+    /// Several entries can share a date (refuels on a road trip), and the time sorts them.
+    /// Midnight when the time is unknown.
     /// </summary>
     public required DateTime HistoryDate { get; set; }
 
@@ -35,12 +36,12 @@ public class CarHistoryDto : IHasId
     public required CarHistoryType EventType { get; set; }
 
     /// <summary>
-    /// Free-text description of what was done - the main field for Maintenance/Other events.
+    /// Free-text description of what was done, the main field of Maintenance and Other events.
     /// </summary>
     public string? Description { get; set; }
 
     /// <summary>
-    /// Total cost of this event (fuel/electric fill-up, invoice, ...).
+    /// Total cost of this event (a fill-up, an invoice).
     /// </summary>
     public double? Cost { get; set; }
 
@@ -70,7 +71,7 @@ public class CarHistoryDto : IHasId
     public double? Latitude { get; set; }
 
     /// <summary>
-    /// Fuel category (e.g. Diesel, SP95).
+    /// Fuel category, such as Diesel or SP95.
     /// </summary>
     public string? FuelCategory { get; set; }
 
@@ -95,36 +96,35 @@ public class CarHistoryDto : IHasId
     public double? ElectricUnitPrice { get; set; }
 
     /// <summary>
-    /// Is this a full tank / full charge refill?
+    /// Whether the tank or battery was filled completely.
     /// </summary>
     public bool? IsFullRefill { get; set; }
 
     /// <summary>
-    /// Distance driven since the previous entry, as recorded by the user (e.g. from the car's trip computer) -
-    /// independent of the odometer reading in <see cref="Mileage"/>, used to cross-check it.
+    /// Distance driven since the previous entry, entered by the user from the trip computer, independent of <see cref="Mileage"/> and used to cross-check it.
     /// </summary>
     public double? DeltaMileage { get; set; }
 
     /// <summary>
-    /// The shared <see cref="CarStationDto"/> this Refuel happened at, by id. The station owns its own
-    /// city, postal code and coordinates, so a refuel no longer carries a copy of them.
+    /// The shared <see cref="CarStationDto"/> this refuel happened at, by id.
+    /// The station holds its city, postal code and coordinates, so a refuel carries no copy of them.
     /// </summary>
     public string? StationId { get; set; }
 
     /// <summary>
-    /// Brand name of <see cref="StationId"/>'s station. Server-hydrated for display and ignored on write -
-    /// one batched station lookup per list page, never one per entry.
+    /// Brand name of <see cref="StationId"/>'s station.
+    /// Hydrated by the server for display and ignored on write, with one batched station lookup per page.
     /// </summary>
     public string? StationBrandName { get; set; }
 
     /// <summary>
-    /// City of <see cref="StationId"/>'s station. Server-hydrated for display, like
-    /// <see cref="StationBrandName"/>.
+    /// City of <see cref="StationId"/>'s station.
+    /// Hydrated by the server for display, like <see cref="StationBrandName"/>.
     /// </summary>
     public string? StationCity { get; set; }
 
     /// <summary>
-    /// Garage/auto shop name - the Maintenance/Other-event counterpart of <see cref="StationId"/>.
+    /// Garage name, the Maintenance and Other counterpart of <see cref="StationId"/>.
     /// </summary>
     public string? Garage { get; set; }
 }

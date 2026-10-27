@@ -11,9 +11,8 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
 /// Proves the shared-wishlist link works for its actual audience: a browser with no session at all.
-/// The share is created through the API (the owner-side UI panel is a thin wrapper over the same
-/// endpoints), then the page is opened in a fresh, unauthenticated browser context - the one flow
-/// no other e2e test exercises, since they all start from the fixture's signed-in storage state.
+/// The share is created through the API (the owner's UI panel wraps the same endpoints), then the page is opened in a fresh, unauthenticated browser context.
+/// No other e2e test exercises that, since they all start from the fixture's signed-in storage state.
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]
@@ -32,11 +31,11 @@ public class SharedWishlistSmokeTest(End2EndFixture fixture) : SmokeTestBase(fix
         var shareResponse = await api.PostAsJsonAsync("api/wishlist/shares", new CreateWishlistShareRequestDto { Label = "E2e recipient" }, TestContext.Current.CancellationToken);
         shareResponse.EnsureSuccessStatusCode();
         var share = (await shareResponse.Content.ReadFromJsonAsync<WishlistShareDto>(TestContext.Current.CancellationToken))!;
-        // the revoke below is part of what this test asserts; registering the share as well covers the run
-        // where an assertion before it fails (deleting an already-revoked share is a no-op)
+        // the revoke below is part of what this test asserts;
+        // registering the share as well covers the run where an assertion before it fails (deleting an already-revoked share is a no-op)
         TrackCleanup(() => Fixture.DeleteItemAsync($"api/wishlist/shares/{share.Id}"));
 
-        // a brand-new context: no cookies, no storage state - a share recipient's browser
+        // a brand-new context with no cookies and no storage state, a share recipient's browser
         var page = await NewAnonymousPageAsync("recipient");
 
         await page.GotoAsync($"/shared/wishlist/{share.Token}");

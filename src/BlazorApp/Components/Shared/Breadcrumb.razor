@@ -1,6 +1,5 @@
 @* One-level breadcrumb for a detail page: a link back to the parent list plus the current item's name.
-   The sidebar collapses behind a hamburger on mobile, so without this there is no visible way back to
-   the list from a detail page. *@
+   The sidebar collapses behind a hamburger on mobile, so without this there is no visible way back to the list from a detail page. *@
 
 <nav class="kt-breadcrumb" aria-label="Breadcrumb">
     @if (!string.IsNullOrEmpty(ParentRoute) && !string.IsNullOrEmpty(ParentLabel))
@@ -17,7 +16,7 @@
 </nav>
 
 @code {
-    /// <summary>Optional grandparent crumb rendered before <see cref="ListRoute"/> (e.g. "Profile › …").</summary>
+    /// <summary>Optional grandparent crumb rendered before <see cref="ListRoute"/> ("Profile › …").</summary>
     [Parameter] public string? ParentRoute { get; set; }
 
     [Parameter] public string? ParentLabel { get; set; }

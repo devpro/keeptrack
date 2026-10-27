@@ -11,14 +11,11 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Exercises <see cref="IBackgroundJobRepository"/> against real MongoDB - this store is what makes
-/// job polling work across WebApi replicas (see CLAUDE.md's scaling section), so its owner-scoping
-/// query and update shapes are verified against a real database, not mocks.
+/// Exercises <see cref="IBackgroundJobRepository"/> against real MongoDB, the store making job polling work across WebApi replicas (see docs/architecture.md),
+/// so its owner-scoping query and updates are verified for real.
 /// <para>
-/// The <c>background_job</c> collection has a TTL index, so a leftover eventually disappears on its own -
-/// but "eventually" is seven days, and until then every run adds three more rows to what an admin sees on
-/// the system-status panel. The jobs are removed directly, since the repository has no delete method
-/// (nothing in the application ever deletes a job; the TTL does).
+/// The <c>background_job</c> TTL index removes a leftover only after seven days, and until then every run would add three rows to the admin's system-status panel.
+/// The jobs are removed directly, since the repository has no delete method, the TTL being what deletes a job.
 /// </para>
 /// </summary>
 public class BackgroundJobRepositoryTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)
@@ -75,8 +72,7 @@ public class BackgroundJobRepositoryTest(KestrelWebAppFactory<Program> factory) 
     }
 
     /// <summary>
-    /// The job id is stored as the document's <c>_id</c> (a plain string, see <see cref="BackgroundJob"/>),
-    /// so it can be registered for cleanup before the job is even created.
+    /// The job id is stored as the document's <c>_id</c> (a plain string, see <see cref="BackgroundJob"/>), so it can be registered for cleanup before the job is even created.
     /// </summary>
     private Guid NewJobId()
     {

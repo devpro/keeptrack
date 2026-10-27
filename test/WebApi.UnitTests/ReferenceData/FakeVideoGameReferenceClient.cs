@@ -9,9 +9,10 @@ using Keeptrack.WebApi.ReferenceData;
 namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
 /// <summary>
-/// Stand-in for a video game provider. Parameterized by provider key and rating sources rather than fixed to
-/// one, so a test can register two of them and exercise the multi-provider behaviour (which client a refresh
-/// picks, whose ratings a merge is allowed to replace) without a second fake class.
+/// Stand-in for a video game provider.
+/// Parameterized by provider key and rating sources rather than fixed to one,
+/// so a test can register two of them
+/// and exercise the multi-provider behaviour (which client a refresh picks, whose ratings a merge is allowed to replace) without a second fake class.
 /// </summary>
 internal sealed class FakeVideoGameReferenceClient : IVideoGameReferenceClient
 {
@@ -25,13 +26,13 @@ internal sealed class FakeVideoGameReferenceClient : IVideoGameReferenceClient
 
     public Dictionary<string, VideoGameDetails> Details { get; } = new();
 
-    /// <summary>One page of Explore discovery results, keyed by page number - empty pages end the paging loop.</summary>
+    /// <summary>One page of Explore discovery results, keyed by page number, an empty page ending the paging loop.</summary>
     public Dictionary<int, IReadOnlyList<VideoGameTopRatedItem>> TopRatedPages { get; } = new();
 
     /// <summary>The rating source the last <see cref="GetTopRatedGamesAsync"/> call asked the provider to order by.</summary>
     public string? LastTopRatedOrdering { get; private set; }
 
-    /// <summary>How many searches were issued - the cost the adoption path is supposed to stop paying once it succeeds.</summary>
+    /// <summary>How many searches were issued, the cost the adoption path stops paying once it succeeds.</summary>
     public int SearchCount { get; private set; }
 
     private FakeVideoGameReferenceClient(List<VideoGameSearchResult> searchResults, string providerKey, IReadOnlyList<string> ratingSources)
@@ -52,9 +53,8 @@ internal sealed class FakeVideoGameReferenceClient : IVideoGameReferenceClient
         new([.. results], providerKey, DefaultSourcesFor(providerKey));
 
     /// <summary>
-    /// What the provider holds under exactly the queried title. Empty by default, so a test that only sets up
-    /// search results exercises the widening path - the real clients answer this way for the case that path
-    /// exists for (the two catalogues spell the work differently).
+    /// What the provider holds under exactly the queried title.
+    /// Empty by default, so a test setting up only search results exercises the widening path, as the real clients answer when the two catalogues spell the work differently.
     /// </summary>
     public List<VideoGameSearchResult> ExactTitleResults { get; } = [];
 
@@ -63,14 +63,14 @@ internal sealed class FakeVideoGameReferenceClient : IVideoGameReferenceClient
 
     /// <summary>
     /// What the provider answers to one *specific* query, for the tests about the adoption ladder's widening.
-    /// A real provider's relevance search is punctuation-sensitive in ways that decide whether a game is
-    /// found at all (IGDB answers "NieR:Automata" with one unrelated project and "NieR Automata" with the
-    /// game), which a fake returning the same list whatever it is asked cannot express. Anything not listed
-    /// here falls back to the fixed results, so every test that predates this behaves exactly as before.
+    /// A real provider's relevance search is punctuation-sensitive in ways that decide whether a game is found at all
+    /// (IGDB answers "NieR:Automata" with one unrelated project and "NieR Automata" with the game),
+    /// which a fake returning the same list whatever it is asked cannot express.
+    /// Anything not listed here falls back to the fixed results, so every test that predates this behaves exactly as before.
     /// </summary>
     public Dictionary<string, List<VideoGameSearchResult>> SearchResultsByQuery { get; } = new(StringComparer.Ordinal);
 
-    /// <summary>Every query the provider was asked, in order - what proves which rungs of the ladder ran.</summary>
+    /// <summary>Every query the provider was asked, in order, proving which rungs of the ladder ran.</summary>
     public List<string> Queries { get; } = [];
 
     /// <summary>Games reachable by <see cref="FindGameByIdentifierAsync"/>, keyed by id or page slug.</summary>
@@ -85,12 +85,11 @@ internal sealed class FakeVideoGameReferenceClient : IVideoGameReferenceClient
     }
 
     /// <summary>
-    /// The catalogue the substring rung filters, so a test states what the provider *holds* and lets the
-    /// containment rule decide - the same thing the real query does server-side.
+    /// The catalogue the substring rung filters, so a test states what the provider holds and the containment rule decides, as the real query does server-side.
     /// </summary>
     public List<VideoGameSearchResult> Catalogue { get; } = [];
 
-    /// <summary>How many substring queries were issued - it is the last resort, so mostly this should be 0.</summary>
+    /// <summary>How many substring queries were issued, mostly 0, since it is the last resort.</summary>
     public int ContainsSearchCount { get; private set; }
 
     public Task<IReadOnlyList<VideoGameSearchResult>> FindGamesContainingAllWordsAsync(IReadOnlyList<string> words, CancellationToken cancellationToken = default)

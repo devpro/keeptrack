@@ -11,14 +11,10 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
 {
     private const int PageSize = 20;
 
-    // Public properties (a framework requirement for [PersistentState]): the page loaded during the
-    // prerender pass is carried over to the interactive circuit, so the first interactive render reuses
-    // it instead of resetting to the spinner and re-fetching - same pattern as the detail pages
-    // (MovieDetail, etc.). Items is nullable (no property initializer) so [PersistentState] restoration
-    // isn't fighting a default value - markup falls back to an empty list via "Items ?? []", same as
-    // every other nullable persisted list in this codebase. LoadedQuery is the query signature
-    // Items/TotalCount were loaded for, so a restore only skips the reload when it still matches the
-    // current search/filter/sort/page - any of those changing must still trigger a real reload.
+    // Public properties, as [PersistentState] requires: the page loaded during prerender carries over to the interactive circuit,
+    // which reuses it rather than re-fetching, like the detail pages.
+    // Items is nullable with no initializer, so restoration doesn't fight a default value, and the markup falls back to "Items ?? []".
+    // LoadedQuery is the query signature Items and TotalCount were loaded for, so a restore skips the reload only while it matches the current search, filter, sort and page.
     [PersistentState]
     public List<TDto>? Items { get; set; }
 
@@ -32,11 +28,8 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
 
     protected bool _showForm;
 
-    // _loading is delay-gated (see LoadingIndicator) and only turns on for a load that's genuinely slow.
-    // _loaded tracks whether a load attempt has finished at all, fresh or restored from persisted
-    // prerender state - both default false so the forced render Blazor triggers right after the
-    // synchronous prefix of OnParametersSetAsync (before any awaited fetch resolves) shows blank instead
-    // of a spinner flash on every navigation to this page.
+    // _loading is delay-gated (see LoadingIndicator) and turns on only for a slow load, and _loaded tracks whether a load has finished, fresh or restored from prerender state.
+    // Both default false, so the render Blazor forces after OnParametersSetAsync's synchronous prefix shows blank instead of flashing a spinner on every navigation here.
     protected bool _loading;
 
     protected bool _loaded;
@@ -47,10 +40,8 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
 
     protected string _sort = "";
 
-    // View mode ("" = list, "grid" = thumbnails) is a global user preference, not list state: it never
-    // changes which items are shown or their order, only their presentation. So it lives in the shared,
-    // circuit-scoped ListViewPreference (seeded once from localStorage) rather than in the URL/query
-    // signature - flipping it must never refetch, and it carries to every list page for the session.
+    // The view mode ("" for list, "grid" for thumbnails) is a user preference, not list state, since it changes only the presentation.
+    // It lives in the circuit-scoped ListViewPreference rather than the URL, so flipping it never refetches and it carries to every list page for the session.
     protected string _view = "";
 
     protected int _page = 1;
@@ -62,9 +53,8 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
     [Inject] protected ListViewPreference ViewPreference { get; set; } = null!;
 
     /// <summary>
-    /// List state (search, page, and each page's own filters) lives in the URL query string, so that
-    /// opening an item's detail page and navigating back restores the exact list position instead of
-    /// resetting to an unfiltered page 1 - and a filtered position is bookmarkable/shareable for free.
+    /// List state (search, page, each page's own filters) lives in the URL query string, so navigating back from a detail page restores the exact list position.
+    /// A filtered position can also be bookmarked or shared.
     /// </summary>
     [SupplyParameterFromQuery(Name = "search")]
     public string? SearchQuery { get; set; }
@@ -78,30 +68,27 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
     protected abstract InventoryApiClientBase<TDto> Api { get; }
 
     /// <summary>
-    /// The list page's own route ("/movies", "/books", ...), which is also every item's detail-route prefix -
-    /// creating an item navigates straight to "{ListRoute}/{id}" so the rest of the fields can be filled in
-    /// on the detail page, instead of burying them all in the Add form.
+    /// The list page's own route ("/movies", "/books"...), also every item's detail-route prefix.
+    /// Creating an item navigates to "{ListRoute}/{id}", where the other fields are filled in, rather than burying them all in the Add form.
     /// </summary>
     protected abstract string ListRoute { get; }
 
     /// <summary>
-    /// Extra query parameters beyond search/page/pageSize - null by default. Override in a page that
-    /// needs its own filter (e.g. a status dropdown) instead of reimplementing paging/search from scratch.
+    /// Extra query parameters beyond search, page and pageSize, null by default.
+    /// A page with its own filter (a status dropdown) overrides it rather than reimplementing paging and search.
     /// </summary>
     protected virtual IReadOnlyDictionary<string, string>? ExtraQuery => null;
 
     /// <summary>
-    /// The sort key used when the URL carries none - "" (newest-first) for every page unless overridden.
-    /// Health/House/Car list themselves by person/vehicle/property name rather than creation order, so
-    /// their pages override this to <see cref="ListSort.Title"/> instead.
+    /// The sort key used when the URL carries none, "" (newest first) unless overridden.
+    /// Health, House and Car list by name rather than creation order, so their pages override it with <see cref="ListSort.Title"/>.
     /// </summary>
     protected virtual string DefaultSort => "";
 
     /// <summary>
-    /// Runs on the initial load and again whenever the router supplies new query-parameter values
-    /// (a filter/page click's NavigateTo, but also browser back/forward), so every way of changing
-    /// list state goes through this single reload path. The signature check keeps unrelated
-    /// parameter updates (e.g. a cascading auth-state refresh) from re-fetching the same query.
+    /// Runs on the initial load and whenever the router supplies new query values (a filter or page click's NavigateTo, browser back or forward),
+    /// so every list state change takes this one reload path.
+    /// The signature check keeps unrelated parameter updates (a cascading auth-state refresh) from re-fetching the same query.
     /// </summary>
     protected override async Task OnParametersSetAsync()
     {
@@ -111,10 +98,8 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
         _page = PageQuery is > 0 ? PageQuery.Value : 1;
         var query = BuildQuerySignature();
 
-        // Items/TotalCount already hold this exact query's results when [PersistentState] restored the
-        // prerendered data - the signature check keeps this skip from also swallowing a genuine
-        // search/filter/sort/page change (a different signature) or an unrelated parameter update (e.g.
-        // a cascading auth-state refresh), both of which must still reload.
+        // Items and TotalCount already hold this query's results when [PersistentState] restored the prerendered data.
+        // A genuine search, filter, sort or page change has a different signature, so it still reloads.
         if (query == LoadedQuery)
         {
             _loading = false;
@@ -149,34 +134,31 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
     protected void GoToPage(int page) =>
         ApplyQueryChanges(new Dictionary<string, object?> { ["page"] = page <= 1 ? null : page });
 
-    /// <summary>Toggles a boolean filter query parameter (present = on, removed = off) and resets to page 1.</summary>
+    /// <summary>Toggles a boolean filter query parameter (present when on, removed when off) and resets to page 1.</summary>
     protected void ToggleFilter(string name, bool current) =>
         ApplyQueryChanges(new Dictionary<string, object?> { [name] = current ? null : true, ["page"] = null });
 
-    /// <summary>Sets (or clears, when null) a filter query parameter and resets to page 1.</summary>
+    /// <summary>Sets a filter query parameter, or clears it when null, and resets to page 1.</summary>
     protected void SetFilter(string name, string? value) =>
         ApplyQueryChanges(new Dictionary<string, object?> { [name] = value, ["page"] = null });
 
     /// <summary>
-    /// Applies a sort key from the list's sort picker ("" = the newest-first default, which keeps the
-    /// URL clean of a redundant parameter) and resets to page 1, through the same URL-navigation path
-    /// as every other list-state change.
+    /// Applies a sort key from the list's sort picker and resets to page 1, through the URL like every other list state change.
+    /// "" is the newest-first default, which keeps a redundant parameter out of the URL.
     /// </summary>
     protected void SetSort(string value) =>
         ApplyQueryChanges(new Dictionary<string, object?> { ["sort"] = string.IsNullOrEmpty(value) ? null : value, ["page"] = null });
 
     /// <summary>
-    /// Adopts a new view reported by the <see cref="ListViewToggle"/> (which owns persisting it to the
-    /// shared <see cref="ViewPreference"/> and localStorage). This is a pure presentation change over the
-    /// already-loaded page, so it just re-renders in place - no navigation, no refetch.
+    /// Adopts a new view reported by the <see cref="ListViewToggle"/>, which persists it to the shared <see cref="ViewPreference"/> and localStorage.
+    /// A presentation change over the loaded page, it re-renders in place with no navigation or refetch.
     /// </summary>
     protected void SetView(string value) => _view = value;
 
     /// <summary>
-    /// Navigates to the current list URL with the given query-parameter changes applied (a null value
-    /// removes the parameter). The actual reload happens in <see cref="OnParametersSetAsync"/> once the
-    /// router supplies the new values - never here - so a button click and browser back/forward follow
-    /// the exact same code path.
+    /// Navigates to the current list URL with the given query-parameter changes applied (a null value removes the parameter).
+    /// The reload happens in <see cref="OnParametersSetAsync"/> once the router supplies the new values,
+    /// never here, so a button click and browser back or forward take the same path.
     /// </summary>
     protected void ApplyQueryChanges(IReadOnlyDictionary<string, object?> changes) =>
         Navigation.NavigateTo(Navigation.GetUriWithQueryParameters(changes));
@@ -217,16 +199,18 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Matching happens on the server as a detached background task, which cannot be awaited there: it makes a chain of provider calls, and a slow or dead provider would otherwise hold up a create for the resilience pipeline's full timeout - or hold up a bulk import for that timeout per item.
-    /// Waiting on the client instead keeps the create as fast and as reliable as it was and puts the delay somewhere it can be bounded and shown.
+    /// Matching runs on the server as a detached background task, which can't be awaited there: it chains provider calls,
+    /// and a slow or dead provider would hold up a create for the resilience timeout, or a bulk import for that timeout per item.
+    /// Waiting on the client keeps the create fast and reliable, and puts the delay where it can be bounded and shown.
     /// </para>
     /// <para>
-    /// Waiting at all is a deliberate UX choice: without it the detail page opens unmatched and the cover, rating and synopsis appear a second or two later, or don't, depending on how quickly the provider answered.
-    /// A short, predictable wait with a spinner is better than a result that pops in at an unpredictable moment - the owner's call, and it also removes the window in which editing a field could race the match.
+    /// Without the wait the detail page opens unmatched, and the cover, rating and synopsis appear a second or two later, or not, depending on the provider.
+    /// A short, predictable wait with a spinner beats a result popping in at an unpredictable moment (owner's call),
+    /// and removes the window where editing a field could race the match.
     /// </para>
     /// <para>
-    /// It gives up quietly rather than blocking: the item exists either way, most items have no match to find, and the detail page's own watcher picks up a late arrival.
-    /// Only the five reference-linked types wait at all - everything else fails the type test and navigates immediately.
+    /// It gives up quietly, since the item exists either way, most items have no match, and the detail page's own watcher picks up a late arrival.
+    /// Only the five reference-linked types wait, and everything else navigates immediately.
     /// </para>
     /// </remarks>
     private async Task WaitForReferenceMatchAsync(TDto created)
@@ -252,11 +236,11 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
     private static readonly TimeSpan MatchPollInterval = TimeSpan.FromMilliseconds(400);
 
     /// <summary>
-    /// How long the Add form waits for a match before opening the detail page anyway - two seconds, and never more.
+    /// With <see cref="MatchPollInterval"/>, how long the Add form waits for a match before opening the detail page anyway: two seconds, and never more.
     /// </summary>
     /// <remarks>
-    /// This is a bound on how long a person is made to look at a spinner, not an estimate of how long matching takes, so it is set from what is tolerable rather than from what the provider needs.
-    /// A resolve that has not landed in two seconds is left to finish on its own; the detail page's own watcher shows it when it arrives, which is the behaviour this wait improves on rather than replaces.
+    /// It bounds how long a person looks at a spinner rather than estimating how long matching takes, so it follows what is tolerable, not what the provider needs.
+    /// A resolve not landed in two seconds finishes on its own, and the detail page's watcher shows it when it arrives.
     /// </remarks>
     private const int MatchAttempts = 5;
 

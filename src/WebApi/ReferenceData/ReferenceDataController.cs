@@ -7,9 +7,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// Read-only access to the shared reference collection, for any authenticated user (not admin-only).
-/// Kept separate from <see cref="Controllers.TvShowController"/>/<see cref="Controllers.MovieController"/>
-/// deliberately - this is shared data, not the tenant's own document.
+/// Read-only access to the shared reference collections, for any authenticated user.
+/// Apart from the item controllers, since this is shared data, not the tenant's own documents.
 /// </summary>
 [ApiController]
 [Authorize]
@@ -90,8 +89,7 @@ public class ReferenceDataController(
     }
 
     /// <summary>
-    /// Joins a single <c>*ReferenceId</c> (a book's author, an album's artist) against person_reference -
-    /// the singular counterpart to <see cref="HydrateCastAsync"/>'s per-member join.
+    /// Joins one person reference id (a book's author, an album's artist) against person_reference, the single counterpart of <see cref="HydrateCastAsync"/>.
     /// </summary>
     private async Task<(string? Name, string? ImageUrl)> HydratePersonAsync(string? personReferenceId)
     {
@@ -102,9 +100,7 @@ public class ReferenceDataController(
     }
 
     /// <summary>
-    /// Joins the embedded cast list against person_reference to build the fully-hydrated DTO the client
-    /// renders directly - see <see cref="TvShowReferenceDtoMapper"/>'s <c>Cast</c> ignore for why this
-    /// can't just be a generated mapper member mapping.
+    /// Joins the embedded cast against person_reference into the DTO the client renders, which a generated mapper cannot do (see <see cref="TvShowReferenceDtoMapper"/>).
     /// </summary>
     private async Task<List<CastMemberDto>> HydrateCastAsync(List<CastMemberModel> cast)
     {

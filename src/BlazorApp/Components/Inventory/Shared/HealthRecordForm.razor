@@ -1,8 +1,6 @@
-@* Full add/edit form body for one health-journal entry (appointment/sickness/other) - shared between
-   HealthProfileDetail's own journal modal and Quick Add's health-record form. Modal chrome, edit-mode
-   detection and save/cancel behavior stay with each caller; this is only the fields. The balance rule
-   itself stays authoritative in HealthMetricsService - MissingAmount here is only a live preview of the
-   same arithmetic while typing. *@
+@* The add and edit form body for one health journal entry (appointment, sickness, other), shared by HealthProfileDetail's journal modal and Quick Add's health record form.
+   Modal chrome, edit-mode detection and save and cancel behaviour stay with each caller, and this is only the fields.
+   The balance rule stays authoritative in HealthMetricsService, and MissingAmount is only a live preview of the same arithmetic while typing. *@
 
 <div class="row g-3">
     <div class="col-12">
@@ -18,25 +16,22 @@
     <DateTimeFields @bind-Value="Entry.HistoryDate"/>
     @if (Entry.EventType == HealthEventType.Appointment)
     {
-        @* Both fields are free text with a suggestion dropdown over what this account has already typed,
-           the same shape as the car history form's fuel type: the same specialty and the same doctor come
-           back visit after visit, and re-typing them is what lets "dentiste"/"Dentiste" drift apart.
-           The list is fetched per account (see HealthRecordController.GetSuggestions) - a practitioner's
-           name is not something to share between users the way a fuel grade is.
-           InputCssClass: full-size, or these two render visibly shorter than every other field here. *@
+        @* Both fields are free text with suggestions over what this account already typed, like the car history form's fuel type.
+           The same specialty and doctor come back visit after visit, and re-typing them lets "dentiste" and "Dentiste" drift apart.
+           The list is per account (see HealthRecordController.GetSuggestions), since a practitioner's name is not shared between users the way a fuel grade is.
+           InputCssClass is full-size, or these two render visibly shorter than every other field here. *@
         <div class="col-md-6">
             <label class="form-label">Specialty</label>
-            @* data-testid: same for/id gotcha as Practitioner below *@
+            @* data-testid, for the same for/id reason as Practitioner below *@
             <SuggestInput Value="@Entry.Specialty" ValueChanged="v => Entry.Specialty = v"
                           Suggestions="@_specialties" InputCssClass="form-control"
                           Placeholder="généraliste, dentiste, …" data-testid="specialty-input"/>
         </div>
         <div class="col-md-6">
             <label class="form-label">Practitioner</label>
-            @* data-testid: the label/input pair has no for/id association, so GetByLabel
-               can't resolve it in e2e tests - same as every inventory Add form *@
-            @* More matches than the default 8: a household accumulates a practitioner per specialty per
-               person, so a short list reads as "it doesn't know mine" - the StationPicker's reasoning. *@
+            @* data-testid, since the label and input have no for/id association and GetByLabel can't resolve them in e2e tests, as in every inventory Add form *@
+            @* More matches than the default 8, since a household accumulates a practitioner per specialty per person,
+               and a short list reads as "it doesn't know mine", as in StationPicker. *@
             <SuggestInput Value="@Entry.Practitioner" ValueChanged="v => Entry.Practitioner = v"
                           Suggestions="@_practitioners" InputCssClass="form-control" MaxSuggestions="15"
                           Placeholder="Dr …" data-testid="practitioner-input"/>
@@ -95,8 +90,7 @@
     private List<string> _practitioners = [];
 
     /// <summary>
-    /// One call for both suggestion lists when the form opens - they're small, owner-scoped and shared by
-    /// every field on the form, so nothing here costs a request per keystroke.
+    /// One call for both suggestion lists when the form opens, since they are small and owner-scoped, so nothing costs a request per keystroke.
     /// </summary>
     protected override async Task OnInitializedAsync()
     {
@@ -116,7 +110,7 @@
     public static HealthRecordDto NewEntry(string profileId) => new()
     {
         HealthProfileId = profileId,
-        // today at the current hour, minute zeroed - a "right now" default the time field can refine
+        // today at the current hour, minutes zeroed, a "right now" default the time field can refine
         HistoryDate = DateTime.Today.AddHours(DateTime.Now.Hour),
         EventType = HealthEventType.Appointment
     };

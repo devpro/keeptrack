@@ -27,11 +27,9 @@ public class VideoGameRepository(IMongoDatabase mongoDatabase, ILogger<VideoGame
     protected override Expression<Func<VideoGame, object>> SortReferenceRatingField => x => x.ReferenceRating!;
 
     /// <summary>
-    /// "Last completed" needs the max <c>CompletedAt</c> across a game's <see cref="VideoGame.Platforms"/>
-    /// array, not a single scalar field, so it can't use the shared <c>SortSecondaryDateField</c> hook.
-    /// MongoDB natively compares a dotted array field by its max element on a descending sort - no
-    /// aggregation pipeline needed (the existing <c>AnyEq(f => f.Platforms.Select(p => p.State), ...)</c>
-    /// filter above already confirms the driver resolves this entity's "platforms.*" dotted paths).
+    /// "Last completed" sorts by the latest <c>CompletedAt</c> across <see cref="VideoGame.Platforms"/>,
+    /// not a single field, so it cannot use the <c>SortSecondaryDateField</c> hook.
+    /// A descending sort on a dotted array field compares by its maximum element, so no aggregation pipeline is needed.
     /// </summary>
     protected override SortDefinition<VideoGame> GetSort(string? sort) =>
         sort == ListSort.LastCompleted
@@ -45,11 +43,9 @@ public class VideoGameRepository(IMongoDatabase mongoDatabase, ILogger<VideoGame
         if (!string.IsNullOrEmpty(search)) filter &= builder.Where(f => f.Title.Contains(search, System.StringComparison.CurrentCultureIgnoreCase));
         if (!string.IsNullOrEmpty(input.State)) filter &= builder.AnyEq(f => f.Platforms.Select(p => p.State), input.State);
         if (!string.IsNullOrEmpty(input.Platform)) filter &= builder.AnyEq(f => f.Platforms.Select(p => p.Platform), input.Platform);
-        // "owned" means at least one platform entry (a game's copies) - the platform-entry equivalent of
-        // MovieRepository.GetFilter's owned-versions rule
+        // owned means at least one platform entry, a game's copies, as MovieRepository.GetFilter does with owned versions
         if (input.IsOwned) filter &= builder.SizeGt(f => f.Platforms, 0);
-        // WishlistController.BuildWishlistAsync still relies on this filter-probe clause even though the
-        // list page's own "Wishlist" toggle button was removed - don't drop it again.
+        // WishlistController.BuildWishlistAsync relies on this clause, although no list page offers the filter
         if (input.IsWishlisted) filter &= builder.Eq(f => f.IsWishlisted, true);
         return filter;
     }
@@ -97,15 +93,13 @@ public class VideoGameRepository(IMongoDatabase mongoDatabase, ILogger<VideoGame
             .Match(UnresolvedFilter())
             .Group(f => new { f.Title, f.Year }, g => g.Key)
             .ToListAsync();
-        // no creator dimension for this type - the tuple stays one shape across all five repositories
+        // no creator for this type, the tuple keeping one shape across the five repositories
         return groups.Select(g => (g.Title, g.Year, (string?)null)).ToList();
     }
 
     /// <summary>
-    /// "Has no reference link yet" means <see cref="VideoGame.ReferenceId"/> is null OR empty string, not
-    /// just null: old documents (written before the AutoMapper -> Mapperly migration) can still store ""
-    /// for an unset field; new writes store a real null instead (Mapperly preserves nulls, and the Mongo
-    /// driver's IgnoreIfNullConvention then omits it entirely). Both generations must match.
+    /// "Not linked yet" means <see cref="VideoGame.ReferenceId"/> is null, missing or empty.
+    /// Older documents store "" for an unset field, while newer ones omit it, and both must match.
     /// </summary>
     private static FilterDefinition<VideoGame> UnresolvedFilter()
     {

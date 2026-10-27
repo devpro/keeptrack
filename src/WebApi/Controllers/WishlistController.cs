@@ -32,7 +32,7 @@ public class WishlistController(
     public async Task<ActionResult<WishlistDto>> Get() => Ok(await BuildWishlistAsync(this.GetUserId()));
 
     /// <summary>
-    /// Every share link the caller has issued, oldest first - the "who did I share this with" list.
+    /// Every share link the caller issued, oldest first.
     /// </summary>
     [HttpGet("shares")]
     [ProducesResponseType(200)]
@@ -43,8 +43,8 @@ public class WishlistController(
     }
 
     /// <summary>
-    /// Issues a new share link, with an optional label for the caller's own bookkeeping ("Mum",
-    /// "Gift exchange"). Each link is independent: one can be revoked without touching the others.
+    /// Issues a new share link, with an optional label for the caller's own bookkeeping ("Mum", "Gift exchange").
+    /// Each link is revoked on its own.
     /// </summary>
     [HttpPost("shares")]
     [ProducesResponseType(200)]
@@ -54,7 +54,7 @@ public class WishlistController(
         {
             OwnerId = this.GetUserId(),
             Label = string.IsNullOrWhiteSpace(request?.Label) ? null : request.Label.Trim(),
-            // 128 bits of randomness: unguessable, which is the entire access control here
+            // 128 random bits, unguessable, which is the whole access control
             Token = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant()
         });
 
@@ -62,8 +62,8 @@ public class WishlistController(
     }
 
     /// <summary>
-    /// Revokes one share link - every copy of that link stops working immediately, the caller's other
-    /// links keep working. Owner-scoped: nobody can revoke someone else's share by guessing an id.
+    /// Revokes one share link at once, the caller's other links working on.
+    /// Owner-scoped, so nobody revokes another owner's share by guessing an id.
     /// </summary>
     [HttpDelete("shares/{id}")]
     [ProducesResponseType(204)]
@@ -74,9 +74,8 @@ public class WishlistController(
     }
 
     /// <summary>
-    /// The live wishlist behind a share token - the one anonymous read in the app, so a recipient
-    /// needs no account. The token's 128-bit randomness is the access control; an unknown or revoked
-    /// token is an indistinguishable 404.
+    /// The live wishlist behind a share token, the app's one anonymous read, so a recipient needs no account.
+    /// The token's 128 random bits are the access control, and an unknown or revoked token is the same 404.
     /// </summary>
     [AllowAnonymous]
     [HttpGet("shared/{token}")]
@@ -114,8 +113,7 @@ public class WishlistController(
 
         await ReferenceImageHydrator.HydrateAsync(result.Movies, movieReferenceRepository.FindByIdsAsync, x => x.ImageUrl);
         await ReferenceImageHydrator.HydrateAsync(result.TvShows, tvShowReferenceRepository.FindByIdsAsync, x => x.ImageUrl);
-        // Book/video game carry a tenant-owned CustomImageUrl that overrides the reference cover, same as their
-        // own list controllers - hydrate-then-override so a custom cover shows here too (movies/TV shows have none).
+        // books and video games have a custom cover overriding the reference's, as in their list controllers, which movies and TV shows lack
         await ReferenceImageHydrator.HydrateWithCustomOverrideAsync(result.Books, bookReferenceRepository.FindByIdsAsync, x => x.ImageUrl, x => x.CustomImageUrl);
         await ReferenceImageHydrator.HydrateWithCustomOverrideAsync(result.VideoGames, videoGameReferenceRepository.FindByIdsAsync, x => x.ImageUrl, x => x.CustomImageUrl);
 

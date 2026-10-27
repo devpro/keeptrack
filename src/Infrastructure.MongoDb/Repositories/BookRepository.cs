@@ -35,11 +35,10 @@ public class BookRepository(IMongoDatabase mongoDatabase, ILogger<BookRepository
                                                                          || (f.Series != null && f.Series.Contains(search, System.StringComparison.CurrentCultureIgnoreCase))
                                                                          || f.Author.Contains(search, System.StringComparison.CurrentCultureIgnoreCase));
         if (input.IsFavorite) filter &= builder.Eq(f => f.IsFavorite, true);
-        // "owned" means at least one owned version - see MovieRepository.GetFilter
+        // owned means at least one owned version (see MovieRepository.GetFilter)
         if (input.IsOwned) filter &= builder.SizeGt(f => f.OwnedVersions, 0);
         if (input.IsUnread) filter &= builder.Eq(f => f.FirstReadAt, null);
-        // WishlistController.BuildWishlistAsync still relies on this filter-probe clause even though the
-        // list page's own "Wishlist" toggle button was removed - don't drop it again.
+        // WishlistController.BuildWishlistAsync relies on this clause, although no list page offers the filter
         if (input.IsWishlisted) filter &= builder.Eq(f => f.IsWishlisted, true);
         return filter;
     }
@@ -72,8 +71,7 @@ public class BookRepository(IMongoDatabase mongoDatabase, ILogger<BookRepository
 
     public async Task<IReadOnlyList<(string Title, int? Year, string? Creator, string? Isbn)>> FindDistinctUnresolvedTitleYearsAsync()
     {
-        // any one tenant's author/ISBN works as the queue entry's creator/isbn - both only prefill the
-        // admin's search fields, neither is ever persisted anywhere (see ReferenceDataAdminPage's SearchAsync).
+        // any tenant's author and ISBN serve the queue entry, since both only prefill the admin's search and are never stored (see ReferenceDataAdminPage's SearchAsync)
         var groups = await GetCollection().Aggregate()
             .Match(UnresolvedFilter())
             .Group(f => new { f.Title, f.Year }, g => new { g.Key, Creator = g.First().Author, Isbn = g.First().Isbn })
@@ -82,10 +80,8 @@ public class BookRepository(IMongoDatabase mongoDatabase, ILogger<BookRepository
     }
 
     /// <summary>
-    /// "Has no reference link yet" means <see cref="Book.ReferenceId"/> is null OR empty string, not
-    /// just null: old documents (written before the AutoMapper -> Mapperly migration) can still store ""
-    /// for an unset field; new writes store a real null instead (Mapperly preserves nulls, and the Mongo
-    /// driver's IgnoreIfNullConvention then omits it entirely). Both generations must match.
+    /// "Not linked yet" means <see cref="Book.ReferenceId"/> is null, missing or empty.
+    /// Older documents store "" for an unset field, while newer ones omit it, and both must match.
     /// </summary>
     private static FilterDefinition<Book> UnresolvedFilter()
     {

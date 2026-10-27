@@ -5,9 +5,8 @@ using Riok.Mapperly.Abstractions;
 namespace Keeptrack.Infrastructure.MongoDb.Mappers;
 
 /// <summary>
-/// Injected directly by <see cref="Repositories.TvShowReferenceRepository"/> - the owner-less reference
-/// repositories are purpose-built already and need no shared <see cref="IStorageMapper{TModel, TEntity}"/>
-/// abstraction, per <c>docs/archived/automapper-removal-plan.md</c>.
+/// Injected directly into <see cref="Repositories.TvShowReferenceRepository"/>:
+/// the reference repositories are purpose-built and need no shared <see cref="IStorageMapper{TModel, TEntity}"/>.
 /// </summary>
 [Mapper]
 [UseStaticMapper(typeof(CommonStorageMappings))]

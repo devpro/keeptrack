@@ -7,8 +7,7 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Uses a real, well-known album so linking exercises the actual Discogs provider -
-/// Album is one of the two domains (with Book) that also passes a Creator (Artist) to narrow the search.
+/// Uses a real, well-known album so linking exercises the real Discogs provider, albums and books being the domains that pass a creator (the artist) to narrow the search.
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]

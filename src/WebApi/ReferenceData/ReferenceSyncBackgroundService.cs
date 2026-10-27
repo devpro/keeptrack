@@ -5,13 +5,10 @@ using Keeptrack.WebApi.Jobs;
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// Keeps reference data fresh without any external scheduler (no Kubernetes CronJob, no separate worker process):
-/// a plain in-process <see cref="PeriodicTimer"/> loop, ticking on its own DI scope since the hosted service itself is a singleton.
-/// An admin can also force an immediate run via <c>POST /api/reference-data/sync-now</c> (see <see cref="ReferenceDataAdminController"/>),
-/// which calls the same <see cref="ReferenceSyncService"/> - this loop only decides *when* to run it, not *how*.
-/// With multiple WebApi replicas, every replica runs this loop but only the one that wins the <see cref="ILeaseRepository"/> lease actually syncs,
-/// so a scaled-out deployment doesn't multiply provider traffic or race concurrent enrichments of the same documents -
-/// and no dedicated "sync workload" manifest is needed, keeping the original no-external-scheduler rationale intact.
+/// Keeps reference data fresh with no external scheduler: an in-process <see cref="PeriodicTimer"/> loop, each tick on its own DI scope, since the hosted service is a singleton.
+/// An admin can run it at once through <c>POST /api/reference-data/sync-now</c>, which calls the same <see cref="ReferenceSyncService"/>, so this loop only decides when.
+/// Every replica runs the loop, but only the one winning the <see cref="ILeaseRepository"/> lease syncs,
+/// so scaling out neither multiplies provider traffic nor races on the same documents.
 /// </summary>
 public class ReferenceSyncBackgroundService(
     IServiceScopeFactory scopeFactory, IConfiguration configuration, ILogger<ReferenceSyncBackgroundService> logger) : BackgroundService
@@ -19,23 +16,18 @@ public class ReferenceSyncBackgroundService(
     private const string LeaseName = "reference-sync";
 
     /// <summary>
-    /// Placeholder owner id for a periodic (not admin-triggered) job record - <see cref="Controllers.SystemStatusController"/>'s
-    /// "Recent jobs" panel doesn't filter or display by owner (it's an unscoped admin diagnostic read), so this
-    /// exists only to satisfy <see cref="JobStore{TStage,TResult}.CreateAsync"/>'s signature. Without recording a
-    /// job here, the periodic run was invisible in that panel (which only ever showed admin "sync now" jobs),
-    /// even though the lease/logs proved it was running - the missing job history was mistaken for the sync not running at all.
+    /// Owner id of a periodic job record, only satisfying <see cref="JobStore{TStage,TResult}.CreateAsync"/>, since the admin "Recent jobs" panel ignores owners.
+    /// Recording the job shows the periodic pass in that panel, and not only in logs.
     /// </summary>
     private const string SystemOwnerId = "system";
 
     private static readonly TimeSpan s_interval = TimeSpan.FromHours(24);
 
-    // how stale is stale is declared once, in ReferenceSyncWindows: an unforced admin "sync now" runs this
-    // very same pass, and two copies of those windows would drift apart without anything failing.
+    // declared once in ReferenceSyncWindows, since an unforced "sync now" runs this same pass
     private static readonly ReferenceSyncWindows s_windows = ReferenceSyncWindows.Periodic;
 
-    // comfortably longer than any sync run, much shorter than the 24h tick:
-    // a replica that dies holding the lease only delays the next successful pass by this long,
-    // and a rolling deploy's brand-new pod (whose startup pass finds the previous pod's lease still live) just yields until its next tick.
+    // longer than any sync and much shorter than the 24h tick: a replica dying with the lease delays the next pass by this much,
+    // and a new pod finding the old pod's lease live yields until its next tick
     private static readonly TimeSpan s_leaseDuration = TimeSpan.FromHours(1);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -43,9 +35,7 @@ public class ReferenceSyncBackgroundService(
         using var timer = new PeriodicTimer(s_interval);
         do
         {
-            // checked on every tick (rather than once at startup) so the integration test host -
-            // which overrides Features:IsReferenceSyncEnabled to false to keep tests from firing real TMDB calls against shared test data -
-            // never runs this, regardless of when that override is merged in relative to this service's own construction.
+            // checked on every tick, so the test host's override to false applies whenever it is merged into the configuration
             if (!new AppConfiguration(configuration).IsReferenceSyncEnabled) continue;
 
             Guid? jobId = null;
@@ -53,7 +43,7 @@ public class ReferenceSyncBackgroundService(
             {
                 using var scope = scopeFactory.CreateScope();
 
-                // MachineName is the pod name under Kubernetes: unique per replica, stable across ticks
+                // MachineName is the Kubernetes pod name: unique per replica, stable across ticks
                 var lease = scope.ServiceProvider.GetRequiredService<ILeaseRepository>();
                 if (!await lease.TryAcquireAsync(LeaseName, Environment.MachineName, s_leaseDuration))
                 {
@@ -61,29 +51,23 @@ public class ReferenceSyncBackgroundService(
                     continue;
                 }
 
-                // recorded in the same background_job collection as the admin's manual "sync now", so a
-                // periodic pass is visible in the admin system-status page's "Recent jobs" panel too, not
-                // just in logs and the lease's own expiry timestamp
+                // recorded like an admin's "sync now", so the periodic pass appears in the admin "Recent jobs" panel
                 var jobStore = scope.ServiceProvider.GetRequiredService<JobStore<ReferenceSyncStage, ReferenceSyncResultDto>>();
                 jobId = await jobStore.CreateAsync(SystemOwnerId, ReferenceSyncStage.SyncingTvShows);
 
                 var syncService = scope.ServiceProvider.GetRequiredService<ReferenceSyncService>();
                 var result = await syncService.SyncStaleReferencesAsync(s_windows.References, cancellationToken: stoppingToken);
 
-                // reconcile finished shows against the just-refreshed reference episode guides, in the same
-                // lease-held tick so it never runs against stale data or races another replica.
+                // finished shows reconciled against the refreshed episode guides, in the same tick under the lease
                 var reconciliationService = scope.ServiceProvider.GetRequiredService<TvShowStatusReconciliationService>();
                 result.FinishedShowsReopened = await reconciliationService.ReconcileFinishedShowsAsync(stoppingToken);
 
-                // the Explore discovery rankings ride the same lease-held tick on their own, longer staleness
-                // window - see ReferenceSyncWindows.Periodic.
+                // the Explore rankings ride the same tick on their own longer window (see ReferenceSyncWindows.Periodic)
                 var exploreRefreshService = scope.ServiceProvider.GetRequiredService<ExploreCatalogueRefreshService>();
                 result.ApplyExploreRefresh(await exploreRefreshService.RefreshAsync(s_windows.Explore, stoppingToken));
 
                 await jobStore.CompleteAsync(jobId.Value, ReferenceSyncStage.Completed, result);
-                // every domain the pass actually syncs is reported: a message naming only TV and movies reads as
-                // "nothing happened" on a pass that refreshed books, games or albums, which is exactly how a
-                // healthy pass came to look like a broken one.
+                // every synced domain is reported, or a pass refreshing books, games or albums would read as having done nothing
                 logger.LogInformation(
                     "Reference sync: {TvShowsChecked} TV show(s) checked ({TvShowsUpdated} updated), {MoviesChecked} movie(s) checked ({MoviesUpdated} updated), {BooksChecked} book(s) checked ({BooksUpdated} updated), {VideoGamesChecked} video game(s) checked ({VideoGamesUpdated} updated), {AlbumsChecked} album(s) checked ({AlbumsUpdated} updated), {FinishedShowsReopened} finished show(s) reopened, {ExploreRankingsRefreshed} Explore ranking(s) refreshed.",
                     result.TvShowsChecked, result.TvShowsUpdated, result.MoviesChecked, result.MoviesUpdated,
@@ -94,9 +78,7 @@ public class ReferenceSyncBackgroundService(
             {
                 logger.LogError(ex, "Reference sync run failed.");
 
-                // the scope that created the job was already disposed by the time we get here (it's scoped
-                // to the try block above), so failure reporting needs its own fresh scope - same reasoning
-                // as ReferenceDataAdminController.RunSyncJobAsync's own scope
+                // the scope that created the job is disposed by now, so the failure is reported on a new scope
                 if (jobId is not null)
                 {
                     using var failureScope = scopeFactory.CreateScope();

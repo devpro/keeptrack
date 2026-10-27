@@ -1,7 +1,5 @@
-/* Mileage-inconsistency row highlighting - Car-specific (CarMetricsService.ComputeMileageWarnings has no
-   House equivalent), so this stays here rather than in the shared rules in app.css. Rows/cells are rendered
-   by the child CarHistoryRow component, not this file's own markup - CSS isolation scopes stop at a
-   component boundary, so this needs ::deep to reach in. */
+/* Mileage-inconsistency row highlighting, specific to cars (CarMetricsService.ComputeMileageWarnings has no House equivalent), so it stays out of app.css.
+   The child CarHistoryRow component renders the rows, and CSS isolation stops at a component boundary, so this needs ::deep. */
 .kt-car-sheet ::deep .kt-history-row-warning td {
     background: var(--kt-warning-bg);
 }

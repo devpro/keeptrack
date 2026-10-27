@@ -15,19 +15,15 @@ public class AppConfiguration(IConfiguration configuration)
     public bool IsScalarEnabled => configuration.TryGetSection<bool>("Features:IsScalarEnabled");
 
     /// <summary>
-    /// Gates <see cref="ReferenceSyncBackgroundService"/> - on by default (production wants this running),
-    /// but off in the integration test host (see <c>KestrelWebAppFactory</c>), which otherwise fires real
-    /// TMDB calls against shared test data on every host start-up.
+    /// Gates <see cref="ReferenceSyncBackgroundService"/>: on by default, off in the integration test host (<c>KestrelWebAppFactory</c>),
+    /// which would otherwise call real providers on every start.
     /// </summary>
     public bool IsReferenceSyncEnabled => configuration.TryGetSection<bool>("Features:IsReferenceSyncEnabled");
 
     /// <summary>
-    /// How many items a non-member ("free preview") account may create per free-tier collection
-    /// (movies, TV shows) - see <see cref="Controllers.DataCrudControllerBase{TDto,TModel}"/>'s quota
-    /// check. Guarded against a missing/zero setting so a configuration gap can never lock free
-    /// accounts out of creating anything at all. Static (unlike the rest of this class) because the
-    /// per-request quota check reads just this one value and must not pay for - or depend on - this
-    /// class's eager parsing of every other section.
+    /// How many items a free preview account may create per free-tier collection (movies, TV shows), see <see cref="Controllers.FreeTierQuota"/>.
+    /// A missing or zero setting falls back to the default, so a configuration gap never locks free accounts out.
+    /// Static, unlike the rest of this class, so the per-request quota check reads this one value without parsing every other section.
     /// </summary>
     public static int GetFreeTierItemLimit(IConfiguration configuration)
     {
@@ -42,18 +38,14 @@ public class AppConfiguration(IConfiguration configuration)
     public TmdbSettings TmdbSettings { get; } = configuration.TryGetSection<TmdbSettings>("Tmdb");
 
     /// <summary>
-    /// OMDb (IMDb ratings) is optional - a missing <c>Omdb</c> section is a supported state (IMDb enrichment
-    /// disabled), so this coalesces to an empty settings object rather than a null the DI container would then
-    /// hand a client. See <see cref="OmdbSettings"/>.
+    /// OMDb (IMDb ratings) is optional: a missing <c>Omdb</c> section disables it, so this falls back to empty settings rather than a null handed to a client.
     /// </summary>
     public OmdbSettings OmdbSettings { get; } = configuration.TryGetSection<OmdbSettings>("Omdb") ?? new OmdbSettings();
 
     public RawgSettings RawgSettings { get; } = configuration.TryGetSection<RawgSettings>("Rawg");
 
     /// <summary>
-    /// IGDB (the default video game provider) is optional in the same way OMDb is - a missing <c>Igdb</c>
-    /// section is a supported state, and the client short-circuits rather than failing. See
-    /// <see cref="IgdbSettings"/> for why that matters more here than it does for a secondary provider.
+    /// IGDB, the default video game provider, is optional like OMDb: with no <c>Igdb</c> section the client returns nothing rather than failing (see <see cref="IgdbSettings"/>).
     /// </summary>
     public IgdbSettings IgdbSettings { get; } = configuration.TryGetSection<IgdbSettings>("Igdb") ?? new IgdbSettings();
 
@@ -62,20 +54,16 @@ public class AppConfiguration(IConfiguration configuration)
     public GoogleBooksSettings GoogleBooksSettings { get; } = configuration.TryGetSection<GoogleBooksSettings>("GoogleBooks");
 
     /// <summary>
-    /// Which book provider (<see cref="ReferenceData.IReferenceProviderClient.ProviderKey"/>) is used for
-    /// automatic/background resolution when an admin doesn't pick one explicitly - see
-    /// <see cref="ReferenceData.ReferenceClientRegistry{TClient}"/>. Every registered provider stays available
-    /// to pick from regardless of this value. Overridable via the <c>ReferenceData__BookProvider</c>
-    /// environment variable, same convention as every other setting.
+    /// The book provider (<see cref="ReferenceData.IReferenceProviderClient.ProviderKey"/>) used for automatic resolution
+    /// and when an admin picks none (see <see cref="ReferenceData.ReferenceClientRegistry{TClient}"/>).
+    /// Every registered provider stays available to an admin whatever this value.
     /// </summary>
     public string BookReferenceProvider => configuration.TryGetSection<string>("ReferenceData:BookProvider");
 
     /// <summary>
-    /// Which video game provider (<see cref="ReferenceData.IReferenceProviderClient.ProviderKey"/>) is used
-    /// for automatic/background resolution, for adopting an id onto references linked before it, and as
-    /// Explore's discovery provider. Same shape as <see cref="BookReferenceProvider"/>: every registered
-    /// provider stays available for an admin to search/link with regardless of this value. Defaults to IGDB
-    /// when unset, so an existing deployment needs no config change to move off RAWG.
+    /// The video game provider used for automatic resolution, for the adoption of its id by older references, and as Explore's discovery provider.
+    /// Like <see cref="BookReferenceProvider"/>, every registered provider stays available to an admin.
+    /// IGDB when unset.
     /// </summary>
     public string VideoGameReferenceProvider =>
         configuration.TryGetSection<string>("ReferenceData:VideoGameProvider") is { Length: > 0 } provider ? provider : Domain.Services.RatingSourceCatalog.Igdb;
@@ -84,11 +72,6 @@ public class AppConfiguration(IConfiguration configuration)
 
     public string DatabaseName => configuration.TryGetSection<string>("Infrastructure:MongoDB:DatabaseName");
 
-    /// <summary>
-    /// Allowed Origin URL for Cross-Origin Requests (CORS)
-    /// </summary>
-    /// <remarks>
-    /// See https://docs.microsoft.com/en-us/aspnet/core/security/cors
-    /// </remarks>
+    /// <summary>Origins allowed for cross-origin requests (CORS).</summary>
     public List<string> CorsAllowedOrigin { get; } = configuration.TryGetSection<List<string>>("AllowedOrigins");
 }

@@ -16,7 +16,7 @@ public class UserPreferencesRepository(IMongoDatabase mongoDatabase, UserPrefere
     public async Task<UserPreferencesModel?> FindByOwnerIdAsync(string ownerId)
     {
         var entity = await Collection.Find(x => x.OwnerId == ownerId).FirstOrDefaultAsync();
-        // the usual null guard before mapping - see MongoDbRepositoryBase.FindOneAsync's identical shape
+        // the mapper throws on a null source, so a missing document is checked first
         return entity is null ? null : mapper.ToModel(entity);
     }
 

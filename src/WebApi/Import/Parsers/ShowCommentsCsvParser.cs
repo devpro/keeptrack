@@ -17,7 +17,7 @@ public class ShowCommentRecord
 
 /// <summary>
 /// Parses TV Time's show_comment.csv: the exporting user's own free-text comments on shows.
-/// The GDPR export only ever contains the requesting user's own rows, so no user-id filtering is needed.
+/// The export only holds the requesting user's rows, so nothing is filtered by user.
 /// </summary>
 public static class ShowCommentsCsvParser
 {

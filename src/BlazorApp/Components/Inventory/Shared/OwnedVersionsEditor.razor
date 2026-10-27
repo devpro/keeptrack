@@ -1,12 +1,10 @@
-@* Shared ownership section for movie/TV show/book/album detail pages: one card per owned copy.
-   An item is owned exactly when this list is non-empty - there is no separate owned flag. Video games
-   don't use this component; their per-platform entries already are their copies.
+@* The shared ownership section of the movie, TV show, book and album detail pages: one card per owned copy.
+   An item is owned exactly when this list is non-empty, with no separate owned flag.
+   Video games don't use it, since their per-platform entries are their copies.
 
-   Creating vs. editing follow the app's two conventions: a NEW copy is a draft card with explicit
-   Save/Cancel (the list pages' Add-form pattern - nothing persists, and the item doesn't become owned,
-   until Save), while an already-saved copy's fields auto-save on change like every other detail-page
-   field. Removing a saved copy asks for confirmation (it discards price/date/vendor data), except when
-   the copy is entirely empty - then there is nothing to lose and the removal stays one click. *@
+   A new copy is a draft card with explicit Save and Cancel, like the list pages' Add form: nothing persists, and the item isn't owned, until Save.
+   A saved copy's fields auto-save on change like every other detail field.
+   Removing a saved copy asks for confirmation, since it discards price, date and vendor, except for an entirely empty copy, which goes in one click. *@
 
 <h2 class="kt-section-title">Ownership</h2>
 
@@ -24,8 +22,7 @@
 @foreach (var version in DisplayedVersions)
 {
     var isDraft = ReferenceEquals(version, _draft);
-    @* kt-copy-card: OwnedVersionFields' columns are equal-width col-md, sized to re-share whatever room
-       they get, so this card opts out of .kt-form-card's field-grid width cap. *@
+    @* kt-copy-card, since OwnedVersionFields' equal-width col-md columns re-share whatever room they get, opting out of .kt-form-card's width cap. *@
     <div class="kt-form-card kt-copy-card mb-3">
         <OwnedVersionFields Copy="version" OnChanged="() => NotifyChangedAsync(version)">
             <ButtonRowSuffix>
@@ -60,10 +57,10 @@
 }
 
 @code {
-    /// <summary>The item's owned-versions list, mutated in place - the parent owns persistence.</summary>
+    /// <summary>The item's owned versions, mutated in place, the parent owning persistence.</summary>
     [Parameter] public required List<OwnedVersionDto> Versions { get; set; }
 
-    /// <summary>Raised after every mutation; the parent saves the whole DTO (the detail pages' usual shape).</summary>
+    /// <summary>Raised after every mutation, the parent saving the whole DTO like every detail page.</summary>
     [Parameter] public required EventCallback OnChanged { get; set; }
 
     private OwnedVersionDto? _draft;
@@ -91,7 +88,7 @@
 
     private async Task RequestRemoveAsync(OwnedVersionDto version)
     {
-        // an entirely empty copy has no details to lose - remove it without the confirmation detour
+        // an entirely empty copy has nothing to lose, so it goes without confirmation
         if (IsEmpty(version))
         {
             await RemoveAsync(version);
@@ -130,7 +127,7 @@
         await NotifyChangedAsync(version);
     }
 
-    /// <summary>Saves after a mutation on a saved copy; a draft's edits stay local until its Save button.</summary>
+    /// <summary>Saves after a mutation on a saved copy, while a draft's edits stay local until its Save button.</summary>
     private async Task NotifyChangedAsync(OwnedVersionDto version)
     {
         if (!ReferenceEquals(version, _draft))

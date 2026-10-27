@@ -12,9 +12,9 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
 /// <summary>
-/// <see cref="BnfClient"/> parses SRU/XML (Dublin Core), unlike every other provider here (JSON) - the
-/// sample response shapes below are trimmed but otherwise verbatim from the real API (searched "Killing
-/// Floor" / Lee Child, then re-fetched by <c>bib.persistentid</c>), not guessed from documentation prose.
+/// <see cref="BnfClient"/> parses SRU/XML (Dublin Core), unlike every other provider here (JSON).
+/// The sample responses below are trimmed but otherwise verbatim from the real API (searched "Killing Floor" by Lee Child, then re-fetched by <c>bib.persistentid</c>),
+/// not guessed from documentation.
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class BnfClientTest
@@ -81,8 +81,7 @@ public class BnfClientTest
         details!.Title.Should().Be("Du fond de l'abîme");
         details.Year.Should().Be(1997);
         details.Language.Should().Be("fre");
-        // "LastName, FirstName (dates). Role" -> "FirstName LastName" - confirmed against the real API's
-        // own creator formatting for this exact record.
+        // "LastName, FirstName (dates). Role" becomes "FirstName LastName", as the real API formats this record's creator.
         details.Author.Should().Be("Lee Child");
         details.ImageUrl.Should().BeNull();
     }
@@ -101,8 +100,7 @@ public class BnfClientTest
     [Fact]
     public async Task GetBookDetailsAsync_ParsesTheIsbnFromTheIsbnPrefixedIdentifier()
     {
-        // dc:identifier is repeatable and mixes kinds (the ARK URL and, when present, a plain "ISBN ..."
-        // string) - confirmed verbatim against the real API for this exact record.
+        // dc:identifier is repeatable and mixes kinds (the ARK URL and, when present, a plain "ISBN ..." string), verbatim from the real API for this record.
         var client = BuildClient(_ => """
             <?xml version="1.0" encoding="UTF-8"?>
             <srw:searchRetrieveResponse xmlns:srw="http://www.loc.gov/zing/srw/">
@@ -143,7 +141,7 @@ public class BnfClientTest
     [Fact]
     public async Task SearchBooksAsync_ParsesResultsWithNoImageUrl()
     {
-        // BnF's ordinary catalogue records carry no cover-art field at all - confirmed against the real API.
+        // BnF's ordinary catalogue records carry no cover-art field.
         var client = BuildClient(_ => OneRecordResponse("ark:/12148/cb361713613", "Du fond de l'abîme", "Child, Lee (1954-....). Auteur du texte", "1997", "fre"));
 
         var results = await client.SearchBooksAsync("Du fond de l'abime", 1997, cancellationToken: TestContext.Current.CancellationToken);
@@ -178,10 +176,9 @@ public class BnfClientTest
     [Fact]
     public async Task SearchBooksAsync_FiltersOutCandidatesWhoseAuthorDoesNotActuallyMatch()
     {
-        // regression: confirmed against the real API that BnF's own "and (bib.author ...)" combination is
-        // not a strict intersection - a query for title "La Peste" and author "Victor Hugo" (who never wrote
-        // a book by that title) returned several genuine Victor Hugo anthologies instead of zero, none of
-        // them actually titled "La Peste". The client must not trust the server's own filtering here.
+        // BnF's "and (bib.author ...)" combination is not a strict intersection:
+        // title "La Peste" with author "Victor Hugo", who wrote no such book, returns several Victor Hugo anthologies instead of zero.
+        // The client must not trust the server's filtering here.
         var client = BuildClient(_ => RecordsResponse(
             ("ark:/12148/cb1", "La peste", "Camus, Albert (1913-1960). Auteur du texte", "1947", "fre"),
             ("ark:/12148/cb2", "Chemins de la poésie", "Hugo, Victor (1802-1885). Auteur du texte", "1956", "fre")));
@@ -194,9 +191,8 @@ public class BnfClientTest
     }
 
     /// <summary>
-    /// <c>bib.isbn</c> is an exact criterion, confirmed against the real API to round-trip a known ISBN
-    /// (2841142787) to the single matching record - so unlike the author clause it needs no client-side
-    /// re-check, and the search must not carry the ignored title/author text into the query.
+    /// <c>bib.isbn</c> is an exact criterion, round-tripping a known ISBN (2841142787) to the single matching record on the real API.
+    /// Unlike the author clause it needs no client-side re-check, and the search must not carry the ignored title and author into the query.
     /// </summary>
     [Fact]
     public async Task SearchBooksAsync_QueriesBibIsbnAlone_WhenAnIsbnIsSupplied()
@@ -215,10 +211,9 @@ public class BnfClientTest
     }
 
     /// <summary>
-    /// BnF's catalogue is far narrower than Google Books' for an arbitrary edition (it holds no record at all
-    /// for 9782265002104), so an ISBN miss is routine and must widen to the title search rather than reporting
-    /// a false "not found" - the shared policy in <c>BookReferenceClientBase</c>, proven here over real wire
-    /// parsing because an empty SRU response and a failed one look nothing alike.
+    /// BnF's catalogue is far narrower than Google Books' for an arbitrary edition (no record for 9782265002104),
+    /// so an ISBN miss is routine and widens to the title search rather than a false "not found".
+    /// It is <c>BookReferenceClientBase</c>'s shared policy, proven here over real wire parsing, since an empty SRU response and a failed one look nothing alike.
     /// </summary>
     [Fact]
     public async Task SearchBooksAsync_FallsBackToTheTitleSearch_WhenTheIsbnMatchesNoRecord()

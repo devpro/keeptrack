@@ -6,8 +6,7 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 public sealed class TvShowDetailPage(IPage page) : ReferenceableDetailPageBase(page)
 {
     /// <summary>
-    /// The episode checklist only renders once the show is linked (<c>_reference is not null</c>), grouped by season with the lowest season selected by default -
-    /// the first row is season 1 > episode 1 for any normally-numbered show.
+    /// The episode checklist renders once the show is linked, grouped by season with the lowest selected, so the first row is season 1, episode 1 for a normally numbered show.
     /// </summary>
     private ILocator FirstEpisodeCheckbox => Page.Locator(".kt-episode-row").First.Locator("input[type=checkbox]");
 

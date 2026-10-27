@@ -4,7 +4,7 @@ using Keeptrack.Common.System;
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// TV Show history transfer object.
+/// A TV show the user watches or watched.
 /// </summary>
 public class TvShowDto : IHasId, IReferenceLinkedDto
 {
@@ -19,8 +19,8 @@ public class TvShowDto : IHasId, IReferenceLinkedDto
     public string? Title { get; set; }
 
     /// <summary>
-    /// Stable id of the TV Time item this show was imported from, if any. Managed server-side by the
-    /// import; round-tripped on edits so it is never lost, but not meant to be set by clients.
+    /// Stable id of the TV Time item this show was imported from, if any.
+    /// Managed by the import and round-tripped on edits so it is never lost, but never set by clients.
     /// </summary>
     public string? TvTimeId { get; set; }
 
@@ -33,29 +33,28 @@ public class TvShowDto : IHasId, IReferenceLinkedDto
     public string? LastEpisodeSeen { get; set; }
 
     /// <summary>
-    /// Id of the shared reference-data document (episode titles, synopsis) for this show, once resolved.
+    /// Id of the linked reference document (episode guide, synopsis), once resolved.
     /// </summary>
     public string? ReferenceId { get; set; }
 
     /// <summary>
-    /// Cover/poster image URL from the linked reference document - read-only, hydrated server-side on
-    /// list reads and never accepted from client input.
+    /// Cover image URL from the linked reference, read-only, hydrated server side on list reads and never accepted from the client.
     /// </summary>
     public string? ImageUrl { get; set; }
 
     /// <summary>
-    /// Denormalized primary-source (TMDB) rating from the linked reference, on <see cref="ReferenceRatingScale"/>.
-    /// Server-managed on link/refresh, round-tripped on edits; null until linked. Full breakdown on
-    /// <see cref="TvShowReferenceDto.Ratings"/>.
+    /// The linked reference's primary rating (TMDB or IMDb), on <see cref="ReferenceRatingScale"/>.
+    /// Managed by the server on link and refresh, round-tripped on edits, and null until linked.
+    /// The full breakdown is <see cref="TvShowReferenceDto.Ratings"/>.
     /// </summary>
     public double? ReferenceRating { get; set; }
 
-    /// <summary>Scale of <see cref="ReferenceRating"/> (10 for TMDB); null when there is no reference rating.</summary>
+    /// <summary>Scale of <see cref="ReferenceRating"/> (10 for TMDB and IMDb), null when there is no reference rating.</summary>
     public double? ReferenceRatingScale { get; set; }
 
     /// <summary>
-    /// Which rating source <see cref="ReferenceRating"/> came from ("tmdb", "imdb", ...), so the value can be
-    /// labelled rather than shown as a bare number. Server-managed on link/refresh, round-tripped on edits.
+    /// The rating source <see cref="ReferenceRating"/> came from ("tmdb", "imdb", "igdb"), so the value is labelled rather than a bare number.
+    /// Managed by the server on link and refresh, and round-tripped on edits.
     /// </summary>
     public string? ReferenceRatingSource { get; set; }
 
@@ -64,13 +63,13 @@ public class TvShowDto : IHasId, IReferenceLinkedDto
     public bool IsFavorite { get; set; }
 
     /// <summary>
-    /// Every owned copy of this show - the show counts as owned when this list is non-empty.
+    /// Every owned copy of this show, which counts as owned when this list is non-empty.
     /// </summary>
     public List<OwnedVersionDto> OwnedVersions { get; set; } = [];
 
     /// <summary>
-    /// Filter-only query parameter: matches items with at least one owned version. Never populated on a
-    /// returned item - see <see cref="VideoGameDto.Platform"/> for the convention.
+    /// Filter-only query parameter: matches items with at least one owned version.
+    /// Never set on a returned item (see <see cref="VideoGameDto.Platform"/>).
     /// </summary>
     public bool IsOwned { get; set; }
 

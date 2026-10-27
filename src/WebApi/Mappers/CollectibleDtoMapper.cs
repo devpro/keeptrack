@@ -7,7 +7,7 @@ namespace Keeptrack.WebApi.Mappers;
 [UseStaticMapper(typeof(CommonDtoMappings))]
 public partial class CollectibleDtoMapper : IDtoMapper<CollectibleDto, CollectibleModel>
 {
-    // see BookDtoMapper.ToModel for why MapValue (not MapperIgnoreTarget) is required here
+    // MapValue rather than MapperIgnoreTarget, since OwnerId is required (see BookDtoMapper)
     [MapValue(nameof(CollectibleModel.OwnerId), "")]
     public partial CollectibleModel ToModel(CollectibleDto dto);
 

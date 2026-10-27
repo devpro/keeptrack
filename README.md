@@ -11,6 +11,17 @@
 
 Keeptrack is a source-available application to save and review everything read, watched, listened to or played.
 
+## Features
+
+- Collections of movies, TV shows, books, albums and video games, linked to provider data (covers, synopses, cast, ratings), plus playlists, gear and collectibles.
+- Owned copies, a wishlist shareable through an anonymous link, and Watch Next for shows in progress.
+- Car, house and health journals with their costs and metrics.
+- Explore, suggesting top-rated titles not tracked yet.
+- Imports from TV Time, Amazon orders and store transaction exports.
+- Read-only sharing of whole categories with other accounts.
+
+Each feature is described in [docs/](docs/README.md).
+
 ## Hosting
 
 The applications are cloud native and run on any container platform.
@@ -24,7 +35,7 @@ Three-tier application:
 - Backend: ASP.NET Web API application (.NET 10/C#)
 - Database: MongoDB
 
-Architecture and conventions are in [AGENTS.md](AGENTS.md), local setup in [CONTRIBUTING.md](CONTRIBUTING.md).
+The design is in [docs/](docs/README.md), local setup in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

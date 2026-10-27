@@ -4,11 +4,9 @@ using System.Collections.Generic;
 namespace Keeptrack.Domain.Models;
 
 /// <summary>
-/// The six per-type delegates <see cref="Services.OwnedItemImportMergeService.ComputeCommitPlan{TModel,TRequestItem}"/>
-/// needs to run its generic merge algorithm against a specific trackable type (<c>BookModel</c>/<c>MovieModel</c>/
-/// <c>TvShowModel</c>/<c>VideoGameModel</c>/...) and its own request-item shape, bundled into one value instead of
-/// threaded individually through every method in the call chain (was flagged by Sonar's S107 "too many parameters"
-/// on three methods that all repeated the same six params).
+/// The six per-type delegates <see cref="Services.OwnedItemImportMergeService.ComputeCommitPlan{TModel,TRequestItem}"/> needs to run its generic merge over one trackable type
+/// and its request-item shape.
+/// Bundled into one value rather than passed separately through every method of the call chain (Sonar S107).
 /// </summary>
 public sealed record OwnedItemImportAdapter<TModel, TRequestItem>(
     Func<TModel, string> GetExistingTitle,

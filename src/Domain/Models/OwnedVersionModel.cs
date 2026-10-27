@@ -3,38 +3,31 @@ using System;
 namespace Keeptrack.Domain.Models;
 
 /// <summary>
-/// One owned copy of a tracked item (movie, TV show, book, album) with its optional purchase details.
-/// An item is "owned" exactly when it has at least one version - there is deliberately no separate
-/// stored owned flag to drift out of sync with this list. Video games don't use this type: their
-/// per-platform entries (<see cref="VideoGamePlatformModel"/>, each with its own <see cref="CopyType"/>)
-/// already are their copies, so ownership derives from those instead. Those entries carry the same
-/// <see cref="Price"/>/<see cref="Vendor"/>/<see cref="AcquiredAt"/>/<see cref="Reference"/> fields
-/// declared directly on them (on top of their platform-specific fields), rather than embedding this type.
+/// One owned copy of a tracked item, with its optional purchase details.
+/// An item is owned exactly when it has at least one copy, so no stored flag can drift from this list.
+/// Video games do not use it: their <see cref="VideoGamePlatformModel"/> entries are their copies, declaring the same purchase fields alongside their platform fields.
 /// </summary>
 public class OwnedVersionModel
 {
     public CopyType CopyType { get; set; }
 
     /// <summary>
-    /// Price paid. Stored currency-agnostic and displayed in the user's currency (hardcoded to euros
-    /// for now; a per-user currency setting in the profile is a possible future addition).
+    /// Price paid, stored without a currency and displayed in euros.
     /// </summary>
     public decimal? Price { get; set; }
 
     public string? Vendor { get; set; }
 
-    /// <summary>When this copy was acquired, if the user remembers/cares to record it.</summary>
     public DateOnly? AcquiredAt { get; set; }
 
     /// <summary>
-    /// Free-text reference for this copy: edition name, order number, barcode, shelf location...
-    /// Unrelated to the reference-data <c>ReferenceId</c> concept.
+    /// Free-text reference for this copy: edition name, order number, barcode, shelf location.
+    /// Unrelated to the reference data's <c>ReferenceId</c>.
     /// </summary>
     public string? Reference { get; set; }
 
     /// <summary>
-    /// The store's own specific product/edition text for this copy (e.g. a retailer's listing title),
-    /// distinct from the item's own Title. Optional free text.
+    /// The store's product or edition text for this copy (a retailer's listing title), distinct from the item's title.
     /// </summary>
     public string? ProductName { get; set; }
 }

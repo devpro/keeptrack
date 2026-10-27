@@ -2,13 +2,9 @@
 
 <AuthorizeView Policy="AdminOnly" Context="adminContext">
     <Authorized>
-        @* No "not yet matched to a reference source" line any more: this panel is now only rendered after
-           an admin has clicked the title row's check-for-match button and it came back without a link, so
-           saying so would restate what the toast beside that button just said. It used to sit permanently
-           above the item's own data on every unlinked item, which for an admin is most of them. *@
+        @* No "not yet matched" line: this panel renders only after the title row's check-for-match came back without a link, which the toast beside that button already says. *@
         <div class="kt-form-card">
-            @* only the domains with more than one registered provider return anything, so this renders a
-               picker for books and video games and nothing at all for the rest. *@
+            @* only the domains with more than one registered provider return anything, so the picker shows for books and video games only *@
             @if (_providers.Count > 1)
             {
                 <div class="d-flex gap-2 flex-wrap mb-2">
@@ -20,11 +16,8 @@
                 </div>
             }
 
-            @* One persistent button for search/re-search, re-labeled rather than swapped out for a
-               differently-labeled button after the first search - it used to be replaced by a plain
-               "↻ Search again" button post-search, which looked like the original button had vanished.
-               Re-runs with the page's *current* title/year (and author/artist) field values - the
-               wrong-candidates fix is "edit the fields above, then search again". *@
+            @* One persistent button for search and re-search, relabelled rather than swapped, so it never looks like it vanished.
+               It runs with the page's current title, year, author or artist, so wrong candidates are fixed by editing the fields above and searching again. *@
             <button class="btn btn-sm btn-secondary mb-2" @onclick="SearchAsync" disabled="@(_searching || string.IsNullOrWhiteSpace(Title))">
                 @if (_searched) { <Icon Name="refresh" Size="13"/> <text> Search again</text> } else { <text>Search</text> }
             </button>
@@ -79,16 +72,16 @@
     [Parameter] public int? Year { get; set; }
 
     /// <summary>
-    /// The book's author or the album's artist, when known - narrows the search considerably (a common
-    /// title alone often returns many unrelated candidates). Ignored for TV shows/movies/video games.
+    /// The book's author or the album's artist, when known, which narrows the search, since a common title alone returns many unrelated candidates.
+    /// TV shows, movies and video games ignore it.
     /// </summary>
     [Parameter] public string? Creator { get; set; }
 
     /// <summary>
-    /// The book's ISBN, when known - Book-only. Every book provider searches by it (see
-    /// <see cref="IBookReferenceClient.SearchBooksAsync"/>'s own doc comment), so switching provider is a real
-    /// fallback for an ISBN search rather than a silent downgrade to a title match. Edited on the detail page
-    /// itself (<c>BookDetail.razor</c>'s own ISBN field), not here - same convention as <see cref="Creator"/>.
+    /// The book's ISBN, when known, for books only.
+    /// Every book provider searches by it (see <see cref="IBookReferenceClient.SearchBooksAsync"/>),
+    /// so switching provider is a real fallback rather than a silent downgrade to a title match.
+    /// It is edited in <c>BookDetail.razor</c>'s own ISBN field, not here, like <see cref="Creator"/>.
     /// </summary>
     [Parameter] public string? Isbn { get; set; }
 
@@ -126,8 +119,7 @@
         }
         catch (Exception ex)
         {
-            // an uncaught exception here would crash the whole Blazor Server circuit (not just this
-            // component), forcing a full page reload - same reasoning as LinkAsync's own try/catch below.
+            // An uncaught exception here would crash the whole Blazor Server circuit and force a full page reload, as in LinkAsync below.
             _results = [];
             _error = DescribeFailure("search", ex);
         }
@@ -168,16 +160,11 @@
     /// <summary>
     /// Names the provider, says what it actually did, and points at the way out.
     /// <para>
-    /// This used to report <c>ex.Message</c>, which for any provider failure was the Blazor client's own
-    /// "Response status code does not indicate success: 502 (Bad Gateway)" - this API's gateway status, with
-    /// the provider's real one nowhere in sight. It read as a Keeptrack defect during what was actually a
-    /// total Google Books search outage. <c>ApiRequestException</c> now carries the API's own explanation.
+    /// <c>ApiRequestException</c> carries the API's own explanation,
+    /// where the client's <c>ex.Message</c> would only give this API's 502 and make a provider outage read as a Keeptrack defect.
     /// </para>
-    /// Whether another provider is worth trying is the genuinely useful next step, and it is only suggested
-    /// when both halves are actually known: that the failure was upstream (so a different upstream may well
-    /// work) and that this domain has somewhere else to go - books and video games do, TV/movies/albums have a
-    /// single provider each. Anything this component can't identify falls back to the plain retry hint rather
-    /// than sending an admin round a picker for a failure that may have nothing to do with the provider.
+    /// Another provider is suggested only when the failure was upstream and the domain has one: books and video games do, TV shows, movies and albums have a single provider each.
+    /// Anything unidentified falls back to the plain retry hint, rather than sending an admin to a picker for a failure unrelated to the provider.
     /// </summary>
     private string DescribeFailure(string action, Exception ex)
     {

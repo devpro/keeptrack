@@ -6,8 +6,8 @@ using Keeptrack.Common.System;
 namespace Keeptrack.Domain.Services;
 
 /// <summary>
-/// A provider's search result reduced to what identity is decided on. Implemented by every domain's own
-/// search-result record so one set of matching rules can read all five.
+/// A provider's search result reduced to what identity is decided on.
+/// Every domain's search-result record implements it, so one set of matching rules reads all five.
 /// </summary>
 public interface IReferenceSearchCandidate
 {
@@ -17,9 +17,8 @@ public interface IReferenceSearchCandidate
 }
 
 /// <summary>
-/// A candidate in a domain whose identity is the title plus the person or group who made it - books and
-/// albums. <see cref="Creator"/> is that domain's own field under one name (an author, an artist), so the
-/// shared rules never have to know which.
+/// A candidate in a domain identified by the title plus the person or group who made it: books and albums.
+/// <see cref="Creator"/> names that field once (an author, an artist), so the shared rules never need to know which.
 /// </summary>
 public interface ICreatorSearchCandidate : IReferenceSearchCandidate
 {
@@ -27,54 +26,45 @@ public interface ICreatorSearchCandidate : IReferenceSearchCandidate
 }
 
 /// <summary>
-/// When a provider's candidate is the same work as the one being looked for. One declaration, read by
-/// everything that has to answer that question in every reference-linked domain: the client search policies
-/// rank candidates with it, and <c>ReferenceEnrichmentService</c> confirms automatic resolution, the detail
-/// page's "check for reference match" and video game provider adoption with it - so what a picker puts first
-/// and what links unattended can never drift apart.
+/// When a provider's candidate is the work being looked for.
+/// Declared once and read in every reference-linked domain: search policies rank candidates with it,
+/// and <c>ReferenceEnrichmentService</c> confirms automatic resolution, the detail page's check and video game adoption with it.
+/// What a picker puts first and what links unattended therefore never drift apart.
 /// <para>
-/// <b>There are two identity shapes here, and they are a genuine difference between domains rather than an
-/// inconsistency to flatten.</b> A film, a show and a game are identified by a title and a <i>year</i>: two
-/// different works sharing a title is ordinary (IGDB holds eight games named exactly "Resident Evil 2", TMDB
-/// holds a "Road House" from 1989 and another from 2024, and six shows named "The Office"), so the year is the
-/// only thing that tells them apart. A book and an album are identified by a title and a <i>creator</i>:
-/// measured live, Google Books answers <c>intitle:The Hobbit+inauthor:Tolkien</c> with 300 volumes whose first
-/// page alone spans 1981, 1999, 2011 and 2012 - all one book. Requiring a year there would refuse every
-/// edition of every work, so for those two domains the year is a tie-break and never a filter.
+/// <b>There are two identity shapes, a real difference between domains rather than an inconsistency.</b>
+/// A film, a show and a game are a title and a <i>year</i>, since namesakes are ordinary:
+/// IGDB holds eight games named "Resident Evil 2", TMDB a "Road House" from 1989 and one from 2024, and six shows named "The Office".
+/// A book and an album are a title and a <i>creator</i>: Google Books answers <c>intitle:The Hobbit+inauthor:Tolkien</c> with 300 volumes spanning decades, all one book.
+/// Requiring a year there would refuse every edition, so for those domains the year breaks ties and never filters.
 /// </para>
 /// <para>
-/// What both shapes share is the rule that matters: a candidate must be <b>named</b> the work before anything
-/// else about it is considered. Trusting that a provider returned exactly one row instead reads a property of
-/// the <i>search</i> as a property of the <i>answer</i>, and is wrong in both directions - measured live,
-/// <c>search/tv?query=Fallout&amp;first_air_date_year=2025</c> returns exactly one result and it is
-/// "Thirst Trap: The Fame. The Fantasy. The Fallout.", while an ordinary <c>The Bear</c> (2022) returns eight
-/// and links nothing at all.
+/// Both shapes share the rule that matters: a candidate must be <b>named</b> the work before anything else counts.
+/// Trusting that a provider returned exactly one row reads a property of the search as one of the answer, and fails both ways.
+/// <c>search/tv?query=Fallout&amp;first_air_date_year=2025</c> returns one result, "Thirst Trap: The Fame. The Fantasy. The Fallout.",
+/// while an ordinary <c>The Bear</c> (2022) returns eight and would link nothing.
 /// </para>
 /// </summary>
 public static class ReferenceMatchRules
 {
-    /// <summary>The candidate is released in the year that was asked for - or none was asked for.</summary>
+    /// <summary>The candidate is released in the requested year, or no year was requested.</summary>
     public const int YearAgrees = 0;
 
-    /// <summary>The provider reports no year for this candidate. Missing data, not a disagreement.</summary>
+    /// <summary>The provider reports no year for this candidate: missing data, not a disagreement.</summary>
     public const int YearUnknown = 1;
 
-    /// <summary>The candidate is released in a different year. A disagreement, and never a confirmation.</summary>
+    /// <summary>The candidate is released in a different year: a disagreement, never a confirmation.</summary>
     public const int YearContradicts = 2;
 
     /// <summary>
-    /// How well a candidate's year agrees with the one that was asked for, best first - the three states in
-    /// this file's constants.
+    /// How well a candidate's year agrees with the requested one, best first, as the three constants above.
     /// <para>
-    /// The middle rung is why this is not a boolean, and it is a measured distinction in both directions. Fold
-    /// <see cref="YearUnknown"/> into <see cref="YearContradicts"/> and a provider that simply has no date for
-    /// a work discards the right answer; fold it into <see cref="YearAgrees"/> and it counts as confirmation -
-    /// which floated IGDB's undated "Resident Evil" above the 2002 remake for a search that plainly asked for
-    /// 2002, and left the undated "Resident Evil 2" blocking automatic resolution of the 2019 one.
+    /// The middle rung is why this is not a boolean.
+    /// Counting <see cref="YearUnknown"/> as a contradiction discards a right answer the provider has no date for.
+    /// Counting it as agreement floats an undated namesake above the real match:
+    /// IGDB's undated "Resident Evil" above the 2002 remake asked for, and the undated "Resident Evil 2" blocking the 2019 one.
     /// </para>
     /// <para>
-    /// With no year requested every candidate ranks <see cref="YearAgrees"/>, which is what leaves a caller
-    /// that supplies none exactly where it was: relying on the title and the provider's own relevance order.
+    /// With no year requested every candidate ranks <see cref="YearAgrees"/>, so a caller without a year relies on the title and the provider's order.
     /// </para>
     /// </summary>
     public static int YearRank(int? candidateYear, int? requestedYear) =>
@@ -83,25 +73,18 @@ public static class ReferenceMatchRules
         : YearContradicts;
 
     /// <summary>
-    /// Candidates ordered by how well they answer "is this <paramref name="title"/> (<paramref name="year"/>)",
-    /// best first - a perfect match ahead of everything, then whatever is closest to what was asked for.
+    /// Candidates ordered by how well they are <paramref name="title"/> (<paramref name="year"/>), best first: a perfect match ahead of everything, then the closest.
     /// <para>
-    /// One ordering for every surface that shows a human a list of candidates, in every domain: a provider
-    /// search's results, the admin reconciliation row, and the shortlist that unranked substring queries are
-    /// cut down to. They were separate opinions about the same question, and a candidate list is exactly where
-    /// an inconsistency wastes someone's time.
+    /// One ordering for every list of candidates shown to a human, in every domain:
+    /// provider search results, the admin reconciliation row, and the shortlist substring queries are cut down to.
     /// </para>
     /// <para>
-    /// The keys, in order. <b>Naming the work</b> comes first, so a perfect match cannot be displaced by
-    /// anything - it is the answer, and every other candidate is at best a guess. <b>The year</b> is next: for
-    /// the title+year domains it is what identifies one work among namesakes, and for books and albums it is
-    /// exactly here that it earns its keep as a tie-break, preferring the tenant's own edition among many
-    /// without ever excluding the others. <b>Then title distance</b>, which orders the candidates that are not
-    /// this work at all: an edition, a DLC pack, a bundle or a live broadcast is spelled as the work plus
-    /// something, so the shortest is the closest thing to what was asked for - measured, this is what puts
-    /// "Marvel's Avengers" ahead of the 40 crossovers containing both its words, and Radiohead's "Kid A" ahead
-    /// of "Kid A (The World Premier Broadcast)". The title breaks the last ties so the order is total, and
-    /// therefore stable across identical requests.
+    /// The keys, in order:
+    /// <b>naming the work</b>, so nothing displaces a perfect match;
+    /// <b>the year</b>, which tells namesakes apart, and for books and albums prefers the tenant's edition without excluding the others;
+    /// <b>title distance</b>, which orders what is not this work, since an edition, a DLC, a bundle or a live broadcast is the work plus something.
+    /// That puts "Marvel's Avengers" ahead of 40 crossovers containing both words, and "Kid A" ahead of "Kid A (The World Premier Broadcast)".
+    /// The title breaks the last ties, so the order is total and stable across identical requests.
     /// </para>
     /// </summary>
     public static IEnumerable<T> OrderByBestMatch<T>(IEnumerable<T> candidates, string title, int? year)
@@ -116,22 +99,16 @@ public static class ReferenceMatchRules
     }
 
     /// <summary>
-    /// The candidates confirmed to be <paramref name="title"/> (<paramref name="year"/>) in a domain where the
-    /// year is the identity - named the same work under <see cref="TitleNormalizer.LooselyEqual"/>, and
-    /// agreeing about the year as well as any candidate does.
+    /// The candidates confirmed to be <paramref name="title"/> (<paramref name="year"/>) where the year is the identity:
+    /// named the work under <see cref="TitleNormalizer.LooselyEqual"/>, and agreeing about the year as well as any candidate does.
     /// <para>
-    /// Callers act only on a *single* confirmed match and leave anything else for a human, so what this returns
-    /// is a shortlist rather than a verdict: several means "don't guess", none means "nothing here is this
-    /// work".
+    /// Callers act only on a single confirmed match, so this is a shortlist rather than a verdict: several means "do not guess", none means "nothing here is this work".
     /// </para>
     /// <para>
-    /// <b>Only the best year tier that any candidate reaches is returned</b>, which is the whole point of
-    /// asking for a year. A search for "Resident Evil 2" (2019) finds the 2019 game *and* an undated entry of
-    /// the same name; keeping both would report an ambiguity the requested year has already resolved, and
-    /// nothing further could ever resolve it - the undated entry has no year to be told apart by. A candidate
-    /// whose year contradicts the request is never confirmed at all, however alone it is: that is the case
-    /// where a title match is most likely to be a different work entirely (a remake, a same-named sequel), and
-    /// linking it is the silent data loss this whole rule exists to avoid.
+    /// <b>Only the best year tier any candidate reaches is returned</b>, which is the point of asking for a year.
+    /// "Resident Evil 2" (2019) finds the 2019 game and an undated namesake, and keeping both would report an ambiguity the year already resolved, one nothing else could resolve.
+    /// A candidate whose year contradicts the request is never confirmed, however alone it is.
+    /// That is where a title match is most likely another work (a remake, a namesake sequel), and linking it is the silent data loss this rule prevents.
     /// </para>
     /// </summary>
     public static IReadOnlyList<T> ConfirmedMatches<T>(IEnumerable<T> candidates, string title, int? year)
@@ -145,22 +122,17 @@ public static class ReferenceMatchRules
     }
 
     /// <summary>
-    /// The candidates that name <paramref name="title"/>: the ones spelled exactly that way if there are any,
-    /// and only otherwise the ones that match loosely.
+    /// The candidates naming <paramref name="title"/>: those spelled exactly so if there are any, and otherwise those matching loosely.
     /// <para>
-    /// <b>The two tiers exist because loose matching deliberately discards real words.</b>
-    /// <see cref="TitleNormalizer.NormalizeLoose"/> drops "the" and every parenthesised group, which is right
-    /// when comparing one provider's canonical title against another's - it is what lets
-    /// <c>Mass Effect: Legendary Edition</c> meet <c>Mass Effect Legendary Edition</c> - but it also makes
-    /// genuinely different works collide. Measured live: TMDB answers <c>Alien</c> (1979) with both <i>Alien</i>
-    /// and <i>The Alien</i>, two different films from the same year that loose matching cannot tell apart, so
-    /// the search reported an ambiguity where the tenant had in fact typed one of the two titles exactly.
+    /// <b>Two tiers, because loose matching discards real words.</b>
+    /// <see cref="TitleNormalizer.NormalizeLoose"/> drops "the" and parenthesised groups,
+    /// which lets <c>Mass Effect: Legendary Edition</c> meet <c>Mass Effect Legendary Edition</c>, but also makes different works collide.
+    /// TMDB answers <c>Alien</c> (1979) with <i>Alien</i> and <i>The Alien</i>,
+    /// two films of that year that loose matching cannot tell apart, although the tenant typed one of them exactly.
     /// </para>
     /// <para>
-    /// Preferring the exact spelling resolves that without loosening anything: an exact match is strictly
-    /// better evidence than a loose one, so a loose-only candidate can never displace it, and when nothing
-    /// matches exactly the loose tier behaves exactly as it did before - which is what still links
-    /// <c>Shogun</c> (2024) to TMDB's <i>Shōgun</i>.
+    /// An exact match is better evidence than a loose one, so a loose-only candidate never displaces it.
+    /// When nothing matches exactly, the loose tier applies, which still links <c>Shogun</c> (2024) to TMDB's <i>Shōgun</i>.
     /// </para>
     /// </summary>
     private static List<T> NamedTheSameWork<T>(IEnumerable<T> candidates, string title)
@@ -173,24 +145,18 @@ public static class ReferenceMatchRules
     }
 
     /// <summary>
-    /// The candidates confirmed to be <paramref name="title"/> by <paramref name="creator"/> in a domain where
-    /// the creator is the identity - books and albums - best first, so a caller links
-    /// <c>[0]</c> and refuses an empty list.
+    /// The candidates confirmed to be <paramref name="title"/> by <paramref name="creator"/> where the creator is the identity (books, albums), best first,
+    /// so a caller links <c>[0]</c> and refuses an empty list.
     /// <para>
-    /// <b>Several results here are editions, not an ambiguity</b>, and that is the one place this differs from
-    /// <see cref="ConfirmedMatches"/>. Measured live, Google Books returns 300 volumes for "The Hobbit" by
-    /// Tolkien and Discogs returns two masters for "Thriller" by Michael Jackson; every one of them is the same
-    /// work, so refusing to choose would mean no book and few albums could ever link. The reference document
-    /// describes the work rather than a pressing or a printing, so any confirmed candidate is a right answer
-    /// and <see cref="OrderByBestMatch"/> only decides which is the *closest* one - preferring the tenant's own
-    /// year when they recorded one, and the plain title over a longer variant.
+    /// <b>Several results here are editions, not an ambiguity</b>, the one difference from <see cref="ConfirmedMatches"/>.
+    /// Google Books returns 300 volumes for "The Hobbit" by Tolkien,
+    /// and Discogs two masters for "Thriller" by Michael Jackson, each the same work, so refusing to choose would link no book and few albums.
+    /// The reference describes the work rather than a printing, so any confirmed candidate is right,
+    /// and <see cref="OrderByBestMatch"/> only picks the closest: the tenant's year when recorded, and the plain title over a longer variant.
     /// </para>
     /// <para>
-    /// The candidates are deliberately <b>not</b> required to agree with each other about the creator, only
-    /// with the one that was asked for. Google Books credits the same book to "J.R.R. Tolkien",
-    /// "J. R. R. Tolkien" and "John Ronald Reuel Tolkien", so demanding they agree would read one author as
-    /// three and refuse the very case this exists for. Every candidate has already matched what the tenant
-    /// supplied, which is what the question was.
+    /// The candidates must agree with the requested creator, <b>not</b> with each other.
+    /// Google Books credits one book to "J.R.R. Tolkien", "J. R. R. Tolkien" and "John Ronald Reuel Tolkien", so demanding agreement would read one author as three.
     /// </para>
     /// </summary>
     public static IReadOnlyList<T> ConfirmedCreatorMatches<T>(IEnumerable<T> candidates, string title, string? creator)
@@ -203,14 +169,11 @@ public static class ReferenceMatchRules
     }
 
     /// <summary>
-    /// Whether a candidate's creator is the one that was asked for, allowing either to be the fuller form of
-    /// the other: a tenant records "Tolkien" where Google Books credits "J.R.R. Tolkien", and BnF's parsed
-    /// "LastName, FirstName" shape contributes only the first credited name of a multi-author record.
+    /// Whether a candidate's creator is the requested one, either being possibly the fuller form of the other.
+    /// A tenant records "Tolkien" where Google Books credits "J.R.R. Tolkien", and BnF's parsed "LastName, FirstName" gives only the first name of a multi-author record.
     /// <para>
-    /// Whole-word containment under <see cref="TitleNormalizer.NormalizeLoose"/> in both directions, so
-    /// punctuation and accents can't separate two spellings of one name while a genuinely different person is
-    /// still rejected - the same client-side re-check <c>BnfClient.AuthorMatches</c> applies to a provider
-    /// clause that is not a strict filter either.
+    /// Whole-word containment under <see cref="TitleNormalizer.NormalizeLoose"/> both ways,
+    /// so punctuation and accents do not separate two spellings of one name, while a different person is still rejected.
     /// </para>
     /// </summary>
     public static bool CreatorMatches(string? candidateCreator, string requestedCreator) =>

@@ -12,9 +12,8 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Covers the wishlist share-link lifecycle end-to-end: several independent labeled links per owner,
-/// the anonymous token read (verified with a second HttpClient that never authenticates - the whole
-/// point of the feature), and revoking one link without touching the others.
+/// Covers the wishlist share-link lifecycle end to end: several labelled links per owner, the anonymous token read, and revoking one link without touching the others.
+/// The token read goes through a second HttpClient that never authenticates, the point of the feature.
 /// </summary>
 public class WishlistShareResourceTest(KestrelWebAppFactory<Program> factory)
     : ResourceTestBase(factory)
@@ -40,7 +39,7 @@ public class WishlistShareResourceTest(KestrelWebAppFactory<Program> factory)
         mumShare.Token.Should().NotBeNullOrEmpty().And.NotBe(friendShare.Token);
         mumShare.Label.Should().Be("Mum");
 
-        // a genuinely anonymous client - no Authenticate(), no bearer header, like a share recipient
+        // an anonymous client, with no Authenticate() and no bearer header, like a share recipient
         using var anonymous = new HttpClient { BaseAddress = new Uri(Factory.ServerAddress) };
 
         var shares = await GetAsync<List<WishlistShareDto>>("/api/wishlist/shares");
@@ -53,7 +52,7 @@ public class WishlistShareResourceTest(KestrelWebAppFactory<Program> factory)
         // an unknown token is an indistinguishable 404
         (await anonymous.GetAsync($"/api/wishlist/shared/{Guid.NewGuid():N}", TestContext.Current.CancellationToken)).StatusCode.Should().Be(HttpStatusCode.NotFound);
 
-        // revoking one link kills that link only - the other keeps working
+        // revoking one link kills that link only, and the other keeps working
         await DeleteAsync($"/api/wishlist/shares/{mumShare.Id}");
         (await anonymous.GetAsync($"/api/wishlist/shared/{mumShare.Token}", TestContext.Current.CancellationToken)).StatusCode.Should().Be(HttpStatusCode.NotFound);
         (await anonymous.GetAsync($"/api/wishlist/shared/{friendShare.Token}", TestContext.Current.CancellationToken)).StatusCode.Should().Be(HttpStatusCode.OK);

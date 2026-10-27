@@ -7,24 +7,22 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// An id that isn't a 24-digit hex string can't name a document, and must be answered like any other id that
-/// names nothing rather than blowing up.
+/// An id that isn't a 24-digit hex string can't name a document, and is answered like any other id naming nothing rather than failing.
 /// <para>
-/// This is MongoDB serialization semantics, so only a real-MongoDB test proves it: every entity behind
-/// <c>MongoDbRepositoryBase</c> maps <c>_id</c> as an ObjectId, so the driver runs the string in an id filter
-/// through <c>ObjectId.Parse</c> and throws <see cref="System.FormatException"/> - which
-/// <c>ApiExceptionFilterAttribute</c> turned into a 500, and the Blazor app into its generic error page, for
-/// what is only ever a hand-edited, truncated or stale URL. A mocked repository can't reach any of that.
+/// This is MongoDB serialization semantics, so only a real-MongoDB test proves it.
+/// Every entity behind <c>MongoDbRepositoryBase</c> maps <c>_id</c> as an ObjectId,
+/// so the driver runs an id filter's string through <c>ObjectId.Parse</c>, which throws <see cref="System.FormatException"/>.
+/// <c>ApiExceptionFilterAttribute</c> would turn it into a 500, and the Blazor app into its error page, for a hand-edited, truncated or stale URL.
 /// </para>
-/// Movies stand in for the whole base class here (all twenty repositories share these methods); TV shows are
-/// tested separately because their delete also runs the cascade hook, which takes the same raw route id.
+/// Movies stand in for the whole base class (all twenty repositories share these methods),
+/// and TV shows are tested separately, since their delete also runs the cascade hook on the same raw route id.
 /// </summary>
 public class MalformedIdResourceTest(KestrelWebAppFactory<Program> factory)
     : ResourceTestBase(factory)
 {
     private const string MalformedId = "not-an-object-id";
 
-    /// <summary>Well-formed and parseable, but vanishingly unlikely to have been minted - the "genuinely absent" control.</summary>
+    /// <summary>Well-formed and parseable, but vanishingly unlikely to have been minted, the "absent" control.</summary>
     private const string AbsentButWellFormedId = "0123456789abcdef01234567";
 
     [Theory]
@@ -48,9 +46,8 @@ public class MalformedIdResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// The cascade hook (<c>OnDeletedAsync</c>) runs on the raw route id whether or not the parent delete
-    /// matched anything, so it reaches the child collection's parent-id filter - an ObjectId field too - even
-    /// for an id the delete above already answered "nothing to remove" for.
+    /// The cascade hook (<c>OnDeletedAsync</c>) runs on the raw route id whether or not the parent delete matched,
+    /// so it reaches the child collection's parent-id filter, an ObjectId field too, even for an id with nothing to remove.
     /// </summary>
     [Theory]
     [InlineData(MalformedId)]

@@ -4,16 +4,15 @@ using Keeptrack.WebApi.Contracts.Dto;
 namespace Keeptrack.BlazorApp.Components.Explore;
 
 /// <summary>
-/// Talks to the Explore endpoints (<c>api/explore/{type}</c>) for listing, adding and dismissing
-/// suggestions. <c>type</c> is a <see cref="ReferenceItemType"/> member name ("Movie"/"TvShow"/"VideoGame").
+/// Talks to the Explore endpoints (<c>api/explore/{type}</c>) for listing, adding and dismissing suggestions.
+/// <c>type</c> is a <see cref="ReferenceItemType"/> member name ("Movie", "TvShow", "VideoGame").
 /// </summary>
 public sealed class ExploreApiClient(HttpClient http)
 {
     /// <summary>
-    /// One page of suggestions. <paramref name="after"/> is the previous page's <c>NextCursor</c> (null for
-    /// the first page); a response whose own cursor is null means the ranking is exhausted. A page can come
-    /// back shorter than <paramref name="count"/> and still have more behind it - the server filters out what
-    /// the caller already tracks after reading the ranking.
+    /// One page of suggestions.
+    /// <paramref name="after"/> is the previous page's <c>NextCursor</c>, null for the first page, and a response with a null cursor means the ranking is exhausted.
+    /// A page can be shorter than <paramref name="count"/> and still have more behind it, since the server filters out what the caller tracks after reading the ranking.
     /// </summary>
     public async Task<ExploreSuggestionPageDto> GetAsync(string type, int count, int? after = null)
     {
@@ -23,9 +22,8 @@ public sealed class ExploreApiClient(HttpClient http)
     }
 
     /// <summary>
-    /// Adds a suggestion to the caller's collection: the server creates the item and links it to the reference
-    /// resolved from the exact provider id. Throws on a non-success status (e.g. 403 over the free-preview
-    /// quota, or on a member-only domain).
+    /// Adds a suggestion to the caller's collection: the server creates the item and links it to the reference resolved from the exact provider id.
+    /// Throws on a non-success status, such as a 403 over the free preview quota or on a member-only domain.
     /// </summary>
     public async Task AddAsync(string type, string externalId, string? title, int? year)
     {

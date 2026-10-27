@@ -20,11 +20,8 @@ public class GearRepository(IMongoDatabase mongoDatabase, ILogger<GearRepository
     protected override Expression<Func<Gear, object>> SortTitleField => x => x.Title;
 
     /// <summary>
-    /// "Bought" needs the max <c>AcquiredAt</c> across a gear item's <see cref="Gear.OwnedVersions"/>
-    /// array (the most recently acquired copy), not a single scalar field, so it can't use the shared
-    /// <c>SortSecondaryDateField</c> hook - same shape as <c>VideoGameRepository.GetSort</c>'s "last
-    /// completed" override, relying on MongoDB's native max-on-descending-sort semantics for a dotted
-    /// array field rather than an aggregation pipeline.
+    /// "Bought" sorts by the latest <c>AcquiredAt</c> across <see cref="Gear.OwnedVersions"/>, not a single field, so it cannot use the <c>SortSecondaryDateField</c> hook.
+    /// A descending sort on a dotted array field compares by its maximum, so no aggregation pipeline is needed, as in <c>VideoGameRepository.GetSort</c>.
     /// </summary>
     protected override SortDefinition<Gear> GetSort(string? sort) =>
         sort == ListSort.Bought
@@ -39,7 +36,7 @@ public class GearRepository(IMongoDatabase mongoDatabase, ILogger<GearRepository
                                                                          || (f.Brand != null && f.Brand.Contains(search, StringComparison.CurrentCultureIgnoreCase)));
         if (input.IsFavorite) filter &= builder.Eq(f => f.IsFavorite, true);
         if (!string.IsNullOrEmpty(input.Category)) filter &= builder.Eq(f => f.Category, input.Category);
-        // "owned" means at least one owned version - see MovieRepository.GetFilter
+        // owned means at least one owned version (see MovieRepository.GetFilter)
         if (input.IsOwned) filter &= builder.SizeGt(f => f.OwnedVersions, 0);
         return filter;
     }

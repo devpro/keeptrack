@@ -13,9 +13,8 @@ public class WatchNextPage(IPage page) : PageBase(page)
     }
 
     /// <summary>
-    /// TV shows and movies share the same <c>.kt-item-row</c> markup, just under whichever tab is currently active -
-    /// the other tab's rows aren't in the DOM at all (a plain Blazor <c>@if</c>),
-    /// so there's no ambiguity risk in reusing one locator for both.
+    /// TV shows and movies share the <c>.kt-item-row</c> markup under the active tab,
+    /// and the other tab's rows aren't in the DOM (a plain Blazor <c>@if</c>), so one locator serves both.
     /// </summary>
     public ILocator Card(string title) => Page.Locator(".kt-item-row", new PageLocatorOptions { HasText = title });
 

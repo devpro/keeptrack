@@ -3,7 +3,8 @@
  * Prints the environment variables declared in a `.runsettings` file as shell `export` statements.
  *
  * Why this exists: a filtered CLI test run cannot use the runsettings file.
- * `--filter-method` and `--filter-class` are Microsoft.Testing.Platform flags, and passing `--settings` alongside them switches `dotnet test` to legacy VSTest mode, which rejects them.
+ * `--filter-method` and `--filter-class` are Microsoft.Testing.Platform flags.
+ * Passing `--settings` alongside them switches `dotnet test` to legacy VSTest mode, which rejects them.
  * So a filtered run has to export the same values by hand, and hand-exporting them is where the trap is.
  *
  * The trap: sourcing plain `NAME=value` lines runs every value through shell expansion.

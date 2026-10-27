@@ -4,9 +4,8 @@ using System.Collections.Generic;
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// A TV show in progress, with the last episode Keeptrack knows was watched and the next confirmed-unseen
-/// one from its TMDB episode guide. Only shows with a resolved reference and a confirmed aired-but-unwatched
-/// episode are reported at all - see WatchNextService in WebApi.
+/// A TV show in progress, with the last episode known to be watched and the next unwatched one from its TMDB episode guide.
+/// Only shows with a reference and a confirmed aired, unwatched episode are reported (see <c>WatchNextService</c>).
 /// </summary>
 public class InProgressShowDto
 {
@@ -27,8 +26,7 @@ public class InProgressShowDto
     public required string NextEpisodeTitle { get; set; }
 
     /// <summary>
-    /// The show's reference poster URL, hydrated server-side from the reference document that confirmed
-    /// the next episode.
+    /// The show's cover URL, hydrated server side from the reference that confirmed the next episode.
     /// </summary>
     public string? ImageUrl { get; set; }
 }

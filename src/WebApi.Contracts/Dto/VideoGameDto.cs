@@ -19,7 +19,7 @@ public class VideoGameDto : IHasId, IReferenceLinkedDto
     public string? Title { get; set; }
 
     /// <summary>
-    /// Every platform this game is tracked on - one entry per platform, not per physical copy.
+    /// Every platform this game is tracked on, one entry per platform rather than per physical copy.
     /// </summary>
     public List<VideoGamePlatformDto> Platforms { get; set; } = [];
 
@@ -35,52 +35,50 @@ public class VideoGameDto : IHasId, IReferenceLinkedDto
     public string? ReferenceId { get; set; }
 
     /// <summary>
-    /// Cover image URL shown on the list page - <see cref="CustomImageUrl"/> when set, otherwise the linked
-    /// reference document's own cover. Read-only, hydrated server-side on list reads; never accepted from
-    /// client input (edit <see cref="CustomImageUrl"/> instead).
+    /// The cover shown on the list page: <see cref="CustomImageUrl"/> when set, else the linked reference's cover.
+    /// Read-only, hydrated server side on list reads and never accepted from the client, which edits <see cref="CustomImageUrl"/> instead.
     /// </summary>
     public string? ImageUrl { get; set; }
 
     /// <summary>
-    /// Denormalized primary-source (RAWG, 0-5) rating from the linked reference, on <see cref="ReferenceRatingScale"/>.
-    /// Server-managed on link/refresh, round-tripped on edits; null until linked. Full breakdown (incl. Metacritic)
-    /// on <see cref="VideoGameReferenceDto.Ratings"/>.
+    /// The linked reference's primary rating, from the source the admin selected, on <see cref="ReferenceRatingScale"/>.
+    /// Managed by the server on link and refresh, round-tripped on edits, and null until linked.
+    /// The full breakdown is <see cref="VideoGameReferenceDto.Ratings"/>.
     /// </summary>
     public double? ReferenceRating { get; set; }
 
-    /// <summary>Scale of <see cref="ReferenceRating"/> (5 for RAWG); null when there is no reference rating.</summary>
+    /// <summary>Scale of <see cref="ReferenceRating"/>, null when there is no reference rating.</summary>
     public double? ReferenceRatingScale { get; set; }
 
     /// <summary>
-    /// Which rating source <see cref="ReferenceRating"/> came from ("tmdb", "imdb", ...), so the value can be
-    /// labelled rather than shown as a bare number. Server-managed on link/refresh, round-tripped on edits.
+    /// The rating source <see cref="ReferenceRating"/> came from ("tmdb", "imdb", "igdb"), so the value is labelled rather than a bare number.
+    /// Managed by the server on link and refresh, and round-tripped on edits.
     /// </summary>
     public string? ReferenceRatingSource { get; set; }
 
     /// <summary>
-    /// Tenant-owned cover image override, freely editable - takes priority over the linked reference's
-    /// cover wherever one is shown. Null means "use the reference's cover, if any".
+    /// The tenant's own cover, freely editable, which takes priority over the linked reference's cover wherever one is shown.
+    /// Null means the reference's cover, if any.
     /// </summary>
     public string? CustomImageUrl { get; set; }
 
     /// <summary>
-    /// Filter-only query parameter: matches games with at least one platform entry (a game's copies).
-    /// Never populated on a returned game - see <see cref="Platform"/> for the convention.
+    /// Filter-only query parameter: matches games with at least one platform entry, a game's copies.
+    /// Never set on a returned game (see <see cref="Platform"/>).
     /// </summary>
     public bool IsOwned { get; set; }
 
     public bool IsWishlisted { get; set; }
 
     /// <summary>
-    /// Filter-only query parameter: matches if any entry in <see cref="Platforms"/> has this platform.
-    /// Never populated on a returned game - the list endpoint binds query-string filters onto this DTO
-    /// before mapping to the Domain model, so this property exists purely to receive <c>?platform=</c>.
+    /// Filter-only query parameter: matches when any entry in <see cref="Platforms"/> has this platform.
+    /// Never set on a returned game: the list endpoint binds query filters onto this DTO, so this property only receives <c>?platform=</c>.
     /// </summary>
     public string? Platform { get; set; }
 
     /// <summary>
-    /// Filter-only query parameter: matches if any entry in <see cref="Platforms"/> has this state. Never
-    /// populated on a returned game - see <see cref="Platform"/>.
+    /// Filter-only query parameter: matches when any entry in <see cref="Platforms"/> has this state.
+    /// Never set on a returned game (see <see cref="Platform"/>).
     /// </summary>
     public string? State { get; set; }
 }

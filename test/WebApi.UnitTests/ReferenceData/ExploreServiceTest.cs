@@ -13,10 +13,9 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
 /// <summary>
-/// The Explore read path, which pages a stored provider ranking rather than calling a provider: exclusions,
-/// the rank cursor, and which stored ordering/rating a domain's admin setting selects. The catalogue mock
-/// honours the cursor exactly as the repository does, so the paging assertions here are about real behaviour
-/// and not about a stub returning a fixed list.
+/// The Explore read path, which pages a stored provider ranking rather than calling a provider:
+/// exclusions, the rank cursor, and which stored ordering/rating a domain's admin setting selects.
+/// The catalogue mock honours the cursor exactly as the repository does, so the paging assertions here are about real behaviour and not about a stub returning a fixed list.
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class ExploreServiceTest
@@ -57,9 +56,8 @@ public class ExploreServiceTest
         };
 
     /// <summary>
-    /// Stands the stored ranking up behind the repository mock, honouring the rank cursor and page size the
-    /// service asks with - so a test can assert that paging continues from the right place rather than merely
-    /// that a call was made.
+    /// Stands the stored ranking up behind the repository mock, honouring the service's rank cursor and page size,
+    /// so a test asserts paging continues from the right place rather than only that a call was made.
     /// </summary>
     private void Catalogue(ExploreItemType type, string ranking, params ExploreCatalogueEntryModel[] entries)
     {
@@ -70,8 +68,7 @@ public class ExploreServiceTest
         _catalogueRepository.Setup(r => r.CountAsync(type, ranking)).ReturnsAsync(entries.Length);
     }
 
-    // "this owner tracks nothing and has dismissed nothing" - the starting point of every test that isn't
-    // specifically about the exclusion set.
+    // "this owner tracks nothing and has dismissed nothing", the starting point of every test not about the exclusion set
     private void NoExclusions(ExploreItemType type)
     {
         _dismissalRepository.Setup(r => r.FindDismissedExternalIdsAsync("owner", type, It.IsAny<string>())).ReturnsAsync([]);
@@ -102,7 +99,7 @@ public class ExploreServiceTest
 
         var page = await CreateService().GetSuggestionsAsync(ExploreItemType.Movie, "owner", 24, null, TestContext.Current.CancellationToken);
 
-        // 100 is tracked, 200 is dismissed - only 300 survives
+        // 100 is tracked and 200 dismissed, so only 300 survives
         page.Items.Should().ContainSingle();
         page.Items[0].ExternalId.Should().Be("300");
         page.Items[0].Rating.Should().Be(8.6);
@@ -113,9 +110,8 @@ public class ExploreServiceTest
     public async Task GetSuggestionsAsync_ExcludesATitleTheOwnerTracks_EvenWhenItHasNoReferenceLink()
     {
         NoExclusions(ExploreItemType.Movie);
-        // an item the owner typed in or imported that never got linked has no provider id to exclude by -
-        // only its title. Matching goes through the app-wide TitleNormalizer, so it is exactly as forgiving
-        // as every other title match in the codebase (case and surrounding whitespace), no more.
+        // An item the owner typed in or imported that never got linked has no provider id to exclude by, only its title.
+        // Matching goes through TitleNormalizer, as forgiving as every other title match (case and surrounding whitespace), no more.
         _movieRepository.Setup(r => r.FindDistinctTitlesAsync("owner")).ReturnsAsync([" tITLE 1 "]);
         Catalogue(ExploreItemType.Movie, "tmdb",
             Entry(ExploreItemType.Movie, "tmdb", "1", 1, ("tmdb", 8.7)),
@@ -192,8 +188,7 @@ public class ExploreServiceTest
 
         var page = await CreateService().GetSuggestionsAsync(ExploreItemType.Movie, "owner", 24, null, TestContext.Current.CancellationToken);
 
-        // "not built yet" (a fresh deployment before the first refresh pass) is an empty list too, but it
-        // means the opposite of "everything seen" to a user.
+        // "not built yet" (a fresh deployment before the first refresh pass) is an empty list too, but it means the opposite of "everything seen" to a user.
         page.Items.Should().BeEmpty();
         page.CataloguePending.Should().BeTrue();
     }
@@ -231,8 +226,7 @@ public class ExploreServiceTest
         // admin picked IMDb as the movie primary source
         _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync()).ReturnsAsync(new Dictionary<string, string> { ["Movie"] = "imdb" });
         NoExclusions(ExploreItemType.Movie);
-        // IMDb has no catalogue API, so there is no "imdb" ordering at all - the entries are ranked by TMDB
-        // and simply carry both numbers.
+        // IMDb has no catalogue API, so there is no "imdb" ordering, and the entries are ranked by TMDB and carry both numbers.
         Catalogue(ExploreItemType.Movie, "tmdb",
             Entry(ExploreItemType.Movie, "tmdb", "20", 1, ("tmdb", 9.0), ("imdb", 7.0)),
             Entry(ExploreItemType.Movie, "tmdb", "10", 2, ("tmdb", 5.0), ("imdb", 8.5)));
@@ -251,9 +245,8 @@ public class ExploreServiceTest
         var service = CreateService();
         _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync()).ReturnsAsync(new Dictionary<string, string> { ["Movie"] = "imdb" });
         NoExclusions(ExploreItemType.Movie);
-        // the IMDb backfill is bounded per pass, so an entry deep in the ranking can legitimately not have one
-        // yet. Showing its TMDB number under an IMDb selection would be a quietly wrong number; showing none
-        // is the same thing the per-request OMDb lookup used to do when it came back empty.
+        // the IMDb backfill is bounded per pass, so an entry deep in the ranking can legitimately not have one yet.
+        // Its TMDB number under an IMDb selection would be quietly wrong, so it shows none.
         Catalogue(ExploreItemType.Movie, "tmdb", Entry(ExploreItemType.Movie, "tmdb", "20", 1, ("tmdb", 9.0)));
 
         var page = await service.GetSuggestionsAsync(ExploreItemType.Movie, "owner", 24, null, TestContext.Current.CancellationToken);
@@ -299,8 +292,8 @@ public class ExploreServiceTest
         var service = CreateService();
         _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync()).ReturnsAsync(new Dictionary<string, string> { ["VideoGame"] = "igdbcritic" });
         NoExclusions(ExploreItemType.VideoGame);
-        // unlike TMDB, a game provider genuinely sorts differently per source, so each source is a separately
-        // stored ordering - reading the wrong one would show the right numbers in the wrong order.
+        // Unlike TMDB, a game provider sorts differently per source, so each source is a separately stored ordering,
+        // and reading the wrong one would show the right numbers in the wrong order.
         Catalogue(ExploreItemType.VideoGame, "igdbcritic",
             Entry(ExploreItemType.VideoGame, "igdbcritic", "g9", 1, ("igdb", 84), ("igdbcritic", 98)));
 
@@ -317,9 +310,8 @@ public class ExploreServiceTest
     public async Task GetSuggestionsAsync_ForVideoGames_FallsBackToTheRankingsOwnScore_WhenTheSelectedSourceIsOneTheProviderCannotReport()
     {
         var service = CreateService();
-        // Metacritic stays selectable because references linked through RAWG still carry it, but the current
-        // discovery provider neither orders by it nor reports it. Honouring the selection literally would
-        // leave every single card with no number at all, permanently - so the ranking's own score is shown.
+        // Metacritic stays selectable because references linked through RAWG still carry it, but the current discovery provider neither orders by it nor reports it.
+        // Honouring the selection literally would leave every card with no number, so the ranking's own score is shown.
         _appSettingRepository.Setup(r => r.GetReferenceRatingSourcesAsync()).ReturnsAsync(new Dictionary<string, string> { ["VideoGame"] = "metacritic" });
         NoExclusions(ExploreItemType.VideoGame);
         Catalogue(ExploreItemType.VideoGame, "igdb", Entry(ExploreItemType.VideoGame, "igdb", "g1", 1, ("igdb", 92)));
@@ -334,8 +326,7 @@ public class ExploreServiceTest
     public async Task GetSuggestionsAsync_ForVideoGames_IsUnaffectedByTheForceTmdbExploreFlag()
     {
         var service = CreateService();
-        // the flag exists only to keep movie/TV discovery off the IMDb backfill - "tmdb" is not a video game
-        // rating source at all, so it must never leak into this domain's ranking.
+        // The flag only keeps movie and TV discovery off the IMDb backfill, and "tmdb" is not a video game rating source, so it must never leak into this domain's ranking.
         _appSettingRepository.Setup(r => r.GetExploreUseTmdbAsync()).ReturnsAsync(true);
         NoExclusions(ExploreItemType.VideoGame);
         Catalogue(ExploreItemType.VideoGame, "igdb", Entry(ExploreItemType.VideoGame, "igdb", "g1", 1, ("igdb", 92)));
@@ -350,7 +341,7 @@ public class ExploreServiceTest
     {
         NoExclusions(ExploreItemType.VideoGame);
         _videoGameRepository.Setup(r => r.FindLinkedReferenceIdsAsync("owner")).ReturnsAsync(["ref-g"]);
-        // the tracked game's reference is read in the discovery provider's number space - never a TMDB one
+        // the tracked game's reference is read in the discovery provider's id space, never a TMDB one
         _videoGameReferenceRepository.Setup(r => r.FindExternalIdsAsync(It.Is<IReadOnlyCollection<string>>(c => c.Contains("ref-g")), "igdb"))
             .ReturnsAsync(["g1"]);
         Catalogue(ExploreItemType.VideoGame, "igdb",
@@ -372,8 +363,7 @@ public class ExploreServiceTest
 
         _dismissalRepository.Verify(r => r.AddAsync(It.Is<ExploreDismissalModel>(m =>
             m.OwnerId == "owner" && m.ItemType == ExploreItemType.TvShow && m.ExternalSource == "tmdb" && m.ExternalId == "tv9")), Times.Once);
-        // a game provider's id and a TMDB id are both plain integers, so the provider is stored, never
-        // inferred - which is also what keeps dismissals recorded under a previous provider unambiguous
+        // A game provider's id and a TMDB id are both plain integers, so the provider is stored, never inferred, which also keeps dismissals under a previous provider unambiguous.
         _dismissalRepository.Verify(r => r.AddAsync(It.Is<ExploreDismissalModel>(m =>
             m.OwnerId == "owner" && m.ItemType == ExploreItemType.VideoGame && m.ExternalSource == "igdb" && m.ExternalId == "g9")), Times.Once);
     }
@@ -399,8 +389,7 @@ public class ExploreServiceTest
 
         var page = await service.GetSuggestionsAsync(ExploreItemType.Movie, "owner", 24, null, TestContext.Current.CancellationToken);
 
-        // clicking through has to land where the number came from - a card showing an IMDb score that opens
-        // TMDB sends the reader somewhere they can't check what they just read.
+        // Clicking through lands where the number came from, since a card showing an IMDb score that opens TMDB sends the reader where the number can't be checked.
         page.Items[0].ProviderUrl.Should().Be("https://www.imdb.com/title/tt0020/");
         page.Items[0].ProviderName.Should().Be("IMDb");
     }
@@ -418,8 +407,7 @@ public class ExploreServiceTest
 
         var page = await service.GetSuggestionsAsync(ExploreItemType.Movie, "owner", 24, null, TestContext.Current.CancellationToken);
 
-        // the whole ranking is deeper than one pass of backfill, so "no IMDb link yet" is a normal state and
-        // must degrade to a working link rather than to no link at all
+        // the whole ranking is deeper than one pass of backfill, so "no IMDb link yet" is a normal state and must degrade to a working link rather than to no link at all
         page.Items[0].ProviderUrl.Should().Be("https://www.themoviedb.org/movie/20");
         page.Items[0].ProviderName.Should().Be("TMDB");
     }

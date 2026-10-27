@@ -16,8 +16,7 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Basic full-cycle CRUD coverage for <c>VideoGame</c> - closes a gap flagged in
-/// docs/findings/by-design-and-gaps.md ("...VideoGame still have none"), same shape as <see cref="BookResourceTest"/>.
+/// Basic full-cycle CRUD coverage for <c>VideoGame</c> - closes a gap flagged in docs/backlog.md ("...VideoGame still have none"), same shape as <see cref="BookResourceTest"/>.
 /// </summary>
 public class VideoGameResourceTest(KestrelWebAppFactory<Program> factory)
     : ResourceTestBase(factory)
@@ -36,9 +35,8 @@ public class VideoGameResourceTest(KestrelWebAppFactory<Program> factory)
             {
                 o.Title = f.Random.AlphaNumeric(14);
                 o.Platforms = [new VideoGamePlatformDto { Platform = "PC", CopyType = CopyType.Physical, State = "Current" }];
-                // round-trips CustomImageUrl through the real Mapperly mappers + MongoDB - a plain scalar field
-                // with no special mapping, but a real integration test is what would catch a missed
-                // [BsonElement]/mapper ignore, not a mocked unit test.
+                // Round-trips CustomImageUrl through the real Mapperly mappers and MongoDB, a plain scalar,
+                // since only a real integration test catches a missed [BsonElement] or mapper ignore.
                 o.CustomImageUrl = f.Internet.Url();
             })
             .Generate();
@@ -82,9 +80,8 @@ public class VideoGameResourceTest(KestrelWebAppFactory<Program> factory)
         var title = Guid.NewGuid().ToString();
         var platforms = new[]
         {
-            // "owned" is derived from having at least one platform entry (a game's copies), not a stored flag -
-            // this entry also carries the same ownership fields (price/vendor/acquired/reference) as every
-            // other media type's owned copies, see OwnedVersionModel
+            // "Owned" derives from having at least one platform entry (a game's copies), not a stored flag.
+            // This entry carries the ownership fields (price, vendor, acquired, reference) of every other media type's owned copies (see OwnedVersionModel).
             new VideoGamePlatformDto
             {
                 Platform = "PS5", CopyType = CopyType.Physical, State = "Available",
@@ -101,19 +98,18 @@ public class VideoGameResourceTest(KestrelWebAppFactory<Program> factory)
         var owned = await GetAsync<PagedResult<VideoGameDto>>($"/{ResourceEndpoint}?IsOwned=true&search={title}");
         owned.Items.Should().ContainSingle(x => x.Id == created.Id);
 
-        // the platform entry's ownership fields must survive the full DTO -> model -> BSON round trip (incl. the decimal price)
+        // the platform entry's ownership fields survive the full DTO, model and BSON round trip, the decimal price included
         var fetchedPlatforms = owned.Items.Single(x => x.Id == created.Id).Platforms;
         fetchedPlatforms.Should().BeEquivalentTo(platforms);
 
-        // this is the WishlistController filter-probe, not a list-page UI filter (removed) - still real API behavior
+        // the WishlistController filter probe, not a list-page UI filter, still real API behaviour
         var wishlisted = await GetAsync<PagedResult<VideoGameDto>>($"/{ResourceEndpoint}?IsWishlisted=true&search={title}");
         wishlisted.Items.Should().ContainSingle(x => x.Id == created.Id);
     }
 
     /// <summary>
-    /// <see cref="VideoGameDto.CustomImageUrl"/> follows <see cref="BookDto.CustomImageUrl"/>'s exact shape -
-    /// <c>VideoGameController.OnListMappedAsync</c> is expected to apply it over the linked reference's own
-    /// cover on every list read.
+    /// <see cref="VideoGameDto.CustomImageUrl"/> follows <see cref="BookDto.CustomImageUrl"/>'s shape:
+    /// <c>VideoGameController.OnListMappedAsync</c> applies it over the linked reference's cover on every list read.
     /// </summary>
     [Fact]
     public async Task VideoGameResourceList_CustomImageUrlOverridesTheLinkedReferencesCover()

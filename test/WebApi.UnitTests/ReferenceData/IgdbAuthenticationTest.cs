@@ -15,11 +15,10 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
 /// <summary>
-/// IGDB is the one provider that authenticates with a token rather than an api key, so the two pieces that
-/// token brings with it get their own coverage: the cache in front of Twitch, and the handler that attaches it
-/// and recovers from a rejection. Neither can be exercised through the client's own tests, and getting either
-/// wrong is silent - an over-eager cache fetches on every call, a missing 401 retry breaks every IGDB request
-/// until the process restarts.
+/// IGDB is the one provider authenticating with a token rather than an api key, so the token's two pieces get their own coverage:
+/// the cache in front of Twitch, and the handler attaching it and recovering from a rejection.
+/// The client's tests can't exercise either, and getting either wrong is silent:
+/// an over-eager cache fetches on every call, and a missing 401 retry breaks every IGDB request until a restart.
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class IgdbAuthenticationTest
@@ -27,8 +26,7 @@ public class IgdbAuthenticationTest
     [Fact]
     public async Task GetTokenAsync_ReturnsNull_AndNeverCallsTwitch_WhenIgdbIsNotConfigured()
     {
-        // a deployment with no credentials must degrade to "no video game reference data", not fail to boot
-        // or hammer Twitch with unauthenticated requests
+        // a deployment with no credentials must degrade to "no video game reference data", not fail to boot or hammer Twitch with unauthenticated requests
         var handler = new StubHandler(_ => TokenResponse("t1", 3600));
         var provider = CreateProvider(handler, new IgdbSettings());
 
@@ -82,9 +80,9 @@ public class IgdbAuthenticationTest
     [Fact]
     public async Task GetTokenAsync_FetchesAgain_WhenTheCachedTokenIsAlreadyPastItsRenewalPoint()
     {
-        // an already-expired token must never be served from the cache. The renewal margin is capped at half
-        // the token's lifetime for the same reason in reverse: a fixed margin longer than the lifetime would
-        // make *every* token look expired on arrival and turn the cache into an extra round trip per call.
+        // an already-expired token must never be served from the cache.
+        // The renewal margin is capped at half the token's lifetime for the same reason in reverse:
+        // a fixed margin longer than the lifetime would make *every* token look expired on arrival and turn the cache into an extra round trip per call.
         var handler = new StubHandler(call => TokenResponse($"t{call}", 0));
         var provider = CreateProvider(handler);
 
@@ -98,8 +96,7 @@ public class IgdbAuthenticationTest
     [Fact]
     public async Task GetTokenAsync_ReturnsNull_WhenTwitchRejectsTheCredentials()
     {
-        // never throws: a bad or expired secret must surface as "IGDB is unavailable", not as a 500 from an
-        // admin search
+        // never throws: a bad or expired secret must surface as "IGDB is unavailable", not as a 500 from an admin search
         var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
         var provider = CreateProvider(handler);
 
@@ -125,8 +122,7 @@ public class IgdbAuthenticationTest
     [Fact]
     public async Task AuthenticationHandler_RefreshesAndRetriesOnce_WhenIgdbRejectsTheToken()
     {
-        // a revoked or early-expired token would otherwise fail every request until the process restarted,
-        // since nothing else ever invalidates the cache
+        // a revoked or early-expired token would otherwise fail every request until the process restarted, since nothing else ever invalidates the cache
         var tokenProvider = new FakeTokenProvider("t1", "t2");
         var handler = new StubHandler(call => new HttpResponseMessage(call == 1 ? HttpStatusCode.Unauthorized : HttpStatusCode.OK));
         var client = CreateAuthenticatedClient(tokenProvider, handler);
@@ -136,8 +132,7 @@ public class IgdbAuthenticationTest
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         tokenProvider.InvalidateCount.Should().Be(1);
         handler.Requests.Select(r => r.Authorization).Should().Equal("Bearer t1", "Bearer t2");
-        // the retry carries the same body - a request whose content was consumed by the first attempt would
-        // otherwise reach IGDB empty and come back as a query error rather than a result
+        // The retry carries the same body, or a request whose content the first attempt consumed would reach IGDB empty and answer a query error.
         handler.Requests.Select(r => r.Body).Should().Equal("fields name;", "fields name;");
     }
 

@@ -1,15 +1,13 @@
-@* One row of the car history sheet - a compact summary of the most important fields. Editing happens
-   through the same modal used to add a new entry (CarDetail.razor), opened via the Edit button below.
-   ⚠ (U+26A0) and the edit/delete icons default to text presentation (no FE0F) - same convention as
-   HealthRecordRow.razor. *@
+@* One row of the car history sheet, a compact summary of the most important fields.
+   The Edit button below opens the same modal that adds an entry (CarDetail.razor).
+   ⚠ (U+26A0) and the edit and delete icons default to text presentation (no FE0F), like HealthRecordRow.razor. *@
 
 <tr class="@(HasWarning ? "kt-history-row-warning" : "")">
     <td>@Entry.HistoryDate.ToString(Entry.HistoryDate.TimeOfDay == TimeSpan.Zero ? "yyyy-MM-dd" : "yyyy-MM-dd HH:mm")</td>
     <td class="kt-num">@Entry.Mileage</td>
     <td>@Entry.EventType</td>
     <td class="kt-num">@Entry.Cost?.ToString("F2")</td>
-    @* A refuel carries no location of its own any more - both columns read through to the station it
-       points at, which is where that data now lives (hydrated server-side, one lookup per page). *@
+    @* A refuel carries no location of its own, so both columns read through to its station, hydrated server-side in one lookup per page. *@
     <td class="d-none d-md-table-cell">@(Entry.StationBrandName ?? Entry.Garage)</td>
     <td class="d-none d-md-table-cell">@(Entry.City ?? Entry.StationCity)</td>
     <td class="d-none d-md-table-cell">@Entry.Description</td>
@@ -37,7 +35,7 @@
 
     [Parameter] public string? WarningMessage { get; set; }
 
-    /// <summary>Read-only mode (a recipient viewing a shared car) hides the edit/delete actions column.</summary>
+    /// <summary>Read-only mode (a recipient viewing a shared car) hides the edit and delete column.</summary>
     [Parameter] public bool ReadOnly { get; set; }
 
     [Parameter] public EventCallback<CarHistoryDto> OnEdit { get; set; }

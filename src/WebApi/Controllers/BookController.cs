@@ -21,18 +21,15 @@ public class BookController(
     : DataCrudControllerBase<BookDto, BookModel>(mapper, dataRepository)
 {
     /// <summary>
-    /// Hydrates each page item's cover image from its linked reference document - one batched lookup per
-    /// page (see <see cref="ReferenceImageHydrator"/>), keyed by the id-bearing documents only. A book with
-    /// its own <see cref="BookDto.CustomImageUrl"/> set overrides that afterward, via the shared
-    /// <see cref="ReferenceImageHydrator.HydrateWithCustomOverrideAsync"/>. Only Book/Album/VideoGame carry a
-    /// <c>CustomImageUrl</c>; the other reference-linked types (movie, TV show) have no equivalent override and
-    /// use the plain <see cref="ReferenceImageHydrator.HydrateAsync"/> path instead.
+    /// Hydrates each item's cover from its linked reference, one batched lookup per page (see <see cref="ReferenceImageHydrator"/>).
+    /// A book's own <see cref="BookDto.CustomImageUrl"/> then overrides it, through <see cref="ReferenceImageHydrator.HydrateWithCustomOverrideAsync"/>.
+    /// Only books, albums and video games have a custom cover, so movies and TV shows use <see cref="ReferenceImageHydrator.HydrateAsync"/>.
     /// </summary>
     protected override Task OnListMappedAsync(List<BookDto> dtos, CancellationToken cancellationToken) =>
         ReferenceImageHydrator.HydrateWithCustomOverrideAsync(dtos, referenceRepository.FindByIdsAsync, x => x.ImageUrl, x => x.CustomImageUrl);
 
     /// <summary>
-    /// Fires a best-effort background Open Library match for the new book - see <see cref="TvShowController.OnCreatedAsync"/>.
+    /// Starts a best-effort background match through the default book provider (see <see cref="TvShowController.OnCreatedAsync"/>).
     /// </summary>
     protected override Task OnCreatedAsync(BookModel model)
     {
@@ -54,8 +51,7 @@ public class BookController(
     }
 
     /// <summary>
-    /// User-triggered, exact-match-only re-check against the local reference collection - see
-    /// <see cref="TvShowController.RefreshReference"/>.
+    /// "Check for reference match" (see <see cref="TvShowController.RefreshReference"/>).
     /// </summary>
     [HttpPost("{id}/refresh-reference")]
     [ProducesResponseType(200)]
@@ -70,8 +66,7 @@ public class BookController(
     }
 
     /// <summary>
-    /// Admin-only: clears this book's reference link and permanently deletes the shared reference
-    /// document - see <see cref="TvShowController.UnlinkReference"/>.
+    /// Admin only: clears this book's link and deletes the shared reference document (see <see cref="TvShowController.UnlinkReference"/>).
     /// </summary>
     [HttpPost("{id}/unlink-reference")]
     [Authorize(Policy = "AdminOnly")]

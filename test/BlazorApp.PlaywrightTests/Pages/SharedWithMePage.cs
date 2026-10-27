@@ -4,8 +4,8 @@ using Microsoft.Playwright;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 
 /// <summary>
-/// The recipient's "Shared with me" list (<c>/account/manage/shared-with-me</c>): the people who shared a
-/// collection with the caller. Selecting one opens their <see cref="SharedCollectionViewPage"/>.
+/// The recipient's "Shared with me" list (<c>/account/manage/shared-with-me</c>): the people who shared a collection with the caller.
+/// Selecting one opens their <see cref="SharedCollectionViewPage"/>.
 /// </summary>
 public class SharedWithMePage(IPage page) : PageBase(page)
 {
@@ -23,13 +23,13 @@ public class SharedWithMePage(IPage page) : PageBase(page)
         await Assertions.Expect(Page.Locator(".kt-spinner")).ToBeHiddenAsync();
     }
 
-    /// <summary>Any sharer row - the list shows one card per person who shared a collection with the caller.</summary>
+    /// <summary>Any sharer row, the list showing one card per person who shared a collection with the caller.</summary>
     public ILocator PersonRow => Page.Locator(".kt-item-row");
 
     /// <summary>
-    /// Opens a specific shared collection by id. The list rows show only the sharer's display name (identical
-    /// for every self-share grant), so a test that created its grant to its own email navigates by the grant id
-    /// it read back from the API rather than by an ambiguous row match.
+    /// Opens a specific shared collection by id.
+    /// The list rows show only the sharer's display name (identical for every self-share grant),
+    /// so a test that created its grant to its own email navigates by the grant id it read back from the API rather than by an ambiguous row match.
     /// </summary>
     public async Task<SharedCollectionViewPage> OpenCollectionByIdAsync(string shareId)
     {

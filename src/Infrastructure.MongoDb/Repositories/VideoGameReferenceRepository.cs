@@ -38,7 +38,8 @@ public class VideoGameReferenceRepository(IMongoDatabase mongoDatabase, VideoGam
         ReferenceRatingQueries.FindRatingsAsync<VideoGameReference>(Collection, afterId, limit);
 
     /// <summary>
-    /// Matches against every (title, year) combination ever confirmed for a reference, not just its canonical one - see <see cref="ReferenceAliasQueries"/> for the shared query and why every condition sits in one <c>ElemMatch</c>.
+    /// Matches every (title, year) combination confirmed for a reference,
+    /// not only its canonical one (see <see cref="ReferenceAliasQueries"/> for why every condition sits in one <c>ElemMatch</c>).
     /// </summary>
     public async Task<VideoGameReferenceModel?> FindByTitleYearAsync(string title, int? year)
     {
@@ -67,9 +68,7 @@ public class VideoGameReferenceRepository(IMongoDatabase mongoDatabase, VideoGam
 
     public async Task<List<VideoGameReferenceModel>> FindWithoutExternalIdAsync(string provider)
     {
-        // Exists:false rather than Eq(null): a document written before this provider existed simply has no
-        // such key, and the same "a missing field is not a null field" trap the staleness query documents
-        // applies here - only Exists matches both a missing key and one explicitly set to null.
+        // Exists false, which matches a missing key, since a document never linked through this provider has no such key
         var filter = Builders<VideoGameReference>.Filter.Exists($"external_ids.{provider}", false);
         var entities = await Collection.Find(filter).SortBy(x => x.Title).ToListAsync();
         return entities.Select(mapper.ToModel).ToList();
@@ -84,8 +83,9 @@ public class VideoGameReferenceRepository(IMongoDatabase mongoDatabase, VideoGam
     public async Task<VideoGameReferenceModel> UpsertAsync(VideoGameReferenceModel model)
     {
         model.TitleNormalized = TitleNormalizer.Normalize(model.Title);
-        // the canonical (title, year) combination is always itself a valid match, whether or not the caller remembered to include it - but only while it is a complete key.
-        // A game with no year records nothing: IGDB holds eight named exactly "Resident Evil 2", and the title-only alias this used to write for them answered every later lookup for that title, whatever year it carried (see ReferenceAliasRule).
+        // The canonical (title, year) is always a valid match, but only as a complete key.
+        // A game with no year records nothing, since a title-only alias would answer every later lookup of that title, whatever its year,
+        // and IGDB holds eight games named "Resident Evil 2" (see ReferenceAliasRule).
         ReferenceAliasRule.TitleAndYear.EnsureCanonical(model.MatchedAliases, model.TitleNormalized, model.Year);
         var entity = mapper.ToEntity(model);
 

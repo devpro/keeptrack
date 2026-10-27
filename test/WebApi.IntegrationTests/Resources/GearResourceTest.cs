@@ -13,8 +13,7 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Basic full-cycle CRUD coverage for <c>Gear</c>, same shape as <see cref="CollectibleResourceTest"/>
-/// (Gear has no external reference-data provider either).
+/// Basic full-cycle CRUD coverage for <c>Gear</c>, same shape as <see cref="CollectibleResourceTest"/> (Gear has no external reference-data provider either).
 /// </summary>
 public class GearResourceTest(KestrelWebAppFactory<Program> factory)
     : ResourceTestBase(factory)
@@ -143,7 +142,7 @@ public class GearResourceTest(KestrelWebAppFactory<Program> factory)
         var ownedResults = await GetAsync<PagedResult<GearDto>>($"/{ResourceEndpoint}?IsOwned=true&search={title}");
         ownedResults.Items.Should().ContainSingle(x => x.Id == owned.Id);
         ownedResults.Items.Should().NotContain(x => x.Id == plain.Id);
-        // the version's fields must survive the full DTO -> model -> BSON round trip, including ProductName
+        // the version's fields survive the full DTO, model and BSON round trip, ProductName included
         ownedResults.Items.Single(x => x.Id == owned.Id).OwnedVersions.Should().BeEquivalentTo(owned.OwnedVersions);
 
         var favoriteResults = await GetAsync<PagedResult<GearDto>>($"/{ResourceEndpoint}?IsFavorite=true&search={title}");

@@ -9,7 +9,7 @@ namespace Keeptrack.Infrastructure.MongoDb.Mappers;
 [UseStaticMapper(typeof(CommonStorageMappings))]
 public partial class AlbumStorageMapper : IStorageMapper<AlbumModel, Album>
 {
-    // IsOwned is filter-only (derived from OwnedVersions) - see MovieStorageMapper.
+    // IsOwned is filter only, derived from OwnedVersions (see MovieStorageMapper)
     [MapperIgnoreSource(nameof(AlbumModel.IsOwned))]
     public partial Album ToEntity(AlbumModel model);
 

@@ -19,8 +19,8 @@ public class HealthProfileController(
     : DataCrudControllerBase<HealthProfileDto, HealthProfileModel>(mapper, dataRepository)
 {
     /// <summary>
-    /// Computed metrics for this profile: yearly costs after reimbursements, last visit per practitioner,
-    /// and paid records still waiting on a reimbursement - see <see cref="HealthMetricsService"/>.
+    /// Computed metrics for this profile: yearly costs after reimbursements, the last visit per specialty,
+    /// and paid records still waiting on a reimbursement (see <see cref="HealthMetricsService"/>).
     /// </summary>
     [HttpGet("{id}/metrics")]
     [ProducesResponseType(200)]
@@ -39,8 +39,8 @@ public class HealthProfileController(
     }
 
     /// <summary>
-    /// HealthRecord is a separate top-level collection referencing its profile by id, not an embedded array (see CLAUDE.md's "Child entities" section) -
-    /// without this, deleting a profile would leave its journal orphaned in MongoDB forever, since it's only ever reachable via the profile's own id.
+    /// Cascades to the profile's journal, a separate collection reachable only through the profile's id,
+    /// which would otherwise be orphaned forever (see docs/data-model.md's "Child entities" section).
     /// </summary>
     protected override async Task OnDeletedAsync(string id, string ownerId, CancellationToken cancellationToken)
     {

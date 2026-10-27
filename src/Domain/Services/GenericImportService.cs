@@ -12,21 +12,19 @@ using Keeptrack.Domain.Models;
 namespace Keeptrack.Domain.Services;
 
 /// <summary>
-/// Parses a generic store/CSV import into review rows. Pure: bytes in, rows out, no repository access -
-/// <c>alreadyImportedReferences</c> below is computed by the caller from already-fetched data so this stays
-/// testable without a database.
+/// Parses a generic CSV import into review rows.
+/// Pure: bytes in, rows out, with no repository access, the caller computing <c>alreadyImportedReferences</c> so this tests without a database.
 ///
-/// This is the store-agnostic generalization of <see cref="AmazonOrderPreviewService"/>: instead of hardcoding
-/// Amazon's vendor, columns, and its ISBN-based "is this a book" guess, every field is read from a canonical,
-/// case-insensitive column set (all optional except the title) the user reshapes their own export into within a
-/// spreadsheet. Notably a "Type" column, when present, decides each row's media type directly - no per-row
-/// guessing - which is the whole reason the Amazon page's per-row picker can be pre-filled here.
+/// The store-agnostic counterpart of <see cref="AmazonOrderPreviewService"/>.
+/// Rather than hardcoding a vendor, columns and a "is this a book" guess, it reads a canonical,
+/// case-insensitive column set, all optional except the title, that the user reshapes an export into.
+/// A "Type" column, when present, sets each row's media type, which prefills the per-row picker.
 /// </summary>
 public static class GenericImportService
 {
     private sealed class GenericImportRecord
     {
-        // Title is the one required column. Its aliases cover the common retailer header ("Product Name").
+        // the one required column, with the common retailer header as an alias
         [Name("Title", "Product Name")]
         public required string Title { get; set; }
 
@@ -50,14 +48,12 @@ public static class GenericImportService
         [Name("Price", "Total Amount", "Amount")]
         public string? Price { get; set; }
 
-        // The store name - populates the owned copy's Vendor field only. Its own column, separate from Website
-        // below (which feeds the copy's Reference, not the Vendor field).
+        // the store name, which becomes the copy's Vendor only, unlike Website, which feeds its Reference
         [Optional]
         [Name("Vendor", "Store")]
         public string? Vendor { get; set; }
 
-        // Free-text label that goes into the owned copy's Reference (a product/order URL, seller...). Feeds the
-        // Reference only, never the Vendor field.
+        // free-text label (product or order URL, seller) for the copy's Reference, never its Vendor
         [Optional]
         [Name("Website")]
         public string? Website { get; set; }
@@ -129,16 +125,12 @@ public static class GenericImportService
     }
 
     /// <summary>
-    /// The one place that formats an owned copy's <c>Reference</c> for an imported row - human-readable, and
-    /// also the exact-match dedup key <see cref="OwnedItemImportMergeService.FindImportedReferences{TModel}"/>
-    /// looks for on a later re-import. The leading label is the <paramref name="website"/> value (the free-text
-    /// "Website" column - a product/order URL, seller...), NOT the vendor: the reference is deliberately
-    /// independent of the Vendor field. Dedup uniqueness comes from the product id (falling back to the title
-    /// when the file has none) alongside the order id, not from that label: a single order commonly contains
-    /// several different line items, and order-id-only matching would silently skip every sibling once any one
-    /// of them had been imported - the same class of bug <see cref="AmazonImportMergeService.FormatOrderReference"/>
-    /// avoids with the ASIN and <see cref="GenericVideoGameImportService.FormatReference"/> avoids with the
-    /// product name. So a non-unique <paramref name="website"/> label is harmless here.
+    /// Formats an imported row's owned copy <c>Reference</c>,
+    /// which is human-readable and also the exact dedup key <see cref="OwnedItemImportMergeService.FindImportedReferences{TModel}"/> looks for on a re-import.
+    /// The leading label is the <paramref name="website"/> column, never the vendor, so the reference stays independent of the Vendor field.
+    /// Uniqueness comes from the order id plus the product id, or the title when the file has none, never from the label.
+    /// One order often holds several items, and the order id alone would skip every other item once one was imported,
+    /// as the ASIN and the PSN product name prevent in the other importers.
     /// </summary>
     public static string FormatReference(string? website, string? orderId, string? productId, string title)
     {
@@ -149,11 +141,10 @@ public static class GenericImportService
     }
 
     /// <summary>
-    /// Reference-data linking is expected to overwrite the created item's title (and, for a book, its ISBN)
-    /// with the provider's canonical values, and the user may have already cleaned up the title before commit
-    /// - so this is the one place the source export's original listing text is preserved, for an item created
-    /// by this import. Only used at creation time: a pre-existing item's provenance isn't this import's to
-    /// invent. <paramref name="isbn"/> is null for every domain but Book.
+    /// Keeps the export's original listing text on an item this import creates.
+    /// Reference linking may overwrite the title (and a book's ISBN), and the user may have edited the title before commit.
+    /// Only used on creation, since an existing item's provenance is not this import's to invent.
+    /// <paramref name="isbn"/> is null for every domain but books.
     /// </summary>
     public static string BuildProvenanceNotes(string? vendor, string sourceTitle, string? isbn)
     {
@@ -164,10 +155,8 @@ public static class GenericImportService
     }
 
     /// <summary>
-    /// Maps a free-text "Type" column value onto <see cref="ImportMediaType"/>, tolerating the natural
-    /// spellings a user would type in a spreadsheet ("TV Show", "Video Game", "Film", "Jeu"...). Returns null
-    /// for a blank or unrecognized value, which the review UI turns into a required per-row pick rather than
-    /// guessing - the same "don't guess when the information isn't there" principle used across the app.
+    /// Maps a free-text "Type" value onto <see cref="ImportMediaType"/>, tolerating the spellings a user types ("TV Show", "Video Game", "Film", "Jeu").
+    /// Null for a blank or unrecognized value, which the review UI turns into a required pick rather than a guess.
     /// </summary>
     public static ImportMediaType? ParseMediaType(string? raw)
     {
@@ -199,8 +188,7 @@ public static class GenericImportService
     }
 
     /// <summary>
-    /// Strips a leading apostrophe (a spreadsheet's Excel-formula-injection guard, e.g. the literal <c>'-5</c>)
-    /// before parsing - the same defense <see cref="AmazonOrderPreviewService"/> needs.
+    /// Strips a leading apostrophe, a spreadsheet's guard against formula injection (the literal <c>'-5</c>), before parsing.
     /// </summary>
     private static decimal? ParsePrice(string? raw)
     {

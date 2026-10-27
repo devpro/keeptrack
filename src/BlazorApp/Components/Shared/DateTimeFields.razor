@@ -1,8 +1,7 @@
 @using System.Globalization
 
-@* Date + time input pair proxying a single DateTime value via two separate fields, so editing one
-   doesn't reset the other back to midnight - a plain @bind straight to a DateTime input would lose the
-   time on every date change (its built-in converter always parses a bare yyyy-MM-dd). *@
+@* A date and a time input proxying one DateTime value, so editing the date doesn't reset the time to midnight.
+   A plain @bind to a DateTime input would lose the time on every date change, its converter parsing a bare yyyy-MM-dd. *@
 
 <div class="col-md-3">
     <label class="form-label">Date</label>
@@ -10,12 +9,10 @@
 </div>
 <div class="col-md-3">
     <label class="form-label">Time (24h)</label>
-    @* A plain text "HH:mm" field rather than <input type="time"> - the native time picker's 12h/24h
-       display is decided by the browser from the OS region format, not anything this page controls
-       (Chrome and Firefox both ignore the page's own language/culture for it), so it can't be forced to
-       24h that way. A free-text field sidesteps the native widget entirely and always reads/writes 24h.
-       The colon is optional on input: a phone's numeric keypad has no ":" key, so bare digits like "1430"
-       (or "930") are accepted too and reformatted to "HH:mm" on blur. *@
+    @* A plain text "HH:mm" field rather than <input type="time">.
+       The browser picks the native picker's 12h or 24h display from the OS region format, ignoring the page's language (Chrome and Firefox both), so it can't be forced to 24h.
+       A free-text field sidesteps the widget and always reads and writes 24h.
+       The colon is optional, since a phone's numeric keypad has no ":" key: bare digits ("1430", "930") are reformatted to "HH:mm" on blur. *@
     <input class="form-control" type="text" inputmode="numeric" placeholder="HH:mm"
            title="Type HH:mm, or just the digits (e.g. 1430) - the colon is optional."
            pattern="[0-2]?[0-9]:?[0-5][0-9]" @bind:get="TimeText" @bind:set="SetTimeTextAsync" @bind:event="onchange"/>
@@ -42,9 +39,8 @@
         return Task.CompletedTask;
     }
 
-    // Accept "HH:mm" (typed on a full keyboard) but also bare digits ("1430", "930") so a phone's
-    // numeric keypad - which has no ":" key - can still enter a time. An invalid entry is ignored,
-    // leaving the previous value untouched, same as before.
+    // Accepts bare digits ("1430", "930") besides "HH:mm", since a phone's numeric keypad has no ":" key.
+    // An invalid entry is ignored, leaving the previous value untouched.
     private static bool TryParseTime(string? value, out TimeOnly time)
     {
         if (TimeOnly.TryParseExact(value, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out time))

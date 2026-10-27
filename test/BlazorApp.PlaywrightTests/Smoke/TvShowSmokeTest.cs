@@ -7,9 +7,8 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Uses a real, long-finished TV show so linking exercises the actual TMDB provider - a different title
-/// than <see cref="WatchNextSmokeTest"/> uses, since both share the same tenant and a fixed real-world
-/// title (unlike the GUID-suffixed ones the plain CRUD tests use) would otherwise collide.
+/// Uses a real, long-finished TV show so linking exercises the real TMDB provider.
+/// Its title differs from <see cref="WatchNextSmokeTest"/>'s, since both share the tenant, and a fixed real-world title, unlike the CRUD tests' GUID-suffixed ones, would collide.
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]

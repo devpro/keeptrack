@@ -3,8 +3,7 @@ using System;
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// Stage of an in-progress TV Time import, reported back to the client so it can show real progress
-/// instead of a single opaque "importing..." spinner.
+/// Stage of a running TV Time import, reported so the client shows real progress rather than a bare spinner.
 /// </summary>
 public enum ImportStage
 {
@@ -17,8 +16,7 @@ public enum ImportStage
 }
 
 /// <summary>
-/// Returned immediately when an import is started; poll <see cref="ImportJobStatusDto"/> at
-/// GET /api/import/tv-time/{JobId} for progress.
+/// Returned as soon as an import starts, its progress then polled as <see cref="ImportJobStatusDto"/> at GET /api/import/tv-time/{JobId}.
 /// </summary>
 public class ImportJobDto
 {

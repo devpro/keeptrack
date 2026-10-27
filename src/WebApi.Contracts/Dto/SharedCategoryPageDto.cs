@@ -3,11 +3,9 @@ using System.Collections.Generic;
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// One page of items from a shared category, plus which of them the recipient already has in their own
-/// collection (<see cref="AlreadyInCollectionIds"/> holds the sharer-side item ids that matched something
-/// the recipient owns) - so the list can show which items are already in the recipient's collection without a per-row round trip.
+/// One page of items from a shared category, with the ones the recipient already has (<see cref="AlreadyInCollectionIds"/>), so the list marks them without a round trip per row.
 /// </summary>
-/// <typeparam name="TDto">The media item DTO for this category (e.g. <see cref="MovieDto"/>).</typeparam>
+/// <typeparam name="TDto">The media item DTO for this category, such as <see cref="MovieDto"/>.</typeparam>
 public class SharedCategoryPageDto<TDto>
 {
     /// <summary>The items on this page (owned by the sharer, read-only for the recipient).</summary>
@@ -27,13 +25,12 @@ public class SharedCategoryPageDto<TDto>
 }
 
 /// <summary>
-/// The outcome of copying a shared item into the recipient's own collection: the resulting item (the newly
-/// created one, or the pre-existing one when it was already there) and whether it already existed.
+/// The outcome of copying a shared item into the recipient's collection: the resulting item, new or already there, and whether it existed.
 /// </summary>
 /// <typeparam name="TDto">The media item DTO for this category.</typeparam>
 public class CopyResultDto<TDto>
 {
-    /// <summary>The recipient's own item - freshly created, or the one they already had.</summary>
+    /// <summary>The recipient's own item, newly created or the one they already had.</summary>
     public required TDto Item { get; set; }
 
     /// <summary>True when the recipient already owned an equivalent item, so nothing new was created.</summary>

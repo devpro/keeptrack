@@ -9,10 +9,9 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Drives the generic store/CSV import UI end to end (upload → preview → commit → result), the browser-level
-/// coverage the API-only <c>GenericImportResourceTest</c> can't provide. The fixture row carries a "Type"
-/// column of Book, so it's pre-selected from the file rather than any heuristic. Uses a GUID-suffixed book
-/// title (and a fresh order id inside the fixture) so every run imports a genuinely new book it then deletes.
+/// Drives the generic store CSV import UI end to end (upload, preview, commit, result), the browser coverage the API-only <c>GenericImportResourceTest</c> can't provide.
+/// The fixture row's "Type" column is Book, so it is preselected from the file rather than a heuristic.
+/// A GUID-suffixed book title and a fresh order id make every run import a new book it then deletes.
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]
@@ -26,8 +25,8 @@ public class GenericImportSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixt
         var title = $"E2e Generic Book {Guid.NewGuid():N}";
         var csv = GenericImportFixtureCsvBuilder.Build(title);
 
-        // the commit creates an item whose id this test never sees, so cleanup is keyed on the
-        // fixture's own unique title - and registered before the upload, so a partial import is cleaned up too
+        // The commit creates an item whose id this test never sees,
+        // so cleanup is keyed on the fixture's unique title, registered before the upload, so a partial import is cleaned up too.
         TrackItemsMatching("/api/books", $"/api/books?search={Uri.EscapeDataString(title)}");
 
         var home = await new HomePage(Page).OpenAsync();

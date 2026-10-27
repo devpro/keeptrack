@@ -3,11 +3,9 @@ using System;
 namespace Keeptrack.Domain.Models;
 
 /// <summary>
-/// One wishlist share link: whoever knows <see cref="Token"/> can view the owner's current wishlist
-/// (a live view, not a snapshot), without an account. The token is a 128-bit random value -
-/// unguessable, so the link is private to whoever it was sent to, and deleting the document revokes
-/// that link (and only it). An owner can hold several at once, each with its own <see cref="Label"/>
-/// ("Mum", "Gift exchange"), so a single leaked or stale link can be revoked without killing the rest.
+/// One wishlist share link: whoever knows <see cref="Token"/> sees the owner's current wishlist, live rather than a snapshot, without an account.
+/// The token is a random 128-bit value, so the link is private to whoever received it, and deleting the document revokes that link only.
+/// An owner can hold several, each with its own <see cref="Label"/> ("Mum", "Gift exchange"), so one leaked link is revoked without the others.
 /// </summary>
 public class WishlistShareModel
 {
@@ -17,9 +15,9 @@ public class WishlistShareModel
 
     public required string Token { get; set; }
 
-    /// <summary>Free text for the owner's own bookkeeping (who got this link) - never shown to recipients.</summary>
+    /// <summary>Free text for the owner's own bookkeeping, such as who got this link, never shown to recipients.</summary>
     public string? Label { get; set; }
 
-    /// <summary>Stamped by the repository at creation; carried back on reads for the owner's share list.</summary>
+    /// <summary>Stamped by the repository at creation, and shown in the owner's list of shares.</summary>
     public DateTime CreatedAt { get; set; }
 }

@@ -8,12 +8,11 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 /// Sidebar navigation locators and typed <c>Open&lt;X&gt;Async()</c> helpers that return the next page object.
 /// </summary>
 /// <remarks>
-/// <see cref="PageTitle"/> is null by default because only <c>Home.razor</c>/<c>Login.razor</c>/<c>Error.razor</c> set their own <c>&lt;PageTitle&gt;</c> -
-/// every list/detail page has no title convention to assert at all, confirmed against a real run:
-/// clicking a link *inside* an already-interactive <c>@rendermode InteractiveServer</c> component (e.g. a list row's title link)
-/// takes a different client-side navigation path than a sidebar <c>NavLink</c> click and resets <c>document.title</c> to blank
-/// when the destination has no <c>PageTitle</c> of its own, whereas sidebar navigation leaves whatever title was last set untouched.
-/// Rather than fight that real (if surprising) behavior, only the three pages that genuinely own a title override this.
+/// <see cref="PageTitle"/> is null by default, since only <c>Home.razor</c>, <c>Login.razor</c> and <c>Error.razor</c> set their own <c>&lt;PageTitle&gt;</c>,
+/// and list and detail pages have no title to assert.
+/// A link clicked inside an interactive component (a list row's title link) navigates differently from a sidebar <c>NavLink</c>,
+/// and blanks <c>document.title</c> when the destination has no <c>PageTitle</c>.
+/// Sidebar navigation leaves the last title untouched, so only the three pages owning a title override this.
 /// </remarks>
 public abstract class PageBase(IPage page)
 {
@@ -24,12 +23,11 @@ public abstract class PageBase(IPage page)
     /// <summary>
     /// The page's own route, for a page whose content alone can't prove the browser got there.
     /// <para>
-    /// The import sub-pages are why this exists. <c>/import</c> is a hub that renders a section per importer,
-    /// each with its own level-1 heading and a link to the sub-page - so "the Amazon heading is visible" is true
-    /// on the hub too, and a sub-page object waiting only for that considered itself ready while the browser was
-    /// still on the hub. What followed then ran against the hub's DOM: <c>AmazonImportSmokeTest</c> failed
-    /// uploading its CSV to a file input the hub has three of. Waiting for the URL is what actually asserts the
-    /// navigation happened, and it costs nothing on a page that was already there.
+    /// The import sub-pages are why this exists.
+    /// <c>/import</c> is a hub rendering a section per importer, each with its own level-1 heading and a link to the sub-page,
+    /// so "the Amazon heading is visible" holds on the hub too.
+    /// A sub-page object waiting only for that would consider itself ready on the hub, and the next steps would run against the hub's DOM, which has three file inputs.
+    /// Waiting for the URL asserts the navigation happened, and costs nothing on a page already there.
     /// </para>
     /// </summary>
     protected virtual string? Route => null;
@@ -37,18 +35,19 @@ public abstract class PageBase(IPage page)
     /// <summary>
     /// Waits for this page to be up, <b>re-issuing the navigation once</b> if it never rendered.
     /// <para>
-    /// A click that changes the URL without ever swapping the content is a real thing this app does, and it is not slowness: measured from a failing run's trace, <c>GET /cars</c> answered <b>200 in 223ms</b>, the URL became <c>/cars</c>, and the DOM still showed Home when the screenshot was taken seconds later.
-    /// The circuit's WebSocket had connected 100ms before the click - the same prerender-to-interactive gap <see cref="ClickUntilAsync(ILocator, ILocator, int)"/> exists for, reached here through enhanced navigation rather than an <c>@onclick</c>.
-    /// Two sidebar navigations and one row click were lost that way in a single run.
+    /// A click can change the URL without ever swapping the content, which is not slowness:
+    /// <c>GET /cars</c> answers 200 in about 200ms, the URL becomes <c>/cars</c>, and the DOM still shows Home seconds later.
+    /// It happens when the circuit's WebSocket connects just before the click,
+    /// the prerender-to-interactive gap <see cref="ClickUntilAsync(ILocator, ILocator, int)"/> exists for, reached through enhanced navigation rather than an <c>@onclick</c>.
     /// </para>
     /// <para>
-    /// A reload is the honest retry for it: the browser is already on the right URL, so this re-fetches the page the click asked for rather than clicking something again and hoping.
-    /// It only ever runs after the page has already failed to appear, so it cannot turn a passing test green - it can only stop a lost navigation from being reported as a broken page.
+    /// A reload is the honest retry: the browser is on the right URL, so it re-fetches the page the click asked for rather than clicking again and hoping.
+    /// It runs only after the page failed to appear, and only stops a lost navigation from being reported as a broken page.
     /// </para>
     /// </summary>
     public async Task WaitForReadyAsync() => await ExpectWithReloadAsync(AssertReadyAsync);
 
-    /// <summary>What "ready" means for this page - overridden per page, never called directly by a test.</summary>
+    /// <summary>What "ready" means for this page, overridden per page and never called directly by a test.</summary>
     protected virtual async Task AssertReadyAsync()
     {
         if (Route is not null)
@@ -65,9 +64,11 @@ public abstract class PageBase(IPage page)
     /// <summary>
     /// Runs <paramref name="assertion"/> and, if it fails, reloads the page and runs it once more.
     /// <para>
-    /// For the two things a browser genuinely cannot wait for.
+    /// For the two things a browser can't wait for.
     /// A navigation the client lost renders nothing however long the assertion waits (see <see cref="WaitForReadyAsync"/>).
-    /// And a detail page's save is a PUT the <i>server</i> issues over its circuit, invisible to the browser, so a list rendered while one is still in flight shows the pre-save item and never updates itself - re-reading is the only way to see it land, and a longer timeout would just wait longer on a page that will never change.
+    /// A detail page's save is a PUT the <i>server</i> issues over its circuit, invisible to the browser,
+    /// so a list rendered while one is in flight shows the pre-save item and never updates.
+    /// Re-reading is the only way to see it land, where a longer timeout would wait on a page that never changes.
     /// </para>
     /// </summary>
     protected async Task ExpectWithReloadAsync(Func<Task> assertion)
@@ -85,25 +86,25 @@ public abstract class PageBase(IPage page)
 
     /// <summary>
     /// Waits for <paramref name="expectedResult"/> to appear, re-clicking <paramref name="trigger"/> if it hasn't within a short window.
-    /// Blazor Server prerenders (static SSR) before its SignalR circuit connects and wires up <c>@onclick</c> handlers -
-    /// so the very first <c>@onclick</c>-driven click after a page becomes interactive can land in that gap and silently do nothing,
-    /// even though the page's "loading resolved" signal (itself baked into the same prerendered payload) already reads ready.
-    /// Confirmed with a real flaky run: adding artificial slowmo made it reliable, which is itself evidence of a genuine race rather than a code bug.
-    /// This is a bounded, no-blind-sleep mitigation for exactly that - plain link-based navigation (<see cref="NavigateAsync{TPage}"/>) doesn't need it,
-    /// since Blazor's enhanced navigation intercepts anchor clicks independently of the interactive circuit.
+    /// Blazor Server prerenders (static SSR) before its SignalR circuit connects and wires up <c>@onclick</c> handlers.
+    /// The first <c>@onclick</c> click after a page becomes interactive can land in that gap and do nothing,
+    /// while the page's "loading resolved" signal, baked into the prerendered payload, already reads ready.
+    /// This is a bounded mitigation with no blind sleep.
+    /// Link navigation (<see cref="NavigateAsync{TPage}"/>) doesn't need it, since enhanced navigation intercepts anchor clicks independently of the circuit.
     /// </summary>
     protected static Task ClickUntilAsync(ILocator trigger, ILocator expectedResult, int maxAttempts = 5)
         => ClickUntilAsync(trigger, () => Assertions.Expect(expectedResult).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 2000 }), maxAttempts);
 
     /// <summary>
-    /// The same mitigation for an effect a "wait until this locator is visible" check can't express - a card
-    /// *disappearing*, a query-string navigation - supplied as the assertion itself.
+    /// The same mitigation for an effect a "wait until this locator is visible" check can't express (a card disappearing, a query-string navigation),
+    /// supplied as the assertion itself.
     /// <para>
-    /// Two things the caller owns, and both matter. The trigger must be safe to click twice, since it may be.
-    /// And <paramref name="expected"/>'s own timeout must comfortably exceed how long the action really takes:
-    /// a re-click issued while a *successful* click is still in flight lands on a control the page has since
-    /// disabled (Explore's busy guard) or removed (the "Load more" button once the ranking is exhausted), and
-    /// then fails on the click rather than on anything under test. Wait longer, retry fewer times.
+    /// Two things the caller owns, and both matter.
+    /// The trigger must be safe to click twice, since it may be.
+    /// And <paramref name="expected"/>'s own timeout must comfortably exceed how long the action takes.
+    /// A re-click while a successful click is in flight lands on a control the page has disabled (Explore's busy guard) or removed (the exhausted ranking's "Load more"),
+    /// failing on the click rather than on anything under test.
+    /// Wait longer, retry fewer times.
     /// </para>
     /// </summary>
     protected static async Task ClickUntilAsync(ILocator trigger, Func<Task> expected, int maxAttempts = 5)
@@ -123,8 +124,7 @@ public abstract class PageBase(IPage page)
     }
 
     /// <summary>
-    /// The sidebar (<c>NavMenu.razor</c>'s <c>nav.flex-column</c>) -
-    /// scoping to it matters because Home's own CTA ("Go to my movies") also matches a plain substring role/name lookup for "Movies".
+    /// The sidebar (<c>NavMenu.razor</c>'s <c>nav.flex-column</c>), scoped since Home's call to action ("Go to my movies") also matches a substring lookup for "Movies".
     /// </summary>
     private ILocator SidebarNav => Page.Locator("nav.flex-column");
 

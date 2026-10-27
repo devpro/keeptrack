@@ -11,8 +11,8 @@ public class MovieDto : IHasId, IReferenceLinkedDto
     public string? Title { get; set; }
 
     /// <summary>
-    /// Stable id of the TV Time item this movie was imported from, if any. Managed server-side by the
-    /// import; round-tripped on edits so it is never lost, but not meant to be set by clients.
+    /// Stable id of the TV Time item this movie was imported from, if any.
+    /// Managed by the import and round-tripped on edits so it is never lost, but never set by clients.
     /// </summary>
     public string? TvTimeId { get; set; }
 
@@ -23,29 +23,28 @@ public class MovieDto : IHasId, IReferenceLinkedDto
     public string? Notes { get; set; }
 
     /// <summary>
-    /// Id of the shared reference-data document (synopsis) for this movie, once resolved.
+    /// Id of the linked reference document (synopsis, cast), once resolved.
     /// </summary>
     public string? ReferenceId { get; set; }
 
     /// <summary>
-    /// Cover/poster image URL from the linked reference document - read-only, hydrated server-side on
-    /// list reads and never accepted from client input.
+    /// Cover image URL from the linked reference, read-only, hydrated server side on list reads and never accepted from the client.
     /// </summary>
     public string? ImageUrl { get; set; }
 
     /// <summary>
-    /// Denormalized primary-source rating from the linked reference (TMDB's, on <see cref="ReferenceRatingScale"/>),
-    /// server-managed on link/refresh. Round-tripped on edits so a normal save doesn't drop it; not meant to
-    /// be set by clients. Null until linked. The full multi-source breakdown is on <see cref="MovieReferenceDto.Ratings"/>.
+    /// The linked reference's primary rating (TMDB or IMDb), on <see cref="ReferenceRatingScale"/>, managed by the server on link and refresh.
+    /// Round-tripped on edits so a save does not drop it, never set by clients, and null until linked.
+    /// The full breakdown is <see cref="MovieReferenceDto.Ratings"/>.
     /// </summary>
     public double? ReferenceRating { get; set; }
 
-    /// <summary>Scale of <see cref="ReferenceRating"/> (10 for TMDB); null when there is no reference rating.</summary>
+    /// <summary>Scale of <see cref="ReferenceRating"/> (10 for TMDB and IMDb), null when there is no reference rating.</summary>
     public double? ReferenceRatingScale { get; set; }
 
     /// <summary>
-    /// Which rating source <see cref="ReferenceRating"/> came from ("tmdb", "imdb", ...), so the value can be
-    /// labelled rather than shown as a bare number. Server-managed on link/refresh, round-tripped on edits.
+    /// The rating source <see cref="ReferenceRating"/> came from ("tmdb", "imdb", "igdb"), so the value is labelled rather than a bare number.
+    /// Managed by the server on link and refresh, and round-tripped on edits.
     /// </summary>
     public string? ReferenceRatingSource { get; set; }
 
@@ -56,19 +55,19 @@ public class MovieDto : IHasId, IReferenceLinkedDto
     public bool WantToWatch { get; set; }
 
     /// <summary>
-    /// Every owned copy of this movie - the movie counts as owned when this list is non-empty.
+    /// Every owned copy of this movie, which counts as owned when this list is non-empty.
     /// </summary>
     public List<OwnedVersionDto> OwnedVersions { get; set; } = [];
 
     /// <summary>
-    /// Filter-only query parameter: matches items with at least one owned version. Never populated on a
-    /// returned item - see <see cref="VideoGameDto.Platform"/> for the convention.
+    /// Filter-only query parameter: matches items with at least one owned version.
+    /// Never set on a returned item (see <see cref="VideoGameDto.Platform"/>).
     /// </summary>
     public bool IsOwned { get; set; }
 
     /// <summary>
-    /// Filter-only query parameter: matches items with no <see cref="FirstSeenAt"/> set. Never populated on
-    /// a returned item - see <see cref="IsOwned"/> for the convention.
+    /// Filter-only query parameter: matches items with no <see cref="FirstSeenAt"/> set.
+    /// Never set on a returned item (see <see cref="IsOwned"/>).
     /// </summary>
     public bool IsUnseen { get; set; }
 

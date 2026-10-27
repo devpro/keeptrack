@@ -135,8 +135,7 @@ public class CarMetricsServiceTest
     [Fact]
     public void ComputeMetrics_MileageWarnings_FlagsADeltaMismatchAndSuggestsAMissingEntry()
     {
-        // the trip computer says 300 km since the last refuel, but the odometer jumped 900 km since the previous entry in the app -
-        // a refuel was very likely never logged in between
+        // the trip computer says 300 km since the last refuel, but the odometer jumped 900 km since the previous entry, so a refuel was likely never logged
         var history = new[]
         {
             Refuel("h1", new DateTime(2024, 1, 1), 1000, fuelVolume: 40),

@@ -4,15 +4,12 @@ using Riok.Mapperly.Abstractions;
 namespace Keeptrack.WebApi.Mappers;
 
 /// <summary>
-/// One-directional (Model -> Dto): <see cref="Domain.Services.WatchNextService"/> is a pure Domain-level
-/// computation with no Dto dependency, so <see cref="Controllers.WatchNextController"/> maps its result
-/// here. Injected directly, same shape as the reference-data storage mappers - see
-/// <c>docs/archived/automapper-removal-plan.md</c>.
+/// Model to DTO only, for <see cref="Controllers.WatchNextController"/>, injected directly.
 /// </summary>
 [Mapper]
 public partial class InProgressShowDtoMapper
 {
-    // ImageUrl is set by WatchNextController from the already-fetched reference documents, not mapped.
+    // WatchNextController sets ImageUrl from the reference documents it already fetched
     [MapperIgnoreTarget(nameof(InProgressShowDto.ImageUrl))]
     public partial InProgressShowDto ToDto(InProgressShowModel model);
 }

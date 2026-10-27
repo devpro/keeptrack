@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Keeptrack.WebApi.Controllers;
 
 /// <summary>
-/// Data CRUD (Create, Request, Update, Delete) Controller abstract class.
+/// The owner-scoped CRUD surface every user-owned collection shares.
 /// </summary>
 /// <typeparam name="TDto">Data Transfer Object</typeparam>
 /// <typeparam name="TModel">Domain Model</typeparam>
@@ -18,17 +18,13 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IDtoMapper<TDto, TMod
     where TModel : class, IHasIdAndOwnerId
 {
     /// <summary>
-    /// Exposes the mapper to subclasses that add their own actions (e.g. a refresh-reference endpoint) -
-    /// lets them reuse this instance instead of capturing their own <c>IDtoMapper</c> primary-constructor
-    /// parameter as a second field holding the same reference.
+    /// The mapper, for subclasses adding their own actions, so they reuse this instance rather than capturing the primary-constructor parameter a second time.
     /// </summary>
     protected IDtoMapper<TDto, TModel> Mapper => mapper;
 
     /// <summary>
-    /// How many items a non-member ("free preview") account may create in this collection, as a multiple
-    /// of the configured <c>Features:FreeTierItemLimit</c>. 0 (the default) means no quota check runs
-    /// here - which is only correct for controllers whose whole surface already requires the "MemberOnly"
-    /// policy; a controller that is part of the free tier must override this (see <c>MovieController</c>).
+    /// How many items a free preview account may create in this collection, as a multiple of <c>Features:FreeTierItemLimit</c>.
+    /// Zero, the default, runs no check, which is only right for a controller requiring the "MemberOnly" policy, so a free-tier controller overrides it (<c>MovieController</c>).
     /// </summary>
     protected virtual int FreeTierLimitFactor => 0;
 
@@ -51,9 +47,7 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IDtoMapper<TDto, TMod
     }
 
     /// <summary>
-    /// Hook for subclasses that enrich a mapped list page before it is returned (e.g. hydrating
-    /// reference-image URLs, see <see cref="ReferenceImageHydrator"/>).
-    /// No-op by default.
+    /// Hook enriching a mapped list page before it is returned, such as hydrating covers (<see cref="ReferenceImageHydrator"/>).
     /// </summary>
     protected virtual Task OnListMappedAsync(List<TDto> dtos, CancellationToken cancellationToken) => Task.CompletedTask;
 
@@ -85,7 +79,7 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IDtoMapper<TDto, TMod
     [ProducesResponseType(403)]
     public async Task<IActionResult> Post([FromBody] TDto dto, CancellationToken cancellationToken = default)
     {
-        // free-tier creation quota, shared with the shared-item copy path (see FreeTierQuota)
+        // the free-tier quota, shared with every other creation path (see FreeTierQuota)
         var quotaError = await FreeTierQuota.CheckAsync(this, FreeTierLimitFactor, () => dataRepository.CountAsync(this.GetUserId(), cancellationToken));
         if (quotaError is not null)
         {
@@ -101,14 +95,11 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IDtoMapper<TDto, TMod
     }
 
     /// <summary>
-    /// Hook for subclasses that need to react to a new item being created (e.g. triggering background
-    /// reference-data enrichment).
-    /// No-op by default.
+    /// Hook reacting to a created item, such as starting background reference resolution.
     /// </summary>
     /// <remarks>
-    /// Deliberately takes no <see cref="CancellationToken"/>: a subclass override starts detached
-    /// background work (its own DI scope, never awaited inline), which must outlive this request and must
-    /// never be cancelled just because the HTTP response has already been sent.
+    /// It takes no <see cref="CancellationToken"/>: an override starts detached background work on its own scope,
+    /// which must outlive the request and never be cancelled because the response was sent.
     /// </remarks>
     protected virtual Task OnCreatedAsync(TModel model) => Task.CompletedTask;
 
@@ -135,18 +126,16 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IDtoMapper<TDto, TMod
     /// </summary>
     /// <remarks>
     /// <para>
-    /// An update is a full replace of the document, so every field the client sent wins - including ones it was never entitled to set.
-    /// <c>OwnerId</c> is already handled that way (overwritten from the caller's claims just above); a reference link is the other case, and it is the one that bit.
-    /// <b>A record update must never change an item's reference link. Only the detail page's "check for reference match" does.</b>
+    /// An update replaces the whole document, so every field the client sent wins, including ones it may not set.
+    /// <c>OwnerId</c> is overwritten from the caller's claims above, and the reference link is the other such field.
+    /// <b>A record update never changes an item's reference link.</b>
     /// </para>
     /// <para>
-    /// Without this, the Blazor detail page - which sends the whole DTO on every field edit - erases a link simply by saving something else.
-    /// Its copy is fetched the instant the page opens, which for a just-created item is before the background resolution has linked it, so the first edit writes that stale empty link back over the real one.
-    /// It cost a long run of "it doesn't match, but if I click refresh it matches" reports: the match had happened, the next edit undid it, and the button resolved it again.
-    /// Nothing about the page changes when a save removes a link, which is what kept it invisible.
+    /// The detail page sends the whole DTO on every edit, with a copy fetched as the page opened, before background resolution linked a new item.
+    /// Its first edit would write that empty link back over the real one, silently, since nothing on the page changes.
     /// </para>
     /// <para>
-    /// Costs one read per update, and only for the five reference-linked types - everything else fails the type test and pays nothing.
+    /// It costs one read per update, for the five reference-linked types only.
     /// </para>
     /// </remarks>
     private async Task PreserveServerOwnedFieldsAsync(string id, TModel input, CancellationToken cancellationToken)
@@ -179,11 +168,8 @@ public abstract class DataCrudControllerBase<TDto, TModel>(IDtoMapper<TDto, TMod
     }
 
     /// <summary>
-    /// Hook for subclasses that need to react to an item being deleted (e.g. cascading the delete to a
-    /// child collection such as CarHistory).
-    /// No-op by default.
-    /// Unlike <see cref="OnCreatedAsync"/>, this one is awaited as part of the same request (a cascade
-    /// delete is not detached background work), so it does take the request's <see cref="CancellationToken"/>.
+    /// Hook reacting to a deleted item, such as cascading to a child collection.
+    /// Unlike <see cref="OnCreatedAsync"/>, it is awaited within the request, so it takes the request's <see cref="CancellationToken"/>.
     /// </summary>
     protected virtual Task OnDeletedAsync(string id, string ownerId, CancellationToken cancellationToken) => Task.CompletedTask;
 }

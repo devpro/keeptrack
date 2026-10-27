@@ -1,7 +1,7 @@
 namespace Keeptrack.Infrastructure.MongoDb.Entities;
 
 /// <summary>
-/// Embedded within <see cref="AlbumReference"/> - see that class for why embedding is the right call here.
+/// Embedded in <see cref="AlbumReference"/> (see <see cref="Keeptrack.Domain.Models.ReferenceTrackModel"/> for why).
 /// </summary>
 public class ReferenceTrack
 {

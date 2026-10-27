@@ -10,24 +10,15 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Exercises the actual multi-provider search+link HTTP flow (<c>GET .../search</c>, <c>POST .../link</c>)
-/// against a real provider. <see cref="RefreshReferenceResourceTest"/> deliberately only exercises the
-/// local-only "check for reference match" lookup, never Search/Link, so this is the one place in this suite
-/// that proves the registry/enrichment-service path actually reaches a live book provider end to end.
-/// A fixed, well-known real title (not a GUID) is used so the search genuinely returns a match - the same
-/// tradeoff the Playwright smoke tests already accept for Movie/TvShow/VideoGame/Album.
+/// Exercises the multi-provider search and link HTTP flow (<c>GET .../search</c>, <c>POST .../link</c>) against a real provider.
+/// It is the one place in this suite proving the admin search and link through the registry reaches a live book provider end to end.
+/// A fixed, well-known real title (not a GUID) makes the search return a match, the tradeoff the Playwright smoke tests accept for the other media types.
 /// <para>
-/// Run against both providers CI holds credentials for, because the one thing this test cannot control is
-/// whether a third party is up: it originally pinned Open Library alone, on the belief that keyless-and-free
-/// meant reliable, and went red when its <c>search.json</c> degraded to 52s and then 503/504 - past
-/// <c>AddBookProviderResilienceHandler</c>'s 40s total budget (the same degradation recorded in
-/// docs/findings/providers.md, which is why its rating fallback is guarded elsewhere). Google Books is the
-/// deployment default (<c>ReferenceData:BookProvider</c>), so it is the provider a real user's search actually
-/// reaches; BnF is keyless and quota-free, and was answering in under a second while the other two were down.
-/// A case whose provider is genuinely unreachable skips (see the 502 helpers below) instead of failing the
-/// build, so this stays green when a provider is down and still proves the path whenever one is up.
-/// Open Library is deliberately not a case: it is the slowest endpoint any provider here calls even when
-/// healthy, and covering the registry twice is the point, not covering it three times.
+/// It runs against two providers, since whether a third party is up is the one thing this test can't control.
+/// Google Books is the deployment default (<c>ReferenceData:BookProvider</c>), the provider a real search reaches, and BnF is keyless and quota-free.
+/// A case whose provider is unreachable skips (see the 502 helpers below) instead of failing the build,
+/// so this stays green when a provider is down and proves the path whenever one is up.
+/// Open Library is not a case, being the slowest endpoint here even when healthy (see docs/providers.md), and covering the registry twice is enough.
 /// </para>
 /// </summary>
 public class BookProviderSearchAndLinkResourceTest(KestrelWebAppFactory<Program> factory)
@@ -62,10 +53,8 @@ public class BookProviderSearchAndLinkResourceTest(KestrelWebAppFactory<Program>
         var linked = await GetAsync<BookDto>($"/api/books/{created.Id}");
         linked.ReferenceId.Should().NotBeNullOrEmpty();
 
-        // linking is what creates the shared reference document, so its id only becomes knowable here -
-        // registered rather than left behind, since this test is the reason it exists in the test database.
-        // The author's person_reference is deliberately left alone: it's deduplicated by provider id, so it
-        // is reused rather than re-created, and it has no back-reference identifying it as ours to remove.
+        // Linking creates the shared reference document, so its id is known only here, and it is registered for removal, this test being why it exists in the test database.
+        // The author's person_reference stays: deduplicated by provider id, it is reused rather than re-created, and nothing identifies it as this test's.
         TrackDocument("book_reference", linked.ReferenceId);
     }
 }

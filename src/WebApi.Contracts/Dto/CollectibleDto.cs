@@ -4,7 +4,7 @@ using Keeptrack.Common.System;
 namespace Keeptrack.WebApi.Contracts.Dto;
 
 /// <summary>
-/// A collectible item the user owns (e.g. a Lego set, a figurine).
+/// A collectible the user owns, such as a Lego set or a figurine.
 /// </summary>
 public class CollectibleDto : IHasId
 {
@@ -31,25 +31,25 @@ public class CollectibleDto : IHasId
     public int? Year { get; set; }
 
     /// <summary>
-    /// Free-text notes (where it's stored, where it's displayed, or any other specifics).
+    /// Free-text notes: where it is stored or displayed, or any other specifics.
     /// </summary>
     public string? Notes { get; set; }
 
     /// <summary>
-    /// Tenant-owned cover image URL, shown on the list thumbnail and detail page header. Optional.
+    /// The tenant's own optional cover image URL, shown on the list thumbnail and the detail page header.
     /// </summary>
     public string? ImageUrl { get; set; }
 
     public bool IsFavorite { get; set; }
 
     /// <summary>
-    /// Every owned copy of this item - it counts as owned when this list is non-empty.
+    /// Every owned copy of this item, which counts as owned when this list is non-empty.
     /// </summary>
     public List<OwnedVersionDto> OwnedVersions { get; set; } = [];
 
     /// <summary>
-    /// Filter-only query parameter: matches items with at least one owned version. Never populated on a
-    /// returned item - see <see cref="VideoGameDto.Platform"/> for the convention.
+    /// Filter-only query parameter: matches items with at least one owned version.
+    /// Never set on a returned item (see <see cref="VideoGameDto.Platform"/>).
     /// </summary>
     public bool IsOwned { get; set; }
 }

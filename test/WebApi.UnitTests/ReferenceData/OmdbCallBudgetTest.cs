@@ -12,7 +12,10 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
 /// <summary>
-/// Every other test in this suite fakes <see cref="IOmdbCallBudget"/> itself (<see cref="FakeOmdbCallBudget"/>), so none of them exercise <see cref="OmdbCallBudget"/>'s own logic: the split between <see cref="OmdbSettings.InteractiveReserve"/> and the full <see cref="OmdbSettings.DailyCallBudget"/>, the asymmetric exhaustion rule (interactive running out implies background did too, never the reverse, since background's ceiling is always the lower or equal one), and the per-process short-circuit that skips a database round trip once a priority is known spent for the day.
+/// Every other test in this suite fakes <see cref="IOmdbCallBudget"/> itself (<see cref="FakeOmdbCallBudget"/>), so none of them exercise <see cref="OmdbCallBudget"/>'s own logic:
+/// the split between <see cref="OmdbSettings.InteractiveReserve"/> and the full <see cref="OmdbSettings.DailyCallBudget"/>,
+/// the asymmetric exhaustion rule (interactive running out implies background did too, never the reverse, since background's ceiling is always the lower or equal one),
+/// and the per-process short-circuit that skips a database round trip once a priority is known spent for the day.
 /// This pins that logic against a fake <see cref="IProviderQuotaRepository"/> standing in for the real MongoDB-backed counter.
 /// </summary>
 [Trait("Category", "UnitTests")]
@@ -38,7 +41,7 @@ public class OmdbCallBudgetTest
             (await budget.TryReserveAsync(OmdbCallPriority.Background, TestContext.Current.CancellationToken)).Should().BeTrue();
         }
 
-        // background's ceiling (10 - 3) is now spent
+        // background's ceiling (10 minus 3) is spent
         (await budget.TryReserveAsync(OmdbCallPriority.Background, TestContext.Current.CancellationToken)).Should().BeFalse();
         // interactive's ceiling (the full 10) still has headroom against the very same shared counter
         (await budget.TryReserveAsync(OmdbCallPriority.Interactive, TestContext.Current.CancellationToken)).Should().BeTrue();

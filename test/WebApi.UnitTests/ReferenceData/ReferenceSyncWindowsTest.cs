@@ -6,10 +6,8 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
 /// <summary>
-/// The admin's "sync now" and the periodic background pass run the same code and differ only in these
-/// windows, so an unforced "sync now" must resolve to the very same values the background tick uses - the
-/// one property that would break silently (both callers keep working, they just stop agreeing on what
-/// "stale" means).
+/// The admin's "sync now" and the periodic pass run the same code and differ only by these windows, so an unforced "sync now" resolves to the background tick's values.
+/// That would break silently, both callers working while disagreeing on what "stale" means.
 /// </summary>
 public class ReferenceSyncWindowsTest
 {
@@ -29,8 +27,7 @@ public class ReferenceSyncWindowsTest
     }
 
     /// <summary>
-    /// Pins the documented cadence: reference documents are re-checked far more often than the discovery
-    /// rankings, which barely move week to week.
+    /// Pins the documented cadence: reference documents are re-checked far more often than the discovery rankings, which barely move week to week.
     /// </summary>
     [Fact]
     public void Periodic_ChecksReferencesEveryThreeDaysAndExploreRankingsEverySeven()

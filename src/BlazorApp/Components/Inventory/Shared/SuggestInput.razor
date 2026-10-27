@@ -1,31 +1,25 @@
-@* Free-text input with a filtered suggestion dropdown - not a closed choice, the app's own styled stand-in
-   for an HTML <datalist> (whose popup is unstyleable native chrome that clashes with the dark theme and
-   floats over content below it - see GearDetail.razor's Category field, the first caller).
-   A suggestion is taken three ways, all of which must work: clicking it, pressing Enter on the match
-   typing already highlighted, or moving to another with ↑/↓ first. *@
+@* Free-text input with a filtered suggestion menu, not a closed choice.
+   It stands in for an HTML <datalist>, whose popup is unstyleable native chrome that clashes with the dark theme and floats over the content below.
+   A suggestion is taken three ways, all of which must work: clicking it, pressing Enter on the match typing highlighted, or moving to another with ↑ or ↓ first. *@
 @{
     var suggestions = FilterSuggestions();
     var menuOpen = _open && suggestions.Count > 0;
 }
 <div class="kt-autocomplete @CssClass">
-    @* @attributes last so a caller can add what this component doesn't model (a data-testid for the e2e
-       suite, a title) - and, deliberately, override one of the above when it has to. *@
+    @* @attributes last, so a caller can add what this component doesn't model (a data-testid for the e2e suite, a title), and override one of the above when it must. *@
     <input class="@InputCssClass" placeholder="@Placeholder" autocomplete="off"
            role="combobox" aria-autocomplete="list" aria-expanded="@(menuOpen ? "true" : "false")"
            value="@_query" @oninput="OnInput" @onfocus="OnFocus" @onfocusout="OnBlurAsync" @onkeydown="OnKeyDownAsync"
            @attributes="AdditionalAttributes"/>
     @if (menuOpen)
     {
-        @* :preventDefault on mousedown is what makes clicking a suggestion work at all. Without it the
-           browser blurs the input before the click, and since Blazor Server runs one event at a time, the
-           whole focusout handler - close the menu, re-render, dispose the <li>'s handler - completes
-           before the click is ever dispatched, so the click lands on nothing. Preventing the default
-           keeps focus in the input, so no focusout happens and the menu is still there when the click
-           arrives. It sits on the <ul> so it covers the items and a drag on the menu's own scrollbar.
-           OnMenuMouseDown is the belt-and-braces half for any browser that blurs anyway (touch): unlike
-           the click, a mousedown reaches the server *before* the focusout it causes, so it is the one
-           guard that can win that race. It sits on the item, not the <ul>, because only an item is
-           guaranteed a click behind it - a scrollbar drag would set a flag nothing ever clears. *@
+        @* :preventDefault on mousedown is what makes clicking a suggestion work at all.
+           Without it the browser blurs the input before the click, and Blazor Server runs one event at a time.
+           The whole focusout handler (close the menu, re-render, dispose the <li>'s handler) completes before the click is dispatched, so the click lands on nothing.
+           Preventing the default keeps focus in the input, so no focusout happens and the menu is still there when the click arrives.
+           It sits on the <ul>, so it covers the items and a drag on the menu's scrollbar.
+           OnMenuMouseDown covers a browser that blurs anyway (touch): a mousedown reaches the server before the focusout it causes, so it is the one guard that can win that race.
+           It sits on the item, not the <ul>, since only an item is sure to have a click behind it, and a scrollbar drag would set a flag nothing clears. *@
         <ul class="kt-autocomplete-menu" role="listbox" @onmousedown:preventDefault>
             @for (var i = 0; i < suggestions.Count; i++)
             {
@@ -42,9 +36,9 @@
 
 @code {
     /// <summary>
-    /// How many matches the dropdown offers at once. 8 suits a short, closed-ish list like gear categories;
-    /// a caller backed by a genuinely large catalogue (the fuel-station picker) raises it, since with
-    /// hundreds of entries a short list makes the field feel like it can't find anything.
+    /// How many matches the dropdown offers at once.
+    /// 8 suits a short list like gear categories.
+    /// A caller over a large catalogue (the fuel station picker) raises it, since with hundreds of entries a short list makes the field feel like it can't find anything.
     /// </summary>
     [Parameter] public int MaxSuggestions { get; set; } = 8;
 
@@ -56,19 +50,18 @@
 
     [Parameter] public string? Placeholder { get; set; }
 
-    /// <summary>Applied to the wrapper div - lets a caller size this differently than the default
-    /// full-width detail-page field (e.g. Gear.razor's fixed-width list-filter usage).</summary>
+    /// <summary>Applied to the wrapper div, so a caller can size it unlike the default full-width detail field (Gear.razor's fixed-width list filter).</summary>
     [Parameter] public string? CssClass { get; set; }
 
     /// <summary>
-    /// Classes on the input itself. Defaults to the small control the detail pages use everywhere; a caller
-    /// sitting in a row of full-size inputs passes plain "form-control", or this field renders visibly
-    /// shorter than the ones beside it (the car history form's Fuel type next to Fuel volume).
+    /// Classes on the input itself.
+    /// Defaults to the detail pages' small control.
+    /// A caller in a row of full-size inputs passes plain "form-control",
+    /// or the field renders visibly shorter than its neighbours (the car history form's Fuel type next to Fuel volume).
     /// </summary>
     [Parameter] public string InputCssClass { get; set; } = "form-control form-control-sm";
 
-    /// <summary>Anything else the caller puts on the component lands on the input itself (e.g. the
-    /// <c>data-testid</c> the Playwright suite resolves unlabeled form fields by).</summary>
+    /// <summary>Anything else the caller puts on the component lands on the input (the <c>data-testid</c> the Playwright suite resolves unlabeled fields by).</summary>
     [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
     private string _query = "";
@@ -79,12 +72,12 @@
     private int _activeIndex = -1;
 
     /// <summary>
-    /// Whether the highlight is the user's own doing (↑/↓) rather than the one typing put there. Only an
-    /// explicit one is taken by Tab - see <see cref="OnKeyDownAsync"/>.
+    /// Whether the user moved the highlight (↑ or ↓) rather than typing putting it there.
+    /// Tab takes only an explicit one (see <see cref="OnKeyDownAsync"/>).
     /// </summary>
     private bool _highlightIsExplicit;
 
-    /// <summary>Set by a mousedown inside the menu, consumed by the focusout it may cause - see the markup.</summary>
+    /// <summary>Set by a mousedown inside the menu, consumed by the focusout it may cause (see the markup).</summary>
     private bool _menuMouseDown;
 
     private List<string> FilterSuggestions() =>
@@ -92,7 +85,7 @@
             .Take(MaxSuggestions)
             .ToList();
 
-    /// <summary>The suggestion Enter would take - see <see cref="DefaultActiveIndex"/>.</summary>
+    /// <summary>The suggestion Enter would take (see <see cref="DefaultActiveIndex"/>).</summary>
     private string? HighlightedSuggestion
     {
         get
@@ -103,14 +96,13 @@
         }
     }
 
-    /// <summary>Highlights what the keyboard moved to; falls back to marking the current value while it hasn't.</summary>
+    /// <summary>Highlights what the keyboard moved to, or else marks the current value.</summary>
     private bool IsHighlighted(int index, string suggestion) =>
         _activeIndex >= 0 ? index == _activeIndex : suggestion == Value;
 
     protected override void OnParametersSet()
     {
-        // only adopt an externally-changed Value - typing of our own must never be clobbered by the
-        // re-render our own CommitAsync triggers, same "sent vs received" shape as InventoryList's search box
+        // Adopts only an externally changed Value, so the re-render CommitAsync triggers never clobbers typing, like InventoryList's search box.
         if (Value == _lastValueParam) return;
         _lastValueParam = Value;
         _query = Value ?? "";
@@ -122,19 +114,16 @@
     {
         _query = e.Value?.ToString() ?? "";
         _open = true;
-        // typing rebuilds the list, so any ↑/↓ walk over the old one is void
+        // typing rebuilds the list, which voids any ↑ or ↓ walk over the old one
         _activeIndex = DefaultActiveIndex();
         _highlightIsExplicit = false;
     }
 
     /// <summary>
     /// What typing highlights on its own: the exact match if the text is already one, else the first match.
-    /// This is the ARIA combobox pattern's "automatic selection" - without it Enter has nothing to take and
-    /// completing a value means reaching for ↓ first, which is the whole point of not having to.
-    /// An exact match wins over the first one so typing "dentiste" in full keeps it rather than completing
-    /// to a longer "dentiste pédiatrique" sitting above it.
-    /// Nothing is highlighted while the field is empty: an empty field must never complete to whatever
-    /// happens to sort first.
+    /// It is the ARIA combobox pattern's "automatic selection", without which Enter has nothing to take and completing a value needs ↓ first.
+    /// An exact match wins over the first, so typing "dentiste" in full keeps it rather than completing to a longer "dentiste pédiatrique" above it.
+    /// Nothing is highlighted while the field is empty, which must never complete to whatever sorts first.
     /// </summary>
     private int DefaultActiveIndex()
     {
@@ -159,7 +148,7 @@
     {
         if (_menuMouseDown)
         {
-            // a click on the menu is on its way - leave it standing, SelectAsync closes it
+            // a click on the menu is on its way, so the menu stays and SelectAsync closes it
             _menuMouseDown = false;
             return;
         }
@@ -177,21 +166,17 @@
             case "ArrowUp":
                 Move(-1);
                 break;
-            // the escape hatch out of an automatic highlight: dropping it is what lets the next Enter or
-            // Tab keep the literal text, when what was typed is a real new value that happens to be part
-            // of an existing one
+            // Drops an automatic highlight, so the next Enter or Tab keeps the literal text, when a real new value happens to be part of an existing one.
             case "Escape":
                 Close();
                 break;
-            // Enter is the committing key and takes the highlight however it got there - that is the whole
-            // "complete it without leaving the keyboard" path.
+            // Enter commits and takes the highlight however it got there, completing a value without leaving the keyboard.
             case "Enter":
                 await TakeAsync(HighlightedSuggestion);
                 break;
-            // Tab is a *navigation* key, so it only takes a highlight the user moved to deliberately.
-            // Auto-completing on it would silently rewrite a genuinely new value into an existing one that
-            // merely contains it ("Dr Kim" tabbed away into "Dr Kimura"). Whatever it commits, the focusout
-            // that follows commits the same thing again and falls through CommitAsync's no-op.
+            // Tab is a navigation key, so it takes only a highlight the user moved to.
+            // Completing on it would silently rewrite a new value into an existing one containing it ("Dr Kim" tabbed into "Dr Kimura").
+            // Whatever it commits, the focusout that follows commits the same thing again and falls through CommitAsync's no-op.
             case "Tab":
                 await TakeAsync(_highlightIsExplicit ? HighlightedSuggestion : null);
                 break;
@@ -211,8 +196,7 @@
     }
 
     /// <summary>
-    /// Moves the highlight, wrapping around, and opens the menu if ↓ was pressed on a closed one - the
-    /// keyboard's equivalent of clicking into the field to see what's on offer.
+    /// Moves the highlight, wrapping around, and opens a closed menu on ↓, the keyboard's way of seeing what's on offer.
     /// </summary>
     private void Move(int delta)
     {

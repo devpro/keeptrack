@@ -19,7 +19,7 @@ public class HouseController(
     : DataCrudControllerBase<HouseDto, HouseModel>(mapper, dataRepository)
 {
     /// <summary>
-    /// Computed yearly cost history for this house - see <see cref="HouseMetricsService"/>.
+    /// Computed yearly cost history and last records for this house (see <see cref="HouseMetricsService"/>).
     /// </summary>
     [HttpGet("{id}/metrics")]
     [ProducesResponseType(200)]
@@ -38,8 +38,7 @@ public class HouseController(
     }
 
     /// <summary>
-    /// HouseHistory is a separate top-level collection referencing its house by id -
-    /// without this, deleting a house would leave its history orphaned in MongoDB forever, since it's only ever reachable via the house's own id.
+    /// Cascades to the house's history, a separate collection reachable only through the house's id, which would otherwise be orphaned forever.
     /// </summary>
     protected override async Task OnDeletedAsync(string id, string ownerId, CancellationToken cancellationToken)
     {

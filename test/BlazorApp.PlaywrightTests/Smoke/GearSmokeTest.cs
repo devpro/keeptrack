@@ -8,8 +8,7 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// Add/edit/delete coverage for the new Gear type - see <see cref="CollectibleSmokeTest"/> for why opening
-/// the detail page (not just building/unit-testing) is the point of this test.
+/// Add, edit and delete coverage for gear (see <see cref="CollectibleSmokeTest"/> for why opening the detail page is the point).
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]
@@ -39,8 +38,7 @@ public class GearSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
         await Assertions.Expect(detail.CoverImage).ToHaveAttributeAsync("src", imageUrl);
 
         list = await detail.OpenGearAsync();
-        // ItemImageShape="wide" (same as VideoGames.razor) - a plain default-portrait thumb was the
-        // reported regression, so this pins the actual rendered shape, not just that an image exists.
+        // ItemImageShape="wide", as in VideoGames.razor, pinning the rendered shape, not only that an image exists.
         await list.ExpectRowThumbnailAsync(title, imageUrl);
 
         await list.DeleteAsync(title);

@@ -22,28 +22,26 @@ public class AlbumModel : IHasIdAndOwnerId, IReferenceLinkedModel
     public string? ReferenceId { get; set; }
 
     /// <summary>
-    /// Denormalized copy of the linked reference's primary-source (Discogs, 0-5) rating, on
-    /// <see cref="ReferenceRatingScale"/>. Copied down on link/refresh for fast list display and sorting;
-    /// the authoritative data is on <see cref="AlbumReferenceModel.Ratings"/>.
+    /// The linked reference's primary rating (Discogs, 0 to 5), on <see cref="ReferenceRatingScale"/>.
+    /// Copied on link and refresh so a list displays and sorts without a join.
+    /// The authoritative data is <see cref="AlbumReferenceModel.Ratings"/>.
     /// </summary>
     public double? ReferenceRating { get; set; }
 
-    /// <summary>Scale of <see cref="ReferenceRating"/> (5 for Discogs); null when there is no reference rating.</summary>
+    /// <summary>Scale of <see cref="ReferenceRating"/> (5 for Discogs), null when there is no reference rating.</summary>
     public double? ReferenceRatingScale { get; set; }
 
     /// <summary>
-    /// Which rating source <see cref="ReferenceRating"/> was taken from ("tmdb", "imdb", "rawg", ...) - see
-    /// <c>RatingSourceCatalog</c>. Stamped on every link/refresh, and stamped even when that source has no
-    /// value for this reference: it records which source the denormalized copy was computed from, not where a
-    /// number came from, which is what lets the admin "recompute" action tell an item that is already on the
-    /// selected source from one that still needs re-stamping. Null only for items linked before this existed.
+    /// The rating source <see cref="ReferenceRating"/> was taken from, a <c>RatingSourceCatalog</c> key ("tmdb", "imdb", "igdb").
+    /// Stamped on every link and refresh, even when that source has no value for this reference.
+    /// It records which source the copy was computed from, which is how the admin recompute tells an item already on the selected source from one needing a new stamp.
+    /// Null on an item never stamped, which the recompute counts as different.
     /// </summary>
     public string? ReferenceRatingSource { get; set; }
 
     /// <summary>
-    /// Tenant-owned cover image override - takes priority over the linked reference's own cover wherever
-    /// a cover is shown (list thumbnail, detail page). Null means "use the reference's cover, if any" -
-    /// the previous, only behavior.
+    /// The tenant's own cover, which takes priority over the linked reference's cover wherever a cover is shown (list thumbnail, detail page).
+    /// Null means the reference's cover, if any.
     /// </summary>
     public string? CustomImageUrl { get; set; }
 
@@ -52,8 +50,8 @@ public class AlbumModel : IHasIdAndOwnerId, IReferenceLinkedModel
     public List<OwnedVersionModel> OwnedVersions { get; set; } = [];
 
     /// <summary>
-    /// Filter-only: matches if <see cref="OwnedVersions"/> is non-empty. Never persisted - see
-    /// <see cref="MovieModel.IsOwned"/>.
+    /// Filter only: matches when <see cref="OwnedVersions"/> is non-empty.
+    /// Never persisted (see <see cref="MovieModel.IsOwned"/>).
     /// </summary>
     public bool IsOwned { get; set; }
 }

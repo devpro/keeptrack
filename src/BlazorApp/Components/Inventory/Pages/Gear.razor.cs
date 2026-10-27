@@ -20,8 +20,8 @@ public partial class Gear : InventoryPageBase<GearDto>
     [SupplyParameterFromQuery(Name = "category")]
     public string? CategoryFilter { get; set; }
 
-    /// <summary>Distinct categories across this tenant's gear, for the Filters row - fetched once, not
-    /// tied to search/page/sort state like <see cref="InventoryPageBase{TDto}.Items"/> is.</summary>
+    /// <summary>Distinct categories across this tenant's gear, for the Filters row, fetched once rather than with the search,
+    /// page and sort state like <see cref="InventoryPageBase{TDto}.Items"/>.</summary>
     protected List<string> Categories { get; private set; } = [];
 
     protected override IReadOnlyDictionary<string, string>? ExtraQuery

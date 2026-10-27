@@ -6,10 +6,8 @@ using Keeptrack.Infrastructure.MongoDb.Entities;
 namespace Keeptrack.Infrastructure.MongoDb.Mappers;
 
 /// <summary>
-/// Hand-written rather than a Mapperly <c>[Mapper]</c> class: <see cref="CarHistoryModel"/>'s flat
-/// City/PostalCode/Country/Longitude/Latitude/Fuel* fields fan out into <see cref="CarHistory"/>'s
-/// Location/Fuel sub-documents on write and back on read, which is bespoke enough that explicit C# is
-/// more readable than attribute configuration.
+/// Hand-written rather than a Mapperly <c>[Mapper]</c>:
+/// the model's flat location and fuel fields fan out into the entity's Location and Fuel sub-documents and back, which reads better as plain C# than as attributes.
 /// </summary>
 public class CarHistoryStorageMapper : IStorageMapper<CarHistoryModel, CarHistory>
 {
@@ -20,9 +18,7 @@ public class CarHistoryStorageMapper : IStorageMapper<CarHistoryModel, CarHistor
             Id = model.Id,
             OwnerId = model.OwnerId,
             CarId = model.CarId,
-            // HistoryDate is a plain DateTime on both sides (the only date field in the codebase that
-            // isn't DateOnly on the model), so nothing upstream stamps DateTimeKind.Utc - the Mongo
-            // driver's default DateTimeSerializer requires it.
+            // a full DateTime on both sides, so nothing upstream stamps DateTimeKind.Utc, which the driver's DateTimeSerializer requires
             HistoryDate = DateTime.SpecifyKind(model.HistoryDate, DateTimeKind.Utc),
             Mileage = model.Mileage,
             EventType = model.EventType,
@@ -75,15 +71,11 @@ public class CarHistoryStorageMapper : IStorageMapper<CarHistoryModel, CarHistor
     {
         return new CarHistoryLocation
         {
-            // CarHistoryLocation.City is `required` at the entity/schema level, but a non-Refuel event
-            // can legitimately carry no location at all - the null-forgiving operator here preserves that
-            // existing schema/model mismatch rather than introducing a new one.
+            // City is required on the entity, but an event can legitimately have no location, so the null-forgiving operator keeps that mismatch rather than changing the schema
             City = model.City!,
             PostalCode = model.PostalCode,
             Country = model.Country,
-            // Coordinates: never persist an empty list, only a real 2-element [lon, lat] pair or nothing -
-            // the read side (ToModel) indexes Coordinates[0]/[1] guarded by "!= null", which an empty
-            // (not null) list would defeat. Covered by CarHistoryResourceTest's create/read round-trip.
+            // a real [lon, lat] pair or nothing, never an empty list, since ToModel indexes [0] and [1] behind a null check an empty list would pass (CarHistoryResourceTest)
             Coordinates = model.Longitude.HasValue && model.Latitude.HasValue
                 ? [model.Longitude.Value, model.Latitude.Value]
                 : null,

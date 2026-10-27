@@ -3,8 +3,7 @@ using MongoDB.Bson.Serialization.Attributes;
 namespace Keeptrack.Infrastructure.MongoDb.Entities;
 
 /// <summary>
-/// Embedded within <see cref="TvShowReference"/>/<see cref="MovieReference"/> - see
-/// <see cref="Keeptrack.Domain.Models.CastMemberModel"/> for the embedding rationale.
+/// Embedded in <see cref="TvShowReference"/> and <see cref="MovieReference"/> (see <see cref="Keeptrack.Domain.Models.CastMemberModel"/> for why).
 /// </summary>
 public class CastMember
 {

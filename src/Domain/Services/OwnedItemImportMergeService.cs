@@ -7,50 +7,31 @@ using Keeptrack.Domain.Models;
 namespace Keeptrack.Domain.Services;
 
 /// <summary>
-/// Computes what to create/update when committing a set of user-reviewed import rows, for any trackable item
-/// type. Pure: takes the owner's already-fetched items and the selected rows, returns a plan - all
-/// repository access stays in the calling controller. Matching is by normalized title
-/// (<see cref="TitleNormalizer"/>, the same "same title" rule the TV Time import already established),
-/// merging within the same commit batch too: two selected rows sharing a title become one item with two
-/// owned copies, even if neither existed before this commit.
+/// Computes what to create and update when committing reviewed import rows, for any trackable type.
+/// Pure: it takes the owner's items and the selected rows and returns a plan, the caller doing all repository access.
+/// Matching is by normalized title (<see cref="TitleNormalizer"/>), also within the batch:
+/// two rows sharing a title become one item with two copies, even when neither existed before.
 ///
-/// Generic over both the tracked model (<c>BookModel</c>/<c>MovieModel</c>/<c>TvShowModel</c>/<c>VideoGameModel</c>)
-/// and its own request-item shape via an <see cref="OwnedItemImportAdapter{TModel,TRequestItem}"/> of delegates
-/// rather than a shared interface - Book/Movie/TvShow's <c>OwnedVersions</c> and VideoGame's differently-shaped
-/// <c>Platforms</c> both flow through the exact same algorithm this way, with no changes to any of those models.
-/// The six delegates are bundled into one adapter value (rather than threaded individually) so the methods below
-/// don't each repeat all six as separate parameters. Extracted out of the originally Amazon-only
-/// <see cref="AmazonImportMergeService"/> once a second importer (the generic video game transaction import)
-/// needed the exact same engine - the two members here were already fully generic (no Amazon-specific
-/// concept anywhere in their bodies), only <see cref="AmazonImportMergeService.FormatOrderReference"/> and
-/// <see cref="AmazonImportMergeService.BuildAmazonProvenanceNotes"/> are genuinely Amazon-specific and stayed
-/// behind.
+/// Generic over the model and its request-item shape through an <see cref="OwnedItemImportAdapter{TModel,TRequestItem}"/> of delegates rather than a shared interface.
+/// The <c>OwnedVersions</c> of most types and the differently shaped <c>Platforms</c> of video games thus share one algorithm, with no change to the models.
 /// </summary>
 public static class OwnedItemImportMergeService
 {
     /// <summary>
-    /// Every reference already recorded on an existing owned copy - used at preview time to flag rows that
-    /// look like they were imported before, so re-uploading a newer export doesn't duplicate them. Compared
-    /// by exact string equality against whatever reference-formatting the calling importer uses for its own
-    /// candidate rows (e.g. <see cref="AmazonImportMergeService.FormatOrderReference"/>), which is what makes
-    /// per-line-item (not per-order) precision actually take effect. <paramref name="getReferences"/> reads
-    /// whichever collection carries the owned copies for <typeparamref name="TModel"/> (<c>OwnedVersions</c>
-    /// or <c>Platforms</c>).
+    /// Every reference recorded on an existing owned copy, so the preview flags rows imported before and a newer export does not duplicate them.
+    /// Compared by exact equality with the importer's own reference format (such as <see cref="AmazonImportMergeService.FormatOrderReference"/>),
+    /// which gives line-item rather than order precision.
+    /// <paramref name="getReferences"/> reads the collection holding <typeparamref name="TModel"/>'s copies (<c>OwnedVersions</c> or <c>Platforms</c>).
     /// </summary>
     public static HashSet<string> FindImportedReferences<TModel>(IEnumerable<TModel> existingItems, Func<TModel, IEnumerable<string?>> getReferences) =>
         existingItems.SelectMany(getReferences).Where(reference => reference is not null).ToHashSet()!;
 
     /// <summary>
-    /// <paramref name="adapter"/>'s <c>GetExistingReferences</c>/<c>GetItemReference</c> make the caller's own
-    /// reference (see <see cref="FindImportedReferences{TModel}"/>) the *primary* dedup key, not just an
-    /// advisory preview-time flag: a re-committed row whose reference already exists on some existing item -
-    /// under any title, even one reference-data linking has since renamed - is skipped outright rather than
-    /// falling through to title matching. Two real bugs (found on the original Amazon import) motivated this:
-    /// (1) re-running the same commit created a second owned copy for the same order every time, because
-    /// title-matching alone doesn't know "this exact copy is already here"; (2) once an item's title changed
-    /// after a first import, title-matching a re-import of the same order no longer found it at all and
-    /// created a brand new duplicate item instead. Title matching is still the fallback for a genuinely new
-    /// order of an item already owned under a different order (a second copy bought separately).
+    /// <paramref name="adapter"/>'s <c>GetExistingReferences</c>
+    /// and <c>GetItemReference</c> make the importer's reference (see <see cref="FindImportedReferences{TModel}"/>) the primary dedup key, not only a preview flag.
+    /// A row whose reference already exists on an item, under any title, even one reference linking renamed, is skipped rather than matched by title.
+    /// Title matching alone would add the same copy again on every re-commit, and would create a duplicate item once linking renamed the first one.
+    /// Title matching remains the fallback for a new order of an item already owned, a second copy bought separately.
     /// </summary>
     public static ImportCommitPlan<TModel> ComputeCommitPlan<TModel, TRequestItem>(
         IReadOnlyCollection<TModel> existingItems,
@@ -64,9 +45,8 @@ public static class OwnedItemImportMergeService
         var byReference = new Dictionary<string, TModel>();
         IndexExistingItems(existingItems, adapter, byNormalizedTitle, byReference);
 
-        // Items created earlier in this same batch are tracked separately from pre-existing ones: a later
-        // row matching one must only get its owned copy appended (already reflected via ItemsToCreate),
-        // never also queued onto ItemsToUpdate - it has no Id yet, so "updating" it would be meaningless.
+        // Items created earlier in this batch are tracked apart from existing ones:
+        // a later row matching one only appends its copy, already part of ItemsToCreate, and never queues an update for an item with no id yet.
         var createdThisBatch = new HashSet<TModel>();
 
         foreach (var item in items)
@@ -130,14 +110,12 @@ public static class OwnedItemImportMergeService
             plan.ItemsToCreate.Add(created);
             createdThisBatch.Add(created);
 
-            // so a later row in the same batch sharing this title merges into it too, instead of
-            // creating a second item
+            // so a later row in the same batch sharing this title merges into it too, instead of creating a second item
             byNormalizedTitle[key] = created;
             target = created;
         }
 
-        // registers this reference immediately (not just from the initial existingItems scan), so a
-        // second row in the same batch carrying the same reference is caught by the check above too
+        // registered now, not only from the initial scan, so a later row of the batch carrying the same reference is caught too
         if (reference is not null) byReference[reference] = target;
 
         plan.OwnedCopiesAdded++;

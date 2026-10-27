@@ -7,14 +7,11 @@ using Keeptrack.Domain.Services;
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// RAWG Video Games Database REST client. Configured as a typed <see cref="HttpClient"/> (see Program.cs),
-/// with the api key appended as a query parameter on every request, same convention as <see cref="TmdbClient"/>.
+/// RAWG client, a typed <see cref="HttpClient"/> with the API key as a query parameter, like <see cref="TmdbClient"/>.
 /// <para>
-/// No longer the default video game provider (see <see cref="IgdbClient"/>) but deliberately still registered,
-/// for two reasons: an admin can still search and link with it, and the <c>rawg</c>/<c>metacritic</c> ratings it
-/// already produced stay on those reference documents and keep rendering.
-/// It is *not* called by the background refresh - see
-/// <c>ReferenceEnrichmentService.RefreshVideoGameReferenceAsync</c> for why only the default provider is.
+/// Not the default game provider (see <see cref="IgdbClient"/>), but registered so an admin can search and link with it,
+/// and its <c>rawg</c> and <c>metacritic</c> ratings keep rendering.
+/// The background refresh never calls it (see <c>ReferenceEnrichmentService.RefreshVideoGameReferenceAsync</c>).
 /// </para>
 /// </summary>
 public class RawgClient(HttpClient http, RawgSettings settings) : VideoGameReferenceClientBase
@@ -23,15 +20,13 @@ public class RawgClient(HttpClient http, RawgSettings settings) : VideoGameRefer
 
     public override string DisplayName => "RAWG";
 
-    /// <summary>RAWG's own 0-5 user score (its default ordering) and the Metacritic score it republishes.</summary>
+    /// <summary>RAWG's 0 to 5 user score, its default ordering, and the Metacritic score it republishes.</summary>
     public override IReadOnlyList<string> SupportedRatingSources { get; } = [RatingSourceCatalog.Rawg, RatingSourceCatalog.Metacritic];
 
     protected override async Task<IReadOnlyList<VideoGameSearchResult>> SearchByRelevanceAsync(string title, int limit, CancellationToken cancellationToken)
     {
-        // no `&dates=` narrowing any more, and dropping it is a fix rather than a simplification: it was a hard
-        // server-side filter on RAWG's own release date, so a game whose date RAWG records in the year either
-        // side of the one a tenant typed was not ranked lower, it was absent - see
-        // VideoGameReferenceClientBase.SearchByRelevanceAsync.
+        // no `&dates=`, a hard filter on RAWG's release date that would drop a game recorded a year off
+        // rather than rank it lower (see VideoGameReferenceClientBase.SearchByRelevanceAsync)
         var query = $"games?key={ApiKey}&search={Encode(title)}&page_size={limit}";
         var response = await http.GetFromJsonAsync<RawgSearchResponse>(query, cancellationToken);
         return response?.Results.Select(r => new VideoGameSearchResult(
@@ -40,10 +35,8 @@ public class RawgClient(HttpClient http, RawgSettings settings) : VideoGameRefer
 
     public override async Task<IReadOnlyList<VideoGameSearchResult>> FindGamesByExactTitleAsync(string title, CancellationToken cancellationToken = default)
     {
-        // RAWG has no equality operator on a field; `search_exact=true` only turns *off* the fuzziness of its
-        // relevance search, so it narrows the pool but still returns near-misses. The equality this method
-        // promises its callers is therefore applied here, on the response - a filter the paging loop's
-        // "an empty page ends the walk" rule makes unsafe elsewhere in this client, but this is a single page.
+        // RAWG has no field equality, and `search_exact=true` only turns off its fuzziness, so near misses still come back.
+        // The promised equality is applied here on the response, safe since this is one page, unlike the paging loop, which stops on an empty page.
         var query = $"games?key={ApiKey}&search={Encode(title)}&search_exact=true&page_size={MaxExactTitleResults}";
         var response = await http.GetFromJsonAsync<RawgSearchResponse>(query, cancellationToken);
         return response?.Results
@@ -57,10 +50,8 @@ public class RawgClient(HttpClient http, RawgSettings settings) : VideoGameRefer
     {
         if (words.Count == 0) return [];
 
-        // RAWG has no substring operator on a field - `search=` is all it offers - so the containment this
-        // method promises is applied here, on one page of results, the same shape as FindGamesByExactTitleAsync
-        // above. Weaker than IGDB's version (RAWG's own relevance decides what is on that page at all) but it
-        // costs one call and can only ever return titles that genuinely contain every word.
+        // RAWG has no substring operator, `search=` being all it offers, so the promised containment is applied on one page, like FindGamesByExactTitleAsync.
+        // Weaker than IGDB's, since RAWG's relevance decides the page, but it costs one call and only returns titles containing every word.
         var query = $"games?key={ApiKey}&search={Encode(string.Join(' ', words))}&page_size={MaxExactTitleResults}";
         var response = await http.GetFromJsonAsync<RawgSearchResponse>(query, cancellationToken);
         return response?.Results
@@ -72,9 +63,8 @@ public class RawgClient(HttpClient http, RawgSettings settings) : VideoGameRefer
 
     public override async Task<VideoGameSearchResult?> FindGameByIdentifierAsync(string identifier, CancellationToken cancellationToken = default)
     {
-        // RAWG's own detail endpoint accepts either its numeric id or the slug its pages are keyed on, so a
-        // pasted address needs no separate lookup. It answers 404 for one it doesn't hold, which is an
-        // ordinary "no result" here rather than a failed request - hence GetAsync over GetFromJsonAsync.
+        // The detail endpoint accepts the numeric id or the page slug, so a pasted address needs no extra lookup.
+        // A 404 is an ordinary "no result" here, hence GetAsync rather than GetFromJsonAsync.
         using var response = await http.GetAsync($"games/{Uri.EscapeDataString(identifier)}?key={ApiKey}", cancellationToken);
         if (!response.IsSuccessStatusCode) return null;
 
@@ -109,9 +99,8 @@ public class RawgClient(HttpClient http, RawgSettings settings) : VideoGameRefer
     }
 
     /// <summary>
-    /// RAWG's two aggregates as a <c>Ratings</c> map: its own 0-5 user score plus Metacritic's 0-100 critic
-    /// score when it reports one (frequently absent for smaller/older games). A 0/absent value is treated as
-    /// "no rating" and omitted, never stored as a genuine zero.
+    /// RAWG's two aggregates as a <c>Ratings</c> map: its 0 to 5 user score, and Metacritic's 0 to 100 score when reported, often absent for smaller or older games.
+    /// A zero or absent value means no rating and is omitted, never stored as zero.
     /// </summary>
     private static Dictionary<string, ReferenceRatingModel> BuildRatings(double? rating, int? ratingsCount, int? metacritic)
     {
@@ -127,20 +116,17 @@ public class RawgClient(HttpClient http, RawgSettings settings) : VideoGameRefer
         return ratings;
     }
 
-    /// <summary>Bound on <see cref="FindGamesByExactTitleAsync"/> - see <c>IgdbClient</c>'s own on why it is the larger one.</summary>
+    /// <summary>Bound of <see cref="FindGamesByExactTitleAsync"/> (see <c>IgdbClient</c> for why it is the larger one).</summary>
     private const int MaxExactTitleResults = 40;
 
-    /// <summary>RAWG's per-page maximum, so a discovery request needs as few round-trips as possible.</summary>
+    /// <summary>RAWG's maximum page size, so discovery needs as few round trips as possible.</summary>
     private const int TopRatedPageSize = 40;
 
     /// <summary>
-    /// Notability floor on the discovery pool: only games Metacritic rates "generally favorable" or better are
-    /// candidates, whichever score the list is then *ordered* by. RAWG has no curated top-rated endpoint like
-    /// TMDB's (whose own list already applies a minimum vote count), and its <c>rating</c> is a plain average
-    /// with no vote-count filter or sort option - so ordering the whole ~900k-game catalogue by <c>-rating</c>
-    /// would rank an unknown game carrying a single 5-star vote above every classic. Requiring a Metacritic
-    /// score (i.e. the game was reviewed by the professional press at all) is the closest server-side
-    /// equivalent of TMDB's vote threshold, and it costs no extra call. Raise it for a stricter list.
+    /// Notability floor of the discovery pool: only games Metacritic rates "generally favorable" or better, whatever score orders the list.
+    /// RAWG has no curated top-rated list like TMDB's, and its <c>rating</c> is a plain average with no vote-count filter,
+    /// so ordering by it would rank a game with a single 5-star vote above every classic.
+    /// Requiring a press score is the closest server-side equivalent of TMDB's vote threshold, at no extra call.
     /// </summary>
     private const int MinMetacritic = 60;
 
@@ -171,15 +157,14 @@ public class RawgClient(HttpClient http, RawgSettings settings) : VideoGameRefer
         [JsonPropertyName("background_image")]
         public string? BackgroundImage { get; set; }
 
-        // only populated on the top-rated listing (the search path ignores both) - RAWG's list serializer
-        // returns the same shape for every /games query.
+        // read only by the top-rated listing, every /games query returning the same shape
         [JsonPropertyName("rating")]
         public double? Rating { get; set; }
 
         [JsonPropertyName("metacritic")]
         public int? Metacritic { get; set; }
 
-        /// <summary>What rawg.io keys a game's own page on - <see cref="Id"/> can't be turned into it.</summary>
+        /// <summary>What rawg.io keys a game's page on, which <see cref="Id"/> cannot be turned into.</summary>
         [JsonPropertyName("slug")]
         public string? Slug { get; set; }
     }

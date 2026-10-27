@@ -49,10 +49,9 @@ public class ApiExceptionFilterAttributeTest
     }
 
     /// <summary>
-    /// The three ways a failed external provider call (TMDB/RAWG/Open Library/Discogs) surfaces out of the
-    /// HTTP resilience pipeline - the total-request timeout expiring, the circuit breaker being open, and a
-    /// non-success response after the retries are exhausted - all map to 502, never 500: the provider failed,
-    /// this API didn't. A caller (and a CI test) can then tell an upstream outage from a defect here.
+    /// The three ways a failed provider call surfaces out of the HTTP resilience pipeline all map to 502, never 500, since the provider failed, not this API.
+    /// They are the total-request timeout expiring, the circuit breaker being open, and a non-success response after the retries are exhausted.
+    /// A caller, and a CI test, can then tell an upstream outage from a defect here.
     /// </summary>
     [Theory]
     [MemberData(nameof(UpstreamProviderFailures))]
@@ -73,8 +72,7 @@ public class ApiExceptionFilterAttributeTest
     ];
 
     /// <summary>
-    /// Everything else maps to 500 - the request still fails cleanly with a JSON body instead of an unhandled
-    /// exception taking the process down.
+    /// Everything else maps to 500, so the request still fails cleanly with a JSON body instead of an unhandled exception taking the process down.
     /// </summary>
     [Fact]
     public void OnException_MapsAnyOtherExceptionTo500()
@@ -102,11 +100,9 @@ public class ApiExceptionFilterAttributeTest
             .GetValue(context.Result.As<JsonResult>().Value)!.ToString()!;
 
     /// <summary>
-    /// The provider's OWN status is the single most useful fact about an upstream failure, and it used to be
-    /// dropped: this API answered 502, the Blazor client's EnsureSuccessStatusCode then reported "Response
-    /// status code does not indicate success: 502 (Bad Gateway)", and the admin saw our gateway status with
-    /// the provider's real one nowhere in it. That is how a total Google Books search outage (every
-    /// volumes?q= answering 503 while volumes/{id} answered 200) read as a defect in Keeptrack.
+    /// The provider's own status is the most useful fact about an upstream failure.
+    /// Without it, the admin sees only this API's 502 through the Blazor client's EnsureSuccessStatusCode,
+    /// and a Google Books search outage (volumes?q= answering 503) reads as a Keeptrack defect.
     /// </summary>
     [Fact]
     public void OnException_ReportsTheProvidersOwnStatus_WhenTheProviderAnswered()
@@ -120,8 +116,7 @@ public class ApiExceptionFilterAttributeTest
     }
 
     /// <summary>
-    /// A provider that never answered at all (DNS, TLS, connection refused) carries no status to report -
-    /// saying so is different from, and more honest than, naming a status nobody sent.
+    /// A provider that never answered (DNS, TLS, connection refused) carries no status, and saying so is more honest than naming a status nobody sent.
     /// </summary>
     [Fact]
     public void OnException_ReportsThatTheProviderWasUnreachable_WhenThereWasNoResponseAtAll()
@@ -144,8 +139,7 @@ public class ApiExceptionFilterAttributeTest
     }
 
     /// <summary>
-    /// An open circuit means the call was never attempted - worth saying, since it explains an instant
-    /// failure that looks nothing like the slow one that caused it.
+    /// An open circuit means the call was never attempted, worth saying, since it explains an instant failure that looks nothing like the slow one that caused it.
     /// </summary>
     [Fact]
     public void OnException_ExplainsAnOpenCircuit()
@@ -158,8 +152,7 @@ public class ApiExceptionFilterAttributeTest
     }
 
     /// <summary>
-    /// The framework's own wording describes an exchange the reader can't see and must never be what a user
-    /// is shown - the full exception still goes to the log, which is where it belongs.
+    /// The framework's wording describes an exchange the reader can't see, so it is never shown to a user, and the full exception goes to the log.
     /// </summary>
     [Theory]
     [MemberData(nameof(UpstreamProviderFailures))]

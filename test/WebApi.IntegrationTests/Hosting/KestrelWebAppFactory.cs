@@ -1,25 +1,24 @@
 using System.Collections.Generic;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace Keeptrack.WebApi.IntegrationTests.Hosting;
 
 /// <summary>
-/// Thin subclass over the shared <see cref="Keeptrack.Testing.Shared.Hosting.KestrelWebAppFactory{TEntryPoint}"/>,
-/// preserving this project's exact pre-extraction behavior: the <c>KESTREL_WEBAPP_URL</c> override variable, and
-/// disabling <see cref="Keeptrack.WebApi.ReferenceData.ReferenceSyncBackgroundService"/> so it doesn't fire real
-/// TMDB calls against shared test data on every host start-up (see <see cref="Keeptrack.WebApi.AppConfiguration.IsReferenceSyncEnabled"/>).
+/// Thin subclass over the shared <see cref="Keeptrack.Testing.Shared.Hosting.KestrelWebAppFactory{TEntryPoint}"/>:
+/// the <c>KESTREL_WEBAPP_URL</c> override variable, and <see cref="Keeptrack.WebApi.ReferenceData.ReferenceSyncBackgroundService"/> disabled.
+/// The sync would otherwise fire real provider calls against shared test data on every host start (see <see cref="Keeptrack.WebApi.AppConfiguration.IsReferenceSyncEnabled"/>).
 /// <para>
-/// <c>ReferenceData:VideoGameProvider</c> is pinned to <c>igdb</c> here rather than left to inherit whatever
-/// <c>appsettings.Development.json</c> currently says, so the suite doesn't drift with an unrelated deployment
-/// choice. IGDB is the more stable provider, and this is what every video game reference test is written
-/// against, including <c>VideoGameReferenceMatchSmokeTest</c>, which hard-requires <c>Igdb__ClientId</c>/
-/// <c>Igdb__ClientSecret</c> but deliberately not <c>Rawg__ApiKey</c>.</para>
+/// <c>ReferenceData:VideoGameProvider</c> is pinned to <c>igdb</c> rather than inherited from <c>appsettings.Development.json</c>,
+/// so the suite doesn't drift with a deployment choice.
+/// Every video game reference test is written against IGDB, including <c>VideoGameReferenceMatchSmokeTest</c>,
+/// which requires <c>Igdb__ClientId</c> and <c>Igdb__ClientSecret</c> but not <c>Rawg__ApiKey</c>.
+/// </para>
 /// <para>
-/// Every fixture in this project routes through here, which is why the database is settled in the constructor:
-/// the name comes from <see cref="IntegrationTestDatabase"/> (defaulted, not required), it is pushed into the
-/// host's configuration so no appsettings fallback can reach <c>keeptrack_dev</c>, and
-/// <see cref="Keeptrack.Testing.Shared.Hosting.TestDatabaseGuard"/> vouches for the name this run will really
-/// use. "This suite never writes to the developer's own database" is a property of the host itself rather than
-/// something each test class - or each developer's IDE settings - has to get right.
+/// Every fixture in this project routes through here, so the database is settled in the constructor.
+/// The name comes from <see cref="IntegrationTestDatabase"/>, is pushed into the host's configuration so no appsettings fallback reaches <c>keeptrack_dev</c>,
+/// and <see cref="Keeptrack.Testing.Shared.Hosting.TestDatabaseGuard"/> vouches for it.
+/// Never writing to the developer's database is then a property of the host rather than of each test class or IDE setting.
 /// </para>
 /// </summary>
 public class KestrelWebAppFactory<TEntryPoint> : Keeptrack.Testing.Shared.Hosting.KestrelWebAppFactory<TEntryPoint>
@@ -31,9 +30,8 @@ public class KestrelWebAppFactory<TEntryPoint> : Keeptrack.Testing.Shared.Hostin
     }
 
     /// <summary>
-    /// For a fixture that needs the same host with something else configured
-    /// (<see cref="ProviderlessWebAppFactory"/>), so the sync-disabling override above is never restated -
-    /// a second copy of it is exactly how the two would drift apart.
+    /// For a fixture needing the same host with something else configured (<see cref="ProviderlessWebAppFactory"/>),
+    /// so the sync-disabling override above is never restated and can't drift.
     /// </summary>
     protected KestrelWebAppFactory(KeyValuePair<string, string?>[] configOverrides)
         : base("KESTREL_WEBAPP_URL",
@@ -45,5 +43,16 @@ public class KestrelWebAppFactory<TEntryPoint> : Keeptrack.Testing.Shared.Hostin
         ])
     {
         Keeptrack.Testing.Shared.Hosting.TestDatabaseGuard.EnsureTestDatabaseName(IntegrationTestDatabase.Name);
+    }
+
+    /// <summary>
+    /// Filled only by the in-process host, so against <c>KESTREL_WEBAPP_URL</c> it stays empty and nothing is skipped.
+    /// </summary>
+    public AutomaticMatchFailureLog AutomaticMatchFailures { get; } = new();
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.ConfigureLogging(logging => logging.AddProvider(AutomaticMatchFailures));
+        base.ConfigureWebHost(builder);
     }
 }

@@ -10,11 +10,10 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.Jobs;
 
 /// <summary>
-/// Covers <see cref="JobStore{TStage,TResult}"/>'s own responsibility - the typed enum-name/JSON
-/// translation over the string-based <see cref="IBackgroundJobRepository"/> contract - against an
-/// in-memory fake repository. The real MongoDB persistence (including the owner-scoping query) is
-/// covered by <c>BackgroundJobRepositoryTest</c> in the integration suite; the fake below mirrors the
-/// same owner-check contract so the wrapper's null passthrough is still exercised here.
+/// Covers <see cref="JobStore{TStage,TResult}"/>'s own job,
+/// the typed enum-name and JSON translation over the string-based <see cref="IBackgroundJobRepository"/>, against an in-memory fake.
+/// <c>BackgroundJobRepositoryTest</c> covers the real MongoDB persistence and owner-scoping query,
+/// and the fake mirrors the owner check, so the wrapper's null passthrough is exercised here.
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class JobStoreTest
@@ -134,7 +133,7 @@ public class JobStoreTest
 
         var jobId = await store.CreateAsync("owner-1", TestStage.Running);
 
-        // "TestStage" minus the "Stage" suffix - the same rule that yields "Import"/"ReferenceSync"
+        // "TestStage" minus the "Stage" suffix, the rule yielding "Import" and "ReferenceSync"
         repository[jobId].Kind.Should().Be("Test");
     }
 

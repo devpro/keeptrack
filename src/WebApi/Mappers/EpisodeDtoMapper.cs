@@ -6,7 +6,7 @@ namespace Keeptrack.WebApi.Mappers;
 [Mapper]
 public partial class EpisodeDtoMapper : IDtoMapper<EpisodeDto, EpisodeModel>
 {
-    // see BookDtoMapper.ToModel for why MapValue (not MapperIgnoreTarget) is required here
+    // MapValue rather than MapperIgnoreTarget, since OwnerId is required (see BookDtoMapper)
     [MapValue(nameof(EpisodeModel.OwnerId), "")]
     public partial EpisodeModel ToModel(EpisodeDto dto);
 

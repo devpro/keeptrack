@@ -4,8 +4,7 @@ using CsvHelper.Configuration;
 namespace Keeptrack.WebApi.Import.Parsers;
 
 /// <summary>
-/// Shared CsvHelper configuration for every TV Time export file: tolerant of the differing
-/// column sets between the several export-generation files this importer reads.
+/// Shared CsvHelper configuration for every TV Time file, tolerating the differing column sets of the export's generations of files.
 /// </summary>
 internal static class TvTimeCsvConfiguration
 {

@@ -1,8 +1,7 @@
 @typeparam TDto where TDto : Keeptrack.Common.System.IHasId, IReferenceLinkedDto
-@*
-    The title row's reference controls: the result toast, "check for reference match" for everyone, and unlink for an admin.
-    The toast is a small auto-dismissing pill, and a token keeps a delay left over from an earlier click from clearing a newer message.
-*@
+@* 
+   The title row's reference controls: the result toast, "check for reference match" for everyone, and unlink for an admin.
+   The toast is a small auto-dismissing pill, and a token keeps a delay left over from an earlier click from clearing a newer message. *@
 
 <span class="kt-title-toast-slot">
     @if (_message is not null)

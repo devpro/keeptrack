@@ -1,9 +1,8 @@
 @using static Keeptrack.BlazorApp.Components.Shared.SvgChartHelpers
-@*
-    A graduated X/Y axis pair drawn inside a chart's <svg>: arrowheads, tick marks, tick labels and axis titles.
-    The ticks come from the chart, since an evenly spaced value differs between a continuous line chart and a categorical bar chart.
-    The Y-axis title is a horizontal caption above the axis rather than rotated along it, because a rotated single glyph such as "€" reads as a different character.
-*@
+@* 
+   A graduated X/Y axis pair drawn inside a chart's <svg>: arrowheads, tick marks, tick labels and axis titles.
+   The ticks come from the chart, since an evenly spaced value differs between a continuous line chart and a categorical bar chart.
+   The Y-axis title is a horizontal caption above the axis rather than rotated along it, because a rotated single glyph such as "€" reads as a different character. *@
 
 <defs>
     <marker id="@MarkerId" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">

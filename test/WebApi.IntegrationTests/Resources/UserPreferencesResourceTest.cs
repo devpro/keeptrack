@@ -10,9 +10,9 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Covers the singleton-per-owner preferences resource: the "nothing saved yet" default, and the
-/// upsert-by-owner-id persistence the repository relies on (a first PUT inserts, a later one updates the
-/// same document rather than colliding with the unique owner_id index).
+/// Covers the singleton-per-owner preferences resource: the "nothing saved yet" default,
+/// and the upsert-by-owner-id persistence the repository relies on
+/// (a first PUT inserts, a later one updates the same document rather than colliding with the unique owner_id index).
 /// </summary>
 public class UserPreferencesResourceTest(KestrelWebAppFactory<Program> factory)
     : ResourceTestBase(factory)
@@ -39,9 +39,8 @@ public class UserPreferencesResourceTest(KestrelWebAppFactory<Program> factory)
     public async Task Put_ThenGet_RoundTripsTheSavedValue()
     {
         await Authenticate();
-        // The document is created server-side under the caller's own owner id and has no id the test ever
-        // sees, so it's cleaned up by owner. Leaving it behind would also quietly undermine
-        // Get_ReturnsAllFalseDefaults_WhenNothingWasEverSaved above, whose whole point is the never-saved case.
+        // The document is created server-side under the caller's own owner id and has no id the test ever sees, so it's cleaned up by owner.
+        // Leaving it behind would also quietly undermine Get_ReturnsAllFalseDefaults_WhenNothingWasEverSaved above, whose whole point is the never-saved case.
         TrackDocumentsWhere("user_preference", Builders<BsonDocument>.Filter.Eq("owner_id", AuthenticatedUserId));
 
         await PutAsync($"/{ResourceEndpoint}", new UserPreferencesDto { Features = new UserPreferencesFeaturesDto { ShowChasseAuxLivresLink = true } });

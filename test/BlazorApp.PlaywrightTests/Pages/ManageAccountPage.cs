@@ -21,7 +21,7 @@ public class ManageAccountPage(IPage page) : PageBase(page)
         await Assertions.Expect(Page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Manage", Level = 1 })).ToBeVisibleAsync();
     }
 
-    /// <summary>The "Signed in as {email}" line - proof the authenticated identity rendered.</summary>
+    /// <summary>The "Signed in as {email}" line, proving the authenticated identity rendered.</summary>
     public ILocator SignedInAs => Page.GetByText("Signed in as");
 
     /// <summary>One of the two preference checkboxes; it carries a real <c>&lt;label for&gt;</c>, so <c>GetByLabel</c> resolves it.</summary>

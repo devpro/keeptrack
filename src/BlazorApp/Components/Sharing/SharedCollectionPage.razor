@@ -145,8 +145,7 @@ else
 @code {
     [Parameter] public required string ShareId { get; set; }
 
-    // The selected category lives in the URL (?tab=), same as Wishlist / Watch Next, so back/forward and a
-    // bookmarked link land on the right tab.
+    // The selected category lives in the URL (?tab=), as on Wishlist and Watch Next, so back, forward and a bookmark land on the right tab.
     [SupplyParameterFromQuery(Name = "tab")]
     public string? TabQuery { get; set; }
 
@@ -165,8 +164,7 @@ else
         _loaded = true;
     }
 
-    // Runs after OnInitializedAsync (so _summary is loaded) and on every ?tab= change (button click,
-    // browser back/forward), keeping the active tab in sync with the URL.
+    // Runs after OnInitializedAsync, with _summary loaded, and on every ?tab= change (button click, browser back or forward), keeping the active tab in sync with the URL.
     protected override void OnParametersSet()
     {
         if (_summary is null)
@@ -183,8 +181,7 @@ else
     private void SelectTab(ShareCategory category) =>
         Navigation.NavigateTo(Navigation.GetUriWithQueryParameters(new Dictionary<string, object?> { ["tab"] = category.ToString() }));
 
-    // Personal-list detail-route projections. Kept as methods (not inline lambdas in the markup) because a $""
-    // interpolation inside a razor attribute value can't be delimited by the same double quotes the attribute uses.
+    // Methods rather than inline lambdas, since a $"" interpolation inside a Razor attribute value can't use the attribute's own double quotes.
     private string CarHref(CarDto car) => $"/account/manage/shared/{ShareId}/cars/{car.Id}";
 
     private string HouseHref(HouseDto house) => $"/account/manage/shared/{ShareId}/houses/{house.Id}";

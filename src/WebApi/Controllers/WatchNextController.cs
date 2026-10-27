@@ -31,15 +31,14 @@ public class WatchNextController(
         var moviesToWatch = await movieRepository.FindAllAsync(ownerId, 1, int.MaxValue, null,
             new MovieModel { OwnerId = ownerId, Title = string.Empty, WantToWatch = true });
 
-        // only current shows with a reference link can possibly appear in the result (see WatchNextService),
-        // so only those shows need their episodes and their (small, bounded) reference episode guide fetched.
+        // only current, linked shows can appear (see WatchNextService), so only those fetch their episodes and episode guide
         var candidateShows = shows.Items
             .Where(s => s.State == Domain.Models.TvShowStatus.Current && !string.IsNullOrEmpty(s.ReferenceId))
             .ToList();
 
         var episodes = await episodeRepository.FindByShowIdsAsync(ownerId, candidateShows.Select(s => s.Id!).ToList());
 
-        // one batched lookup instead of one round trip per show (see ReferenceImageHydrator below for the same pattern).
+        // one batched lookup rather than a round trip per show
         var referencesById = (await tvShowReferenceRepository.FindByIdsAsync(
                 candidateShows.Select(s => s.ReferenceId!).Distinct().ToList()))
             .ToDictionary(r => r.Id!);
@@ -54,8 +53,7 @@ public class WatchNextController(
             MoviesToWatch = WatchNextService.FilterMoviesToWatch(moviesToWatch.Items).Select(movieMapper.ToDto).ToList()
         };
 
-        // in-progress shows' posters come straight from the reference documents already fetched above -
-        // no second lookup needed, unlike the movies' generic hydration below.
+        // shows take their covers from the references already fetched, unlike the movies hydrated below
         foreach (var dto in result.InProgressShows)
         {
             if (referencesByShowId.TryGetValue(dto.TvShowId, out var reference)) dto.ImageUrl = reference.ImageUrl;

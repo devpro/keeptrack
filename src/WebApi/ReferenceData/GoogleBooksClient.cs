@@ -6,9 +6,6 @@ using System.Web;
 
 namespace Keeptrack.WebApi.ReferenceData;
 
-/// <summary>
-/// Google Books REST client.
-/// </summary>
 public partial class GoogleBooksClient(HttpClient http, GoogleBooksSettings settings) : BookReferenceClientBase
 {
     public override string ProviderKey => "googlebooks";
@@ -22,10 +19,8 @@ public partial class GoogleBooksClient(HttpClient http, GoogleBooksSettings sett
     private string ApiKey => settings.ApiKey;
 
     /// <summary>
-    /// An ISBN is an exact identifier, so it is the sole query rather than being combined with title/author -
-    /// "and"-ing an exact identifier with a fuzzy match risks the same narrowing-correctness problem a plain
-    /// identifier lookup doesn't have to worry about. Whether a miss then widens to a title search is
-    /// <see cref="BookReferenceClientBase.SearchBooksAsync"/>'s decision, shared by every provider.
+    /// An ISBN is an exact identifier, so it is the sole query, since combining it with a fuzzy title could only lose matches.
+    /// <see cref="BookReferenceClientBase.SearchBooksAsync"/> decides whether a miss widens to a title search.
     /// </summary>
     protected override Task<IReadOnlyList<BookSearchResult>> SearchByIsbnAsync(string isbn, CancellationToken cancellationToken) =>
         SearchBooksCoreAsync($"isbn:{isbn}", cancellationToken);
@@ -35,17 +30,14 @@ public partial class GoogleBooksClient(HttpClient http, GoogleBooksSettings sett
         SearchBooksCoreAsync(BuildQuery(title, author), cancellationToken);
 
     /// <summary>
-    /// Google's own <c>fields=</c> partial-response parameter (https://developers.google.com/books/docs/v1/performance),
-    /// restricted to exactly what <see cref="BookSearchResult"/> reads - confirmed against the real API that
-    /// the unfiltered response is ~75KB/20 results (a full <c>volumeInfo</c>, including the long HTML
-    /// description and every industry identifier, per item) against TMDB's ~14KB for a comparable movie
-    /// search; this is why a Google Books lookup was observed to be consistently slower than the other three
-    /// providers even on a successful call, not just during today's provider-side 500/503s.
+    /// Google's <c>fields=</c> partial response (https://developers.google.com/books/docs/v1/performance), restricted to what <see cref="BookSearchResult"/> reads.
+    /// The unfiltered response is about 75KB for 20 results, each with a whole <c>volumeInfo</c>,
+    /// against 14KB for a TMDB movie search, which made Google Books the slowest provider.
     /// </summary>
     private const string SearchFields = "fields=items(id,volumeInfo(title,authors,publishedDate,imageLinks/thumbnail))";
 
     /// <summary>
-    /// Same idea as <see cref="SearchFields"/>, restricted to what <see cref="BookDetails"/> reads.
+    /// Like <see cref="SearchFields"/>, restricted to what <see cref="BookDetails"/> reads.
     /// </summary>
     private const string DetailsFields = "fields=volumeInfo(title,publishedDate,description,authors,categories,imageLinks/thumbnail,language,industryIdentifiers,averageRating,ratingsCount)";
 
@@ -89,7 +81,7 @@ public partial class GoogleBooksClient(HttpClient http, GoogleBooksSettings sett
     }
 
     /// <summary>
-    /// Prefers ISBN_13 (the current standard) over ISBN_10 when a volume reports both
+    /// Prefers ISBN_13, the current standard, over ISBN_10 when a volume reports both.
     /// </summary>
     private static string? ExtractIsbn(List<GoogleBooksIndustryIdentifier> identifiers)
     {
@@ -103,9 +95,8 @@ public partial class GoogleBooksClient(HttpClient http, GoogleBooksSettings sett
     }
 
     /// <summary>
-    /// Matches a standalone 4-digit token
-    /// <c>volumeInfo.publishedDate</c> is documented as a plain string with no fixed format (seen in practice as a bare year, "YYYY-MM", or "YYYY-MM-DD")
-    /// same defensive approach as <see cref="OpenLibraryClient"/>'s own year parsing rather than a bare <c>int.Parse</c>.
+    /// Matches a standalone 4-digit token, since <c>volumeInfo.publishedDate</c> has no fixed format (a bare year, "YYYY-MM" or "YYYY-MM-DD"),
+    /// as <see cref="OpenLibraryClient"/> parses years.
     /// </summary>
     [GeneratedRegex(@"\b\d{4}\b", RegexOptions.Compiled)]
     private static partial Regex YearRegex();
@@ -119,26 +110,18 @@ public partial class GoogleBooksClient(HttpClient http, GoogleBooksSettings sett
     }
 
     /// <summary>
-    /// <c>volumeInfo.description</c> is documented as HTML-formatted ("simple formatting elements, such as
-    /// b, i, and br tags") - decodes entities first (so an entity-encoded tag, e.g. <c>&amp;lt;script&amp;gt;</c>,
-    /// can't survive the strip below and only turn into a real tag afterward), then keeps only bare,
-    /// attribute-free <c>&lt;b&gt;</c>/<c>&lt;i&gt;</c>/<c>&lt;br/&gt;</c> tags - reconstructed from just the
-    /// tag name, discarding any attributes the original tag carried - and removes every other tag entirely.
-    /// This fixed allowlist-and-reconstruct approach (not a general sanitizer) is specifically what makes it
-    /// safe to render the result as <c>MarkupString</c> on <c>BookDetail.razor</c>: nothing but those three
-    /// bare tags can ever survive, so there's no attribute-based injection vector (e.g. a stray
-    /// <c>onclick</c>) to worry about.
+    /// <c>volumeInfo.description</c> is HTML with "simple formatting elements, such as b, i, and br tags".
+    /// Entities are decoded first, so an encoded tag (<c>&amp;lt;script&amp;gt;</c>) cannot survive the strip and become a real tag afterward.
+    /// Only bare <c>&lt;b&gt;</c>, <c>&lt;i&gt;</c> and <c>&lt;br/&gt;</c> tags are then rebuilt from their name, attributes discarded, and every other tag removed.
+    /// That fixed allowlist is what makes rendering the result as a <c>MarkupString</c> on <c>BookDetail.razor</c> safe: no attribute such as <c>onclick</c> can survive.
     /// </summary>
     [GeneratedRegex(@"</?(\w+)\b[^>]*>", RegexOptions.Compiled)]
     private static partial Regex TagRegex();
     private static readonly Regex s_tagRegex = TagRegex();
 
     /// <summary>
-    /// Real descriptions confirmed to also use plain newline characters for paragraph breaks, not just <c>&lt;br&gt;</c> tags
-    /// a description with only bold/italic markup and no actual <c>&lt;br&gt;</c> tags otherwise renders as one massive paragraph
-    /// since HTML collapses bare newlines to whitespace.
-    /// Converted to real <c>&lt;br/&gt;</c> tags before the tag pass above (rather than a separate step after),
-    /// so it goes through the exact same allowlist reconstruction as any other <c>&lt;br&gt;</c>.
+    /// Descriptions also break paragraphs with plain newlines, which HTML collapses, so a description without <c>&lt;br&gt;</c> tags would render as one paragraph.
+    /// They become <c>&lt;br/&gt;</c> before the tag pass, so they go through the same allowlist as any other.
     /// </summary>
     [GeneratedRegex(@"\r\n|\r|\n", RegexOptions.Compiled)]
     private static partial Regex NewLineRegex();
@@ -165,9 +148,7 @@ public partial class GoogleBooksClient(HttpClient http, GoogleBooksSettings sett
     }
 
     /// <summary>
-    /// Google Books' own thumbnail URLs are widely documented (across its API consumer ecosystem) to come back as plain <c>http://</c> -
-    /// upgraded to <c>https://</c> here so embedding it in this app's own HTTPS pages doesn't trip mixed-content blocking,
-    /// the same reasoning TMDB/Open Library's own always-https CDN URLs never need applied to them.
+    /// Google Books returns thumbnails as plain <c>http://</c>, upgraded to <c>https://</c> so the app's HTTPS pages do not block them as mixed content.
     /// </summary>
     private static string? BuildImageUrl(GoogleBooksImageLinks? imageLinks)
     {

@@ -6,22 +6,17 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// <c>PagedRequest.Page</c>/<c>PageSize</c> carried no validation, so an out-of-range value reached the
-/// repository unchecked (see AGENTS.md's "No pagination bounds" finding).
-/// A negative <c>Page</c> produces a negative Mongo <c>Skip</c>, which the driver rejects with an unhandled
-/// exception the caller sees as a bare 500.
-/// A zero <c>PageSize</c> produces <c>Limit(0)</c>, which the Mongo C# driver treats as "no limit" rather
-/// than "no results" - the opposite of what the parameter name promises.
+/// <c>PagedRequest.Page</c> and <c>PageSize</c> are validated on model binding, before reaching the repository.
+/// A negative <c>Page</c> would produce a negative Mongo <c>Skip</c>, which the driver rejects with an unhandled exception, a bare 500.
+/// A zero <c>PageSize</c> would produce <c>Limit(0)</c>, which the Mongo C# driver treats as "no limit" rather than "no results".
 /// <para>
-/// <c>PageSize</c> deliberately keeps no upper bound: a first version of this fix capped it at 100 and broke
-/// real production traffic (<c>CarDetail</c>/<c>HealthProfileDetail</c>/<c>HouseDetail</c> request
-/// <c>pageSize=int.MaxValue</c> to fetch a single parent's whole child collection in one page, see
-/// <c>PagedRequest.PageSize</c>'s own remarks), so <see cref="Get_WithAVeryLargePageSize_IsStillOk"/> guards
-/// that regression rather than re-capping it.
+/// <c>PageSize</c> keeps no upper bound (see the backlog),
+/// since the journal pages request <c>pageSize=int.MaxValue</c> to fetch a parent's whole child collection in one page (see <c>PagedRequest.PageSize</c>).
+/// <see cref="Get_WithAVeryLargePageSize_IsStillOk"/> guards that.
 /// </para>
 /// <para>
-/// Movies stand in for the whole base class, same convention as <see cref="MalformedIdResourceTest"/>: the
-/// binding and validation is identical for every controller extending <c>DataCrudControllerBase</c>.
+/// Movies stand in for the whole base class, same convention as <see cref="MalformedIdResourceTest"/>:
+/// the binding and validation is identical for every controller extending <c>DataCrudControllerBase</c>.
 /// </para>
 /// </summary>
 public class PaginationBoundsResourceTest(KestrelWebAppFactory<Program> factory)

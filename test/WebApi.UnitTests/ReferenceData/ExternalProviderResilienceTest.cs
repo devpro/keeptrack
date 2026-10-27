@@ -13,13 +13,11 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
 /// <summary>
-/// Exercises the same <c>AddStandardResilienceHandler()</c> wiring Program.cs applies to every external
-/// provider client (TMDB/RAWG/Open Library/Discogs) - tested once here against <see cref="RawgClient"/> as
-/// a representative example, since the wiring is identical for all four and duplicating this per-provider
-/// would just be the same test four times over. Confirms the actual regression this handler guards against:
-/// a transient failure from the external provider is retried and recovered rather than surfacing to the
-/// caller, and a provider that stays down fails cleanly (a normal exception, mapped to a JSON 500 by
-/// <see cref="Keeptrack.WebApi.Filters.ApiExceptionFilterAttribute"/>) instead of hanging indefinitely.
+/// Exercises the <c>AddStandardResilienceHandler()</c> wiring every provider client gets (<c>ProviderResilienceExtensions</c>),
+/// once, against <see cref="RawgClient"/>, since the wiring is identical for all.
+/// A transient provider failure is retried and recovered rather than surfacing to the caller.
+/// A provider that stays down fails cleanly with an <see cref="HttpRequestException"/>,
+/// a 502 through <see cref="Keeptrack.WebApi.Filters.ApiExceptionFilterAttribute"/>, instead of hanging.
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class ExternalProviderResilienceTest
@@ -32,8 +30,7 @@ public class ExternalProviderResilienceTest
             .ConfigurePrimaryHttpMessageHandler(() => primaryHandler)
             .AddStandardResilienceHandler(options =>
             {
-                // shortened so the test runs fast and deterministically - same strategies as production
-                // (retry, attempt timeout, total timeout, circuit breaker), just faster delays.
+                // the production strategies (retry, attempt timeout, total timeout, circuit breaker) with shorter delays, so the test runs fast and deterministically
                 options.Retry.MaxRetryAttempts = 3;
                 options.Retry.Delay = TimeSpan.FromMilliseconds(1);
                 options.Retry.BackoffType = DelayBackoffType.Constant;
@@ -72,9 +69,8 @@ public class ExternalProviderResilienceTest
             callCount < 3 ? new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) : SuccessResponse());
         var client = BuildClient(handler);
 
-        // FindGamesByExactTitleAsync rather than SearchGamesAsync: the subject here is how many HTTP
-        // attempts the resilience pipeline makes for *one* request, and SearchGamesAsync is a two-request
-        // policy (see VideoGameReferenceClientBase), which would make CallCount measure the policy instead.
+        // FindGamesByExactTitleAsync rather than SearchGamesAsync: the subject here is how many HTTP attempts the resilience pipeline makes for *one* request,
+        // and SearchGamesAsync is a two-request policy (see VideoGameReferenceClientBase), which would make CallCount measure the policy instead.
         var results = await client.FindGamesByExactTitleAsync("Nioh 3", TestContext.Current.CancellationToken);
 
         results.Should().ContainSingle(r => r.Title == "Nioh 3");

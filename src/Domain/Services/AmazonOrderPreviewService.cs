@@ -13,13 +13,10 @@ using Keeptrack.Domain.Models;
 namespace Keeptrack.Domain.Services;
 
 /// <summary>
-/// Parses an Amazon.fr order-history export ("Request My Data" -> "Your Orders") into review rows. Pure:
-/// bytes in, rows out, no repository access - <c>alreadyImportedReferences</c> below is computed by the
-/// caller from already-fetched data so this stays testable without a database.
-/// Amazon's export has no category column at all, so this never decides "is this a book" on its own - it
-/// only computes <see cref="AmazonOrderPreviewRow.LooksLikeBook"/> as a checksum-verified suggestion for
-/// the review UI's default filter, confirmed against a real export (an Amazon book's ASIN is routinely its
-/// ISBN-10). The user makes the actual call.
+/// Parses an Amazon.fr order-history export (<b>Request My Data &gt; Your Orders</b>) into review rows.
+/// Pure: bytes in, rows out, with no repository access, the caller computing <c>alreadyImportedReferences</c> so this tests without a database.
+/// The export has no category column, so this never decides whether an item is a book.
+/// <see cref="AmazonOrderPreviewRow.LooksLikeBook"/> only suggests it for the review UI's default filter, since a book's ASIN is usually its ISBN-10, and the user decides.
 /// </summary>
 public static class AmazonOrderPreviewService
 {
@@ -65,11 +62,8 @@ public static class AmazonOrderPreviewService
             return new AmazonOrderPreviewRow
             {
                 RowId = $"{record.OrderId}:{record.Asin}",
-                // Some product names also carry a raw numeric HTML entity instead of the character itself
-                // (confirmed in a real export: "Le Dernier V&#x153;u" instead of "Le Dernier Vœu"). Decoded
-                // after the mojibake repair, not before - the entity text is plain ASCII, so it round-trips
-                // through that repair unchanged regardless of order, but repairing first keeps the two
-                // independent fixes from interacting in either direction.
+                // Some product names carry a numeric HTML entity instead of the character ("Le Dernier V&#x153;u" for "Le Dernier Vœu").
+                // Decoded after the mojibake repair, so the two independent fixes never interact.
                 Title = WebUtility.HtmlDecode(FixMojibake(record.ProductName)),
                 Asin = record.Asin,
                 OrderId = record.OrderId,
@@ -79,21 +73,16 @@ public static class AmazonOrderPreviewService
                 Condition = record.ProductCondition,
                 LooksLikeBook = suggestedIsbn is not null,
                 SuggestedIsbn = suggestedIsbn,
-                // Per (order, ASIN), not per order - an order commonly has several different line items, and
-                // an order-id-only check would incorrectly flag every sibling item once any one of them had
-                // actually been imported (see AmazonImportMergeService.FormatOrderReference).
+                // per (order, ASIN), since checking the order alone would flag every item of an order once one was imported (see AmazonImportMergeService.FormatOrderReference)
                 AlreadyImported = alreadyImportedReferences.Contains(AmazonImportMergeService.FormatOrderReference(record.OrderId, record.Asin))
             };
         }).ToList();
     }
 
     /// <summary>
-    /// Amazon's export is mojibake for accented text: UTF-8 bytes were re-encoded as if they were Latin-1
-    /// (confirmed against the raw bytes of a real export - "protection d'écrans" reads back as "protection
-    /// d'Ã©crans"). Reinterpreting the decoded chars as Latin-1 bytes and re-decoding as UTF-8 repairs it.
-    /// The repaired text is only used when it contains no U+FFFD replacement character, so already-correct
-    /// text (a lone, validly-encoded accented char has no valid single-byte UTF-8 reading) round-trips
-    /// untouched instead of being corrupted a second time.
+    /// Amazon's export garbles accented text: UTF-8 bytes were re-encoded as Latin-1, so "protection d'écrans" reads "protection d'Ã©crans".
+    /// Reading the characters back as Latin-1 bytes and decoding them as UTF-8 repairs it.
+    /// The repair is kept only when it contains no U+FFFD replacement character, so text that was already correct is never garbled a second time.
     /// </summary>
     private static string FixMojibake(string text)
     {
@@ -110,8 +99,7 @@ public static class AmazonOrderPreviewService
     }
 
     /// <summary>
-    /// Strips Amazon's Excel-formula-injection-prevention leading apostrophe (confirmed in a real export's
-    /// "Total Discounts" column, e.g. the literal text <c>'-5'</c>) before parsing.
+    /// Strips the leading apostrophe Amazon adds against formula injection (the literal <c>'-5'</c> in "Total Discounts") before parsing.
     /// </summary>
     private static decimal? ParsePrice(string? raw)
     {
@@ -127,9 +115,8 @@ public static class AmazonOrderPreviewService
             : null;
 
     /// <summary>
-    /// ISBN-10 checksum: 10 digits (last one may be 'X'/'x' meaning check value 10), weighted sum over
-    /// position (10 down to 1) divisible by 11. Amazon's book ASINs are routinely a real ISBN-10, so this
-    /// is a strong, false-positive-resistant "is this a book" signal - unlike a bare "10 characters" check.
+    /// ISBN-10 checksum: 10 digits, the last possibly 'X' for 10, whose sum weighted 10 down to 1 is divisible by 11.
+    /// A book's ASIN is usually its ISBN-10, so this is a strong sign of a book, unlike a bare length check.
     /// </summary>
     private static bool IsValidIsbn10(string asin)
     {

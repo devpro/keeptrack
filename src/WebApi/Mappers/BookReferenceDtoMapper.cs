@@ -4,10 +4,9 @@ using Riok.Mapperly.Abstractions;
 namespace Keeptrack.WebApi.Mappers;
 
 /// <summary>
-/// One-directional (Model -> Dto) - see <see cref="TvShowReferenceDtoMapper"/> for the general rationale.
-/// <see cref="BookReferenceDto.AuthorName"/>/<see cref="BookReferenceDto.AuthorImageUrl"/> are ignored here
-/// and hydrated manually by <see cref="ReferenceData.ReferenceDataController"/>: the model only carries an
-/// <c>AuthorReferenceId</c>, the Dto needs the person's name joined in from <c>person_reference</c>.
+/// Model to DTO only (see <see cref="TvShowReferenceDtoMapper"/>).
+/// <see cref="BookReferenceDto.AuthorName"/> and <see cref="BookReferenceDto.AuthorImageUrl"/> are hydrated by <see cref="ReferenceData.ReferenceDataController"/>,
+/// since the model carries only an <c>AuthorReferenceId</c> and the name comes from <c>person_reference</c>.
 /// </summary>
 [Mapper]
 public partial class BookReferenceDtoMapper

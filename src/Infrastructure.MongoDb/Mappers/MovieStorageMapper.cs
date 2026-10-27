@@ -9,9 +9,7 @@ namespace Keeptrack.Infrastructure.MongoDb.Mappers;
 [UseStaticMapper(typeof(CommonStorageMappings))]
 public partial class MovieStorageMapper : IStorageMapper<MovieModel, Movie>
 {
-    // IsOwned is a filter-only member on MovieModel with no entity field - ownership is derived from
-    // OwnedVersions being non-empty, never stored as its own flag. See VideoGameStorageMapper for the
-    // filter-only ignore convention.
+    // IsOwned is filter only, with no entity field: ownership derives from OwnedVersions being non-empty, never stored as a flag
     [MapperIgnoreSource(nameof(MovieModel.IsOwned))]
     [MapperIgnoreSource(nameof(MovieModel.IsUnseen))]
     public partial Movie ToEntity(MovieModel model);

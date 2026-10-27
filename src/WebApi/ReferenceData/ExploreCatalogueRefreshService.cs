@@ -5,17 +5,10 @@ using Keeptrack.Domain.Services;
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// Rebuilds the local copy of each discovery provider's "best of" ranking (<c>explore_catalogue</c>), so the Explore read path never calls a provider.
+/// Rebuilds the stored copy of each discovery provider's "best of" ranking (<c>explore_catalogue</c>), so Explore's read path never calls a provider.
 /// <para>
-/// This is the whole point of the catalogue.
-/// The ranking is a *global* fact - every user's Explore page reads the same list, with only the exclusion half ("do I already track this?") differing,
-/// so paying for it per request was pure duplicated work: a page load re-pulled the provider's first pages, and so did every add and every dismiss that topped the list back up.
-/// Paying for it once a week instead both removes that traffic and lifts the ceiling it forced: a request could only ever afford a handful of provider pages,
-/// so Explore could never show more than the top ~100 titles no matter how many the user had already worked through.
-/// A stored ranking is paged with a database query, so <see cref="CatalogueDepth"/> is now a storage decision rather than a per-request latency budget.
-/// </para>
-/// <para>
-/// Lives in WebApi/ReferenceData beside <see cref="ExploreService"/> because it depends on the provider clients, the same reason that one does.
+/// A ranking is a global fact: every user reads the same list, only the exclusions differing.
+/// Built once a week, it costs no provider call per page load, add or dismiss, and a database query pages it as deep as <see cref="CatalogueDepth"/>.
 /// </para>
 /// </summary>
 public class ExploreCatalogueRefreshService(
@@ -30,32 +23,23 @@ public class ExploreCatalogueRefreshService(
     ILogger<ExploreCatalogueRefreshService> logger)
 {
     /// <summary>
-    /// How many ranked titles to keep per ordering. Four orderings at this depth is a few thousand small
-    /// documents - trivial storage, and about 150 provider calls a week to maintain. It is the knob for "how
-    /// far can a user keep scrolling"; raising it costs one extra provider call per page of depth, once a
-    /// week, and nothing at all on the read path.
+    /// How many ranked titles to keep per ordering, a few thousand small documents in all, about 150 provider calls a week.
+    /// It sets how far a user can scroll, and raising it costs one provider call per page of depth per week, nothing on the read path.
     /// </summary>
     public const int CatalogueDepth = 1000;
 
     /// <summary>
-    /// The most entries one pass will pull into memory to attempt an IMDb rating for, per domain - a query
-    /// bound, not the budget. What a pass may actually spend is whatever the shared daily OMDb allowance has
-    /// left after the reference sync (which runs first on the same tick) has taken its share: see
-    /// <see cref="OmdbCallBudget"/>. This used to be a hardcoded 250 per domain, which had to assume the worst
-    /// about the other consumer and so under-spent a quiet day and over-spent a busy one.
+    /// The most entries one pass loads to attempt an IMDb rating for, per domain: a query bound, not the budget.
+    /// A pass spends what the shared OMDb allowance has left after the reference sync, which runs first on the same tick (see <see cref="OmdbCallBudget"/>).
     /// <para>
-    /// Values already stored are never re-fetched and attempts are stamped whenever OMDb actually answered, so
-    /// successive passes walk down the ranking instead of re-attempting the top - coverage converges over a
-    /// few days and self-corrects when new titles enter the list.
+    /// Stored values are never fetched again, and an attempt OMDb answered is stamped, so passes walk down the ranking and coverage converges over a few days.
     /// </para>
     /// </summary>
     private const int MaxBackfillPerPass = 1000;
 
     /// <summary>
-    /// Refreshes every (domain, ordering) whose stored copy is older than <paramref name="staleAfter"/>, then
-    /// spends this pass's rating-backfill budget. Pass <see cref="TimeSpan.Zero"/> to force a full rebuild.
-    /// One failing ordering never aborts the run - it is logged and the next is attempted, the same way
-    /// <see cref="ReferenceSyncService"/> treats one failing document.
+    /// Refreshes every (domain, ordering) older than <paramref name="staleAfter"/>, <see cref="TimeSpan.Zero"/> forcing a full rebuild, then spends the pass's backfill budget.
+    /// A failing ordering is logged and the next attempted, as <see cref="ReferenceSyncService"/> does with a document.
     /// </summary>
     public async Task<ExploreCatalogueRefreshResult> RefreshAsync(TimeSpan staleAfter, CancellationToken cancellationToken = default)
     {
@@ -71,17 +55,15 @@ public class ExploreCatalogueRefreshService(
                 entriesRefreshed += await RefreshRankingAsync(type, ranking, cancellationToken);
                 rankingsRefreshed++;
             }
-            // see ReferenceSyncService's own per-item catch: one failing ranking must not abort the pass, but a
-            // shutdown must, or every remaining ranking logs its own disposed-container failure in turn.
+            // one failing ranking does not abort the pass, but a shutdown does, or every remaining ranking would log a disposed-container failure
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 logger.LogError(exception, "Explore catalogue refresh failed for {ItemType}/{Ranking}.", type, ranking);
             }
         }
 
-        // rankings the current configuration no longer maintains (a domain's discovery provider changed, so
-        // its orderings changed with it) are dropped here rather than left to sit unreadable forever. Keyed on
-        // what is declared, not on what this pass fetched, so a skipped or failed ranking is never affected.
+        // Rankings the configuration no longer maintains, after a provider change, are dropped rather than left unreadable forever.
+        // Keyed on what is declared, not on what this pass fetched, so a skipped or failed ranking is never touched.
         await catalogueRepository.DeleteRankingsExceptAsync(exploreRankings.All.Select(r => r.Ranking).Distinct().ToList());
 
         return new ExploreCatalogueRefreshResult(rankingsRefreshed, entriesRefreshed, await BackfillImdbAsync(cancellationToken));
@@ -94,10 +76,8 @@ public class ExploreCatalogueRefreshService(
     }
 
     /// <summary>
-    /// Pages through the provider once, writing each title with its 1-based position, then drops whatever
-    /// dropped out of the ranking. The prune runs only after the walk completed: a pass that failed or came
-    /// back empty leaves the previous catalogue in place, because a stale list is a far better answer than an
-    /// empty Explore page.
+    /// Pages through the provider once, writing each title with its 1-based position, then drops what left the ranking.
+    /// The prune runs only after a complete walk, so a failed or empty pass leaves the previous catalogue, a stale list being far better than an empty Explore page.
     /// </summary>
     private async Task<int> RefreshRankingAsync(ExploreItemType type, string ranking, CancellationToken cancellationToken)
     {
@@ -133,20 +113,16 @@ public class ExploreCatalogueRefreshService(
     }
 
     /// <summary>
-    /// Fills in the IMDb half of the movie/TV entries - the rating for those still missing one, and the link
-    /// to the title's own IMDb page for any entry whose id resolves - top of the ranking first, spending
-    /// whatever is left of the day's shared OMDb allowance (see <see cref="OmdbCallBudget"/>) on the ratings.
-    /// The link costs no allowance at all: it is made out of the id the rating lookup has to resolve anyway.
+    /// Fills the IMDb half of movie and TV entries, top of the ranking first:
+    /// the missing ratings, within the day's shared OMDb allowance (see <see cref="OmdbCallBudget"/>), and the IMDb page link.
+    /// The link costs no allowance, made from the id the rating lookup resolves anyway.
     /// <para>
-    /// Only runs for a domain IMDb actually won: the value is display-only (the ordering stays TMDB's, since
-    /// re-ranking by partial OMDb data would float unrated titles to the top), so fetching it for a domain
-    /// showing TMDB numbers would buy nothing. The admin's "force TMDB" flag skips it entirely, which is what
-    /// that flag has always been for - it just no longer has to be honoured on a per-request basis.
+    /// It runs only for a domain showing IMDb, the value being display only, since ranking by partial OMDb data would float unrated titles up.
+    /// The admin's "force TMDB" flag skips it.
     /// </para>
     /// <para>
-    /// The remaining allowance is read once per domain and used to size the query, then each entry's call is
-    /// reserved individually inside the client - the read only decides how much work to pull, it never
-    /// authorizes a call, so another replica spending concurrently can't push this pass over the limit.
+    /// The remaining allowance, read once per domain, only sizes the query, and each call is reserved in the client,
+    /// so another replica spending meanwhile cannot push the pass over the limit.
     /// </para>
     /// </summary>
     private async Task<int> BackfillImdbAsync(CancellationToken cancellationToken)
@@ -178,27 +154,22 @@ public class ExploreCatalogueRefreshService(
                 {
                     var imdbId = await imdbIdFetcher(entry.ExternalId, cancellationToken);
 
-                    // the id is what a card's IMDb link is made of, so store it the moment it resolves - it is
-                    // already paid for, and whether the rating lookup below happens at all depends on a budget
-                    // that has nothing to do with the link.
+                    // the link is made from the id, stored as it resolves, whether or not the budget allows the rating lookup
                     if (!string.IsNullOrEmpty(imdbId) && !entry.WebUrls.ContainsKey(RatingSourceCatalog.Imdb))
                     {
                         await catalogueRepository.SetWebUrlAsync(
                             type, ranking, entry.ExternalId, RatingSourceCatalog.Imdb, ProviderWebLinks.Imdb(imdbId));
                     }
 
-                    // an entry pulled in only because its link was missing already has its rating; spending an
-                    // OMDb call to re-learn it would take budget from the entries that have none.
+                    // an entry loaded only for its missing link has its rating, and buying it again would take budget from entries with none
                     if (entry.Ratings.ContainsKey(RatingSourceCatalog.Imdb)) continue;
 
                     var lookup = string.IsNullOrEmpty(imdbId)
-                        ? OmdbLookupResult.NoRating // TMDB has no imdb id for it at all: a real answer, worth stamping
+                        ? OmdbLookupResult.NoRating // TMDB has no IMDb id for it, a real answer worth stamping
                         : await omdbClient.GetRatingAsync(imdbId, OmdbCallPriority.Background, cancellationToken);
 
-                    // only a real answer is stamped. A title OMDb has nothing for must not be retried next
-                    // pass, or it would hold the budget and coverage would never move down the list - but a
-                    // call that never happened (budget spent, request failed) must leave no stamp, or an
-                    // exhausted afternoon would write those titles off for the whole re-attempt window.
+                    // Only a real answer is stamped, so a title OMDb has nothing for is not retried next pass, holding the budget.
+                    // A call that never happened leaves no stamp, or an exhausted afternoon would write those titles off for the whole window.
                     if (lookup.Attempted)
                     {
                         await catalogueRepository.RecordRatingAttemptAsync(type, ranking, entry.ExternalId, RatingSourceCatalog.Imdb, lookup.Rating?.Value);
@@ -206,12 +177,12 @@ public class ExploreCatalogueRefreshService(
                     }
                     else if (omdbCallBudget.IsExhausted(OmdbCallPriority.Background))
                     {
-                        // nothing left to spend, so every remaining entry would be a wasted TMDB call
+                        // nothing left to spend, so every remaining entry would waste a TMDB call
                         logger.LogInformation("IMDb rating backfill stopped for {ItemType}: today's OMDb budget is spent.", type);
                         break;
                     }
                 }
-                // same rule as the per-ranking catch above: one entry may fail, a shutdown may not be ignored
+                // like the ranking catch: one entry may fail, a shutdown is never ignored
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
                     logger.LogError(exception, "IMDb rating backfill failed for {ItemType} {ExternalId}.", type, entry.ExternalId);
@@ -222,10 +193,8 @@ public class ExploreCatalogueRefreshService(
         return backfilled;
     }
 
-    // which client answers for a (domain, ordering).
-    // TMDB has one top-rated list per domain;
-    // the video game provider orders natively by whichever of its own sources the ordering names.
-    // Each arm names the source key its listing's page links are stored under (the discovery provider's, whatever the displayed rating).
+    // Which client answers for a (domain, ordering): TMDB has one top-rated list per domain, and the game provider orders by whichever of its sources the ordering names.
+    // Each arm names the source key its page links are stored under, the discovery provider's.
     private Func<int, CancellationToken, Task<IReadOnlyList<CatalogueItem>>> TopRatedFetcher(ExploreItemType type, string ranking) => type switch
     {
         ExploreItemType.Movie => async (page, token) => ToItems(await tmdbClient.GetTopRatedMoviesAsync(page, token), RatingSourceCatalog.Tmdb),
@@ -253,9 +222,7 @@ public class ExploreCatalogueRefreshService(
             RatingsOf((RatingSourceCatalog.Tmdb, i.VoteAverage)), WebUrlsOf(providerKey, i.WebUrl)))
     ];
 
-    // a video game provider reports every score it has on each listing entry, so all of them are stored
-    // whichever one the list was ordered by - switching the admin's selection then costs no provider call at
-    // all. The client has already keyed them by its own sources, so there is nothing to map per provider here.
+    // a game provider reports every score on each entry, all stored whatever the ordering, so switching the selection costs no call, the client having keyed them already
     private static List<CatalogueItem> ToItems(IReadOnlyList<VideoGameTopRatedItem> items, string providerKey) =>
     [
         .. items.Select(i => new CatalogueItem(i.ExternalId, i.Title, i.Year, null, i.ImageUrl, i.Ratings, WebUrlsOf(providerKey, i.WebUrl)))
@@ -264,8 +231,7 @@ public class ExploreCatalogueRefreshService(
     private static Dictionary<string, double> RatingsOf(params (string Source, double? Value)[] ratings) =>
         ratings.Where(r => r.Value is not null).ToDictionary(r => r.Source, r => r.Value!.Value);
 
-    // a provider that didn't give a page URL simply contributes no key, exactly like a missing rating - the
-    // card then falls back to whatever other link the entry carries rather than showing a dead one.
+    // a provider giving no page URL adds no key, and the card falls back to another link rather than a dead one
     private static Dictionary<string, string> WebUrlsOf(string providerKey, string? webUrl) =>
         string.IsNullOrWhiteSpace(webUrl) ? [] : new Dictionary<string, string> { [providerKey] = webUrl };
 
@@ -285,7 +251,7 @@ public class ExploreCatalogueRefreshService(
     };
 
     /// <summary>
-    /// One provider listing entry, normalized across providers so the paging/storing loop above is written once instead of per domain.
+    /// One provider listing entry, normalized so the paging and storing loop is written once.
     /// </summary>
     private sealed record CatalogueItem(
         string ExternalId,
@@ -298,14 +264,13 @@ public class ExploreCatalogueRefreshService(
 }
 
 /// <summary>
-/// What one catalogue refresh pass did.
-/// Internal to the API (it is folded into the reference-sync job's own result for reporting), so it is a plain record rather than a contract DTO.
+/// What one catalogue refresh pass did, folded into the reference sync's result, so a plain record rather than a contract DTO.
 /// </summary>
 public sealed record ExploreCatalogueRefreshResult(int RankingsRefreshed, int EntriesRefreshed, int ImdbRatingsBackfilled);
 
 /// <summary>
-/// Folds a refresh pass's counts into the reference-sync result both the periodic pass and the admin's "sync now" report through.
-/// An extension rather than members on <see cref="ReferenceSyncResultDto"/> because that DTO lives in WebApi.Contracts, which doesn't (and shouldn't) know this service's types.
+/// Folds a refresh pass's counts into the reference sync result.
+/// An extension, since <see cref="ReferenceSyncResultDto"/> lives in WebApi.Contracts, which does not know this service's types.
 /// </summary>
 public static class ExploreCatalogueRefreshResultExtensions
 {

@@ -14,8 +14,7 @@
     [Parameter] public float? Rating { get; set; }
 
     /// <summary>
-    /// How much of this star is filled, as a percentage - not just full/half/empty, so a precise
-    /// rating like 4.8 shows visually as the 5th star ~80% filled, not rounded down to a half-star look.
+    /// How much of this star is filled, as a percentage rather than full, half or empty, so 4.8 shows the fifth star about 80% filled.
     /// </summary>
     private int GetFillPercent(int position)
     {

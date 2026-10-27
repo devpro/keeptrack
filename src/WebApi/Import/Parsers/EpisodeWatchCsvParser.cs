@@ -1,10 +1,9 @@
 namespace Keeptrack.WebApi.Import.Parsers;
 
 /// <summary>
-/// Parses TV Time's tracking-prod-records-v2.csv: the newer-generation replacement for
-/// tracking-prod-records.csv, same idea - a generic event log with an individually dated row per
-/// episode watch, identified by its "gsi" column starting with "watch-episode-". Other row types in
-/// this file (one per-show summary row with an aggregate "most_recent_ep_watched" field) are skipped.
+/// Parses TV Time's tracking-prod-records-v2.csv, the newer form of tracking-prod-records.csv:
+/// an event log with a dated row per episode watch, whose "gsi" column starts with "watch-episode-".
+/// Other rows, such as a summary per show with "most_recent_ep_watched", are skipped.
 /// </summary>
 public static class EpisodeWatchCsvParser
 {

@@ -12,13 +12,10 @@ using Keeptrack.Domain.Models;
 namespace Keeptrack.Domain.Services;
 
 /// <summary>
-/// Parses a generic video game transaction-history CSV (a store's purchase history export - PSN's own GDPR
-/// export today, reshaped by the user into this shape; any store exporting the same columns would work too,
-/// since <see cref="Vendor"/> is a per-row column rather than something hardcoded here) into review rows.
-/// Pure: bytes in, rows out, no repository access - <c>alreadyImportedReferences</c> below is computed by
-/// the caller from already-fetched data so this stays testable without a database. Every row is a video
-/// game (unlike the Amazon import, which mixes several media types and needs a per-row type guess) - the
-/// export is store-purchase history for games specifically.
+/// Parses a video game transaction CSV, such as PSN's GDPR export, into review rows.
+/// Any store exporting the same columns works, since the vendor is a column rather than hardcoded.
+/// Pure: bytes in, rows out, with no repository access, the caller computing <c>alreadyImportedReferences</c> so this tests without a database.
+/// Every row is a video game, unlike the Amazon import, which mixes media types.
 /// </summary>
 public static class GenericVideoGameImportService
 {
@@ -62,9 +59,8 @@ public static class GenericVideoGameImportService
 
         return records.Select(record => new GenericVideoGameImportPreviewRow
         {
-            // Transaction Id alone isn't unique per row (see FormatReference's doc comment - a bundled
-            // transaction has several lines sharing one), so RowId needs the same product disambiguator,
-            // same shape as AmazonOrderPreviewRow.RowId's "{OrderId}:{Asin}".
+            // a bundled transaction has several lines sharing one transaction id (see FormatReference),
+            // so the row id adds the product, like AmazonOrderPreviewRow.RowId's "{OrderId}:{Asin}"
             RowId = $"{record.TransactionId}:{record.ProductName ?? record.GameName}",
             Title = CleanTitle(record.GameName, record.Platform),
             Platform = record.Platform,
@@ -79,11 +75,8 @@ public static class GenericVideoGameImportService
     }
 
     /// <summary>
-    /// Strips a trailing " ({platform})" suffix from the game title (e.g. "Grand Theft Auto V (PS4)" with
-    /// platform "PS4" becomes "Grand Theft Auto V") - the export's own title column routinely repeats the
-    /// platform, redundant now that <see cref="GenericVideoGameImportPreviewRow.Platform"/> is its own
-    /// column. Falls back to the raw title unchanged when the suffix isn't present, so a source that doesn't
-    /// follow this convention is left alone rather than mangled.
+    /// Strips a trailing " ({platform})" from the title, so "Grand Theft Auto V (PS4)" on "PS4" becomes "Grand Theft Auto V", since the platform has its own column.
+    /// A title without the suffix is returned unchanged.
     /// </summary>
     public static string CleanTitle(string gameName, string platform)
     {
@@ -92,20 +85,14 @@ public static class GenericVideoGameImportService
     }
 
     /// <summary>
-    /// The one place that formats an owned copy's <c>Reference</c> for an imported transaction line -
-    /// human-readable, and also the exact-match dedup key
-    /// <see cref="OwnedItemImportMergeService.FindImportedReferences{TModel}"/> looks for on a later
-    /// re-import. No vendor name here - <see cref="VideoGamePlatformModel.Vendor"/> already carries that.
+    /// Formats an imported transaction line's owned copy <c>Reference</c>,
+    /// which is human-readable and also the exact dedup key <see cref="OwnedItemImportMergeService.FindImportedReferences{TModel}"/> looks for on a re-import.
+    /// It carries no vendor, which <see cref="VideoGamePlatformModel.Vendor"/> holds.
     ///
-    /// Appends <paramref name="productName"/> (falling back to <paramref name="fallbackTitle"/> when blank)
-    /// because the transaction id + order id pair is *not* reliably unique per line: a single transaction
-    /// commonly bundles several different products together (confirmed against a real PSN export - one
-    /// order/transaction contained three separate "Far Cry 4" DLC packs, each its own line with a distinct
-    /// Product Name but the exact same Transaction Id/Order Id). Without this, two of those three lines'
-    /// references collided and were wrongly treated as re-imports of each other - the same class of bug
-    /// <see cref="AmazonImportMergeService.FormatOrderReference"/> already avoids by including the ASIN
-    /// alongside the order id, since Amazon's export has a real stable per-product id to use for that;
-    /// this export has no such id, so the product/edition text is the next best disambiguator.
+    /// It appends <paramref name="productName"/>, or <paramref name="fallbackTitle"/> when blank, since the transaction and order ids are not unique per line.
+    /// One PSN transaction bundled three "Far Cry 4" DLC packs, each a line with its own product name but the same ids,
+    /// and without it they would be skipped as re-imports of each other.
+    /// This export has no product id like Amazon's ASIN, so the product text is the best disambiguator.
     /// </summary>
     public static string FormatReference(string transactionId, string orderId, string? productName, string fallbackTitle)
     {
@@ -114,10 +101,9 @@ public static class GenericVideoGameImportService
     }
 
     /// <summary>
-    /// Reference-data linking is expected to overwrite the created item's title with the provider's
-    /// canonical value, and the user may have already cleaned up the title before commit - so this is the
-    /// one place the source export's original listing text is preserved, for an item created by this
-    /// import. Only used at creation time: a pre-existing item's provenance isn't this import's to invent.
+    /// Keeps the export's original listing text on an item this import creates.
+    /// Reference linking may overwrite the title, and the user may have edited it before commit.
+    /// Only used on creation, since an existing item's provenance is not this import's to invent.
     /// </summary>
     public static string BuildProvenanceNotes(string vendor, string sourceTitle) => $"Title from {vendor}: {sourceTitle}";
 

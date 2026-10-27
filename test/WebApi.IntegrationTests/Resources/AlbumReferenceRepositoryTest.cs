@@ -12,7 +12,9 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Exercises <see cref="IAlbumReferenceRepository.FindByTitleCreatorAsync"/> against real MongoDB - the same <c>ElemMatch</c>/<c>MatchedAliases</c> shape already verified for <see cref="ITvShowReferenceRepository"/> (see <c>TvShowReferenceRepositoryTest</c>), keyed the way an album is identified: title plus artist, with no year anywhere in the key.
+/// Exercises <see cref="IAlbumReferenceRepository.FindByTitleCreatorAsync"/> against real MongoDB,
+/// the <c>ElemMatch</c> over <c>MatchedAliases</c> of <c>TvShowReferenceRepositoryTest</c>.
+/// It is keyed as an album is identified: title plus artist, with no year in the key.
 /// </summary>
 public class AlbumReferenceRepositoryTest(KestrelWebAppFactory<Program> factory) : DatabaseTestBase(factory)
 {
@@ -39,7 +41,8 @@ public class AlbumReferenceRepositoryTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// A release is reissued, remastered and repressed under as many years as there are pressings, so the year can never narrow this lookup - an alias written years ago still has to answer today's tenant.
+    /// A release is reissued, remastered and repressed under as many years as there are pressings,
+    /// so the year never narrows this lookup, and an old alias still answers today's tenant.
     /// </summary>
     [Fact]
     public async Task FindByTitleCreatorAsync_MatchesAnAliasThatStillCarriesAYear_FromBeforeAliasesDroppedIt()
@@ -84,7 +87,8 @@ public class AlbumReferenceRepositoryTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// A reference document carries its artist as a <see cref="AlbumReferenceModel.ArtistReferenceId"/>, never as text, so the repository has nothing to build a complete alias from - and a creator-less one is exactly the half-key this collection must never hold, since it would answer for every artist at once.
+    /// A reference document carries its artist as a <see cref="AlbumReferenceModel.ArtistReferenceId"/>, never as text, so the repository can't build a complete alias.
+    /// A creator-less one is the half-key this collection must never hold, since it would answer for every artist at once.
     /// </summary>
     [Fact]
     public async Task UpsertAsync_AddsNoCanonicalAlias_BecauseItCannotKnowTheArtist()

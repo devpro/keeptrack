@@ -7,7 +7,8 @@ namespace Keeptrack.BlazorApp.UnitTests.Components.Shared;
 
 /// <summary>
 /// The poll that shows a freshly created item's reference link once the server's background resolution lands.
-/// Its stopping conditions are the whole of its behaviour: it must stop when the link arrives, stop when the page has changes of its own, and stop eventually either way - a re-read replaces the page's whole model, so one issued at the wrong moment puts the pre-edit item back on screen and back into the model.
+/// Its stopping conditions are its whole behaviour: it stops when the link arrives, when the page has changes of its own, and eventually either way.
+/// A re-read replaces the page's whole model, so one at the wrong moment puts the pre-edit item back on screen and into the model.
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class PendingReferenceLinkTest
@@ -42,7 +43,8 @@ public class PendingReferenceLinkTest
     }
 
     /// <summary>
-    /// The regression this guard exists for: a platform removed on a just-created game reappeared, with everything that had been set on it, because a poll issued before the save was answered after it.
+    /// The regression this guard exists for: a platform removed on a just-created game reappeared,
+    /// with everything that had been set on it, because a poll issued before the save was answered after it.
     /// </summary>
     [Fact]
     public async Task WatchAsync_StopsReading_OnceThePageHasChangesOfItsOwn()
@@ -73,7 +75,8 @@ public class PendingReferenceLinkTest
         reads.Should().Be(0);
     }
 
-    // The "no link ever lands" case is deliberately not tested here: it would sit through the whole attempt budget in real time (nine seconds) to assert a bound the for loop already guarantees by construction.
+    // The "no link ever lands" case is deliberately not tested here:
+    // it would sit through the whole attempt budget in real time (nine seconds) to assert a bound the for loop already guarantees by construction.
 
     private static Task Count(ref int reads)
     {

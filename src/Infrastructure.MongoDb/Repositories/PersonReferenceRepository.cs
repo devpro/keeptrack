@@ -18,15 +18,13 @@ public class PersonReferenceRepository(IMongoDatabase mongoDatabase, PersonRefer
     public async Task<PersonReferenceModel?> FindByIdAsync(string id)
     {
         var entity = await Collection.Find(x => x.Id == id).FirstOrDefaultAsync();
-        // Mapperly throws on a null source rather than substituting a default instance - checking for a
-        // missing document must happen before mapping regardless.
+        // the mapper throws on a null source, so a missing document is checked first
         return entity is null ? null : mapper.ToModel(entity);
     }
 
     public async Task<PersonReferenceModel?> FindByExternalIdAsync(string provider, string externalId)
     {
-        // a string field-path filter, not an expression indexer - the driver's expression-to-filter
-        // translation doesn't support indexing a Dictionary<TKey,TValue> by a runtime key.
+        // a string field path, since the driver cannot translate an expression indexing a dictionary by a runtime key
         var filter = Builders<PersonReference>.Filter.Eq($"external_ids.{provider}", externalId);
         var entity = await Collection.Find(filter).FirstOrDefaultAsync();
         return entity is null ? null : mapper.ToModel(entity);

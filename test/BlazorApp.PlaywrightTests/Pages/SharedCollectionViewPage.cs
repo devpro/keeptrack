@@ -4,9 +4,8 @@ using Microsoft.Playwright;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 
 /// <summary>
-/// One owner's shared collection, read-only (<c>/account/manage/shared/{shareId}</c>): a tab per shared
-/// category. Media tabs list items (with an "In collection" badge for what the caller already owns); personal
-/// tabs list items that each open a read-only detail page.
+/// One owner's shared collection, read-only (<c>/account/manage/shared/{shareId}</c>): a tab per shared category.
+/// Media tabs list items (with an "In collection" badge for what the caller already owns); personal tabs list items that each open a read-only detail page.
 /// </summary>
 public class SharedCollectionViewPage(IPage page) : PageBase(page)
 {
@@ -27,8 +26,8 @@ public class SharedCollectionViewPage(IPage page) : PageBase(page)
     public ILocator InCollectionBadge(string itemTitle) => Row(itemTitle).GetByText("In collection");
 
     /// <summary>
-    /// The per-row "add to my collection" action. Present on media rows (copyable), absent on collection
-    /// (collectibles/gear) rows, which are view-only - a test asserts <c>ToHaveCountAsync(0)</c> to pin that.
+    /// The per-row "add to my collection" action.
+    /// Present on media rows (copyable), absent on view-only collection rows (collectibles, gear), which a test pins with <c>ToHaveCountAsync(0)</c>.
     /// </summary>
     public ILocator AddButton(string itemTitle) => Row(itemTitle).GetByTestId("share-add");
 

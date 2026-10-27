@@ -21,7 +21,7 @@ public class Share
     [BsonElement("recipient_email")]
     public required string RecipientEmail { get; set; }
 
-    // stored as their string member names via the registered EnumRepresentationConvention(BsonType.String)
+    // stored as the enum member names through the registered EnumRepresentationConvention(BsonType.String)
     [BsonElement("included_categories")]
     public List<ShareCategory> IncludedCategories { get; set; } = [];
 

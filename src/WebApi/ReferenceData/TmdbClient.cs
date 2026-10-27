@@ -6,29 +6,20 @@ using Keeptrack.Domain.Services;
 namespace Keeptrack.WebApi.ReferenceData;
 
 /// <summary>
-/// TMDB v3 REST client. The first server-side outbound third-party HTTP call in the repo -
-/// configured as a typed <see cref="HttpClient"/> (see <c>Program.cs</c>),
-/// with the api key appended as a query parameter on every request, matching TMDB's v3 authentication scheme.
+/// TMDB v3 client, a typed <see cref="HttpClient"/> with the API key as a query parameter, as TMDB's v3 authentication expects.
 /// </summary>
 public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
 {
     /// <summary>
-    /// <c>first_air_date_year</c> is a <b>hard</b> filter, so it is asked with <i>and</i> without the year and
-    /// the two answers are unioned - the "an optional narrowing parameter must never silently zero out results
-    /// a broader search would find" rule this repository already applies to Discogs' artist and Open Library's
-    /// year.
+    /// <c>first_air_date_year</c> is a <b>hard</b> filter, so the search runs with and without the year and unions the answers,
+    /// as an optional narrowing must never hide what a broader search finds.
     /// <para>
-    /// Measured against the live API: <c>Severance</c> + 2021, <c>Squid Game</c> + 2020, <c>The Wire</c> + 2003
-    /// and <c>Adolescence</c> + 2024 each return <b>zero</b> results. A show whose TMDB first-air year differs
-    /// by one from what the tenant recorded is therefore not ranked lower, it is absent - and being wrong
-    /// about a year must cost a place in the list, never the result.
+    /// <c>Severance</c> + 2021, <c>Squid Game</c> + 2020, <c>The Wire</c> + 2003 and <c>Adolescence</c> + 2024 each return <b>zero</b> results.
+    /// A show whose first-air year is one off would be absent rather than ranked lower, and a wrong year must cost a place, never the result.
     /// </para>
     /// <para>
-    /// The year is not discarded, it is applied where it can only help: the union is ranked by
-    /// <see cref="ReferenceMatchRules.OrderByBestMatch"/>, which puts the requested year first among candidates
-    /// that name the show, and confirmation still requires it to agree. Asking with the filter as well is what
-    /// keeps a show that TMDB's relevance buries reachable - the filtered query is far narrower, so its answer
-    /// can surface a title the unfiltered page of twenty never shows.
+    /// The year still counts: <see cref="ReferenceMatchRules.OrderByBestMatch"/> ranks the requested year first, and confirmation requires it.
+    /// The filtered query also keeps reachable a show that TMDB's relevance buries beyond the unfiltered first twenty.
     /// </para>
     /// </summary>
     public async Task<IReadOnlyList<TmdbSearchResult>> SearchTvShowAsync(string title, int? year, CancellationToken cancellationToken = default)
@@ -47,15 +38,11 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
     }
 
     /// <summary>
-    /// Unlike TV, <c>year</c> on the movie search is <b>not</b> a hard filter and needs no widening - measured
-    /// against the live API, <c>Road House</c> + 2024 still returns the 1989 film, <c>Nosferatu</c> + 2025
-    /// returns the 2024 one first, and <c>Dune</c> + 2020 returns the 1984 one. It narrows without excluding,
-    /// so the correct-year title can never be zeroed out by it and one call is enough.
+    /// Unlike TV, the movie <c>year</c> is <b>not</b> a hard filter: <c>Road House</c> + 2024 still returns the 1989 film, and <c>Dune</c> + 2020 the 1984 one.
+    /// It narrows without excluding, so one call is enough.
     /// <para>
-    /// The results are still ranked rather than returned raw: TMDB's search is fuzzy, so an ordinary title
-    /// comes back beside its neighbours (<c>Heat</c> + 1995 returns fourteen), and its own relevance is not
-    /// always right about which is the film - <c>Sinners</c> + 2024 ranks "In the Land of Saints and Sinners"
-    /// first.
+    /// The results are still ranked: TMDB's search is fuzzy (<c>Heat</c> + 1995 returns fourteen),
+    /// and its relevance can be wrong, <c>Sinners</c> + 2024 putting "In the Land of Saints and Sinners" first.
     /// </para>
     /// </summary>
     public async Task<IReadOnlyList<TmdbSearchResult>> SearchMovieAsync(string title, int? year, CancellationToken cancellationToken = default)
@@ -68,8 +55,7 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
     }
 
     /// <summary>
-    /// The narrower query's results first, then whatever the broader one adds - deduplicated by TMDB id, since
-    /// the two overlap by construction.
+    /// The narrower query's results first, then what the broader one adds, deduplicated by TMDB id since they overlap.
     /// </summary>
     private static List<TmdbSearchResult> Union(IReadOnlyList<TmdbSearchResult> narrowed, IReadOnlyList<TmdbSearchResult> widened)
     {
@@ -98,8 +84,7 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
 
     public async Task<TmdbTvShowDetails?> GetTvShowDetailsAsync(string tmdbId, CancellationToken cancellationToken = default)
     {
-        // append_to_response=external_ids folds the imdb id into this same details call - no extra request,
-        // no season fan-out change (a show's imdb id isn't on /tv/{id} itself, unlike a movie's).
+        // append_to_response=external_ids brings the IMDb id, absent from /tv/{id} unlike a movie's, in the same call
         var details = await http.GetFromJsonAsync<TmdbTvShowDetailsResponse>(
             $"tv/{tmdbId}?api_key={ApiKey}&append_to_response=external_ids", cancellationToken);
         if (details is null) return null;
@@ -165,9 +150,8 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
     }
 
     /// <summary>
-    /// TMDB's per-id "changes" endpoint (as opposed to the bulk <c>/tv/changes</c>, <c>/movie/changes</c>
-    /// endpoints which only cover the last 24-72h) reports whether anything changed since an arbitrary date -
-    /// one cheap call instead of blindly re-fetching details plus every season for a show that hasn't moved.
+    /// TMDB's "changes" endpoint per id, unlike the bulk ones limited to the last days,
+    /// reports changes since any date, one cheap call rather than fetching the details and every season again.
     /// </summary>
     private async Task<bool> HasChangedSinceAsync(string resourceType, string tmdbId, DateTime since, CancellationToken cancellationToken)
     {
@@ -190,9 +174,7 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
         !string.IsNullOrEmpty(date) && DateOnly.TryParse(date, CultureInfo.InvariantCulture, out var parsed) ? parsed : null;
 
     /// <summary>
-    /// TMDB's image CDN is a separate, unauthenticated static-asset host explicitly meant for direct
-    /// hotlinking (not the rate-limited API) - the standard pattern every TMDB-consuming app uses, so
-    /// this just builds the URL rather than downloading anything.
+    /// TMDB's image CDN is an unauthenticated host meant for hotlinking, so this only builds the URL.
     /// </summary>
     private static string? BuildImageUrl(string? path, string size) =>
         string.IsNullOrEmpty(path) ? null : $"https://image.tmdb.org/t/p/{size}{path}";

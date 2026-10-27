@@ -32,7 +32,7 @@ else
                                     ReferenceDataDescription="cover, synopsis, genre/language/ISBN autofill"
                                     OnChecked="OnReferenceCheckedAsync" OnUnlinked="LoadAsync"/>
         </div>
-        @* "Read" is deliberately NOT here - it lives on the card below as a .kt-corner-flag, see MovieDetail. *@
+        @* "Read" is not here but on the card below as a .kt-corner-flag (see MovieDetail). *@
         <div class="d-flex gap-2 flex-wrap">
             <button class="btn btn-sm kt-toggle-btn @(Book.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>
             <button class="btn btn-sm kt-toggle-btn @(Book.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync"><Icon Name="wishlist" Size="13"/> Wishlist</button>
@@ -128,9 +128,8 @@ else
         @if (!string.IsNullOrEmpty(Reference?.Synopsis))
         {
             <hr/>
-            @* Safe specifically because GoogleBooksClient.CleanDescription only ever lets bare, attribute-free
-               <b>/<i>/<br> tags through (everything else, including any attribute on those three, is
-               stripped) - never render a MarkupString from text that hasn't gone through that same filter. *@
+            @* Safe because GoogleBooksClient.CleanDescription lets through only bare <b>, <i> and <br> tags, stripping everything else, attributes included.
+               A MarkupString is never rendered from text that hasn't been through that filter. *@
             <p class="mb-0" style="color:var(--kt-text-muted)">@((MarkupString)Reference.Synopsis)</p>
         }
     </div>

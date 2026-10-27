@@ -8,14 +8,12 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.Services;
 
 /// <summary>
-/// The one rule saying when a provider's candidate is the work being looked for - read by every domain's
-/// search ranking, by automatic resolution and by video game provider adoption alike, so it is tested once
-/// here rather than once per caller.
+/// The one rule saying when a provider's candidate is the work looked for, read by every domain's search ranking,
+/// automatic resolution and video game provider adoption, so it is tested once here.
 /// <para>
-/// The fixtures are the providers' real catalogues. IGDB holds <b>eight</b> games named exactly
-/// "Resident Evil 2" (three of them 1998) and seven named "Resident Evil", which is what makes the year the
-/// identity in that domain rather than decoration; Google Books holds 300 volumes of "The Hobbit", which is
-/// what makes the year useless in the other.
+/// The fixtures are the providers' real catalogues.
+/// IGDB holds <b>eight</b> games named "Resident Evil 2" (three of them 1998) and seven named "Resident Evil", which makes the year part of the identity in that domain.
+/// Google Books holds 300 volumes of "The Hobbit", which makes the year useless in the other.
 /// </para>
 /// </summary>
 [Trait("Category", "UnitTests")]
@@ -37,8 +35,7 @@ public class ReferenceMatchRulesTest
     ];
 
     /// <summary>
-    /// The point of asking for a year: eight candidates carry this exact title and nothing but the year says
-    /// which is meant.
+    /// The point of asking for a year: eight candidates carry this exact title and nothing but the year says which is meant.
     /// </summary>
     [Fact]
     public void ConfirmedMatches_PicksTheOneGameFromTheRequestedYear_OutOfEightSharingTheTitle()
@@ -49,9 +46,8 @@ public class ReferenceMatchRulesTest
     }
 
     /// <summary>
-    /// An undated entry of the same name must not report an ambiguity the requested year has already settled -
-    /// nothing could ever settle it, since the undated entry has no year to be told apart by. IGDB really does
-    /// carry one for this title (210710).
+    /// An undated entry of the same name must not report an ambiguity the requested year settled, since nothing could settle it, the undated entry having no year to tell apart.
+    /// IGDB really does carry one for this title (210710).
     /// </summary>
     [Fact]
     public void ConfirmedMatches_IsNotBlockedByAnUndatedNamesake_WhenACandidateMatchesTheYearExactly()
@@ -72,12 +68,10 @@ public class ReferenceMatchRulesTest
     }
 
     /// <summary>
-    /// The owner's rule, reported from the running app: <b>with no year, don't match</b> - unless the search
-    /// can see there is genuinely only one game by that name.
+    /// The owner's rule: <b>with no year, don't match</b>, unless the search sees there is only one game by that name.
     /// <para>
-    /// Several same-titled candidates from different years is exactly the state where no answer is available,
-    /// so several are reported and every caller refuses. A yearless "Resident Evil 2" silently adopting the
-    /// 2019 remake is the failure this pins.
+    /// Several same-titled candidates from different years have no answer, so several are reported and every caller refuses.
+    /// A yearless "Resident Evil 2" silently adopting the 2019 remake is the failure this pins.
     /// </para>
     /// </summary>
     [Fact]
@@ -101,7 +95,7 @@ public class ReferenceMatchRulesTest
         matches.Should().ContainSingle().Which.ExternalId.Should().Be("28168");
     }
 
-    /// <summary>Missing data is not a disagreement - a provider with no date for a game still confirms it.</summary>
+    /// <summary>Missing data is not a disagreement, so a provider with no date for a game still confirms it.</summary>
     [Fact]
     public void ConfirmedMatches_AcceptsACandidateWithNoYear_WhenNothingMatchesTheYearExactly()
     {
@@ -111,8 +105,8 @@ public class ReferenceMatchRulesTest
     }
 
     /// <summary>
-    /// A contradicting year is never a confirmation however alone the candidate is. This is exactly where a
-    /// title match is most likely to be a different game - a remake, or a same-named entry in the series.
+    /// A contradicting year is never a confirmation however alone the candidate is.
+    /// That is where a title match is most likely a different game: a remake, or a same-named entry in the series.
     /// </summary>
     [Fact]
     public void ConfirmedMatches_ConfirmsNothing_WhenTheOnlyCandidatesYearContradictsTheRequest()
@@ -133,8 +127,7 @@ public class ReferenceMatchRulesTest
     }
 
     /// <summary>
-    /// Confirmation is loose about punctuation and disambiguators but never about which work it is - the
-    /// measured cases from the provider-adoption work.
+    /// Confirmation is loose about punctuation and disambiguators but never about which work it is, over cases measured on real provider adoption.
     /// </summary>
     [Theory]
     [InlineData("Mass Effect: Legendary Edition", "Mass Effect Legendary Edition", true)]
@@ -164,14 +157,13 @@ public class ReferenceMatchRulesTest
     private static BookSearchResult Book(string id, string title, int? year, string? author) => new(id, title, year, author, null);
 
     /// <summary>
-    /// The whole reason books need their own shape. Google Books answers "The Hobbit" by Tolkien with 300
-    /// volumes; treating that as an ambiguity is what left every book in the catalogue unlinkable, so the
-    /// printings confirm together and the closest one leads.
+    /// The whole reason books need their own shape.
+    /// Google Books answers "The Hobbit" by Tolkien with 300 volumes,
+    /// and treating that as an ambiguity would leave every book unlinkable, so the printings confirm together and the closest leads.
     /// <para>
-    /// The "(Enhanced Edition)" volume is set aside rather than confirmed, because two candidates are spelled
-    /// exactly what was asked for and an exact spelling always beats a loose one - the same tier that keeps
-    /// <i>Alien</i> and <i>The Alien</i> apart. It costs nothing here: it is the same work either way, and only
-    /// the first match is ever linked.
+    /// The "(Enhanced Edition)" volume is set aside,
+    /// since two candidates are spelled exactly as asked and an exact spelling beats a loose one, the tier that keeps <i>Alien</i> and <i>The Alien</i> apart.
+    /// It costs nothing here, being the same work, and only the first match is linked.
     /// </para>
     /// </summary>
     [Fact]
@@ -189,8 +181,8 @@ public class ReferenceMatchRulesTest
     }
 
     /// <summary>
-    /// The three spellings Google Books credits one author under must not read as three authors. Requiring the
-    /// candidates to agree with <i>each other</i> about the creator would refuse the very case this exists for;
+    /// The three spellings Google Books credits one author under must not read as three authors.
+    /// Requiring the candidates to agree with <i>each other</i> about the creator would refuse the very case this exists for;
     /// they only have to agree with what the tenant supplied.
     /// </summary>
     [Fact]
@@ -212,8 +204,7 @@ public class ReferenceMatchRulesTest
     }
 
     /// <summary>
-    /// An author is required, the same way a year is for a film, a show or a game (owner's rule): a title on
-    /// its own identifies nothing, so there is nothing to confirm against.
+    /// An author is required, the same way a year is for a film, a show or a game (owner's rule): a title on its own identifies nothing, so there is nothing to confirm against.
     /// </summary>
     [Theory]
     [InlineData(null)]
@@ -228,8 +219,7 @@ public class ReferenceMatchRulesTest
     }
 
     /// <summary>
-    /// Among editions, the year the tenant recorded is what picks theirs - a tie-break, never a filter, which
-    /// is the exact inversion of its role in the title+year domains.
+    /// Among editions, the tenant's year picks theirs, as a tie-break, never a filter, the inverse of its role in the title and year domains.
     /// </summary>
     [Fact]
     public void ConfirmedCreatorMatches_PrefersTheTenantsOwnEdition_WithoutExcludingTheOthers()
@@ -246,9 +236,8 @@ public class ReferenceMatchRulesTest
 
     /// <summary>
     /// Loose matching drops "the", which is right across catalogues and wrong against tenant-typed text:
-    /// measured live, TMDB answers "Alien" (1979) with both <i>Alien</i> and <i>The Alien</i>, two different
-    /// films of the same year. The exactly-spelled candidate wins rather than the pair being reported as an
-    /// ambiguity the tenant had already resolved by typing one of them.
+    /// measured live, TMDB answers "Alien" (1979) with both <i>Alien</i> and <i>The Alien</i>, two different films of the same year.
+    /// The exactly-spelled candidate wins rather than the pair being reported as an ambiguity the tenant had already resolved by typing one of them.
     /// </summary>
     [Fact]
     public void ConfirmedMatches_PrefersTheExactlySpelledTitle_WhenLooseMatchingWouldConflateTwoFilms()
@@ -264,8 +253,7 @@ public class ReferenceMatchRulesTest
     }
 
     /// <summary>
-    /// The loose tier still does its job when nothing matches exactly - TMDB spells the 2024 show "Shōgun"
-    /// where a tenant types "Shogun", and that must still link.
+    /// The loose tier still applies when nothing matches exactly: TMDB spells the 2024 show "Shōgun" where a tenant types "Shogun", which must still link.
     /// </summary>
     [Fact]
     public void ConfirmedMatches_StillMatchesLoosely_WhenNoCandidateIsSpelledExactly()

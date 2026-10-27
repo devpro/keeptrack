@@ -11,12 +11,8 @@ using Xunit;
 namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
 /// <summary>
-/// <see cref="OpenLibraryClient.GetBookDetailsAsync"/>'s year parsing used to strip all digits out of
-/// <c>first_publish_date</c> and take the first 4 - correct for a bare year ("1954") but wrong whenever the
-/// date includes a day-of-month before the year ("November 12, 1972"), where it read the day's digits
-/// followed by the year's leading digits ("12" + "19" -> 1219) instead of the actual year. Confirmed against
-/// the real API for Tolkien's "The Fellowship of the Ring" (OL27513W), whose real
-/// <c>first_publish_date</c> is "November 12, 1972".
+/// <see cref="OpenLibraryClient.GetBookDetailsAsync"/> reads the year out of <c>first_publish_date</c>, a bare year ("1954") or a full date ("November 12, 1972").
+/// Taking the first four digits would read the day and the year's start ("12" and "19", so 1219), as on the real API's "The Fellowship of the Ring" (OL27513W).
 /// </summary>
 [Trait("Category", "UnitTests")]
 public class OpenLibraryClientTest
@@ -63,10 +59,8 @@ public class OpenLibraryClientTest
     }
 
     /// <summary>
-    /// This client used to accept an ISBN and silently ignore it, which left Google Books as the only
-    /// provider that could search by one - so an ISBN search had no fallback at all whenever Google Books was
-    /// down (confirmed: a total <c>volumes?q=</c> outage). The response below is the real API's answer for
-    /// 9782265002104, the very edition that failed.
+    /// This client searches by ISBN, so an ISBN search has a fallback when Google Books is down (a total <c>volumes?q=</c> outage).
+    /// The response below is the real API's answer for 9782265002104.
     /// </summary>
     [Fact]
     public async Task SearchBooksAsync_SearchesTheIndexByIsbn_WhenAnIsbnIsSupplied()
@@ -92,9 +86,8 @@ public class OpenLibraryClientTest
     }
 
     /// <summary>
-    /// A doc with no title of its own is labelled with the searched-for text on the title path (long-standing
-    /// behavior), but an ISBN search has no such text to borrow - an id is not a title, so a titleless stub is
-    /// dropped instead of being surfaced as a candidate named after a number.
+    /// A doc with no title is labelled with the searched text on the title path, but an ISBN search has no such text, an id not being a title.
+    /// A titleless stub is then dropped rather than surfaced as a candidate named after a number.
     /// </summary>
     [Fact]
     public async Task SearchBooksAsync_DropsATitlelessMatch_OnTheIsbnPath()

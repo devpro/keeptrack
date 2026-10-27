@@ -3,8 +3,7 @@ using System;
 namespace Keeptrack.Domain.Models;
 
 /// <summary>
-/// A named distributed lease's current state (see <see cref="Repositories.ILeaseRepository"/>) -
-/// read for admin diagnostics ("who is running the reference sync"), never mutated through this shape.
+/// The current state of a named distributed lease (see <see cref="Repositories.ILeaseRepository"/>), read for admin diagnostics such as which replica runs the reference sync.
 /// </summary>
 public class LeaseModel
 {

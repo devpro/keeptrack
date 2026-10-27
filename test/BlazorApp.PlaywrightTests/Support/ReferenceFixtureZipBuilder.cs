@@ -10,21 +10,19 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Support;
 
 /// <summary>
 /// Builds a small, synthetic reference-data export zip for <c>ReferenceSmokeTest</c>:
-/// a single book, in the same shape <see cref="Keeptrack.WebApi.ReferenceData.ReferenceDataAdminController.Export"/> produces and <c>.Import</c> reads back
-/// (see <c>TvTimeFixtureZipBuilder</c> for the same "never use real provider data in tests" spirit, just for reference data instead of a TV Time export).
-/// Only the <c>book_reference.json</c> entry is included -
-/// the admin controller's import treats a missing entry as an empty list, so there's nothing to gain from also shipping empty tvshow_reference.json/etc. entries.
-/// The entry is serialized with default <see cref="JsonSerializerOptions"/> (no camelCase policy),
-/// matching exactly what the admin controller itself uses for both export and import -
-/// anything else would silently fail to round-trip since the controller applies no naming policy on either side.
+/// a single book, in the shape <see cref="Keeptrack.WebApi.ReferenceData.ReferenceDataAdminController.Export"/> produces and <c>.Import</c> reads.
+/// Like <c>TvTimeFixtureZipBuilder</c>, it never uses real provider data.
+/// Only the <c>book_reference.json</c> entry is included, since the import treats a missing entry as an empty list.
+/// The entry is serialized with default <see cref="JsonSerializerOptions"/> (no camelCase),
+/// as the controller applies no naming policy on either side, and anything else would silently fail to round-trip.
 /// </summary>
 public static class ReferenceFixtureZipBuilder
 {
     /// <summary>
     /// A fixed, valid ObjectId for the seeded document, so <c>End2EndFixture</c> can remove exactly this document afterwards.
-    /// Re-seeding replaces rather than duplicates because of the fixture's Open Library id, not this one - the import matches on provider ids (see <c>ReferenceDataImportService</c>);
-    /// a fixed <c>_id</c> is simply what the first insert lands under.
-    /// The value is arbitrary but deliberately recognizable rather than random.
+    /// Re-seeding replaces rather than duplicates through the fixture's Open Library id,
+    /// since the import matches on provider ids (see <c>ReferenceDataImportService</c>), and the first insert lands under this <c>_id</c>.
+    /// The value is arbitrary but recognizable rather than random.
     /// </summary>
     public const string ReferenceId = "e2e0e2e0e2e0e2e0e2e0e2e0";
 

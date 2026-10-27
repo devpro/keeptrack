@@ -16,9 +16,8 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Basic full-cycle CRUD coverage for the renamed <c>Album</c> type (formerly <c>MusicAlbum</c>) - closes
-/// a gap flagged in docs/findings/by-design-and-gaps.md ("MusicAlbum...still has none"), same shape as
-/// <see cref="BookResourceTest"/>.
+/// Basic full-cycle CRUD coverage for the renamed <c>Album</c> type (formerly <c>MusicAlbum</c>) - closes a gap flagged in docs/backlog.md ("MusicAlbum...still has none"),
+/// same shape as <see cref="BookResourceTest"/>.
 /// </summary>
 public class AlbumResourceTest(KestrelWebAppFactory<Program> factory)
     : ResourceTestBase(factory)
@@ -37,9 +36,8 @@ public class AlbumResourceTest(KestrelWebAppFactory<Program> factory)
             {
                 o.Artist = f.Random.AlphaNumeric(8);
                 o.Title = f.Random.AlphaNumeric(14);
-                // round-trips CustomImageUrl through the real Mapperly mappers + MongoDB - a plain scalar field
-                // with no special mapping, but a real integration test is what would catch a missed
-                // [BsonElement]/mapper ignore, not a mocked unit test.
+                // Round-trips CustomImageUrl through the real Mapperly mappers and MongoDB, a plain scalar,
+                // since only a real integration test catches a missed [BsonElement] or mapper ignore.
                 o.CustomImageUrl = f.Internet.Url();
             })
             .Generate();
@@ -61,10 +59,7 @@ public class AlbumResourceTest(KestrelWebAppFactory<Program> factory)
     [Fact]
     public async Task AlbumResourceUpdate_PersistsArtistChange_IsOk()
     {
-        // regression test for a reported "editing the artist doesn't update the data" bug - full review of
-        // AlbumDetail.razor/Albums.razor/AlbumApiClient/DataCrudControllerBase/both mapper layers found
-        // no code-level cause (identical shape to Book's Author editing, which isn't reported as broken); this
-        // locks in that a PUT changing only Artist persists correctly end-to-end.
+        // A PUT changing only Artist persists end to end, the same shape as editing a book's Author.
         await Authenticate();
 
         var created = await CreateAsync($"/{ResourceEndpoint}", new AlbumDto { Title = "Artist Update Test", Artist = "Original Artist" });
@@ -95,7 +90,7 @@ public class AlbumResourceTest(KestrelWebAppFactory<Program> factory)
         owned.Items.Should().ContainSingle(x => x.Id == created.Id);
         owned.Items.Should().NotContain(x => x.Id == notOwned.Id);
 
-        // the version's fields must survive the full DTO -> model -> BSON round trip (incl. the decimal price)
+        // the version's fields survive the full DTO, model and BSON round trip, the decimal price included
         owned.Items.Single(x => x.Id == created.Id).OwnedVersions.Should().BeEquivalentTo(created.OwnedVersions);
     }
 
@@ -113,9 +108,8 @@ public class AlbumResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// <see cref="AlbumDto.CustomImageUrl"/> follows <see cref="BookDto.CustomImageUrl"/>'s exact
-    /// shape - <c>AlbumController.OnListMappedAsync</c> is expected to apply it over the linked reference's own
-    /// cover on every list read.
+    /// <see cref="AlbumDto.CustomImageUrl"/> follows <see cref="BookDto.CustomImageUrl"/>'s shape:
+    /// <c>AlbumController.OnListMappedAsync</c> applies it over the linked reference's cover on every list read.
     /// </summary>
     [Fact]
     public async Task AlbumResourceList_CustomImageUrlOverridesTheLinkedReferencesCover()

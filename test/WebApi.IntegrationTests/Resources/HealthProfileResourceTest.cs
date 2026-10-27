@@ -10,9 +10,8 @@ using Xunit;
 namespace Keeptrack.WebApi.IntegrationTests.Resources;
 
 /// <summary>
-/// Full-cycle CRUD coverage for <c>HealthProfile</c> plus the two behaviors specific to the health
-/// feature: the metrics endpoint (yearly costs, last visits, pending reimbursements over real MongoDB
-/// data) and the cascade delete of the profile's journal - same shape as <see cref="HouseResourceTest"/>.
+/// Full-cycle CRUD coverage for <c>HealthProfile</c>, the shape of <see cref="HouseResourceTest"/>, plus the two health-specific behaviours.
+/// They are the metrics endpoint (yearly costs, last visits, pending reimbursements over real MongoDB data) and the cascade delete of the profile's journal.
 /// </summary>
 public class HealthProfileResourceTest(KestrelWebAppFactory<Program> factory)
     : ResourceTestBase(factory)
@@ -45,8 +44,7 @@ public class HealthProfileResourceTest(KestrelWebAppFactory<Program> factory)
 
         var profile = await CreateAsync($"/{ResourceEndpoint}", new HealthProfileDto { Name = $"Profile-{Guid.NewGuid():N}" });
 
-        // a fully settled appointment (price = ameli + mutuelle + leftover), an unsettled one, and a
-        // sickness entry with no money
+        // a fully settled appointment (price = ameli + mutuelle + leftover), an unsettled one, and a sickness entry with no money
         await CreateAsync($"/{RecordEndpoint}", new HealthRecordDto
         {
             HealthProfileId = profile.Id!,

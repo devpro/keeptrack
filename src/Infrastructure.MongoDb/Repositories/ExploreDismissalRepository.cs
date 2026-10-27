@@ -8,8 +8,8 @@ using MongoDB.Driver;
 namespace Keeptrack.Infrastructure.MongoDb.Repositories;
 
 /// <summary>
-/// Persistence for Explore dismissals. Reads only ever project the external id (via <c>Distinct</c>) and
-/// writes only ever set the natural-key fields, so this needs no full model &lt;-&gt; entity mapper.
+/// Persistence for Explore dismissals.
+/// Reads only project the external id (<c>Distinct</c>) and writes only set the natural-key fields, so no mapper is needed.
 /// </summary>
 public class ExploreDismissalRepository(IMongoDatabase mongoDatabase) : IExploreDismissalRepository
 {
@@ -24,8 +24,7 @@ public class ExploreDismissalRepository(IMongoDatabase mongoDatabase) : IExplore
     {
         var filter = KeyFilter(model.OwnerId, model.ItemType, model.ExternalSource)
                      & Builders<ExploreDismissal>.Filter.Eq(d => d.ExternalId, model.ExternalId);
-        // SetOnInsert-only upsert: inserts the record when missing, a no-op when it already exists - so
-        // dismissing the same suggestion twice never creates a duplicate row.
+        // an upsert setting fields on insert only, so dismissing twice never creates a duplicate
         var update = Builders<ExploreDismissal>.Update
             .SetOnInsert(d => d.OwnerId, model.OwnerId)
             .SetOnInsert(d => d.ItemType, model.ItemType)
@@ -38,8 +37,7 @@ public class ExploreDismissalRepository(IMongoDatabase mongoDatabase) : IExplore
         await Collection.DeleteOneAsync(
             KeyFilter(ownerId, type, externalSource) & Builders<ExploreDismissal>.Filter.Eq(d => d.ExternalId, externalId));
 
-    // the (owner, domain, provider) prefix of the natural key - shared by every read and write so the three
-    // never drift on what a dismissal is scoped to.
+    // the (owner, domain, provider) prefix of the natural key, shared by every read and write
     private static FilterDefinition<ExploreDismissal> KeyFilter(string ownerId, ExploreItemType type, string externalSource) =>
         Builders<ExploreDismissal>.Filter.Eq(d => d.OwnerId, ownerId)
         & Builders<ExploreDismissal>.Filter.Eq(d => d.ItemType, type)

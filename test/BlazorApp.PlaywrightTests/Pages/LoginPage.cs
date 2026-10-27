@@ -5,8 +5,7 @@ using Microsoft.Playwright;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 
 /// <summary>
-/// The login page itself is OAuth-popup-only and cannot be driven by Playwright (see the e2e plan) -
-/// this page object exists only so <c>AuthSmokeTest</c> can assert an anonymous visit lands here, not to sign in.
+/// The login page is OAuth-popup-only and can't be driven by Playwright, so this page object only lets <c>AuthSmokeTest</c> assert an anonymous visit lands here.
 /// </summary>
 public partial class LoginPage(IPage page) : PageBase(page)
 {

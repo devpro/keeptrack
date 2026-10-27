@@ -4,13 +4,13 @@ using Microsoft.Playwright;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Pages;
 
 /// <summary>
-/// One PageObject for all inventory list pages - they are all rendered by the same <c>InventoryList</c> component.
+/// One page object for all inventory list pages, which the same <c>InventoryList</c> component renders.
 /// </summary>
 public class ListPage(IPage page, string route, string title) : PageBase(page)
 {
     /// <summary>
-    /// Direct-navigation convenience for a test that doesn't care about starting from Home - every other
-    /// page object is reached via a <see cref="PageBase"/> nav-link <c>Open&lt;X&gt;Async()</c> helper.
+    /// Direct navigation for a test that needn't start from Home,
+    /// where every other page object is reached through a <see cref="PageBase"/> nav-link <c>Open&lt;X&gt;Async()</c> helper.
     /// </summary>
     public async Task<ListPage> OpenAsync()
     {
@@ -27,47 +27,45 @@ public class ListPage(IPage page, string route, string title) : PageBase(page)
     }
 
     /// <summary>
-    /// The item row containing <paramref name="itemTitle"/> - scoping the delete action to a specific row, since every row repeats the same "Delete" button label.
+    /// The item row containing <paramref name="itemTitle"/>, scoping the delete action to one row, since every row repeats the same "Delete" label.
     /// </summary>
     public ILocator Row(string itemTitle) => Page.Locator(".kt-item-row", new PageLocatorOptions { HasText = itemTitle });
 
     /// <summary>
-    /// Asserts a row's wide thumbnail carries <paramref name="src"/> - the cover a detail page has just been given, seen from the list.
+    /// Asserts a row's wide thumbnail carries <paramref name="src"/>, the cover a detail page was just given, seen from the list.
     /// <para>
-    /// Re-read rather than merely waited for (see <see cref="PageBase.ExpectWithReloadAsync"/>): the detail page saves by having the <i>server</i> PUT the item over its own circuit, which the browser never sees, so a list rendered while that save is still in flight shows the item as it was and will never update itself.
-    /// Waiting longer on a page that cannot change is not a wait, it is a timeout - observed as a row stuck on its letter placeholder.
+    /// Re-read rather than waited for (see <see cref="PageBase.ExpectWithReloadAsync"/>):
+    /// the detail page saves by having the <i>server</i> PUT the item over its circuit, which the browser never sees.
+    /// A list rendered while that save is in flight shows the item as it was and never updates, so waiting longer is only a timeout, a row stuck on its letter placeholder.
     /// </para>
     /// </summary>
     public Task ExpectRowThumbnailAsync(string itemTitle, string src) =>
         ExpectWithReloadAsync(() => Assertions.Expect(Row(itemTitle).Locator(".kt-item-thumb.wide img")).ToHaveAttributeAsync("src", src));
 
     /// <summary>
-    /// The first state-changing click after a fresh page load -
-    /// see <see cref="PageBase.ClickUntilAsync"/> for why this specifically (not every click) needs the retry-until-visible treatment.
+    /// The first state-changing click after a fresh page load (see <see cref="PageBase.ClickUntilAsync"/> for why this one, not every click, retries until visible).
     /// </summary>
     public async Task ClickAddAsync()
         => await ClickUntilAsync(Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "+ Add" }), Page.Locator(".kt-form-card"));
 
     /// <summary>
-    /// <paramref name="testId"/> is the field's <c>data-testid</c> (e.g. "title-input"/"author-input") -
-    /// the add form's fields are plain sibling <c>&lt;label&gt;</c>/<c>&lt;input&gt;</c> pairs with no <c>for</c>/ <c>id</c> association,
-    /// so <c>GetByLabel</c> structurally can't resolve them (confirmed against a real run:
-    /// the "Title" field could never be found, every add-form fill silently timed out).
+    /// <paramref name="testId"/> is the field's <c>data-testid</c> ("title-input", "author-input").
+    /// The add form's fields are plain sibling <c>&lt;label&gt;</c> and <c>&lt;input&gt;</c> pairs with no <c>for</c> and <c>id</c> association,
+    /// which <c>GetByLabel</c> can't resolve.
     /// </summary>
     public async Task FillAsync(string testId, string value) => await Page.GetByTestId(testId).FillAsync(value);
 
     /// <summary>
-    /// VideoGames' and Playlists' Add forms use a bare <c>placeholder="Title"</c> input with no <c>&lt;label&gt;</c> at all -
-    /// <c>GetByPlaceholder</c> already resolves it uniquely, so no <c>data-testid</c> was needed there.
+    /// The video game and playlist Add forms use a bare <c>placeholder="Title"</c> input with no <c>&lt;label&gt;</c>,
+    /// which <c>GetByPlaceholder</c> resolves uniquely without a <c>data-testid</c>.
     /// </summary>
     public async Task FillByPlaceholderAsync(string placeholder, string value) => await Page.GetByPlaceholder(placeholder).FillAsync(value);
 
     public async Task SaveNewAsync() => await Page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Save", Exact = true }).ClickAsync();
 
     /// <summary>
-    /// Clicks a <c>kt-toggle-btn</c> filter button until it reads back as active - the same
-    /// first-click-after-load prerender gap <see cref="ClickAddAsync"/> mitigates via
-    /// <see cref="PageBase.ClickUntilAsync"/>.
+    /// Clicks a <c>kt-toggle-btn</c> filter button until it reads back as active,
+    /// the first-click-after-load prerender gap <see cref="ClickAddAsync"/> handles through <see cref="PageBase.ClickUntilAsync"/>.
     /// </summary>
     public async Task ClickFilterUntilActiveAsync(ILocator filterButton)
         => await ClickUntilAsync(filterButton, Page.Locator("button.kt-toggle-btn.active"));
@@ -80,8 +78,7 @@ public class ListPage(IPage page, string route, string title) : PageBase(page)
     }
 
     /// <summary>
-    /// The confirm click is scoped to the modal -
-    /// every row's own delete icon shares the same accessible "Delete" name, so a page-level lookup would be ambiguous.
+    /// The confirm click is scoped to the modal, since every row's delete icon shares the accessible "Delete" name, and a page-level lookup would be ambiguous.
     /// </summary>
     public async Task DeleteAsync(string itemTitle)
     {
@@ -90,9 +87,9 @@ public class ListPage(IPage page, string route, string title) : PageBase(page)
     }
 
     /// <summary>
-    /// Navigates to an item's own detail page by clicking its title link -
-    /// the caller constructs whatever typed detail page object it needs afterward (e.g. <see cref="BookDetailPage"/>),
-    /// since a generic list page has no business knowing which detail page type belongs to which item type.
+    /// Navigates to an item's detail page by clicking its title link.
+    /// The caller constructs the typed detail page object it needs (<see cref="BookDetailPage"/>),
+    /// since a generic list page doesn't know which detail page belongs to which item type.
     /// </summary>
     public async Task OpenItemAsync(string itemTitle)
         => await Page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = itemTitle, Exact = true }).ClickAsync();

@@ -3,14 +3,10 @@ using Keeptrack.Domain.Repositories;
 namespace Keeptrack.Domain.Models;
 
 /// <summary>
-/// The six owner-less reference repositories as one value, for the operations that genuinely span all of them
-/// (today <c>ReferenceDataImportService</c>, whose whole point is importing every collection in one pass with
-/// people resolved first).
+/// The six reference repositories as one value, for operations spanning all of them, such as <c>ReferenceDataImportService</c> importing every collection in one pass.
 /// <para>
-/// They share no base interface on purpose - each is purpose-built for its collection, and none of them fits
-/// <c>IDataRepository&lt;T&gt;</c>'s owner-scoped CRUD - so passing them individually is what pushed that
-/// signature past Sonar's parameter limit. Same fix as <see cref="OwnedItemImportAdapter{TModel,TRequestItem}"/>:
-/// bundle the values, don't change the design.
+/// They share no base interface, since each is built for its collection and none fits <c>IDataRepository&lt;T&gt;</c>'s owner-scoped CRUD.
+/// Bundling them keeps the signature within Sonar's parameter limit, as <see cref="OwnedItemImportAdapter{TModel,TRequestItem}"/> does.
 /// </para>
 /// </summary>
 public record ReferenceRepositorySet(

@@ -13,10 +13,9 @@ using Xunit;
 namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 /// <summary>
-/// The full sharing loop, self-shared to the fixture's own email (the recipient is matched by email
-/// server-side). Media is list-only with an "In collection" badge (a self-share already owns everything);
-/// personal data (cars) is list plus a read-only detail page. The grant is created through the owner UI, then
-/// the recipient views are exercised end to end.
+/// The full sharing loop, self-shared to the fixture's own email (the recipient is matched by email server-side).
+/// Media is list-only with an "In collection" badge (a self-share already owns everything); personal data (cars) is list plus a read-only detail page.
+/// The grant is created through the owner UI, then the recipient views are exercised end to end.
 /// </summary>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]
@@ -43,9 +42,8 @@ public class SharingSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
             Cost = 120.50
         });
 
-        // Owner creates the grant (Movies + Cars) through the profile UI. Categories are toggled before the
-        // text fields are filled - the first toggle doubles as the page's circuit-warmup click, see
-        // SharingOwnerPage.ToggleCategoryAsync.
+        // Owner creates the grant (Movies + Cars) through the profile UI.
+        // Categories are toggled before the text fields are filled, the first toggle doubling as the circuit warm-up click (see SharingOwnerPage.ToggleCategoryAsync).
         var sharing = await new SharingOwnerPage(Page).OpenAsync();
         await sharing.ToggleCategoryAsync("Movies");
         await sharing.ToggleCategoryAsync("Cars");
@@ -76,10 +74,9 @@ public class SharingSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
     }
 
     /// <summary>
-    /// The collection categories (Collectibles, Gear) are the third sharing shape, distinct from the other two:
-    /// a full read-only list (search / sort / filters, like media) but with no shared reference to copy - so no
-    /// per-row "add to my collection" action and no "In collection" badge, and no read-only detail page either
-    /// (unlike personal). This pins that view-only-list distinction, self-shared to the fixture's own email.
+    /// The collection categories (collectibles, gear) are the third sharing shape: a read-only list with search, sort and filters like media, but no shared reference to copy.
+    /// So no per-row "add to my collection" action, no "In collection" badge, and no read-only detail page, unlike personal categories.
+    /// This pins that view-only-list distinction, self-shared to the fixture's own email.
     /// </summary>
     [Fact]
     public async Task ShareCollections_RecipientSeesReadOnlyListWithNoAddAction()
@@ -96,7 +93,7 @@ public class SharingSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
         var gear = await CreateItemAsync("api/gear", new GearDto { Title = gearTitle, Brand = "Sony", Year = 2021 });
 
         // Owner creates the grant (Collectibles + Gear) through the profile UI's "Collections" group.
-        // Categories are toggled before the text fields are filled - see SharingOwnerPage.ToggleCategoryAsync.
+        // Categories are toggled before the text fields are filled (see SharingOwnerPage.ToggleCategoryAsync).
         var sharing = await new SharingOwnerPage(Page).OpenAsync();
         await sharing.ToggleCategoryAsync("Collectibles");
         await sharing.ToggleCategoryAsync("Gear");

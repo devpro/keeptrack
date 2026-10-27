@@ -18,7 +18,7 @@ public class CollectibleModel : IHasIdAndOwnerId
     public string? Notes { get; set; }
 
     /// <summary>
-    /// Tenant-owned cover image URL, shown on the list thumbnail and detail page header. Optional.
+    /// The tenant's own optional cover image URL, shown on the list thumbnail and the detail page header.
     /// </summary>
     public string? ImageUrl { get; set; }
 
@@ -27,8 +27,8 @@ public class CollectibleModel : IHasIdAndOwnerId
     public List<OwnedVersionModel> OwnedVersions { get; set; } = [];
 
     /// <summary>
-    /// Filter-only: matches if <see cref="OwnedVersions"/> is non-empty. Never persisted - see
-    /// <see cref="MovieModel.IsOwned"/>.
+    /// Filter only: matches when <see cref="OwnedVersions"/> is non-empty.
+    /// Never persisted (see <see cref="MovieModel.IsOwned"/>).
     /// </summary>
     public bool IsOwned { get; set; }
 }

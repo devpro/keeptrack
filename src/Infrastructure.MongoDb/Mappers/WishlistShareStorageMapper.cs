@@ -7,8 +7,7 @@ namespace Keeptrack.Infrastructure.MongoDb.Mappers;
 [Mapper]
 public partial class WishlistShareStorageMapper
 {
-    // CreatedAt is stamped by the repository on the write side (ignored here so a model can't
-    // ante-date itself) and mapped back plainly on the read side - see BackgroundJobStorageMapper.
+    // the repository stamps CreatedAt on write, ignored here so a model cannot backdate itself, and it is read back as is
     [MapperIgnoreTarget(nameof(WishlistShare.CreatedAt))]
     [MapperIgnoreSource(nameof(WishlistShareModel.CreatedAt))]
     public partial WishlistShare ToEntity(WishlistShareModel model);

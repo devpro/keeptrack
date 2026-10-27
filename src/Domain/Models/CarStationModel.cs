@@ -4,17 +4,15 @@ namespace Keeptrack.Domain.Models;
 /// One physical fuel station, shared by every tenant rather than owned by one.
 /// </summary>
 /// <remarks>
-/// This is the same deliberate exception to "every collection has an owner_id" as the <c>*_reference</c>
-/// collections, and for the same reason: a station at a given address is a public fact, not one account's
-/// data. Car history entries point at it by id instead of each carrying their own copy of the brand name,
-/// city, postal code and coordinates - which is what made every refuel at the same station re-type (and
-/// re-store) the identical location.
+/// The same exception to "every collection has an owner_id" as the <c>*_reference</c> collections, for the same reason:
+/// a station at an address is a public fact, not one account's data.
+/// Car history entries point at it by id rather than each carrying the brand, city, postal code and coordinates, so a station's location is typed and stored once.
 /// </remarks>
 public class CarStationModel
 {
     public string? Id { get; set; }
 
-    /// <summary>Brand/retailer name, e.g. "TotalEnergies" - the "Distributeur" column of the Excel import.</summary>
+    /// <summary>Brand or retailer name, such as "TotalEnergies".</summary>
     public required string BrandName { get; set; }
 
     public string? City { get; set; }
@@ -28,12 +26,15 @@ public class CarStationModel
     public double? Latitude { get; set; }
 
     /// <summary>
-    /// Lower-cased, trimmed <see cref="BrandName"/>, written by the repository on every upsert. Together
-    /// with <see cref="CityNormalized"/> and <see cref="PostalCode"/> it is the natural key a unique index
-    /// enforces, so two members creating "Total" and "total " inline end up on one document rather than two.
+    /// Lower-cased, trimmed <see cref="BrandName"/>, written by the repository on every upsert.
+    /// With <see cref="CityNormalized"/> and <see cref="PostalCode"/> it forms the natural key of a unique index,
+    /// so "Total" and "total " created inline by two members land on one document.
     /// </summary>
     public string BrandNameNormalized { get; set; } = "";
 
-    /// <summary>Normalized <see cref="City"/> - see <see cref="BrandNameNormalized"/>.</summary>
+    /// <summary>
+    /// Normalized <see cref="City"/>, see <see cref="BrandNameNormalized"/>.
+    /// Empty rather than null for a station with no city, or the unique index would collapse every cityless station onto one key.
+    /// </summary>
     public string CityNormalized { get; set; } = "";
 }
