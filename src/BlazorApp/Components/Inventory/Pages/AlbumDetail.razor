@@ -31,6 +31,7 @@ else
             <ReferenceMatchControls TDto="AlbumDto" Api="Api" ItemId="@(Album.Id!)" ReferenceId="@Album.ReferenceId" ReferenceTitle="@Reference?.Title"
                                     ReferenceDataDescription="cover, tracklist, artist"
                                     OnChecked="OnReferenceCheckedAsync" OnUnlinked="LoadAsync"/>
+            <DeleteItemControl TDto="AlbumDto" Api="Api" ItemId="@(Album.Id!)" ItemName="album" ListRoute="/albums"/>
         </div>
         <div class="d-flex gap-2">
             <button class="btn btn-sm kt-toggle-btn @(Album.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>

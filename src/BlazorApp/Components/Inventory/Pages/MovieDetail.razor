@@ -31,6 +31,7 @@ else
             <ReferenceMatchControls TDto="MovieDto" Api="Api" ItemId="@(Movie.Id!)" ReferenceId="@Movie.ReferenceId" ReferenceTitle="@Reference?.Title"
                                     ReferenceDataDescription="cover, synopsis, cast/genres"
                                     OnChecked="OnReferenceCheckedAsync" OnUnlinked="LoadAsync"/>
+            <DeleteItemControl TDto="MovieDto" Api="Api" ItemId="@(Movie.Id!)" ItemName="movie" ListRoute="/movies"/>
         </div>
         @* "Watched" is not here but on the card below as a .kt-corner-flag, since it outranks these three flags,
            and its success green says "finished" where their accent blue says "flagged". *@

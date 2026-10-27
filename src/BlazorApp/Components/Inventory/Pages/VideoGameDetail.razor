@@ -34,6 +34,7 @@ else
             <ReferenceMatchControls TDto="VideoGameDto" Api="Api" ItemId="@(Game.Id!)" ReferenceId="@Game.ReferenceId" ReferenceTitle="@Reference?.Title"
                                     ReferenceDataDescription="cover, synopsis, genres/platforms"
                                     OnChecked="OnReferenceCheckedAsync" OnUnlinked="LoadAsync"/>
+            <DeleteItemControl TDto="VideoGameDto" Api="Api" ItemId="@(Game.Id!)" ItemName="video game" ListRoute="/video-games"/>
         </div>
         <div class="d-flex gap-2">
             <button class="btn btn-sm kt-toggle-btn @(Game.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync"><Icon Name="wishlist" Size="13"/> Wishlist</button>
