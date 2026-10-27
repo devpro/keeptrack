@@ -47,7 +47,7 @@ jobs:
     name: Code
     needs: git-check
     if: needs.git-check.outputs.changed == 'true' || (github.event_name == 'workflow_dispatch' && inputs.run-code-quality)
-    uses: devpro/github-workflow-parts/.github/workflows/reusable-dotnet-quality.yml@6e101906191c6afe4198b97abeee19d2a7c49788
+    uses: devpro/github-workflow-parts/.github/workflows/reusable-dotnet-quality.yml@1c7f098dd14618eeb1a5080b60eaf07c3a12c3c4
     with:
       # TODO: need a safe solution for service account json content
       #
@@ -84,7 +84,7 @@ jobs:
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
       sonar-project-name: Keeptrack
       sonar-settings-file: SonarQube.Analysis.xml
-      workflow-parts-version: 6e101906191c6afe4198b97abeee19d2a7c49788
+      workflow-parts-version: 1c7f098dd14618eeb1a5080b60eaf07c3a12c3c4
     secrets:
       fossa-api-key: ${{ secrets.FOSSA_API_KEY }}
       sonar-token: ${{ secrets.SONAR_TOKEN }}
