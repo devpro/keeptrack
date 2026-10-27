@@ -43,11 +43,20 @@ A pipeline IstarCI reads wrongly is reported in `devpro/istarci`, with the workf
 
 ## Sonar
 
+### Settings are versioned in `SonarQube.Analysis.xml`
+
+The analysis runs the scanner for .NET, which never reads a `sonar-project.properties`.
+Settings such as issue exclusions go in the root `SonarQube.Analysis.xml`, which `ci.yaml` passes through the `sonar-settings-file` input.
+A setting `ci.yaml` also passes on the command line, such as `sonar-exclusions`, wins over the file.
+Which rules are active is the quality profile's, on the server.
+
+**SonarCloud ships a new rule before the SonarQube release IstarCI starts**, so a local analysis can stay quiet about an issue SonarCloud reports.
+
 ### S8970 in Razor is a false positive
 
 Sonar loses the nullable context in Razor-generated code, so it reports every `!` in markup as useless.
 `BlazorApp` has nullable enabled project-wide and each `!` suppresses a real nullable API (`ClaimsPrincipal.Identity`, `ChangeEventArgs.Value`), so removing one brings back `CS8600`/`CS8602`.
-They are resolved in bulk as False Positive in SonarCloud rather than edited.
+`SonarQube.Analysis.xml` excludes the rule for `*.razor` files.
 
 ### S8969 is checked case by case
 

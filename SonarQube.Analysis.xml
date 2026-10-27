@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Analysis settings versioned with the code, passed to the scanner for .NET by the sonar-settings-file input of ci.yaml.
+     The reason for each exclusion is in docs/ci-and-quality.md. -->
+<SonarQubeAnalysisProperties xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="http://www.sonarsource.com/msbuild/integration/2015/1">
+  <Property Name="sonar.issue.ignore.multicriteria">razorNullForgiving</Property>
+  <Property Name="sonar.issue.ignore.multicriteria.razorNullForgiving.ruleKey">csharpsquid:S8970</Property>
+  <Property Name="sonar.issue.ignore.multicriteria.razorNullForgiving.resourceKey">**/*.razor</Property>
+</SonarQubeAnalysisProperties>
