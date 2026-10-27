@@ -468,7 +468,7 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
         if (candidates is not { Count: > 0 }) return;
 
         var response = await api.PostAsJsonAsync("api/reference-data/link",
-            new LinkReferenceRequestDto { Type = type, Title = title, Year = year, ExternalId = candidates[0].ExternalId });
+            new LinkReferenceRequestDto { Type = type, Title = title, Year = year, Creator = creator, ExternalId = candidates[0].ExternalId });
         response.EnsureSuccessStatusCode();
     }
 
