@@ -79,6 +79,10 @@ A missing item is a 404 at every layer:
 - **Enter takes the highlight, Tab only one reached with the arrow keys**, since completing on Tab turns "Dr Kim" into "Dr Kimura".
   Escape drops the highlight, and there is no `preventDefault` on keydown.
 
+**`DeleteItemControl`** deletes a media item from its detail page, with the same confirmation as a list row.
+It replaces the history entry with the list, so browser back skips the deleted item.
+The admin unlink beside it uses the broken-chain icon, since the trash means deleting the item.
+
 ## Razor gotchas
 
 - **A `string`-typed component `[Parameter]` needs the `@` prefix.**
@@ -99,6 +103,14 @@ A component whose state rules read no variable, such as the form controls, repea
 Sonar reports every `!important` (`css:S9423`), and an `!important` theme also silently overrides a scoped `.razor.css` rule meant to win.
 
 `wwwroot/Keeptrack.BlazorApp.lib.module.js` is loaded automatically by name (never a manual `<script>` tag), and is where `blazor.addEventListener('enhancedload', ...)` re-applies client-side DOM state.
+
+### Responsive widths
+
+Phone below 768px, laptop up to 1400px, and the large-screen block last in `app.css` above it, so its overrides win the cascade.
+From 1400px, the content column and the detail measures widen.
+From 1600px, list rows go two per line instead of stretching.
+From 1920px, the root font size grows.
+The px measures (covers, grid columns, thumbnails) are widened alongside it, since rem does not reach them.
 
 ### Icons
 

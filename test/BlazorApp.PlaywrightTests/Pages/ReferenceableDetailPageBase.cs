@@ -21,6 +21,17 @@ public abstract class ReferenceableDetailPageBase(IPage page) : DetailPageBase(p
     private ILocator ReferenceToast => Page.Locator(".kt-inline-toast");
 
     /// <summary>
+    /// Deletes the item from its own page, the confirm click scoped to the modal, whose button shares the "Delete" name.
+    /// Opening the confirmation is the first click after load, so it goes through <see cref="PageBase.ClickUntilAsync(ILocator, ILocator, int)"/>.
+    /// </summary>
+    public async Task DeleteItemAsync()
+    {
+        var confirm = Page.Locator(".kt-modal").GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "Delete", Exact = true });
+        await ClickUntilAsync(Page.Locator(".kt-page-header").GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "Delete", Exact = true }), confirm);
+        await confirm.ClickAsync();
+    }
+
+    /// <summary>
     /// The non-admin "check for reference match" icon button.
     /// </summary>
     /// <remarks>

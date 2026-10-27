@@ -31,6 +31,7 @@ else
             <ReferenceMatchControls TDto="TvShowDto" Api="Api" ItemId="@(_show.Id!)" ReferenceId="@_show.ReferenceId" ReferenceTitle="@_reference?.Title"
                                     ReferenceDataDescription="cover, synopsis, cast/genres, episode guide"
                                     OnChecked="OnReferenceCheckedAsync" OnUnlinked="LoadAsync"/>
+            <DeleteItemControl TDto="TvShowDto" Api="Api" ItemId="@(_show.Id!)" ItemName="TV show" ListRoute="/tv-shows"/>
         </div>
         <div class="d-flex gap-2">
             <button class="btn btn-sm kt-toggle-btn @(_show.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>

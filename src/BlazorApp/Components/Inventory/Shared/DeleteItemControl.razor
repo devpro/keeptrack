@@ -1,0 +1,47 @@
+@typeparam TDto where TDto : Keeptrack.Common.System.IHasId
+@inject NavigationManager Navigation
+@* A detail page's own delete, with the same confirmation as a list row's. *@
+
+@if (_error is not null)
+{
+    <span class="kt-inline-toast danger">@_error</span>
+}
+<button class="kt-icon-btn" title="Delete this @ItemName" aria-label="Delete" @onclick="() => _pending = true">
+    <Icon Name="trash" Size="15"/>
+</button>
+<ConfirmModal Show="_pending"
+              Title="Delete this item?"
+              Message="@($"This will permanently delete this {ItemName}. This can't be undone.")"
+              OnConfirm="DeleteAsync" OnCancel="() => _pending = false"/>
+
+@code {
+    [Parameter, EditorRequired] public required InventoryApiClientBase<TDto> Api { get; set; }
+
+    [Parameter, EditorRequired] public required string ItemId { get; set; }
+
+    /// <summary>Lower case, as it reads in the confirmation, for example "movie".</summary>
+    [Parameter, EditorRequired] public required string ItemName { get; set; }
+
+    [Parameter, EditorRequired] public required string ListRoute { get; set; }
+
+    private bool _pending;
+    private string? _error;
+
+    private async Task DeleteAsync()
+    {
+        _pending = false;
+        _error = null;
+        try
+        {
+            await Api.DeleteAsync(ItemId);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Error: {ex.Message}";
+            return;
+        }
+
+        // Replaces the history entry, so browser back skips the page of an item that no longer exists.
+        Navigation.NavigateTo(ListRoute, replace: true);
+    }
+}

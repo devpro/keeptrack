@@ -184,6 +184,23 @@ public class MobileScreenshotTest(End2EndFixture fixture) : SmokeTestBase(fixtur
             await SetListViewPreferenceAsync(null);
             await CaptureAsync("/books", "books-list-desktop");
 
+            // A large monitor, where a layout tuned for a laptop leaves the content as a narrow strip between two empty margins.
+            await Page.SetViewportSizeAsync(2560, 1440);
+            await CaptureAsync("/", "home-large");
+            await CaptureAsync("/books", "books-list-large");
+            await CaptureAsync("/tv-shows", "tv-shows-list-large");
+            await SetListViewPreferenceAsync("grid");
+            await CaptureAsync("/books", "books-grid-large");
+            await CaptureAsync("/video-games", "video-games-grid-large");
+            await SetListViewPreferenceAsync(null);
+            await CaptureAsync("/watch-next", "watch-next-large");
+            await CaptureAsync("/admin/reference-data", "admin-reference-data-large");
+            await CaptureDetailByTitleAsync("/video-games", "Half-Life 2", "video-game-detail-large");
+            await CaptureDetailByTitleAsync("/albums", "Nevermind", "album-detail-large");
+            await CaptureFirstDetailAsync("/movies", "movie-detail-large");
+            await CaptureFirstDetailAsync("/cars", "car-detail-large");
+            await Page.SetViewportSizeAsync(1280, 900);
+
             // A dark-theme sample of the densest pages.
             await Page.EmulateMediaAsync(new PageEmulateMediaOptions { ColorScheme = ColorScheme.Dark });
             await CaptureAsync("/movies", "movies-dark");

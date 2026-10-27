@@ -31,6 +31,7 @@ else
             <ReferenceMatchControls TDto="BookDto" Api="Api" ItemId="@(Book.Id!)" ReferenceId="@Book.ReferenceId" ReferenceTitle="@Reference?.Title"
                                     ReferenceDataDescription="cover, synopsis, genre/language/ISBN autofill"
                                     OnChecked="OnReferenceCheckedAsync" OnUnlinked="LoadAsync"/>
+            <DeleteItemControl TDto="BookDto" Api="Api" ItemId="@(Book.Id!)" ItemName="book" ListRoute="/books"/>
         </div>
         @* "Read" is not here but on the card below as a .kt-corner-flag (see MovieDetail). *@
         <div class="d-flex gap-2 flex-wrap">

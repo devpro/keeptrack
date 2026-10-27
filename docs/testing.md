@@ -50,7 +50,7 @@ Gherkin was rejected as twice the code for the same coverage.
 - **`ExploreSmokeTest` seeds `explore_catalogue` directly** (`End2EndFixture.SeedExploreCatalogueAsync`, self-hosted only), since the e2e host never runs the refresh.
   It seeds every ranking `ExploreRankings.Rankings` declares for a domain (the one read follows a stored admin setting), uses real provider ids only for the two `Add` cases (TMDB 278, IGDB 72),
   and its `[Theory]`s cover movies and video games, which differ in tab gating, ranking and id space.
-- `MobileScreenshotTest` is an assertion-free visual harness behind `E2E_MOBILE_CHECK=true`, capturing every page at a phone viewport for review.
+- `MobileScreenshotTest` is an assertion-free visual harness behind `E2E_MOBILE_CHECK=true`, capturing every page at a phone viewport, then a sample at 1280px and at 2560px, for review.
 
 **`PageBase.WaitForReadyAsync` reloads once and re-asserts** (`ExpectWithReloadAsync`, also behind `ListPage.ExpectRowThumbnailAsync`), for two cases where waiting never helps:
 
