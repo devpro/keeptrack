@@ -110,7 +110,7 @@ eval "$(node scripts/load-runsettings.js)"
 dotnet test --project test/WebApi.IntegrationTests/WebApi.IntegrationTests.csproj --filter-method "*WishlistResourceTest*"
 ```
 
-Integration tests need MongoDB and Firebase test credentials from `Local.runsettings`, loaded by the script above, since `--settings Local.runsettings` runs zero tests.
+Integration tests need MongoDB, and Firebase test credentials unless `TEST_AUTHENTICATION_MODE=local`, from `Local.runsettings`, loaded by the script above, since `--settings Local.runsettings` runs zero tests.
 Those values are never converted into `NAME=value` lines and sourced: [CONTRIBUTING.md](CONTRIBUTING.md#tests) explains both.
 
 ## Where to read before changing
@@ -118,6 +118,7 @@ Those values are never converted into `NAME=value` lines and sourced: [CONTRIBUT
 File                                             | Read before changing
 -------------------------------------------------|------------------------------------------------------------------------------------------------------------------------
 [Architecture](docs/architecture.md)             | A controller, error handling, a background job, authorization, the free tier, an admin setting, an outbound HTTP client
+[Authentication](docs/authentication.md)         | Sign-in, a token claim, the authentication mode, or a test identity
 [Data model](docs/data-model.md)                 | A model, entity, DTO, mapper, repository filter, index or stored field name, or when adding a trackable type
 [Blazor UI](docs/blazor-ui.md)                   | A page, a list filter, persisted state, a shared component, styles or icons
 [Collections](docs/collections.md)               | Ownership, gear, collectibles, playlists, Wishlist, Watch Next, Quick Add, user preferences

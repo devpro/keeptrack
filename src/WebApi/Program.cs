@@ -152,21 +152,12 @@ builder.Services.AddHostedService<Keeptrack.WebApi.ReferenceData.ReferenceSyncBa
 builder.Services.AddMongoDbInfrastructure(configuration);
 builder.Services.AddOpenApiWithBearerAuth(configuration);
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        // Firebase's claim names ("user_id", "role") must stay as issued.
-        // The inbound claim mapping would rename short names like "role" to legacy ClaimTypes URIs, and RequireClaim("role", ...) would never match.
-        options.MapInboundClaims = false;
-        options.Authority = configuration.JwtBearerSettings.Authority;
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidIssuer = configuration.JwtBearerSettings.TokenValidation.Issuer,
-            ValidateAudience = true,
-            ValidAudience = configuration.JwtBearerSettings.TokenValidation.Audience,
-            ValidateLifetime = true
-        };
-    });
+    .AddJwtBearer();
+// Read from the built configuration rather than the builder's, so a test host's ConfigureAppConfiguration override reaches it,
+// and validated on start, so a wrong setting still stops the host instead of failing the first request.
+builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<IConfiguration>((options, appConfiguration) => new AppConfiguration(appConfiguration).JwtBearerSettings.ApplyTo(options))
+    .ValidateOnStart();
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy("AdminOnly", policy => policy.RequireClaim("role", "admin"))
     // Members and admins get the whole app, and an account without a role is the free preview tier (see FreeTierQuota).

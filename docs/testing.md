@@ -7,9 +7,9 @@ How to run them, and the variables they need, is in [CONTRIBUTING.md](../CONTRIB
 
 - **`test/WebApi.UnitTests`**: pure logic, mocked repositories, stubbed HTTP handlers.
 - **`test/BlazorApp.UnitTests`**: pure component and helper logic.
-- **`test/WebApi.IntegrationTests`**: a real Kestrel host (`KestrelWebAppFactory<Program>`) against real MongoDB and real Firebase authentication.
+- **`test/WebApi.IntegrationTests`**: a real Kestrel host (`KestrelWebAppFactory<Program>`) against real MongoDB, with Firebase or local authentication (see [Authentication](authentication.md#tests)).
 - **`test/BlazorApp.PlaywrightTests`**: a real browser driving both apps.
-- **`test/Testing.Shared`**: hosting and Firebase infrastructure for both, not a test project.
+- **`test/Testing.Shared`**: hosting and authentication infrastructure for both, not a test project.
   `KestrelWebAppFactory<TEntryPoint>` takes its environment variable name and configuration overrides as constructor parameters.
 
 All use xunit v3 on the Microsoft.Testing.Platform runner, `AwesomeAssertions` for assertions and `Bogus` for data.
@@ -19,7 +19,7 @@ Mapper validation is compile-time (Mapperly diagnostics), not a test.
 
 ## Integration tests
 
-- `ResourceTestBase` gives typed HTTP helpers, `Authenticate()` (a real Firebase bearer) and `AuthenticatedUserId`.
+- `ResourceTestBase` gives typed HTTP helpers, `Authenticate()` (the run's own identity), `AuthenticateWith(token)` and `AuthenticatedUserId`.
 - **Every fixture uses `KestrelWebAppFactory<Program>`**, which sets `Features:IsReferenceSyncEnabled` to `false` through `ConfigureAppConfiguration` (`UseSetting` does not work with a top-level-statement `Program.cs`),
   or the host fires real provider calls at startup.
 - `TvTimeFixtureZipBuilder` builds a synthetic export in memory, and a real personal export is never committed.
@@ -39,8 +39,9 @@ Mapper validation is compile-time (Mapperly diagnostics), not a test.
 Gherkin was rejected as twice the code for the same coverage.
 
 - `End2EndFixture` (`[AssemblyFixture]`) hosts both apps, signs in once and seeds a synthetic book reference.
-- **Sign-in is programmatic**: the login page is OAuth popup only, which Playwright cannot drive, so the fixture signs in over Firebase REST and posts the ID token to `/auth/callback`, then reuses the cookie as storage state.
+- **Sign-in is programmatic**: the Firebase login page is OAuth popup only, which Playwright cannot drive, so the fixture signs in over Firebase REST and posts the ID token to `/auth/callback`, then reuses the cookie as storage state.
   Without `E2E_USERNAME`, it creates an ephemeral admin user through the Firebase Admin SDK and deletes it at the end.
+  With local authentication it posts to `/auth/local` instead, and `AuthSmokeTest` drives the local form.
 - In self-hosted mode both apps run in the test process, so breakpoints in `BlazorApp` and `WebApi` are hit during a browser click.
 - `Pages/PageBase` holds the nav locators and `Open<X>Async()`, `ListPage` is one class for all list pages, and detail titles share `.kt-title-input`.
   Locators are role and label first, and only a few unlabeled fields carry `data-testid`.

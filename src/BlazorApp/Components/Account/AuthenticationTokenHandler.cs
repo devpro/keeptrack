@@ -13,13 +13,13 @@ public class AuthenticationTokenHandler(
 {
     private const string AuthorizationScheme = "Bearer";
 
-    public const string FirebaseTokenName = "firebase_token";
+    public const string ApiTokenName = "api_token";
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var httpContext = httpContextAccessor.HttpContext ?? throw new InvalidOperationException("HttpContext is not available");
 
-        var token = await httpContext.GetTokenAsync(FirebaseTokenName);
+        var token = await httpContext.GetTokenAsync(ApiTokenName);
         if (token is null) RedirectToLogin(httpContext);
 
         request.Headers.Authorization = new AuthenticationHeaderValue(AuthorizationScheme, token);
@@ -29,6 +29,7 @@ public class AuthenticationTokenHandler(
         // The auth cookie (8h, sliding) outlives the Firebase ID token it carries, which expires after about 1h.
         // Client-side refresh (onIdTokenChanged in FirebaseSessionRefresh, and the /auth/refresh endpoint) normally keeps the stored token current.
         // When it can't (a revoked token, or a session past the cookie's lifetime), a call comes back 401, and the user is sent to login rather than shown a raw 401.
+        // A local token is never refreshed and lives as long as the cookie, whose sliding expiration can outlast it, and ends the same way.
         if (response.StatusCode == HttpStatusCode.Unauthorized)
         {
             response.Dispose();

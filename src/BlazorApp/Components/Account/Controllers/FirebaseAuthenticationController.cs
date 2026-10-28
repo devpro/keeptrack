@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using FirebaseAdmin.Auth;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Keeptrack.BlazorApp.Components.Account.Controllers;
@@ -9,7 +8,8 @@ public record TokenRequest(string IdToken, string? ReturnUrl = null);
 
 [ApiController]
 [Route("auth")]
-public class AuthenticationController : ControllerBase
+[AuthenticationMode(AuthenticationMode.Firebase)]
+public class FirebaseAuthenticationController : AuthenticationControllerBase
 {
     [HttpPost("callback")]
     public async Task<IActionResult> Callback([FromBody] TokenRequest request)
@@ -29,7 +29,7 @@ public class AuthenticationController : ControllerBase
             return Unauthorized();
         }
 
-        await SignInWithFirebaseTokenAsync(decoded, request.IdToken);
+        await SignInAsync(decoded.Uid, decoded.Claims, request.IdToken);
 
         return Ok(new { redirect = ResolveReturnUrl(request.ReturnUrl) });
     }
@@ -69,34 +69,8 @@ public class AuthenticationController : ControllerBase
             return Unauthorized();
         }
 
-        await SignInWithFirebaseTokenAsync(decoded, request.IdToken);
+        await SignInAsync(decoded.Uid, decoded.Claims, request.IdToken);
 
         return Ok();
-    }
-
-    [HttpGet("logout")]
-    public async Task<IActionResult> Logout()
-    {
-        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-        return Redirect("/");
-    }
-
-    private string ResolveReturnUrl(string? returnUrl)
-        => ReturnUrlResolver.Resolve(returnUrl, Request.Host.Value ?? string.Empty, Url.IsLocalUrl);
-
-    private async Task SignInWithFirebaseTokenAsync(FirebaseToken decoded, string idToken)
-    {
-        var claims = FirebaseClaimsBuilder.Build(decoded.Uid, decoded.Claims);
-        var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme));
-
-        var props = new AuthenticationProperties { IsPersistent = true };
-        props.StoreTokens([
-            new AuthenticationToken { Name = AuthenticationTokenHandler.FirebaseTokenName, Value = idToken }
-        ]);
-
-        await HttpContext.SignInAsync(
-            CookieAuthenticationDefaults.AuthenticationScheme,
-            principal,
-            props);
     }
 }

@@ -4,9 +4,13 @@ namespace Keeptrack.WebApi.Controllers;
 
 internal static class ControllerBaseExtensions
 {
+    /// <summary>
+    /// The caller's standard <c>sub</c> claim, the owner id of everything they store.
+    /// Firebase sets it to its uid, so ids stay the same whichever issuer signed the token (see docs/authentication.md).
+    /// </summary>
     internal static string GetUserId(this ControllerBase controller)
     {
-        var userId = controller.User.Claims.FirstOrDefault(x => x.Type == "user_id")?.Value;
+        var userId = controller.User.Claims.FirstOrDefault(x => x.Type == "sub")?.Value;
         return string.IsNullOrEmpty(userId) ? throw new UnauthorizedAccessException() : userId;
     }
 

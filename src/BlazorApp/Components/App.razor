@@ -1,5 +1,6 @@
 @using Microsoft.Extensions.Configuration
 @inject IConfiguration Configuration
+@inject AuthenticationSettings AuthenticationSettings
 <!DOCTYPE html>
 <html lang="en" data-bs-theme="dark">
 
@@ -20,7 +21,10 @@
 <body>
 <Routes @rendermode="RenderModeForPage" />
 <ReconnectModal/>
-<FirebaseSessionRefresh/>
+@if (AuthenticationSettings.Mode == AuthenticationMode.Firebase)
+{
+    <FirebaseSessionRefresh/>
+}
 @if (Configuration.GetValue("Features:IsWebSocketsOnlyEnabled", true))
 {
     @* The circuit runs on a single WebSocket with no negotiate round-trip, so it pins to the server instance that owns its state.

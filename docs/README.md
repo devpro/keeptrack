@@ -5,7 +5,8 @@ Repository rules and conventions are in [AGENTS.md](../AGENTS.md), local setup i
 
 ## Design
 
-- [Architecture](architecture.md): projects, request flow, errors, background work, authentication, free tier, scaling.
+- [Architecture](architecture.md): projects, request flow, errors, background work, authorization, free tier, scaling.
+- [Authentication](authentication.md): Firebase and local sign-in, running without Firebase.
 - [Data model](data-model.md): mapping, storage conventions, MongoDB gotchas, child entities, migrations, adding a trackable type.
 - [Blazor UI](blazor-ui.md): page bases, list state, rendering pitfalls, 404s, theme and icons.
 

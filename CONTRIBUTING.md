@@ -103,14 +103,30 @@ A provider with no credentials is skipped: items of that type stay unlinked inst
 Key                                       | Required | Default value
 ------------------------------------------|----------|----------------
 `AllowedHosts`                            | false    | `"*"`
+`Authentication:Mode`                     | false    | `"Firebase"`
 `Features:IsHttpsRedirectionEnabled`      | false    | `true`
-`Firebase:WebAppConfiguration:ApiKey`     | true     | `""`
-`Firebase:WebAppConfiguration:AuthDomain` | true     | `""`
-`Firebase:WebAppConfiguration:ProjectId`  | true     | `""`
-`Firebase:ServiceAccount`                 | true     | `""`
+`Firebase:WebAppConfiguration:ApiKey`     | Firebase | `""`
+`Firebase:WebAppConfiguration:AuthDomain` | Firebase | `""`
+`Firebase:WebAppConfiguration:ProjectId`  | Firebase | `""`
+`Firebase:ServiceAccount`                 | Firebase | `""`
 `Logging:LogLevel:Default`                | false    | `"Information"`
 `Logging:LogLevel:Microsoft.AspNetCore`   | false    | `"Warning"`
 `WebApi:BaseUrl`                          | true     | `""`
+
+### Without Firebase
+
+Local authentication signs in with an email and a role, no password, and is refused in the `Production` environment (see [Authentication](docs/authentication.md)).
+Both apps share one key:
+
+```bash
+KEY=$(openssl rand -base64 32)
+# Web API
+export Authentication__JwtBearer__Authority= Authentication__JwtBearer__SigningKey="$KEY"
+export Authentication__JwtBearer__TokenValidation__Issuer=keeptrack-local Authentication__JwtBearer__TokenValidation__Audience=keeptrack-local
+# Blazor app
+export Authentication__Mode=Local Authentication__Local__SigningKey="$KEY"
+export Authentication__Local__Issuer=keeptrack-local Authentication__Local__Audience=keeptrack-local
+```
 
 ### Roles
 
@@ -152,10 +168,10 @@ Project                          | Needs
 ---------------------------------|-----------------------------------------------------------------------------
 `test/WebApi.UnitTests`          | Nothing
 `test/BlazorApp.UnitTests`       | Nothing
-`test/WebApi.IntegrationTests`   | MongoDB and a Firebase test user
+`test/WebApi.IntegrationTests`   | MongoDB, and a Firebase test user unless authentication is local
 `test/BlazorApp.PlaywrightTests` | Skipped unless `E2E_ENABLED=true`, see [End-to-end tests](#end-to-end-tests)
 
-`test/Testing.Shared` is shared hosting and Firebase infrastructure, not a test project.
+`test/Testing.Shared` is shared hosting and authentication infrastructure, not a test project.
 
 ```bash
 dotnet test
@@ -190,10 +206,15 @@ Required variables:
 
 - `Infrastructure__MongoDB__ConnectionString`.
   The database defaults to `keeptrack_integrationtests`, and a name containing `dev`, `prod`, `staging` or `preprod` is refused.
+
+Firebase variables, without which the run uses local authentication and needs nothing more:
+
 - `FIREBASE_APIKEY`: **Project settings > General > Web API Key** in the Firebase console.
 - `FIREBASE_USERNAME`, `FIREBASE_PASSWORD`: a dedicated test user, carrying `role: "admin"` so the admin endpoints are covered.
 - `Authentication__JwtBearer__Authority`, `Authentication__JwtBearer__TokenValidation__Issuer`: `https://securetoken.google.com/<firebase-project-id>`.
 - `Authentication__JwtBearer__TokenValidation__Audience`: `<firebase-project-id>`.
+
+`TEST_AUTHENTICATION_MODE=local` forces local authentication even with the Firebase variables set.
 
 Optional variables:
 
@@ -246,6 +267,7 @@ Live        | `E2E_TARGET_URL` set              | Drives an already running depl
 Read-only   | `E2E_READONLY=true`               | Every mutating test skips, paired with `E2E_TARGET_URL`
 
 Self-hosted mode needs the integration test variables above (except `FIREBASE_USERNAME`/`FIREBASE_PASSWORD`, an ephemeral admin user is created and deleted),
+or none of the Firebase ones with local authentication, which live mode does not support,
 plus `Tmdb__ApiKey`, `Igdb__ClientId`, `Igdb__ClientSecret` and `Discogs__Token`, since the smoke tests link real titles.
 The database defaults to `keeptrack_e2e`, independently of `Infrastructure__MongoDB__DatabaseName`, so the two suites never share one.
 

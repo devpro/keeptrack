@@ -14,6 +14,7 @@ using Keeptrack.BlazorApp.PlaywrightTests.Hosting;
 using Keeptrack.BlazorApp.PlaywrightTests.Support;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
+using Keeptrack.Testing.Shared.Authentication;
 using Keeptrack.Testing.Shared.Firebase;
 using Keeptrack.Testing.Shared.Hosting;
 using Keeptrack.WebApi.ReferenceData;
@@ -75,6 +76,12 @@ public sealed class End2EndFixture : IAsyncLifetime
 
         if (End2EndConfiguration.IsLiveMode)
         {
+            // A live deployment's local signing key is not this run's, so the fixture could not call its API.
+            if (TestAuthentication.IsLocal)
+            {
+                throw new InvalidOperationException("Live mode (E2E_TARGET_URL) needs Firebase authentication: set TEST_AUTHENTICATION_MODE=firebase and the Firebase test variables.");
+            }
+
             BlazorBaseUrl = End2EndConfiguration.TargetUrl!;
             if (!End2EndConfiguration.ReadOnly)
             {
@@ -92,12 +99,15 @@ public sealed class End2EndFixture : IAsyncLifetime
 
             _webApiFactory = new KestrelWebAppFactory<Keeptrack.WebApi.Program>(
                 WebApiKestrelUrlOverride,
-                new KeyValuePair<string, string?>("Features:IsReferenceSyncEnabled", "false"),
-                new KeyValuePair<string, string?>("Infrastructure:MongoDB:DatabaseName", End2EndConfiguration.DatabaseName),
-                // Pinned to igdb rather than inherited from appsettings.Development.json, so the suite doesn't drift with an unrelated deployment choice:
-                // IGDB is the more stable provider
-                // and is what VideoGameReferenceMatchSmokeTest is written against (it hard-requires Igdb__ClientId/ Igdb__ClientSecret but deliberately not Rawg__ApiKey).
-                new KeyValuePair<string, string?>("ReferenceData:VideoGameProvider", "igdb"));
+                [
+                    new KeyValuePair<string, string?>("Features:IsReferenceSyncEnabled", "false"),
+                    new KeyValuePair<string, string?>("Infrastructure:MongoDB:DatabaseName", End2EndConfiguration.DatabaseName),
+                    // Pinned to igdb rather than inherited from appsettings.Development.json, so the suite doesn't drift with an unrelated deployment choice:
+                    // IGDB is the more stable provider
+                    // and is what VideoGameReferenceMatchSmokeTest is written against (it hard-requires Igdb__ClientId/ Igdb__ClientSecret but deliberately not Rawg__ApiKey).
+                    new KeyValuePair<string, string?>("ReferenceData:VideoGameProvider", "igdb"),
+                    .. TestAuthentication.WebApiConfiguration()
+                ]);
             _webApiBaseUrl = _webApiFactory.ServerAddress;
 
             // The hosted Blazor app needs WebApi:BaseUrl set to the WebApi host's dynamic address.
@@ -106,6 +116,7 @@ public sealed class End2EndFixture : IAsyncLifetime
             // Passed like the WebApi factory's Features:IsReferenceSyncEnabled override below, the Blazor host would dial its appsettings.Development.json WebApi:BaseUrl instead.
             // WebApplication.CreateBuilder reads a process environment variable synchronously, so it is visible in time.
             Environment.SetEnvironmentVariable("WebApi__BaseUrl", _webApiBaseUrl);
+            TestAuthentication.ConfigureBlazorAppEnvironment();
             _blazorFactory = new KestrelWebAppFactory<Program>(BlazorKestrelUrlOverride);
             BlazorBaseUrl = _blazorFactory.ServerAddress;
 
@@ -115,8 +126,10 @@ public sealed class End2EndFixture : IAsyncLifetime
         var (username, password) = await ResolveCredentialsAsync();
         SignedInEmail = username;
 
-        _idToken = await AccountRepository.AuthenticateAsync(username, password, FirebaseConfiguration.ApplicationKey)
-                   ?? throw new InvalidOperationException("Firebase sign-in did not return an id token.");
+        _idToken = TestAuthentication.IsLocal
+            ? TestAuthentication.IssueLocalToken(username, TestAuthentication.PrimaryRole)
+            : await AccountRepository.AuthenticateAsync(username, password!, FirebaseConfiguration.ApplicationKey)
+              ?? throw new InvalidOperationException("Firebase sign-in did not return an id token.");
 
         _playwright = await Playwright.CreateAsync();
         StorageStatePath = Path.Combine(Path.GetTempPath(), $"keeptrack-e2e-storage-{Guid.NewGuid():N}.json");
@@ -160,9 +173,19 @@ public sealed class End2EndFixture : IAsyncLifetime
     /// An explicit E2E_USERNAME always wins (works in every mode).
     /// Otherwise integration mode creates its own ephemeral admin user,
     /// while live and read-only modes require an explicit account, since neither creates or cleans up a throwaway Firebase user.
+    /// In local authentication there is no password and nothing to create: the ephemeral user is only a fresh email, whose subject is that email.
     /// </summary>
-    private async Task<(string Username, string Password)> ResolveCredentialsAsync()
+    private async Task<(string Username, string? Password)> ResolveCredentialsAsync()
     {
+        if (TestAuthentication.IsLocal)
+        {
+            if (!string.IsNullOrEmpty(End2EndConfiguration.Username)) return (End2EndConfiguration.Username, null);
+
+            var localEmail = $"e2e-{Guid.NewGuid():N}@keeptrack.test";
+            _ephemeralUserUid = localEmail;
+            return (localEmail, null);
+        }
+
         if (!string.IsNullOrEmpty(End2EndConfiguration.Username))
         {
             var password = End2EndConfiguration.Password
@@ -192,17 +215,21 @@ public sealed class End2EndFixture : IAsyncLifetime
     }
 
     /// <summary>
-    /// Programmatic sign-in: the login page is OAuth-popup-only and cannot be automated (see the e2e plan), but <c>POST /auth/callback</c> accepts any verified Firebase ID token.
+    /// Programmatic sign-in: the Firebase login page is OAuth-popup-only and cannot be automated (see the e2e plan), but <c>POST /auth/callback</c> accepts any verified Firebase ID token.
+    /// In local authentication, the same JSON post the login form sends to <c>/auth/local</c>, whose form <c>AuthSmokeTest</c> drives for real.
     /// Captured once as Playwright storage state so every smoke test starts already signed in without repeating this per test/class.
     /// </summary>
     private async Task SignInAndSaveStorageStateAsync()
     {
         await using var apiRequestContext = await _playwright!.APIRequest.NewContextAsync(new APIRequestNewContextOptions { BaseURL = BlazorBaseUrl, IgnoreHTTPSErrors = true });
 
-        var response = await apiRequestContext.PostAsync("/auth/callback", new APIRequestContextOptions { DataObject = new { idToken = _idToken } });
+        var (path, body) = TestAuthentication.IsLocal
+            ? ("/auth/local", (object)new { email = SignedInEmail, role = TestAuthentication.PrimaryRole })
+            : ("/auth/callback", new { idToken = _idToken });
+        var response = await apiRequestContext.PostAsync(path, new APIRequestContextOptions { DataObject = body });
         if (!response.Ok)
         {
-            throw new InvalidOperationException($"POST /auth/callback failed with {response.Status}: {await response.TextAsync()}");
+            throw new InvalidOperationException($"POST {path} failed with {response.Status}: {await response.TextAsync()}");
         }
 
         await apiRequestContext.StorageStateAsync(new APIRequestContextStorageStateOptions { Path = StorageStatePath });
@@ -447,8 +474,8 @@ public sealed class End2EndFixture : IAsyncLifetime
     private sealed record ItemId(string? Id);
 
     /// <summary>
-    /// Forges a Blazor auth cookie whose principal is a fully-authorized member but whose stored Firebase token is a value WebApi rejects (a malformed JWT),
-    /// reproducing a live session whose Firebase ID token has gone stale (expired or revoked) while the 8h auth cookie is still valid.
+    /// Forges a Blazor auth cookie whose principal is a fully-authorized member but whose stored API token is a value WebApi rejects (a malformed JWT),
+    /// reproducing a live session whose API token has gone stale (expired or revoked) while the 8h auth cookie is still valid.
     /// The next server-rendered page's API call then answers 401, driving <c>AuthenticationTokenHandler.RedirectToLogin</c> during prerender,
     /// a path that must not throw "RemoteNavigationManager has not been initialized".
     /// Returns <c>null</c> in live mode (E2E_TARGET_URL), since forging the ticket needs the in-process Blazor host's data-protection keys, and the test self-skips there.
@@ -479,7 +506,7 @@ public sealed class End2EndFixture : IAsyncLifetime
             ExpiresUtc = DateTimeOffset.UtcNow.AddHours(1),
         };
         properties.StoreTokens([
-            new AuthenticationToken { Name = AuthenticationTokenHandler.FirebaseTokenName, Value = "stale.firebase.token" }
+            new AuthenticationToken { Name = AuthenticationTokenHandler.ApiTokenName, Value = "stale.api.token" }
         ]);
 
         var ticket = new AuthenticationTicket(principal, properties, CookieAuthenticationDefaults.AuthenticationScheme);
@@ -494,14 +521,15 @@ public sealed class End2EndFixture : IAsyncLifetime
 
     /// <summary>
     /// A second, genuinely different Firebase identity's valid ID token,
-    /// for the one test that proves <c>AuthenticationController.Refresh</c> refuses a token that verifies but belongs to someone else's session.
+    /// for the one test that proves <c>FirebaseAuthenticationController.Refresh</c> refuses a token that verifies but belongs to someone else's session.
     /// Created once per run on first call and reused, the same lazy-and-cached shape as <see cref="ApiHttpClient"/>.
     /// Returns <c>null</c> for the same reason <see cref="ForgeStaleTokenMemberCookie"/> does:
     /// minting a user needs the in-process Blazor host's own Firebase Admin SDK access, which live and read-only mode don't have.
+    /// Null in local authentication too, which has no refresh endpoint.
     /// </summary>
     public async Task<string?> GetAnotherUsersIdTokenAsync()
     {
-        if (_blazorFactory is null) return null;
+        if (_blazorFactory is null || TestAuthentication.IsLocal) return null;
 
         if (_secondEphemeralUserUid is null)
         {
@@ -554,7 +582,8 @@ public sealed class End2EndFixture : IAsyncLifetime
     /// </summary>
     private static async Task DeleteEphemeralUserAsync(string? uid)
     {
-        if (uid is null) return;
+        // a local identity is only an email, with no account to delete
+        if (uid is null || TestAuthentication.IsLocal) return;
 
         try
         {

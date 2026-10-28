@@ -7,7 +7,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using AwesomeAssertions;
 using Keeptrack.Common.System;
-using Keeptrack.Testing.Shared.Firebase;
+using Keeptrack.Testing.Shared.Authentication;
 using Keeptrack.WebApi.IntegrationTests.Hosting;
 using Xunit;
 
@@ -219,30 +219,31 @@ public abstract class ResourceTestBase(KestrelWebAppFactory<Program> factory)
     }
 
     /// <summary>
-    /// The signed-in caller's Firebase uid, the value the API stamps as <c>OwnerId</c> on everything this test creates (see <c>ControllerBaseExtensions.GetUserId</c>).
+    /// The signed-in caller's subject, the value the API stamps as <c>OwnerId</c> on everything this test creates (see <c>ControllerBaseExtensions.GetUserId</c>).
     /// Available after <see cref="Authenticate"/>, for the few cleanups that can only identify a document by its owner.
     /// </summary>
     protected string AuthenticatedUserId { get; private set; } = "";
 
-    protected async Task Authenticate()
+    /// <summary>Signs in as the run's own identity, in the run's mode (see <see cref="TestAuthentication"/>).</summary>
+    protected async Task Authenticate() => AuthenticateWith(await TestAuthentication.GetPrimaryTokenAsync());
+
+    protected void AuthenticateWith(string token)
     {
-        var token = await AccountRepository.AuthenticateAsync(
-            FirebaseConfiguration.Username, FirebaseConfiguration.Password, FirebaseConfiguration.ApplicationKey);
         _httpClient.DefaultRequestHeaders.Clear();
         _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        AuthenticatedUserId = ReadUserIdClaim(token!);
+        AuthenticatedUserId = ReadSubjectClaim(token);
     }
 
     /// <summary>
-    /// Reads the <c>user_id</c> claim straight out of the token's payload segment.
+    /// Reads the <c>sub</c> claim straight out of the token's payload segment.
     /// No signature check: the API already validates the token on every call, and this only needs the same identity the server will derive, to scope a cleanup by owner.
     /// </summary>
-    private static string ReadUserIdClaim(string token)
+    private static string ReadSubjectClaim(string token)
     {
         var payload = token.Split('.')[1];
         var padded = payload.Replace('-', '+').Replace('_', '/').PadRight((payload.Length + 3) / 4 * 4, '=');
         using var document = JsonDocument.Parse(Convert.FromBase64String(padded));
-        return document.RootElement.GetProperty("user_id").GetString()!;
+        return document.RootElement.GetProperty("sub").GetString()!;
     }
 }

@@ -71,9 +71,9 @@ A background service still catches what it can anticipate.
 
 ## Authentication and authorization
 
-- Firebase authenticates: a cookie in `BlazorApp`, a JWT bearer validated against Firebase in `WebApi`, and `AuthenticationTokenHandler` attaches the bearer to outgoing API calls.
+- Firebase or local sign-in authenticates (see [Authentication](authentication.md)): a cookie in `BlazorApp`, a JWT bearer in `WebApi`, and `AuthenticationTokenHandler` attaches the bearer to outgoing API calls.
 - Authorization is policy based: `AdminOnly` is `RequireClaim("role", "admin")` and `MemberOnly` is `RequireClaim("role", "member", "admin")`, registered with `AddAuthorizationBuilder()` in both `Program.cs` files.
-  Firebase sends a plain `role` claim, which `BlazorApp`'s `AuthenticationController` copies into the cookie principal at sign-in (`FirebaseClaimsBuilder`).
+  The token carries a plain `role` claim, which `BlazorApp` copies into the cookie principal at sign-in (`SessionClaimsBuilder`).
 - **Gotcha: `AddJwtBearer` sets `MapInboundClaims = false`**, otherwise the handler renames short JWT claim names to legacy `ClaimTypes.*` URIs and `RequireClaim("role", ...)` never matches.
   A new custom claim is checked against this, and it is also what keeps the `email` claim readable for [collection sharing](sharing.md).
 

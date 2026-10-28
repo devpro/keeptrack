@@ -12,4 +12,8 @@
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Common.Hosting\Common.Hosting.csproj" />
+  </ItemGroup>
+
 </Project>

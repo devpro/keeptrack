@@ -4,21 +4,7 @@ builder.AddKeeptrackTelemetry();
 // adds services to the container
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
-builder.Services.AddCascadingAuthenticationState();
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
-    {
-        options.LoginPath = "/Account/Login";
-        options.LogoutPath = "/auth/logout";
-        options.ExpireTimeSpan = TimeSpan.FromHours(8);
-        options.SlidingExpiration = true;
-    });
-builder.Services.AddAuthorizationBuilder()
-    .AddPolicy("AdminOnly", policy => policy.RequireClaim("role", "admin"))
-    // Mirrors WebApi's policy, the cookie principal carrying the same Firebase "role" claim:
-    // members and admins see the whole app, everyone else the free preview tier (movies and TV shows).
-    // This only drives what the UI shows, and the API enforces the same rule on every request.
-    .AddPolicy("MemberOnly", policy => policy.RequireClaim("role", "member", "admin"));
+builder.AddKeeptrackAuthentication();
 // Opt-in shared Data Protection key ring (see MongoDbXmlRepository), required for more than one replica,
 // since the auth cookie and antiforgery tokens must decrypt on every replica.
 // Left unset, the framework keeps its per-instance ephemeral keys.
@@ -31,14 +17,6 @@ if (!string.IsNullOrEmpty(dataProtectionConnectionString))
     builder.Services.AddDataProtection()
         .SetApplicationName("keeptrack")
         .AddKeyManagementOptions(options => options.XmlRepository = new MongoDbXmlRepository(keyCollection));
-}
-builder.Services.AddControllers();
-builder.Services.AddSingleton(builder.Configuration.TryGetSection<Keeptrack.BlazorApp.Components.Account.FirebaseClientSettings>("Firebase:WebAppConfiguration"));
-if (FirebaseApp.DefaultInstance is null)
-{
-    var firebaseJson = builder.Configuration.TryGetSection<string>("Firebase:ServiceAccount");
-    var googleCredential = CredentialFactory.FromJson<ServiceAccountCredential>(firebaseJson).ToGoogleCredential();
-    FirebaseApp.Create(new AppOptions { Credential = googleCredential });
 }
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<Keeptrack.BlazorApp.Components.Account.AuthenticationTokenHandler>();

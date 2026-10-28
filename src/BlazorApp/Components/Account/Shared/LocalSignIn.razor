@@ -1,0 +1,49 @@
+@* Rendered by Login.razor in Local mode only, inside its card, whose #error-msg this script fills.
+   No password and no external script, so it works in an isolated environment (see docs/authentication.md). *@
+<form id="local-sign-in">
+    <div class="mb-2">
+        <label for="local-email" class="form-label">Email</label>
+        <input id="local-email" name="email" type="email" class="form-control" required autocomplete="email"/>
+    </div>
+    <div class="mb-3">
+        <label for="local-role" class="form-label">Role</label>
+        <select id="local-role" name="role" class="form-select">
+            <option value="">Free preview</option>
+            <option value="member">Member</option>
+            <option value="admin">Admin</option>
+        </select>
+    </div>
+    <button type="submit" class="btn-oauth">
+        <span class="btn-label">Sign in</span>
+    </button>
+    <p style="font-size:0.72rem; color:var(--kt-text-subtle); text-align:center; margin-top:0.75rem; margin-bottom:0;">
+        Local sign-in, for test environments only.
+    </p>
+</form>
+
+<script type="module">
+    const form = document.getElementById('local-sign-in');
+    const errorDiv = document.getElementById('error-msg');
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        errorDiv.style.display = 'none';
+        // Read case-insensitively for the same reason as the Firebase sign-in: ASP.NET's cookie challenge sends "ReturnUrl" and Blazor's RedirectToLogin "returnUrl".
+        let returnUrl = null;
+        for (const [key, value] of new URLSearchParams(window.location.search)) {
+            if (key.toLowerCase() === 'returnurl') { returnUrl = value; break; }
+        }
+        const res = await fetch('/auth/local', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email: form.email.value, role: form.role.value, returnUrl})
+        });
+        if (!res.ok) {
+            errorDiv.textContent = 'Sign-in failed: ' + await res.text();
+            errorDiv.style.display = 'block';
+            return;
+        }
+        const data = await res.json();
+        window.location.href = data.redirect ?? '/';
+    });
+</script>

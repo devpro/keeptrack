@@ -77,7 +77,7 @@ public class FreeTierTest
 
     private static CappedTestController CreateController(long existingCount, params string[] roles)
     {
-        var claims = new List<Claim> { new("user_id", "user-1") };
+        var claims = new List<Claim> { new("sub", "user-1") };
         claims.AddRange(roles.Select(role => new Claim("role", role)));
 
         var configuration = new ConfigurationBuilder()

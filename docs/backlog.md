@@ -31,13 +31,14 @@ Known debt and gaps, not yet scheduled.
 
 ## Tests
 
-- [ ] Prove over HTTP that `AdminOnly` rejects a non-admin, which needs a second, non-admin Firebase test account.
 - [ ] Replace the near-copy resource tests (`BookResourceTest`, `MovieResourceTest`) with a shared parameterized base covering every resource.
 - [ ] Cover in the browser what only the API covers: song editing inside a playlist (`PlaylistSmokeTest` covers an empty playlist only), multi-row journal history and the metrics charts, and the error page.
 - [ ] Move pure component logic (form state, the owned-version draft flow, filter URL round trips) into fast component tests, off the gated Playwright suite.
 - [ ] Consider a coverage threshold on the WebApi projects, so "every non-trivial piece of logic needs a test" is enforced rather than reviewed.
 - [ ] `StaleTokenRedirectSmokeTest.StaleFirebaseToken_On401_RedirectsToLogin_InsteadOfCrashingTheServerRender` failed once in a full parallel Playwright run on 2026-09-24 and passed twice alone.
   It only opens `/account/manage/shared/{id}`, so the failure is load dependent: read its trace in `e2e-diagnostics` the next time it fails before raising any timeout.
+- [ ] `AuthSmokeTest.Logout_EndsTheSession` fails about one run in three, alone and in either authentication mode, with `net::ERR_ABORTED` on the navigation to `/books` that follows the logout.
+  The screenshot shows the logout done, so the navigation likely races the logout's own redirect.
 
 ## CI
 

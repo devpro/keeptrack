@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
 using AwesomeAssertions;
-using Keeptrack.Testing.Shared.Firebase;
+using Keeptrack.Testing.Shared.Authentication;
 using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.IntegrationTests.Hosting;
 using Xunit;
@@ -31,7 +31,7 @@ public class ShareResourceTest(KestrelWebAppFactory<Program> factory)
     public async Task MediaShare_IsReadableWithFilters_AndAddIsDedupSafe_ThenRevocable()
     {
         await Authenticate();
-        var ownEmail = FirebaseConfiguration.Username;
+        var ownEmail = TestAuthentication.PrimaryEmail;
         var tag = Guid.NewGuid().ToString("N");
 
         var favourite = await CreateAsync("/api/movies", new MovieDto { Title = $"ShareFav-{tag}", Year = 1999, Rating = 5, IsFavorite = true });
@@ -77,7 +77,7 @@ public class ShareResourceTest(KestrelWebAppFactory<Program> factory)
     public async Task PersonalShare_IsReadableAsListAndReadOnlyDetail_ButNeverCopyable()
     {
         await Authenticate();
-        var ownEmail = FirebaseConfiguration.Username;
+        var ownEmail = TestAuthentication.PrimaryEmail;
         var tag = Guid.NewGuid().ToString("N");
 
         var car = await CreateAsync("/api/cars", new CarDto { Name = $"ShareCar-{tag}", EnergyType = CarEnergyType.Combustion });
@@ -118,7 +118,7 @@ public class ShareResourceTest(KestrelWebAppFactory<Program> factory)
     public async Task CollectionShare_IsReadableAsAFilterableList_ButNeverCopyable()
     {
         await Authenticate();
-        var ownEmail = FirebaseConfiguration.Username;
+        var ownEmail = TestAuthentication.PrimaryEmail;
         var tag = Guid.NewGuid().ToString("N");
 
         var favourite = await CreateAsync("/api/collectibles", new CollectibleDto { Title = $"ShareColFav-{tag}", Brand = "Lego", Year = 2015, IsFavorite = true });

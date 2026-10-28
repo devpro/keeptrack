@@ -39,6 +39,7 @@ public class KestrelWebAppFactory<TEntryPoint> : Keeptrack.Testing.Shared.Hostin
             new("Features:IsReferenceSyncEnabled", "false"),
             new("Infrastructure:MongoDB:DatabaseName", IntegrationTestDatabase.Name),
             new("ReferenceData:VideoGameProvider", "igdb"),
+            .. Keeptrack.Testing.Shared.Authentication.TestAuthentication.WebApiConfiguration(),
             .. configOverrides
         ])
     {

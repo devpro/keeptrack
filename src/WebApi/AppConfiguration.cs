@@ -33,7 +33,7 @@ public class AppConfiguration(IConfiguration configuration)
 
     public OpenApiInfo OpenApiInfo { get; } = configuration.TryGetSection<OpenApiInfo>("OpenApi");
 
-    public JwtBearerSettings JwtBearerSettings { get; } = configuration.TryGetSection<JwtBearerSettings>("Authentication:JwtBearer");
+    public JwtBearerSettings JwtBearerSettings => configuration.TryGetSection<JwtBearerSettings>("Authentication:JwtBearer");
 
     public TmdbSettings TmdbSettings { get; } = configuration.TryGetSection<TmdbSettings>("Tmdb");
 
