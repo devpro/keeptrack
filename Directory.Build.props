@@ -5,7 +5,7 @@
 
   <PropertyGroup>
     <!-- Tip: Edit this value to change the current MAJOR.MINOR.PATCH version -->
-    <VersionPrefix>2.4.5</VersionPrefix>
+    <VersionPrefix>2.4.6</VersionPrefix>
   </PropertyGroup>
 
   <Choose>
