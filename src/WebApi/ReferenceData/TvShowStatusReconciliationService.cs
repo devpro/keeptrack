@@ -13,7 +13,7 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// so "finished" holds as of now and a regular pass checks it against the episode guide.
 /// When the linked reference lists an aired episode after the last one watched, the show goes back to <see cref="TvShowStatus.Current"/> and reappears in Watch Next.
 ///
-/// It runs right after <see cref="ReferenceSyncService"/>, in the same tick or "sync now", so it checks the freshly updated guides.
+/// <see cref="ReferenceSyncService"/> runs it right after the TV domain, in the same tick or "sync now", so it checks the freshly updated guides.
 /// It works on tenant data, kept apart from the reference refresh, whose only charter is the shared collections.
 ///
 /// Only finished shows are touched.

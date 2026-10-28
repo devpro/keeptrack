@@ -138,6 +138,58 @@ public class TvShowStatusReconciliationServiceTest
     }
 
     [Fact]
+    public async Task LeavesShowAlone_WhenTheLatestWatchedIsTheFinale_EvenIfAnEarlierEpisodeWasRewatchedSince()
+    {
+        // the latest viewed episode is the furthest in (season, episode) order, never the most recent watch date
+        var rewatched = Episode("show-1", 1, 1);
+        rewatched.WatchedAt = new DateOnly(2026, 10, 1);
+        var finale = Episode("show-1", 3, 8);
+        finale.WatchedAt = new DateOnly(2025, 11, 1);
+        Setup(
+            [FinishedShow("show-1")],
+            [finale, rewatched],
+            Reference("ref-1", RefEpisode(1, 1, new DateOnly(2023, 4, 20)), RefEpisode(1, 2, new DateOnly(2023, 4, 20)), RefEpisode(3, 8, new DateOnly(2025, 10, 16))));
+        var service = CreateService();
+
+        var reopened = await service.ReconcileFinishedShowsAsync(TestContext.Current.CancellationToken);
+
+        reopened.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Reopens_FinishedShow_WhenANewSeasonAired_EvenIfAnEarlierEpisodeWasRewatchedSince()
+    {
+        var rewatched = Episode("show-1", 1, 1);
+        rewatched.WatchedAt = new DateOnly(2026, 10, 1);
+        var finale = Episode("show-1", 3, 8);
+        finale.WatchedAt = new DateOnly(2025, 11, 1);
+        Setup(
+            [FinishedShow("show-1")],
+            [finale, rewatched],
+            Reference("ref-1", RefEpisode(1, 1, new DateOnly(2023, 4, 20)), RefEpisode(3, 8, new DateOnly(2025, 10, 16)), RefEpisode(4, 1, new DateOnly(2026, 10, 15))));
+        var service = CreateService();
+
+        var reopened = await service.ReconcileFinishedShowsAsync(TestContext.Current.CancellationToken);
+
+        reopened.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Reopens_FinishedShow_WhenTheNewerEpisodeHasNoAirDate()
+    {
+        // TMDB leaves the date of an aired episode unset at times, and an unknown date is never read as "not aired yet"
+        Setup(
+            [FinishedShow("show-1")],
+            [Episode("show-1", 3, 8)],
+            Reference("ref-1", RefEpisode(3, 8, new DateOnly(2025, 10, 16)), RefEpisode(4, 1)));
+        var service = CreateService();
+
+        var reopened = await service.ReconcileFinishedShowsAsync(TestContext.Current.CancellationToken);
+
+        reopened.Should().Be(1);
+    }
+
+    [Fact]
     public async Task LeavesShowAlone_WhenAlreadyCaughtUpWithTheReferenceGuide()
     {
         Setup(

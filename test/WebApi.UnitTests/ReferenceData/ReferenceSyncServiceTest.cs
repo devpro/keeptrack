@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AwesomeAssertions;
@@ -11,6 +12,9 @@ using Keeptrack.WebApi.ReferenceData;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Xunit;
+
+// the Domain status enum, not the Contracts one the WebApi.Contracts.Dto using also imports
+using TvShowStatus = Keeptrack.Domain.Models.TvShowStatus;
 
 namespace Keeptrack.WebApi.UnitTests.ReferenceData;
 
@@ -28,6 +32,7 @@ public class ReferenceSyncServiceTest
     private readonly Mock<IBookRepository> _bookRepository = new();
     private readonly Mock<IVideoGameRepository> _videoGameRepository = new();
     private readonly Mock<IAlbumRepository> _albumRepository = new();
+    private readonly Mock<IEpisodeRepository> _episodeRepository = new();
 
     private ReferenceSyncService CreateService(FakeTmdbClient tmdbClient)
     {
@@ -46,10 +51,12 @@ public class ReferenceSyncServiceTest
             _bookReferenceRepository.Object, _videoGameReferenceRepository.Object, _albumReferenceRepository.Object,
             _tvShowRepository.Object, _movieRepository.Object, _bookRepository.Object, _videoGameRepository.Object, _albumRepository.Object,
             appSettingRepository.Object, new RatingSourceOptions(videoGameClients), NullLogger<ReferenceEnrichmentService>.Instance);
+        var reconciliationService = new TvShowStatusReconciliationService(
+            _tvShowRepository.Object, _episodeRepository.Object, _tvShowReferenceRepository.Object, NullLogger<TvShowStatusReconciliationService>.Instance);
         return new ReferenceSyncService(
             _tvShowReferenceRepository.Object, _movieReferenceRepository.Object,
             _bookReferenceRepository.Object, _videoGameReferenceRepository.Object, _albumReferenceRepository.Object,
-            enrichmentService, NullLogger<ReferenceSyncService>.Instance);
+            enrichmentService, reconciliationService, NullLogger<ReferenceSyncService>.Instance);
     }
 
     /// <summary>
@@ -159,6 +166,58 @@ public class ReferenceSyncServiceTest
         result.TvShowsUpdated.Should().Be(0);
         result.MoviesUpdated.Should().Be(0);
         tmdbClient.ChangesRequested.Should().BeEquivalentTo(["42", "603"]);
+    }
+
+    /// <summary>
+    /// A forced pass spends far longer on movies, books, video games and albums than on TV,
+    /// and finished shows only depend on the TV guides, so they are reopened before the next domain starts.
+    /// </summary>
+    [Fact]
+    public async Task SyncStaleReferencesAsync_ReopensFinishedShows_RightAfterTheTvShowsAndBeforeTheMovies()
+    {
+        _tvShowReferenceRepository.Setup(r => r.FindStaleAsync(It.IsAny<DateTime>(), It.IsAny<int>())).ReturnsAsync([]);
+        _movieReferenceRepository.Setup(r => r.FindStaleAsync(It.IsAny<DateTime>(), It.IsAny<int>())).ReturnsAsync([]);
+        _tvShowRepository.Setup(r => r.FindFinishedLinkedShowsAsync()).ReturnsAsync([
+            new TvShowModel { Id = "show-1", OwnerId = "owner", Title = "The Diplomat", State = TvShowStatus.Finished, ReferenceId = "reference-1" }
+        ]);
+        _episodeRepository.Setup(r => r.FindByShowIdsAsync("owner", It.IsAny<IReadOnlyCollection<string>>()))
+            .ReturnsAsync([new EpisodeModel { OwnerId = "owner", TvShowId = "show-1", SeasonNumber = 3, EpisodeNumber = 8 }]);
+        _tvShowReferenceRepository.Setup(r => r.FindByIdsAsync(It.IsAny<IReadOnlyCollection<string>>())).ReturnsAsync([
+            new TvShowReferenceModel
+            {
+                Id = "reference-1", Title = "The Diplomat", TitleNormalized = "the diplomat", ExternalIds = new Dictionary<string, string>(),
+                Episodes = [new ReferenceEpisodeModel { SeasonNumber = 4, EpisodeNumber = 1, Title = "S4E1", AirDate = new DateOnly(2026, 10, 15) }]
+            }
+        ]);
+        var reopenedBeforeMovies = false;
+        var service = CreateService(FakeTmdbClient.Empty());
+
+        var result = await service.SyncStaleReferencesAsync(TimeSpan.Zero, stage =>
+            {
+                if (stage == ReferenceSyncStage.SyncingMovies)
+                {
+                    reopenedBeforeMovies = _tvShowRepository.Invocations.Any(i => i.Method.Name == nameof(ITvShowRepository.UpdateAsync));
+                }
+                return Task.CompletedTask;
+            },
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        reopenedBeforeMovies.Should().BeTrue();
+        result.FinishedShowsReopened.Should().Be(1);
+        _tvShowRepository.Verify(r => r.UpdateAsync("show-1", It.Is<TvShowModel>(s => s.State == TvShowStatus.Current), "owner", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task SyncStaleReferencesAsync_StillSyncsTheOtherDomains_WhenTheReconciliationFails()
+    {
+        _tvShowReferenceRepository.Setup(r => r.FindStaleAsync(It.IsAny<DateTime>(), It.IsAny<int>())).ReturnsAsync([]);
+        _movieReferenceRepository.Setup(r => r.FindStaleAsync(It.IsAny<DateTime>(), It.IsAny<int>())).ReturnsAsync([]);
+        _tvShowRepository.Setup(r => r.FindFinishedLinkedShowsAsync()).ThrowsAsync(new InvalidOperationException("Simulated MongoDB failure."));
+        var service = CreateService(FakeTmdbClient.Empty());
+
+        await service.SyncStaleReferencesAsync(TimeSpan.Zero, cancellationToken: TestContext.Current.CancellationToken);
+
+        _albumReferenceRepository.Verify(r => r.FindStaleAsync(It.IsAny<DateTime>(), It.IsAny<int>()), Times.Once);
     }
 
     [Fact]

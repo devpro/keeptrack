@@ -58,10 +58,6 @@ public class ReferenceSyncBackgroundService(
                 var syncService = scope.ServiceProvider.GetRequiredService<ReferenceSyncService>();
                 var result = await syncService.SyncStaleReferencesAsync(s_windows.References, fullFetch: s_windows.FullFetch, cancellationToken: stoppingToken);
 
-                // finished shows reconciled against the refreshed episode guides, in the same tick under the lease
-                var reconciliationService = scope.ServiceProvider.GetRequiredService<TvShowStatusReconciliationService>();
-                result.FinishedShowsReopened = await reconciliationService.ReconcileFinishedShowsAsync(stoppingToken);
-
                 // the Explore rankings ride the same tick on their own longer window (see ReferenceSyncWindows.Periodic)
                 var exploreRefreshService = scope.ServiceProvider.GetRequiredService<ExploreCatalogueRefreshService>();
                 result.ApplyExploreRefresh(await exploreRefreshService.RefreshAsync(s_windows.Explore, stoppingToken));
