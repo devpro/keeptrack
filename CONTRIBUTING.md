@@ -21,10 +21,10 @@ If you do not agree with these terms, do not submit a contribution.
 
 1. [.NET 10.0 SDK](https://dotnet.microsoft.com/download).
 2. Node.js, for the scripts in `scripts/`.
-3. A MongoDB database, for example:
+3. A MongoDB database, for example the one of [Containers](#containers):
 
    ```bash
-   docker run --name mongodb -d -p 27017:27017 mongo:9.0
+   docker compose up -d mongodb
    ```
 
    A local `mongod` or a [MongoDB Atlas](https://cloud.mongodb.com/) cluster works too.
@@ -276,7 +276,53 @@ Variable                       | Default                             | Purpose
 A failed test leaves a full-page screenshot and a Playwright trace in `test/BlazorApp.PlaywrightTests/bin/<config>/net10.0/e2e-diagnostics`, and prints their paths in its output.
 A trace opens at [trace.playwright.dev](https://trace.playwright.dev).
 
-## Container images
+## Containers
+
+`compose.yaml` builds and runs both applications, with two optional profiles:
+
+- `mongodb`: a MongoDB whose indexes are created on its first start, from `scripts/mongodb-create-index.js`.
+- `observability`: an OpenTelemetry Collector sending to VictoriaMetrics, VictoriaLogs and VictoriaTraces, read in Grafana, the same pipelines as the cluster.
+
+Every port is bound to `127.0.0.1`.
+
+Service          | URL
+-----------------|-------------------------------------------------------------------------------
+`blazorapp`      | [localhost:9001](http://localhost:9001)
+`webapi`         | [localhost:9002/scalar](http://localhost:9002/scalar)
+`mongodb`        | `mongodb://localhost:27017`
+`otel-collector` | `http://localhost:4317` (OTLP gRPC), `http://localhost:4318` (OTLP HTTP)
+`grafana`        | [localhost:3000](http://localhost:3000), signed in as an anonymous administrator
+
+Values come from a `.env` file at the repository root, gitignored, read by compose itself:
+
+```ini
+FIREBASE_PROJECT_ID=xxxx
+FIREBASE_AUTH_DOMAIN=xxxx.firebaseapp.com
+FIREBASE_APIKEY=xxxx
+FIREBASE_SERVICE_ACCOUNT='{"type":"service_account",...}'
+TMDB_APIKEY=xxxx
+# Only when MongoDB runs outside compose, host.docker.internal being the host.
+# MONGODB_CONNECTION_STRING=mongodb://host.docker.internal:27017
+# MONGODB_DATABASE=keeptrack_dev
+# Only with the observability profile.
+# OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+```
+
+`IGDB_CLIENTID`, `IGDB_CLIENTSECRET`, `DISCOGS_TOKEN` and `GOOGLEBOOKS_APIKEY` set the other [providers](#reference-data-providers).
+A single-quoted value is taken as is, so the service account JSON keeps its `$` and quotes.
+
+```bash
+docker compose --profile mongodb --profile observability up -d --build   # everything
+docker compose --profile mongodb up -d --build                           # the applications and MongoDB
+docker compose up -d grafana otel-collector                              # the observability stack alone
+docker compose --profile mongodb --profile observability down            # stops, keeping the volumes
+```
+
+A service named on the command line starts whatever its profile, so `docker compose up -d grafana otel-collector` also serves the applications run from an IDE.
+They send to it with `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317`, in `launchSettings.json` or the run configuration, and appear in Grafana under **Explore > Jaeger** as `keeptrack-webapi` and `keeptrack-blazorapp`.
+[Telemetry](docs/operations.md#telemetry) describes what is exported.
+
+The images alone:
 
 ```bash
 docker build . -t devprofr/keeptrack-blazorapp:local -f src/BlazorApp/Dockerfile
