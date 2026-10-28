@@ -8,11 +8,12 @@ The UI only talks to the API over HTTP, and the API alone reads and writes the d
 Layered architecture across small single-purpose projects in `src/`, with `Domain` at the center and nothing referencing outward.
 
 - **`Common.System`**, depending on nothing: cross-cutting primitives (`IHasId`, `IHasIdAndOwnerId`, `PagedRequest`, `PagedResult<T>`, `TitleNormalizer`, `ListSort`, `RefuelCostCheck`).
+- **`Common.Hosting`**, depending on nothing of the solution: the OpenTelemetry setup that `WebApi` and `BlazorApp` both call.
 - **`Domain`**, depending on `Common.System`: business models (`Models/*Model`), repository interfaces (`Repositories/I*Repository`) and pure services (`Services/`), with no persistence or web concerns.
 - **`Infrastructure.MongoDb`**, depending on `Domain`: BSON `Entities/`, `Repositories/`, `Mappers/`.
 - **`WebApi.Contracts`**, depending on `Common.System`: the public REST DTOs (`Dto/`), shared with `BlazorApp` so the client deserializes without duplicate classes.
-- **`WebApi`**, depending on `Infrastructure.MongoDb`, `Domain` and `WebApi.Contracts`: controllers, DTO mappers, DI, JWT auth, OpenAPI/Scalar.
-- **`BlazorApp`**, depending on `Common.System` and `WebApi.Contracts`: the Blazor Server UI over HTTP, never referencing `Domain` or `Infrastructure.MongoDb`.
+- **`WebApi`**, depending on `Common.Hosting`, `Infrastructure.MongoDb`, `Domain` and `WebApi.Contracts`: controllers, DTO mappers, DI, JWT auth, OpenAPI/Scalar.
+- **`BlazorApp`**, depending on `Common.Hosting`, `Common.System` and `WebApi.Contracts`: the Blazor Server UI over HTTP, never referencing `Domain` or `Infrastructure.MongoDb`.
 
 Controllers live in `WebApi/Controllers/`, with any real computation in `Domain/Services/`.
 `WebApi/Import/` and `WebApi/ReferenceData/` use an older feature-folder shape that new code does not extend (see [backlog](backlog.md)).

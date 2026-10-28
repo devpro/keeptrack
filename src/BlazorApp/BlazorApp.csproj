@@ -18,6 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Common.Hosting\Common.Hosting.csproj" />
     <ProjectReference Include="..\Common.System\Common.System.csproj" />
     <ProjectReference Include="..\WebApi.Contracts\WebApi.Contracts.csproj" />
   </ItemGroup>

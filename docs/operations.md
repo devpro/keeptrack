@@ -12,6 +12,13 @@ Configuration keys are in [CONTRIBUTING.md](../CONTRIBUTING.md#configuration).
 
 Several replicas are supported (see [Architecture](architecture.md#scaling)).
 
+## Telemetry
+
+Both applications export traces, metrics and logs over OTLP once `OTEL_EXPORTER_OTLP_ENDPOINT` is set, and export nothing otherwise.
+The other standard variables configure the rest: `OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES`, `OTEL_EXPORTER_OTLP_PROTOCOL`.
+Traces cover the incoming requests, the provider calls and every MongoDB command, the driver emitting its spans from the `MongoDB.Driver` source.
+The `/healthz` probes are left out of the traces, since the probes of every replica would outnumber the real requests.
+
 ## Database indexes
 
 `scripts/mongodb-create-index.js` is idempotent, and is re-run after every change to it and after every migration script:

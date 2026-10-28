@@ -1,0 +1,138 @@
+# Both applications, with MongoDB and the observability stack as opt-in profiles.
+# Values come from a gitignored .env file next to this one, see CONTRIBUTING.md.
+# Every port is bound to 127.0.0.1, since nothing here asks for a sign-in on its API.
+
+services:
+  webapi:
+    image: devprofr/keeptrack-webapi:local
+    build:
+      context: .
+      dockerfile: src/WebApi/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      Features__IsHttpsRedirectionEnabled: "false"
+      Features__IsScalarEnabled: "true"
+      AllowedOrigins__0: http://localhost:9001
+      Authentication__JwtBearer__Authority: https://securetoken.google.com/${FIREBASE_PROJECT_ID:-}
+      Authentication__JwtBearer__TokenValidation__Issuer: https://securetoken.google.com/${FIREBASE_PROJECT_ID:-}
+      Authentication__JwtBearer__TokenValidation__Audience: ${FIREBASE_PROJECT_ID:-}
+      Infrastructure__MongoDB__ConnectionString: ${MONGODB_CONNECTION_STRING:-mongodb://mongodb:27017}
+      Infrastructure__MongoDB__DatabaseName: ${MONGODB_DATABASE:-keeptrack_dev}
+      Tmdb__ApiKey: ${TMDB_APIKEY:-}
+      Igdb__ClientId: ${IGDB_CLIENTID:-}
+      Igdb__ClientSecret: ${IGDB_CLIENTSECRET:-}
+      Discogs__Token: ${DISCOGS_TOKEN:-}
+      GoogleBooks__ApiKey: ${GOOGLEBOOKS_APIKEY:-}
+      Logging__LogLevel__Keeptrack: Debug
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_SERVICE_NAME: keeptrack-webapi
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=keeptrack,deployment.environment.name=compose
+    ports:
+      - 127.0.0.1:9002:8080
+    depends_on:
+      # Not required, so the applications also start against a MongoDB outside compose.
+      mongodb:
+        condition: service_started
+        required: false
+
+  blazorapp:
+    image: devprofr/keeptrack-blazorapp:local
+    build:
+      context: .
+      dockerfile: src/BlazorApp/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      Features__IsHttpsRedirectionEnabled: "false"
+      WebApi__BaseUrl: http://webapi:8080
+      Firebase__WebAppConfiguration__ApiKey: ${FIREBASE_APIKEY:-}
+      Firebase__WebAppConfiguration__AuthDomain: ${FIREBASE_AUTH_DOMAIN:-}
+      Firebase__WebAppConfiguration__ProjectId: ${FIREBASE_PROJECT_ID:-}
+      Firebase__ServiceAccount: ${FIREBASE_SERVICE_ACCOUNT:-}
+      Logging__LogLevel__Keeptrack: Debug
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_SERVICE_NAME: keeptrack-blazorapp
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=keeptrack,deployment.environment.name=compose
+    ports:
+      - 127.0.0.1:9001:8080
+    depends_on:
+      - webapi
+
+  mongodb:
+    image: mongo:9.0
+    profiles: [mongodb]
+    environment:
+      MONGO_INITDB_DATABASE: ${MONGODB_DATABASE:-keeptrack_dev}
+    volumes:
+      - mongodb:/data/db
+      # Runs once, on an empty volume, so a new database starts with its indexes.
+      - ./scripts/mongodb-create-index.js:/docker-entrypoint-initdb.d/mongodb-create-index.js:ro
+    ports:
+      - 127.0.0.1:27017:27017
+
+  otel-collector:
+    image: otel/opentelemetry-collector:0.163.2
+    profiles: [observability]
+    command: [--config=/etc/otelcol/config.yaml]
+    volumes:
+      - ./.docker/otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      # Published, so the applications started from an IDE send to it too.
+      - 127.0.0.1:4317:4317
+      - 127.0.0.1:4318:4318
+    depends_on:
+      - victoria-metrics
+      - victoria-logs
+      - victoria-traces
+
+  victoria-metrics:
+    image: victoriametrics/victoria-metrics:v1.155.0
+    profiles: [observability]
+    command: [-storageDataPath=/storage, -retentionPeriod=7d]
+    volumes:
+      - victoria-metrics:/storage
+    ports:
+      - 127.0.0.1:8428:8428
+
+  victoria-logs:
+    image: victoriametrics/victoria-logs:v1.53.0
+    profiles: [observability]
+    command: [-storageDataPath=/storage, -retentionPeriod=7d]
+    volumes:
+      - victoria-logs:/storage
+    ports:
+      - 127.0.0.1:9428:9428
+
+  victoria-traces:
+    image: victoriametrics/victoria-traces:v0.12.1
+    profiles: [observability]
+    command: [-storageDataPath=/storage, -retentionPeriod=7d]
+    volumes:
+      - victoria-traces:/storage
+    ports:
+      - 127.0.0.1:10428:10428
+
+  grafana:
+    image: grafana/grafana:13.3.0
+    profiles: [observability]
+    environment:
+      GF_PLUGINS_PREINSTALL: victoriametrics-logs-datasource
+      # An anonymous administrator is enough for a stack only reachable from this machine.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    volumes:
+      - ./.docker/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+      - grafana:/var/lib/grafana
+    ports:
+      - 127.0.0.1:3000:3000
+    depends_on:
+      - victoria-metrics
+      - victoria-logs
+      - victoria-traces
+
+volumes:
+  mongodb:
+  victoria-metrics:
+  victoria-logs:
+  victoria-traces:
+  grafana:

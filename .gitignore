@@ -13,6 +13,7 @@ appsettings.Development.json
 *.csproj.user
 TestResults/*
 Local.runsettings
+.env
 
 # NPM
 firebase.config.js

@@ -27,5 +27,5 @@ Repository rules and conventions are in [AGENTS.md](../AGENTS.md), local setup i
 
 - [Testing](testing.md): suites, databases, cleanup, end-to-end design.
 - [CI and code quality](ci-and-quality.md): pipelines, IstarCI, settled Sonar findings.
-- [Operations](operations.md): deployment, indexes, migrations, backups.
+- [Operations](operations.md): deployment, telemetry, indexes, migrations, backups.
 - [Backlog](backlog.md): known debt and gaps.
