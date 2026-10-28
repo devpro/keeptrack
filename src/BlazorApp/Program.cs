@@ -1,4 +1,5 @@
 var builder = WebApplication.CreateBuilder(args);
+builder.AddKeeptrackTelemetry();
 
 // adds services to the container
 builder.Services.AddRazorComponents()

@@ -1,4 +1,5 @@
 var builder = WebApplication.CreateBuilder(args);
+builder.AddKeeptrackTelemetry();
 
 var configuration = new AppConfiguration(builder.Configuration);
 

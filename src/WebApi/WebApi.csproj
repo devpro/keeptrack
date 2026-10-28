@@ -24,6 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Common.Hosting\Common.Hosting.csproj" />
     <ProjectReference Include="..\Infrastructure.MongoDb\Infrastructure.MongoDb.csproj" />
     <ProjectReference Include="..\Domain\Domain.csproj" />
     <ProjectReference Include="..\WebApi.Contracts\WebApi.Contracts.csproj" />

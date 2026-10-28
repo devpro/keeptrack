@@ -4,6 +4,7 @@ global using Keeptrack.BlazorApp.Components;
 global using Keeptrack.BlazorApp.Components.Inventory.Clients;
 global using Keeptrack.BlazorApp.DataProtection;
 global using Keeptrack.BlazorApp.DependencyInjection;
+global using Keeptrack.Common.Hosting;
 global using Microsoft.AspNetCore.Authentication.Cookies;
 global using Microsoft.AspNetCore.DataProtection;
 global using Microsoft.AspNetCore.Http.HttpResults;

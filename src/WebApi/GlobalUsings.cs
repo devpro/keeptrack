@@ -1,4 +1,5 @@
 global using System;
+global using Keeptrack.Common.Hosting;
 global using Keeptrack.WebApi;
 global using Keeptrack.WebApi.Contracts.Dto;
 global using Keeptrack.WebApi.DependencyInjection;
