@@ -5,6 +5,10 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// <summary>
 /// Keeps the shared reference collections up to date with their providers, since provider data (air dates, genres, covers, cast, ratings) changes after resolution.
 /// Shared by the periodic sync (<see cref="ReferenceSyncBackgroundService"/>) and the admin's "sync now", so both run the same logic.
+/// <para>
+/// Finished shows are reconciled right after the TV domain, since they depend on the TV guides alone,
+/// and a forced pass over the other four domains takes long enough that a page polling for the result is gone before it ends.
+/// </para>
 /// </summary>
 public class ReferenceSyncService(
     ITvShowReferenceRepository tvShowReferenceRepository,
@@ -13,6 +17,7 @@ public class ReferenceSyncService(
     IVideoGameReferenceRepository videoGameReferenceRepository,
     IAlbumReferenceRepository albumReferenceRepository,
     ReferenceEnrichmentService enrichmentService,
+    TvShowStatusReconciliationService tvShowStatusReconciliationService,
     ILogger<ReferenceSyncService> logger)
 {
     /// <summary>
@@ -39,6 +44,15 @@ public class ReferenceSyncService(
         await SyncDomainAsync(onStageChanged, ReferenceSyncStage.SyncingTvShows, cutoff,
             tvShowReferenceRepository.FindStaleAsync, (r, ct) => enrichmentService.RefreshTvShowReferenceAsync(r, fullFetch, ct), r => r.Id,
             (checkedCount, updated) => (result.TvShowsChecked, result.TvShowsUpdated) = (checkedCount, updated), cancellationToken);
+        try
+        {
+            result.FinishedShowsReopened = await tvShowStatusReconciliationService.ReconcileFinishedShowsAsync(cancellationToken);
+        }
+        // like a failing document, a failed reconciliation never costs the four domains still to sync
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Failed to reconcile finished TV shows during the reference sync");
+        }
 
         await SyncDomainAsync(onStageChanged, ReferenceSyncStage.SyncingMovies, cutoff,
             movieReferenceRepository.FindStaleAsync, (r, ct) => enrichmentService.RefreshMovieReferenceAsync(r, fullFetch, ct), r => r.Id,
