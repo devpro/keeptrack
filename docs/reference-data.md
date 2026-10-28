@@ -93,7 +93,7 @@ Each tick tries `ILeaseRepository.TryAcquireAsync("reference-sync", Environment.
 
 `ReferenceSyncService.SyncStaleReferencesAsync` is the single algorithm behind the loop and `POST /api/reference-data/sync-now`.
 The two differ only by the staleness windows, declared once in `ReferenceSyncWindows` (`Periodic`: 3 days for references, 7 for Explore; `Forced`: zero), guarded by `ReferenceSyncWindowsTest`.
-`sync-now?force=true` rechecks everything, and without it runs exactly the background tick.
+`sync-now?force=true` rechecks everything in full, skipping TMDB's change check (`ReferenceSyncWindows.FullFetch`), and without it runs exactly the background tick.
 One failing document never aborts the run, and one generic loop covers five one-line domain arms (`SyncDomainAsync`).
 
 **`I<X>ReferenceRepository.FindStaleAsync(cutoff, limit)` picks and orders the work** (`ReferenceStalenessQueries.cs`): never enriched first, then least recently enriched,
@@ -102,7 +102,9 @@ capped at `MaxDocumentsPerDomainPerPass` (500), so what a pass misses leads the 
 **Gotcha: "never enriched" cannot come from the date comparison**, since `Lte(LastEnrichedAt, cutoff)` matches neither null nor missing.
 `Eq(field, null)` matches both and BSON sorts null first, proven only by the real-MongoDB `ReferenceStalenessRepositoryTest`, and `last_enriched_at` is indexed on all five collections.
 
-TV and movie refreshes pre-check TMDB's `/changes?start_date=...` and only bump `LastEnrichedAt` when nothing changed.
+TV and movie refreshes pre-check TMDB's `/changes?start_date=...&end_date=...` and only bump `LastEnrichedAt` when nothing changed.
+**Gotcha:** without `end_date` TMDB answers the changes of the `start_date` day only, and it rejects a range over 14 days,
+so a reference last enriched longer ago counts as changed and takes the full fetch (`TmdbClientTest`).
 IGDB, RAWG, Discogs and the book providers have no equivalent, so they always fetch in full past the cutoff.
 
 **Only the default video game provider is called on refresh**, unlike books, where a refresh checks every registered provider's key in `ExternalIds` (see [Providers](providers.md#multi-provider-domains)).

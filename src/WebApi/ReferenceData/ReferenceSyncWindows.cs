@@ -9,7 +9,10 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// </summary>
 /// <param name="References">Applied to <see cref="ReferenceSyncService.SyncStaleReferencesAsync"/>.</param>
 /// <param name="Explore">Applied to <see cref="ExploreCatalogueRefreshService.RefreshAsync"/>.</param>
-public readonly record struct ReferenceSyncWindows(TimeSpan References, TimeSpan Explore)
+/// <param name="FullFetch">
+/// Skips TMDB's change check, which only sees changes after a reference's last enrichment, so forcing is the one way to recover a change it missed.
+/// </param>
+public readonly record struct ReferenceSyncWindows(TimeSpan References, TimeSpan Explore, bool FullFetch = false)
 {
     /// <summary>
     /// The windows of the 24h background tick.
@@ -21,9 +24,9 @@ public readonly record struct ReferenceSyncWindows(TimeSpan References, TimeSpan
     public static readonly ReferenceSyncWindows Periodic = new(TimeSpan.FromDays(3), TimeSpan.FromDays(7));
 
     /// <summary>
-    /// Checks everything again, however recently enriched, for the admin's "force" option.
+    /// Checks everything again in full, however recently enriched, for the admin's "force" option.
     /// </summary>
-    public static readonly ReferenceSyncWindows Forced = new(TimeSpan.Zero, TimeSpan.Zero);
+    public static readonly ReferenceSyncWindows Forced = new(TimeSpan.Zero, TimeSpan.Zero, FullFetch: true);
 
     /// <summary>
     /// <see cref="Forced"/> when <paramref name="force"/>, else the <see cref="Periodic"/> windows of the background pass.
