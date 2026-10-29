@@ -4,13 +4,13 @@
 
 ## From the sources, in five commands
 
-Command                                                          | Does
------------------------------------------------------------------|-----------------------------------------
-`git clone https://github.com/devpro/keeptrack.git`              | Gets the sources
-`dotnet build`                                                   | Restores and builds the solution
-`mongosh <uri> scripts/mongodb-create-index.js`                  | Creates the indexes
-`dotnet run --project src/WebApi --launch-profile http`          | Serves the API on `localhost:5057`
-`dotnet run --project src/BlazorApp --launch-profile http`       | Serves the web UI on `localhost:5207`
+Command                                                    | Does
+-----------------------------------------------------------|--------------------------------------
+`git clone https://github.com/devpro/keeptrack.git`        | Gets the sources
+`dotnet build`                                             | Restores and builds the solution
+`mongosh <uri> scripts/mongodb-create-index.js`            | Creates the indexes
+`dotnet run --project src/WebApi --launch-profile http`    | Serves the API on `localhost:5057`
+`dotnet run --project src/BlazorApp --launch-profile http` | Serves the web UI on `localhost:5207`
 
 With MongoDB running, and the settings of `CONTRIBUTING.md` in the environment or in `appsettings.Development.json`.
 

@@ -23,17 +23,17 @@ The lab runs the branch [[ KEEPTRACK_BRANCH ]], a value of `lab.yaml` that a ten
    ls ~/keeptrack ~/keeptrack/src ~/keeptrack/test
    ```
 
-   Folder                   | Holds
-   -------------------------|---------------------------------------------------------------
-   `src/BlazorApp`          | The web UI, Blazor Server
-   `src/WebApi`             | The REST API
-   `src/WebApi.Contracts`   | The DTOs of the API, shared with the web UI
-   `src/Domain`             | Models and services, with no dependency on storage or HTTP
+   Folder                       | Holds
+   -----------------------------|-------------------------------------------------------------
+   `src/BlazorApp`              | The web UI, Blazor Server
+   `src/WebApi`                 | The REST API
+   `src/WebApi.Contracts`       | The DTOs of the API, shared with the web UI
+   `src/Domain`                 | Models and services, with no dependency on storage or HTTP
    `src/Infrastructure.MongoDb` | The MongoDB repositories
-   `src/Common.*`           | What both applications share, such as the local token issuer
-   `test/`                  | Unit, integration and end-to-end tests
-   `docs/`                  | One file per subject, indexed in `docs/README.md`
-   `scripts/`               | Node.js and `mongosh` scripts, such as the MongoDB indexes
+   `src/Common.*`               | What both applications share, such as the local token issuer
+   `test/`                      | Unit, integration and end-to-end tests
+   `docs/`                      | One file per subject, indexed in `docs/README.md`
+   `scripts/`                   | Node.js and `mongosh` scripts, such as the MongoDB indexes
 
 3. [Open CONTRIBUTING.md](:open:CONTRIBUTING.md), the steps this lab follows, then [open docs/authentication.md](:open:docs/authentication.md), the design of the two sign-in modes.
 

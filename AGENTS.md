@@ -18,10 +18,10 @@ No `docker run` and no `docker pull` of any image not published by Docker or by 
 Security scanners are invoked as locally installed binaries, never containerised.
 A tool with no local install path is left unwired and recorded in `docs/backlog.md`.
 
-**Linters are never run by an agent, and never imitated by hand.**
-No `markdownlint`, no `yamllint`, no formatter (the owner applies `npx neatmd .` to Markdown), no `npx` invocation of any of them.
+**An agent writes Markdown that is already correct, and checks it with neatmd, the owner's own formatter.**
+After editing Markdown, an agent runs `node ~/repos/neatmd/bin/cli.js --check <files>`, reads what a change would be with `-o <file>`, applies the changes that are right, and reports a wrong one as a neatmd issue instead of applying it.
+No other linter is run by an agent: no `markdownlint`, no `yamllint`, no `npx` invocation of any of them, since IstarCI's `markup-lint` job runs them on every commit, and an agent fixes what that job reports against its own changes.
 Reading a lint configuration and reshaping text to fit it, or rewrapping a paragraph so a tool would be quieter, is the same thing as running the linter.
-An agent that notices prose a linter might flag says so in its report and changes nothing.
 Test commands are not linters.
 
 **Every command runs in the foreground, and the agent waits for it.**

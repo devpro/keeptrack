@@ -27,10 +27,10 @@ Save and review everything read, watched, listened to or played.
 
 ## Signing in
 
-Mode                 | Sign-in                                         | For
----------------------|-------------------------------------------------|--------------------------------------
-`Firebase` (default) | GitHub or Google, through Firebase              | Production
-`Local`              | An email and a role on a form, **no password**  | Local runs, tests, isolated platforms
+Mode                 | Sign-in                                        | For
+---------------------|------------------------------------------------|--------------------------------------
+`Firebase` (default) | GitHub or Google, through Firebase             | Production
+`Local`              | An email and a role on a form, **no password** | Local runs, tests, isolated platforms
 
 - `BlazorApp` signs a JWT with a key it shares with `WebApi`, so nothing outside the machine is reached.
 
@@ -53,7 +53,7 @@ Mode                 | Sign-in                                         | For
 ## In this lab
 
 Step          | What
---------------|-----------------------------------------------------------------
+--------------|----------------------------------------------------------------------------
 Sources       | Clone the branch [[ KEEPTRACK_BRANCH ]], build, run the unit tests
 Database      | Start `mongod`, create the indexes
 Configuration | Local authentication, with no Firebase project

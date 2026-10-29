@@ -9,7 +9,7 @@ The login page shows a form instead of the GitHub and Google buttons.
 Any email is accepted, and the role picks the tier:
 
 Role         | Sees
--------------|---------------------------------------------------------------
+-------------|--------------------------------------------------------------
 Free preview | Movies and TV shows, up to `Features:FreeTierItemLimit` items
 Member       | Every collection and journal, the imports
 Admin        | The reference data pages too
@@ -37,11 +37,11 @@ Blazor Server sends a prerendered page first, and a button clicked before the ci
 These three are what Keeptrack is mostly used for: one place for everything watched and played, where TV Time and a game backlog used to be two.
 Each is added the same way, with a title and a year, and on save `WebApi` looks the title up at its provider:
 
-Type        | Provider | With a key
-------------|----------|------------------------------------------------------------
-Movie       | TMDB     | Poster, synopsis, cast, TMDB rating, IMDb rating with OMDb
-TV show     | TMDB     | Seasons and episodes to tick, which **Watch next** follows
-Video game  | IGDB     | Cover, platforms, genres, rating
+Type       | Provider | With a key
+-----------|----------|-----------------------------------------------------------
+Movie      | TMDB     | Poster, synopsis, cast, TMDB rating, IMDb rating with OMDb
+TV show    | TMDB     | Seasons and episodes to tick, which **Watch next** follows
+Video game | IGDB     | Cover, platforms, genres, rating
 
 Without a key, the item is saved as typed and stays unlinked, and the rest works the same.
 

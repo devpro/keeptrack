@@ -2,9 +2,9 @@
 
 Interactive labs written for [sidelab](https://github.com/devpro/sidelab).
 
-Lab                                     | Covers
-----------------------------------------|----------------------------------------------------------------------------------------------------
-[run-from-sources](run-from-sources/)   | Clone, build and run Keeptrack with a local MongoDB and local authentication, then a guided tour
+Lab                                   | Covers
+--------------------------------------|-------------------------------------------------------------------------------------------------
+[run-from-sources](run-from-sources/) | Clone, build and run Keeptrack with a local MongoDB and local authentication, then a guided tour
 
 ## Shape of a lab
 
