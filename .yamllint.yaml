@@ -8,5 +8,7 @@ rules:
     level: warning
     max: 200
   truthy: disable
+  braces:
+    max-spaces-inside: 1
   brackets:
     max-spaces-inside: 1
