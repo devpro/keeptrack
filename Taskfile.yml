@@ -17,6 +17,11 @@ tasks:
     cmds:
       - istarci status "{{.ROOT_DIR}}"
 
+  ci:wait:
+    desc: Wait for the IstarCI run of a commit (default HEAD) and exit with its result, printing the log of each failed job
+    cmds:
+      - istarci wait --repo "{{.ROOT_DIR}}" {{.CLI_ARGS}}
+
   ci:logs:
     desc: Show the output of the last IstarCI run
     cmds:

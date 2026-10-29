@@ -33,8 +33,8 @@ Anything else is replaced by an explicit command that downloads the official rel
 
 **IstarCI is recommended but optional, and runs from its package.**
 The CI is the GitHub Actions pipeline, which IstarCI only runs locally first.
-`task ci:setup`, `task ci` and `task ci:logs` use the installed `@devpro/istarci` package, and a clone of IstarCI is for developing IstarCI only (`task ci:from-clone`).
-A run starts by itself on every commit, so an agent never starts one: after committing it reads the result with `task ci` and, on a failure, `task ci:logs`.
+`task ci:setup`, `task ci`, `task ci:wait` and `task ci:logs` use the installed `@devpro/istarci` package, and a clone of IstarCI is for developing IstarCI only (`task ci:from-clone`).
+A run starts by itself on every commit, so an agent never starts one: after committing it waits for the result with `task ci:wait`, which prints the log of each failed job, and never polls `task ci` in a loop.
 
 **The harness is Node.js and bash only.**
 Python scripts or code is not allowed.
@@ -109,7 +109,7 @@ dotnet test --filter-method "Keeptrack.WebApi.UnitTests.Services.WatchNextServic
 eval "$(node scripts/load-runsettings.js)"
 dotnet test --project test/WebApi.IntegrationTests/WebApi.IntegrationTests.csproj --filter-method "*WishlistResourceTest*"
 
-eval "$(node scripts/load-runsettings.js)" && dotnet test   # every suite, before a commit
+eval "$(node scripts/load-runsettings.js)" && E2E_ENABLED=true dotnet test   # every suite, end-to-end included, before a commit
 ```
 
 **Every test runs locally before a commit that can affect them, then IstarCI runs on the commit.**
