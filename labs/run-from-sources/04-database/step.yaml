@@ -1,0 +1,4 @@
+title: Database
+layout:
+  - type: terminal
+  - type: editor

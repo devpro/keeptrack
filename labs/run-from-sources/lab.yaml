@@ -1,0 +1,61 @@
+title: "Keeptrack from the sources"
+description: "Clone Keeptrack, run it with MongoDB and local authentication, no Firebase, then take a guided tour of the web app."
+logo: logo.png
+duration: 60
+tags:
+  - keeptrack
+  - dotnet
+  - blazor
+  - mongodb
+sidebarWidth: 620
+backend: container
+workdir: ~/keeptrack
+# Every version and URL of the lab, delivered to the shell, so a step refers to one by name.
+env:
+  # The repository and the branch the lab runs, replaced per tenant or per account to try another branch.
+  KEEPTRACK_REPOSITORY: https://github.com/devpro/keeptrack.git
+  KEEPTRACK_BRANCH: feature/access-review
+  # https://learn.microsoft.com/dotnet/core/tools/dotnet-install-script, the stable location of the install script, its signature and its public key
+  DOTNET_INSTALL_URL: https://dot.net/v1
+  # https://builds.dotnet.microsoft.com/dotnet/release-metadata/10.0/releases.json, "latest-sdk" of .NET 10
+  DOTNET_SDK_VERSION: 10.0.401
+  # https://packages.debian.org/bookworm/git, unpacked rather than installed, since the lab has no administrator rights
+  DEBIAN_MIRROR: https://deb.debian.org/debian
+  GIT_DEB: git_2.39.5-0+deb12u3_amd64.deb
+  LESS_DEB: less_590-2.1~deb12u2_amd64.deb
+  # https://packages.debian.org/bookworm/libcurl4, the one library mongod needs that the lab image lacks
+  LIBCURL_DEB: libcurl4_7.88.1-10+deb12u15_amd64.deb
+  # https://www.mongodb.com/try/download/community, the version of compose.yaml, and the checksum https://downloads.mongodb.org/current.json publishes
+  MONGODB_VERSION: 9.0.4
+  MONGODB_SHA256: d2d6ca13400327857223bc5d9f33d8ec76d674e5fbc4dd45db02a3dfbe23d479
+  # https://github.com/mongodb-js/mongosh/releases, with the digest GitHub shows for the linux-x64 archive
+  MONGOSH_VERSION: 2.14.0
+  MONGOSH_SHA256: c1c5f1a9709e91c5eb1c6861a99c305c165fa564afb465fabfd2b2334c08a23c
+  # The http profiles of the launchSettings.json files
+  WEBAPI_URL: http://localhost:5057
+  BLAZORAPP_URL: http://localhost:5207
+  # The account the guided tour signs in with, any email being accepted by local authentication
+  DEMO_EMAIL: ada.lovelace@example.com
+# The reference data providers, each optional: a missing one leaves the items of its type unlinked.
+secrets:
+  - name: TMDB_APIKEY
+    optional: true
+    description: TMDB v3 API key, for movies and TV shows
+  - name: OMDB_APIKEY
+    optional: true
+    description: OMDb API key, for the IMDb ratings of movies and TV shows
+  - name: IGDB_CLIENTID
+    optional: true
+    description: Twitch application client id, for IGDB video games
+  - name: IGDB_CLIENTSECRET
+    optional: true
+    description: Twitch application client secret, for IGDB video games
+  - name: RAWG_APIKEY
+    optional: true
+    description: RAWG API key, for the video game admin search
+  - name: DISCOGS_TOKEN
+    optional: true
+    description: Discogs personal access token, for albums
+  - name: GOOGLEBOOKS_APIKEY
+    optional: true
+    description: Google Cloud API key with the Books API enabled, for books

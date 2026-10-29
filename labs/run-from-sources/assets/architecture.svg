@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 440" width="1040" height="440">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1040" height="440" fill="#ffffff"/>
+  <text x="520" y="40" fill="#0f172a" font-family="sans-serif" font-size="22" font-weight="bold" text-anchor="middle">Keeptrack, three tiers</text>
+
+  <rect x="30" y="90" width="150" height="140" rx="8" fill="#f1f5f9" stroke="#475569" stroke-width="2"/>
+  <text x="105" y="122" fill="#0f172a" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle">Browser</text>
+  <text x="105" y="156" fill="#475569" font-family="sans-serif" font-size="12" text-anchor="middle">HTML and events</text>
+  <text x="105" y="176" fill="#475569" font-family="sans-serif" font-size="12" text-anchor="middle">over SignalR</text>
+  <text x="105" y="196" fill="#475569" font-family="sans-serif" font-size="12" text-anchor="middle">session cookie</text>
+
+  <rect x="250" y="90" width="210" height="140" rx="8" fill="#f1f5f9" stroke="#7c3aed" stroke-width="2"/>
+  <text x="355" y="122" fill="#0f172a" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle">BlazorApp</text>
+  <text x="355" y="150" fill="#7c3aed" font-family="monospace" font-size="13" text-anchor="middle">src/BlazorApp</text>
+  <text x="355" y="176" fill="#475569" font-family="sans-serif" font-size="12" text-anchor="middle">Blazor Server, the web UI</text>
+  <text x="355" y="196" fill="#475569" font-family="sans-serif" font-size="12" text-anchor="middle">signs users in</text>
+  <text x="355" y="216" fill="#475569" font-family="sans-serif" font-size="12" text-anchor="middle">holds the API token</text>
+
+  <rect x="530" y="90" width="210" height="140" rx="8" fill="#f1f5f9" stroke="#0284c7" stroke-width="2"/>
+  <text x="635" y="122" fill="#0f172a" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle">WebApi</text>
+  <text x="635" y="150" fill="#0284c7" font-family="monospace" font-size="13" text-anchor="middle">src/WebApi</text>
+  <text x="635" y="176" fill="#475569" font-family="sans-serif" font-size="12" text-anchor="middle">ASP.NET Core REST API</text>
+  <text x="635" y="196" fill="#475569" font-family="sans-serif" font-size="12" text-anchor="middle">validates the JWT</text>
+  <text x="635" y="216" fill="#475569" font-family="sans-serif" font-size="12" text-anchor="middle">background jobs</text>
+
+  <rect x="810" y="90" width="200" height="140" rx="8" fill="#f1f5f9" stroke="#16a34a" stroke-width="2"/>
+  <text x="910" y="122" fill="#0f172a" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle">MongoDB</text>
+  <text x="910" y="150" fill="#16a34a" font-family="monospace" font-size="13" text-anchor="middle">keeptrack_dev</text>
+  <text x="910" y="176" fill="#475569" font-family="sans-serif" font-size="12" text-anchor="middle">a collection per type</text>
+  <text x="910" y="196" fill="#475569" font-family="sans-serif" font-size="12" text-anchor="middle">owner_id on every item</text>
+  <text x="910" y="216" fill="#475569" font-family="sans-serif" font-size="12" text-anchor="middle">no user store</text>
+
+  <line x1="182" y1="160" x2="246" y2="160" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="215" y="150" fill="#475569" font-family="sans-serif" font-size="11" text-anchor="middle">HTTP</text>
+  <line x1="462" y1="160" x2="526" y2="160" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="495" y="150" fill="#475569" font-family="sans-serif" font-size="11" text-anchor="middle">REST</text>
+  <line x1="742" y1="160" x2="806" y2="160" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="775" y="150" fill="#475569" font-family="sans-serif" font-size="11" text-anchor="middle">driver</text>
+
+  <rect x="250" y="290" width="210" height="110" rx="8" fill="#f1f5f9" stroke="#b45309" stroke-width="2"/>
+  <text x="355" y="320" fill="#0f172a" font-family="sans-serif" font-size="15" font-weight="bold" text-anchor="middle">Authentication:Mode</text>
+  <text x="355" y="348" fill="#b45309" font-family="monospace" font-size="13" text-anchor="middle">Firebase</text>
+  <text x="355" y="364" fill="#475569" font-family="sans-serif" font-size="11" text-anchor="middle">GitHub or Google, production</text>
+  <text x="355" y="384" fill="#b45309" font-family="monospace" font-size="13" text-anchor="middle">Local</text>
+  <text x="355" y="398" fill="#475569" font-family="sans-serif" font-size="11" text-anchor="middle">email and role, this lab</text>
+  <line x1="355" y1="288" x2="355" y2="234" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="530" y="290" width="480" height="110" rx="8" fill="#f1f5f9" stroke="#db2777" stroke-width="2"/>
+  <text x="770" y="320" fill="#0f172a" font-family="sans-serif" font-size="15" font-weight="bold" text-anchor="middle">Reference data providers, optional</text>
+  <text x="770" y="350" fill="#db2777" font-family="monospace" font-size="13" text-anchor="middle">TMDB  OMDb  IGDB  RAWG  Discogs  Google Books</text>
+  <text x="770" y="378" fill="#475569" font-family="sans-serif" font-size="12" text-anchor="middle">covers, synopses and ratings, linked to each item</text>
+  <line x1="635" y1="234" x2="635" y2="286" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+</svg>

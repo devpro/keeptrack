@@ -1,0 +1,88 @@
+version: 1
+
+defaults:
+  # ms per step primitive, long enough for a save waiting on a reference data provider
+  timeout: 20000
+
+# One page, so every action drives the same tab and keeps its session cookie and its Blazor circuit.
+# The selectors are those of the end-to-end page objects in test/BlazorApp.PlaywrightTests/Pages.
+pages:
+  app:
+    url: "http://localhost:5207/"
+    selectors:
+      email: { label: "Email" }
+      role: { label: "Role" }
+      signIn: { role: button, name: "Sign in", exact: true }
+      # The sidebar, since the call to action of Home also holds the word "Movies"
+      nav: "nav.flex-column"
+      moviesLink: { role: link, name: "Movies", exact: true, within: nav }
+      tvShowsLink: { role: link, name: "TV shows", exact: true, within: nav }
+      videoGamesLink: { role: link, name: "Video games", exact: true, within: nav }
+      moviesHeading: { role: heading, name: "My Movies", exact: true }
+      tvShowsHeading: { role: heading, name: "My TV Shows", exact: true }
+      videoGamesHeading: { role: heading, name: "My Video Games", exact: true }
+      add: { role: button, name: "+ Add", exact: true }
+      form: ".kt-form-card"
+      title: { testid: "title-input" }
+      year: { testid: "year-input" }
+      save: { role: button, name: "Save", exact: true }
+      detailTitle: ".kt-title-input"
+      movieLink: { role: link, name: "The Matrix", exact: true }
+
+# The add actions take the title and the year from the block that runs them, the named groups of its capture.
+# Sidebar navigation rather than a goto, so the list page arrives over a circuit already connected.
+actions:
+  tour.sign-in:
+    page: app
+    steps:
+      - goto: "http://localhost:5207/account/login"
+      - fill: { target: email, value: "${DEMO_EMAIL}" }
+      - select: { target: role, value: "member" }
+      - click: signIn
+      - waitFor: { target: videoGamesLink }
+
+  tour.add-movie:
+    page: app
+    steps:
+      - click: moviesLink
+      - waitFor: { target: moviesHeading }
+      - click: add
+      - waitFor: { target: form }
+      - fill: { target: title, value: "${title}" }
+      - fill: { target: year, value: "${year}" }
+      - click: save
+      - waitFor: { target: detailTitle }
+
+  tour.add-tv-show:
+    page: app
+    steps:
+      - click: tvShowsLink
+      - waitFor: { target: tvShowsHeading }
+      - click: add
+      - waitFor: { target: form }
+      - fill: { target: title, value: "${title}" }
+      - fill: { target: year, value: "${year}" }
+      - click: save
+      - waitFor: { target: detailTitle }
+
+  tour.add-video-game:
+    page: app
+    steps:
+      - click: videoGamesLink
+      - waitFor: { target: videoGamesHeading }
+      - click: add
+      - waitFor: { target: form }
+      - fill: { target: title, value: "${title}" }
+      - fill: { target: year, value: "${year}" }
+      - click: save
+      - waitFor: { target: detailTitle }
+
+checks:
+  tour.movie-listed:
+    page: app
+    steps:
+      - click: moviesLink
+      - expect:
+          target: movieLink
+          toBeVisible: true
+          hint: 'No movie yet: sign in, then run the block adding one.'

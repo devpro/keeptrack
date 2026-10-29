@@ -1,0 +1,6 @@
+title: Guided tour
+layout:
+  - type: vnc
+    url: http://localhost:5207/
+    page: app
+  - type: terminal

@@ -1,0 +1,4 @@
+title: Sources
+layout:
+  - type: terminal
+  - type: editor
