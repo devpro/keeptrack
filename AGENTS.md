@@ -108,7 +108,14 @@ dotnet test --filter-method "Keeptrack.WebApi.UnitTests.Services.WatchNextServic
 
 eval "$(node scripts/load-runsettings.js)"
 dotnet test --project test/WebApi.IntegrationTests/WebApi.IntegrationTests.csproj --filter-method "*WishlistResourceTest*"
+
+eval "$(node scripts/load-runsettings.js)" && dotnet test   # every suite, before a commit
 ```
+
+**Every test runs locally before a commit that can affect them, then IstarCI runs on the commit.**
+A change to documentation or to `labs/` alone needs no run.
+The filtered runs above are for the loop while writing a test.
+IstarCI leaves the integration tests out (see `.istarci.yml`), so the local run is the only one covering them before a push.
 
 Integration tests need MongoDB, and Firebase test credentials unless `TEST_AUTHENTICATION_MODE=local`, from `Local.runsettings`, loaded by the script above, since `--settings Local.runsettings` runs zero tests.
 Those values are never converted into `NAME=value` lines and sourced: [CONTRIBUTING.md](CONTRIBUTING.md#tests) explains both.
