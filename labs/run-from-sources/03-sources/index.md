@@ -44,7 +44,6 @@ The lab runs the branch [[ KEEPTRACK_BRANCH ]], a value of `lab.yaml` that a ten
    <!-- verify: requires=network timeout=900 expect="Build succeeded" -->
 
    ```bash exec
-   cd ~/keeptrack && \
    dotnet build
    ```
 
@@ -59,7 +58,6 @@ The lab runs the branch [[ KEEPTRACK_BRANCH ]], a value of `lab.yaml` that a ten
    <!-- verify: timeout=600 expect="failed: 0" -->
 
    ```bash exec
-   cd ~/keeptrack && \
    dotnet test --project test/BlazorApp.UnitTests/BlazorApp.UnitTests.csproj --no-build
    ```
 

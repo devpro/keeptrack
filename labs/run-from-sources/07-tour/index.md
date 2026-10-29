@@ -1,7 +1,7 @@
 # Guided tour
 
-The Run button of each block below drives the [lab browser](:panel:vnc), while the block waits for the result in MongoDB.
-Every action can be done by hand as well: the browser is a real Chrome.
+Keeptrack is one place for everything watched and played, where TV Time and a game backlog used to be two.
+Each link below acts in the browser, and every step can be done by hand as well.
 
 ## Sign in
 
@@ -14,101 +14,49 @@ Free preview | Movies and TV shows, up to `Features:FreeTierItemLimit` items
 Member       | Every collection and journal, the imports
 Admin        | The reference data pages too
 
-The tour signs in as a member, with this email:
+[▶ Sign in as a member](:action:tour.sign-in), with this email:
 
 ```text
 [[ DEMO_EMAIL ]]
 ```
 
-<!-- verify: interactive action=tour.sign-in capture="signs in as (\S+@\S+)" timeout=60 -->
+The sidebar lists every collection.
 
-```bash exec
-echo "The lab browser signs in as $DEMO_EMAIL on ${BLAZORAPP_URL}/account/login" ; \
-sleep 5 ; echo "Ready for the next block"
-```
+## A movie to watch
 
-The block waits a few seconds, the time the home page takes to open its SignalR circuit.
-Blazor Server sends a prerendered page first, and a button clicked before the circuit is up does nothing, which is why the end-to-end tests retry their first click.
+[▶ Add The Matrix (1999)](:action:tour.add-movie) from **Movies**, and put it on the watchlist.
 
-[The browser](:panel:vnc) is on the home page, and the sidebar lists every collection.
+Only a title and a year are typed.
+On save, Keeptrack finds the movie at TMDB and links it to its reference: the page opens with the poster, the synopsis, the cast and the ratings.
 
-## Movies, TV shows, video games
+## A TV show in progress
 
-These three are what Keeptrack is mostly used for: one place for everything watched and played, where TV Time and a game backlog used to be two.
-Each is added the same way, with a title and a year, and on save `WebApi` looks the title up at its provider:
+1. [▶ Add Severance (2022)](:action:tour.add-tv-show) from **TV shows**.
+   Linked the same way, its page lists every season and episode.
 
-Type       | Provider | With a key
------------|----------|-----------------------------------------------------------
-Movie      | TMDB     | Poster, synopsis, cast, TMDB rating, IMDb rating with OMDb
-TV show    | TMDB     | Seasons and episodes to tick, which **Watch next** follows
-Video game | IGDB     | Cover, platforms, genres, rating
+2. [▶ Mark it current, and tick its first episode as seen](:action:tour.watch-first-episode), in season 1.
+   Each episode is ticked the same way, one by one or a whole season at once.
 
-Without a key, the item is saved as typed and stays unlinked, and the rest works the same.
+## A game, with a typo
 
-1. Add a movie:
+1. [▶ Add Hollow Knight, typed 2007 instead of 2017](:action:tour.add-video-game), from **Video games**.
+   No game of that name came out in 2007, so the item is saved as typed, with no cover: Keeptrack never links a reference it is not sure of.
 
-   <!-- verify: interactive action=tour.add-movie capture="Waiting for (?<title>.+) \((?<year>\d{4})\)" timeout=120 expect="Found The Matrix" -->
+2. [▶ Correct the year, and check for a match](:action:tour.fix-video-game-year).
+   With the right year, there is exactly one Hollow Knight: the page shows **Linked!**, then its cover, ratings, genres and platforms.
 
-   ```bash exec
-   mongosh --quiet mongodb://localhost:27017/keeptrack_dev --eval '
-   const [collection, title, year] = ["movie", "The Matrix", 1999];
-   print(`Waiting for ${title} (${year}) in the ${collection} collection`);
-   for (let i = 0; i < 60; i++) {
-     const d = db.getCollection(collection).findOne({ title });
-     if (d) { print(`Found ${d.title} (${d.year}), owner_id ${d.owner_id}, reference_id ${d.reference_id ?? "none"}`); quit(0); }
-     sleep(2000);
-   }
-   quit(1);'
-   ```
+## What to watch next
 
-   `owner_id` is the email: in local mode, the `sub` claim of the token is the normalized email, so signing in again with it reaches the same items.
-   In Firebase mode it is the Firebase user id, which is why a database does not move from one mode to the other as it is.
+1. [▶ Open Watch next](:action:tour.watch-next): Severance waits there with its next episode, season 1 episode 2.
 
-2. Add a TV show:
-
-   <!-- verify: interactive action=tour.add-tv-show capture="Waiting for (?<title>.+) \((?<year>\d{4})\)" timeout=120 expect="Found Severance" -->
-
-   ```bash exec
-   mongosh --quiet mongodb://localhost:27017/keeptrack_dev --eval '
-   const [collection, title, year] = ["tvshow", "Severance", 2022];
-   print(`Waiting for ${title} (${year}) in the ${collection} collection`);
-   for (let i = 0; i < 60; i++) {
-     const d = db.getCollection(collection).findOne({ title });
-     if (d) { print(`Found ${d.title} (${d.year}), owner_id ${d.owner_id}, reference_id ${d.reference_id ?? "none"}`); quit(0); }
-     sleep(2000);
-   }
-   quit(1);'
-   ```
-
-3. Add a video game:
-
-   <!-- verify: interactive action=tour.add-video-game capture="Waiting for (?<title>.+) \((?<year>\d{4})\)" timeout=120 expect="Found Hades" -->
-
-   ```bash exec
-   mongosh --quiet mongodb://localhost:27017/keeptrack_dev --eval '
-   const [collection, title, year] = ["videogame", "Hades", 2020];
-   print(`Waiting for ${title} (${year}) in the ${collection} collection`);
-   for (let i = 0; i < 60; i++) {
-     const d = db.getCollection(collection).findOne({ title });
-     if (d) { print(`Found ${d.title} (${d.year}), owner_id ${d.owner_id}, reference_id ${d.reference_id ?? "none"}`); quit(0); }
-     sleep(2000);
-   }
-   quit(1);'
-   ```
-
-4. [✓ Check the movie is listed](:action:tour.movie-listed), from the list page this time.
+2. [▶ Switch to its Movies tab](:action:tour.watch-next-movies): The Matrix, from the watchlist.
 
 ## Explore
 
-Everything else is a click away in the sidebar:
+The rest is a click away in the sidebar:
 
-- **Watch next**, the next episode of each show in progress.
-- **Explore**, the top-rated titles not tracked yet, from the providers given a key.
-- **Import**, a TV Time export among others, to bring the shows and movies already watched.
-- **Wishlist**, with a link to share it anonymously.
-- **Quick add**, one form for every type.
-- **Manage account**, under the email at the top, to share whole collections with other accounts.
-
-> [!TIP]
-> Signing out and in again with another email is another account, with its own empty collections.
-> An admin sees **Admin** in the sidebar, for the reference data shared by every account.
+- [Explore](:navigate:app:http://localhost:5207/explore), the top-rated titles not tracked yet.
+- [Import](:navigate:app:http://localhost:5207/import), a TV Time export among others, to bring everything already watched.
+- [Wishlist](:navigate:app:http://localhost:5207/wishlist), with a link to share it.
+- [Quick add](:navigate:app:http://localhost:5207/add), one form for every type.
+- [Manage account](:navigate:app:http://localhost:5207/account/manage), to share whole collections with other accounts.

@@ -53,9 +53,9 @@ Mode                 | Sign-in                                        | For
 ## In this lab
 
 Step          | What
---------------|----------------------------------------------------------------------------
+--------------|---------------------------------------------------------------------------------
 Sources       | Clone the branch [[ KEEPTRACK_BRANCH ]], build, run the unit tests
 Database      | Start `mongod`, create the indexes
 Configuration | Local authentication, with no Firebase project
 Run           | Start `WebApi` and `BlazorApp`
-Guided tour   | Sign in, add a movie, a TV show and a video game, then find them in MongoDB
+Guided tour   | Sign in, follow a TV show, plan a movie, add a game, then see what to watch next

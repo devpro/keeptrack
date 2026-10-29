@@ -18,19 +18,29 @@ pages:
       moviesLink: { role: link, name: "Movies", exact: true, within: nav }
       tvShowsLink: { role: link, name: "TV shows", exact: true, within: nav }
       videoGamesLink: { role: link, name: "Video games", exact: true, within: nav }
+      watchNextLink: { role: link, name: "Watch next", exact: true, within: nav }
       moviesHeading: { role: heading, name: "My Movies", exact: true }
       tvShowsHeading: { role: heading, name: "My TV Shows", exact: true }
       videoGamesHeading: { role: heading, name: "My Video Games", exact: true }
+      watchNextHeading: { role: heading, name: "Watch next", exact: true }
       add: { role: button, name: "+ Add", exact: true }
       form: ".kt-form-card"
       title: { testid: "title-input" }
       year: { testid: "year-input" }
       save: { role: button, name: "Save", exact: true }
       detailTitle: ".kt-title-input"
-      movieLink: { role: link, name: "The Matrix", exact: true }
+      current: { role: button, name: "Current", exact: true }
+      # The list opens on the latest season, so the first row is episode 1 of the season tab selected
+      seasonOne: { role: button, name: "S01", exact: true }
+      firstEpisode: ":nth-match(.kt-episode-row input[type=checkbox], 1)"
+      watchlist: { role: button, name: "Watchlist", exact: true }
+      showCard: { text: "Severance" }
+      moviesTab: { role: button, name: "Movies" }
+      checkMatch: { role: button, name: "Check for reference match" }
+      linked: { text: "Linked!", exact: true }
+      movieCard: { text: "The Matrix" }
 
-# The add actions take the title and the year from the block that runs them, the named groups of its capture.
-# Sidebar navigation rather than a goto, so the list page arrives over a circuit already connected.
+# Sidebar navigation rather than a goto, so each page arrives over a circuit already connected.
 actions:
   tour.sign-in:
     page: app
@@ -41,18 +51,6 @@ actions:
       - click: signIn
       - waitFor: { target: videoGamesLink }
 
-  tour.add-movie:
-    page: app
-    steps:
-      - click: moviesLink
-      - waitFor: { target: moviesHeading }
-      - click: add
-      - waitFor: { target: form }
-      - fill: { target: title, value: "${title}" }
-      - fill: { target: year, value: "${year}" }
-      - click: save
-      - waitFor: { target: detailTitle }
-
   tour.add-tv-show:
     page: app
     steps:
@@ -60,10 +58,31 @@ actions:
       - waitFor: { target: tvShowsHeading }
       - click: add
       - waitFor: { target: form }
-      - fill: { target: title, value: "${title}" }
-      - fill: { target: year, value: "${year}" }
+      - fill: { target: title, value: "Severance" }
+      - fill: { target: year, value: "2022" }
       - click: save
       - waitFor: { target: detailTitle }
+
+  tour.watch-first-episode:
+    page: app
+    steps:
+      - click: current
+      - click: seasonOne
+      - waitFor: { target: firstEpisode }
+      - click: firstEpisode
+
+  tour.add-movie:
+    page: app
+    steps:
+      - click: moviesLink
+      - waitFor: { target: moviesHeading }
+      - click: add
+      - waitFor: { target: form }
+      - fill: { target: title, value: "The Matrix" }
+      - fill: { target: year, value: "1999" }
+      - click: save
+      - waitFor: { target: detailTitle }
+      - click: watchlist
 
   tour.add-video-game:
     page: app
@@ -72,17 +91,29 @@ actions:
       - waitFor: { target: videoGamesHeading }
       - click: add
       - waitFor: { target: form }
-      - fill: { target: title, value: "${title}" }
-      - fill: { target: year, value: "${year}" }
+      - fill: { target: title, value: "Hollow Knight" }
+      - fill: { target: year, value: "2007" }
       - click: save
       - waitFor: { target: detailTitle }
 
-checks:
-  tour.movie-listed:
+  # The year is saved when its field loses focus, which Tab does.
+  tour.fix-video-game-year:
     page: app
     steps:
-      - click: moviesLink
-      - expect:
-          target: movieLink
-          toBeVisible: true
-          hint: 'No movie yet: sign in, then run the block adding one.'
+      - fill: { target: year, value: "2017" }
+      - press: { target: year, key: "Tab" }
+      - click: checkMatch
+      - expect: { target: linked, toBeVisible: true, hint: "No link yet: set the year to 2017, then check again." }
+
+  tour.watch-next:
+    page: app
+    steps:
+      - click: watchNextLink
+      - waitFor: { target: watchNextHeading }
+      - expect: { target: showCard, toBeVisible: true, hint: "Severance is not in Watch next: add it and tick its first episode." }
+
+  tour.watch-next-movies:
+    page: app
+    steps:
+      - click: moviesTab
+      - expect: { target: movieCard, toBeVisible: true, hint: "The Matrix is not in Watch next: add it to the watchlist." }

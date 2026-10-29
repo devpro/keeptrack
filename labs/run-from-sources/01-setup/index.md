@@ -1,12 +1,10 @@
 # Setup
 
 Keeptrack needs three tools to run from its sources: Git, the .NET SDK and MongoDB.
-They are installed in the container that has just been created for this lab.
+We start by installing them in the container that has just been created for this lab.
 
 > [!NOTE]
-> These steps are shown on purpose, so nothing is done by "magic" and this lab can be reproduced on any Linux machine.
-> The lab runs Debian 12 as a user with no administrator rights, so every tool goes to the home directory.
-> A terminal opened later starts a new shell, so every change to the environment is also written to `~/.bashrc`.
+> The lab runs Debian 12 as a user with no administrator rights and this lab can be reproduced on any Linux machine.
 
 ## Git
 
@@ -96,9 +94,8 @@ Without administrator rights, the documented way is the official `dotnet-install
 
 ## MongoDB
 
-Keeptrack stores everything in MongoDB.
-`compose.yaml` runs it in a container, which needs Docker, and a lab container has none.
-The repository's other documented way is a local `mongod`, with `mongosh` to create the indexes: both are archives MongoDB publishes, checked against their SHA-256.
+Keeptrack stores the data in a MongoDB database.
+As we run the lab in a container, we'll use a local `mongod`, with `mongosh` to create the indexes: both are archives MongoDB publishes, checked against their SHA-256.
 
 1. Download MongoDB Community Server and the MongoDB Shell, check them, and unpack them:
 

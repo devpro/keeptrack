@@ -36,7 +36,6 @@ Each application runs with the `http` profile of its `Properties/launchSettings.
    <!-- verify: timeout=180 expect="Healthy" -->
 
    ```bash exec
-   cd ~/keeptrack && \
    nohup dotnet run --project src/BlazorApp --launch-profile http --no-build > ~/blazorapp.log 2>&1 &
    wget -qO- --retry-connrefused --tries=120 --waitretry=1 "${BLAZORAPP_URL}/healthz"; echo
    ```

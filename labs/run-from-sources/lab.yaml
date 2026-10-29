@@ -36,10 +36,9 @@ env:
   BLAZORAPP_URL: http://localhost:5207
   # The account the guided tour signs in with, any email being accepted by local authentication
   DEMO_EMAIL: ada.lovelace@example.com
-# The reference data providers, each optional: a missing one leaves the items of its type unlinked.
+# The reference data providers: TMDB is required, since the tour ticks the episodes it lists, and a missing other one leaves the items of its type unlinked.
 secrets:
   - name: TMDB_APIKEY
-    optional: true
     description: TMDB v3 API key, for movies and TV shows
   - name: OMDB_APIKEY
     optional: true

@@ -48,7 +48,6 @@ Without Firebase variables, they sign in with local authentication: a signing ke
    <!-- verify: timeout=600 expect="failed: 0" -->
 
    ```bash exec
-   cd ~/keeptrack && \
    TEST_AUTHENTICATION_MODE=local \
    Infrastructure__MongoDB__ConnectionString=mongodb://localhost:27017 \
    Infrastructure__MongoDB__DatabaseName=keeptrack_integrationtests \
