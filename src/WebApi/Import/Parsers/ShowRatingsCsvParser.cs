@@ -1,14 +1,15 @@
 using CsvHelper;
-using CsvHelper.Configuration.Attributes;
+using Keeptrack.Domain.Services;
 
 namespace Keeptrack.WebApi.Import.Parsers;
 
-public class ShowRatingRecord
+[CsvRecord]
+public partial class ShowRatingRecord
 {
-    [Name("tv_show_id")]
+    [CsvColumn("tv_show_id")]
     public required string TvShowId { get; set; }
 
-    [Name("rating")]
+    [CsvColumn("rating")]
     public required float Rating { get; set; }
 }
 
@@ -19,8 +20,6 @@ public static class ShowRatingsCsvParser
 {
     public static List<ShowRatingRecord> Parse(Stream csvStream)
     {
-        using var reader = new StreamReader(csvStream);
-        using var csv = new CsvReader(reader, TvTimeCsvConfiguration.Instance);
-        return csv.GetRecords<ShowRatingRecord>().ToList();
+        return ImportCsv.ReadRecords<ShowRatingRecord>(csvStream);
     }
 }

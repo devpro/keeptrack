@@ -1,15 +1,16 @@
 using System.Text.RegularExpressions;
 using CsvHelper;
-using CsvHelper.Configuration.Attributes;
+using Keeptrack.Domain.Services;
 
 namespace Keeptrack.WebApi.Import.Parsers;
 
-internal class ListRowRecord
+[CsvRecord]
+internal partial class ListRowRecord
 {
-    [Name("s_key")]
+    [CsvColumn("s_key")]
     public string? SKey { get; set; }
 
-    [Name("objects")]
+    [CsvColumn("objects")]
     public string? Objects { get; set; }
 }
 
@@ -24,9 +25,7 @@ public static partial class FavoriteMoviesListParser
 
     public static HashSet<string> Parse(Stream csvStream)
     {
-        using var reader = new StreamReader(csvStream);
-        using var csv = new CsvReader(reader, TvTimeCsvConfiguration.Instance);
-        var objectsField = csv.GetRecords<ListRowRecord>()
+        var objectsField = ImportCsv.ReadRecords<ListRowRecord>(csvStream)
             .FirstOrDefault(row => row.SKey == FavoriteMoviesSKey)
             ?.Objects;
         return ParseObjectsField(objectsField);

@@ -60,4 +60,4 @@ Everything below was confirmed against real export data.
 - `UpsertIndex<TModel>` matches by `TvTimeId`, falls back to the title only for a record with no id yet (back-filled once by `BackfillTvTimeIdAsync`), and leaves a record with a different id alone.
 - **A matched record is never modified**, so edits made in the app survive a re-import.
 
-**Gotcha:** a CSV property missing from some files' headers needs CsvHelper's `[Optional]` on top of being nullable, or header validation throws.
+**Gotcha:** a CSV property missing from some files' headers needs `Optional = true` on its `[CsvColumn]` on top of being nullable, or CsvHelper throws on the missing column.

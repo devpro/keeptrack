@@ -3,10 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text;
 using CsvHelper;
-using CsvHelper.Configuration;
-using CsvHelper.Configuration.Attributes;
 using Keeptrack.Domain.Models;
 
 namespace Keeptrack.Domain.Services;
@@ -20,79 +17,60 @@ namespace Keeptrack.Domain.Services;
 /// case-insensitive column set, all optional except the title, that the user reshapes an export into.
 /// A "Type" column, when present, sets each row's media type, which prefills the per-row picker.
 /// </summary>
-public static class GenericImportService
+public static partial class GenericImportService
 {
-    private sealed class GenericImportRecord
+    [CsvRecord]
+    internal sealed partial class GenericImportRecord
     {
         // the one required column, with the common retailer header as an alias
-        [Name("Title", "Product Name")]
+        [CsvColumn("Title", "Product Name")]
         public required string Title { get; set; }
 
-        [Optional]
-        [Name("Type")]
+        [CsvColumn("Type", Optional = true)]
         public string? Type { get; set; }
 
-        [Optional]
-        [Name("Order Date", "Date")]
+        [CsvColumn("Order Date", "Date", Optional = true)]
         public string? OrderDate { get; set; }
 
-        [Optional]
-        [Name("Order ID", "Order Id")]
+        [CsvColumn("Order ID", "Order Id", Optional = true)]
         public string? OrderId { get; set; }
 
-        [Optional]
-        [Name("Product Id", "Product ID", "ASIN", "SKU")]
+        [CsvColumn("Product Id", "Product ID", "ASIN", "SKU", Optional = true)]
         public string? ProductId { get; set; }
 
-        [Optional]
-        [Name("Price", "Total Amount", "Amount")]
+        [CsvColumn("Price", "Total Amount", "Amount", Optional = true)]
         public string? Price { get; set; }
 
         // the store name, which becomes the copy's Vendor only, unlike Website, which feeds its Reference
-        [Optional]
-        [Name("Vendor", "Store")]
+        [CsvColumn("Vendor", "Store", Optional = true)]
         public string? Vendor { get; set; }
 
         // free-text label (product or order URL, seller) for the copy's Reference, never its Vendor
-        [Optional]
-        [Name("Website")]
+        [CsvColumn("Website", Optional = true)]
         public string? Website { get; set; }
 
-        [Optional]
-        [Name("Author")]
+        [CsvColumn("Author", Optional = true)]
         public string? Author { get; set; }
 
-        [Optional]
-        [Name("Platform")]
+        [CsvColumn("Platform", Optional = true)]
         public string? Platform { get; set; }
 
-        [Optional]
-        [Name("Year")]
+        [CsvColumn("Year", Optional = true)]
         public string? Year { get; set; }
 
-        [Optional]
-        [Name("Condition", "Product Condition")]
+        [CsvColumn("Condition", "Product Condition", Optional = true)]
         public string? Condition { get; set; }
 
-        [Optional]
-        [Name("ISBN")]
+        [CsvColumn("ISBN", Optional = true)]
         public string? Isbn { get; set; }
 
-        [Optional]
-        [Name("Copy", "Format")]
+        [CsvColumn("Copy", "Format", Optional = true)]
         public string? Copy { get; set; }
     }
 
-    private static readonly CsvConfiguration s_csvConfiguration = new(CultureInfo.InvariantCulture)
-    {
-        PrepareHeaderForMatch = args => args.Header.Trim().ToLowerInvariant()
-    };
-
     public static List<GenericImportPreviewRow> BuildPreview(Stream csvStream, IReadOnlySet<string> alreadyImportedReferences)
     {
-        using var reader = new StreamReader(csvStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
-        using var csv = new CsvReader(reader, s_csvConfiguration);
-        var records = csv.GetRecords<GenericImportRecord>().ToList();
+        var records = ImportCsv.ReadRecords<GenericImportRecord>(csvStream);
 
         return records.Select(record =>
         {

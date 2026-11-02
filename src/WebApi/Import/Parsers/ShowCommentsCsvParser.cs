@@ -1,17 +1,18 @@
 using CsvHelper;
-using CsvHelper.Configuration.Attributes;
+using Keeptrack.Domain.Services;
 
 namespace Keeptrack.WebApi.Import.Parsers;
 
-public class ShowCommentRecord
+[CsvRecord]
+public partial class ShowCommentRecord
 {
-    [Name("tv_show_id")]
+    [CsvColumn("tv_show_id")]
     public required string TvShowId { get; set; }
 
-    [Name("comment")]
+    [CsvColumn("comment")]
     public required string Comment { get; set; }
 
-    [Name("created_at")]
+    [CsvColumn("created_at")]
     public required DateTime CreatedAt { get; set; }
 }
 
@@ -23,8 +24,6 @@ public static class ShowCommentsCsvParser
 {
     public static List<ShowCommentRecord> Parse(Stream csvStream)
     {
-        using var reader = new StreamReader(csvStream);
-        using var csv = new CsvReader(reader, TvTimeCsvConfiguration.Instance);
-        return csv.GetRecords<ShowCommentRecord>().ToList();
+        return ImportCsv.ReadRecords<ShowCommentRecord>(csvStream);
     }
 }

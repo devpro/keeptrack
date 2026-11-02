@@ -3,10 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text;
 using CsvHelper;
-using CsvHelper.Configuration;
-using CsvHelper.Configuration.Attributes;
 using Keeptrack.Domain.Models;
 
 namespace Keeptrack.Domain.Services;
@@ -17,45 +14,39 @@ namespace Keeptrack.Domain.Services;
 /// Pure: bytes in, rows out, with no repository access, the caller computing <c>alreadyImportedReferences</c> so this tests without a database.
 /// Every row is a video game, unlike the Amazon import, which mixes media types.
 /// </summary>
-public static class GenericVideoGameImportService
+public static partial class GenericVideoGameImportService
 {
-    private sealed class VideoGameTransactionRecord
+    [CsvRecord]
+    internal sealed partial class VideoGameTransactionRecord
     {
-        [Name("Transaction Date")]
+        [CsvColumn("Transaction Date")]
         public required string TransactionDate { get; set; }
 
-        [Name("Game Name")]
+        [CsvColumn("Game Name")]
         public required string GameName { get; set; }
 
-        [Name("Product Name")]
+        [CsvColumn("Product Name")]
         public string? ProductName { get; set; }
 
-        [Name("Platform")]
+        [CsvColumn("Platform")]
         public required string Platform { get; set; }
 
-        [Name("Vendor")]
+        [CsvColumn("Vendor")]
         public required string Vendor { get; set; }
 
-        [Name("Transaction Id")]
+        [CsvColumn("Transaction Id")]
         public required string TransactionId { get; set; }
 
-        [Name("Order Id")]
+        [CsvColumn("Order Id")]
         public required string OrderId { get; set; }
 
-        [Name("Final Price (€)")]
+        [CsvColumn("Final Price (€)")]
         public string? FinalPrice { get; set; }
     }
 
-    private static readonly CsvConfiguration s_csvConfiguration = new(CultureInfo.InvariantCulture)
-    {
-        PrepareHeaderForMatch = args => args.Header.Trim().ToLowerInvariant()
-    };
-
     public static List<GenericVideoGameImportPreviewRow> BuildPreview(Stream csvStream, IReadOnlySet<string> alreadyImportedReferences)
     {
-        using var reader = new StreamReader(csvStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
-        using var csv = new CsvReader(reader, s_csvConfiguration);
-        var records = csv.GetRecords<VideoGameTransactionRecord>().ToList();
+        var records = ImportCsv.ReadRecords<VideoGameTransactionRecord>(csvStream);
 
         return records.Select(record => new GenericVideoGameImportPreviewRow
         {

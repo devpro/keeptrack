@@ -6,8 +6,6 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using CsvHelper;
-using CsvHelper.Configuration;
-using CsvHelper.Configuration.Attributes;
 using Keeptrack.Domain.Models;
 
 namespace Keeptrack.Domain.Services;
@@ -18,42 +16,36 @@ namespace Keeptrack.Domain.Services;
 /// The export has no category column, so this never decides whether an item is a book.
 /// <see cref="AmazonOrderPreviewRow.LooksLikeBook"/> only suggests it for the review UI's default filter, since a book's ASIN is usually its ISBN-10, and the user decides.
 /// </summary>
-public static class AmazonOrderPreviewService
+public static partial class AmazonOrderPreviewService
 {
-    private sealed class AmazonOrderRecord
+    [CsvRecord]
+    internal sealed partial class AmazonOrderRecord
     {
-        [Name("ASIN")]
+        [CsvColumn("ASIN")]
         public required string Asin { get; set; }
 
-        [Name("Order Date")]
+        [CsvColumn("Order Date")]
         public required string OrderDate { get; set; }
 
-        [Name("Order ID")]
+        [CsvColumn("Order ID")]
         public required string OrderId { get; set; }
 
-        [Name("Product Name")]
+        [CsvColumn("Product Name")]
         public required string ProductName { get; set; }
 
-        [Name("Product Condition")]
+        [CsvColumn("Product Condition")]
         public string? ProductCondition { get; set; }
 
-        [Name("Total Amount")]
+        [CsvColumn("Total Amount")]
         public string? TotalAmount { get; set; }
 
-        [Name("Website")]
+        [CsvColumn("Website")]
         public string? Website { get; set; }
     }
 
-    private static readonly CsvConfiguration s_csvConfiguration = new(CultureInfo.InvariantCulture)
-    {
-        PrepareHeaderForMatch = args => args.Header.Trim().ToLowerInvariant()
-    };
-
     public static List<AmazonOrderPreviewRow> BuildPreview(Stream csvStream, IReadOnlySet<string> alreadyImportedReferences)
     {
-        using var reader = new StreamReader(csvStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
-        using var csv = new CsvReader(reader, s_csvConfiguration);
-        var records = csv.GetRecords<AmazonOrderRecord>().ToList();
+        var records = ImportCsv.ReadRecords<AmazonOrderRecord>(csvStream);
 
         return records.Select(record =>
         {

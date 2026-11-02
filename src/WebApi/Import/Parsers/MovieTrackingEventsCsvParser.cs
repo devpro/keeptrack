@@ -1,4 +1,5 @@
 using CsvHelper;
+using Keeptrack.Domain.Services;
 
 namespace Keeptrack.WebApi.Import.Parsers;
 
@@ -24,17 +25,14 @@ public static class MovieTrackingEventsCsvParser
 {
     public static List<MovieTrackingEventRecord> Parse(Stream csvStream)
     {
-        using var reader = new StreamReader(csvStream);
-        using var csv = new CsvReader(reader, TvTimeCsvConfiguration.Instance);
-        csv.Read();
-        csv.ReadHeader();
+        using var csv = ImportCsv.Open(csvStream);
 
         var records = new List<MovieTrackingEventRecord>();
         while (csv.Read())
         {
-            if (csv.GetField("entity_type") != "movie") continue;
+            if (csv.GetString("entity_type") != "movie") continue;
 
-            var eventType = csv.GetField("type") switch
+            var eventType = csv.GetString("type") switch
             {
                 "watch" => MovieTrackingEventType.Watched,
                 "towatch" => MovieTrackingEventType.WantToWatch,
@@ -43,10 +41,10 @@ public static class MovieTrackingEventsCsvParser
             };
             if (eventType is null) continue;
 
-            var movieName = csv.GetField("movie_name");
+            var movieName = csv.GetString("movie_name");
             if (string.IsNullOrEmpty(movieName)) continue;
 
-            records.Add(new MovieTrackingEventRecord(movieName, eventType.Value, csv.GetField<DateTime>("created_at"), csv.GetField("uuid")));
+            records.Add(new MovieTrackingEventRecord(movieName, eventType.Value, csv.Parse<DateTime>("created_at"), csv.GetString("uuid")));
         }
 
         return records;

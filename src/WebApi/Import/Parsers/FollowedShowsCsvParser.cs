@@ -1,14 +1,15 @@
 using CsvHelper;
-using CsvHelper.Configuration.Attributes;
+using Keeptrack.Domain.Services;
 
 namespace Keeptrack.WebApi.Import.Parsers;
 
-public class FollowedShowRecord
+[CsvRecord]
+public partial class FollowedShowRecord
 {
-    [Name("tv_show_id")]
+    [CsvColumn("tv_show_id")]
     public required string TvShowId { get; set; }
 
-    [Name("tv_show_name")]
+    [CsvColumn("tv_show_name")]
     public required string Title { get; set; }
 }
 
@@ -19,8 +20,6 @@ public static class FollowedShowsCsvParser
 {
     public static List<FollowedShowRecord> Parse(Stream csvStream)
     {
-        using var reader = new StreamReader(csvStream);
-        using var csv = new CsvReader(reader, TvTimeCsvConfiguration.Instance);
-        return csv.GetRecords<FollowedShowRecord>().ToList();
+        return ImportCsv.ReadRecords<FollowedShowRecord>(csvStream);
     }
 }

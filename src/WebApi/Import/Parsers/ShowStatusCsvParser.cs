@@ -1,17 +1,18 @@
 using CsvHelper;
-using CsvHelper.Configuration.Attributes;
+using Keeptrack.Domain.Services;
 
 namespace Keeptrack.WebApi.Import.Parsers;
 
-public class ShowStatusRecord
+[CsvRecord]
+public partial class ShowStatusRecord
 {
-    [Name("tv_show_id")]
+    [CsvColumn("tv_show_id")]
     public required string TvShowId { get; set; }
 
     /// <summary>
     /// TV Time status value, such as "favorite" or "for_later".
     /// </summary>
-    [Name("status")]
+    [CsvColumn("status")]
     public required string Status { get; set; }
 }
 
@@ -24,8 +25,6 @@ public static class ShowStatusCsvParser
 
     public static List<ShowStatusRecord> Parse(Stream csvStream)
     {
-        using var reader = new StreamReader(csvStream);
-        using var csv = new CsvReader(reader, TvTimeCsvConfiguration.Instance);
-        return csv.GetRecords<ShowStatusRecord>().ToList();
+        return ImportCsv.ReadRecords<ShowStatusRecord>(csvStream);
     }
 }

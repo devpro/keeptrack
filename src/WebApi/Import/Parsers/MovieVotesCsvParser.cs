@@ -1,14 +1,15 @@
 using CsvHelper;
-using CsvHelper.Configuration.Attributes;
+using Keeptrack.Domain.Services;
 
 namespace Keeptrack.WebApi.Import.Parsers;
 
-public class MovieVoteRecord
+[CsvRecord]
+public partial class MovieVoteRecord
 {
-    [Name("uuid")]
+    [CsvColumn("uuid")]
     public required string Uuid { get; set; }
 
-    [Name("movie_name")]
+    [CsvColumn("movie_name")]
     public required string MovieName { get; set; }
 }
 
@@ -24,8 +25,7 @@ public static class MovieVotesCsvParser
 {
     public static List<MovieVoteRecord> Parse(Stream csvStream)
     {
-        using var reader = new StreamReader(csvStream);
-        using var csv = new CsvReader(reader, TvTimeCsvConfiguration.Instance);
+        using var csv = ImportCsv.Open(csvStream);
         return csv.GetRecords<MovieVoteRecord>()
             .Where(record => !string.IsNullOrWhiteSpace(record.MovieName))
             .ToList();

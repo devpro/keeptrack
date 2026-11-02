@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using AwesomeAssertions;
 using Keeptrack.Domain.Models;
@@ -116,6 +117,47 @@ public class GenericImportServiceTest
 
         rows[0].Title.Should().Be("Some Item");
         rows[0].SuggestedMediaType.Should().BeNull();
+    }
+
+    [Fact]
+    public void BuildPreview_MatchesAHeaderWhateverItsCaseAndSurroundingSpaces()
+    {
+        const string csv = """
+                           TITLE , vendor
+                           Some Item,Rakuten
+                           """;
+
+        var rows = GenericImportService.BuildPreview(ToStream(csv), new HashSet<string>());
+
+        rows[0].Title.Should().Be("Some Item");
+        rows[0].Vendor.Should().Be("Rakuten");
+    }
+
+    [Fact]
+    public void BuildPreview_Throws_WhenTheTitleColumnIsMissing()
+    {
+        const string csv = """
+                           Vendor,Type
+                           Rakuten,Book
+                           """;
+
+        var buildPreview = () => GenericImportService.BuildPreview(ToStream(csv), new HashSet<string>());
+
+        buildPreview.Should().Throw<Exception>();
+    }
+
+    [Fact]
+    public void BuildPreview_KeepsSemicolonsInsideAField_SinceTheSeparatorIsAlwaysAComma()
+    {
+        const string csv = """
+                           Title
+                           Asterix; Obelix; Idefix
+                           Tintin; Milou
+                           """;
+
+        var rows = GenericImportService.BuildPreview(ToStream(csv), new HashSet<string>());
+
+        rows.Select(row => row.Title).Should().Equal("Asterix; Obelix; Idefix", "Tintin; Milou");
     }
 
     [Fact]

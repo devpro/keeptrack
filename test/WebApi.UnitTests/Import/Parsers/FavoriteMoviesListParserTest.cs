@@ -8,6 +8,20 @@ namespace Keeptrack.WebApi.UnitTests.Import.Parsers;
 public class FavoriteMoviesListParserTest
 {
     [Fact]
+    public void Parse_ReadsTheMovieUuidsOfTheFavoriteMoviesRowOnly()
+    {
+        const string csv = """
+                           s_key,name,objects
+                           watchlist,Watchlist,[map[created_at:1.5e+09 type:movie uuid:aaaaaaaa-0000-0000-0000-000000000001]]
+                           favorite-movies,"Favorite, Movies","[map[created_at:1.566819863e+09 type:movie uuid:1be8d227-5d39-4561-8dfa-7520b8c51d0f] map[created_at:1.563396726e+09 id:70761 type:series]]"
+                           """;
+
+        var result = FavoriteMoviesListParser.Parse(CsvTestHelper.ToStream(csv));
+
+        result.Should().BeEquivalentTo(["1be8d227-5d39-4561-8dfa-7520b8c51d0f"]);
+    }
+
+    [Fact]
     public void ParseObjectsField_ExtractsOnlyMovieUuids()
     {
         const string objectsField = "[map[created_at:1.566819863e+09 type:movie uuid:1be8d227-5d39-4561-8dfa-7520b8c51d0f] " +

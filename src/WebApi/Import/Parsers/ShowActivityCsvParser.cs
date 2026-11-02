@@ -1,17 +1,18 @@
 using CsvHelper;
-using CsvHelper.Configuration.Attributes;
+using Keeptrack.Domain.Services;
 
 namespace Keeptrack.WebApi.Import.Parsers;
 
-public class ShowActivityRecord
+[CsvRecord]
+public partial class ShowActivityRecord
 {
-    [Name("tv_show_id")]
+    [CsvColumn("tv_show_id")]
     public required string TvShowId { get; set; }
 
     /// <summary>
     /// TV Time's count of episodes seen for this show, including those marked by bulk or season actions, which get no row in seen_episode_source.csv.
     /// </summary>
-    [Name("nb_episodes_seen")]
+    [CsvColumn("nb_episodes_seen")]
     public required int EpisodesSeenCount { get; set; }
 }
 
@@ -22,8 +23,6 @@ public static class ShowActivityCsvParser
 {
     public static List<ShowActivityRecord> Parse(Stream csvStream)
     {
-        using var reader = new StreamReader(csvStream);
-        using var csv = new CsvReader(reader, TvTimeCsvConfiguration.Instance);
-        return csv.GetRecords<ShowActivityRecord>().ToList();
+        return ImportCsv.ReadRecords<ShowActivityRecord>(csvStream);
     }
 }
