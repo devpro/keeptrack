@@ -1,0 +1,20 @@
+# Vulnerabilities left out of the image scan, each until the day it counts again.
+
+vulnerabilities:
+  # The fix is the 10.0.15 runtime, which registry.suse.com/bci/dotnet-aspnet does not publish yet.
+  - id: CVE-2026-114146
+    statement: ASP.NET Core 10.0.14 runtime of the BCI base image, fixed in 10.0.15, not yet published by SUSE
+    expired_at: 2026-11-19
+  - id: CVE-2026-114147
+    statement: ASP.NET Core 10.0.14 runtime of the BCI base image, fixed in 10.0.15, not yet published by SUSE
+    expired_at: 2026-11-19
+  - id: CVE-2026-114149
+    statement: ASP.NET Core 10.0.14 runtime of the BCI base image, fixed in 10.0.15, not yet published by SUSE
+    expired_at: 2026-11-19
+  # The fixed packages reach the image only through a rebuild of the BCI base image.
+  - id: SUSE-SU-2026:5068-1
+    statement: curl and libcurl4 of the BCI base image, fixed upstream, not yet in a rebuilt image
+    expired_at: 2026-11-19
+  - id: SUSE-SU-2026:4945-1
+    statement: brotli of the BCI base image, fixed upstream, not yet in a rebuilt image
+    expired_at: 2026-11-19
