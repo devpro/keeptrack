@@ -3,9 +3,9 @@
 runner:
   image: ghcr.io/devpro/ubuntu-dotnet:latest
   images:
-    "git-check*": ghcr.io/devpro/debian-node:latest
-    "markup-lint*": ghcr.io/devpro/debian-node:latest
-    "image-scan*": ghcr.io/devpro/debian-node:latest
+    "git-check*": ghcr.io/devpro/ubuntu-node:latest
+    "markup-lint*": ghcr.io/devpro/ubuntu-node:latest
+    "image-scan*": ghcr.io/devpro/ubuntu-node:latest
   # The scan jobs build an image and scan it through the host Docker daemon.
   docker: ["image-scan*"]
   # The analysis runs against the SonarQube IstarCI starts on this machine, with a token made there.
