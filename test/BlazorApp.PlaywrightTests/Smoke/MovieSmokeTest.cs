@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Keeptrack.BlazorApp.PlaywrightTests.Hosting;
 using Keeptrack.BlazorApp.PlaywrightTests.Pages;
+using Keeptrack.Testing.Shared.Providers;
 using Keeptrack.WebApi.Contracts.Dto;
 using Microsoft.Playwright;
 using Xunit;
@@ -20,6 +21,7 @@ public partial class MovieSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixt
     private const string Year = "1984";
 
     [Fact]
+    [LiveProvider]
     public async Task AddLinkAndDelete_MovieThroughTheList()
     {
         SkipIfReadOnly();

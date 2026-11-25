@@ -1,6 +1,7 @@
 using System.Threading.Tasks;
 using Keeptrack.BlazorApp.PlaywrightTests.Hosting;
 using Keeptrack.BlazorApp.PlaywrightTests.Pages;
+using Keeptrack.Testing.Shared.Providers;
 using Microsoft.Playwright;
 using Xunit;
 
@@ -31,6 +32,7 @@ public class WatchNextSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
     private const string MovieYear = "1988";
 
     [Fact]
+    [LiveProvider]
     public async Task WatchNext_ShowsConfirmedNextEpisodeAndWishlistedMovie()
     {
         SkipIfReadOnly();

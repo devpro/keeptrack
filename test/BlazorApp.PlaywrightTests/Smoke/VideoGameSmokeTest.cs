@@ -1,6 +1,7 @@
 using System.Threading.Tasks;
 using Keeptrack.BlazorApp.PlaywrightTests.Hosting;
 using Keeptrack.BlazorApp.PlaywrightTests.Pages;
+using Keeptrack.Testing.Shared.Providers;
 using Microsoft.Playwright;
 using Xunit;
 
@@ -17,6 +18,7 @@ public class VideoGameSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
     private const string Year = "2004";
 
     [Fact]
+    [LiveProvider]
     public async Task AddLinkAndDelete_VideoGameThroughTheList()
     {
         SkipIfReadOnly();

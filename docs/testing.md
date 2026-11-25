@@ -33,6 +33,7 @@ Mapper validation is compile-time (Mapperly diagnostics), not a test.
   except the opt-in `ReferenceSyncPollingResourceTest` (`REFERENCE_SYNC_POLL_ENABLED`).
 - **A run calls no live provider unless `TEST_LIVE_PROVIDERS=true`** (`LiveProviders`): the tests marked `[LiveProvider]` skip, and `LoopbackOnlyHandler` refuses any other request leaving the machine, which `OutboundCallResourceTest` proves.
   A host runs as `Development`, so on a workstation it reads the keys of `appsettings.Development.json` by itself, and blank variables would not be enough.
+  A reference an earlier run linked stays in the long-lived databases and can stand in for the provider, so only a fresh database proves a test needs none, as each IstarCI run has.
 - `CancellationTokenPropagationTest` proves the generic CRUD path cancels a real MongoDB call.
 
 ## End-to-end tests
