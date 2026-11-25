@@ -72,7 +72,7 @@ jobs:
         Infrastructure__MongoDB__ConnectionString=mongodb://localhost:27017
         Infrastructure__MongoDB__DatabaseName=keeptrack_ci
         Logging__LogLevel__Keeptrack=Debug
-        TEST_LIVE_PROVIDERS=${{ vars.TEST_LIVE_PROVIDERS || 'true' }}
+        TEST_LIVE_PROVIDERS=${{ vars.TEST_LIVE_PROVIDERS != 'false' }}
       fossa-enabled: ${{ vars.FOSSA_ENABLED != 'false' }}
       mongodb-enabled: true
       sonar-enabled: true

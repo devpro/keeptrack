@@ -53,7 +53,7 @@ The GitHub pipeline sets none of these variables, so it runs what it did.
 - `E2E_ENABLED`: the end-to-end suite, which also makes `ci.yaml` run `scripts/prepare_e2e.sh` for the indexes and the browser.
 - `TEST_AUTHENTICATION_MODE=local`: the Firebase secrets are placeholders.
 
-The tests whose subject is a live provider skip, `TEST_LIVE_PROVIDERS` being `false` under `vars:`, where `ci.yaml` defaults it to `true`.
+The tests whose subject is a live provider skip, `TEST_LIVE_PROVIDERS` being `false` under `vars:`, which `ci.yaml` reads with `!= 'false'`, since IstarCI's `||` takes the string `false` for a false value, unlike GitHub.
 The job gets a clone of the commit, so neither `Local.runsettings` nor `appsettings.Development.json`, both gitignored, is in it.
 
 A pipeline IstarCI reads wrongly is reported in `devpro/istarci`, with the workflow file and the job concerned.
