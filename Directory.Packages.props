@@ -40,6 +40,8 @@
     <PackageVersion Include="SystemTextJson.JsonDiffPatch" Version="2.0.0" />
     <PackageVersion Include="Withywoods.AspNetCore.Mvc.Testing" Version="2.0.5" />
     <PackageVersion Include="Withywoods.Configuration" Version="2.0.5" />
+    <PackageVersion Include="xunit.v3.assert" Version="4.0.3" />
+    <PackageVersion Include="xunit.v3.extensibility.core" Version="4.0.3" />
     <PackageVersion Include="xunit.v3.mtp-v2" Version="4.0.3" />
   </ItemGroup>
 </Project>

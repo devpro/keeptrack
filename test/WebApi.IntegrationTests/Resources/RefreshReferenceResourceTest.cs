@@ -7,6 +7,7 @@ using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.Infrastructure.MongoDb.Entities;
+using Keeptrack.Testing.Shared.Providers;
 using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.IntegrationTests.Hosting;
 using Microsoft.Extensions.DependencyInjection;
@@ -58,6 +59,7 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
     }
 
     [Fact]
+    [LiveProvider]
     public async Task RefreshReference_LeavesTvShowUnresolved_WhenNoMatchingReferenceExists()
     {
         await Authenticate();
@@ -215,6 +217,7 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
     [Theory]
     [InlineData("code vein season pass", 2019)]
     [InlineData("Resident Evil 2", 2019)]
+    [LiveProvider]
     public async Task CreatingAVideoGame_LinksItAutomatically_WhenTitleAndYearIdentifyExactlyOneGame(string title, int year)
     {
         await Authenticate();
@@ -281,6 +284,7 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
     /// </para>
     /// </summary>
     [Fact]
+    [LiveProvider]
     public async Task RefreshReference_LinksVideoGameThroughTheProvider_WhenNoReferenceExistsYetAndTitleAndYearMatchExactly()
     {
         // a different game from the create case above, so neither can supply the other's reference and make it pass through the local path
@@ -303,6 +307,7 @@ public class RefreshReferenceResourceTest(KestrelWebAppFactory<Program> factory)
     /// "Resident Evil 2" is eight games on IGDB.
     /// </summary>
     [Fact]
+    [LiveProvider]
     public async Task RefreshReference_LeavesVideoGameUnresolved_WhenNoYearIsGivenAndSeveralGamesShareTheTitle()
     {
         await Authenticate();

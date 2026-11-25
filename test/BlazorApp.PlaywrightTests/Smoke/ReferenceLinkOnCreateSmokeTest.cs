@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Keeptrack.BlazorApp.PlaywrightTests.Hosting;
 using Keeptrack.BlazorApp.PlaywrightTests.Pages;
+using Keeptrack.Testing.Shared.Providers;
 using Microsoft.Playwright;
 using Xunit;
 
@@ -22,6 +23,7 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 /// </remarks>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]
+[LiveProvider]
 public class ReferenceLinkOnCreateSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 {
     /// <summary>

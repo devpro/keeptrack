@@ -26,18 +26,35 @@ Setup is in [CONTRIBUTING.md](../CONTRIBUTING.md#continuous-integration).
 
 `.istarci.yml` sets the image of each job:
 
-Job            | Image                          | Workflow
----------------|--------------------------------|----------------------------
-`git-check`    | `ghcr.io/devpro/debian-node`   | The local reusable workflow
-`markup-lint`  | `ghcr.io/devpro/debian-node`   | `github-workflow-parts`
-`code-quality` | `ghcr.io/devpro/ubuntu-dotnet` | `github-workflow-parts`
-`image-scan`   | `ghcr.io/devpro/debian-node`   | `github-workflow-parts`
+Job            | Image                                     | Workflow
+---------------|-------------------------------------------|----------------------------
+`git-check`    | `ghcr.io/devpro/ubuntu-node`              | The local reusable workflow
+`markup-lint`  | `ghcr.io/devpro/ubuntu-node`              | `github-workflow-parts`
+`code-quality` | `ghcr.io/devpro/ubuntu-dotnet-playwright` | `github-workflow-parts`
+`image-scan`   | `ghcr.io/devpro/ubuntu-node`              | `github-workflow-parts`
 
 - `runner.docker: true` gives the jobs the host Docker socket, which the image scans build with.
 - `pkg.yaml` is excluded, since it publishes.
 - `.gitlab-ci.yml` is not read, the GitHub workflows taking precedence, unless `workflow.provider: gitlab` is set.
 - The repository sits on `/mnt/c`, which IstarCI polls rather than watches, with nothing to configure.
-- The Sonar steps fail locally on the `istarci-secret-SONAR_TOKEN` placeholder, since a local run holds no credentials.
+- The Sonar analysis runs against the SonarQube of the machine, and its quality gate fails the job.
+
+### No secret reaches a local run
+
+IstarCI holds no credential by design, and nothing works around it: no key in `.istarci.yml`, in the machine's `config.yml`, in an image or in a mounted file.
+What a local run adds over GitHub is heavy testing against services started in the job, with values generated for the run.
+A test that cannot use a stand-in skips.
+
+### Every suite runs locally
+
+`env:` in `.istarci.yml` turns the integration and end-to-end suites on, for the local runs only.
+The GitHub pipeline sets none of these variables, so it runs what it did.
+
+- `E2E_ENABLED`: the end-to-end suite, which also makes `ci.yaml` run `scripts/prepare_e2e.sh` for the indexes and the browser.
+- `TEST_AUTHENTICATION_MODE=local`: the Firebase secrets are placeholders.
+
+The tests whose subject is a live provider skip, `TEST_LIVE_PROVIDERS` being `false` under `vars:`, where `ci.yaml` defaults it to `true`.
+The job gets a clone of the commit, so neither `Local.runsettings` nor `appsettings.Development.json`, both gitignored, is in it.
 
 A pipeline IstarCI reads wrongly is reported in `devpro/istarci`, with the workflow file and the job concerned.
 

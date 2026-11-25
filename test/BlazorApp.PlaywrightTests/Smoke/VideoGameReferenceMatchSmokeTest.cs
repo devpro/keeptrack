@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using AwesomeAssertions;
 using Keeptrack.BlazorApp.PlaywrightTests.Hosting;
 using Keeptrack.BlazorApp.PlaywrightTests.Pages;
+using Keeptrack.Testing.Shared.Providers;
 using Keeptrack.WebApi.Contracts.Dto;
 using Xunit;
 
@@ -34,6 +35,7 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 /// </remarks>
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Mutating")]
+[LiveProvider]
 public class VideoGameReferenceMatchSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 {
     private const string BaseTitle = "Code Vein";

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using Keeptrack.Testing.Shared.Providers;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -42,6 +43,12 @@ public class KestrelWebAppFactory<TEntryPoint> : WebApplicationFactory<TEntryPoi
         if (_configOverrides.Length > 0)
         {
             builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(_configOverrides));
+        }
+
+        if (!LiveProviders.Enabled)
+        {
+            builder.ConfigureServices(services => services.ConfigureHttpClientDefaults(client =>
+                client.ConfigurePrimaryHttpMessageHandler(() => new LoopbackOnlyHandler())));
         }
 
         base.ConfigureWebHost(builder);

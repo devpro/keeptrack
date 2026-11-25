@@ -31,6 +31,8 @@ Mapper validation is compile-time (Mapperly diagnostics), not a test.
   Searching the provider again afterwards proves nothing during a partial outage, when some calls succeed.
 - **A test that starts a background job must not let it do real work**: the `sync-now` tests use `ProviderlessWebAppFactory` (every provider credential blanked),
   except the opt-in `ReferenceSyncPollingResourceTest` (`REFERENCE_SYNC_POLL_ENABLED`).
+- **A run calls no live provider unless `TEST_LIVE_PROVIDERS=true`** (`LiveProviders`): the tests marked `[LiveProvider]` skip, and `LoopbackOnlyHandler` refuses any other request leaving the machine, which `OutboundCallResourceTest` proves.
+  A host runs as `Development`, so on a workstation it reads the keys of `appsettings.Development.json` by itself, and blank variables would not be enough.
 - `CancellationTokenPropagationTest` proves the generic CRUD path cancels a real MongoDB call.
 
 ## End-to-end tests

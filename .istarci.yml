@@ -4,6 +4,11 @@ runner:
     "git-check*": ghcr.io/devpro/ubuntu-node:latest
     "markup-lint*": ghcr.io/devpro/ubuntu-node:latest
     "image-scan*": ghcr.io/devpro/ubuntu-node:latest
+    # the end-to-end tests drive Chromium, whose system libraries the job cannot install as an ordinary user
+    "code-quality*": ghcr.io/devpro/ubuntu-dotnet-playwright:latest
+  # MongoDB, both applications, Chromium and the Sonar analysis share the job
+  cpus: 8
+  memory: 8g
   docker: ["image-scan*"]
   sonarqube:
     gate: true
@@ -26,4 +31,9 @@ vars:
   SONAR_ORG: local
   SONAR_PROJECT_KEY: keeptrack
   CONTAINER_REGISTRY_PATH: devprofr
-  DOTNET_TEST_EXTRA_ARGS: --filter-not-namespace Keeptrack.WebApi.IntegrationTests* --ignore-exit-code 8
+  TEST_LIVE_PROVIDERS: "false"
+
+# every suite runs here, with the local authentication and no live provider: no secret ever reaches a local run
+env:
+  E2E_ENABLED: "true"
+  TEST_AUTHENTICATION_MODE: local

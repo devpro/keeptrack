@@ -6,6 +6,7 @@ using AwesomeAssertions;
 using Keeptrack.Common.System;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
+using Keeptrack.Testing.Shared.Providers;
 using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.IntegrationTests.Hosting;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,6 +29,7 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 /// This is the deliberate exception to "reference documents from a real provider are left in place": here their absence is the premise.
 /// </para>
 /// </summary>
+[LiveProvider]
 public class ReferenceMatchResourceTest(KestrelWebAppFactory<Program> factory)
     : ResourceTestBase(factory)
 {

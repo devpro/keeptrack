@@ -9,6 +9,7 @@ using Keeptrack.BlazorApp.PlaywrightTests.Pages;
 using Keeptrack.BlazorApp.PlaywrightTests.Support;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Services;
+using Keeptrack.Testing.Shared.Providers;
 using Keeptrack.WebApi.ReferenceData;
 using Microsoft.Playwright;
 using Xunit;
@@ -224,9 +225,11 @@ public partial class ExploreSmokeTest(End2EndFixture fixture) : SmokeTestBase(fi
         page => page.OpenVideoGamesAsync(), page => new VideoGameDetailPage(page));
 
     [Fact]
+    [LiveProvider]
     public Task Add_CreatesTheSuggestedMovie_LinkedToItsReference() => AddResolvesTheSuggestionAsync(s_shawshank);
 
     [Fact]
+    [LiveProvider]
     public Task Add_CreatesTheSuggestedVideoGame_LinkedToItsReference() => AddResolvesTheSuggestionAsync(s_portal2);
 
     /// <summary>

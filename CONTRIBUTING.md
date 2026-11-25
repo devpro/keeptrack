@@ -196,6 +196,9 @@ The PowerShell equivalent:
 $rs.RunSettings.RunConfiguration.EnvironmentVariables.ChildNodes | Where-Object { $_.NodeType -eq 'Element' } | ForEach-Object { Set-Item -Path "env:$($_.Name)" -Value $_.InnerText }
 ```
 
+**Loading it is for a Firebase or live provider run only, after the packages changed since the last one were reviewed.**
+Every package a test loads can read what its process holds, and the ordinary run needs no secret.
+
 **The values are never converted to plain `NAME=value` lines and sourced.**
 Shell expansion silently drops everything from a `$` to the next non-word character, so a password containing `$` surfaces as Firebase answering `INVALID_PASSWORD`.
 The script single-quotes every value, escapes any embedded `'`, decodes XML entities and skips commented-out variables, and `Set-Item -Value` never re-parses what it is given.
@@ -215,6 +218,9 @@ Firebase variables, without which the run uses local authentication and needs no
 - `Authentication__JwtBearer__TokenValidation__Audience`: `<firebase-project-id>`.
 
 `TEST_AUTHENTICATION_MODE=local` forces local authentication even with the Firebase variables set.
+
+`TEST_LIVE_PROVIDERS=true` runs the tests whose subject is a live provider, in every suite.
+Without it they skip, the end-to-end suite asks for no provider key, and the test hosts refuse any request leaving the machine.
 
 Optional variables:
 
@@ -268,12 +274,11 @@ Read-only   | `E2E_READONLY=true`               | Every mutating test skips, pai
 
 Self-hosted mode needs the integration test variables above (except `FIREBASE_USERNAME`/`FIREBASE_PASSWORD`, an ephemeral admin user is created and deleted),
 or none of the Firebase ones with local authentication, which live mode does not support,
-plus `Tmdb__ApiKey`, `Igdb__ClientId`, `Igdb__ClientSecret` and `Discogs__Token`, since the smoke tests link real titles.
+plus, with `TEST_LIVE_PROVIDERS=true`, `Tmdb__ApiKey`, `Igdb__ClientId`, `Igdb__ClientSecret` and `Discogs__Token`, since the smoke tests then link real titles.
 The database defaults to `keeptrack_e2e`, independently of `Infrastructure__MongoDB__DatabaseName`, so the two suites never share one.
 
 ```bash
-eval "$(node scripts/load-runsettings.js)"
-export E2E_ENABLED=true
+export E2E_ENABLED=true TEST_AUTHENTICATION_MODE=local
 dotnet test --project test/BlazorApp.PlaywrightTests/BlazorApp.PlaywrightTests.csproj
 ```
 
@@ -308,7 +313,7 @@ A trace opens at [trace.playwright.dev](https://trace.playwright.dev).
 Every port is bound to `127.0.0.1`.
 
 Service          | URL
------------------|-------------------------------------------------------------------------------
+-----------------|---------------------------------------------------------------------------------
 `blazorapp`      | [localhost:9001](http://localhost:9001)
 `webapi`         | [localhost:9002/scalar](http://localhost:9002/scalar)
 `mongodb`        | `mongodb://localhost:27017`

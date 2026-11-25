@@ -34,6 +34,8 @@ Anything else is replaced by an explicit command that downloads the official rel
 **IstarCI is recommended but optional, and runs from its package.**
 The CI is the GitHub Actions pipeline, which IstarCI only runs locally first.
 `task ci:setup`, `task ci`, `task ci:wait` and `task ci:logs` use the installed `@devpro/istarci` package, and a clone of IstarCI is for developing IstarCI only (`task ci:from-clone`).
+A local run never receives a secret, not even a low-value one: a test needing a service gets a local stand-in, or skips.
+**An agent never loads `Local.runsettings`, nor sets `TEST_LIVE_PROVIDERS=true`**: every package a test loads can read what its process holds.
 A run starts by itself on every commit, so an agent never starts one: after committing it waits for the result with `task ci:wait`, which prints the log of each failed job, and never polls `task ci` in a loop.
 
 **The harness is Node.js and bash only.**
@@ -106,19 +108,18 @@ dotnet run --project src/BlazorApp   # https://localhost:7042/
 dotnet test --project test/WebApi.UnitTests/WebApi.UnitTests.csproj
 dotnet test --filter-method "Keeptrack.WebApi.UnitTests.Services.WatchNextServiceTest.ComputeInProgressShows_*"
 
-eval "$(node scripts/load-runsettings.js)"
 dotnet test --project test/WebApi.IntegrationTests/WebApi.IntegrationTests.csproj --filter-method "*WishlistResourceTest*"
 
-eval "$(node scripts/load-runsettings.js)" && E2E_ENABLED=true dotnet test   # every suite, end-to-end included, before a commit
+E2E_ENABLED=true TEST_AUTHENTICATION_MODE=local dotnet test   # every suite, end-to-end included, before a commit
 ```
 
 **Every test runs locally before a commit that can affect them, then IstarCI runs on the commit.**
 A change to documentation or to `labs/` alone needs no run.
 The filtered runs above are for the loop while writing a test.
-IstarCI leaves the integration tests out (see `.istarci.yml`), so the local run is the only one covering them before a push.
+IstarCI runs every suite (see `.istarci.yml`), and the tests of a live provider skip in both.
 
-Integration tests need MongoDB, and Firebase test credentials unless `TEST_AUTHENTICATION_MODE=local`, from `Local.runsettings`, loaded by the script above, since `--settings Local.runsettings` runs zero tests.
-Those values are never converted into `NAME=value` lines and sourced: [CONTRIBUTING.md](CONTRIBUTING.md#tests) explains both.
+Integration tests need MongoDB, and authenticate locally with a key generated for the run.
+A live provider or Firebase run is the owner's: [CONTRIBUTING.md](CONTRIBUTING.md#tests) explains both.
 
 ## Where to read before changing
 

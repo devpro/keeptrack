@@ -17,6 +17,7 @@ using Keeptrack.Domain.Repositories;
 using Keeptrack.Testing.Shared.Authentication;
 using Keeptrack.Testing.Shared.Firebase;
 using Keeptrack.Testing.Shared.Hosting;
+using Keeptrack.Testing.Shared.Providers;
 using Keeptrack.WebApi.ReferenceData;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -120,7 +121,7 @@ public sealed class End2EndFixture : IAsyncLifetime
             _blazorFactory = new KestrelWebAppFactory<Program>(BlazorKestrelUrlOverride);
             BlazorBaseUrl = _blazorFactory.ServerAddress;
 
-            EnsureReferenceProviderKeysConfigured();
+            if (LiveProviders.Enabled) EnsureReferenceProviderKeysConfigured();
         }
 
         var (username, password) = await ResolveCredentialsAsync();

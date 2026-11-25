@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using AwesomeAssertions;
 using Keeptrack.Infrastructure.MongoDb.Entities;
+using Keeptrack.Testing.Shared.Providers;
 using Keeptrack.WebApi.Contracts.Dto;
 using Keeptrack.WebApi.IntegrationTests.Hosting;
 using Xunit;
@@ -21,6 +22,7 @@ namespace Keeptrack.WebApi.IntegrationTests.Resources;
 /// Open Library is not a case, being the slowest endpoint here even when healthy (see docs/providers.md), and covering the registry twice is enough.
 /// </para>
 /// </summary>
+[LiveProvider]
 public class BookProviderSearchAndLinkResourceTest(KestrelWebAppFactory<Program> factory)
     : ResourceTestBase(factory)
 {

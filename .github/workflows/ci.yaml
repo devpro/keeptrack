@@ -62,8 +62,7 @@ jobs:
       # Firebase__WebAppConfiguration__ProjectId=${{ secrets.FIREBASE_PROJECTID }}
       # Firebase__ServiceAccount=${{ secrets.FIREBASE_SERVICEACCOUNT }}
       custom-commands: |
-        echo "Initialize database (indexes, tenants & users)"
-        echo "TODO (MONGODB_URI="mongodb://localhost:27017/keeptrack_dev" ./scripts/...)"
+        if [ "$E2E_ENABLED" = "true" ]; then ./scripts/prepare_e2e.sh; fi
       dotnet-test-args: "--report-xunit-trx --coverage --coverage-output-format cobertura ${{ vars.DOTNET_TEST_EXTRA_ARGS }}"
       extra-vars: |
         AllowedOrigins__0=5207
@@ -73,6 +72,7 @@ jobs:
         Infrastructure__MongoDB__ConnectionString=mongodb://localhost:27017
         Infrastructure__MongoDB__DatabaseName=keeptrack_ci
         Logging__LogLevel__Keeptrack=Debug
+        TEST_LIVE_PROVIDERS=${{ vars.TEST_LIVE_PROVIDERS || 'true' }}
       fossa-enabled: ${{ vars.FOSSA_ENABLED != 'false' }}
       mongodb-enabled: true
       sonar-enabled: true
