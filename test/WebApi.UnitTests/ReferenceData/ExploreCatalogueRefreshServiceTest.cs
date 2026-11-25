@@ -431,6 +431,94 @@ public class ExploreCatalogueRefreshServiceTest
             Times.Never);
     }
 
+    [Fact]
+    public async Task RefreshAsync_StopsAtTheCatalogueDepth_MidPage_WithoutAskingForAnotherPage()
+    {
+        AllRankingsFresh();
+        RankingIsStale(ExploreItemType.Movie, "tmdb");
+        TmdbPages(
+            [.. Enumerable.Range(1, ExploreCatalogueRefreshService.CatalogueDepth - 1).Select(i => Movie($"a{i}", 9.0))],
+            [Movie("last", 8.0), Movie("beyond", 7.9)],
+            [Movie("never", 7.0)]);
+
+        var result = await CreateService().RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
+
+        result.EntriesRefreshed.Should().Be(ExploreCatalogueRefreshService.CatalogueDepth);
+        _upserted[^1].ExternalId.Should().Be("last");
+        _tmdbClient.Verify(c => c.GetTopRatedMoviesAsync(3, It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_WhenOneBackfillEntryFails_StillBackfillsTheNext()
+    {
+        var service = CreateService();
+        AllRankingsFresh();
+        SelectImdbFor("Movie");
+        PendingBackfill(Entry("42"), Entry("43"));
+        _tmdbClient.Setup(c => c.GetMovieImdbIdAsync("42", It.IsAny<CancellationToken>())).ThrowsAsync(new HttpRequestException("down"));
+        _tmdbClient.Setup(c => c.GetMovieImdbIdAsync("43", It.IsAny<CancellationToken>())).ReturnsAsync("tt43");
+        _omdbClient.Setup(c => c.GetRatingAsync("tt43", OmdbCallPriority.Background, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(OmdbLookupResult.Rated(new OmdbRating(8.4, 100)));
+
+        var result = await service.RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
+
+        result.ImdbRatingsBackfilled.Should().Be(1);
+    }
+
+    /// <summary>An unreachable OMDb with budget left is one entry's failure, unlike a spent budget, which ends the pass.</summary>
+    [Fact]
+    public async Task RefreshAsync_GoesOnAfterALookupThatNeverHappened_WhileTheBudgetLasts()
+    {
+        var service = CreateService();
+        AllRankingsFresh();
+        SelectImdbFor("Movie");
+        PendingBackfill(Entry("42"), Entry("43"));
+        _tmdbClient.Setup(c => c.GetMovieImdbIdAsync("42", It.IsAny<CancellationToken>())).ReturnsAsync("tt42");
+        _tmdbClient.Setup(c => c.GetMovieImdbIdAsync("43", It.IsAny<CancellationToken>())).ReturnsAsync("tt43");
+        _omdbClient.Setup(c => c.GetRatingAsync("tt42", OmdbCallPriority.Background, It.IsAny<CancellationToken>())).ReturnsAsync(OmdbLookupResult.NotAttempted);
+        _omdbClient.Setup(c => c.GetRatingAsync("tt43", OmdbCallPriority.Background, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(OmdbLookupResult.Rated(new OmdbRating(8.4, 100)));
+
+        var result = await service.RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
+
+        result.ImdbRatingsBackfilled.Should().Be(1);
+        _catalogueRepository.Verify(
+            r => r.RecordRatingAttemptAsync(ExploreItemType.Movie, "tmdb", "42", "imdb", It.IsAny<double?>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_StopsTheBackfillOnAShutdown()
+    {
+        var service = CreateService();
+        AllRankingsFresh();
+        SelectImdbFor("Movie");
+        PendingBackfill(Entry("42"), Entry("43"));
+        _tmdbClient.Setup(c => c.GetMovieImdbIdAsync("42", It.IsAny<CancellationToken>())).ThrowsAsync(new OperationCanceledException());
+
+        var refresh = () => service.RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
+
+        await refresh.Should().ThrowAsync<OperationCanceledException>();
+        _tmdbClient.Verify(c => c.GetMovieImdbIdAsync("43", It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_BackfillsTvShows_ThroughTheirOwnImdbLookup()
+    {
+        var service = CreateService();
+        AllRankingsFresh();
+        SelectImdbFor("TvShow");
+        _catalogueRepository
+            .Setup(r => r.FindMissingRatingOrLinkAsync(ExploreItemType.TvShow, "tmdb", "imdb", It.IsAny<DateTime>(), It.IsAny<int>()))
+            .ReturnsAsync([Entry("42")]);
+        _tmdbClient.Setup(c => c.GetTvShowImdbIdAsync("42", It.IsAny<CancellationToken>())).ReturnsAsync("tt42");
+        _omdbClient.Setup(c => c.GetRatingAsync("tt42", OmdbCallPriority.Background, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(OmdbLookupResult.Rated(new OmdbRating(8.4, 100)));
+
+        await service.RefreshAsync(TimeSpan.FromDays(7), TestContext.Current.CancellationToken);
+
+        _catalogueRepository.Verify(r => r.RecordRatingAttemptAsync(ExploreItemType.TvShow, "tmdb", "42", "imdb", 8.4), Times.Once);
+    }
+
     private static ExploreCatalogueEntryModel Entry(string externalId) =>
         new() { ItemType = ExploreItemType.Movie, Ranking = "tmdb", ExternalId = externalId, Rank = 1, Title = $"Movie {externalId}" };
 

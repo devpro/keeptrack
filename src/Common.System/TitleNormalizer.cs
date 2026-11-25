@@ -53,27 +53,26 @@ public static class TitleNormalizer
                 if (depth > 0) depth--;
                 continue;
             }
-            if (depth > 0) continue;
-
-            if (char.IsLetterOrDigit(character))
-            {
-                builder.Append(character);
-            }
-            else if (character is '\'' or '’')
-            {
-                // an apostrophe is dropped rather than turned into a space, so "Assassin's Creed" and "Assassins Creed" tokenize the same way.
-                // A space would give "assassin s creed", which matches neither spelling.
-                continue;
-            }
-            else
-            {
-                // "&" and every separator collapse to a single space, so "Rock & Roll", "Rock and Roll" and "Rock: Roll" all tokenize the same way
-                builder.Append(character == '&' ? " and " : " ");
-            }
+            if (depth == 0) AppendLoose(builder, character);
         }
 
         return string.Join(' ', builder.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Where(token => token != "the"));
+    }
+
+    private static void AppendLoose(StringBuilder builder, char character)
+    {
+        if (char.IsLetterOrDigit(character))
+        {
+            builder.Append(character);
+        }
+        // an apostrophe is dropped rather than turned into a space, so "Assassin's Creed" and "Assassins Creed" tokenize the same way.
+        // A space would give "assassin s creed", which matches neither spelling.
+        else if (character is not ('\'' or '’'))
+        {
+            // "&" and every separator collapse to a single space, so "Rock & Roll", "Rock and Roll" and "Rock: Roll" all tokenize the same way
+            builder.Append(character == '&' ? " and " : " ");
+        }
     }
 
     /// <summary>

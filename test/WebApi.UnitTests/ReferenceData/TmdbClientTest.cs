@@ -115,4 +115,18 @@ public class TmdbClientTest
         changed.Should().BeTrue();
         handler.Requests.Should().BeEmpty();
     }
+
+    /// <summary>Season 0 is the specials, and an episode with no name still gets a label.</summary>
+    [Fact]
+    public async Task GetTvShowDetailsAsync_ReadsEveryRegularSeason_AndNeverTheSpecials()
+    {
+        var handler = new StubHttpMessageHandler(
+            """{"name":"Show","seasons":[{"season_number":0},{"season_number":1},{"season_number":2}],"episodes":[{"episode_number":3,"name":null}]}""");
+
+        var details = await BuildClient(handler).GetTvShowDetailsAsync("7", TestContext.Current.CancellationToken);
+
+        handler.Requests.ConvertAll(r => r.AbsolutePath).Should().Equal("/3/tv/7", "/3/tv/7/season/1", "/3/tv/7/season/2");
+        details!.Episodes.Should().HaveCount(2);
+        details.Episodes[1].Should().BeEquivalentTo(new { SeasonNumber = 2, EpisodeNumber = 3, Title = "Episode 3" });
+    }
 }

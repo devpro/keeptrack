@@ -168,6 +168,33 @@ public class ExploreServiceTest
     }
 
     [Fact]
+    public async Task GetSuggestionsAsync_BoundsTheScan_AndReportsWhereItStopped()
+    {
+        NoExclusions(ExploreItemType.Movie);
+        var entries = Enumerable.Range(1, 2500).Select(i => Entry(ExploreItemType.Movie, "tmdb", $"m{i}", i)).ToArray();
+        _dismissalRepository.Setup(r => r.FindDismissedExternalIdsAsync("owner", ExploreItemType.Movie, "tmdb"))
+            .ReturnsAsync([.. entries.Select(e => e.ExternalId)]);
+        Catalogue(ExploreItemType.Movie, "tmdb", entries);
+
+        var page = await CreateService().GetSuggestionsAsync(ExploreItemType.Movie, "owner", 24, null, TestContext.Current.CancellationToken);
+
+        page.Items.Should().BeEmpty();
+        page.NextCursor.Should().Be(2000, "twenty round trips of a hundred entries");
+        page.CataloguePending.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetSuggestionsAsync_SuggestsATitleOnce_WhenTheRankingHoldsItTwice()
+    {
+        NoExclusions(ExploreItemType.Movie);
+        Catalogue(ExploreItemType.Movie, "tmdb", Entry(ExploreItemType.Movie, "tmdb", "m1", 1), Entry(ExploreItemType.Movie, "tmdb", "m1", 2));
+
+        var page = await CreateService().GetSuggestionsAsync(ExploreItemType.Movie, "owner", 24, null, TestContext.Current.CancellationToken);
+
+        page.Items.Should().ContainSingle();
+    }
+
+    [Fact]
     public async Task GetSuggestionsAsync_WhenTheRankingIsExhausted_ReportsNoCursor()
     {
         NoExclusions(ExploreItemType.Movie);

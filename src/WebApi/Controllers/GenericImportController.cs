@@ -101,7 +101,7 @@ public class GenericImportController(
 
         var counts = await OwnedItemImportCommitCoordinator.CommitAsync(
             ownerId, inputs,
-            bookRepository, movieRepository, tvShowRepository, videoGameRepository, gearRepository, collectibleRepository);
+            new OwnedItemRepositorySet(bookRepository, movieRepository, tvShowRepository, videoGameRepository, gearRepository, collectibleRepository));
 
         return Ok(new GenericImportCommitResultDto
         {

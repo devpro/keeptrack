@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 
 namespace Keeptrack.Domain.Services;
@@ -55,7 +56,7 @@ public static class RatingSourceCatalog
     public static readonly TimeSpan RatingReattemptAfter = TimeSpan.FromDays(90);
 
     // sources do not share a scale, so a rating sent to a client carries its own
-    private static readonly IReadOnlyDictionary<string, double> s_scales = new Dictionary<string, double>
+    private static readonly FrozenDictionary<string, double> s_scales = new Dictionary<string, double>
     {
         [Tmdb] = 10,
         [Imdb] = 10,
@@ -63,7 +64,7 @@ public static class RatingSourceCatalog
         [Metacritic] = 100,
         [Igdb] = 100,
         [IgdbCritic] = 100
-    };
+    }.ToFrozenDictionary();
 
     /// <summary>The scale of <paramref name="source"/>'s values (10 for TMDB and IMDb, 5 for RAWG, 100 for Metacritic and IGDB).</summary>
     public static double ScaleOf(string source) =>

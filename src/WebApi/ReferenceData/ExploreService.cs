@@ -16,6 +16,8 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// IMDb values are the refresh's business, so at read time they are one more entry of the ratings map.
 /// </para>
 /// </summary>
+// Each parameter is a dependency the container resolves, and a bundle of them would only hide the count.
+#pragma warning disable S107
 public class ExploreService(
     IAppSettingRepository appSettingRepository,
     IExploreCatalogueRepository catalogueRepository,
@@ -28,6 +30,7 @@ public class ExploreService(
     IExploreDismissalRepository dismissalRepository,
     ExploreRankings exploreRankings,
     RatingSourceOptions ratingSourceOptions)
+#pragma warning restore S107
 {
     /// <summary>
     /// How many ranked entries to read per round trip while filling a page, more than a page since most survive the exclusions.
@@ -68,7 +71,7 @@ public class ExploreService(
                 break;
             }
 
-            foreach (var entry in entries)
+            foreach (var entry in entries.TakeWhile(_ => items.Count < limit))
             {
                 // advanced for every entry examined, so the next page never reads again a run of titles the caller owns
                 cursor = entry.Rank;
@@ -76,7 +79,6 @@ public class ExploreService(
                 if (excludedTitles.Contains(TitleNormalizer.NormalizeLoose(entry.Title))) continue;
 
                 items.Add(ToDto(entry, ratingSource, exploreRankings.DiscoverySource(type)));
-                if (items.Count >= limit) break;
             }
         }
 

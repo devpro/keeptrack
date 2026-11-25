@@ -10,6 +10,8 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// and a forced pass over the other four domains takes long enough that a page polling for the result is gone before it ends.
 /// </para>
 /// </summary>
+// Each parameter is a dependency the container resolves, and a bundle of them would only hide the count.
+#pragma warning disable S107
 public class ReferenceSyncService(
     ITvShowReferenceRepository tvShowReferenceRepository,
     IMovieReferenceRepository movieReferenceRepository,
@@ -19,6 +21,7 @@ public class ReferenceSyncService(
     ReferenceEnrichmentService enrichmentService,
     TvShowStatusReconciliationService tvShowStatusReconciliationService,
     ILogger<ReferenceSyncService> logger)
+#pragma warning restore S107
 {
     /// <summary>
     /// The most documents one pass refreshes per domain.
@@ -76,6 +79,8 @@ public class ReferenceSyncService(
     /// <summary>
     /// The sync of one domain: announce the stage, read the stalest page, refresh each document, and report the two counts.
     /// </summary>
+// The delegates are the whole difference between two domains, whose repositories share no interface.
+#pragma warning disable S107
     private async Task SyncDomainAsync<TReference>(
         Func<ReferenceSyncStage, Task>? onStageChanged,
         ReferenceSyncStage stage,
@@ -85,6 +90,7 @@ public class ReferenceSyncService(
         Func<TReference, string?> id,
         Action<int, int> report,
         CancellationToken cancellationToken)
+#pragma warning restore S107
     {
         if (onStageChanged is not null) await onStageChanged(stage);
 

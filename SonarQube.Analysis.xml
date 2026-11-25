@@ -2,7 +2,17 @@
 <!-- Analysis settings versioned with the code, passed to the scanner for .NET by the sonar-settings-file input of ci.yaml.
      The reason for each exclusion is in docs/ci-and-quality.md. -->
 <SonarQubeAnalysisProperties xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="http://www.sonarsource.com/msbuild/integration/2015/1">
-  <Property Name="sonar.issue.ignore.multicriteria">razorNullForgiving</Property>
+  <Property Name="sonar.issue.ignore.multicriteria">razorNullForgiving,amazonUploadLimit,genericUploadLimit,videoGameUploadLimit,importUploadLimit,referenceUploadLimit</Property>
   <Property Name="sonar.issue.ignore.multicriteria.razorNullForgiving.ruleKey">csharpsquid:S8970</Property>
   <Property Name="sonar.issue.ignore.multicriteria.razorNullForgiving.resourceKey">**/*.razor</Property>
+  <Property Name="sonar.issue.ignore.multicriteria.amazonUploadLimit.ruleKey">csharpsquid:S5693</Property>
+  <Property Name="sonar.issue.ignore.multicriteria.amazonUploadLimit.resourceKey">**/src/BlazorApp/Components/Import/AmazonImportPage.razor</Property>
+  <Property Name="sonar.issue.ignore.multicriteria.genericUploadLimit.ruleKey">csharpsquid:S5693</Property>
+  <Property Name="sonar.issue.ignore.multicriteria.genericUploadLimit.resourceKey">**/src/BlazorApp/Components/Import/GenericImportPage.razor</Property>
+  <Property Name="sonar.issue.ignore.multicriteria.videoGameUploadLimit.ruleKey">csharpsquid:S5693</Property>
+  <Property Name="sonar.issue.ignore.multicriteria.videoGameUploadLimit.resourceKey">**/src/BlazorApp/Components/Import/GenericVideoGameImportPage.razor</Property>
+  <Property Name="sonar.issue.ignore.multicriteria.importUploadLimit.ruleKey">csharpsquid:S5693</Property>
+  <Property Name="sonar.issue.ignore.multicriteria.importUploadLimit.resourceKey">**/src/BlazorApp/Components/Import/ImportPage.razor</Property>
+  <Property Name="sonar.issue.ignore.multicriteria.referenceUploadLimit.ruleKey">csharpsquid:S5693</Property>
+  <Property Name="sonar.issue.ignore.multicriteria.referenceUploadLimit.resourceKey">**/src/BlazorApp/Components/ReferenceDataAdmin/ReferenceDataAdminPage.razor</Property>
 </SonarQubeAnalysisProperties>

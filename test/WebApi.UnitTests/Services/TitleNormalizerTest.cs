@@ -78,6 +78,18 @@ public class TitleNormalizerTest
     public void LooselyContains_KeepsAResultWhoseTitleActuallyCarriesTheSearchedOne(string candidate, string searched) =>
         TitleNormalizer.LooselyContains(candidate, searched).Should().BeTrue();
 
+    /// <summary>Unbalanced and nested groups, which a provider's free text does hold.</summary>
+    [Theory]
+    [InlineData("Alpha [remake] beta", "alpha beta")]
+    [InlineData("Alpha ((1997) demo) beta", "alpha beta")]
+    [InlineData("Alpha) beta", "alpha beta")]
+    [InlineData("Alpha (beta", "alpha")]
+    [InlineData("Alpha(1997)beta", "alpha beta")]
+    [InlineData("R&B", "r and b")]
+    [InlineData("(1997)", "")]
+    public void NormalizeLoose_DropsGroupsAndSeparatesWords(string title, string expected) =>
+        TitleNormalizer.NormalizeLoose(title).Should().Be(expected);
+
     [Theory]
     // real Discogs hits for q=Discovery&artist=Daft Punk, the free text matching something other than the title
     [InlineData("Live @ Rex Club, Paris", "Discovery")]

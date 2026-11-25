@@ -49,19 +49,16 @@
             var id = item.Id!;
             var inCollection = _added.Contains(id) || _alreadyInCollection.Contains(id);
         }
-        @if (Copy is null)
-        {
-            @* View-only category (collectibles, gear): a read-only list with no "add to my collection" action. *@
-        }
-        else if (inCollection)
+        @* no Copy is a view-only category (collectibles, gear): a read-only list with no "add to my collection" action *@
+        @if (Copy is not null && inCollection)
         {
             <span class="kt-flag-badge done" title="@(_added.Contains(id) ? "Added to your collection" : "Already in your collection")">✓ In collection</span>
         }
-        else if (_copyingId == id)
+        else if (Copy is not null && _copyingId == id)
         {
             <span class="kt-icon-btn" aria-label="Adding"><span class="kt-icon-spin"><Icon Name="refresh" Size="15"/></span></span>
         }
-        else
+        else if (Copy is not null)
         {
             <button class="kt-icon-btn" title="Add to my collection" aria-label="Add to my collection"
                     data-testid="share-add" @onclick="() => AddAsync(id)">

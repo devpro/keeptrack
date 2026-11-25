@@ -10,7 +10,7 @@ namespace Keeptrack.BlazorApp.PlaywrightTests.Smoke;
 
 [Trait("Category", "E2eTests")]
 [Trait("Mode", "Readonly")]
-public class AuthSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
+public partial class AuthSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 {
     [Fact]
     public async Task AnonymousVisit_ToProtectedPage_RedirectsToLogin()
@@ -112,7 +112,7 @@ public class AuthSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
 
         await login.SignInLocallyAsync(Fixture.SignedInEmail, "Admin");
 
-        await Assertions.Expect(anonymousPage).ToHaveURLAsync(new Regex("/books$"));
+        await Assertions.Expect(anonymousPage).ToHaveURLAsync(BooksUrl());
     }
 
     [Fact]
@@ -143,6 +143,9 @@ public class AuthSmokeTest(End2EndFixture fixture) : SmokeTestBase(fixture)
         Assert.NotEqual(200, response.Status);
         await new LoginPage(anonymousPage).WaitForReadyAsync();
     }
+
+    [GeneratedRegex("/books$")]
+    private static partial Regex BooksUrl();
 
     private static void SkipUnlessFirebase() =>
         Assert.SkipWhen(TestAuthentication.IsLocal, "Firebase sign-in only, and this run uses local authentication.");

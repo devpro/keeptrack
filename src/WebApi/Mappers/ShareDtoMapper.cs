@@ -19,11 +19,13 @@ public partial class ShareDtoMapper
     [MapperIgnoreTarget(nameof(ShareModel.CreatedAt))]
     public partial ShareModel ToModel(CreateShareRequestDto dto);
 
+    // a stored grant always has an id, and the generated null check throws on one that does not
+    [MapProperty(nameof(ShareModel.Id), nameof(ShareDto.Id), SuppressNullMismatchDiagnostic = true)]
     [MapperIgnoreSource(nameof(ShareModel.OwnerId))]
     [MapperIgnoreSource(nameof(ShareModel.OwnerDisplayName))]
     public partial ShareDto ToDto(ShareModel model);
 
-    [MapProperty(nameof(ShareModel.Id), nameof(SharedCollectionSummaryDto.ShareId))]
+    [MapProperty(nameof(ShareModel.Id), nameof(SharedCollectionSummaryDto.ShareId), SuppressNullMismatchDiagnostic = true)]
     [MapperIgnoreSource(nameof(ShareModel.OwnerId))]
     [MapperIgnoreSource(nameof(ShareModel.RecipientEmail))]
     [MapperIgnoreSource(nameof(ShareModel.Label))]

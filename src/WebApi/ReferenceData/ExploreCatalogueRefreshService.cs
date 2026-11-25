@@ -11,6 +11,8 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// Built once a week, it costs no provider call per page load, add or dismiss, and a database query pages it as deep as <see cref="CatalogueDepth"/>.
 /// </para>
 /// </summary>
+// Each parameter is a dependency the container resolves, and a bundle of them would only hide the count.
+#pragma warning disable S107
 public class ExploreCatalogueRefreshService(
     ITmdbClient tmdbClient,
     ReferenceClientRegistry<IVideoGameReferenceClient> videoGameClients,
@@ -21,6 +23,7 @@ public class ExploreCatalogueRefreshService(
     RatingSourceOptions ratingSourceOptions,
     IExploreCatalogueRepository catalogueRepository,
     ILogger<ExploreCatalogueRefreshService> logger)
+#pragma warning restore S107
 {
     /// <summary>
     /// How many ranked titles to keep per ordering, a few thousand small documents in all, about 150 provider calls a week.
@@ -84,10 +87,11 @@ public class ExploreCatalogueRefreshService(
         var passStartedAt = DateTime.UtcNow;
         var fetch = TopRatedFetcher(type, ranking);
         var rank = 0;
+        var page = 0;
 
-        for (var page = 1; rank < CatalogueDepth; page++)
+        while (rank < CatalogueDepth)
         {
-            var items = await fetch(page, cancellationToken);
+            var items = await fetch(++page, cancellationToken);
             if (items.Count == 0) break; // past the provider's last page
 
             var entries = new List<ExploreCatalogueEntryModel>();
@@ -146,51 +150,62 @@ public class ExploreCatalogueRefreshService(
             var ranking = exploreRankings.For(type, RatingSourceCatalog.Imdb);
             var pending = await catalogueRepository.FindMissingRatingOrLinkAsync(
                 type, ranking, RatingSourceCatalog.Imdb, DateTime.UtcNow - RatingSourceCatalog.RatingReattemptAfter, Math.Min(MaxBackfillPerPass, affordable));
-            var imdbIdFetcher = ImdbIdFetcher(type);
+            backfilled += await BackfillImdbAsync(type, ranking, pending, cancellationToken);
+        }
 
-            foreach (var entry in pending)
+        return backfilled;
+    }
+
+    private async Task<int> BackfillImdbAsync(
+        ExploreItemType type, string ranking, IReadOnlyList<ExploreCatalogueEntryModel> pending, CancellationToken cancellationToken)
+    {
+        var imdbIdFetcher = ImdbIdFetcher(type);
+        var backfilled = 0;
+
+        foreach (var entry in pending)
+        {
+            try
             {
-                try
+                var imdbId = await imdbIdFetcher(entry.ExternalId, cancellationToken);
+                await StoreImdbLinkAsync(type, ranking, entry, imdbId);
+
+                // an entry loaded only for its missing link has its rating, and buying it again would take budget from entries with none
+                if (entry.Ratings.ContainsKey(RatingSourceCatalog.Imdb)) continue;
+
+                var lookup = string.IsNullOrEmpty(imdbId)
+                    ? OmdbLookupResult.NoRating // TMDB has no IMDb id for it, a real answer worth stamping
+                    : await omdbClient.GetRatingAsync(imdbId, OmdbCallPriority.Background, cancellationToken);
+
+                // Only a real answer is stamped, so a title OMDb has nothing for is not retried next pass, holding the budget.
+                // A call that never happened leaves no stamp, or an exhausted afternoon would write those titles off for the whole window.
+                if (lookup.Attempted)
                 {
-                    var imdbId = await imdbIdFetcher(entry.ExternalId, cancellationToken);
-
-                    // the link is made from the id, stored as it resolves, whether or not the budget allows the rating lookup
-                    if (!string.IsNullOrEmpty(imdbId) && !entry.WebUrls.ContainsKey(RatingSourceCatalog.Imdb))
-                    {
-                        await catalogueRepository.SetWebUrlAsync(
-                            type, ranking, entry.ExternalId, RatingSourceCatalog.Imdb, ProviderWebLinks.Imdb(imdbId));
-                    }
-
-                    // an entry loaded only for its missing link has its rating, and buying it again would take budget from entries with none
-                    if (entry.Ratings.ContainsKey(RatingSourceCatalog.Imdb)) continue;
-
-                    var lookup = string.IsNullOrEmpty(imdbId)
-                        ? OmdbLookupResult.NoRating // TMDB has no IMDb id for it, a real answer worth stamping
-                        : await omdbClient.GetRatingAsync(imdbId, OmdbCallPriority.Background, cancellationToken);
-
-                    // Only a real answer is stamped, so a title OMDb has nothing for is not retried next pass, holding the budget.
-                    // A call that never happened leaves no stamp, or an exhausted afternoon would write those titles off for the whole window.
-                    if (lookup.Attempted)
-                    {
-                        await catalogueRepository.RecordRatingAttemptAsync(type, ranking, entry.ExternalId, RatingSourceCatalog.Imdb, lookup.Rating?.Value);
-                        if (lookup.Rating is not null) backfilled++;
-                    }
-                    else if (omdbCallBudget.IsExhausted(OmdbCallPriority.Background))
-                    {
-                        // nothing left to spend, so every remaining entry would waste a TMDB call
-                        logger.LogInformation("IMDb rating backfill stopped for {ItemType}: today's OMDb budget is spent.", type);
-                        break;
-                    }
+                    await catalogueRepository.RecordRatingAttemptAsync(type, ranking, entry.ExternalId, RatingSourceCatalog.Imdb, lookup.Rating?.Value);
+                    if (lookup.Rating is not null) backfilled++;
                 }
-                // like the ranking catch: one entry may fail, a shutdown is never ignored
-                catch (Exception exception) when (exception is not OperationCanceledException)
+                else if (omdbCallBudget.IsExhausted(OmdbCallPriority.Background))
                 {
-                    logger.LogError(exception, "IMDb rating backfill failed for {ItemType} {ExternalId}.", type, entry.ExternalId);
+                    // nothing left to spend, so every remaining entry would waste a TMDB call
+                    logger.LogInformation("IMDb rating backfill stopped for {ItemType}: today's OMDb budget is spent.", type);
+                    break;
                 }
+            }
+            // like the ranking catch: one entry may fail, a shutdown is never ignored
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                logger.LogError(exception, "IMDb rating backfill failed for {ItemType} {ExternalId}.", type, entry.ExternalId);
             }
         }
 
         return backfilled;
+    }
+
+    // the link is made from the id, stored as it resolves, whether or not the budget allows the rating lookup
+    private async Task StoreImdbLinkAsync(ExploreItemType type, string ranking, ExploreCatalogueEntryModel entry, string? imdbId)
+    {
+        if (string.IsNullOrEmpty(imdbId) || entry.WebUrls.ContainsKey(RatingSourceCatalog.Imdb)) return;
+
+        await catalogueRepository.SetWebUrlAsync(type, ranking, entry.ExternalId, RatingSourceCatalog.Imdb, ProviderWebLinks.Imdb(imdbId));
     }
 
     // Which client answers for a (domain, ordering): TMDB has one top-rated list per domain, and the game provider orders by whichever of its sources the ordering names.

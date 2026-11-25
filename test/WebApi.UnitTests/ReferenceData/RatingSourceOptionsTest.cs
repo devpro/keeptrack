@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using AwesomeAssertions;
 using Keeptrack.Domain.Services;
@@ -19,7 +20,7 @@ public class RatingSourceOptionsTest
             .Should().Equal(RatingSourceCatalog.Igdb, RatingSourceCatalog.IgdbCritic);
         options.DefaultSource(ReferenceItemType.VideoGame).Should().Be(RatingSourceCatalog.Igdb);
         options.IsSelectable(ReferenceItemType.VideoGame).Should().BeTrue();
-        options.SelectableDomains.Should().Contain(ReferenceItemType.VideoGame);
+        RatingSourceOptions.SelectableDomains.Should().Contain(ReferenceItemType.VideoGame);
     }
 
     [Fact]
@@ -70,7 +71,7 @@ public class RatingSourceOptionsTest
         options.AvailableSources(domain).Should().Equal(RatingSourceCatalog.Tmdb, RatingSourceCatalog.Imdb);
         options.DefaultSource(domain).Should().Be(RatingSourceCatalog.Tmdb);
         options.IsSelectable(domain).Should().BeTrue();
-        options.SelectableDomains.Should().Contain(domain);
+        RatingSourceOptions.SelectableDomains.Should().Contain(domain);
     }
 
     [Theory]
@@ -83,6 +84,14 @@ public class RatingSourceOptionsTest
 
         options.IsSelectable(domain).Should().BeFalse();
         options.AvailableSources(domain).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ADomainWithNoSource_HasNoDefault()
+    {
+        var read = () => OptionsFor(RatingSourceCatalog.Igdb).DefaultSource(ReferenceItemType.Book);
+
+        read.Should().Throw<ArgumentOutOfRangeException>();
     }
 
     private static RatingSourceOptions OptionsFor(string defaultProviderKey)

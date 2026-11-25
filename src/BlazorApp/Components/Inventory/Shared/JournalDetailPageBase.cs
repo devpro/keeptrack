@@ -15,7 +15,11 @@ namespace Keeptrack.BlazorApp.Components.Inventory.Shared;
 /// <see cref="JournalEntries"/> and <see cref="JournalMetrics"/>, since persisted prerender state is keyed by the component that declares it.
 /// Every entry mutation reloads the whole journal rather than patching local state, because an entry can change every metric.
 /// </remarks>
-public abstract class JournalDetailPageBase<TParent, TEntry, TMetrics> : ComponentBase
+// Each type is a distinct DTO of the journal, and the base is what keeps the three pages from duplicating their logic.
+#pragma warning disable S2436
+public abstract class JournalDetailPageBase<TParent, TEntry, TMetrics>
+#pragma warning restore S2436
+    : ComponentBase
     where TParent : class, IHasId
     where TEntry : class, IHasId
     where TMetrics : class

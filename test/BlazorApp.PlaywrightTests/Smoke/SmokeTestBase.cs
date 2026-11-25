@@ -74,6 +74,7 @@ public abstract partial class SmokeTestBase : PageTest
         // base.DisposeAsync closes every context opened through NewContext, so the diagnostics above have to run first.
         // That is the whole reason NewAnonymousPageAsync exists instead of a per-test `await using`.
         await base.DisposeAsync();
+        GC.SuppressFinalize(this);
     }
 
     public override BrowserNewContextOptions ContextOptions() => new()

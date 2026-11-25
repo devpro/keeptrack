@@ -63,9 +63,25 @@ Sonar loses the nullable context in Razor-generated code, so it reports every `!
 It looks like S8970 but applies to plain `.cs` files, and it can be real.
 The `!` in `TvTimeImportService.cs` stays: removing it reintroduces `CS8601`, since `[MaybeNullWhen(false)]` does not flow through the open generic `TModel`.
 
-### S107 on the import merge
+### An accepted finding is suppressed where it is
 
-The import engine takes one `OwnedItemImportAdapter<TModel, TRequestItem>` rather than six separate delegates, which keeps its generic-engine-over-delegates design within the parameter count.
+A C# finding accepted by design is suppressed on its own line or member, with the reason beside it, and a JavaScript one with `NOSONAR`.
+No file leaves the analysis or the coverage, and no rule is turned off, so the same finding elsewhere is still reported.
+
+### S107
+
+The imports group their parameters: `OwnedItemImportAdapter`, `OwnedItemRepositorySet`, `ReferenceRepositorySet`, and `CollectionImport` in `ReferenceDataImportService`.
+Constructors taking their dependencies, and methods whose delegates are the only difference between two domains, keep theirs.
+
+### S5693 on the upload pages
+
+Each page passes an explicit limit to `OpenReadStream`, above Sonar's 8 MB default, and each API endpoint enforces its own on the request.
+Neither `SuppressMessage` nor a pragma has an effect in a `.razor` file, so `SonarQube.Analysis.xml` names the five pages.
+
+### Informational findings left open
+
+- `CA1873`: the arguments are property reads and small joins on paths that run once per provider call or per pass.
+- `xUnit1033`: the three other factories derive from the fixture their base class declares, and the test class consumes the derived one.
 
 ### ASP0025
 

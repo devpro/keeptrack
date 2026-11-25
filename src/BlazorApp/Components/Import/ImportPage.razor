@@ -211,12 +211,10 @@
         try
         {
             Guid jobId;
-#pragma warning disable S5693
             await using (var stream = e.File.OpenReadStream(MaxFileSize))
             {
                 jobId = await ImportApi.StartImportAsync(stream, e.File.Name);
             }
-#pragma warning restore S5693
 
             while (true)
             {
@@ -257,9 +255,7 @@
 
         try
         {
-#pragma warning disable S5693
             await using var stream = e.File.OpenReadStream(MaxFileSize);
-#pragma warning restore S5693
             _carResult = await CarImportApi.ImportAsync(stream, e.File.Name);
         }
         catch (Exception ex)
@@ -280,9 +276,7 @@
 
         try
         {
-#pragma warning disable S5693
             await using var stream = e.File.OpenReadStream(MaxFileSize);
-#pragma warning restore S5693
             _healthResult = await HealthImportApi.ImportAsync(stream, e.File.Name);
         }
         catch (Exception ex)

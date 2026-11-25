@@ -31,7 +31,7 @@
               OnConfirm="UnlinkAsync" OnCancel="() => _pendingUnlink = false"/>
 
 @code {
-    private static readonly TimeSpan MessageDuration = TimeSpan.FromSeconds(4);
+    private const int MessageMilliseconds = 4000;
 
     [Parameter, EditorRequired] public required InventoryApiClientBase<TDto> Api { get; set; }
 
@@ -104,7 +104,7 @@
 
     private async Task ClearMessageAfterDelayAsync(object token)
     {
-        await Task.Delay(MessageDuration);
+        await Task.Delay(MessageMilliseconds);
         if (!ReferenceEquals(_messageToken, token)) return;
         _message = null;
         await InvokeAsync(StateHasChanged);

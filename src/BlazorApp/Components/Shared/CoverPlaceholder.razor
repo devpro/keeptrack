@@ -22,19 +22,10 @@
             if (string.IsNullOrWhiteSpace(Title)) return null;
 
             // Rune, not char: a surrogate pair (an emoji, a rarer CJK glyph) is two chars, and Title[0] would be half a code point, rendered as U+FFFD.
-            foreach (var rune in Title.Trim().EnumerateRunes())
-            {
-                if (System.Text.Rune.IsLetterOrDigit(rune))
-                {
-                    return System.Text.Rune.ToUpperInvariant(rune).ToString();
-                }
-
-                // Only the first character decides: "…And Justice for All" stays blank rather than showing the A of its second word,
-                // which would misrepresent how it sorts and reads.
-                return null;
-            }
-
-            return null;
+            // Only the first character decides: "…And Justice for All" stays blank rather than showing the A of its second word,
+            // which would misrepresent how it sorts and reads.
+            var rune = Title.Trim().EnumerateRunes().First();
+            return System.Text.Rune.IsLetterOrDigit(rune) ? System.Text.Rune.ToUpperInvariant(rune).ToString() : null;
         }
     }
 }

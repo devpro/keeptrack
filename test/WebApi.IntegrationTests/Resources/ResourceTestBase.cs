@@ -36,6 +36,7 @@ public abstract class ResourceTestBase(KestrelWebAppFactory<Program> factory)
         finally
         {
             _httpClient?.Dispose();
+            GC.SuppressFinalize(this);
         }
     }
 

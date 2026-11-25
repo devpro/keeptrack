@@ -281,12 +281,15 @@ public class SharedWithMeController(
         return share.IncludedCategories.Contains(category) ? share : null;
     }
 
+    // The parameters are the whole difference between two categories, whose repositories and mappers share no interface.
+#pragma warning disable S107
     private async Task<ActionResult<SharedCategoryPageDto<TDto>>> ReadAsync<TModel, TDto>(
         string shareId, DomainShareCategory category,
         IDataRepository<TModel> repository, IDtoMapper<TDto, TModel> mapper,
         TDto filter, PagedRequest paging,
         Func<TModel, ItemMatchKey> keyOf,
         Func<IReadOnlyList<TDto>, Task> hydrate)
+#pragma warning restore S107
         where TModel : class, IHasIdAndOwnerId
         where TDto : IReferenceLinkedDto, IHasId, new()
     {

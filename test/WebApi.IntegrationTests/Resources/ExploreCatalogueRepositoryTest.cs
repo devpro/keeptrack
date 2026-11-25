@@ -29,7 +29,7 @@ public class ExploreCatalogueRepositoryTest(KestrelWebAppFactory<Program> factor
     /// </summary>
     private static string TestRanking() => $"test-{Guid.NewGuid():N}";
 
-    private IExploreCatalogueRepository CreateRepository(IServiceScope scope) =>
+    private static IExploreCatalogueRepository CreateRepository(IServiceScope scope) =>
         scope.ServiceProvider.GetRequiredService<IExploreCatalogueRepository>();
 
     /// <summary>

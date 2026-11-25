@@ -14,7 +14,7 @@
         </div>
     }
 }
-else if (_show is null)
+else if (Item is null)
 {
     <div class="kt-empty">
         <div class="kt-empty-icon"><Icon Name="empty" Size="40" StrokeWidth="1.1"/></div>
@@ -23,82 +23,82 @@ else if (_show is null)
 }
 else
 {
-    <Breadcrumb ListRoute="/tv-shows" ListLabel="TV shows" Current="@_show.Title"/>
+    <Breadcrumb ListRoute="/tv-shows" ListLabel="TV shows" Current="@Item.Title"/>
 
     <div class="kt-page-header">
         <div class="kt-title-row">
-            <input class="kt-title-input" value="@_show.Title" @onchange="SaveTitleAsync"/>
-            <ReferenceMatchControls TDto="TvShowDto" Api="Api" ItemId="@(_show.Id!)" ReferenceId="@_show.ReferenceId" ReferenceTitle="@_reference?.Title"
+            <input class="kt-title-input" value="@Item.Title" @onchange="SaveTitleAsync"/>
+            <ReferenceMatchControls TDto="TvShowDto" Api="Api" ItemId="@(Item.Id!)" ReferenceId="@Item.ReferenceId" ReferenceTitle="@ItemReference?.Title"
                                     ReferenceDataDescription="cover, synopsis, cast/genres, episode guide"
                                     OnChecked="OnReferenceCheckedAsync" OnUnlinked="LoadAsync"/>
-            <DeleteItemControl TDto="TvShowDto" Api="Api" ItemId="@(_show.Id!)" ItemName="TV show" ListRoute="/tv-shows"/>
+            <DeleteItemControl TDto="TvShowDto" Api="Api" ItemId="@(Item.Id!)" ItemName="TV show" ListRoute="/tv-shows"/>
         </div>
         <div class="d-flex gap-2">
-            <button class="btn btn-sm kt-toggle-btn @(_show.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>
-            <button class="btn btn-sm kt-toggle-btn @(_show.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync"><Icon Name="wishlist" Size="13"/> Wishlist</button>
+            <button class="btn btn-sm kt-toggle-btn @(Item.IsFavorite ? "active" : "")" @onclick="ToggleFavoriteAsync">Favorites</button>
+            <button class="btn btn-sm kt-toggle-btn @(Item.IsWishlisted ? "active" : "")" @onclick="ToggleWishlistedAsync"><Icon Name="wishlist" Size="13"/> Wishlist</button>
         </div>
     </div>
 
     <div class="d-flex gap-2 mb-3">
-        <button class="btn btn-sm @(_show.State == TvShowStatus.Current ? "btn-warning" : "btn-secondary")" @onclick='() => SetStateAsync(TvShowStatus.Current)'>Current</button>
-        <button class="btn btn-sm @(_show.State == TvShowStatus.Finished ? "btn-success" : "btn-secondary")" @onclick='() => SetStateAsync(TvShowStatus.Finished)'>Finished</button>
-        <button class="btn btn-sm @(_show.State == TvShowStatus.Stopped ? "btn-danger" : "btn-secondary")" @onclick='() => SetStateAsync(TvShowStatus.Stopped)'>Stopped</button>
+        <button class="btn btn-sm @(Item.State == TvShowStatus.Current ? "btn-warning" : "btn-secondary")" @onclick='() => SetStateAsync(TvShowStatus.Current)'>Current</button>
+        <button class="btn btn-sm @(Item.State == TvShowStatus.Finished ? "btn-success" : "btn-secondary")" @onclick='() => SetStateAsync(TvShowStatus.Finished)'>Finished</button>
+        <button class="btn btn-sm @(Item.State == TvShowStatus.Stopped ? "btn-danger" : "btn-secondary")" @onclick='() => SetStateAsync(TvShowStatus.Stopped)'>Stopped</button>
     </div>
 
     @if (ShowLinker)
     {
         <AuthorizeView Policy="AdminOnly">
             <Authorized>
-                <InlineReferenceLinker Type="ReferenceItemType.TvShow" Title="@_show.Title" Year="_show.Year" OnLinked="LoadAsync"/>
+                <InlineReferenceLinker Type="ReferenceItemType.TvShow" Title="@Item.Title" Year="Item.Year" OnLinked="LoadAsync"/>
             </Authorized>
         </AuthorizeView>
     }
 
     <div class="kt-form-card">
-        <DetailHero ImageUrl="@_reference?.ImageUrl" Alt="@($"{_show.Title} poster")">
+        <DetailHero ImageUrl="@ItemReference?.ImageUrl" Alt="@($"{Item.Title} poster")">
             <div class="col-6">
                 <label class="form-label">Year</label>
                 <input class="form-control form-control-sm" type="number" min="1970" max="2100"
-                       value="@_show.Year" @onchange="SaveYearAsync"/>
+                       value="@Item.Year" @onchange="SaveYearAsync"/>
             </div>
             <div class="col-12">
                 <label class="form-label">Rating</label>
-                <StarRatingInput Rating="_show.Rating" RatingChanged="SetRatingAsync"/>
+                <StarRatingInput Rating="Item.Rating" RatingChanged="SetRatingAsync"/>
             </div>
-            @if (_reference?.Ratings.Count > 0)
+            @if (ItemReference?.Ratings.Count > 0)
             {
                 <div class="col-12">
                     <label class="form-label">Reference rating</label>
-                    <ReferenceRatings Ratings="_reference.Ratings"/>
+                    <ReferenceRatings Ratings="ItemReference.Ratings"/>
                 </div>
             }
-            @if (_reference?.Genres.Count > 0)
+            @if (ItemReference?.Genres.Count > 0)
             {
                 <div class="col-12">
-                    <p class="kt-card-meta mb-0">@string.Join(", ", _reference.Genres)</p>
+                    <p class="kt-card-meta mb-0">@string.Join(", ", ItemReference.Genres)</p>
                 </div>
             }
             <div class="col-12">
                 <label class="form-label">Notes</label>
-                <textarea class="form-control" rows="3" @onchange="SaveNotesAsync">@_show.Notes</textarea>
+                <textarea class="form-control" rows="3" @onchange="SaveNotesAsync">@Item.Notes</textarea>
             </div>
         </DetailHero>
-        @if (!string.IsNullOrEmpty(_reference?.Synopsis))
+        @if (!string.IsNullOrEmpty(ItemReference?.Synopsis))
         {
             <hr/>
-            <p class="mb-0" style="color:var(--kt-text-muted)">@_reference.Synopsis</p>
+            <p class="mb-0" style="color:var(--kt-text-muted)">@ItemReference.Synopsis</p>
         }
     </div>
 
-    @if (_reference?.Cast.Count > 0)
+    @if (ItemReference?.Cast.Count > 0)
     {
         <h2 class="kt-section-title">Cast</h2>
-        <CastGrid Cast="_reference.Cast"/>
+        <CastGrid Cast="ItemReference.Cast"/>
     }
 
-    <OwnedVersionsEditor Versions="_show.OwnedVersions" OnChanged="SaveAsync"/>
+    <OwnedVersionsEditor Versions="Item.OwnedVersions" OnChanged="SaveAsync"/>
 
-    @if (_reference is not null)
+    @if (ItemReference is not null)
     {
         @if (_seasons.Count == 0)
         {
@@ -211,16 +211,17 @@ else
 
     protected override InventoryApiClientBase<TvShowDto> Api => TvShowApi;
 
-    protected override TvShowDto? Item { get => _show; set => _show = value; }
+    protected override TvShowDto? Item { get; set; }
 
-    protected override TvShowReferenceDto? ItemReference { get => _reference; set => _reference = value; }
+    // Reference data (synopsis, real episode titles, cast, poster) is a progressive enhancement: it may not exist yet, so the page never blocks on it.
+    protected override TvShowReferenceDto? ItemReference { get; set; }
 
     protected override Task<TvShowReferenceDto?> GetReferenceAsync(string referenceId) => ReferenceDataApi.GetTvShowAsync(referenceId);
 
     protected override async Task LoadExtrasAsync()
     {
         // The episode query filters on this same id, so an id that names no show would fail the whole page instead of letting it render "Show not found.".
-        _episodes = _show is null ? null : (await EpisodeApi.GetAsync(string.Empty, 1, 5000, new Dictionary<string, string> { ["TvShowId"] = Id })).Items;
+        _episodes = Item is null ? null : (await EpisodeApi.GetAsync(string.Empty, 1, 5000, new Dictionary<string, string> { ["TvShowId"] = Id })).Items;
     }
 
     protected override void OnItemLoaded()
@@ -229,12 +230,12 @@ else
 
         _watchedByKey = _episodes.ToDictionary(e => (e.SeasonNumber, e.EpisodeNumber));
 
-        if (_reference is not null)
+        if (ItemReference is not null)
         {
             // The full checklist, in watch-through order.
             // An episode with a future air date doesn't exist yet from the viewer's side, the same filter WatchNextService applies.
             var today = DateOnly.FromDateTime(DateTime.Today);
-            _referenceEpisodesBySeason = _reference.Episodes
+            _referenceEpisodesBySeason = ItemReference.Episodes
                 .Where(e => e.AirDate is null || e.AirDate <= today)
                 .GroupBy(e => e.SeasonNumber)
                 .ToDictionary(g => g.Key, g => g.OrderBy(e => e.EpisodeNumber).ToList());
@@ -252,9 +253,6 @@ else
         }
     }
 
-    // Reference data (synopsis, real episode titles, cast, poster) is a progressive enhancement: it may not exist yet, so the page never blocks on it.
-    private TvShowDto? _show;
-    private TvShowReferenceDto? _reference;
     private List<EpisodeDto>? _episodes;
     private Dictionary<(int Season, int Episode), EpisodeDto> _watchedByKey = new();
     private Dictionary<int, List<ReferenceEpisodeDto>> _referenceEpisodesBySeason = new();
@@ -272,22 +270,22 @@ else
 
     private async Task ToggleFavoriteAsync()
     {
-        if (_show is null) return;
-        _show.IsFavorite = !_show.IsFavorite;
+        if (Item is null) return;
+        Item.IsFavorite = !Item.IsFavorite;
         await SaveAsync();
     }
 
     private async Task ToggleWishlistedAsync()
     {
-        if (_show is null) return;
-        _show.IsWishlisted = !_show.IsWishlisted;
+        if (Item is null) return;
+        Item.IsWishlisted = !Item.IsWishlisted;
         await SaveAsync();
     }
 
     private async Task SetRatingAsync(float rating)
     {
-        if (_show is null) return;
-        _show.Rating = rating;
+        if (Item is null) return;
+        Item.Rating = rating;
         await SaveAsync();
     }
 
@@ -297,31 +295,31 @@ else
     /// </summary>
     private async Task SetStateAsync(TvShowStatus state)
     {
-        if (_show is null) return;
-        _show.State = _show.State == state ? null : state;
+        if (Item is null) return;
+        Item.State = Item.State == state ? null : state;
         await SaveAsync();
     }
 
     private async Task SaveTitleAsync(ChangeEventArgs e)
     {
-        if (_show is null) return;
+        if (Item is null) return;
         var title = e.Value?.ToString();
         if (string.IsNullOrWhiteSpace(title)) return;
-        _show.Title = title;
+        Item.Title = title;
         await SaveAsync();
     }
 
     private async Task SaveYearAsync(ChangeEventArgs e)
     {
-        if (_show is null) return;
-        _show.Year = int.TryParse(e.Value?.ToString(), out var year) ? year : null;
+        if (Item is null) return;
+        Item.Year = int.TryParse(e.Value?.ToString(), out var year) ? year : null;
         await SaveAsync();
     }
 
     private async Task SaveNotesAsync(ChangeEventArgs e)
     {
-        if (_show is null) return;
-        _show.Notes = e.Value?.ToString();
+        if (Item is null) return;
+        Item.Notes = e.Value?.ToString();
         await SaveAsync();
     }
 

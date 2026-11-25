@@ -11,8 +11,11 @@ public interface IBookRepository : IDataRepository<BookModel>
     /// <see cref="BookModel.Language"/>
     /// and <see cref="BookModel.Isbn"/> to the reference's values on the records <paramref name="target"/> names (see <see cref="ITvShowRepository.SetReferenceLinkAsync"/>).
     /// </summary>
+    // One optional value per stamped field, as in the other domains, so a value object would only repeat the reference.
+#pragma warning disable S107
     Task<long> SetReferenceLinkAsync(ReferenceLinkTarget target, string referenceId, string canonicalTitle, int? canonicalYear = null, string? canonicalAuthor = null, string? canonicalGenre = null,
         string? canonicalLanguage = null, string? canonicalIsbn = null, double? canonicalRating = null, double? canonicalRatingScale = null, string? canonicalRatingSource = null);
+#pragma warning restore S107
 
     /// <summary>
     /// Copies the rating again onto every book linked to <paramref name="referenceId"/> (see <see cref="IMovieRepository.SetReferenceRatingAsync"/>).

@@ -11,7 +11,10 @@ public interface IAlbumRepository : IDataRepository<AlbumModel>
     /// and <see cref="AlbumModel.Genre"/> to the reference's values on the records <paramref name="target"/> names (see <see cref="ITvShowRepository.SetReferenceLinkAsync"/>).
     /// An admin's match also requires the artist it names.
     /// </summary>
+    // One optional value per stamped field, as in the other domains, so a value object would only repeat the reference.
+#pragma warning disable S107
     Task<long> SetReferenceLinkAsync(ReferenceLinkTarget target, string referenceId, string canonicalTitle, int? canonicalYear = null, string? canonicalArtist = null, string? canonicalGenre = null, double? canonicalRating = null, double? canonicalRatingScale = null, string? canonicalRatingSource = null);
+#pragma warning restore S107
 
     /// <summary>
     /// Copies the rating again onto every album linked to <paramref name="referenceId"/> (see <see cref="IMovieRepository.SetReferenceRatingAsync"/>).

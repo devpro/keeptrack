@@ -13,6 +13,8 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// <see cref="ReferenceAliasRule"/> decides which combinations a resolve may remember, one declaration per domain.
 /// </para>
 /// </summary>
+// Each parameter is a dependency the container resolves, and a bundle of them would only hide the count.
+#pragma warning disable S107
 public partial class ReferenceEnrichmentService(
     ITmdbClient tmdbClient,
     IOmdbClient omdbClient,
@@ -35,6 +37,7 @@ public partial class ReferenceEnrichmentService(
     IAppSettingRepository appSettingRepository,
     RatingSourceOptions ratingSourceOptions,
     ILogger<ReferenceEnrichmentService> logger)
+#pragma warning restore S107
 {
     /// <summary>
     /// The primary rating source of <paramref name="domain"/>, whose value is copied onto tenant items for display and sorting.

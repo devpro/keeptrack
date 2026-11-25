@@ -60,7 +60,8 @@ async function main() {
     process.stdout.write(`  node scripts/firebase-user-role.js <path-to-service-account.json> ${email} admin\n`);
 }
 
-main().catch((error) => {
+// a CommonJS script has no top-level await
+main().catch((error) => { // NOSONAR
     process.stderr.write(`${error.message}\n`);
     process.exit(1);
 });

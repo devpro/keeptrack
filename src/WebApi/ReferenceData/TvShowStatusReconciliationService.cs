@@ -75,8 +75,8 @@ public class TvShowStatusReconciliationService(
 
     private async Task<bool> TryReopenAsync(
         TvShowModel show,
-        IReadOnlyDictionary<string, List<EpisodeModel>> episodesByShow,
-        IReadOnlyDictionary<string, TvShowReferenceModel> referencesById,
+        Dictionary<string, List<EpisodeModel>> episodesByShow,
+        Dictionary<string, TvShowReferenceModel> referencesById,
         DateOnly today)
     {
         // without recorded episodes there is no last watched to compare, so the show is left alone rather than guessed at

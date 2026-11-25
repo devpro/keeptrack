@@ -160,7 +160,7 @@ public partial class ReferenceEnrichmentService
     /// Whether <paramref name="source"/> was asked recently enough that asking again would buy the same answer.
     /// Only the background backfills read it, since an admin's link or an Explore add always asks, someone waiting and spending from the reserve.
     /// </summary>
-    private static bool AttemptedRecently(IReadOnlyDictionary<string, DateTime> ratingsCheckedAt, string source) =>
+    private static bool AttemptedRecently(Dictionary<string, DateTime> ratingsCheckedAt, string source) =>
         ratingsCheckedAt.TryGetValue(source, out var attemptedAt)
         && DateTime.UtcNow - attemptedAt < RatingSourceCatalog.RatingReattemptAfter;
 
@@ -172,7 +172,7 @@ public partial class ReferenceEnrichmentService
     /// Without it every unrated item would look stale forever.
     /// </para>
     /// </summary>
-    private static (double? Value, double? Scale, string Source) PrimaryRating(IReadOnlyDictionary<string, ReferenceRatingModel> ratings, string source) =>
+    private static (double? Value, double? Scale, string Source) PrimaryRating(Dictionary<string, ReferenceRatingModel> ratings, string source) =>
         ratings.TryGetValue(source, out var r) ? (r.Value, r.Scale, source) : (null, null, source);
 
     /// <summary>

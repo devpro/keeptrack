@@ -52,6 +52,9 @@ public partial class ChartsTest
     [GeneratedRegex("<rect ")]
     private static partial Regex RectTag();
 
+    [GeneratedRegex("<circle ")]
+    private static partial Regex CircleTag();
+
     [Fact]
     public async Task ConsumptionChart_WritesCoordinatesWithADecimalPoint_UnderACultureWithADecimalComma()
     {
@@ -76,7 +79,7 @@ public partial class ChartsTest
     {
         var html = await RenderConsumptionAsync();
 
-        Regex.Matches(html, "<circle ").Should().HaveCount(s_consumption.Count);
+        CircleTag().Matches(html).Should().HaveCount(s_consumption.Count);
         html.Should().Contain("<title>2025-03-02: 5.9</title>");
         html.Should().Contain("""marker id="kt-chart-arrow-fuel""");
         html.Should().Contain(">L/100km</text>").And.Contain(">Date</text>");

@@ -16,6 +16,8 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// It is not per-tenant CRUD, so it doesn't extend <see cref="Controllers.DataCrudControllerBase{TDto,TModel}"/>.
 /// </summary>
 [ApiController]
+[SuppressMessage("Major Code Smell", "S6960:Controllers should not have mixed responsibilities",
+    Justification = "One resource under one route: the count groups the actions by the dependencies they share, not by what they serve.")]
 [Authorize(Policy = "AdminOnly")]
 [Route("api/reference-data")]
 public class ReferenceDataAdminController(
@@ -391,7 +393,7 @@ public class ReferenceDataAdminController(
     public async Task<ActionResult<List<RatingSourceOptionDto>>> GetRatingSources()
     {
         var options = new List<RatingSourceOptionDto>();
-        foreach (var domain in ratingSourceOptions.SelectableDomains)
+        foreach (var domain in RatingSourceOptions.SelectableDomains)
         {
             options.Add(new RatingSourceOptionDto
             {

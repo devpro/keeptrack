@@ -9,7 +9,10 @@ namespace Keeptrack.WebApi.Contracts.Dto;
 /// <typeparam name="TParent">The parent DTO, such as <see cref="CarDto"/>.</typeparam>
 /// <typeparam name="TChild">The child history DTO, such as <see cref="CarHistoryDto"/>.</typeparam>
 /// <typeparam name="TMetrics">The computed-metrics DTO, such as <see cref="CarMetricsDto"/>.</typeparam>
+// Each type is a distinct part of the one answer, which a type per category would duplicate.
+#pragma warning disable S2436
 public class SharedDetailDto<TParent, TChild, TMetrics>
+#pragma warning restore S2436
 {
     /// <summary>The shared item itself (owned by the sharer, read-only for the caller).</summary>
     public required TParent Parent { get; set; }

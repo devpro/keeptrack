@@ -34,7 +34,7 @@ public class RatingSourceOptions(ReferenceClientRegistry<IVideoGameReferenceClie
         };
 
     /// <summary>Domains whose primary rating source an admin can choose, those offering more than one.</summary>
-    public IReadOnlyList<ReferenceItemType> SelectableDomains =>
+    public static IReadOnlyList<ReferenceItemType> SelectableDomains =>
         [.. s_fixedSources.Keys, ReferenceItemType.VideoGame];
 
     /// <summary>Whether <paramref name="domain"/>'s primary rating source is admin-selectable.</summary>
@@ -51,8 +51,9 @@ public class RatingSourceOptions(ReferenceClientRegistry<IVideoGameReferenceClie
 
     /// <summary>The default of <paramref name="domain"/>, its first source, used when no admin choice applies.</summary>
     public string DefaultSource(ReferenceItemType domain) =>
-        AvailableSources(domain).FirstOrDefault()
-        ?? throw new ArgumentOutOfRangeException(nameof(domain), $"No rating sources are available for {domain}.");
+        AvailableSources(domain) is [var first, ..]
+            ? first
+            : throw new ArgumentOutOfRangeException(nameof(domain), $"No rating sources are available for {domain}.");
 
     /// <summary>
     /// The effective primary source of <paramref name="domain"/>: the admin's choice while on offer, else the default.

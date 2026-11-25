@@ -187,7 +187,7 @@ public class OmdbClientTest
     ];
 
     [Theory]
-    [MemberData(nameof(TransportFailures))]
+    [MemberData(nameof(TransportFailures), DisableDiscoveryEnumeration = true)]
     public async Task GetRatingAsync_ReturnsNotAttempted_OnATransportFailure_WithoutThrowing(Exception failure)
     {
         // IMDb is best-effort: an admin's manual link and a user's Explore "add" both await this, and neither may fail because OMDb was unreachable

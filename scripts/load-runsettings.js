@@ -57,14 +57,14 @@ if (block === null) {
 
 // `&amp;` is decoded last, otherwise an escaped entity such as `&amp;lt;` would be decoded twice.
 const decode = (value) => value
-    .replaceAll(/&lt;/g, '<')
-    .replaceAll(/&gt;/g, '>')
-    .replaceAll(/&quot;/g, '"')
-    .replaceAll(/&apos;/g, "'")
-    .replaceAll(/&amp;/g, '&');
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&quot;', '"')
+    .replaceAll('&apos;', "'")
+    .replaceAll('&amp;', '&');
 
 // A single-quoted shell string ends at the first `'`, so an embedded one closes the string, escapes as a literal, and reopens it.
-const quote = (value) => `'${value.replaceAll(/'/g, "'\\''")}'`;
+const quote = (value) => `'${value.replaceAll("'", String.raw`'\''`)}'`;
 
 const lines = [];
 for (const match of block[1].matchAll(/<([A-Za-z_]\w*)>([\s\S]*?)<\/\1>/g)) {

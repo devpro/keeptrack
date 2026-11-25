@@ -46,6 +46,8 @@ builder.Services.AddScoped<Keeptrack.WebApi.Import.TvTimeImportService>();
 builder.Services.AddScoped<Keeptrack.WebApi.Import.CarHistoryImportService>();
 builder.Services.AddScoped<Keeptrack.WebApi.Import.HealthImportService>();
 builder.Services.AddSingleton(configuration.TmdbSettings);
+// Each provider has one public address, the same in every environment, so a setting would only allow a wrong one.
+#pragma warning disable S1075
 builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.ITmdbClient, Keeptrack.WebApi.ReferenceData.TmdbClient>(client =>
 {
     client.BaseAddress = new Uri("https://api.themoviedb.org/3/");
@@ -136,6 +138,7 @@ builder.Services.AddSingleton(configuration.DiscogsSettings);
 builder.Services.AddHttpClient<Keeptrack.WebApi.ReferenceData.IDiscogsClient, Keeptrack.WebApi.ReferenceData.DiscogsClient>(client =>
 {
     client.BaseAddress = new Uri("https://api.discogs.com/");
+#pragma warning restore S1075
     client.DefaultRequestHeaders.Add("User-Agent", "Keeptrack/1.0 (+https://github.com/devpro/keeptrack)");
     client.Timeout = Timeout.InfiniteTimeSpan;
 }).AddProviderResilienceHandler();

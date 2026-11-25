@@ -15,6 +15,8 @@ namespace Keeptrack.WebApi.UnitTests.Hosting;
 [Trait("Category", "UnitTests")]
 public class TelemetryExtensionsTest
 {
+    private static readonly string[] s_tracedSources = ["Microsoft.AspNetCore", "System.Net.Http", "MongoDB.Driver"];
+
     [Fact]
     public void AddKeeptrackTelemetry_RegistersNothing_WhenNoOtlpEndpointIsSet()
     {
@@ -40,7 +42,7 @@ public class TelemetryExtensionsTest
         app.Services.GetService<TracerProvider>().Should().NotBeNull();
         app.Services.GetService<MeterProvider>().Should().NotBeNull();
         app.Services.GetServices<ILoggerProvider>().Should().Contain(x => x is OpenTelemetryLoggerProvider);
-        new[] { "Microsoft.AspNetCore", "System.Net.Http", "MongoDB.Driver" }
+        s_tracedSources
             .Where(name => !new ActivitySource(name).HasListeners())
             .Should().BeEmpty("incoming requests, provider calls and MongoDB commands are all traced");
     }

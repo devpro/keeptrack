@@ -204,9 +204,9 @@
         if (suggestions.Count == 0) return;
         _open = true;
         _highlightIsExplicit = true;
-        _activeIndex = _activeIndex < 0
-            ? delta > 0 ? 0 : suggestions.Count - 1
-            : (_activeIndex + delta + suggestions.Count) % suggestions.Count;
+        // with nothing highlighted, ↑ counts from the first suggestion, so it lands on the last, and ↓ from before it
+        var from = _activeIndex < 0 && delta < 0 ? 0 : _activeIndex;
+        _activeIndex = (from + delta + suggestions.Count) % suggestions.Count;
     }
 
     private void Close()

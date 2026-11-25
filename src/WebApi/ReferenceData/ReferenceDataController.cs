@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Keeptrack.Domain.Models;
 using Keeptrack.Domain.Repositories;
 using Keeptrack.WebApi.Mappers;
@@ -11,6 +12,8 @@ namespace Keeptrack.WebApi.ReferenceData;
 /// Apart from the item controllers, since this is shared data, not the tenant's own documents.
 /// </summary>
 [ApiController]
+[SuppressMessage("Major Code Smell", "S6960:Controllers should not have mixed responsibilities",
+    Justification = "One resource under one route: the count groups the actions by the dependencies they share, not by what they serve.")]
 [Authorize]
 [Route("api/reference-data")]
 public class ReferenceDataController(

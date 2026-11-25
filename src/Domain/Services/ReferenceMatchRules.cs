@@ -67,10 +67,12 @@ public static class ReferenceMatchRules
     /// With no year requested every candidate ranks <see cref="YearAgrees"/>, so a caller without a year relies on the title and the provider's order.
     /// </para>
     /// </summary>
-    public static int YearRank(int? candidateYear, int? requestedYear) =>
-        requestedYear is null || candidateYear == requestedYear ? YearAgrees
-        : candidateYear is null ? YearUnknown
-        : YearContradicts;
+    public static int YearRank(int? candidateYear, int? requestedYear)
+    {
+        if (requestedYear is null || candidateYear == requestedYear) return YearAgrees;
+
+        return candidateYear is null ? YearUnknown : YearContradicts;
+    }
 
     /// <summary>
     /// Candidates ordered by how well they are <paramref name="title"/> (<paramref name="year"/>), best first: a perfect match ahead of everything, then the closest.

@@ -18,8 +18,11 @@ public class BnfClient(HttpClient http) : BookReferenceClientBase
 
     public override string DisplayName => "BnF";
 
+    // An XML namespace is an identifier, compared as text and never fetched.
+#pragma warning disable S5332
     private static readonly XNamespace s_srw = "http://www.loc.gov/zing/srw/";
     private static readonly XNamespace s_dc = "http://purl.org/dc/elements/1.1/";
+#pragma warning restore S5332
 
     private const int MaxGenres = 5;
 

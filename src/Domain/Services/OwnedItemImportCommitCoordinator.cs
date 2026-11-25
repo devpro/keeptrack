@@ -20,100 +20,101 @@ public static class OwnedItemImportCommitCoordinator
     public static async Task<OwnedItemImportCommitCounts> CommitAsync(
         string ownerId,
         IReadOnlyList<OwnedItemImportInput> inputs,
-        IBookRepository bookRepository,
-        IMovieRepository movieRepository,
-        ITvShowRepository tvShowRepository,
-        IVideoGameRepository videoGameRepository,
-        IGearRepository gearRepository,
-        ICollectibleRepository collectibleRepository)
+        OwnedItemRepositorySet repositories)
     {
         var counts = new OwnedItemImportCommitCounts();
 
         await CommitTypeAsync(
-            inputs, ImportMediaType.Book, counts.Books, counts, ownerId, bookRepository,
+            SelectRows(inputs, ImportMediaType.Book), counts.Books, counts, ownerId, repositories.Books,
             new BookModel { OwnerId = ownerId, Title = string.Empty, Author = string.Empty },
-            b => b.Title, b => b.OwnedVersions.Select(v => v.Reference),
-            input => new BookModel
-            {
-                OwnerId = ownerId,
-                Title = input.Title,
-                Author = input.Author ?? string.Empty,
-                Year = input.Year,
-                Isbn = input.Isbn,
-                Notes = input.ProvenanceNotes,
-                OwnedVersions = [input.OwnedVersion]
-            },
-            (book, input) => book.OwnedVersions.Add(input.OwnedVersion));
+            Adapter(
+                b => b.Title, b => b.OwnedVersions.Select(v => v.Reference),
+                input => new BookModel
+                {
+                    OwnerId = ownerId,
+                    Title = input.Title,
+                    Author = input.Author ?? string.Empty,
+                    Year = input.Year,
+                    Isbn = input.Isbn,
+                    Notes = input.ProvenanceNotes,
+                    OwnedVersions = [input.OwnedVersion]
+                },
+                (book, input) => book.OwnedVersions.Add(input.OwnedVersion)));
 
         await CommitTypeAsync(
-            inputs, ImportMediaType.Movie, counts.Movies, counts, ownerId, movieRepository,
+            SelectRows(inputs, ImportMediaType.Movie), counts.Movies, counts, ownerId, repositories.Movies,
             new MovieModel { OwnerId = ownerId, Title = string.Empty },
-            m => m.Title, m => m.OwnedVersions.Select(v => v.Reference),
-            input => new MovieModel
-            {
-                OwnerId = ownerId,
-                Title = input.Title,
-                Year = input.Year,
-                Notes = input.ProvenanceNotes,
-                OwnedVersions = [input.OwnedVersion]
-            },
-            (movie, input) => movie.OwnedVersions.Add(input.OwnedVersion));
+            Adapter(
+                m => m.Title, m => m.OwnedVersions.Select(v => v.Reference),
+                input => new MovieModel
+                {
+                    OwnerId = ownerId,
+                    Title = input.Title,
+                    Year = input.Year,
+                    Notes = input.ProvenanceNotes,
+                    OwnedVersions = [input.OwnedVersion]
+                },
+                (movie, input) => movie.OwnedVersions.Add(input.OwnedVersion)));
 
         await CommitTypeAsync(
-            inputs, ImportMediaType.TvShow, counts.TvShows, counts, ownerId, tvShowRepository,
+            SelectRows(inputs, ImportMediaType.TvShow), counts.TvShows, counts, ownerId, repositories.TvShows,
             new TvShowModel { OwnerId = ownerId, Title = string.Empty },
-            t => t.Title, t => t.OwnedVersions.Select(v => v.Reference),
-            input => new TvShowModel
-            {
-                OwnerId = ownerId,
-                Title = input.Title,
-                Year = input.Year,
-                Notes = input.ProvenanceNotes,
-                OwnedVersions = [input.OwnedVersion]
-            },
-            (tvShow, input) => tvShow.OwnedVersions.Add(input.OwnedVersion));
+            Adapter(
+                t => t.Title, t => t.OwnedVersions.Select(v => v.Reference),
+                input => new TvShowModel
+                {
+                    OwnerId = ownerId,
+                    Title = input.Title,
+                    Year = input.Year,
+                    Notes = input.ProvenanceNotes,
+                    OwnedVersions = [input.OwnedVersion]
+                },
+                (tvShow, input) => tvShow.OwnedVersions.Add(input.OwnedVersion)));
 
         await CommitTypeAsync(
-            inputs, ImportMediaType.VideoGame, counts.VideoGames, counts, ownerId, videoGameRepository,
+            SelectRows(inputs, ImportMediaType.VideoGame), counts.VideoGames, counts, ownerId, repositories.VideoGames,
             new VideoGameModel { OwnerId = ownerId, Title = string.Empty },
-            g => g.Title, g => g.Platforms.Select(p => p.Reference),
-            input => new VideoGameModel
-            {
-                OwnerId = ownerId,
-                Title = input.Title,
-                Year = input.Year,
-                Notes = input.ProvenanceNotes,
-                Platforms = [ToPlatform(input)]
-            },
-            (game, input) => game.Platforms.Add(ToPlatform(input)));
+            Adapter(
+                g => g.Title, g => g.Platforms.Select(p => p.Reference),
+                input => new VideoGameModel
+                {
+                    OwnerId = ownerId,
+                    Title = input.Title,
+                    Year = input.Year,
+                    Notes = input.ProvenanceNotes,
+                    Platforms = [ToPlatform(input)]
+                },
+                (game, input) => game.Platforms.Add(ToPlatform(input))));
 
         await CommitTypeAsync(
-            inputs, ImportMediaType.Gear, counts.Gear, counts, ownerId, gearRepository,
+            SelectRows(inputs, ImportMediaType.Gear), counts.Gear, counts, ownerId, repositories.Gear,
             new GearModel { OwnerId = ownerId, Title = string.Empty },
-            g => g.Title, g => g.OwnedVersions.Select(v => v.Reference),
-            input => new GearModel
-            {
-                OwnerId = ownerId,
-                Title = input.Title,
-                Year = input.Year,
-                Notes = input.ProvenanceNotes,
-                OwnedVersions = [input.OwnedVersion]
-            },
-            (gear, input) => gear.OwnedVersions.Add(input.OwnedVersion));
+            Adapter(
+                g => g.Title, g => g.OwnedVersions.Select(v => v.Reference),
+                input => new GearModel
+                {
+                    OwnerId = ownerId,
+                    Title = input.Title,
+                    Year = input.Year,
+                    Notes = input.ProvenanceNotes,
+                    OwnedVersions = [input.OwnedVersion]
+                },
+                (gear, input) => gear.OwnedVersions.Add(input.OwnedVersion)));
 
         await CommitTypeAsync(
-            inputs, ImportMediaType.Collectible, counts.Collectibles, counts, ownerId, collectibleRepository,
+            SelectRows(inputs, ImportMediaType.Collectible), counts.Collectibles, counts, ownerId, repositories.Collectibles,
             new CollectibleModel { OwnerId = ownerId, Title = string.Empty },
-            c => c.Title, c => c.OwnedVersions.Select(v => v.Reference),
-            input => new CollectibleModel
-            {
-                OwnerId = ownerId,
-                Title = input.Title,
-                Year = input.Year,
-                Notes = input.ProvenanceNotes,
-                OwnedVersions = [input.OwnedVersion]
-            },
-            (collectible, input) => collectible.OwnedVersions.Add(input.OwnedVersion));
+            Adapter(
+                c => c.Title, c => c.OwnedVersions.Select(v => v.Reference),
+                input => new CollectibleModel
+                {
+                    OwnerId = ownerId,
+                    Title = input.Title,
+                    Year = input.Year,
+                    Notes = input.ProvenanceNotes,
+                    OwnedVersions = [input.OwnedVersion]
+                },
+                (collectible, input) => collectible.OwnedVersions.Add(input.OwnedVersion)));
 
         return counts;
     }
@@ -133,32 +134,33 @@ public static class OwnedItemImportCommitCoordinator
         Reference = input.OwnedVersion.Reference
     };
 
+    private static List<OwnedItemImportInput> SelectRows(IReadOnlyList<OwnedItemImportInput> inputs, ImportMediaType mediaType) =>
+        inputs.Where(i => i.MediaType == mediaType).ToList();
+
+    private static OwnedItemImportAdapter<TModel, OwnedItemImportInput> Adapter<TModel>(
+        System.Func<TModel, string> getExistingTitle,
+        System.Func<TModel, IEnumerable<string?>> getExistingReferences,
+        System.Func<OwnedItemImportInput, TModel> createNew,
+        System.Action<TModel, OwnedItemImportInput> appendOwnedCopy)
+        where TModel : class =>
+        new(getExistingTitle, getExistingReferences, i => i.Title, i => i.OwnedVersion.Reference, createNew, appendOwnedCopy);
+
     private static async Task CommitTypeAsync<TModel>(
-        IReadOnlyList<OwnedItemImportInput> allInputs,
-        ImportMediaType mediaType,
+        List<OwnedItemImportInput> inputs,
         TypeCounts typeCounts,
         OwnedItemImportCommitCounts counts,
         string ownerId,
         IDataRepository<TModel> repository,
         TModel blankSample,
-        System.Func<TModel, string> getExistingTitle,
-        System.Func<TModel, IEnumerable<string?>> getExistingReferences,
-        System.Func<OwnedItemImportInput, TModel> createNew,
-        System.Action<TModel, OwnedItemImportInput> appendOwnedCopy)
+        OwnedItemImportAdapter<TModel, OwnedItemImportInput> adapter)
         where TModel : class, IHasIdAndOwnerId
     {
-        var inputs = allInputs.Where(i => i.MediaType == mediaType).ToList();
         if (inputs.Count == 0)
         {
             return;
         }
 
         var existing = (await repository.FindAllAsync(ownerId, 1, int.MaxValue, null, blankSample)).Items;
-
-        var adapter = new OwnedItemImportAdapter<TModel, OwnedItemImportInput>(
-            getExistingTitle, getExistingReferences,
-            i => i.Title, i => i.OwnedVersion.Reference,
-            createNew, appendOwnedCopy);
 
         var plan = OwnedItemImportMergeService.ComputeCommitPlan(existing, inputs, adapter);
 

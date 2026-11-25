@@ -54,7 +54,7 @@ public class ApiExceptionFilterAttributeTest
     /// A caller, and a CI test, can then tell an upstream outage from a defect here.
     /// </summary>
     [Theory]
-    [MemberData(nameof(UpstreamProviderFailures))]
+    [MemberData(nameof(UpstreamProviderFailures), DisableDiscoveryEnumeration = true)]
     public void OnException_MapsAFailedProviderCallTo502(Exception exception)
     {
         var context = CreateContext(exception);
@@ -155,7 +155,7 @@ public class ApiExceptionFilterAttributeTest
     /// The framework's wording describes an exchange the reader can't see, so it is never shown to a user, and the full exception goes to the log.
     /// </summary>
     [Theory]
-    [MemberData(nameof(UpstreamProviderFailures))]
+    [MemberData(nameof(UpstreamProviderFailures), DisableDiscoveryEnumeration = true)]
     public void OnException_NeverEchoesTheRawFrameworkMessage_ForAnUpstreamFailure(Exception exception)
     {
         var context = CreateContext(exception);

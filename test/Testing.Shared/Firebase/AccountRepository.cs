@@ -43,8 +43,8 @@ public static class AccountRepository
     {
         return s_cachedTokensByUsername.GetOrAdd(
             username,
-            _ => new Lazy<Task<string?>>(
-                () => SignInAsync(username, password, applicationKey),
+            key => new Lazy<Task<string?>>(
+                () => SignInAsync(key, password, applicationKey),
                 LazyThreadSafetyMode.ExecutionAndPublication)).Value;
     }
 

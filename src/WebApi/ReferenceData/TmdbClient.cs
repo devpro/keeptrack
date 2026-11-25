@@ -90,14 +90,14 @@ public class TmdbClient(HttpClient http, TmdbSettings settings) : ITmdbClient
         if (details is null) return null;
 
         var episodes = new List<TmdbEpisode>();
-        foreach (var season in details.Seasons.Where(s => s.SeasonNumber > 0))
+        foreach (var seasonNumber in details.Seasons.Select(s => s.SeasonNumber).Where(number => number > 0))
         {
             var seasonDetails = await http.GetFromJsonAsync<TmdbSeasonDetailsResponse>(
-                $"tv/{tmdbId}/season/{season.SeasonNumber}?api_key={ApiKey}", cancellationToken);
+                $"tv/{tmdbId}/season/{seasonNumber}?api_key={ApiKey}", cancellationToken);
             if (seasonDetails is null) continue;
 
             episodes.AddRange(seasonDetails.Episodes.Select(e =>
-                new TmdbEpisode(season.SeasonNumber, e.EpisodeNumber, e.Name ?? $"Episode {e.EpisodeNumber}", ParseDate(e.AirDate))));
+                new TmdbEpisode(seasonNumber, e.EpisodeNumber, e.Name ?? $"Episode {e.EpisodeNumber}", ParseDate(e.AirDate))));
         }
 
         return new TmdbTvShowDetails(

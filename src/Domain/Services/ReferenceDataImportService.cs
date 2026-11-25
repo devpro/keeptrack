@@ -50,119 +50,185 @@ public static class ReferenceDataImportService
 
         // People first: the other collections cite them by id, so a person the target holds under another _id is mapped before any document naming them is written.
         // Otherwise an imported cast row would point at an id that does not exist.
-        await onCollectionStarted(ReferenceDataImportCollection.People);
-        var personIds = await ImportCollectionAsync(
-            payload.People, repositories.People.FindAllAsync, repositories.People.UpsertAsync,
-            MergePerson, summary, summary.People, cancellationToken);
+        var personIds = await ImportCollectionAsync(new CollectionImport<PersonReferenceModel>
+        {
+            Collection = ReferenceDataImportCollection.People,
+            Imported = payload.People,
+            FindAllAsync = repositories.People.FindAllAsync,
+            UpsertAsync = repositories.People.UpsertAsync,
+            Merge = MergePerson,
+            Counts = summary.People
+        }, summary, onCollectionStarted, cancellationToken);
 
-        await onCollectionStarted(ReferenceDataImportCollection.TvShows);
-        await ImportCollectionAsync(
-            payload.TvShows, repositories.TvShows.FindAllAsync, repositories.TvShows.UpsertAsync,
-            MergeTvShow, summary, summary.TvShows, cancellationToken, show => RemapCast(show.Cast, personIds),
-            show => (show.Title, show.Year), ReferenceDataImportCollection.TvShows);
+        await ImportCollectionAsync(new CollectionImport<TvShowReferenceModel>
+        {
+            Collection = ReferenceDataImportCollection.TvShows,
+            Imported = payload.TvShows,
+            FindAllAsync = repositories.TvShows.FindAllAsync,
+            UpsertAsync = repositories.TvShows.UpsertAsync,
+            Merge = MergeTvShow,
+            Counts = summary.TvShows,
+            RemapPersonIds = show => RemapCast(show.Cast, personIds),
+            IdentityOf = show => (show.Title, show.Year)
+        }, summary, onCollectionStarted, cancellationToken);
 
-        await onCollectionStarted(ReferenceDataImportCollection.Movies);
-        await ImportCollectionAsync(
-            payload.Movies, repositories.Movies.FindAllAsync, repositories.Movies.UpsertAsync,
-            MergeMovie, summary, summary.Movies, cancellationToken, movie => RemapCast(movie.Cast, personIds),
-            movie => (movie.Title, movie.Year), ReferenceDataImportCollection.Movies);
+        await ImportCollectionAsync(new CollectionImport<MovieReferenceModel>
+        {
+            Collection = ReferenceDataImportCollection.Movies,
+            Imported = payload.Movies,
+            FindAllAsync = repositories.Movies.FindAllAsync,
+            UpsertAsync = repositories.Movies.UpsertAsync,
+            Merge = MergeMovie,
+            Counts = summary.Movies,
+            RemapPersonIds = movie => RemapCast(movie.Cast, personIds),
+            IdentityOf = movie => (movie.Title, movie.Year)
+        }, summary, onCollectionStarted, cancellationToken);
 
-        await onCollectionStarted(ReferenceDataImportCollection.Books);
-        await ImportCollectionAsync(
-            payload.Books, repositories.Books.FindAllAsync, repositories.Books.UpsertAsync,
-            MergeBook, summary, summary.Books, cancellationToken, book => book.AuthorReferenceId = Remap(book.AuthorReferenceId, personIds),
-            book => (book.Title, book.Year), ReferenceDataImportCollection.Books);
+        await ImportCollectionAsync(new CollectionImport<BookReferenceModel>
+        {
+            Collection = ReferenceDataImportCollection.Books,
+            Imported = payload.Books,
+            FindAllAsync = repositories.Books.FindAllAsync,
+            UpsertAsync = repositories.Books.UpsertAsync,
+            Merge = MergeBook,
+            Counts = summary.Books,
+            RemapPersonIds = book => book.AuthorReferenceId = Remap(book.AuthorReferenceId, personIds),
+            IdentityOf = book => (book.Title, book.Year)
+        }, summary, onCollectionStarted, cancellationToken);
 
-        await onCollectionStarted(ReferenceDataImportCollection.VideoGames);
-        await ImportCollectionAsync(
-            payload.VideoGames, repositories.VideoGames.FindAllAsync, repositories.VideoGames.UpsertAsync,
-            MergeVideoGame, summary, summary.VideoGames, cancellationToken,
-            identityOf: game => (game.Title, game.Year), collection: ReferenceDataImportCollection.VideoGames);
+        await ImportCollectionAsync(new CollectionImport<VideoGameReferenceModel>
+        {
+            Collection = ReferenceDataImportCollection.VideoGames,
+            Imported = payload.VideoGames,
+            FindAllAsync = repositories.VideoGames.FindAllAsync,
+            UpsertAsync = repositories.VideoGames.UpsertAsync,
+            Merge = MergeVideoGame,
+            Counts = summary.VideoGames,
+            IdentityOf = game => (game.Title, game.Year)
+        }, summary, onCollectionStarted, cancellationToken);
 
-        await onCollectionStarted(ReferenceDataImportCollection.Albums);
-        await ImportCollectionAsync(
-            payload.Albums, repositories.Albums.FindAllAsync, repositories.Albums.UpsertAsync,
-            MergeAlbum, summary, summary.Albums, cancellationToken, album => album.ArtistReferenceId = Remap(album.ArtistReferenceId, personIds),
-            album => (album.Title, album.Year), ReferenceDataImportCollection.Albums);
+        await ImportCollectionAsync(new CollectionImport<AlbumReferenceModel>
+        {
+            Collection = ReferenceDataImportCollection.Albums,
+            Imported = payload.Albums,
+            FindAllAsync = repositories.Albums.FindAllAsync,
+            UpsertAsync = repositories.Albums.UpsertAsync,
+            Merge = MergeAlbum,
+            Counts = summary.Albums,
+            RemapPersonIds = album => album.ArtistReferenceId = Remap(album.ArtistReferenceId, personIds),
+            IdentityOf = album => (album.Title, album.Year)
+        }, summary, onCollectionStarted, cancellationToken);
 
         return summary;
     }
 
     /// <summary>
+    /// What one collection's import needs.
+    /// The repositories share no base interface, so their two operations are delegates.
+    /// </summary>
+    private sealed class CollectionImport<T>
+        where T : class, IHasExternalIds
+    {
+        public required ReferenceDataImportCollection Collection { get; init; }
+
+        public required IReadOnlyList<T> Imported { get; init; }
+
+        public required Func<Task<List<T>>> FindAllAsync { get; init; }
+
+        public required Func<T, Task<T>> UpsertAsync { get; init; }
+
+        public required Action<T, T> Merge { get; init; }
+
+        public required ReferenceDataImportCounts Counts { get; init; }
+
+        public Action<T>? RemapPersonIds { get; init; }
+
+        /// <summary>Null for people, whose namesakes are routine and never reported.</summary>
+        public Func<T, (string Title, int? Year)>? IdentityOf { get; init; }
+    }
+
+    /// <summary>
     /// The import algorithm, run once per collection.
-    /// The repositories share no base interface, so the two operations it needs are passed as delegates.
     /// </summary>
     /// <returns>Exported <c>_id</c> to the <c>_id</c> the document actually landed under, so documents citing this collection can be remapped.</returns>
     private static async Task<Dictionary<string, string>> ImportCollectionAsync<T>(
-        IReadOnlyList<T> imported,
-        Func<Task<List<T>>> findAllAsync,
-        Func<T, Task<T>> upsertAsync,
-        Action<T, T> merge,
+        CollectionImport<T> import,
         ReferenceDataImportSummary summary,
-        ReferenceDataImportCounts counts,
-        CancellationToken cancellationToken,
-        Action<T>? remapPersonIds = null,
-        Func<T, (string Title, int? Year)>? identityOf = null,
-        ReferenceDataImportCollection collection = default)
+        Func<ReferenceDataImportCollection, Task> onCollectionStarted,
+        CancellationToken cancellationToken)
         where T : class, IHasExternalIds
     {
+        await onCollectionStarted(import.Collection);
+
         var idMap = new Dictionary<string, string>(StringComparer.Ordinal);
-        if (imported.Count == 0) return idMap;
+        if (import.Imported.Count == 0) return idMap;
 
         // one read of the whole collection rather than a lookup per document, the volume the export reads anyway
-        var existing = await findAllAsync();
+        var existing = await import.FindAllAsync();
         var byExternalId = new Dictionary<string, T>(StringComparer.Ordinal);
         var byId = new Dictionary<string, T>(StringComparer.Ordinal);
         var knownTitles = new HashSet<string>(StringComparer.Ordinal);
         foreach (var document in existing)
         {
             Index(document, byExternalId, byId);
-            if (identityOf is not null) knownTitles.Add(TitleKey(identityOf(document)));
+            RecordTitle(document, import.IdentityOf, knownTitles);
         }
 
-        foreach (var document in imported)
+        foreach (var document in import.Imported)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var exportedId = document.Id;
             // before matching/merging, so a kept-from-the-target cast list is never remapped a second time
-            remapPersonIds?.Invoke(document);
+            import.RemapPersonIds?.Invoke(document);
 
             var match = FindMatch(document, byExternalId, byId);
             if (match is not null)
             {
-                merge(match, document);
+                import.Merge(match, document);
                 document.Id = match.Id;
             }
 
             DropConflictingExternalIds(document, byExternalId, summary.SkippedExternalIds);
 
-            var saved = await upsertAsync(document);
+            var saved = await import.UpsertAsync(document);
             if (match is not null)
             {
-                counts.Updated++;
+                import.Counts.Updated++;
             }
             else
             {
-                counts.Created++;
-                // a new document naming a work the target already knew means the two use different provider ids
-                // and could not match (see ReferenceDataImportSummary.PossibleDuplicates)
-                if (identityOf is not null)
-                {
-                    var (title, year) = identityOf(saved);
-                    if (knownTitles.Contains(TitleKey((title, year))))
-                    {
-                        summary.PossibleDuplicates.Add($"{collection}:{title}{(year is null ? "" : $" ({year})")}");
-                    }
-                }
+                import.Counts.Created++;
+                ReportPossibleDuplicate(saved, import, knownTitles, summary.PossibleDuplicates);
             }
 
             if (!string.IsNullOrEmpty(exportedId) && !string.IsNullOrEmpty(saved.Id)) idMap[exportedId] = saved.Id;
             // kept current, so two documents of one archive cannot both claim an id
             Index(saved, byExternalId, byId);
-            if (identityOf is not null) knownTitles.Add(TitleKey(identityOf(saved)));
+            RecordTitle(saved, import.IdentityOf, knownTitles);
         }
 
         return idMap;
+    }
+
+    private static void RecordTitle<T>(T document, Func<T, (string Title, int? Year)>? identityOf, HashSet<string> knownTitles)
+    {
+        if (identityOf is not null) knownTitles.Add(TitleKey(identityOf(document)));
+    }
+
+    /// <summary>
+    /// A new document naming a work the target already knew means the two use different provider ids
+    /// and could not match (see <see cref="ReferenceDataImportSummary.PossibleDuplicates"/>).
+    /// </summary>
+    private static void ReportPossibleDuplicate<T>(T created, CollectionImport<T> import, HashSet<string> knownTitles, List<string> possibleDuplicates)
+        where T : class, IHasExternalIds
+    {
+        if (import.IdentityOf is null) return;
+
+        var identity = import.IdentityOf(created);
+        if (!knownTitles.Contains(TitleKey(identity))) return;
+
+        var year = identity.Year is null ? "" : $" ({identity.Year})";
+        possibleDuplicates.Add($"{import.Collection}:{identity.Title}{year}");
     }
 
     private static void Index<T>(T document, Dictionary<string, T> byExternalId, Dictionary<string, T> byId)
@@ -185,7 +251,7 @@ public static class ReferenceDataImportService
             if (byExternalId.TryGetValue(ExternalKey(provider, externalId), out var found)) return found;
         }
 
-        return !string.IsNullOrEmpty(document.Id) && byId.TryGetValue(document.Id!, out var byIdMatch) ? byIdMatch : null;
+        return !string.IsNullOrEmpty(document.Id) && byId.TryGetValue(document.Id, out var byIdMatch) ? byIdMatch : null;
     }
 
     /// <summary>

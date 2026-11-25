@@ -223,7 +223,7 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
         {
             for (var attempt = 0; attempt < MatchAttempts; attempt++)
             {
-                await Task.Delay(MatchPollInterval);
+                await Task.Delay(MatchPollMilliseconds);
                 if (await Api.GetOneAsync(created.Id) is IReferenceLinkedDto item && !string.IsNullOrEmpty(item.ReferenceId)) return;
             }
         }
@@ -233,10 +233,10 @@ public abstract class InventoryPageBase<TDto> : ComponentBase
         }
     }
 
-    private static readonly TimeSpan MatchPollInterval = TimeSpan.FromMilliseconds(400);
+    private const int MatchPollMilliseconds = 400;
 
     /// <summary>
-    /// With <see cref="MatchPollInterval"/>, how long the Add form waits for a match before opening the detail page anyway: two seconds, and never more.
+    /// With <see cref="MatchPollMilliseconds"/>, how long the Add form waits for a match before opening the detail page anyway: two seconds, and never more.
     /// </summary>
     /// <remarks>
     /// It bounds how long a person looks at a spinner rather than estimating how long matching takes, so it follows what is tolerable, not what the provider needs.

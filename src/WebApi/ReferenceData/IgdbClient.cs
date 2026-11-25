@@ -175,7 +175,10 @@ public class IgdbClient(HttpClient http, IgdbSettings settings) : VideoGameRefer
     /// and its screenshots are raw frames with the HUD, so neither replaces RAWG's curated key art.
     /// </para>
     /// </summary>
+    // The image address is fixed by the provider.
+#pragma warning disable S1075
     private const string CoverUrlTemplate = "https://images.igdb.com/igdb/image/upload/t_1080p/{0}.jpg";
+#pragma warning restore S1075
 
     private async Task<List<IgdbGame>> QueryAsync(string query, CancellationToken cancellationToken)
     {

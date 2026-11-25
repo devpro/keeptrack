@@ -340,6 +340,8 @@ public partial class ReferenceEnrichmentService
 
         var forms = AdoptionQueryForms(searchTitle);
 
+        // Any cannot replace these loops: the condition awaits a provider call and accumulates its candidates.
+#pragma warning disable S3267
         foreach (var query in forms)
         {
             if (Accumulate(await client.FindGamesByExactTitleAsync(query, cancellationToken))) return (candidates, matches);
@@ -349,6 +351,7 @@ public partial class ReferenceEnrichmentService
         {
             if (Accumulate(await client.SearchGamesAsync(query, reference.Year, cancellationToken))) return (candidates, matches);
         }
+#pragma warning restore S3267
 
         foreach (var query in TruncatedQueryForms(searchTitle).Where(query => !forms.Contains(query, StringComparer.Ordinal)))
         {
@@ -379,7 +382,7 @@ public partial class ReferenceEnrichmentService
     /// The cap is safe because the ordering leads with candidates that loosely equal the title, so the shortlist never cuts a genuine match.
     /// </para>
     /// </summary>
-    private static IReadOnlyList<VideoGameSearchResult> ShortlistByClosestTitle(IReadOnlyList<VideoGameSearchResult> found, VideoGameReferenceModel reference) =>
+    private static List<VideoGameSearchResult> ShortlistByClosestTitle(IReadOnlyList<VideoGameSearchResult> found, VideoGameReferenceModel reference) =>
         ReferenceMatchRules.OrderByBestMatch(found, reference.Title, reference.Year).Take(MaxShortlistedCandidates).ToList();
 
     /// <summary>
