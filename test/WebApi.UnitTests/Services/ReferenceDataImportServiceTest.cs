@@ -170,7 +170,8 @@ public class ReferenceDataImportServiceTest
 
         await ImportAsync(new ReferenceDataImportPayload
         {
-            People = [Person("exported-person")], Movies = [Movie("exported", "Heat", 1995, ("tmdb", "949"))]
+            People = [Person("exported-person")],
+            Movies = [Movie("exported", "Heat", 1995, ("tmdb", "949"))]
         });
 
         _savedMovies.Should().ContainSingle().Which.Cast.Should().ContainSingle().Which.PersonReferenceId.Should().Be("exported-person");
@@ -193,7 +194,11 @@ public class ReferenceDataImportServiceTest
 
         var summary = await ImportAsync(new ReferenceDataImportPayload
         {
-            People = [Person("exported-person")], TvShows = [show], Books = [book], VideoGames = [VideoGame("g", ("igdb", "1"))], Albums = [album]
+            People = [Person("exported-person")],
+            TvShows = [show],
+            Books = [book],
+            VideoGames = [VideoGame("g", ("igdb", "1"))],
+            Albums = [album]
         });
 
         summary.People.Updated.Should().Be(1);

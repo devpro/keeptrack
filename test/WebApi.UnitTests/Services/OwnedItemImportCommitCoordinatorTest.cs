@@ -66,7 +66,11 @@ public class OwnedItemImportCommitCoordinatorTest
     {
         var existing = new MovieModel
         {
-            Id = "m1", OwnerId = "owner", Title = "movie", OwnedVersions = [new OwnedVersionModel { CopyType = CopyType.Physical, Reference = "ref-known" }]
+            Id = "m1",
+            OwnerId = "owner",
+            Title = "movie",
+            OwnedVersions = [new OwnedVersionModel { CopyType = CopyType.Physical,
+            Reference = "ref-known" }]
         };
         var created = Track(_movies, existing);
 
