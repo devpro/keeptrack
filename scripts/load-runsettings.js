@@ -64,7 +64,8 @@ const decode = (value) => value
     .replaceAll('&amp;', '&');
 
 // A single-quoted shell string ends at the first `'`, so an embedded one closes the string, escapes as a literal, and reopens it.
-const quote = (value) => `'${value.replaceAll("'", String.raw`'\''`)}'`;
+const escapedQuote = String.raw`'\''`;
+const quote = (value) => `'${value.replaceAll("'", escapedQuote)}'`;
 
 const lines = [];
 for (const match of block[1].matchAll(/<([A-Za-z_]\w*)>([\s\S]*?)<\/\1>/g)) {

@@ -69,8 +69,7 @@ public class OwnedItemImportCommitCoordinatorTest
             Id = "m1",
             OwnerId = "owner",
             Title = "movie",
-            OwnedVersions = [new OwnedVersionModel { CopyType = CopyType.Physical,
-            Reference = "ref-known" }]
+            OwnedVersions = [new OwnedVersionModel { CopyType = CopyType.Physical, Reference = "ref-known" }]
         };
         var created = Track(_movies, existing);
 
@@ -95,6 +94,47 @@ public class OwnedItemImportCommitCoordinatorTest
         existing.Platforms.Should().ContainSingle().Which.Platform.Should().Be("Switch");
         counts.VideoGames.MergedInto.Should().Be(1);
     }
+
+    [Fact]
+    public async Task CommitAsync_AddsACopyToTheExistingItemOfEveryOtherType()
+    {
+        var book = new BookModel { Id = "b1", OwnerId = "owner", Title = "book", Author = "author" };
+        var show = new TvShowModel { Id = "t1", OwnerId = "owner", Title = "show" };
+        var gear = new GearModel { Id = "e1", OwnerId = "owner", Title = "gear" };
+        var collectible = new CollectibleModel { Id = "c1", OwnerId = "owner", Title = "collectible" };
+        Track(_books, book);
+        Track(_tvShows, show);
+        Track(_gear, gear);
+        Track(_collectibles, collectible);
+
+        var counts = await CommitAsync(
+            Row(ImportMediaType.Book, "book"), Row(ImportMediaType.TvShow, "show"), Row(ImportMediaType.Gear, "gear"), Row(ImportMediaType.Collectible, "collectible"));
+
+        new[] { counts.Books, counts.TvShows, counts.Gear, counts.Collectibles }.Should().AllSatisfy(c => (c.Created, c.MergedInto).Should().Be((0, 1)));
+        book.OwnedVersions.Should().ContainSingle().Which.Reference.Should().Be("ref-book");
+        show.OwnedVersions.Should().ContainSingle().Which.Reference.Should().Be("ref-show");
+        gear.OwnedVersions.Should().ContainSingle().Which.Reference.Should().Be("ref-gear");
+        collectible.OwnedVersions.Should().ContainSingle().Which.Reference.Should().Be("ref-collectible");
+    }
+
+    [Fact]
+    public async Task CommitAsync_SkipsAKnownReference_OfEveryOtherType()
+    {
+        Track(_books, new BookModel { Id = "b1", OwnerId = "owner", Title = "book", Author = "author", OwnedVersions = [Copy("ref-book")] });
+        Track(_tvShows, new TvShowModel { Id = "t1", OwnerId = "owner", Title = "show", OwnedVersions = [Copy("ref-show")] });
+        Track(_videoGames, new VideoGameModel { Id = "g1", OwnerId = "owner", Title = "game", Platforms = [new VideoGamePlatformModel { Platform = "Switch", Reference = "ref-game" }] });
+        Track(_gear, new GearModel { Id = "e1", OwnerId = "owner", Title = "gear", OwnedVersions = [Copy("ref-gear")] });
+        Track(_collectibles, new CollectibleModel { Id = "c1", OwnerId = "owner", Title = "collectible", OwnedVersions = [Copy("ref-collectible")] });
+
+        var counts = await CommitAsync(
+            Row(ImportMediaType.Book, "book"), Row(ImportMediaType.TvShow, "show"), Row(ImportMediaType.VideoGame, "game"),
+            Row(ImportMediaType.Gear, "gear"), Row(ImportMediaType.Collectible, "collectible"));
+
+        new[] { counts.Books, counts.TvShows, counts.VideoGames, counts.Gear, counts.Collectibles }.Should().AllSatisfy(c => c.Skipped.Should().Be(1));
+        counts.RowsImported.Should().Be(0);
+    }
+
+    private static OwnedVersionModel Copy(string reference) => new() { CopyType = CopyType.Physical, Reference = reference };
 
     [Fact]
     public async Task CommitAsync_DoesNotReadATypeNoRowHas()
